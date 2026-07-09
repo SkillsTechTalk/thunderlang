@@ -4,8 +4,8 @@ Deterministic IntentLang compiler. **No AI** (`--no-ai` is the only mode today).
 the artifacts the Skills Tech ecosystem consumes. This is the first, smallest compiler slice: parse → semantic
 diagnostics → contract graph → architecture graph → implementation plan → proof. Code generation comes later.
 
-> Placement note: this lives in `compiler/` inside the IntentLang repo as an interim. If SkillsTech Compiler
-> becomes its own repo (open founder decision), it moves out cleanly with zero coupling to the website.
+> Placement (founder decision, 2026-07-09): the compiler **stays in the IntentLang repo for now** (in `compiler/`).
+> It has zero coupling to the website, so it can still move to a dedicated SkillsTech Compiler repo later if needed.
 
 ## Commands
 

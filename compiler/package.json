@@ -10,6 +10,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "test": "node --test",
     "check:example": "node src/cli.mjs check ../examples/CreateInvoice.intent",
     "build:example": "node src/cli.mjs build ../examples/CreateInvoice.intent"
   },

@@ -140,8 +140,8 @@ for drift keying. Semantic pass catches the signature "duplicate-prevention with
 Tested against `examples/CreateInvoice.intent`.
 
 Next slices (small, in order):
-1. Split decision: keep compiler in IL repo vs move to a dedicated **SkillsTech Compiler** repo (founder call).
-2. Real test suite (node --test) + fixtures for all 4 examples + a golden-file check on emitted JSON.
+1. ~~Split decision~~ , DECIDED 2026-07-09: compiler stays in the IL repo for now (zero coupling; can move later).
+2. ~~Real test suite (node --test)~~ , DONE: 6 tests (parse, idempotency diagnostic, contract-graph shape + stable IDs, proof schema, determinism, all-4-examples).
 3. Semantic pass: unknown-semantic-type, event-payload-contains-Secret, api-sensitive-output-without-auth.
 4. Targets: OpenAPI draft when `api` blocks exist; then richer Markdown/Mermaid.
 5. `package.json` `bin` wiring so `intent` is a real CLI (npm link / npx).
