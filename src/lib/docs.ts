@@ -20,6 +20,7 @@ const DOC_ORDER = [
   "ai-age-best-practices",
   "compiler-contract",
   "ecosystem-brief",
+  "operating-checklist",
 ];
 
 const DOC_LABELS: Record<string, string> = {
@@ -30,6 +31,7 @@ const DOC_LABELS: Record<string, string> = {
   "ai-age-best-practices": "AI-age best practices",
   "compiler-contract": "Compiler contract",
   "ecosystem-brief": "Ecosystem brief",
+  "operating-checklist": "Operating checklist",
 };
 
 const DOC_BLURBS: Record<string, string> = {
@@ -40,6 +42,7 @@ const DOC_BLURBS: Record<string, string> = {
   "ai-age-best-practices": "Ten practices for building software with AI in the loop.",
   "compiler-contract": "The deterministic pipeline from source to proof.",
   "ecosystem-brief": "How each SkillsTech sibling uses IntentLang.",
+  "operating-checklist": "The Top 100 things IntentLang must do, mapped to status.",
 };
 
 marked.setOptions({ gfm: true });

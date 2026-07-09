@@ -146,3 +146,31 @@ Next slices (small, in order):
 4. Targets: OpenAPI draft when `api` blocks exist; then richer Markdown/Mermaid.
 5. `package.json` `bin` wiring so `intent` is a real CLI (npm link / npx).
 6. Multi-file: compile a whole `*.intent` tree into one `contract-graph.json` (missions[]).
+
+## Operating checklist status (see docs/operating-checklist.md)
+
+The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current state:
+
+**Shipped / in good shape**
+- Category, one-liner, philosophy, "not just prompts" positioning (site + manifesto)
+- First-demo wedge: `intent build` emits docs, Mermaid, test plan, contract/architecture graphs, `.intent-proof.json` (no AI)
+- Small readable syntax, semantic types, security modifiers, `never`, `why/because`, three layers, architecture/api/event/test (docs + examples)
+- Deterministic `--no-ai` compiler: real parser, AST, stable output, teaching diagnostic (idempotency), proof schema v0.1.0
+- Website, manifesto, tutorial, spec, compiler-contract, ai-age-best-practices, ecosystem-brief; 4 examples browsable
+
+**Near-term (small, high-leverage)**
+- [ ] More semantic diagnostics: unknown-semantic-type, event-payload-contains-Secret, api-sensitive-output-without-auth (#29,#43)
+- [ ] OpenAPI generation when an `api` block exists (#37)
+- [ ] `bin` wiring: `npm install -g` / `npx intent` so the CLI is real (#40,#94)
+- [ ] `intent check` in a GitHub Actions workflow (#95)
+- [ ] Wire the web playground to the real compiler so it shows generated artifacts (#89)
+- [ ] Six more examples toward the target ten: RAG pipeline, webhook handler, event-driven billing, auth API, file upload, AI agent task, data pipeline, deployment policy (#91)
+- [ ] `intentlang-starter` template repo (#93)
+- [ ] Proof status vocabulary: draft/verified/partial/stale/failed/approved (#50)
+
+**Later**
+- [ ] VS Code extension (highlight, diagnostics, run, preview) (#90)
+- [ ] Comparison pages: vs prompts, BDD, OpenAPI, Mermaid, ADRs, UML, Terraform, TS, Python (#92)
+- [ ] OpenThunder Intent Drift detection + demo (#71,#96)
+- [ ] Runtime split for AI routing; Prompt-to-Intent as a traced, approved assist (#57,#63)
+- [ ] Ecosystem proof consumers: Repo Mastery teaching, STT defense drills, STCE track, Workspace signing (#75-#82)
