@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo,
+    Consolas, monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-ink-950 text-haze-100 antialiased;
+    background-image:
+      radial-gradient(
+        900px circle at 50% -8%,
+        rgba(238, 178, 90, 0.08),
+        transparent 55%
+      ),
+      radial-gradient(
+        700px circle at 88% 4%,
+        rgba(66, 90, 160, 0.12),
+        transparent 45%
+      );
+    background-repeat: no-repeat;
+  }
+
+  ::selection {
+    background: rgba(245, 201, 122, 0.28);
+    color: #fff;
+  }
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-content px-6 sm:px-8;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-white/10 bg-ink-850/70 backdrop-blur-sm;
+  }
+
+  .eyebrow {
+    @apply text-xs font-medium uppercase tracking-[0.22em] text-gold-300;
+  }
+
+  .link-muted {
+    @apply text-haze-300 transition-colors hover:text-haze-100;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-300/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-950;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-b from-gold-200 to-gold-400 text-ink-950 shadow-glow hover:from-gold-100 hover:to-gold-300;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/12 bg-white/[0.03] text-haze-100 hover:border-white/25 hover:bg-white/[0.06];
+  }
+
+  /* Intent draft-syntax highlighting */
+  .tok-key {
+    @apply text-gold-300;
+  }
+  .tok-fn {
+    @apply text-[#7FB2FF];
+  }
+  .tok-type {
+    @apply text-[#8FD3C4];
+  }
+  .tok-str {
+    @apply text-[#C7E29A];
+  }
+  .tok-comment {
+    @apply text-haze-400 italic;
+  }
+  .tok-punc {
+    @apply text-haze-300;
+  }
+}
+
+/* Gradient wordmark accent used for the "Lang" / highlighted words */
+.text-gradient-gold {
+  background: linear-gradient(100deg, #ffffff 0%, #f8dda9 45%, #e8b48c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
