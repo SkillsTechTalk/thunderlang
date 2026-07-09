@@ -156,7 +156,8 @@ Semantic Beauty score + Trust Readiness; "Try breaking it" demo buttons.
 Style rule: **no emojis** (premium) — use SVG/dots/text. **No em dashes.**
 
 Next playground slices (from the product brief, in build order):
-- [ ] Click a diagnostic / proof item / test to highlight the source line
+- [x] Click a diagnostic (Show source) to highlight its source line
+- [ ] Extend highlight to proof items, test-plan lines, and diagram nodes
 - [ ] Per-diagnostic "Apply fix" (insert the suggestion into the source)
 - [ ] Debug tab (plain-language meaning, main trust gap, first fix)
 - [ ] "Copy as PR comment" and "Export starter repo" (zip of all artifacts)
