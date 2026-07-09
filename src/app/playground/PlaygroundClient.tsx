@@ -410,6 +410,7 @@ export function PlaygroundClient() {
                   >
                     <option value="typescript">TypeScript</option>
                     <option value="rust">Rust</option>
+                    <option value="perl">Perl</option>
                   </select>
                   <span className="text-[11px] text-haze-500">no AI</span>
                 </div>

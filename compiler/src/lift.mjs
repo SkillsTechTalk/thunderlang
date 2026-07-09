@@ -141,14 +141,57 @@ export function extractFactsRust(source, file = 'input.rs') {
   return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'rust', sourceRoot: file, functions, tests, errors };
 }
 
+// ── Perl adapter -> CodeFactsIR (dynamic: conservative, Unknown types) ───────
+export function extractFactsPerl(source, file = 'input.pl') {
+  let m;
+  const functions = [];
+  const seen = new Set();
+  const subRe = /sub\s+(\w+)\s*(?:\(([^)]*)\))?\s*\{/g;
+  while ((m = subRe.exec(source))) {
+    const name = m[1];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    let params = [];
+    if (m[2] && m[2].trim()) {
+      params = m[2].split(',').map((s) => s.trim().replace(/^[$@%]/, '')).filter(Boolean).map((n) => ({ name: n, type: 'Unknown' }));
+    } else {
+      const after = source.slice(m.index, m.index + 300);
+      const mm = after.match(/my\s*\(([^)]*)\)\s*=\s*@_/);
+      if (mm) params = mm[1].split(',').map((s) => s.trim().replace(/^\$/, '')).filter(Boolean).map((n) => ({ name: n, type: 'Unknown' }));
+    }
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: params, returnType: null, evidence: [{ kind: 'sub', file, line: lineOf(source, m.index) }] });
+  }
+
+  const errors = [];
+  const seenErr = new Set();
+  const dieRe = /\b(?:die|croak|confess)\s+["']([^"']+)["']/g;
+  while ((m = dieRe.exec(source))) {
+    const s = m[1].replace(/\\n$/, '').trim().slice(0, 60);
+    const key = s.toLowerCase();
+    if (s && !seenErr.has(key)) { seenErr.add(key); errors.push({ name: s, file, line: lineOf(source, m.index) }); }
+  }
+
+  const tests = [];
+  const seenT = new Set();
+  const addTest = (name, idx) => { const k = name.toLowerCase(); if (name && !seenT.has(k)) { seenT.add(k); tests.push({ name, file, line: lineOf(source, idx) }); } };
+  const subtestRe = /subtest\s+["']([^"']+)["']/g;
+  while ((m = subtestRe.exec(source))) addTest(m[1], m.index);
+  const okRe = /\b(?:ok|is|isnt|like)\s*\([^;]*?,\s*["']([^"']+)["']\s*\)/g;
+  while ((m = okRe.exec(source))) addTest(m[1], m.index);
+
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'perl', sourceRoot: file, functions, tests, errors };
+}
+
 const ADAPTERS = {
   typescript: extractFactsTypeScript, ts: extractFactsTypeScript,
   javascript: extractFactsTypeScript, js: extractFactsTypeScript,
   rust: extractFactsRust, rs: extractFactsRust,
+  perl: extractFactsPerl, pl: extractFactsPerl,
 };
-export const SUPPORTED_LANGUAGES = ['typescript', 'rust'];
+export const SUPPORTED_LANGUAGES = ['typescript', 'rust', 'perl'];
+const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript']);
 
-const LANG_DISPLAY = { typescript: 'TypeScript', rust: 'Rust', javascript: 'JavaScript' };
+const LANG_DISPLAY = { typescript: 'TypeScript', rust: 'Rust', javascript: 'JavaScript', perl: 'Perl' };
 
 // Unwrap Result<T, E> / Promise<T> / T -> { output, error }
 function unwrapReturn(ret) {
@@ -257,6 +300,7 @@ function liftDiagnostics(lift, facts) {
   const d = [];
   const warn = (code, message) => d.push({ level: 'warning', code, message });
   warn('INTENT_LIFT_NEEDS_HUMAN_REVIEW', 'This intent was inferred from code. A human must review goal, why, never rules, and verification.');
+  if (DYNAMIC_LANGUAGES.has(facts.sourceLanguage)) warn('INTENT_LIFT_DYNAMIC_LANGUAGE_LIMITATION', `${facts.sourceLanguage} is dynamically typed, so types and outputs are often Unknown and confidence is lower. Review carefully.`);
   if (lift.confidence === 'low') warn('INTENT_LIFT_LOW_CONFIDENCE', 'Low confidence: inferred mostly from names, with little test or type evidence.');
   if (!facts.tests.length) warn('INTENT_LIFT_NO_TEST_EVIDENCE', 'No tests found. Guarantees could not be grounded in verification evidence.');
   if (lift.inputs.some((i) => i.type === 'Unknown')) warn('INTENT_LIFT_UNKNOWN_SEMANTIC_TYPE', 'Some fields could not be resolved to a semantic type. Review and annotate them.');
@@ -272,6 +316,7 @@ function liftDiagnostics(lift, facts) {
  */
 export function languageForFile(file) {
   if (/\.rs$/i.test(file)) return 'rust';
+  if (/\.(pl|pm|t)$/i.test(file)) return 'perl';
   return 'typescript';
 }
 

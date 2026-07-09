@@ -24,7 +24,7 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo } from './lift.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
-const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs'];
+const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
 function collectFiles(root, acc = []) {
   for (const name of readdirSync(root)) {

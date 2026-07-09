@@ -155,6 +155,27 @@ test('IntentLift Rust: strong types + error enums -> high-confidence draft', () 
   assert.match(r.intentText, /from Rust/);
 });
 
+test('IntentLift Perl: conservative, Unknown types, dynamic-language warning', () => {
+  const perl = [
+    'package Billing;',
+    'sub create_invoice {',
+    "    my ($order_id, $total, $key) = @_;",
+    "    die 'duplicate invoice' if invoice_exists($order_id);",
+    '    return save_invoice($order_id, $total);',
+    '}',
+  ].join('\n');
+  const r = liftSource(perl, { language: 'perl', file: 'lib/Billing.pm' });
+  assert.equal(r.ok, true);
+  assert.equal(r.lifted.from, 'Perl');
+  assert.equal(r.lifted.mission, 'CreateInvoice');
+  assert.deepEqual(r.lifted.inputs.map((i) => i.name), ['order_id', 'total', 'key']);
+  assert.ok(r.lifted.inputs.every((i) => i.type === 'Unknown'), 'dynamic types are Unknown');
+  assert.equal(r.lifted.output, null, 'no output type inferred for dynamic Perl');
+  assert.equal(r.lifted.confidence, 'low', 'conservative confidence');
+  assert.ok(r.lifted.neverRules.some((n) => /duplicate invoice/.test(n.statement)), 'never from die');
+  assert.ok(r.diagnostics.some((d) => d.code === 'INTENT_LIFT_DYNAMIC_LANGUAGE_LIMITATION'));
+});
+
 test('IntentLift repo: lifts many files, unique names, repo summary', () => {
   const files = [
     { file: 'src/billing/invoice.ts', source: 'export function createInvoice(orderId: OrderId): Result<Invoice, DuplicateInvoice> { return x; }\ntest("repeated order returns same invoice", ()=>{});' },

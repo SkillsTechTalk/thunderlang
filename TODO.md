@@ -240,7 +240,9 @@ Next slices:
 - [x] Rust adapter (fn signatures, Result<T,E> unwrap, error-enum variants -> never
       rules, #[test]/#[tokio::test]); repo mode auto-detects .rs; playground lang selector
 - [ ] Rust: serde structs, actix/axum/rocket route macros, sqlx/diesel DB access
-- [ ] Perl adapter (conservative: packages, subs, @_, die/croak, DBI, POD)
+- [x] Perl adapter (conservative: subs, @_ / signature params as Unknown, die/croak
+      -> never rules, ok/is/subtest -> tests; low confidence + DYNAMIC_LANGUAGE_LIMITATION)
+- [ ] Perl: DBI table names -> database, POD -> goal/why, Mojo/Dancer/Catalyst routes
 - [ ] Source-map panel + "Equivalent Intent" IDE view; per-line evidence
 - [ ] `intent approve` (reviewed:true + source hash); OpenThunder drift round-trip
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
