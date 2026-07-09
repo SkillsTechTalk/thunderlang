@@ -90,7 +90,7 @@ repo and implementation is approved.
 - [x] "Prompt is temporary. Intent is durable." section on the homepage
 - [x] Proof-chain framing in the ecosystem section
 - [ ] Remaining page-by-page prose polish (vision/docs/examples still say "Intent")
-- [ ] Surface `docs/` and `examples/` on the site (render `.intent` + Markdown)
+- [x] Surface `docs/` and `examples/` on the site (render `.intent` + Markdown)
 
 ### P6 - Optional AI assist (documented, gated)
 - [ ] Document Prompt-to-Intent, intent review, missing-guarantee/risk/test

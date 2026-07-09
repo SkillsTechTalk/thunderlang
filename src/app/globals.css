@@ -86,6 +86,68 @@
   }
 }
 
+/* Rendered Markdown docs (docs/*.md) */
+.doc-prose {
+  @apply text-[15px] leading-relaxed text-haze-200;
+}
+.doc-prose h1 {
+  @apply mt-0 mb-6 text-3xl font-semibold tracking-tight text-white;
+}
+.doc-prose h2 {
+  @apply mt-12 mb-4 border-t border-white/8 pt-8 text-2xl font-semibold tracking-tight text-white;
+}
+.doc-prose h3 {
+  @apply mt-8 mb-3 text-lg font-semibold text-white;
+}
+.doc-prose h4 {
+  @apply mt-6 mb-2 text-base font-semibold text-haze-100;
+}
+.doc-prose p {
+  @apply my-4;
+}
+.doc-prose a {
+  @apply text-gold-300 underline-offset-2 hover:text-gold-200 hover:underline;
+}
+.doc-prose strong {
+  @apply font-semibold text-white;
+}
+.doc-prose ul {
+  @apply my-4 list-disc space-y-1.5 pl-6 marker:text-haze-500;
+}
+.doc-prose ol {
+  @apply my-4 list-decimal space-y-1.5 pl-6 marker:text-haze-500;
+}
+.doc-prose li {
+  @apply pl-1;
+}
+.doc-prose blockquote {
+  @apply my-5 rounded-r-lg border-l-2 border-gold-300/50 bg-white/[0.03] py-2 pl-4 pr-3 text-haze-300;
+}
+.doc-prose blockquote p {
+  @apply my-1;
+}
+.doc-prose code {
+  @apply rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.85em] text-gold-200;
+}
+.doc-prose pre {
+  @apply my-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/80 p-4 text-[13px] leading-relaxed;
+}
+.doc-prose pre code {
+  @apply bg-transparent p-0 text-haze-100;
+}
+.doc-prose hr {
+  @apply my-8 border-white/10;
+}
+.doc-prose table {
+  @apply my-6 block w-full overflow-x-auto text-sm;
+}
+.doc-prose th {
+  @apply border-b border-white/15 px-3 py-2 text-left font-semibold text-white;
+}
+.doc-prose td {
+  @apply border-b border-white/8 px-3 py-2 align-top text-haze-300;
+}
+
 /* Gradient wordmark accent used for the "Lang" / highlighted words */
 .text-gradient-gold {
   background: linear-gradient(100deg, #ffffff 0%, #f8dda9 45%, #e8b48c 100%);

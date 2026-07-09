@@ -1,6 +1,8 @@
-import { PageHero, Section, DraftNote, CTAButtons, Pill } from "@/components/ui";
+import Link from "next/link";
+import { PageHero, Section, DraftNote, CTAButtons, Pill, Card } from "@/components/ui";
 import { IntentCode } from "@/components/IntentCode";
 import { pageMeta } from "@/lib/seo";
+import { getExampleList } from "@/lib/docs";
 import {
   heroExample,
   layerHuman,
@@ -93,6 +95,7 @@ const systemExamples = [
 ];
 
 export default function ExamplesPage() {
+  const files = getExampleList();
   return (
     <>
       <PageHero
@@ -105,6 +108,34 @@ export default function ExamplesPage() {
           There is no compiler or playground execution behind them today.
         </DraftNote>
       </PageHero>
+
+      {/* Browse the raw .intent files */}
+      <Section>
+        <div className="mb-4">
+          <p className="eyebrow">Example files</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+            Browse the <span className="font-mono text-gold-200">.intent</span>{" "}
+            files.
+          </h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {files.map((f) => (
+            <Link key={f.slug} href={`/examples/${f.slug}`}>
+              <Card className="h-full">
+                <h3 className="text-base font-semibold text-white">
+                  {f.title}
+                </h3>
+                <p className="mt-2 font-mono text-xs text-haze-400">
+                  {f.filename}
+                </p>
+                <span className="mt-3 inline-block text-sm text-gold-300">
+                  Open →
+                </span>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </Section>
 
       <Section>
         <div className="space-y-16">

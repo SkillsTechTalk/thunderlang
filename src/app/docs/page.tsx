@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { PageHero, Section, DraftNote, Pill } from "@/components/ui";
+import { PageHero, Section, DraftNote, Pill, Card } from "@/components/ui";
 import { IntentCode } from "@/components/IntentCode";
 import { pageMeta } from "@/lib/seo";
 import { heroExample } from "@/lib/content";
+import { getDocList } from "@/lib/docs";
 
 export const metadata = pageMeta({
   title: "Documentation",
@@ -86,6 +87,7 @@ const concepts = [
 ];
 
 export default function DocsPage() {
+  const guides = getDocList();
   return (
     <>
       <PageHero
@@ -93,6 +95,32 @@ export default function DocsPage() {
         title="Learn IntentLang, from the idea to the draft syntax."
         intro="This is an early documentation stub. It captures the mental model and the current draft syntax while the language and compiler are still taking shape."
       />
+
+      <Section>
+        <div className="mb-4">
+          <p className="eyebrow">Full guides</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+            Read the language docs.
+          </h2>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {guides.map((g) => (
+            <Link key={g.slug} href={`/docs/${g.slug}`}>
+              <Card className="h-full">
+                <h3 className="text-base font-semibold text-white">
+                  {g.label}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-haze-300">
+                  {g.blurb}
+                </p>
+                <span className="mt-3 inline-block text-sm text-gold-300">
+                  Read →
+                </span>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </Section>
 
       <Section>
         <div className="grid gap-12 lg:grid-cols-[220px_1fr]">
