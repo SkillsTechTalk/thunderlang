@@ -249,8 +249,9 @@ Next slices:
       unsupported, stale proof, new behavior); playground lift->approve->drift demo
 - [x] `intent handoff` emits `il-to-ot-drift-v1` (mission, approval+hash, mapsTo,
       expectations[] with checks); /api/handoff + playground button; documented
-- [ ] OpenThunder consumer: ingest il-to-ot-drift-v1, run checks vs repo evidence,
-      emit intent-drift-report-v1 (in the OpenThunder repo)
+- [x] OpenThunder consumer (in the OpenThunder repo, @openthunder/intent):
+      consumeDriftHandoff ingests il-to-ot-drift-v1, checks vs repo evidence, emits
+      intent-drift-report-v1. Cross-repo round-trip verified end to end.
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
 
 ## Operating checklist status (see docs/operating-checklist.md)
