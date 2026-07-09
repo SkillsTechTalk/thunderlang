@@ -46,6 +46,12 @@ Every sibling should recognize these artifact types.
 - `tests/*.testplan.md`
 - `openapi/*.yaml`
 
+**Compiler -> OpenThunder handoff**
+- `il-to-ot-drift-v1`, emitted by `intent handoff <approved.intent>`. Names the
+  mission, approval + source hash, `mapsTo`, and `expectations[]` (per guarantee /
+  never / input / api) with the `check` OpenThunder must run against real repo
+  evidence. The compiler does not verify repo-wide; OpenThunder does.
+
 **OpenThunder output**
 - `intent-verification-pack-v1`
 - `intent-drift-report-v1`

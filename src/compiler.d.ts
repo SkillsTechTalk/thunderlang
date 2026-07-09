@@ -13,6 +13,10 @@ declare module "*/compiler/src/drift.mjs" {
     summary: { status: string; findings: number; blocking: number };
   };
   export function intentHash(intentText: string): string;
+  export function buildDriftHandoff(
+    intentText: string,
+    opts?: { generatedAt?: string | null },
+  ): Record<string, unknown> & { kind: string; mission: string; approved: boolean };
 }
 
 declare module "*/compiler/src/lift.mjs" {

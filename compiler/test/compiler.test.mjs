@@ -15,7 +15,7 @@ import {
 } from '../src/emit.mjs';
 import { getCompletions, getHover } from '../src/intellisense.mjs';
 import { liftSource, liftRepo } from '../src/lift.mjs';
-import { approveIntent, checkDrift, intentHash } from '../src/drift.mjs';
+import { approveIntent, checkDrift, intentHash, buildDriftHandoff } from '../src/drift.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const example = (name) => readFileSync(join(HERE, '..', '..', 'examples', name), 'utf8');
@@ -230,6 +230,22 @@ test('IntentLift round-trip: drift is in_sync for matching code, drift when code
   assert.ok(codes.includes('INTENT_DRIFT_GUARANTEE_UNSUPPORTED'), 'removed test -> guarantee drift');
   assert.ok(codes.includes('INTENT_DRIFT_NEVER_RULE_UNSUPPORTED'), 'removed error -> never drift');
   assert.ok(codes.includes('INTENT_DRIFT_INPUT_REMOVED'), 'removed param -> input drift');
+});
+
+test('IntentLift handoff: emits an il-to-ot-drift-v1 pack for OpenThunder', () => {
+  const draft = liftSource(RUST_CODE, { language: 'rust' }).intentText;
+  const approved = approveIntent(draft, { approvedBy: 'Jane', approvedAt: '2026-07-09T00:00:00Z' }).text;
+  const pack = buildDriftHandoff(approved, { generatedAt: '2026-07-09T00:00:00Z' });
+  assert.equal(pack.kind, 'il-to-ot-drift-v1');
+  assert.equal(pack.mission, 'CreateInvoice');
+  assert.equal(pack.approved, true);
+  assert.match(pack.approval.sourceHash, /^sha256:/);
+  // expectations name the checks OpenThunder must run against real repo evidence
+  assert.ok(pack.expectations.some((e) => e.kind === 'guarantee' && e.check === 'guarantee_has_passing_evidence'));
+  assert.ok(pack.expectations.some((e) => e.kind === 'never' && e.check === 'never_rule_not_violated'));
+  assert.ok(pack.expectations.some((e) => e.kind === 'input' && e.check === 'input_present_in_signature'));
+  // deterministic given a fixed timestamp
+  assert.deepEqual(pack, buildDriftHandoff(approved, { generatedAt: '2026-07-09T00:00:00Z' }));
 });
 
 test('IntentLift round-trip: editing the approved intent is flagged stale', () => {

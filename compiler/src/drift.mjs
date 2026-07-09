@@ -58,6 +58,55 @@ export function approveIntent(intentText, { approvedBy, approvedAt } = {}) {
   };
 }
 
+/**
+ * Emit the drift handoff pack that OpenThunder consumes. The compiler states the
+ * expectations (what must be true) and the checks OpenThunder should run against
+ * REAL repo evidence (tests executed, routes present, logs/events scanned).
+ * The compiler does not perform repo-wide verification; OpenThunder does, and it
+ * emits `intent-drift-report-v1` in return.
+ */
+export function buildDriftHandoff(approvedIntentText, { generatedAt = null } = {}) {
+  const ast = parseIntent(approvedIntentText);
+  const expectations = [
+    ...ast.guarantees.map((g) => ({
+      kind: 'guarantee', id: g.id, statement: g.statement,
+      expectedEvidence: g.verify, check: 'guarantee_has_passing_evidence',
+    })),
+    ...ast.neverRules.map((n) => ({
+      kind: 'never', id: n.id, statement: n.statement,
+      expectedEvidence: n.verify, check: 'never_rule_not_violated',
+    })),
+    ...ast.inputs.map((f) => ({
+      kind: 'input', name: f.name, type: f.type || 'Unknown',
+      check: 'input_present_in_signature',
+    })),
+    ...(ast.apis || []).map((a) => ({
+      kind: 'api', id: a.id, method: a.method, path: a.path,
+      check: 'route_present',
+    })),
+  ];
+  return {
+    schemaVersion: '0.1.0',
+    kind: 'il-to-ot-drift-v1',
+    generatedBy: `SkillsTech Compiler ${COMPILER_VERSION}`,
+    generatedAt,
+    mission: ast.mission || 'mission',
+    approved: !!(ast.approval && ast.approval.reviewed),
+    approval: ast.approval
+      ? {
+          reviewed: !!ast.approval.reviewed,
+          approvedBy: ast.approval.approved_by || null,
+          approvedAt: ast.approval.approved_at || null,
+          sourceHash: ast.approval.source_hash || null,
+        }
+      : null,
+    mapsTo: (ast.lift && ast.lift.maps_to) || [],
+    expectations,
+    handoff:
+      'OpenThunder verifies these expectations against real repo evidence and emits intent-drift-report-v1. The compiler does not perform repo-wide verification.',
+  };
+}
+
 function verdict(findings) {
   const blocking = findings.filter(
     (f) => f.level === 'warning' && /UNSUPPORTED|INPUT_REMOVED|STALE/.test(f.code),

@@ -22,7 +22,7 @@ import {
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
-import { approveIntent, checkDrift } from './drift.mjs';
+import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -147,6 +147,20 @@ function main() {
     const target = args.out && args.out !== '.intent' ? args.out : file;
     writeFileSync(target, res.text);
     console.log(`intent approve ${basename(file)} -> reviewed: true (${res.approval.source_hash.slice(0, 24)}...)`);
+    return;
+  }
+
+  // Handoff: emit the il-to-ot-drift-v1 pack OpenThunder consumes for deep verification.
+  if (cmd === 'handoff') {
+    const text = readFileSync(file, 'utf8');
+    const pack = buildDriftHandoff(text, { generatedAt: args.at || null });
+    const out = JSON.stringify(pack, null, 2);
+    if (args.out && args.out !== '.intent') {
+      const p = writeText(args.out, `${slug(pack.mission)}.drift-handoff.json`, out);
+      console.log(`intent handoff ${basename(file)} -> ${p.replace(process.cwd() + '/', '')} (kind ${pack.kind}, approved ${pack.approved})`);
+    } else {
+      console.log(out);
+    }
     return;
   }
 

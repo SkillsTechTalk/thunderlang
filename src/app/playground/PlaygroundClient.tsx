@@ -292,6 +292,23 @@ export function PlaygroundClient() {
     const data = await res.json();
     if (data.ok) setDriftResult(data);
   }
+
+  async function openThunderHandoff() {
+    if (!approvedIntent) return;
+    const res = await fetch("/api/handoff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intentText: approvedIntent }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      download(
+        `${data.pack.mission}.drift-handoff.json`,
+        JSON.stringify(data.pack, null, 2),
+        "application/json",
+      );
+    }
+  }
   // Monaco editor instance (set on mount). Completions + hover are inline,
   // powered by the compiler through /api/assist inside IntentMonaco.
   const editorRef = useRef<any>(null);
@@ -533,6 +550,13 @@ export function PlaygroundClient() {
                               className="rounded-md border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-haze-200 hover:border-gold-300/40 hover:text-gold-200"
                             >
                               Check drift vs the code above
+                            </button>
+                            <button
+                              type="button"
+                              onClick={openThunderHandoff}
+                              className="rounded-md border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-haze-200 hover:border-gold-300/40 hover:text-gold-200"
+                            >
+                              OpenThunder handoff
                             </button>
                             <span className="text-[11px] text-haze-500">
                               Edit the code, then re-check.
