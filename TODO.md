@@ -147,6 +147,23 @@ Next slices (small, in order):
 5. `package.json` `bin` wiring so `intent` is a real CLI (npm link / npx).
 6. Multi-file: compile a whole `*.intent` tree into one `contract-graph.json` (missions[]).
 
+## Playground (semantic compiler for trust)
+
+Shipped: real compiler via `/api/compile` (deterministic, no AI); Diagnostics with
+why + fix; rendered Mermaid contract graph (Diagram/Source toggle + copy); Docs,
+Test Plan, Proof tabs; proof summary; copy/download per artifact; trust strip;
+Semantic Beauty score + Trust Readiness; "Try breaking it" demo buttons.
+Style rule: **no emojis** (premium) — use SVG/dots/text. **No em dashes.**
+
+Next playground slices (from the product brief, in build order):
+- [ ] Click a diagnostic / proof item / test to highlight the source line
+- [ ] Per-diagnostic "Apply fix" (insert the suggestion into the source)
+- [ ] Debug tab (plain-language meaning, main trust gap, first fix)
+- [ ] "Copy as PR comment" and "Export starter repo" (zip of all artifacts)
+- [ ] Guided stepper: Write → Compile → Debug → Prove → Export
+- [ ] Expand example gallery by category + difficulty
+- [ ] Later, gated: "Draft from prompt" (AI assist, human review required)
+
 ## Operating checklist status (see docs/operating-checklist.md)
 
 The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current state:
