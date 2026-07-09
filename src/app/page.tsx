@@ -19,7 +19,8 @@ import {
 import { siteConfig } from "@/lib/site";
 
 const philosophy = [
-  { step: "Intent", body: "What the software should do, and why it exists." },
+  { step: "Prompt", body: "How the conversation starts. Useful, but temporary." },
+  { step: "Intent", body: "What the team commits to. Durable and reviewable." },
   { step: "Contract", body: "The guarantees and constraints that must hold." },
   { step: "Plan", body: "A deterministic implementation plan, before any code." },
   { step: "Implementation", body: "Code in your target language, human or AI authored." },
@@ -62,7 +63,7 @@ export default function HomePage() {
           <div className="animate-fade-up">
             <div className="flex items-center gap-3">
               <StarMark className="h-6 w-6 animate-twinkle" />
-              <Pill>The first Intent-Oriented language for the AI era</Pill>
+              <Pill>The intent language for AI-era software</Pill>
             </div>
 
             <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
@@ -71,10 +72,10 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-haze-300">
-              {siteConfig.wordmark} is a programming language by{" "}
-              {siteConfig.builtBy} that lets engineers describe software in
-              clear, structured intent while AI, compilers, and verification
-              tools help produce reliable implementations.
+              {siteConfig.wordmark} lets engineers define what software should
+              do, why it matters, what must never happen, and how the result
+              must be verified, before code is generated, changed, or shipped.
+              Built by {siteConfig.builtBy}.
             </p>
 
             <div className="mt-8">
@@ -112,7 +113,7 @@ export default function HomePage() {
       {/* ------------------------------------------------------------------ */}
       <Section id="why">
         <SectionHeading
-          eyebrow="Why Intent"
+          eyebrow="Why IntentLang"
           title="Software is being written faster than it can be understood."
           intro="Intent-Oriented Programming puts the meaning of software first, so engineers and AI can move quickly without losing the thread of what the code is supposed to do."
         />
@@ -129,33 +130,60 @@ export default function HomePage() {
       </Section>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Prompt is temporary. Intent is durable.                            */}
+      {/* ------------------------------------------------------------------ */}
+      <Section id="durable">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
+          <div>
+            <SectionHeading
+              eyebrow="Prompt is temporary. Intent is durable."
+              title="A prompt is a conversation. Intent is a commitment."
+              intro="A prompt is useful, but it is not a contract, it is not cleanly versioned, and it is not automatically verifiable. IntentLang turns it into a reviewable, versionable, testable .intent file."
+            />
+            <figure className="mt-6 rounded-2xl border border-white/10 bg-ink-850/50 p-5">
+              <figcaption className="text-xs font-medium uppercase tracking-[0.18em] text-haze-400">
+                The prompt
+              </figcaption>
+              <blockquote className="mt-3 text-sm leading-relaxed text-haze-200">
+                &ldquo;Build a secure invoice creation flow that prevents
+                duplicates, audits every invoice, and never logs payment
+                tokens.&rdquo;
+              </blockquote>
+              <p className="mt-4 text-xs text-haze-500">
+                Useful, but temporary. It becomes intent on the right.
+              </p>
+            </figure>
+          </div>
+          <div>
+            <div className="mb-2 text-center text-xs font-medium uppercase tracking-[0.18em] text-gold-300">
+              The intent
+            </div>
+            <IntentCode code={heroExample} filename="CreateInvoice.intent" />
+          </div>
+        </div>
+      </Section>
+
+      {/* ------------------------------------------------------------------ */}
       {/* Core philosophy                                                    */}
       {/* ------------------------------------------------------------------ */}
       <Section id="philosophy" className="border-y border-white/8 bg-ink-900/40">
         <SectionHeading
           eyebrow="Core philosophy"
-          title="Intent → Contract → Plan → Implementation → Verification → Proof"
-          intro="A single, honest path from what you meant to evidence that it holds. Every stage is inspectable, and nothing is hidden from the engineer who owns it."
+          title="Prompt → Intent → Contract → Plan → Implementation → Verification → Proof"
+          intro="Prompt is how the conversation starts. Intent is what the team commits to. Code is how the system fulfills it. Proof is how trust is earned. Every stage is inspectable, and nothing is hidden from the engineer who owns it."
         />
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {philosophy.map((item, i) => (
-            <div key={item.step} className="relative">
-              <div className="panel h-full p-5">
-                <span className="font-mono text-xs text-gold-300">
-                  0{i + 1}
-                </span>
-                <h3 className="mt-2 text-base font-semibold text-white">
-                  {item.step}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-haze-300">
-                  {item.body}
-                </p>
-              </div>
-              {i < philosophy.length - 1 && (
-                <div className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-gold-300/60 md:block">
-                  →
-                </div>
-              )}
+            <div key={item.step} className="panel h-full p-5">
+              <span className="font-mono text-xs text-gold-300">
+                0{i + 1}
+              </span>
+              <h3 className="mt-2 text-base font-semibold text-white">
+                {item.step}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-haze-300">
+                {item.body}
+              </p>
             </div>
           ))}
         </div>
@@ -220,9 +248,9 @@ export default function HomePage() {
       {/* ------------------------------------------------------------------ */}
       <Section id="not">
         <SectionHeading
-          eyebrow="What Intent is not"
+          eyebrow="What IntentLang is not"
           title="Clear about what we are not claiming."
-          intro="Being honest about the boundaries is part of being a serious language project."
+          intro="Being honest about the boundaries is part of being a serious language project. IntentLang sits above paradigms and targets your languages; it does not replace them."
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {whatIntentIsNot.map((n) => (
@@ -250,8 +278,8 @@ export default function HomePage() {
       <Section id="ecosystem" className="border-y border-white/8 bg-ink-900/40">
         <SectionHeading
           eyebrow="SkillsTech ecosystem"
-          title="Intent is the center of a larger system."
-          intro="Intent defines what software should do. The rest of the SkillsTech ecosystem helps you build it, understand it, master it, and prove it."
+          title="IntentLang is the center of a larger system."
+          intro="Proof is the through-line. IntentLang defines what software should do, and each product proves a different thing about the same mission."
         />
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {ecosystem.map((item) => (
@@ -271,6 +299,12 @@ export default function HomePage() {
             </Card>
           ))}
         </div>
+        <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-haze-400">
+          The artifact exists, the implementation still matches it, the engineer
+          who owns it understands it, and the practitioner has proven the method.
+          That is how trust is earned in AI-era software: not by trusting the
+          code, but by proving the intent behind it.
+        </p>
       </Section>
 
       {/* ------------------------------------------------------------------ */}

@@ -254,27 +254,27 @@ export const ecosystem: EcosystemItem[] = [
   },
   {
     name: "OpenThunder",
-    role: "Verify and understand it",
+    role: "Proves the repo matches the intent",
     detail:
-      "Reads intent, compares it to the real repo, detects drift, and surfaces unverified guarantees and ownership gaps.",
+      "Reads intent, compares it to the real repo, and detects drift: unverified guarantees, violated rules, and ownership gaps.",
   },
   {
     name: "Repo Mastery",
-    role: "Master the codebase",
+    role: "Proves the human understands the mission",
     detail:
-      "Turns a large, unfamiliar repository and its intent into learning paths an engineer can actually internalize.",
+      "Turns missions into learning paths, quizzes, and reality checks so engineers truly understand the code they own.",
   },
   {
     name: "SkillsTech Talk",
-    role: "Explain it",
+    role: "Explain and defend it",
     detail:
-      "Practice articulating and defending the design decisions behind the software you own.",
+      "Turns missions into drills for articulating and defending the design decisions behind the software you own.",
   },
   {
     name: "SkillsTech Certified",
-    role: "Prove it",
+    role: "Proves the learner understands the method",
     detail:
-      "A path to demonstrate real, verifiable command of a codebase and the intent behind it.",
+      "A path to demonstrate real, verifiable command of Intent-Oriented Programming and the intent behind a codebase.",
   },
   {
     name: "SkillsTech IDE",

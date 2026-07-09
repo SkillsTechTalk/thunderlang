@@ -75,11 +75,12 @@ repo and implementation is approved.
       API gateway, event-driven service, data pipeline, infrastructure policy
 
 ### P5 - Website content (this repo)
-- [ ] Shift site prose from "Intent" to the **IntentLang** brand
-- [ ] Add **Prompt** to the philosophy on the homepage (7 stages)
-- [ ] New homepage line: "The intent language for AI-era software."
-- [ ] Sections: Prompt is temporary / Intent is durable; From intent to proof;
-      Built for humans and AI agents; Verification before trust; Targets
+- [x] Shift site prose and metadata to the **IntentLang** brand
+- [x] Add **Prompt** to the homepage philosophy (7 stages)
+- [x] New homepage line/pill: "The intent language for AI-era software."
+- [x] "Prompt is temporary. Intent is durable." section on the homepage
+- [x] Proof-chain framing in the ecosystem section
+- [ ] Remaining page-by-page prose polish (vision/docs/examples still say "Intent")
 - [ ] Surface `docs/` and `examples/` on the site (render `.intent` + Markdown)
 
 ### P6 - Optional AI assist (documented, gated)

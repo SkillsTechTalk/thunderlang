@@ -14,7 +14,7 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://intentlanguage.dev",
   description:
-    "Intent is an Intent-Oriented Programming language by SkillsTech that helps engineers describe, verify, and own software in the AI era.",
+    "IntentLang is the intent language for AI-era software by SkillsTech. Define what software should do, what must never happen, and how it must be verified before code is generated or changed.",
   promise:
     "Write what your software should do. Let AI and the compiler help determine how to build it, verify it, and keep it understandable.",
   twitter: "@skillstech",

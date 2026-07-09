@@ -17,15 +17,15 @@ export function pageMeta({
     description,
     alternates: { canonical },
     openGraph: {
-      title: `${title} | Intent Language`,
+      title: `${title} | IntentLang`,
       description,
       url: `${siteConfig.url}${path === "/" ? "" : path}`,
-      siteName: "Intent Language",
+      siteName: "IntentLang",
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | Intent Language`,
+      title: `${title} | IntentLang`,
       description,
       creator: siteConfig.twitter,
     },
