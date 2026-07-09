@@ -99,10 +99,15 @@ repo and implementation is approved.
 - [ ] **Style** - paradigm/stack hints per target (CleanArchitecture, CQRS, …)
 
 ## Ecosystem integrations (later)
-- [ ] OpenThunder: verify whether the repo still matches declared intent (drift)
-- [ ] Repo Mastery: turn `.intent` files into learning paths and quizzes
+
+The through-line is **proof**. Each product proves a different thing about the
+same mission:
+
+- [ ] **SkillsTech Compiler** proves the language can produce artifacts
+- [ ] **OpenThunder** proves the repo matches the declared intent (drift)
+- [ ] **Repo Mastery** proves the human understands the mission
+- [ ] **SkillsTech Certified** proves the learner understands the method
 - [ ] SkillsTech Talk: turn missions into explanation/defense drills
-- [ ] SkillsTech Certified: Intent-Oriented Programming tracks
 - [ ] SkillsTech Workspace: store signed proof artifacts and adoption metrics
 
 ## Acceptance criteria (for the foundation slice)

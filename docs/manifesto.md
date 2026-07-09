@@ -93,3 +93,18 @@ intent was not updated, or a field marked `Secret` is logged.
 Detecting and closing drift, later via OpenThunder, is a core reason IntentLang
 exists. Generating code is cheap; keeping code faithful to intent is the hard,
 valuable part.
+
+## The proof chain
+
+Proof is the through-line of the SkillsTech ecosystem. Each product proves a
+different thing about the same mission:
+
+- **SkillsTech Compiler** proves the language can produce artifacts.
+- **OpenThunder** proves the repo matches the declared intent.
+- **Repo Mastery** proves the human understands the mission.
+- **SkillsTech Certified** proves the learner understands the method.
+
+Together they turn a mission into compounding evidence: the artifact exists, the
+implementation still matches it, the engineer who owns it understands it, and the
+practitioner has proven the method itself. That is how trust is earned in
+AI-era software, not by trusting the code, but by proving the intent behind it.
