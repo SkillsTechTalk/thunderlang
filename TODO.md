@@ -206,7 +206,9 @@ Next slices (compiler core first):
 - [ ] Autocorrect (safe): `goals:`->`goal:`, `guarantee:`->`guarantees:`, indentation, casing
 - [ ] `intent format`; later `intent lsp` (LSP) for VS Code
 - [x] Playground Assist panel: compiler hover + click-to-insert completions (textarea)
-- [ ] Richer editor UX (Monaco/CodeMirror): inline popup, lightbulb, fix preview, Fix-all-safe
+- [x] Monaco editor with intent language, dark theme, and inline compiler completions + hover
+- [ ] Quick-fix lightbulb (code-actions), fix-preview diff, Fix-all-safe, lens-aware ranking
+- [ ] Self-host Monaco (currently CDN via @monaco-editor/react loader)
 - [ ] Do NOT hardcode completions in the playground; do NOT duplicate the parser
 
 ## Operating checklist status (see docs/operating-checklist.md)
