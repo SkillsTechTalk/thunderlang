@@ -259,7 +259,19 @@ export default function HomePage() {
               className="rounded-2xl border border-white/8 bg-ink-850/40 p-5"
             >
               <div className="flex items-center gap-2">
-                <span className="text-haze-500">✕</span>
+                <svg
+                  className="h-3.5 w-3.5 shrink-0 text-haze-500"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M4 4l8 8M12 4l-8 8"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 <h3 className="text-base font-semibold text-white">
                   {n.label}
                 </h3>

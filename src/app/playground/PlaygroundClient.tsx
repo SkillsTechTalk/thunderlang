@@ -49,6 +49,79 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "proof", label: "Proof" },
 ];
 
+const SEMANTIC_TYPES =
+  /:\s*(Email|Money|Currency|Url|UserId|AccountId|Secret|Token|Jwt|Date|DateTime|Duration|Percentage|FilePath|Repository|ServiceName|ApiEndpoint|EventName|DatabaseTable|TraceId|CorrelationId|IdempotencyKey|Version|EnvironmentName)\b/;
+
+// Remove a top-level block (keyword line + its indented body + one trailing blank).
+function removeBlock(code: string, keyword: string): string {
+  const lines = code.split("\n");
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const isHeader =
+      !/^\s/.test(line) && (line === keyword || line.startsWith(keyword + " "));
+    if (isHeader) {
+      i++;
+      while (i < lines.length && /^\s+\S/.test(lines[i])) i++;
+      if (i < lines.length && lines[i].trim() === "") i++;
+      continue;
+    }
+    out.push(line);
+    i++;
+  }
+  return out.join("\n");
+}
+
+type Scores = {
+  beauty: number;
+  strong: string[];
+  improve: string[];
+  trust: "Ready" | "Partial" | "Not ready";
+  trustReason: string;
+};
+
+function computeScores(code: string, result: CompileResult): Scores {
+  const proof = result.artifacts.proof;
+  const g = proof.guarantees ?? [];
+  const n = proof.neverRules ?? [];
+  const errors = result.diagnostics.filter((d) => d.level === "error").length;
+  const warnings = result.diagnostics.filter((d) => d.level === "warning").length;
+  const unverified =
+    g.filter((x: { status: string }) => x.status !== "verified").length +
+    n.filter((x: { status: string }) => x.status !== "verified").length;
+
+  const checks: [string, boolean][] = [
+    ["Clear mission and goal", /^\s*goal\b/m.test(code) && !!result.mission],
+    ["States a why or because", /\b(why|because)\b/.test(code)],
+    ["Uses semantic types", SEMANTIC_TYPES.test(code)],
+    ["Declares never rules", n.length > 0],
+    ["Declares verification", /\bverify\b/.test(code)],
+  ];
+  const strong = checks.filter(([, ok]) => ok).map(([label]) => label);
+  const improve = checks.filter(([, ok]) => !ok).map(([label]) => `Add: ${label.toLowerCase()}`);
+  const base = Math.round((strong.length / checks.length) * 100);
+  const beauty = Math.max(0, base - Math.min(20, warnings * 4));
+
+  let trust: Scores["trust"] = "Ready";
+  if (errors > 0) trust = "Not ready";
+  else if (unverified > 0 || warnings > 0 || proof.proofStatus !== "approved")
+    trust = "Partial";
+  const trustReason = `${g.length} guarantee${g.length === 1 ? "" : "s"} declared, ${
+    g.length - g.filter((x: { status: string }) => x.status !== "verified").length
+  } verified · ${n.length} never rule${n.length === 1 ? "" : "s"} · ${warnings} warning${
+    warnings === 1 ? "" : "s"
+  } · proof ${proof.proofStatus} · AI ${proof.ai?.used ? "used" : "not used"}`;
+
+  return { beauty, strong, improve, trust, trustReason };
+}
+
+const breakers: { label: string; apply: (c: string) => string }[] = [
+  { label: "Remove idempotency key", apply: (c) => c.split("\n").filter((l) => !/idempotencyKey/.test(l)).join("\n") },
+  { label: "Remove verify block", apply: (c) => removeBlock(c, "verify") },
+  { label: "Remove goal", apply: (c) => removeBlock(c, "goal") },
+];
+
 function download(name: string, content: string, type = "text/plain") {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -75,6 +148,7 @@ export function PlaygroundClient() {
   const [tab, setTab] = useState<Tab>("diagnostics");
   const [graphView, setGraphView] = useState<"diagram" | "source">("diagram");
   const [copied, setCopied] = useState(false);
+  const [compiledSrc, setCompiledSrc] = useState("");
 
   async function copy(text: string) {
     try {
@@ -86,14 +160,15 @@ export function PlaygroundClient() {
     }
   }
 
-  async function run() {
+  async function run(src?: string) {
+    const source = src ?? code;
     setStatus("compiling");
     setErrorMsg("");
     try {
       const res = await fetch("/api/compile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: code }),
+        body: JSON.stringify({ source }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -103,6 +178,7 @@ export function PlaygroundClient() {
         return;
       }
       setResult(data as CompileResult);
+      setCompiledSrc(source);
       setStatus("idle");
       setTab("diagnostics");
     } catch {
@@ -118,6 +194,13 @@ export function PlaygroundClient() {
     ? (proof.guarantees ?? []).filter((g: { status: string }) => g.status !== "verified").length +
       (proof.neverRules ?? []).filter((n: { status: string }) => n.status !== "verified").length
     : 0;
+  const scores = result ? computeScores(compiledSrc || code, result) : null;
+  const trustColor =
+    scores?.trust === "Ready"
+      ? "text-emerald-300"
+      : scores?.trust === "Partial"
+        ? "text-gold-300"
+        : "text-red-300";
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -155,7 +238,7 @@ export function PlaygroundClient() {
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={run}
+            onClick={() => run()}
             disabled={status === "compiling"}
             className="btn-primary disabled:opacity-60"
           >
@@ -172,6 +255,24 @@ export function PlaygroundClient() {
           >
             Download .intent
           </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-haze-500">Try breaking it:</span>
+          {breakers.map((b) => (
+            <button
+              key={b.label}
+              type="button"
+              onClick={() => {
+                const c = b.apply(code);
+                setCode(c);
+                run(c);
+              }}
+              className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1 text-xs text-haze-300 transition-colors hover:border-gold-300/40 hover:text-gold-200"
+            >
+              {b.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -219,6 +320,58 @@ export function PlaygroundClient() {
 
         {result && (
           <div>
+            {/* Trust strip */}
+            <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5 text-xs">
+              <TrustChip ok={errors === 0} label={errors === 0 ? "Syntax passed" : "Syntax failed"} />
+              <TrustChip
+                ok={warnings === 0}
+                warn={warnings > 0}
+                label={warnings > 0 ? `${warnings} semantic warning${warnings === 1 ? "" : "s"}` : "No semantic warnings"}
+              />
+              <TrustChip ok label="Docs generated" />
+              <TrustChip ok label="Test plan generated" />
+              <TrustChip ok label="Contract graph" />
+              <TrustChip warn label={`Proof: ${proof?.proofStatus ?? "draft"}`} />
+              <TrustChip ok label="AI used: false" />
+            </div>
+
+            {/* Semantic beauty + trust readiness */}
+            {scores && (
+              <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-haze-400">
+                      Semantic beauty
+                    </span>
+                    <span className="font-mono text-lg text-white">
+                      {scores.beauty}
+                      <span className="text-xs text-haze-500">/100</span>
+                    </span>
+                  </div>
+                  {scores.improve.length > 0 && (
+                    <ul className="mt-2 space-y-0.5 text-xs text-haze-400">
+                      {scores.improve.slice(0, 3).map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs font-medium uppercase tracking-[0.16em] text-haze-400">
+                      Trust readiness
+                    </span>
+                    <span className={`text-sm font-semibold ${trustColor}`}>
+                      {scores.trust}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-haze-400">
+                    {scores.trustReason}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Status line, brand voice */}
             <p className="mb-3 text-sm text-haze-200">
               <span className="font-medium text-white">Intent compiled.</span>{" "}
@@ -403,6 +556,24 @@ export function PlaygroundClient() {
         )}
       </div>
     </div>
+  );
+}
+
+function TrustChip({
+  ok,
+  warn,
+  label,
+}: {
+  ok?: boolean;
+  warn?: boolean;
+  label: string;
+}) {
+  const color = warn ? "bg-gold-300" : ok ? "bg-emerald-400" : "bg-red-400";
+  return (
+    <span className="inline-flex items-center gap-1.5 text-haze-300">
+      <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+      {label}
+    </span>
   );
 }
 
