@@ -130,3 +130,19 @@ same mission:
 - [x] Public story states Prompt → Intent → Contract → Plan → Implementation → Verification → Proof
 - [x] Docs explain the no-AI deterministic compiler requirement
 - [x] Docs include Intent Drift and proof artifacts
+
+## Compiler emit stage (MVP) , SHIPPED 2026-07-09
+
+Deterministic `@intentlang/compiler` in `compiler/` (no AI). `intent check|graph|proof|build`.
+Emits `.intent/<mission>/{contract-graph.json, architecture-graph.json, implementation-plan.json, .intent-proof.json}`
++ Markdown/Mermaid/testplan. Shapes match OpenThunder's consumer contract (`il-to-ot-intent-v1`); stable slug IDs
+for drift keying. Semantic pass catches the signature "duplicate-prevention without idempotency" diagnostic.
+Tested against `examples/CreateInvoice.intent`.
+
+Next slices (small, in order):
+1. Split decision: keep compiler in IL repo vs move to a dedicated **SkillsTech Compiler** repo (founder call).
+2. Real test suite (node --test) + fixtures for all 4 examples + a golden-file check on emitted JSON.
+3. Semantic pass: unknown-semantic-type, event-payload-contains-Secret, api-sensitive-output-without-auth.
+4. Targets: OpenAPI draft when `api` blocks exist; then richer Markdown/Mermaid.
+5. `package.json` `bin` wiring so `intent` is a real CLI (npm link / npx).
+6. Multi-file: compile a whole `*.intent` tree into one `contract-graph.json` (missions[]).
