@@ -1,0 +1,34 @@
+# InvoiceCreated.intent
+# Draft IntentLang (v0). Event intent. Illustrative only.
+
+event InvoiceCreated
+
+why
+  Downstream services react to new invoices, so the contract must be stable.
+
+publishedBy
+  BillingService
+
+consumedBy
+  NotificationService
+  ReportingService
+
+payload
+  invoiceId: InvoiceId
+  customerId: CustomerId
+  total: Money
+
+guarantees
+  event is idempotent
+  event contains no payment secrets
+
+guarantee event contains no payment secrets
+  because event streams are widely readable across the platform
+  verify security scan
+
+never
+  include payment token in payload
+
+verify
+  contract check
+  security scan

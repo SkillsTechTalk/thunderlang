@@ -1,0 +1,54 @@
+# CreateInvoice.intent
+# Draft IntentLang (v0). Illustrative only; there is no compiler yet.
+
+mission CreateInvoice
+
+goal
+  Generate an invoice from approved orders
+
+why
+  Customers need accurate invoices that are auditable and never duplicated.
+
+requires
+  Customer
+  ApprovedOrders
+
+input
+  customer: Customer
+  orders: List<Order>
+
+output
+  invoice: Invoice
+
+guarantees
+  invoice.total is never negative
+  duplicate invoices are not created
+  every invoice is auditable
+
+guarantee duplicate invoices are not created
+  because duplicate billing damages customer trust
+  verify duplicate prevention test
+
+never
+  create invoice for unapproved order
+  expose payment token in logs
+
+never expose payment token in logs
+  because logs may be visible to support and observability tools
+  verify security scan
+
+target
+  DotNet
+  TypeScript
+  OpenAPI
+  Tests
+
+style
+  CleanArchitecture
+  CQRS
+
+verify
+  unit tests
+  duplicate prevention test
+  audit trail test
+  security scan

@@ -1,0 +1,35 @@
+# BillingService.intent
+# Draft IntentLang (v0). Architecture as code. Illustrative only.
+
+service BillingService
+
+why
+  Billing owns money movement, so its boundaries and ownership must be explicit.
+
+owns
+  Invoice
+  PaymentAttempt
+
+consumes
+  OrderApproved
+
+publishes
+  InvoiceCreated
+
+database
+  Postgres
+
+dependencies
+  PaymentGateway
+  NotificationService
+
+owner
+  Finance Platform Team
+
+guarantees
+  invoices are only created from approved orders
+  payment is never captured twice
+
+verify
+  architecture boundary check
+  contract check
