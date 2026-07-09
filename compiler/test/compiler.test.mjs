@@ -14,6 +14,7 @@ import {
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION, PROOF_SCHEMA_VERSION,
 } from '../src/emit.mjs';
 import { getCompletions, getHover } from '../src/intellisense.mjs';
+import { liftSource } from '../src/lift.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const example = (name) => readFileSync(join(HERE, '..', '..', 'examples', name), 'utf8');
@@ -100,6 +101,38 @@ test('IntelliSense: hover explains semantic types and note lenses', () => {
   const lens = getHover('note pm:\n  x', { line: 1, column: 6 }).hover;
   assert.equal(lens.kind, 'note_lens');
   assert.match(lens.description, /business meaning/i);
+});
+
+test('IntentLift: lifts TypeScript into a humble, source-mapped, unverified draft', () => {
+  const ts = [
+    'export class DuplicateInvoice extends Error {}',
+    'export async function createInvoice(orderId: OrderId, total: Money, key: IdempotencyKey): Promise<Result<Invoice, DuplicateInvoice>> {',
+    '  if (exists) throw new DuplicateInvoice();',
+    '  return ok(inv);',
+    '}',
+    "test('repeated order returns the same invoice', () => {});",
+  ].join('\n');
+  const r = liftSource(ts, { language: 'typescript', file: 'src/billing/invoice.ts' });
+  assert.equal(r.ok, true);
+  assert.equal(r.lifted.mission, 'CreateInvoice', 'mission name inferred from function');
+  assert.deepEqual(r.lifted.inputs.map((i) => i.name), ['orderId', 'total', 'key'], 'inputs from parameters');
+  assert.equal(r.lifted.output.type, 'Invoice', 'output unwrapped from Promise<Result<...>>');
+  assert.ok(r.lifted.guarantees.some((g) => /repeated order/.test(g.statement)), 'guarantee inferred from a test name');
+  assert.ok(r.lifted.neverRules.length >= 1, 'never rule inferred from the error');
+  assert.equal(r.lifted.reviewed, false, 'draft is not reviewed');
+  assert.equal(r.summary.reviewed, false);
+  assert.ok(r.diagnostics.some((d) => d.code === 'INTENT_LIFT_NEEDS_HUMAN_REVIEW'), 'requires human review');
+  // Source-mapped: the guarantee carries a file+line back to the test.
+  assert.ok(r.lifted.guarantees[0].sourceSpan.line > 0);
+  // The generated draft compiles cleanly (inferred blocks are recognized, not errors).
+  const ast = parseIntent(r.intentText);
+  assert.equal(ast.mission, 'CreateInvoice');
+  assert.ok(!ast.diagnostics.some((d) => d.code === 'unknown-block'), 'inferred blocks are recognized');
+});
+
+test('IntentLift: unsupported language fails safely, no functions handled gracefully', () => {
+  assert.equal(liftSource('x', { language: 'cobol' }).ok, false);
+  assert.equal(liftSource('const x = 1;', { language: 'typescript' }).ok, false);
 });
 
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {

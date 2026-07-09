@@ -169,6 +169,11 @@ export function parseIntent(source) {
       case 'api': ast.apis.push(parseApi(arg, node)); break;
       case 'event': ast.events.push(parseEvent(arg, node)); break;
       case 'database': ast.databases.push({ id: slug(arg), name: arg, engine: leafItems(node)[0] || null }); break;
+      // IntentLift inferred-draft metadata blocks: recognized, kept as metadata, not errors.
+      case 'inferred': case 'maps_to': case 'evidence': case 'unknown':
+      case 'needs_review': case 'assumption': case 'source': case 'confidence':
+        (ast.lift ||= {})[kw] = leafItems(node);
+        break;
       default:
         ast.diagnostics.push({ level: 'info', code: 'unknown-block', message: `Unrecognized top-level block: "${kw}"` });
     }

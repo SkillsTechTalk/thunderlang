@@ -21,6 +21,7 @@ import {
 } from './emit.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
+import { liftSource } from './lift.mjs';
 
 function parseArgs(argv) {
   const args = { _: [], out: '.intent', noAi: false };
@@ -29,6 +30,7 @@ function parseArgs(argv) {
     if (a === '--out') args.out = argv[++i];
     else if (a === '--no-ai') args.noAi = true;
     else if (a === '--position') args.position = argv[++i];
+    else if (a === '--from') args.from = argv[++i];
     else if (a === '--json') args.json = true;
     else if (a === '--targets') args.targets = (argv[++i] || '').split(',').filter(Boolean);
     else args._.push(a);
@@ -73,6 +75,22 @@ function main() {
     console.error('usage: intent <check|graph|proof|build> <file.intent> [--out .intent] [--no-ai]');
     process.exit(2);
   }
+  // IntentLift: lift source CODE into an inferred .intent draft (not intent parsing).
+  if (cmd === 'lift') {
+    const src = readFileSync(file, 'utf8');
+    const res = liftSource(src, { language: args.from || 'typescript', file: basename(file) });
+    if (!res.ok) { console.error(res.error); process.exit(1); }
+    if (args.json) { console.log(JSON.stringify(res.summary, null, 2)); return; }
+    if (args.out) {
+      const p = writeText(args.out, `${slug(res.lifted.mission)}.intent`, res.intentText);
+      console.log(`intent lift ${basename(file)} -> ${p.replace(process.cwd() + '/', '')}`);
+    } else {
+      console.log(res.intentText);
+    }
+    printDiagnostics(res.diagnostics);
+    return;
+  }
+
   const { source, ast, sourceHash, sourceFile } = load(file);
   const generatedAt = new Date().toISOString();
   const diagnostics = semanticDiagnostics(ast);

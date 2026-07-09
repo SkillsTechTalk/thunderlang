@@ -207,6 +207,22 @@ function buildDebug(result: CompileResult): DebugView {
   };
 }
 
+const LIFT_SAMPLE = `// Paste TypeScript. IntentLift infers a humble .intent draft from it.
+export class DuplicateInvoice extends Error {}
+
+export async function createInvoice(
+  orderId: OrderId,
+  total: Money,
+  key: IdempotencyKey,
+): Promise<Result<Invoice, DuplicateInvoice>> {
+  if (await exists(orderId)) throw new DuplicateInvoice();
+  return ok(await save(orderId, total));
+}
+
+test("repeated order returns the same invoice", () => {});
+it("never creates a duplicate invoice", () => {});
+`;
+
 const breakers: { label: string; apply: (c: string) => string }[] = [
   { label: "Remove idempotency key", apply: (c) => c.split("\n").filter((l) => !/idempotencyKey/.test(l)).join("\n") },
   { label: "Remove verify block", apply: (c) => removeBlock(c, "verify") },
@@ -241,9 +257,30 @@ export function PlaygroundClient() {
   const [copied, setCopied] = useState(false);
   const [compiledSrc, setCompiledSrc] = useState("");
   const [lens, setLens] = useState("all");
+  const [showLift, setShowLift] = useState(false);
+  const [liftCode, setLiftCode] = useState(LIFT_SAMPLE);
+  const [liftResult, setLiftResult] = useState<any>(null);
+  const [liftBusy, setLiftBusy] = useState(false);
   // Monaco editor instance (set on mount). Completions + hover are inline,
   // powered by the compiler through /api/assist inside IntentMonaco.
   const editorRef = useRef<any>(null);
+
+  async function lift() {
+    setLiftBusy(true);
+    setLiftResult(null);
+    try {
+      const res = await fetch("/api/lift", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source: liftCode, language: "typescript" }),
+      });
+      setLiftResult(await res.json());
+    } catch {
+      setLiftResult({ error: "Network error. Please try again." });
+    } finally {
+      setLiftBusy(false);
+    }
+  }
 
   // Reveal and select a 1-based source line in the Monaco editor.
   function highlightLine(line: number) {
@@ -325,7 +362,120 @@ export function PlaygroundClient() {
         : "text-red-300";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div>
+      {/* IntentLift: code -> inferred intent */}
+      <div className="mb-6 rounded-2xl border border-white/10 bg-ink-900/40">
+        <button
+          type="button"
+          onClick={() => setShowLift((v) => !v)}
+          className="flex w-full items-center justify-between px-5 py-3 text-left"
+        >
+          <span className="text-sm font-medium text-white">
+            IntentLift{" "}
+            <span className="text-haze-400">
+              · lift TypeScript into an inferred intent draft
+            </span>
+          </span>
+          <span className="text-haze-400">{showLift ? "−" : "+"}</span>
+        </button>
+        {showLift && (
+          <div className="border-t border-white/8 p-5">
+            <p className="mb-3 text-xs leading-relaxed text-haze-400">
+              Paste code you do not know (or want to understand). The compiler
+              infers a humble, source-mapped draft: evidence, confidence, and what
+              a human must review. It never claims the inferred intent is verified.
+            </p>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <textarea
+                  value={liftCode}
+                  onChange={(e) => setLiftCode(e.target.value)}
+                  spellCheck={false}
+                  className="h-64 w-full resize-none rounded-xl border border-white/10 bg-ink-900/80 p-4 font-mono text-[12.5px] leading-relaxed text-haze-100 outline-none focus:border-gold-300/40"
+                />
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={lift}
+                    disabled={liftBusy}
+                    className="btn-primary disabled:opacity-60"
+                  >
+                    {liftBusy ? "Lifting…" : "Lift to Intent"}
+                  </button>
+                  <span className="text-[11px] text-haze-500">
+                    TypeScript · no AI
+                  </span>
+                </div>
+              </div>
+              <div>
+                {!liftResult && (
+                  <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-white/12 text-center text-xs text-haze-500">
+                    The inferred .intent draft appears here.
+                  </div>
+                )}
+                {liftResult?.error && (
+                  <div className="rounded-xl border border-red-400/30 bg-red-400/[0.06] p-4 text-sm text-red-200">
+                    {liftResult.error}
+                  </div>
+                )}
+                {liftResult?.ok && (
+                  <div>
+                    <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      <TrustChip ok label={`mission ${liftResult.summary.mission}`} />
+                      <TrustChip
+                        warn={liftResult.summary.confidence !== "high"}
+                        ok={liftResult.summary.confidence === "high"}
+                        label={`confidence ${liftResult.summary.confidence}`}
+                      />
+                      <TrustChip ok label={`${liftResult.summary.functions} fn`} />
+                      <TrustChip ok label={`${liftResult.summary.tests} tests`} />
+                      <TrustChip warn label={`${liftResult.summary.unknowns.length} unknowns`} />
+                      <TrustChip warn label="reviewed: false" />
+                    </div>
+                    <pre className="max-h-52 overflow-auto rounded-xl border border-white/10 bg-ink-900/80 p-3 font-mono text-[12px] leading-relaxed text-haze-100">
+                      {liftResult.intentText}
+                    </pre>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCode(liftResult.intentText);
+                          setShowLift(false);
+                          run(liftResult.intentText);
+                        }}
+                        className="btn-ghost"
+                      >
+                        Open in editor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copy(liftResult.intentText)}
+                        className="text-xs text-gold-300 hover:text-gold-200"
+                      >
+                        {copied ? "Copied" : "Copy"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          download(
+                            `${liftResult.summary.mission}.intent`,
+                            liftResult.intentText,
+                          )
+                        }
+                        className="text-xs text-gold-300 hover:text-gold-200"
+                      >
+                        Download .intent
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
       {/* Editor */}
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -832,6 +982,7 @@ export function PlaygroundClient() {
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

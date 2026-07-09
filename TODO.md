@@ -211,6 +211,37 @@ Next slices (compiler core first):
 - [ ] Self-host Monaco (currently CDN via @monaco-editor/react loader)
 - [ ] Do NOT hardcode completions in the playground; do NOT duplicate the parser
 
+## IntentLift (Code-to-Intent)
+
+Lift implementation code into an INFERRED IntentLang draft. Useful but humble:
+evidence, confidence, unknowns, needs_review, source-mapped, reviewed:false, proof
+draft. Never claims inferred intent is verified. Backbone: compiler core does the
+lifting; playground/IDE render it. Pipeline: source -> Language Adapter ->
+CodeFactsIR -> Inference Engine -> LiftedIntent -> .intent draft.
+
+Shipped (P0, compiler core + playground, no AI):
+- [x] `compiler/src/lift.mjs`: CodeFactsIR + TypeScript adapter (functions,
+      params, return types, tests, errors) + inference + humble .intent renderer
+- [x] Inference: mission from fn name; inputs from params; output unwrapped from
+      Promise/Result; guarantees from test names; never from errors; unknown +
+      needs_review; per-item + overall confidence; source spans
+- [x] Lift diagnostics (NEEDS_HUMAN_REVIEW, LOW_CONFIDENCE, NO_TEST_EVIDENCE,
+      UNKNOWN_SEMANTIC_TYPE, SECURITY_REVIEW_NEEDED)
+- [x] CLI `intent lift --from typescript <file> [--json] [--out dir]`
+- [x] Parser recognizes inferred blocks so lifted drafts compile without noise
+- [x] `/api/lift`; playground "IntentLift" panel: paste code -> draft + summary
+      -> Open in editor / Copy / Download
+- [x] Tests (13 total): lift TS, source-mapped, unverified, unsupported-lang safe
+
+Next slices:
+- [ ] `intent lift --from repo <path>` (walk files, group missions, summary JSON)
+- [ ] Route/OpenAPI/schema/DB-access detection; richer never-rule mapping
+- [ ] Rust adapter (Result<T,E>, enums, serde, route macros, tests)
+- [ ] Perl adapter (conservative: packages, subs, @_, die/croak, DBI, POD)
+- [ ] Source-map panel + "Equivalent Intent" IDE view; per-line evidence
+- [ ] `intent approve` (reviewed:true + source hash); OpenThunder drift round-trip
+- [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
+
 ## Operating checklist status (see docs/operating-checklist.md)
 
 The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current state:

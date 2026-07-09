@@ -1,3 +1,25 @@
+declare module "*/compiler/src/lift.mjs" {
+  export interface LiftResult {
+    ok: boolean;
+    error?: string;
+    intentText?: string;
+    diagnostics?: { level: string; code: string; message: string }[];
+    summary?: {
+      mission: string;
+      confidence: string;
+      reviewed: boolean;
+      evidenceCount: number;
+      unknowns: string[];
+      functions: number;
+      tests: number;
+    };
+  }
+  export function liftSource(
+    source: string,
+    opts?: { language?: string; file?: string },
+  ): LiftResult;
+}
+
 declare module "*/compiler/src/intellisense.mjs" {
   export interface CompletionItem {
     id: string;
