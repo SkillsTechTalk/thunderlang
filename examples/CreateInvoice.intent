@@ -16,6 +16,7 @@ requires
 input
   customer: Customer
   orders: List<Order>
+  idempotencyKey: IdempotencyKey
 
 output
   invoice: Invoice
@@ -38,10 +39,12 @@ never expose payment token in logs
   verify security scan
 
 target
-  DotNet
   TypeScript
+  DotNet
   OpenAPI
   Tests
+  Markdown
+  Mermaid
 
 style
   CleanArchitecture

@@ -38,8 +38,8 @@ const whyPoints = [
     body: "Most languages ask you to commit to implementation first. The original intent is scattered across code, tickets, and memory.",
   },
   {
-    title: "Intent starts with the what and why",
-    body: "Intent focuses on what the software should do, why it exists, which constraints matter, and how it should be verified.",
+    title: "IntentLang starts with the what and why",
+    body: "IntentLang focuses on what the software should do, why it exists, which constraints matter, and how it should be verified.",
   },
   {
     title: "Engineers stay in control",
@@ -285,7 +285,7 @@ export default function HomePage() {
           {ecosystem.map((item) => (
             <Card key={item.name}>
               <div className="flex items-center gap-2.5">
-                {item.name === "Intent" && <StarMark className="h-5 w-5" />}
+                {item.name === "IntentLang" && <StarMark className="h-5 w-5" />}
                 <h3 className="text-base font-semibold text-white">
                   {item.name}
                 </h3>

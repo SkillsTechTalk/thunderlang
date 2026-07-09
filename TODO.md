@@ -51,9 +51,14 @@ repo and implementation is approved.
 - [x] Add `examples/ResetPassword.intent`
 - [x] Add `examples/BillingService.intent`
 - [x] Add `examples/InvoiceCreated.intent`
+- [x] Add `docs/spec.md`
+- [x] Add `docs/ai-age-best-practices.md`
+- [x] Add `docs/ecosystem-brief.md` (per-sibling roles + shared artifact contracts)
+- [x] Adopt canonical `CreateInvoice` (add `idempotencyKey`, full target list)
+- [x] Align `.intent-proof.json` schema to v0.1.0 (schemaVersion, neverRules, proofStatus)
+- [x] Convert site examples to lowercase canonical syntax + highlighter
 - [ ] Add `docs/language-principles.md`
 - [ ] Add `docs/intent-oriented-programming.md`
-- [ ] Add `docs/ai-age-best-practices.md`
 - [ ] Add `examples/DuplicateInvoicePrevention.intent`
 
 ### P1 - Tutorial expansion
@@ -66,9 +71,13 @@ repo and implementation is approved.
       security modifiers, error model, versioning
 
 ### P3 - Compiler contract (spec, not implementation)
-- [ ] Expand `docs/compiler-contract.md`: source → AST → diagnostics →
-      contract graph → architecture graph → generators → proof artifact
-- [ ] Nail down the `--no-ai` deterministic guarantee
+- [x] `docs/compiler-contract.md`: pipeline, proof artifact, `--no-ai`, MVP scope
+- [ ] Document the full semantic-diagnostics catalog (missing goal, secret field
+      without never-log, duplicate-prevention guarantee without idempotency, API
+      with sensitive output but no auth, event payload containing Secret, ...)
+- [ ] Define `implementation-plan.json` and the CST → AST stages in detail
+- [ ] Note: compiler implementation lives in the **SkillsTech Compiler repo**,
+      not here
 
 ### P4 - Examples library (multi-domain)
 - [ ] auth, billing, notifications, ecommerce, AI agent workflow, RAG pipeline,

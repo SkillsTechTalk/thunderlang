@@ -71,39 +71,45 @@ Emits `.intent-proof.json`. Shape:
 
 ```json
 {
-  "mission": "CreateInvoice",
-  "intentFile": "CreateInvoice.intent",
-  "sourceHash": "...",
+  "schemaVersion": "0.1.0",
+  "missionName": "CreateInvoice",
+  "sourceFile": "CreateInvoice.intent",
+  "sourceHash": "sha256:...",
   "compilerVersion": "0.1.0",
-  "targets": ["markdown", "mermaid", "openapi", "tests"],
+  "generatedAt": "2026-07-09T00:00:00Z",
+  "targetsRequested": ["Markdown", "Mermaid", "Tests", "Proof"],
+  "targetsGenerated": [
+    "docs/CreateInvoice.md",
+    "graphs/CreateInvoice.mmd",
+    "tests/CreateInvoice.testplan.md"
+  ],
   "guarantees": [
     {
       "text": "duplicate invoices are not created",
-      "status": "verified",
-      "evidence": ["DuplicateInvoicePrevention.test.ts"]
+      "status": "planned",
+      "evidence": ["tests/CreateInvoice.testplan.md"]
     }
   ],
-  "never": [
+  "neverRules": [
     {
       "text": "expose payment token in logs",
-      "status": "needs_review",
+      "status": "needs_verification",
       "evidence": []
     }
   ],
   "verification": {
-    "testsPassed": true,
-    "securityScanPassed": null,
-    "architectureCheckPassed": true
+    "syntaxPassed": true,
+    "semanticPassed": true,
+    "targetsGenerated": true
   },
-  "ai": {
-    "used": true,
-    "provider": "example",
-    "model": "example",
-    "promptHash": "...",
-    "humanApproved": true
-  }
+  "ai": { "used": false },
+  "humanApproval": { "required": true, "approved": false },
+  "proofStatus": "draft"
 }
 ```
+
+Guarantee and never-rule `status` values: `planned`, `needs_verification`,
+`verified`, or `failed`. `proofStatus` is `draft` until a human approves.
 
 ## Determinism and AI
 

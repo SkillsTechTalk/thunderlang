@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Vision",
   description:
-    "The vision behind Intent, the first Intent-Oriented Programming language for the AI era, built by SkillsTech to help engineers describe, verify, and own software.",
+    "The vision behind IntentLang, the first Intent-Oriented Programming language for the AI era, built by SkillsTech to help engineers describe, verify, and own software.",
   path: "/vision",
 });
 
@@ -23,7 +23,7 @@ const beliefs = [
   },
   {
     title: "Engineers stay the owners",
-    body: "Intent is not about handing control to a model. It is about giving engineers a clearer, more defensible way to express, review, and own the software they are responsible for.",
+    body: "IntentLang is not about handing control to a model. It is about giving engineers a clearer, more defensible way to express, review, and own the software they are responsible for.",
   },
 ];
 
@@ -33,7 +33,7 @@ export default function VisionPage() {
       <PageHero
         eyebrow="The Vision"
         title="A language where you write what software should do, and prove that it does."
-        intro="Intent is the first Intent-Oriented Programming language for the AI era. It is built on a simple bet: as AI writes more code, the leverage moves to whoever can state intent clearly and verify it faithfully."
+        intro="IntentLang is the first Intent-Oriented Programming language for the AI era. It is built on a simple bet: as AI writes more code, the leverage moves to whoever can state intent clearly and verify it faithfully."
       >
         <CTAButtons
           primary={{ href: "/waitlist", label: "Join the Waitlist" }}
@@ -58,7 +58,7 @@ export default function VisionPage() {
             away from what it was meant to do.
           </p>
           <p>
-            Intent flips the order. You describe what the software should do, why
+            IntentLang flips the order. You describe what the software should do, why
             it exists, which constraints matter, and how it should be verified.
             AI and the compiler help determine how to build it, while the
             contracts you wrote keep everyone, human and machine, honest.
@@ -85,7 +85,7 @@ export default function VisionPage() {
             What we are not claiming
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-haze-300">
-            Intent is early. It is not production-ready, it is not magic, and it
+            IntentLang is early. It is not production-ready, it is not magic, and it
             does not claim to outperform Rust, Go, Python, Java, TypeScript, or
             .NET today. It targets those languages and aims to make the intent
             behind your software explicit, reviewable, and verifiable.

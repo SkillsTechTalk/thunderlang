@@ -40,7 +40,7 @@ export function PlaygroundClient() {
           ))}
         </div>
         <label htmlFor="editor" className="sr-only">
-          Intent editor
+          IntentLang editor
         </label>
         <textarea
           id="editor"

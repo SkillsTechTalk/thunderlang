@@ -7,7 +7,7 @@ import { heroExample } from "@/lib/content";
 export const metadata = pageMeta({
   title: "Documentation",
   description:
-    "Early documentation for Intent, an Intent-Oriented Programming language by SkillsTech. Concepts, the Mission structure, contracts, and verification.",
+    "Early documentation for IntentLang, an Intent-Oriented Programming language by SkillsTech. Concepts, the Mission structure, contracts, and verification.",
   path: "/docs",
 });
 
@@ -66,10 +66,10 @@ const cliCommands = [
   ["intent proof", "Emit an .intent-proof.json artifact."],
 ];
 
-const secureFieldExample = `Field paymentToken: Secret
-  Never log
-  Never return to client
-  Store encrypted
+const secureFieldExample = `field paymentToken: Secret
+  never log
+  never return to client
+  store encrypted
 `;
 
 const concepts = [
@@ -90,7 +90,7 @@ export default function DocsPage() {
     <>
       <PageHero
         eyebrow="Documentation"
-        title="Learn Intent, from the idea to the draft syntax."
+        title="Learn IntentLang, from the idea to the draft syntax."
         intro="This is an early documentation stub. It captures the mental model and the current draft syntax while the language and compiler are still taking shape."
       />
 
@@ -124,7 +124,7 @@ export default function DocsPage() {
                 Core concepts
               </h2>
               <p className="mt-3 text-haze-300">
-                Intent has a small vocabulary. These are the terms you will see
+                IntentLang has a small vocabulary. These are the terms you will see
                 throughout the docs and examples.
               </p>
               <dl className="mt-6 divide-y divide-white/8 rounded-2xl border border-white/8">
@@ -184,7 +184,7 @@ export default function DocsPage() {
               <p className="mt-3 text-haze-300">
                 Guarantees are not tests bolted on afterward. They are part of
                 the program. Each guarantee is a property the implementation must
-                never violate, and the one Intent aims to verify for you across
+                never violate, and the one IntentLang aims to verify for you across
                 every target.
               </p>
               <ul className="mt-5 space-y-2 text-sm text-haze-300">
@@ -202,7 +202,7 @@ export default function DocsPage() {
                 Semantic types
               </h2>
               <p className="mt-3 text-haze-300">
-                Intent favors semantic types over primitives. Writing{" "}
+                IntentLang favors semantic types over primitives. Writing{" "}
                 <code className="font-mono text-gold-300">email: Email</code>{" "}
                 instead of{" "}
                 <code className="font-mono text-haze-200">email: string</code>{" "}
@@ -293,7 +293,7 @@ export default function DocsPage() {
                 Status &amp; stability
               </h2>
               <DraftNote>
-                Intent has no released compiler or CLI yet. This documentation
+                IntentLang has no released compiler or CLI yet. This documentation
                 describes the intended model and draft syntax. Nothing here is
                 stable, and everything is subject to change before v1.
               </DraftNote>

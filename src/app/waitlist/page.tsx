@@ -5,7 +5,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Join the Waitlist",
   description:
-    "Join the waitlist for Intent, the first Intent-Oriented Programming language for the AI era, built by SkillsTech.",
+    "Join the waitlist for IntentLang, the first Intent-Oriented Programming language for the AI era, built by SkillsTech.",
   path: "/waitlist",
 });
 
@@ -20,8 +20,8 @@ export default function WaitlistPage() {
     <>
       <PageHero
         eyebrow="Early access"
-        title="Be early to Intent."
-        intro="Intent is the first Intent-Oriented Programming language for the AI era. Join the waitlist to follow along and get access as the tooling opens up."
+        title="Be early to IntentLang."
+        intro="IntentLang is the first Intent-Oriented Programming language for the AI era. Join the waitlist to follow along and get access as the tooling opens up."
       />
       <Section>
         <div className="mx-auto max-w-xl">
@@ -35,7 +35,7 @@ export default function WaitlistPage() {
             ))}
           </ul>
           <p className="mt-8 text-xs leading-relaxed text-haze-500">
-            We&apos;ll only use your email to share Intent milestones. Signups are
+            We&apos;ll only use your email to share IntentLang milestones. Signups are
             stored privately and are never shared. You can ask us to remove your
             address at any time.
           </p>

@@ -1,0 +1,18 @@
+{
+  "name": "@intentlang/compiler",
+  "version": "0.1.0",
+  "description": "Deterministic IntentLang compiler (MVP emit stage): .intent -> contract-graph.json, architecture-graph.json, implementation-plan.json, .intent-proof.json. No AI; --no-ai is the only mode today.",
+  "type": "module",
+  "bin": {
+    "intent": "src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "check:example": "node src/cli.mjs check ../examples/CreateInvoice.intent",
+    "build:example": "node src/cli.mjs build ../examples/CreateInvoice.intent"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

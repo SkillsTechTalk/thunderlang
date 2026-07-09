@@ -1,37 +1,44 @@
-/** Shared, illustrative content. All Intent code here is DRAFT syntax. */
+/** Shared, illustrative content. All IntentLang code here is DRAFT syntax. */
 
-/** The canonical CreateInvoice mission, the reference example. */
-export const heroExample = `Mission CreateInvoice
+/** The canonical CreateInvoice mission, the shared reference example. */
+export const heroExample = `mission CreateInvoice
 
-Goal
+goal
   Generate an invoice from approved orders
 
-Requires
+why
+  Customers need accurate invoices that are auditable and never duplicated.
+
+requires
   Customer
   ApprovedOrders
 
-Input
+input
   customer: Customer
   orders: List<Order>
+  idempotencyKey: IdempotencyKey
 
-Output
+output
   invoice: Invoice
 
-Guarantees
+guarantees
   invoice.total is never negative
   duplicate invoices are not created
   every invoice is auditable
 
-Never
+never
   create invoice for unapproved order
   expose payment token in logs
 
-Target
+target
   TypeScript
-  Python
   DotNet
+  OpenAPI
+  Tests
+  Markdown
+  Mermaid
 
-Verify
+verify
   unit tests
   duplicate prevention test
   audit trail test
@@ -39,74 +46,75 @@ Verify
 `;
 
 /** A compact mission for tighter spaces. */
-export const heroExampleShort = `Mission CreateInvoice
+export const heroExampleShort = `mission CreateInvoice
 
-Goal
+goal
   Generate an invoice from approved orders
 
-Guarantees
+guarantees
   invoice.total is never negative
   duplicate invoices are not created
   every invoice is auditable
 
-Never
+never
   create invoice for unapproved order
   expose payment token in logs
 
-Target
+target
   TypeScript
-  Python
   DotNet
+  Tests
 `;
 
 /* --------------------------------------------------------------------------
  * Three syntax layers, shown on the ResetPassword mission.
  * -------------------------------------------------------------------------- */
 
-export const layerHuman = `Mission ResetPassword
+export const layerHuman = `mission ResetPassword
 
-Goal
+goal
   Let a user securely reset their password
 
-Requires
+requires
   verified email
   reset token
 
-Guarantees
+guarantees
   token expires after 15 minutes
   token can only be used once
   password is never logged
 `;
 
-export const layerTyped = `Mission ResetPassword
+export const layerTyped = `mission ResetPassword
 
-Input
+input
   email: Email
   token: ResetToken
   newPassword: Secret
 
-Output
+output
   result: PasswordResetResult
 
-Constraints
+constraints
   token.ttl <= 15 minutes
   password.minLength >= 12
 
-Never
+never
   log(newPassword)
   return token
 `;
 
-export const layerExecutable = `Mission ResetPassword
+export const layerExecutable = `mission ResetPassword
 
-Target DotNet
+target
+  DotNet
 
-Implementation
-  use ASP.NET Core
-  use EntityFramework
-  use BCrypt
+style
+  ASP.NET Core
+  EntityFramework
+  BCrypt
 
-Verify
+verify
   test token expiration
   test one time use
   test password hash stored
@@ -117,77 +125,77 @@ Verify
  * Architecture-, API-, and event-level intent.
  * -------------------------------------------------------------------------- */
 
-export const architectureExample = `Service Billing
+export const architectureExample = `service BillingService
 
-Owns
+owns
   Invoice
   PaymentAttempt
 
-Consumes
+consumes
   OrderApproved
 
-Publishes
+publishes
   InvoiceCreated
 
-Database
+database
   Postgres
 
-Owner
+owner
   Finance Platform Team
 `;
 
-export const apiExample = `API CreateInvoice
+export const apiExample = `api CreateInvoice
 
-Method
+method
   POST
 
-Path
+path
   /invoices
 
-Requires
+requires
   authenticated user
   permission invoice:create
 
-Input
+input
   CreateInvoiceRequest
 
-Output
+output
   InvoiceResponse
 
-Errors
+errors
   400 InvalidOrder
   401 Unauthorized
   409 DuplicateInvoice
 `;
 
-export const eventExample = `Event InvoiceCreated
+export const eventExample = `event InvoiceCreated
 
-PublishedBy
+publishedBy
   BillingService
 
-ConsumedBy
+consumedBy
   NotificationService
   ReportingService
 
-Payload
+payload
   invoiceId: InvoiceId
   customerId: CustomerId
   total: Money
 
-Guarantees
+guarantees
   event is idempotent
   event contains no payment secrets
 `;
 
-export const testExample = `Test DuplicateInvoicePrevention
+export const testExample = `test DuplicateInvoicePrevention
 
-Given
+given
   approved order already invoiced
 
-When
+when
   CreateInvoice runs again
 
-Then
+then
   no duplicate invoice is created
   existing invoice is returned
 `;
@@ -223,15 +231,15 @@ export const principles: Principle[] = [
   },
   {
     title: "Architecture-aware",
-    body: "Intent understands services, APIs, events, databases, dependencies, ownership, and boundaries.",
+    body: "IntentLang understands services, APIs, events, databases, dependencies, ownership, and boundaries.",
   },
   {
     title: "Repository-aware",
-    body: "Intent maps missions to real repo files, services, tests, docs, and ownership.",
+    body: "IntentLang maps missions to real repo files, services, tests, docs, and ownership.",
   },
   {
     title: "Human + AI collaboration",
-    body: "Intent gives humans a clear way to express judgment and gives AI a structured way to help.",
+    body: "IntentLang gives humans a clear way to express judgment and gives AI a structured way to help.",
   },
   {
     title: "Proof-producing",
@@ -247,7 +255,7 @@ export type EcosystemItem = {
 
 export const ecosystem: EcosystemItem[] = [
   {
-    name: "Intent",
+    name: "IntentLang",
     role: "Define what software should do",
     detail:
       "The intent-oriented language at the center: a clear, structured statement of goals, constraints, and guarantees.",
@@ -289,23 +297,23 @@ export type NotItem = { label: string; body: string };
 export const whatIntentIsNot: NotItem[] = [
   {
     label: "Not an AI wrapper",
-    body: "Intent is a language with its own model of intent, contracts, and verification, not a thin shell over a chat API.",
+    body: "IntentLang is a language with its own model of intent, contracts, and verification, not a thin shell over a chat API.",
   },
   {
     label: "Not a prompt format only",
-    body: "Prompts are one way to draft intent, but Intent is structured, reviewable source, not a paragraph of instructions.",
+    body: "Prompts are one way to draft intent, but IntentLang is structured, reviewable source, not a paragraph of instructions.",
   },
   {
     label: "Not a no-code tool",
-    body: "Intent is for engineers. It makes engineering intent explicit; it does not hide the system from the people who own it.",
+    body: "IntentLang is for engineers. It makes engineering intent explicit; it does not hide the system from the people who own it.",
   },
   {
     label: "Not a replacement for every language",
-    body: "Intent sits above Python, TypeScript, .NET, Java, Go, and Rust as an intent and verification layer. It targets them; it does not erase them.",
+    body: "IntentLang sits above Python, TypeScript, .NET, Java, Go, and Rust as an intent and verification layer. It targets them; it does not erase them.",
   },
   {
     label: "Not magic",
-    body: "There is no hidden trick. Intent makes goals and guarantees explicit so tools can help you keep them.",
+    body: "There is no hidden trick. IntentLang makes goals and guarantees explicit so tools can help you keep them.",
   },
   {
     label: "Not production-ready yet",

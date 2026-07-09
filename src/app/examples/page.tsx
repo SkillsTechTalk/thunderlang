@@ -15,7 +15,7 @@ import {
 export const metadata = pageMeta({
   title: "Examples",
   description:
-    "Draft Intent examples: missions, three syntax layers, and architecture, API, event, and test intent showing how Intent describes what software should do.",
+    "Draft IntentLang examples: missions, three syntax layers, and architecture, API, event, and test intent showing how IntentLang describes what software should do.",
   path: "/examples",
 });
 
@@ -62,7 +62,7 @@ const systemExamples = [
     id: "architecture",
     title: "Architecture as code",
     summary:
-      "Intent understands services: what they own, consume, and publish, their data store, and who owns them.",
+      "IntentLang understands services: what they own, consume, and publish, their data store, and who owns them.",
     code: architectureExample,
     filename: "Billing.intent",
   },
@@ -161,10 +161,10 @@ export default function ExamplesPage() {
         <div className="max-w-2xl">
           <p className="eyebrow">Beyond a single function</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-            Intent for whole systems.
+            IntentLang for whole systems.
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-haze-300">
-            Intent is architecture aware. Services, APIs, events, and tests are
+            IntentLang is architecture aware. Services, APIs, events, and tests are
             all first-class, so the meaning of a system lives in one place.
           </p>
         </div>

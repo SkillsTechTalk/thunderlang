@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Intent Language",
-    short_name: "Intent",
+    name: "IntentLang",
+    short_name: "IntentLang",
     description:
       "Intent-Oriented Programming for the AI era, by SkillsTech.",
     start_url: "/",

@@ -39,7 +39,7 @@ export function Footer() {
       <div className="border-t border-white/8">
         <div className="container-x flex flex-col items-center justify-between gap-3 py-6 text-xs text-haze-400 sm:flex-row">
           <p>
-            © {new Date().getFullYear()} {siteConfig.builtBy}. Intent is a
+            © {new Date().getFullYear()} {siteConfig.builtBy}. IntentLang is a
             SkillsTech project.
           </p>
           <p className="flex items-center gap-4">
