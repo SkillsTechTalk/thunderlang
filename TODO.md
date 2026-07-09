@@ -163,7 +163,7 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 - [ ] OpenAPI generation when an `api` block exists (#37)
 - [ ] `bin` wiring: `npm install -g` / `npx intent` so the CLI is real (#40,#94)
 - [ ] `intent check` in a GitHub Actions workflow (#95)
-- [ ] Wire the web playground to the real compiler so it shows generated artifacts (#89)
+- [x] Wire the web playground to the real compiler (/api/compile, deterministic, no AI) (#89)
 - [ ] Six more examples toward the target ten: RAG pipeline, webhook handler, event-driven billing, auth API, file upload, AI agent task, data pipeline, deployment policy (#91)
 - [ ] `intentlang-starter` template repo (#93)
 - [ ] Proof status vocabulary: draft/verified/partial/stale/failed/approved (#50)

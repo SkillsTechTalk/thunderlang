@@ -66,6 +66,42 @@ target
   Tests
 `;
 
+/** A complete ResetPassword mission (all layers combined) for the playground. */
+export const resetPasswordFull = `mission ResetPassword
+
+goal
+  Let a user securely reset their password
+
+why
+  A weak reset flow is a common path to account takeover.
+
+input
+  email: Email
+  token: ResetToken
+  newPassword: Secret
+
+output
+  result: PasswordResetResult
+
+guarantees
+  token expires after 15 minutes
+  token can only be used once
+  password is never logged
+
+never
+  log newPassword
+  return token to client
+
+target
+  DotNet
+  Tests
+
+verify
+  test token expiration
+  test one time use
+  test password hash stored
+`;
+
 /* --------------------------------------------------------------------------
  * Three syntax layers, shown on the ResetPassword mission.
  * -------------------------------------------------------------------------- */

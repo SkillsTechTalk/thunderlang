@@ -5,7 +5,7 @@ import { PlaygroundClient } from "./PlaygroundClient";
 export const metadata = pageMeta({
   title: "Playground",
   description:
-    "Sketch IntentLang in the browser. A preview editor for the Intent-Oriented Programming language, highlighting only, no execution yet.",
+    "Compile IntentLang in the browser. Write a .intent file, run the deterministic compiler (no AI), and get diagnostics, docs, a graph, a test plan, and a proof artifact.",
   path: "/playground",
 });
 
@@ -13,9 +13,9 @@ export default function PlaygroundPage() {
   return (
     <>
       <PageHero
-        eyebrow="Playground · Preview"
-        title="Sketch intent in the browser."
-        intro="Type or load a Mission and watch it format as draft IntentLang. This is a preview for exploring the syntax, compilation and execution are on the roadmap, not here yet."
+        eyebrow="Playground"
+        title="Write intent. Compile it. Read the proof."
+        intro="Load a mission and run the deterministic compiler right here. No AI. You get diagnostics, generated docs, a contract graph, a test plan, and a .intent-proof.json, the same artifacts the CLI emits."
       />
       <Section>
         <PlaygroundClient />
