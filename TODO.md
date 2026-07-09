@@ -237,7 +237,9 @@ Next slices:
 - [x] `intent lift --from repo <path>` (walk files, one mission/file, unique names,
       repo summary JSON with confidenceSummary + outputs; skips node_modules/dist/...)
 - [ ] Route/OpenAPI/schema/DB-access detection; richer never-rule mapping
-- [ ] Rust adapter (Result<T,E>, enums, serde, route macros, tests)
+- [x] Rust adapter (fn signatures, Result<T,E> unwrap, error-enum variants -> never
+      rules, #[test]/#[tokio::test]); repo mode auto-detects .rs; playground lang selector
+- [ ] Rust: serde structs, actix/axum/rocket route macros, sqlx/diesel DB access
 - [ ] Perl adapter (conservative: packages, subs, @_, die/croak, DBI, POD)
 - [ ] Source-map panel + "Equivalent Intent" IDE view; per-line evidence
 - [ ] `intent approve` (reviewed:true + source hash); OpenThunder drift round-trip

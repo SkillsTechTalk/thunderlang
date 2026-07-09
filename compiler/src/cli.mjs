@@ -24,7 +24,7 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo } from './lift.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
-const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
+const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs'];
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
 function collectFiles(root, acc = []) {
   for (const name of readdirSync(root)) {
@@ -95,7 +95,9 @@ function main() {
     if (args.from === 'repo') {
       const root = file;
       const files = collectFiles(root).map((f) => ({ file: relative(root, f), source: readFileSync(f, 'utf8') }));
-      const res = liftRepo(files, { language: 'typescript' });
+      // Per-file language auto-detection (unless --from overrides). "repo" is not a language.
+      const override = args.from && args.from !== 'repo' ? args.from : undefined;
+      const res = liftRepo(files, { language: override });
       const outputs = res.missions.map((m) => ({
         mission: m.mission,
         file: args.out ? join(args.out, m.outName) : null,

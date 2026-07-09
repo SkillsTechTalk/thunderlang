@@ -79,8 +79,76 @@ export function extractFactsTypeScript(source, file = 'input.ts') {
   };
 }
 
-const ADAPTERS = { typescript: extractFactsTypeScript, ts: extractFactsTypeScript, javascript: extractFactsTypeScript, js: extractFactsTypeScript };
-export const SUPPORTED_LANGUAGES = ['typescript'];
+// Split on a top-level delimiter, ignoring ones inside <>, (), [], {}.
+function splitTopLevel(str, delim) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of str) {
+    if ('<([{'.includes(ch)) depth++;
+    else if ('>)]}'.includes(ch)) depth = Math.max(0, depth - 1);
+    if (ch === delim && depth === 0) { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+function parseRustParams(raw) {
+  return splitTopLevel(raw, ',').map((p) => p.trim()).filter(Boolean)
+    .filter((p) => !/^&?\s*(mut\s+)?self$/.test(p))
+    .map((p) => {
+      const m = p.replace(/^mut\s+/, '').match(/^([A-Za-z_]\w*)\s*:\s*(.+)$/);
+      if (!m) return { name: p, type: null };
+      return { name: m[1], type: m[2].trim().replace(/^&(mut\s+)?/, '') };
+    });
+}
+
+// ── Rust adapter -> CodeFactsIR (strong types, Result<T,E>, error enums) ─────
+export function extractFactsRust(source, file = 'input.rs') {
+  let m;
+  // tests first: #[test] / #[tokio::test] fn <name>
+  const tests = [];
+  const testNames = new Set();
+  const testRe = /#\[\s*(?:tokio::)?test\s*\][\s\S]*?fn\s+(\w+)/g;
+  while ((m = testRe.exec(source))) { tests.push({ name: m[1], file, line: lineOf(source, m.index) }); testNames.add(m[1]); }
+
+  const functions = [];
+  const seen = new Set();
+  const fnRe = /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([^)]*)\)\s*(?:->\s*([^{;]+))?/g;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1];
+    if (seen.has(name) || testNames.has(name)) continue;
+    seen.add(name);
+    functions.push({
+      name, file, line: lineOf(source, m.index),
+      parameters: parseRustParams(m[2] || ''),
+      returnType: m[3] ? m[3].trim() : null,
+      evidence: [{ kind: 'function_signature', file, line: lineOf(source, m.index) }],
+    });
+  }
+
+  // error enum variants: `enum <Name>Error { DuplicateInvoice, Unauthorized(..) }`
+  const errors = [];
+  const seenErr = new Set();
+  const enumRe = /enum\s+(\w*Error)\s*\{([^}]*)\}/g;
+  while ((m = enumRe.exec(source))) {
+    for (const raw of splitTopLevel(m[2], ',')) {
+      const v = raw.trim().replace(/[({].*$/s, '').trim();
+      if (v && /^[A-Z]/.test(v) && !seenErr.has(v)) { seenErr.add(v); errors.push({ name: v, source: m[1], file, line: lineOf(source, m.index) }); }
+    }
+  }
+
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'rust', sourceRoot: file, functions, tests, errors };
+}
+
+const ADAPTERS = {
+  typescript: extractFactsTypeScript, ts: extractFactsTypeScript,
+  javascript: extractFactsTypeScript, js: extractFactsTypeScript,
+  rust: extractFactsRust, rs: extractFactsRust,
+};
+export const SUPPORTED_LANGUAGES = ['typescript', 'rust'];
+
+const LANG_DISPLAY = { typescript: 'TypeScript', rust: 'Rust', javascript: 'JavaScript' };
 
 // Unwrap Result<T, E> / Promise<T> / T -> { output, error }
 function unwrapReturn(ret) {
@@ -113,7 +181,9 @@ export function inferIntent(facts) {
     sourceSpan: { file: t.file, line: t.line },
   }));
 
-  const errorNames = [...new Set([...(error ? [error] : []), ...facts.errors.map((e) => e.name)])]
+  // Prefer specific error-enum variants; fall back to the Result error type.
+  const variantErrors = facts.errors.map((e) => e.name);
+  const errorNames = [...new Set(variantErrors.length ? variantErrors : (error ? [error] : []))]
     .filter((n) => n && !/^(string|number|boolean|void|Error)$/i.test(n));
   const neverRules = errorNames.map((n) => ({
     statement: `cause ${words(n)}`, evidence: `${n} error`, confidence: 'medium',
@@ -129,7 +199,7 @@ export function inferIntent(facts) {
 
   return {
     mission: missionName,
-    from: 'TypeScript',
+    from: LANG_DISPLAY[facts.sourceLanguage] || facts.sourceLanguage,
     confidence: overall,
     reviewed: false,
     mapsTo: [
@@ -155,7 +225,7 @@ export function inferIntent(facts) {
 // ── LiftedIntent -> humble, source-mapped .intent draft ─────────────────────
 export function renderLiftedIntent(lift) {
   const L = [];
-  L.push(`# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.`);
+  L.push(`# Inferred by IntentLift from ${lift.from}. Draft, unverified, needs human review.`);
   L.push(`mission ${lift.mission}`, '');
   L.push('inferred', `  from ${lift.from}`, `  confidence ${lift.confidence}`, `  reviewed false`, `  generated_by SkillsTech Compiler ${COMPILER_VERSION}`, '');
   L.push('maps_to', ...lift.mapsTo.map((m) => `  ${m}`), '');
@@ -200,15 +270,23 @@ function liftDiagnostics(lift, facts) {
  * filesystem; this core function stays pure). Returns per-mission drafts + a
  * repo-level summary matching the `intent lift --from repo --json` contract.
  */
-export function liftRepo(files, { language = 'typescript' } = {}) {
+export function languageForFile(file) {
+  if (/\.rs$/i.test(file)) return 'rust';
+  return 'typescript';
+}
+
+export function liftRepo(files, { language } = {}) {
   const missions = [];
   const confidenceSummary = { high: 0, medium: 0, low: 0 };
+  const detected = new Set();
   const usedNames = new Map();
   let unknowns = 0;
 
   for (const { file, source } of files) {
-    const r = liftSource(source, { language, file });
+    const lang = language || languageForFile(file);
+    const r = liftSource(source, { language: lang, file });
     if (!r.ok) continue;
+    detected.add(lang);
     const conf = r.lifted.confidence;
     confidenceSummary[conf] = (confidenceSummary[conf] || 0) + 1;
     unknowns += r.lifted.unknown.length;
@@ -225,7 +303,7 @@ export function liftRepo(files, { language = 'typescript' } = {}) {
   return {
     ok: missions.length > 0,
     schemaVersion: IR_SCHEMA_VERSION,
-    languagesDetected: missions.length ? [language] : [],
+    languagesDetected: [...detected].sort(),
     missionsGenerated: missions.length,
     confidenceSummary,
     unknowns,

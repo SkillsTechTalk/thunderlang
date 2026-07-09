@@ -259,6 +259,7 @@ export function PlaygroundClient() {
   const [lens, setLens] = useState("all");
   const [showLift, setShowLift] = useState(false);
   const [liftCode, setLiftCode] = useState(LIFT_SAMPLE);
+  const [liftLang, setLiftLang] = useState("typescript");
   const [liftResult, setLiftResult] = useState<any>(null);
   const [liftBusy, setLiftBusy] = useState(false);
   // Monaco editor instance (set on mount). Completions + hover are inline,
@@ -272,7 +273,7 @@ export function PlaygroundClient() {
       const res = await fetch("/api/lift", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: liftCode, language: "typescript" }),
+        body: JSON.stringify({ source: liftCode, language: liftLang }),
       });
       setLiftResult(await res.json());
     } catch {
@@ -402,9 +403,15 @@ export function PlaygroundClient() {
                   >
                     {liftBusy ? "Lifting…" : "Lift to Intent"}
                   </button>
-                  <span className="text-[11px] text-haze-500">
-                    TypeScript · no AI
-                  </span>
+                  <select
+                    value={liftLang}
+                    onChange={(e) => setLiftLang(e.target.value)}
+                    className="rounded-md border border-white/12 bg-ink-900 px-2 py-1 text-xs text-haze-200 outline-none focus:border-gold-300/40"
+                  >
+                    <option value="typescript">TypeScript</option>
+                    <option value="rust">Rust</option>
+                  </select>
+                  <span className="text-[11px] text-haze-500">no AI</span>
                 </div>
               </div>
               <div>

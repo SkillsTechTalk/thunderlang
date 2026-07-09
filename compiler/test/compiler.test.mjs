@@ -130,6 +130,31 @@ test('IntentLift: lifts TypeScript into a humble, source-mapped, unverified draf
   assert.ok(!ast.diagnostics.some((d) => d.code === 'unknown-block'), 'inferred blocks are recognized');
 });
 
+test('IntentLift Rust: strong types + error enums -> high-confidence draft', () => {
+  const rust = [
+    'pub enum BillingError { DuplicateInvoice, Unauthorized, InvalidOrder }',
+    'pub async fn create_invoice(order_id: OrderId, total: Money, key: IdempotencyKey) -> Result<Invoice, BillingError> {',
+    '  Ok(x)',
+    '}',
+    '#[tokio::test]',
+    'async fn repeated_order_returns_same_invoice() {}',
+  ].join('\n');
+  const r = liftSource(rust, { language: 'rust', file: 'src/billing/invoice.rs' });
+  assert.equal(r.ok, true);
+  assert.equal(r.lifted.from, 'Rust');
+  assert.equal(r.lifted.mission, 'CreateInvoice');
+  assert.deepEqual(r.lifted.inputs.map((i) => i.name), ['order_id', 'total', 'key']);
+  assert.equal(r.lifted.output.type, 'Invoice', 'output unwrapped from Result<Invoice, BillingError>');
+  // never rules come from the error enum variants, not the enum name
+  const nevers = r.lifted.neverRules.map((n) => n.statement);
+  assert.ok(nevers.some((n) => /duplicate invoice/.test(n)));
+  assert.ok(nevers.some((n) => /unauthorized/.test(n)));
+  assert.ok(nevers.some((n) => /invalid order/.test(n)));
+  // the test fn is not counted as a regular function
+  assert.ok(r.lifted.guarantees.some((g) => /repeated order/.test(g.statement)));
+  assert.match(r.intentText, /from Rust/);
+});
+
 test('IntentLift repo: lifts many files, unique names, repo summary', () => {
   const files = [
     { file: 'src/billing/invoice.ts', source: 'export function createInvoice(orderId: OrderId): Result<Invoice, DuplicateInvoice> { return x; }\ntest("repeated order returns same invoice", ()=>{});' },

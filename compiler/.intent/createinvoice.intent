@@ -1,0 +1,49 @@
+# Inferred by IntentLift from Rust. Draft, unverified, needs human review.
+mission CreateInvoice
+
+inferred
+  from Rust
+  confidence high
+  reviewed false
+  generated_by SkillsTech Compiler 0.1.0
+
+maps_to
+  function inv.rs:create_invoice
+  test inv.rs:repeated_order_returns_same_invoice
+
+evidence
+  function signature create_invoice
+  test repeated_order_returns_same_invoice
+  error DuplicateInvoice
+  error Unauthorized
+
+goal
+  create invoice (inferred from the create_invoice signature)
+
+input
+  order_id: OrderId
+  total: Money
+
+output
+  result: Invoice
+
+guarantees
+  repeated order returns same invoice
+
+never
+  cause duplicate invoice
+  cause unauthorized
+
+unknown
+  why
+  owner
+  customer impact
+  PM notes
+  security never rules
+
+needs_review
+  goal wording
+  why
+  never rules
+  verification evidence
+
