@@ -13,6 +13,7 @@ import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION, PROOF_SCHEMA_VERSION,
 } from '../src/emit.mjs';
+import { getCompletions, getHover } from '../src/intellisense.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const example = (name) => readFileSync(join(HERE, '..', '..', 'examples', name), 'utf8');
@@ -80,6 +81,25 @@ test('IntentLens: unknown lens warns; notes are metadata, not verification', () 
   assert.ok(proof.notes.count >= 6);
   // notes never flip a guarantee to verified
   assert.ok(proof.guarantees.every((g) => g.status !== 'verified'));
+});
+
+test('IntelliSense: completions are context-aware and compiler-sourced', () => {
+  assert.match(getCompletions('', { line: 1, column: 1 }).items[0].label, /mission/, 'empty file suggests a mission');
+  const afterNote = getCompletions('mission M\nnote ', { line: 2, column: 6 }).items;
+  assert.ok(afterNote.some((i) => i.label === 'note pm:'), 'after note suggests lenses');
+  const inInput = getCompletions('mission M\ninput\n  x: ', { line: 3, column: 6 }).items;
+  assert.ok(inInput.some((i) => i.kind === 'type' && i.label === 'Email'), 'input suggests semantic types');
+  assert.ok(inInput.every((i) => i.source === 'compiler'), 'completions are marked compiler-sourced');
+});
+
+test('IntelliSense: hover explains semantic types and note lenses', () => {
+  const src = 'input\n  idempotencyKey: IdempotencyKey';
+  const h = getHover(src, { line: 2, column: 22 }).hover;
+  assert.equal(h.kind, 'semantic_type');
+  assert.match(h.description, /retry key/i);
+  const lens = getHover('note pm:\n  x', { line: 1, column: 6 }).hover;
+  assert.equal(lens.kind, 'note_lens');
+  assert.match(lens.description, /business meaning/i);
 });
 
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {

@@ -20,6 +20,7 @@ import {
   semanticDiagnostics, buildProof, sha256,
 } from './emit.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
+import { getCompletions, getHover } from './intellisense.mjs';
 
 function parseArgs(argv) {
   const args = { _: [], out: '.intent', noAi: false };
@@ -27,6 +28,8 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--out') args.out = argv[++i];
     else if (a === '--no-ai') args.noAi = true;
+    else if (a === '--position') args.position = argv[++i];
+    else if (a === '--json') args.json = true;
     else if (a === '--targets') args.targets = (argv[++i] || '').split(',').filter(Boolean);
     else args._.push(a);
   }
@@ -74,6 +77,15 @@ function main() {
   const generatedAt = new Date().toISOString();
   const diagnostics = semanticDiagnostics(ast);
   const outDir = join(args.out, slug(ast.mission || basename(file, '.intent')));
+
+  if (cmd === 'completions' || cmd === 'hover') {
+    const [ln, coln] = (args.position || '1:1').split(':').map(Number);
+    const out = cmd === 'completions'
+      ? getCompletions(source, { line: ln, column: coln })
+      : getHover(source, { line: ln, column: coln });
+    console.log(JSON.stringify(out, null, 2));
+    return;
+  }
 
   if (cmd === 'check') {
     console.log(`intent check ${sourceFile} (mission: ${ast.mission})`);

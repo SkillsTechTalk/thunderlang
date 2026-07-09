@@ -199,14 +199,14 @@ Partial (already true): diagnostics carry structured `fix { label, insert, block
 which is the code-action/quick-fix contract; the playground "Apply" applies them.
 
 Next slices (compiler core first):
-- [ ] Completion provider: block keywords, note lenses, semantic types, context-aware
-      (`intent completions <file> --position line:col --json`)
-- [ ] Hover provider: semantic types + note lenses (`intent hover ... --json`)
+- [x] Completion provider (compiler core): block keywords, note lenses, semantic types,
+      context-aware; `intent completions --position --json`; consumed via /api/assist
+- [x] Hover provider (compiler core): semantic types + note lenses; `intent hover --position --json`
 - [ ] Code-action provider with safety levels + text edits; `intent code-actions`, `intent apply-fix`
 - [ ] Autocorrect (safe): `goals:`->`goal:`, `guarantee:`->`guarantees:`, indentation, casing
 - [ ] `intent format`; later `intent lsp` (LSP) for VS Code
-- [ ] Playground: autocomplete popup, hover cards, quick-fix lightbulb, fix preview diff,
-      "Fix all safe", lens-aware ranking (consider Monaco/CodeMirror for real editor UX)
+- [x] Playground Assist panel: compiler hover + click-to-insert completions (textarea)
+- [ ] Richer editor UX (Monaco/CodeMirror): inline popup, lightbulb, fix preview, Fix-all-safe
 - [ ] Do NOT hardcode completions in the playground; do NOT duplicate the parser
 
 ## Operating checklist status (see docs/operating-checklist.md)

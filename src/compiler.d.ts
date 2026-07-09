@@ -1,3 +1,32 @@
+declare module "*/compiler/src/intellisense.mjs" {
+  export interface CompletionItem {
+    id: string;
+    label: string;
+    kind: string;
+    detail: string;
+    insertText: string;
+    sortText: string;
+    source: string;
+    confidence: string;
+  }
+  export interface HoverInfo {
+    target: string;
+    kind: string;
+    title: string;
+    description: string;
+    examples: string[];
+    relatedSuggestions: string[];
+  }
+  export function getCompletions(
+    source: string,
+    position?: { line?: number; column?: number },
+  ): { items: CompletionItem[] };
+  export function getHover(
+    source: string,
+    position?: { line?: number; column?: number },
+  ): { hover: HoverInfo | null };
+}
+
 // Types for the plain-ESM IntentLang compiler imported by the /api/compile route.
 declare module "*/compiler/src/compile.mjs" {
   export interface Fix {
