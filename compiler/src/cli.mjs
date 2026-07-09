@@ -12,8 +12,8 @@
 //
 // --no-ai is the default and only mode today; the flag is accepted for forward-compatibility.
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { basename, join, relative } from 'node:path';
 import { parseIntent, slug } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
@@ -21,7 +21,21 @@ import {
 } from './emit.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
-import { liftSource } from './lift.mjs';
+import { liftSource, liftRepo } from './lift.mjs';
+
+// Recursively collect supported source files, skipping vendored / build dirs.
+const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
+function collectFiles(root, acc = []) {
+  for (const name of readdirSync(root)) {
+    if (SKIP_DIRS.has(name)) continue;
+    const full = join(root, name);
+    const st = statSync(full);
+    if (st.isDirectory()) collectFiles(full, acc);
+    else if (LIFT_EXTS.some((e) => name.endsWith(e)) && !name.endsWith('.d.ts')) acc.push(full);
+  }
+  return acc;
+}
 
 function parseArgs(argv) {
   const args = { _: [], out: '.intent', noAi: false };
@@ -75,8 +89,36 @@ function main() {
     console.error('usage: intent <check|graph|proof|build> <file.intent> [--out .intent] [--no-ai]');
     process.exit(2);
   }
-  // IntentLift: lift source CODE into an inferred .intent draft (not intent parsing).
+  // IntentLift: lift source CODE into inferred .intent drafts (not intent parsing).
   if (cmd === 'lift') {
+    // Repo mode: walk a directory, lift each file, emit drafts + a repo summary.
+    if (args.from === 'repo') {
+      const root = file;
+      const files = collectFiles(root).map((f) => ({ file: relative(root, f), source: readFileSync(f, 'utf8') }));
+      const res = liftRepo(files, { language: 'typescript' });
+      const outputs = res.missions.map((m) => ({
+        mission: m.mission,
+        file: args.out ? join(args.out, m.outName) : null,
+        confidence: m.summary.confidence, reviewed: false,
+        evidenceCount: m.summary.evidenceCount, unknowns: m.summary.unknowns,
+      }));
+      if (args.json) {
+        const { missions, ...rest } = res; void missions;
+        console.log(JSON.stringify({ sourceRoot: root, ...rest, outputs }, null, 2));
+        return;
+      }
+      if (args.out) {
+        for (const m of res.missions) writeText(args.out, m.outName, m.intentText);
+        console.log(`intent lift repo ${root} -> ${res.missionsGenerated} mission(s) in ${args.out}`);
+        console.log(`  confidence: ${JSON.stringify(res.confidenceSummary)} | ${res.unknowns} unknown(s) total`);
+      } else {
+        console.log(`intent lift repo ${root}: ${res.missionsGenerated} mission(s)`);
+        for (const m of res.missions) console.log(`  ${m.mission} (${m.summary.confidence}) <- ${m.sourceFile}`);
+      }
+      return;
+    }
+
+    // Single-file mode.
     const src = readFileSync(file, 'utf8');
     const res = liftSource(src, { language: args.from || 'typescript', file: basename(file) });
     if (!res.ok) { console.error(res.error); process.exit(1); }

@@ -14,7 +14,7 @@ import {
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION, PROOF_SCHEMA_VERSION,
 } from '../src/emit.mjs';
 import { getCompletions, getHover } from '../src/intellisense.mjs';
-import { liftSource } from '../src/lift.mjs';
+import { liftSource, liftRepo } from '../src/lift.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const example = (name) => readFileSync(join(HERE, '..', '..', 'examples', name), 'utf8');
@@ -128,6 +128,21 @@ test('IntentLift: lifts TypeScript into a humble, source-mapped, unverified draf
   const ast = parseIntent(r.intentText);
   assert.equal(ast.mission, 'CreateInvoice');
   assert.ok(!ast.diagnostics.some((d) => d.code === 'unknown-block'), 'inferred blocks are recognized');
+});
+
+test('IntentLift repo: lifts many files, unique names, repo summary', () => {
+  const files = [
+    { file: 'src/billing/invoice.ts', source: 'export function createInvoice(orderId: OrderId): Result<Invoice, DuplicateInvoice> { return x; }\ntest("repeated order returns same invoice", ()=>{});' },
+    { file: 'src/auth/reset.ts', source: 'export function resetPassword(token: Token, newPassword: Secret): Result<Ok, Expired> { return x; }' },
+    { file: 'src/util/math.ts', source: 'const noop = 1;' }, // no functions -> skipped
+  ];
+  const res = liftRepo(files, { language: 'typescript' });
+  assert.equal(res.ok, true);
+  assert.equal(res.missionsGenerated, 2, 'two missions, math.ts skipped');
+  assert.deepEqual(res.missions.map((m) => m.mission).sort(), ['CreateInvoice', 'ResetPassword']);
+  assert.ok(res.missions.every((m) => m.summary.reviewed === false));
+  assert.ok(res.confidenceSummary.high + res.confidenceSummary.medium + res.confidenceSummary.low === 2);
+  assert.ok(res.unknowns > 0);
 });
 
 test('IntentLift: unsupported language fails safely, no functions handled gracefully', () => {

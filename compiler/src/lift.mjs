@@ -194,6 +194,45 @@ function liftDiagnostics(lift, facts) {
   return d;
 }
 
+/**
+ * Lift a set of source files (a repo) into inferred IntentLang drafts, one per
+ * file that yields a mission. `files` is [{ file, source }] (the CLI reads the
+ * filesystem; this core function stays pure). Returns per-mission drafts + a
+ * repo-level summary matching the `intent lift --from repo --json` contract.
+ */
+export function liftRepo(files, { language = 'typescript' } = {}) {
+  const missions = [];
+  const confidenceSummary = { high: 0, medium: 0, low: 0 };
+  const usedNames = new Map();
+  let unknowns = 0;
+
+  for (const { file, source } of files) {
+    const r = liftSource(source, { language, file });
+    if (!r.ok) continue;
+    const conf = r.lifted.confidence;
+    confidenceSummary[conf] = (confidenceSummary[conf] || 0) + 1;
+    unknowns += r.lifted.unknown.length;
+    const base = slug(r.lifted.mission);
+    const n = (usedNames.get(base) || 0) + 1;
+    usedNames.set(base, n);
+    const outName = n === 1 ? `${base}.intent` : `${base}-${n}.intent`;
+    missions.push({
+      mission: r.lifted.mission, sourceFile: file, outName,
+      intentText: r.intentText, summary: r.summary, diagnostics: r.diagnostics,
+    });
+  }
+
+  return {
+    ok: missions.length > 0,
+    schemaVersion: IR_SCHEMA_VERSION,
+    languagesDetected: missions.length ? [language] : [],
+    missionsGenerated: missions.length,
+    confidenceSummary,
+    unknowns,
+    missions,
+  };
+}
+
 /** Lift source into an inferred IntentLang draft. Deterministic, no AI. */
 export function liftSource(source, { language = 'typescript', file = 'input.ts' } = {}) {
   const adapter = ADAPTERS[String(language).toLowerCase()];

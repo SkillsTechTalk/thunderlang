@@ -234,7 +234,8 @@ Shipped (P0, compiler core + playground, no AI):
 - [x] Tests (13 total): lift TS, source-mapped, unverified, unsupported-lang safe
 
 Next slices:
-- [ ] `intent lift --from repo <path>` (walk files, group missions, summary JSON)
+- [x] `intent lift --from repo <path>` (walk files, one mission/file, unique names,
+      repo summary JSON with confidenceSummary + outputs; skips node_modules/dist/...)
 - [ ] Route/OpenAPI/schema/DB-access detection; richer never-rule mapping
 - [ ] Rust adapter (Result<T,E>, enums, serde, route macros, tests)
 - [ ] Perl adapter (conservative: packages, subs, @_, die/croak, DBI, POD)
