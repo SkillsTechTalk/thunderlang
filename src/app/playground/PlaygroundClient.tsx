@@ -10,12 +10,13 @@ import {
 } from "@/lib/content";
 import { MermaidDiagram } from "@/components/MermaidDiagram";
 
+type Fix = { label: string; insert?: string; block?: string };
 type Diagnostic = {
   level: "error" | "warning" | "info";
   code: string;
   message: string;
   why?: string;
-  fix?: string[];
+  fix?: Fix[];
 };
 type CompileResult = {
   mission: string;
@@ -114,6 +115,31 @@ function computeScores(code: string, result: CompileResult): Scores {
   } · proof ${proof.proofStatus} · AI ${proof.ai?.used ? "used" : "not used"}`;
 
   return { beauty, strong, improve, trust, trustReason };
+}
+
+// Insert an indented line into an existing top-level block, creating the block
+// at the end of the file if it does not exist yet.
+function insertIntoBlock(code: string, block: string, text: string): string {
+  const lines = code.split("\n");
+  const headerIdx = lines.findIndex((l) => l.trim() === block && !/^\s/.test(l));
+  if (headerIdx === -1) {
+    const suffix = code.endsWith("\n") ? "" : "\n";
+    return `${code}${suffix}\n${block}\n  ${text}\n`;
+  }
+  let end = headerIdx + 1;
+  while (end < lines.length && /^\s+\S/.test(lines[end])) end++;
+  lines.splice(end, 0, `  ${text}`);
+  return lines.join("\n");
+}
+
+// Apply a fix: `top` appends a new top-level block, otherwise insert into a block.
+function applyFix(code: string, fix: Fix): string {
+  if (!fix.insert || !fix.block) return code;
+  if (fix.block === "top") {
+    const suffix = code.endsWith("\n") ? "" : "\n";
+    return `${code}${suffix}\n${fix.insert}\n`;
+  }
+  return insertIntoBlock(code, fix.block, fix.insert);
 }
 
 // Best-effort mapping from a diagnostic to the source text it refers to.
@@ -475,14 +501,29 @@ export function PlaygroundClient() {
                             <p className="text-xs font-semibold text-haze-200">
                               Fix:
                             </p>
-                            <ul className="mt-1 space-y-1">
+                            <ul className="mt-1 space-y-1.5">
                               {d.fix.map((f, j) => (
                                 <li
                                   key={j}
-                                  className="flex items-start gap-2 text-xs text-haze-300"
+                                  className="flex items-start justify-between gap-3 text-xs text-haze-300"
                                 >
-                                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-gold-300/70" />
-                                  <span className="font-mono">{f}</span>
+                                  <span className="flex items-start gap-2">
+                                    <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-gold-300/70" />
+                                    <span>{f.label}</span>
+                                  </span>
+                                  {f.insert && f.block && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const c = applyFix(code, f);
+                                        setCode(c);
+                                        run(c);
+                                      }}
+                                      className="shrink-0 rounded-md border border-gold-300/40 bg-gold-300/[0.08] px-2 py-0.5 text-[11px] font-medium text-gold-200 hover:bg-gold-300/[0.16]"
+                                    >
+                                      Apply
+                                    </button>
+                                  )}
                                 </li>
                               ))}
                             </ul>

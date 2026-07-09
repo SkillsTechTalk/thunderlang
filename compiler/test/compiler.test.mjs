@@ -49,7 +49,9 @@ test('diagnostics teach: each carries why + fix suggestions', () => {
   assert.ok(dup, 'idempotency diagnostic present');
   assert.ok(typeof dup.why === 'string' && dup.why.length > 0, 'has a why');
   assert.ok(Array.isArray(dup.fix) && dup.fix.length > 0, 'has fix suggestions');
-  assert.ok(dup.fix.some((f) => /idempotencyKey/.test(f)), 'fix mentions idempotencyKey');
+  const applyable = dup.fix.find((f) => f.insert && f.block);
+  assert.ok(applyable, 'has an applyable fix with insert + block');
+  assert.ok(dup.fix.some((f) => /idempotencyKey/.test(f.label) || /idempotencyKey/.test(f.insert || '')), 'fix mentions idempotencyKey');
 });
 
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {

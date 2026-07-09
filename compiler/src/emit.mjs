@@ -67,8 +67,10 @@ export function buildImplementationPlan(ast, generatedAt) {
 }
 
 // ── semantic diagnostics (a slice of stage 2) ────────────────────────────────
-// Every diagnostic teaches: `message` (what), `why` (why it matters), `fix` (how,
-// a list of concrete options). Keeps the compiler a teacher, not just a checker.
+// Every diagnostic teaches: `message` (what), `why` (why it matters), and `fix`
+// (how). Each fix is { label, insert?, block? }. When `insert`/`block` are set,
+// tools (the playground) can apply the fix by inserting `insert` into `block`
+// (`top` = a new top-level block). Advisory fixes carry only a `label`.
 export function semanticDiagnostics(ast) {
   const d = [...(ast.diagnostics || [])];
   const warn = (code, message, why, fix = []) => d.push({ level: 'warning', code, message, why, fix });
@@ -77,12 +79,12 @@ export function semanticDiagnostics(ast) {
   if (!ast.mission) {
     err('missing-mission', 'No mission name declared.',
       'Every file must declare one mission so the compiler knows what it is reasoning about.',
-      ['Add a `mission <Name>` line at the top of the file.']);
+      [{ label: 'Add a mission declaration', insert: 'mission MyMission', block: 'top' }]);
   }
   if (!ast.goal) {
     warn('missing-goal', 'Mission has no goal block.',
       'The goal is the outcome the mission exists to achieve. Without it the intent is ambiguous to humans and tools.',
-      ['Add a `goal` block with one line describing the outcome.']);
+      [{ label: 'Add a goal block', insert: 'goal\n  Describe the outcome', block: 'top' }]);
   }
 
   const verifyText = [
@@ -100,16 +102,17 @@ export function semanticDiagnostics(ast) {
       warn('duplicate-without-idempotency',
         `Guarantee "${g.statement}" declares no idempotency key, unique reference, or lookup rule to enforce it.`,
         'Duplicate billing is a high-trust finance failure. IntentLang expects a prevention strategy, not just a promise.',
-        ['Add `idempotencyKey: IdempotencyKey` to the input.',
-          'Declare a unique order reference or lookup rule.',
-          'Add a duplicate prevention test under `verify`.']);
+        [
+          { label: 'Add idempotencyKey: IdempotencyKey to the input', insert: 'idempotencyKey: IdempotencyKey', block: 'input' },
+          { label: 'Add a duplicate prevention test under verify', insert: 'duplicate prevention test', block: 'verify' },
+          { label: 'Or declare a unique order reference / lookup rule' },
+        ]);
     }
     if (g.verify.length === 0 && !verifyText.includes(slug(g.statement).replace(/-/g, ' '))) {
       warn('guarantee-without-verification',
         `Guarantee "${g.statement}" has no explicit verification.`,
         'A guarantee is only trustworthy when something proves it. Unverified guarantees are exactly where Intent Drift hides.',
-        ['Attach `verify <test or check>` to this guarantee.',
-          'Or add a matching line under the mission-level `verify` block.']);
+        [{ label: `Attach a verify check to "${g.statement}"`, insert: `guarantee ${g.statement}\n  verify ${g.statement} check`, block: 'top' }]);
     }
   }
   for (const n of ast.neverRules) {
@@ -117,7 +120,7 @@ export function semanticDiagnostics(ast) {
       warn('never-without-verification',
         `Never rule "${n.statement}" has no explicit verification.`,
         'A never rule forbids behavior, but without a check nothing enforces it in the real implementation.',
-        ['Attach `verify <check>` (for example a security or logging scan) to this rule.']);
+        [{ label: 'Attach a verify check (for example a security scan)', insert: `never ${n.statement}\n  verify security scan`, block: 'top' }]);
     }
   }
 
@@ -131,9 +134,10 @@ export function semanticDiagnostics(ast) {
       warn('secret-without-never-log',
         `Sensitive field "${f.name}" has no matching never-log / never-return rule.`,
         'Secrets leak through logs, traces, and responses. IntentLang expects an explicit rule that forbids it, near the field.',
-        [`Add \`never log ${f.name}\`.`,
-          `Add \`never return ${f.name} to client\`.`,
-          'Mark the field `Secret` and pair it with a never rule.']);
+        [
+          { label: `Add never log ${f.name}`, insert: `log ${f.name}`, block: 'never' },
+          { label: `Add never return ${f.name} to client`, insert: `return ${f.name} to client`, block: 'never' },
+        ]);
     }
   }
   return d;

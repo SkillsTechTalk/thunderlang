@@ -1,11 +1,16 @@
 // Types for the plain-ESM IntentLang compiler imported by the /api/compile route.
 declare module "*/compiler/src/compile.mjs" {
+  export interface Fix {
+    label: string;
+    insert?: string;
+    block?: string;
+  }
   export interface Diagnostic {
     level: "error" | "warning" | "info";
     code: string;
     message: string;
     why?: string;
-    fix?: string[];
+    fix?: Fix[];
   }
   export interface CompileResult {
     mission: string;
