@@ -12,9 +12,18 @@ declare module "*/compiler/src/compile.mjs" {
     why?: string;
     fix?: Fix[];
   }
+  export interface IntentNote {
+    id: string;
+    lens: string;
+    text: string;
+    targetKind: string;
+    targetPath: string;
+    sourceSpan: { line: number; column: number };
+  }
   export interface CompileResult {
     mission: string;
     diagnostics: Diagnostic[];
+    notes: IntentNote[];
     artifacts: {
       markdown: string;
       mermaid: string;

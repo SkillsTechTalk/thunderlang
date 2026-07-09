@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import {
   heroExample,
+  createInvoiceWithNotes,
   resetPasswordFull,
   architectureExample,
   apiExample,
@@ -18,10 +19,19 @@ type Diagnostic = {
   why?: string;
   fix?: Fix[];
 };
+type IntentNote = {
+  id: string;
+  lens: string;
+  text: string;
+  targetKind: string;
+  targetPath: string;
+  sourceSpan: { line: number; column: number };
+};
 type CompileResult = {
   mission: string;
   aiUsed: boolean;
   diagnostics: Diagnostic[];
+  notes: IntentNote[];
   artifacts: {
     markdown: string;
     mermaid: string;
@@ -34,6 +44,7 @@ type CompileResult = {
 };
 
 const samples = [
+  { label: "CreateInvoice (notes)", code: createInvoiceWithNotes },
   { label: "CreateInvoice", code: heroExample },
   { label: "ResetPassword", code: resetPasswordFull },
   { label: "BillingService", code: architectureExample },
@@ -41,14 +52,19 @@ const samples = [
   { label: "InvoiceCreated event", code: eventExample },
 ];
 
-type Tab = "diagnostics" | "docs" | "graph" | "testplan" | "proof";
+type Tab = "debug" | "diagnostics" | "notes" | "docs" | "graph" | "testplan" | "proof";
 const TABS: { id: Tab; label: string }[] = [
+  { id: "debug", label: "Debug" },
   { id: "diagnostics", label: "Diagnostics" },
+  { id: "notes", label: "Notes" },
   { id: "docs", label: "Docs" },
   { id: "graph", label: "Graph" },
   { id: "testplan", label: "Test Plan" },
   { id: "proof", label: "Proof" },
 ];
+
+// Reader lenses for IntentLens notes (compiler is the source of truth for the notes).
+const LENSES = ["all", "pm", "beginner", "qa", "risk", "security", "reviewer"];
 
 const SEMANTIC_TYPES =
   /:\s*(Email|Money|Currency|Url|UserId|AccountId|Secret|Token|Jwt|Date|DateTime|Duration|Percentage|FilePath|Repository|ServiceName|ApiEndpoint|EventName|DatabaseTable|TraceId|CorrelationId|IdempotencyKey|Version|EnvironmentName)\b/;
@@ -150,6 +166,46 @@ function diagnosticNeedle(d: Diagnostic): string | null {
   return null;
 }
 
+type DebugView = {
+  meaning: string;
+  why?: string;
+  mustHold: string[];
+  mustNever: string[];
+  unverified: string[];
+  proofLine: string;
+  firstFix?: { message: string; fix?: Fix };
+};
+
+// Plain-language debug read of the mission, derived from the compile result.
+function buildDebug(result: CompileResult): DebugView {
+  const m = ((result.artifacts.contractGraph as any)?.missions?.[0] ?? {}) as any;
+  const proof = result.artifacts.proof;
+  const guarantees = m.guarantees ?? [];
+  const neverRules = m.neverRules ?? [];
+  const unverified = [
+    ...guarantees.filter((g: any) => !(g.verify?.length)).map((g: any) => `guarantee: ${g.statement}`),
+    ...neverRules.filter((n: any) => !(n.verify?.length)).map((n: any) => `never: ${n.statement}`),
+  ];
+  const name = m.name || result.mission;
+  const errs = result.diagnostics.filter((d) => d.level === "error");
+  const first = errs[0] ?? result.diagnostics.find((d) => d.level === "warning");
+  const firstFix = first
+    ? { message: first.message, fix: first.fix?.find((f) => f.insert && f.block) }
+    : undefined;
+  const proofLine = `Proof is ${proof.proofStatus}. ${
+    proof.humanApproval?.approved ? "Human approved" : "Human approval required"
+  }. AI ${proof.ai?.used ? "used" : "not used"}.`;
+  return {
+    meaning: m.goal ? `${name}: ${m.goal}` : name,
+    why: m.why || undefined,
+    mustHold: guarantees.map((g: any) => g.statement),
+    mustNever: neverRules.map((n: any) => n.statement),
+    unverified,
+    proofLine,
+    firstFix,
+  };
+}
+
 const breakers: { label: string; apply: (c: string) => string }[] = [
   { label: "Remove idempotency key", apply: (c) => c.split("\n").filter((l) => !/idempotencyKey/.test(l)).join("\n") },
   { label: "Remove verify block", apply: (c) => removeBlock(c, "verify") },
@@ -175,7 +231,7 @@ function OutputBlock({ text }: { text: string }) {
 }
 
 export function PlaygroundClient() {
-  const [code, setCode] = useState(heroExample);
+  const [code, setCode] = useState(createInvoiceWithNotes);
   const [result, setResult] = useState<CompileResult | null>(null);
   const [status, setStatus] = useState<"idle" | "compiling" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -183,7 +239,21 @@ export function PlaygroundClient() {
   const [graphView, setGraphView] = useState<"diagram" | "source">("diagram");
   const [copied, setCopied] = useState(false);
   const [compiledSrc, setCompiledSrc] = useState("");
+  const [lens, setLens] = useState("all");
   const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Select and scroll to a 1-based source line (used by notes, which carry spans).
+  function highlightLine(line: number) {
+    const el = editorRef.current;
+    if (!el || line < 1) return;
+    const lines = code.split("\n");
+    const idx = Math.min(line - 1, lines.length - 1);
+    const start = lines.slice(0, idx).reduce((a, l) => a + l.length + 1, 0);
+    const end = start + lines[idx].length;
+    el.focus();
+    el.setSelectionRange(start, end);
+    el.scrollTop = Math.max(0, (idx - 4) * 21);
+  }
 
   // Select and scroll to the first source line containing `needle`.
   function highlightSource(needle: string | null) {
@@ -232,7 +302,7 @@ export function PlaygroundClient() {
       setResult(data as CompileResult);
       setCompiledSrc(source);
       setStatus("idle");
-      setTab("diagnostics");
+      setTab("debug");
     } catch {
       setStatus("error");
       setErrorMsg("Network error. Please try again.");
@@ -247,6 +317,7 @@ export function PlaygroundClient() {
       (proof.neverRules ?? []).filter((n: { status: string }) => n.status !== "verified").length
     : 0;
   const scores = result ? computeScores(compiledSrc || code, result) : null;
+  const debug = result ? buildDebug(result) : null;
   const trustColor =
     scores?.trust === "Ready"
       ? "text-emerald-300"
@@ -381,11 +452,12 @@ export function PlaygroundClient() {
                 warn={warnings > 0}
                 label={warnings > 0 ? `${warnings} semantic warning${warnings === 1 ? "" : "s"}` : "No semantic warnings"}
               />
+              <TrustChip ok label={`${result.notes?.length ?? 0} notes`} />
               <TrustChip ok label="Docs generated" />
               <TrustChip ok label="Test plan generated" />
-              <TrustChip ok label="Contract graph" />
               <TrustChip warn label={`Proof: ${proof?.proofStatus ?? "draft"}`} />
               <TrustChip ok label="AI used: false" />
+              <TrustChip ok label="Local compiler" />
             </div>
 
             {/* Semantic beauty + trust readiness */}
@@ -440,6 +512,55 @@ export function PlaygroundClient() {
               )}
               .
             </p>
+
+            {tab === "debug" && debug && (
+              <div className="space-y-4 text-sm">
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-haze-400">
+                    What this mission means
+                  </h3>
+                  <p className="mt-1.5 text-haze-100">{debug.meaning}</p>
+                  {debug.why && (
+                    <p className="mt-1 text-haze-400">It matters because {debug.why}.</p>
+                  )}
+                </div>
+                <DebugList title="What must hold" items={debug.mustHold} />
+                <DebugList title="What must never happen" items={debug.mustNever} />
+                <DebugList
+                  title="Trust gaps (declared but unverified)"
+                  items={debug.unverified}
+                  empty="Everything declared has a verification."
+                  tone="warn"
+                />
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-haze-400">
+                    Proof
+                  </h3>
+                  <p className="mt-1.5 text-haze-300">{debug.proofLine}</p>
+                </div>
+                {debug.firstFix && (
+                  <div className="rounded-xl border border-gold-300/25 bg-gold-300/[0.06] p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-300">
+                      Fix this first
+                    </p>
+                    <p className="mt-1.5 text-haze-100">{debug.firstFix.message}</p>
+                    {debug.firstFix.fix && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const c = applyFix(code, debug.firstFix!.fix!);
+                          setCode(c);
+                          run(c);
+                        }}
+                        className="mt-3 rounded-md border border-gold-300/40 bg-gold-300/[0.08] px-2.5 py-1 text-[11px] font-medium text-gold-200 hover:bg-gold-300/[0.16]"
+                      >
+                        Apply suggested fix
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {tab === "diagnostics" && (
               <div>
@@ -534,6 +655,83 @@ export function PlaygroundClient() {
                     })}
                   </ul>
                 )}
+              </div>
+            )}
+
+            {tab === "notes" && (
+              <div>
+                <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-xs text-haze-500">Lens:</span>
+                  {LENSES.map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLens(l)}
+                      className={`rounded-full px-2.5 py-0.5 text-xs capitalize transition-colors ${
+                        lens === l
+                          ? "bg-white/[0.1] text-white"
+                          : "text-haze-400 hover:text-haze-200"
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <p className="mb-3 text-xs text-haze-500">
+                  IntentLens notes are compiled explanation for a specific reader.
+                  They improve understanding; they do not prove behavior.
+                </p>
+                {(() => {
+                  const notes = (result.notes ?? []).filter(
+                    (n) => lens === "all" || n.lens === lens,
+                  );
+                  if (notes.length === 0)
+                    return (
+                      <p className="text-sm text-haze-500">
+                        No notes{lens === "all" ? "" : ` for the ${lens} lens`}.
+                      </p>
+                    );
+                  const byLens: Record<string, IntentNote[]> = {};
+                  for (const n of notes) (byLens[n.lens] ||= []).push(n);
+                  return (
+                    <div className="space-y-4">
+                      {Object.entries(byLens).map(([l, ns]) => (
+                        <div key={l}>
+                          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-300">
+                            {l} notes
+                          </h3>
+                          <ul className="mt-2 space-y-2">
+                            {ns.map((n) => (
+                              <li
+                                key={n.id}
+                                className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-[11px] text-haze-400">
+                                    {n.targetKind}
+                                    {n.targetPath.includes(".")
+                                      ? ` · ${n.targetPath.split(".").slice(-1)[0]}`
+                                      : ""}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => highlightLine(n.sourceSpan.line)}
+                                    className="text-[11px] text-gold-300 hover:text-gold-200"
+                                  >
+                                    Show source
+                                  </button>
+                                </div>
+                                <p className="mt-1.5 text-sm text-haze-100">
+                                  {n.text}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -637,6 +835,42 @@ export function PlaygroundClient() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function DebugList({
+  title,
+  items,
+  empty,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  empty?: string;
+  tone?: "warn";
+}) {
+  return (
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-haze-400">
+        {title}
+      </h3>
+      {items.length === 0 ? (
+        <p className="mt-1.5 text-xs text-haze-500">{empty ?? "None."}</p>
+      ) : (
+        <ul className="mt-1.5 space-y-1">
+          {items.map((it) => (
+            <li key={it} className="flex items-start gap-2 text-haze-200">
+              <span
+                className={`mt-1.5 h-1 w-1 shrink-0 rounded-full ${
+                  tone === "warn" ? "bg-gold-300/80" : "bg-emerald-400/70"
+                }`}
+              />
+              {it}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -153,7 +153,7 @@ Shipped: real compiler via `/api/compile` (deterministic, no AI); Diagnostics wi
 why + fix; rendered Mermaid contract graph (Diagram/Source toggle + copy); Docs,
 Test Plan, Proof tabs; proof summary; copy/download per artifact; trust strip;
 Semantic Beauty score + Trust Readiness; "Try breaking it" demo buttons.
-Style rule: **no emojis** (premium) — use SVG/dots/text. **No em dashes.**
+Style rule: **no emojis** (premium), use SVG/dots/text. **No em dashes.**
 
 Next playground slices (from the product brief, in build order):
 - [x] Click a diagnostic (Show source) to highlight its source line
@@ -164,6 +164,50 @@ Next playground slices (from the product brief, in build order):
 - [ ] Guided stepper: Write → Compile → Debug → Prove → Export
 - [ ] Expand example gallery by category + difficulty
 - [ ] Later, gated: "Draft from prompt" (AI assist, human review required)
+
+## IntentLens Notes (compiled semantic comments)
+
+Comments that compile into understanding. `# ...` stays ignored; `note <lens>:`
+blocks are compiled, attached to the nearest node, and emitted with source spans.
+Notes explain meaning for a reader; they are NEVER verification. One compiler,
+both playgrounds consume the same JSON (no playground parser duplication).
+
+Shipped (compiler core + IL playground):
+- [x] Parser: line tracking; parse `note <lens>:` on mission / input / output /
+      guarantee / never; separate notes from field modifiers
+- [x] `ast.notes` with id, lens, text, targetKind, targetPath, sourceSpan(line)
+- [x] Diagnostics INTENT_NOTE_UNKNOWN_LENS, INTENT_NOTE_EMPTY (warnings)
+- [x] `compileSource` returns `notes`; proof carries `notes` metadata (not verification)
+- [x] Tests (9 total): parse/attach/span, unknown-lens, notes-not-verification
+- [x] CreateInvoice example + playground default include notes
+- [x] Playground Notes tab grouped by lens, lens selector, click-to-source, trust-strip count
+
+Next slices:
+- [ ] `intent notes <file> --json` and `intent docs --lens <lens>` CLI commands
+- [ ] Lens-aware reader VIEWS (PM/Beginner/QA/Security render the whole file per audience)
+- [ ] Notes-aware docs generation (include the lens's notes inline)
+- [ ] Diagnostics: INTENT_NOTE_RESTATES_TARGET, INTENT_TERM/RISK/PM/SECURITY_NOTE_RECOMMENDED
+- [ ] Support the fully-nested `mission:`/`goal:` colon style from the canonical spec
+
+## IntelliSense (compiler-backed completions, hover, code-actions)
+
+One compiler is the source of completions/hover/fixes; the playground renders,
+never invents. Deterministic first (no AI). Safety levels: safe / reviewable /
+meaning_change / blocked.
+
+Partial (already true): diagnostics carry structured `fix { label, insert, block }`,
+which is the code-action/quick-fix contract; the playground "Apply" applies them.
+
+Next slices (compiler core first):
+- [ ] Completion provider: block keywords, note lenses, semantic types, context-aware
+      (`intent completions <file> --position line:col --json`)
+- [ ] Hover provider: semantic types + note lenses (`intent hover ... --json`)
+- [ ] Code-action provider with safety levels + text edits; `intent code-actions`, `intent apply-fix`
+- [ ] Autocorrect (safe): `goals:`->`goal:`, `guarantee:`->`guarantees:`, indentation, casing
+- [ ] `intent format`; later `intent lsp` (LSP) for VS Code
+- [ ] Playground: autocomplete popup, hover cards, quick-fix lightbulb, fix preview diff,
+      "Fix all safe", lens-aware ranking (consider Monaco/CodeMirror for real editor UX)
+- [ ] Do NOT hardcode completions in the playground; do NOT duplicate the parser
 
 ## Operating checklist status (see docs/operating-checklist.md)
 

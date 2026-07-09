@@ -4,7 +4,20 @@
 // Stable IDs (slugs) let OpenThunder key Intent Drift precisely instead of fuzzy string-matching.
 
 import { createHash } from 'node:crypto';
-import { slug } from './parse.mjs';
+import { slug, KNOWN_LENSES } from './parse.mjs';
+
+// Notes metadata for proof / summaries. Notes explain meaning; they never verify.
+export function notesSummary(ast) {
+  const notes = ast.notes || [];
+  const byLens = {};
+  for (const n of notes) byLens[n.lens] = (byLens[n.lens] || 0) + 1;
+  return {
+    included: notes.length > 0,
+    count: notes.length,
+    lenses: Object.keys(byLens).sort(),
+    byLens,
+  };
+}
 
 export const COMPILER_VERSION = '0.1.0';
 export const PROOF_SCHEMA_VERSION = '0.1.0';
@@ -140,6 +153,22 @@ export function semanticDiagnostics(ast) {
         ]);
     }
   }
+
+  // ── IntentLens note checks (understanding, never verification) ──
+  for (const note of ast.notes || []) {
+    if (!KNOWN_LENSES.includes(note.lens)) {
+      warn('INTENT_NOTE_UNKNOWN_LENS',
+        `Unknown note lens "${note.lens}".`,
+        `Notes target a known reader lens so tools can group and prioritize them. Known lenses: ${KNOWN_LENSES.join(', ')}.`,
+        [{ label: 'Use a known lens (for example pm, beginner, qa, security)' }]);
+    }
+    if (!note.text || !note.text.trim()) {
+      warn('INTENT_NOTE_EMPTY',
+        `Note (${note.lens}) has no text.`,
+        'An empty note adds noise without meaning. Explain the meaning, risk, usage, or verification for that reader.',
+        [{ label: 'Add a sentence explaining the meaning for this reader' }]);
+    }
+  }
   return d;
 }
 
@@ -167,6 +196,8 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
       evidence: n.verify,
     })),
     verification: { syntaxPassed: true, semanticPassed: passedSemantic, targetsGenerated: targetsGenerated.length > 0 },
+    // Notes are understanding metadata only; they never mark a guarantee verified.
+    notes: notesSummary(ast),
     diagnostics,
     ai: { used: false },
     humanApproval: { required: true, approved: false },

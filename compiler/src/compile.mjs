@@ -75,6 +75,7 @@ export function compileSource(source, { sourceFile = 'playground.intent', genera
   return {
     mission,
     diagnostics,
+    notes: ast.notes || [],
     artifacts: {
       markdown, mermaid, testplan,
       contractGraph, architectureGraph, implementationPlan, proof,

@@ -66,6 +66,65 @@ target
   Tests
 `;
 
+/** CreateInvoice with IntentLens notes, for the playground default. */
+export const createInvoiceWithNotes = `mission CreateInvoice
+
+note pm:
+  One placed order should become one invoice, even if checkout retries.
+
+note beginner:
+  This mission is about safe invoice creation, not charging the card.
+
+goal
+  Generate an invoice from approved orders
+
+why
+  Customers need accurate invoices that are auditable and never duplicated.
+
+input
+  customer: Customer
+  orders: List<Order>
+  idempotencyKey: IdempotencyKey
+    note beginner:
+      A retry key. The same key returns the same invoice instead of creating another.
+    note qa:
+      Send the same order twice with the same idempotency key and expect one invoice.
+
+output
+  invoice: Invoice
+
+guarantees
+  invoice.total is never negative
+  duplicate invoices are not created
+  every invoice is auditable
+
+guarantee duplicate invoices are not created
+  because duplicate billing damages customer trust
+  note risk:
+    Duplicate billing creates refunds, support tickets, finance cleanup, and lost trust.
+  verify duplicate prevention test
+
+never
+  create invoice for unapproved order
+  expose payment token in logs
+
+never expose payment token in logs
+  note security:
+    Payment tokens must not appear in logs, events, debug output, proof, or AI context.
+  verify security scan
+
+target
+  TypeScript
+  DotNet
+  Tests
+
+verify
+  unit tests
+  duplicate prevention test
+  audit trail test
+  security scan
+`;
+
 /** A complete ResetPassword mission (all layers combined) for the playground. */
 export const resetPasswordFull = `mission ResetPassword
 

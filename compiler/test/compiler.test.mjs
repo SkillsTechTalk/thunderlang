@@ -54,6 +54,34 @@ test('diagnostics teach: each carries why + fix suggestions', () => {
   assert.ok(dup.fix.some((f) => /idempotencyKey/.test(f.label) || /idempotencyKey/.test(f.insert || '')), 'fix mentions idempotencyKey');
 });
 
+test('IntentLens: notes parse, attach to nodes, carry lens + span; # stays ignored', () => {
+  const ast = parseIntent(example('CreateInvoice.intent'));
+  assert.ok(ast.notes.length >= 6, 'notes collected');
+  // ignored # comments never become notes
+  assert.ok(!ast.notes.some((n) => /Illustrative only/.test(n.text)), '# comments are ignored');
+  const kinds = new Set(ast.notes.map((n) => n.targetKind));
+  for (const k of ['mission', 'input', 'guarantee', 'never']) assert.ok(kinds.has(k), `has a ${k} note`);
+  const beginner = ast.notes.find((n) => n.lens === 'beginner' && n.targetKind === 'input');
+  assert.ok(beginner && beginner.sourceSpan.line > 0, 'input beginner note has a source line');
+  assert.match(beginner.targetPath, /input\.idempotencyKey$/);
+});
+
+test('IntentLens: unknown lens warns; notes are metadata, not verification', () => {
+  const withBadLens = parseIntent('mission M\nnote pmm:\n  restated\n');
+  const diags = semanticDiagnostics(withBadLens);
+  assert.ok(diags.some((d) => d.code === 'INTENT_NOTE_UNKNOWN_LENS'), 'warns on unknown lens');
+
+  const ast = parseIntent(example('CreateInvoice.intent'));
+  const proof = buildProof(ast, {
+    sourceFile: 'CreateInvoice.intent', sourceHash: sha256('x'), generatedAt: FIXED,
+    targetsRequested: ast.targets, targetsGenerated: [], diagnostics: semanticDiagnostics(ast),
+  });
+  assert.equal(proof.notes.included, true);
+  assert.ok(proof.notes.count >= 6);
+  // notes never flip a guarantee to verified
+  assert.ok(proof.guarantees.every((g) => g.status !== 'verified'));
+});
+
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {
   const ast = parseIntent(example('CreateInvoice.intent'));
   const cg = buildContractGraph(ast, FIXED);

@@ -38,6 +38,7 @@ const KEYWORDS = new Set([
   "plan",
   "proof",
   "field",
+  "note",
   // Architecture / API / Event
   "service",
   "owns",
