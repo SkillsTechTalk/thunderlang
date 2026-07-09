@@ -51,7 +51,11 @@ function load(file) {
 }
 
 function printDiagnostics(diags) {
-  for (const d of diags) console.log(`  [${d.level}] ${d.code}: ${d.message}`);
+  for (const d of diags) {
+    console.log(`  [${d.level}] ${d.code}: ${d.message}`);
+    if (d.why) console.log(`      why: ${d.why}`);
+    if (d.fix && d.fix.length) console.log(`      fix: ${d.fix[0]}`);
+  }
   const errors = diags.filter((d) => d.level === 'error').length;
   const warnings = diags.filter((d) => d.level === 'warning').length;
   console.log(`  ${errors} error(s), ${warnings} warning(s)`);

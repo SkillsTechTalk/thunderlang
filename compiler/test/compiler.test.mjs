@@ -42,6 +42,16 @@ test('semantic pass: idempotency diagnostic fires only when the key is absent', 
     'should warn when idempotencyKey is absent');
 });
 
+test('diagnostics teach: each carries why + fix suggestions', () => {
+  const stripped = example('CreateInvoice.intent').split('\n').filter((l) => !/idempotencyKey/.test(l)).join('\n');
+  const diags = semanticDiagnostics(parseIntent(stripped));
+  const dup = diags.find((d) => d.code === 'duplicate-without-idempotency');
+  assert.ok(dup, 'idempotency diagnostic present');
+  assert.ok(typeof dup.why === 'string' && dup.why.length > 0, 'has a why');
+  assert.ok(Array.isArray(dup.fix) && dup.fix.length > 0, 'has fix suggestions');
+  assert.ok(dup.fix.some((f) => /idempotencyKey/.test(f)), 'fix mentions idempotencyKey');
+});
+
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {
   const ast = parseIntent(example('CreateInvoice.intent'));
   const cg = buildContractGraph(ast, FIXED);

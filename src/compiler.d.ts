@@ -4,6 +4,8 @@ declare module "*/compiler/src/compile.mjs" {
     level: "error" | "warning" | "info";
     code: string;
     message: string;
+    why?: string;
+    fix?: string[];
   }
   export interface CompileResult {
     mission: string;

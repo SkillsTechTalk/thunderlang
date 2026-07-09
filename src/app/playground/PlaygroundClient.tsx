@@ -8,8 +8,15 @@ import {
   apiExample,
   eventExample,
 } from "@/lib/content";
+import { MermaidDiagram } from "@/components/MermaidDiagram";
 
-type Diagnostic = { level: "error" | "warning" | "info"; code: string; message: string };
+type Diagnostic = {
+  level: "error" | "warning" | "info";
+  code: string;
+  message: string;
+  why?: string;
+  fix?: string[];
+};
 type CompileResult = {
   mission: string;
   aiUsed: boolean;
@@ -66,6 +73,18 @@ export function PlaygroundClient() {
   const [status, setStatus] = useState<"idle" | "compiling" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [tab, setTab] = useState<Tab>("diagnostics");
+  const [graphView, setGraphView] = useState<"diagram" | "source">("diagram");
+  const [copied, setCopied] = useState(false);
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
 
   async function run() {
     setStatus("compiling");
@@ -235,7 +254,7 @@ export function PlaygroundClient() {
                     {result.diagnostics.map((d, i) => (
                       <li
                         key={i}
-                        className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
+                        className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5"
                       >
                         <div className="flex items-center gap-2">
                           <span
@@ -247,9 +266,35 @@ export function PlaygroundClient() {
                             {d.level} · {d.code}
                           </span>
                         </div>
-                        <p className="mt-1.5 text-sm text-haze-200">
+                        <p className="mt-1.5 text-sm text-haze-100">
                           {d.message}
                         </p>
+                        {d.why && (
+                          <p className="mt-2 text-xs leading-relaxed text-haze-300">
+                            <span className="font-semibold text-haze-200">
+                              Why:
+                            </span>{" "}
+                            {d.why}
+                          </p>
+                        )}
+                        {d.fix && d.fix.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold text-haze-200">
+                              Fix:
+                            </p>
+                            <ul className="mt-1 space-y-1">
+                              {d.fix.map((f, j) => (
+                                <li
+                                  key={j}
+                                  className="flex items-start gap-2 text-xs text-haze-300"
+                                >
+                                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-gold-300/70" />
+                                  <span className="font-mono">{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -263,6 +308,7 @@ export function PlaygroundClient() {
                   onClick={() =>
                     download(`${result.mission}.md`, result.artifacts.markdown, "text/markdown")
                   }
+                  onCopy={() => copy(result.artifacts.markdown)}
                   label="Download docs.md"
                 />
                 <OutputBlock text={result.artifacts.markdown} />
@@ -271,14 +317,51 @@ export function PlaygroundClient() {
 
             {tab === "graph" && (
               <div>
-                <DownloadRow
-                  onClick={() =>
-                    download(`${result.mission}.mmd`, result.artifacts.mermaid)
-                  }
-                  label="Download .mmd"
-                  note="Mermaid source. Paste into any Mermaid renderer."
-                />
-                <OutputBlock text={result.artifacts.mermaid} />
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <div className="inline-flex rounded-lg border border-white/10 p-0.5">
+                    {(["diagram", "source"] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setGraphView(v)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                          graphView === v
+                            ? "bg-white/[0.08] text-white"
+                            : "text-haze-400 hover:text-haze-200"
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => copy(result.artifacts.mermaid)}
+                      className="text-xs text-gold-300 hover:text-gold-200"
+                    >
+                      {copied ? "Copied" : "Copy source"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        download(`${result.mission}.mmd`, result.artifacts.mermaid)
+                      }
+                      className="text-xs text-gold-300 hover:text-gold-200"
+                    >
+                      Download .mmd
+                    </button>
+                  </div>
+                </div>
+                {graphView === "diagram" ? (
+                  <MermaidDiagram code={result.artifacts.mermaid} />
+                ) : (
+                  <OutputBlock text={result.artifacts.mermaid} />
+                )}
+                <p className="mt-2 text-xs text-haze-500">
+                  A contract map of the mission, its guarantees, never rules, and
+                  events. Copy the Mermaid source to paste into any renderer.
+                </p>
               </div>
             )}
 
@@ -292,6 +375,7 @@ export function PlaygroundClient() {
                       "text/markdown",
                     )
                   }
+                  onCopy={() => copy(result.artifacts.testplan)}
                   label="Download test plan"
                 />
                 <OutputBlock text={result.artifacts.testplan} />
@@ -309,6 +393,7 @@ export function PlaygroundClient() {
                       "application/json",
                     )
                   }
+                  onCopy={() => copy(JSON.stringify(proof, null, 2))}
                   label="Download proof JSON"
                 />
                 <OutputBlock text={JSON.stringify(proof, null, 2)} />
@@ -325,10 +410,12 @@ function DownloadRow({
   onClick,
   label,
   note,
+  onCopy,
 }: {
   onClick: () => void;
   label: string;
   note?: string;
+  onCopy?: () => void;
 }) {
   return (
     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -337,13 +424,24 @@ function DownloadRow({
       ) : (
         <span />
       )}
-      <button
-        type="button"
-        onClick={onClick}
-        className="text-xs text-gold-300 hover:text-gold-200"
-      >
-        {label}
-      </button>
+      <div className="flex items-center gap-3">
+        {onCopy && (
+          <button
+            type="button"
+            onClick={onCopy}
+            className="text-xs text-gold-300 hover:text-gold-200"
+          >
+            Copy
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onClick}
+          className="text-xs text-gold-300 hover:text-gold-200"
+        >
+          {label}
+        </button>
+      </div>
     </div>
   );
 }

@@ -67,13 +67,23 @@ export function buildImplementationPlan(ast, generatedAt) {
 }
 
 // ── semantic diagnostics (a slice of stage 2) ────────────────────────────────
+// Every diagnostic teaches: `message` (what), `why` (why it matters), `fix` (how,
+// a list of concrete options). Keeps the compiler a teacher, not just a checker.
 export function semanticDiagnostics(ast) {
   const d = [...(ast.diagnostics || [])];
-  const warn = (code, message) => d.push({ level: 'warning', code, message });
-  const err = (code, message) => d.push({ level: 'error', code, message });
+  const warn = (code, message, why, fix = []) => d.push({ level: 'warning', code, message, why, fix });
+  const err = (code, message, why, fix = []) => d.push({ level: 'error', code, message, why, fix });
 
-  if (!ast.mission) err('missing-mission', 'No mission name declared.');
-  if (!ast.goal) warn('missing-goal', 'Mission has no goal block.');
+  if (!ast.mission) {
+    err('missing-mission', 'No mission name declared.',
+      'Every file must declare one mission so the compiler knows what it is reasoning about.',
+      ['Add a `mission <Name>` line at the top of the file.']);
+  }
+  if (!ast.goal) {
+    warn('missing-goal', 'Mission has no goal block.',
+      'The goal is the outcome the mission exists to achieve. Without it the intent is ambiguous to humans and tools.',
+      ['Add a `goal` block with one line describing the outcome.']);
+  }
 
   const verifyText = [
     ...ast.verify,
@@ -87,14 +97,28 @@ export function semanticDiagnostics(ast) {
   ].join(' ').toLowerCase();
   for (const g of ast.guarantees) {
     if (/duplicate/.test(g.statement.toLowerCase()) && !/idempotenc|unique|order ?reference|lookup/.test(idempotencySignals + ' ' + g.statement.toLowerCase())) {
-      warn('duplicate-without-idempotency', `Guarantee "${g.statement}" declares no idempotency key, unique reference, or lookup rule to enforce it.`);
+      warn('duplicate-without-idempotency',
+        `Guarantee "${g.statement}" declares no idempotency key, unique reference, or lookup rule to enforce it.`,
+        'Duplicate billing is a high-trust finance failure. IntentLang expects a prevention strategy, not just a promise.',
+        ['Add `idempotencyKey: IdempotencyKey` to the input.',
+          'Declare a unique order reference or lookup rule.',
+          'Add a duplicate prevention test under `verify`.']);
     }
     if (g.verify.length === 0 && !verifyText.includes(slug(g.statement).replace(/-/g, ' '))) {
-      warn('guarantee-without-verification', `Guarantee "${g.statement}" has no explicit verification.`);
+      warn('guarantee-without-verification',
+        `Guarantee "${g.statement}" has no explicit verification.`,
+        'A guarantee is only trustworthy when something proves it. Unverified guarantees are exactly where Intent Drift hides.',
+        ['Attach `verify <test or check>` to this guarantee.',
+          'Or add a matching line under the mission-level `verify` block.']);
     }
   }
   for (const n of ast.neverRules) {
-    if (n.verify.length === 0) warn('never-without-verification', `Never rule "${n.statement}" has no explicit verification.`);
+    if (n.verify.length === 0) {
+      warn('never-without-verification',
+        `Never rule "${n.statement}" has no explicit verification.`,
+        'A never rule forbids behavior, but without a check nothing enforces it in the real implementation.',
+        ['Attach `verify <check>` (for example a security or logging scan) to this rule.']);
+    }
   }
 
   // Secret field with no never-log/never-return protection.
@@ -104,7 +128,12 @@ export function semanticDiagnostics(ast) {
   );
   for (const f of secretFields) {
     if (!(neverText.includes('log') && (neverText.includes(f.name.toLowerCase()) || /secret|token|password/.test(neverText)))) {
-      warn('secret-without-never-log', `Sensitive field "${f.name}" has no matching never-log / never-return rule.`);
+      warn('secret-without-never-log',
+        `Sensitive field "${f.name}" has no matching never-log / never-return rule.`,
+        'Secrets leak through logs, traces, and responses. IntentLang expects an explicit rule that forbids it, near the field.',
+        [`Add \`never log ${f.name}\`.`,
+          `Add \`never return ${f.name} to client\`.`,
+          'Mark the field `Secret` and pair it with a never rule.']);
     }
   }
   return d;
