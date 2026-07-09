@@ -62,15 +62,24 @@ See [`.env.example`](./.env.example).
 | `NEXT_PUBLIC_SITE_URL`  | No       | Public base URL. Defaults to `https://intentlanguage.dev`.                  |
 | `WAITLIST_WEBHOOK_URL`  | No       | Endpoint that receives `POST { email, source }` for waitlist signups.       |
 
-## Waitlist behavior (important)
+## Waitlist behavior
 
-The waitlist **does not fake signups**. If `WAITLIST_WEBHOOK_URL` is set, emails
-are forwarded there and the UI confirms a real subscription. If it is **not**
-set, the API responds honestly (`status: "unconfigured"`) and the form asks the
-visitor to email us directly, so no address is ever silently dropped.
+The waitlist captures real signups, in priority order:
 
-To make it fully functional, point `WAITLIST_WEBHOOK_URL` at a real intake
-(Formspree, Zapier/Make, a serverless function, or your own store).
+1. **Vercel Blob (default).** A private Blob store named `waitlist` is linked to
+   the project, so `BLOB_READ_WRITE_TOKEN` is set automatically. Each signup is
+   written to `waitlist/<sha256(email)>.json` (idempotent — re-submitting the
+   same address overwrites its record, no duplicates). List signups with
+   `vercel blob list`. Emails are stored privately and never publicly readable.
+2. **Webhook fallback.** If no Blob token is present but `WAITLIST_WEBHOOK_URL`
+   is set, signups are POSTed there instead.
+3. **Honest no-op.** If neither is configured, the API returns
+   `status: "unconfigured"` and the form asks the visitor to email us directly.
+   It never fakes a signup.
+
+Analytics: `@vercel/analytics` and `@vercel/speed-insights` are wired in the root
+layout. Enable Web Analytics / Speed Insights in the Vercel dashboard to collect
+data.
 
 ## Deployment
 
