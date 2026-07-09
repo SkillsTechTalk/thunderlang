@@ -15,6 +15,7 @@ import {
 } from '../src/emit.mjs';
 import { getCompletions, getHover } from '../src/intellisense.mjs';
 import { liftSource, liftRepo } from '../src/lift.mjs';
+import { approveIntent, checkDrift, intentHash } from '../src/drift.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const example = (name) => readFileSync(join(HERE, '..', '..', 'examples', name), 'utf8');
@@ -194,6 +195,49 @@ test('IntentLift repo: lifts many files, unique names, repo summary', () => {
 test('IntentLift: unsupported language fails safely, no functions handled gracefully', () => {
   assert.equal(liftSource('x', { language: 'cobol' }).ok, false);
   assert.equal(liftSource('const x = 1;', { language: 'typescript' }).ok, false);
+});
+
+const RUST_CODE = [
+  'pub enum BillingError { DuplicateInvoice, Unauthorized }',
+  'pub fn create_invoice(order_id: OrderId, total: Money) -> Result<Invoice, BillingError> { Ok(x) }',
+  '#[test]',
+  'fn repeated_order_returns_same_invoice() {}',
+].join('\n');
+
+test('IntentLift round-trip: approve marks reviewed:true with a stable source hash', () => {
+  const draft = liftSource(RUST_CODE, { language: 'rust' }).intentText;
+  const { text, approval } = approveIntent(draft, { approvedBy: 'Jane', approvedAt: '2026-07-09T00:00:00Z' });
+  assert.equal(approval.reviewed, true);
+  assert.match(approval.source_hash, /^sha256:[0-9a-f]{64}$/);
+  assert.match(text, /approval\n {2}reviewed true/);
+  assert.match(text, /approved_by Jane/);
+  // the hash recomputes from the written file (drift can rely on it)
+  assert.equal(intentHash(text), approval.source_hash);
+  // approving twice is idempotent (same hash)
+  assert.equal(approveIntent(text).approval.source_hash, approval.source_hash);
+});
+
+test('IntentLift round-trip: drift is in_sync for matching code, drift when code changes', () => {
+  const draft = liftSource(RUST_CODE, { language: 'rust' }).intentText;
+  const approved = approveIntent(draft, { approvedAt: '2026-07-09T00:00:00Z' }).text;
+
+  assert.equal(checkDrift(approved, RUST_CODE, { language: 'rust' }).status, 'in_sync');
+
+  const broken = 'pub enum BillingError { Unauthorized }\npub fn create_invoice(order_id: OrderId) -> Result<Invoice, BillingError> { Ok(x) }';
+  const d = checkDrift(approved, broken, { language: 'rust' });
+  assert.equal(d.status, 'drift');
+  const codes = d.findings.map((f) => f.code);
+  assert.ok(codes.includes('INTENT_DRIFT_GUARANTEE_UNSUPPORTED'), 'removed test -> guarantee drift');
+  assert.ok(codes.includes('INTENT_DRIFT_NEVER_RULE_UNSUPPORTED'), 'removed error -> never drift');
+  assert.ok(codes.includes('INTENT_DRIFT_INPUT_REMOVED'), 'removed param -> input drift');
+});
+
+test('IntentLift round-trip: editing the approved intent is flagged stale', () => {
+  const draft = liftSource(RUST_CODE, { language: 'rust' }).intentText;
+  const approved = approveIntent(draft, { approvedAt: '2026-07-09T00:00:00Z' }).text;
+  const edited = approved.replace('reviewed true', 'reviewed true\n# tampered');
+  const d = checkDrift(edited, RUST_CODE, { language: 'rust' });
+  assert.ok(d.findings.some((f) => f.code === 'INTENT_DRIFT_STALE_PROOF'), 'edited intent is stale');
 });
 
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {

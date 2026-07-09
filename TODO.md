@@ -244,7 +244,10 @@ Next slices:
       -> never rules, ok/is/subtest -> tests; low confidence + DYNAMIC_LANGUAGE_LIMITATION)
 - [ ] Perl: DBI table names -> database, POD -> goal/why, Mojo/Dancer/Catalyst routes
 - [ ] Source-map panel + "Equivalent Intent" IDE view; per-line evidence
-- [ ] `intent approve` (reviewed:true + source hash); OpenThunder drift round-trip
+- [x] `intent approve` (reviewed:true + source_hash + reviewer/time; recognized block)
+- [x] `intent drift <code> --intent <file>`: re-lift + compare (guarantee/never/input
+      unsupported, stale proof, new behavior); playground lift->approve->drift demo
+- [ ] Hand off drift to OpenThunder for repo-wide, evidence-deep verification
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
 
 ## Operating checklist status (see docs/operating-checklist.md)

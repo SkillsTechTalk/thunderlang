@@ -262,6 +262,36 @@ export function PlaygroundClient() {
   const [liftLang, setLiftLang] = useState("typescript");
   const [liftResult, setLiftResult] = useState<any>(null);
   const [liftBusy, setLiftBusy] = useState(false);
+  const [approvedIntent, setApprovedIntent] = useState<string | null>(null);
+  const [driftResult, setDriftResult] = useState<any>(null);
+
+  async function approveDraft() {
+    if (!liftResult?.intentText) return;
+    const res = await fetch("/api/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        intentText: liftResult.intentText,
+        approvedAt: new Date().toISOString(),
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      setApprovedIntent(data.text);
+      setDriftResult(null);
+    }
+  }
+
+  async function checkDrift() {
+    if (!approvedIntent) return;
+    const res = await fetch("/api/drift", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intentText: approvedIntent, source: liftCode, language: liftLang }),
+    });
+    const data = await res.json();
+    if (data.ok) setDriftResult(data);
+  }
   // Monaco editor instance (set on mount). Completions + hover are inline,
   // powered by the compiler through /api/assist inside IntentMonaco.
   const editorRef = useRef<any>(null);
@@ -269,6 +299,8 @@ export function PlaygroundClient() {
   async function lift() {
     setLiftBusy(true);
     setLiftResult(null);
+    setApprovedIntent(null);
+    setDriftResult(null);
     try {
       const res = await fetch("/api/lift", {
         method: "POST",
@@ -474,6 +506,66 @@ export function PlaygroundClient() {
                       >
                         Download .intent
                       </button>
+                    </div>
+
+                    {/* Round-trip: approve, then check the code against it */}
+                    <div className="mt-3 border-t border-white/8 pt-3">
+                      {!approvedIntent ? (
+                        <div className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={approveDraft}
+                            className="rounded-md border border-emerald-400/30 bg-emerald-400/[0.08] px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-400/[0.16]"
+                          >
+                            Approve draft
+                          </button>
+                          <span className="text-[11px] text-haze-500">
+                            After review, approve to enable drift checks.
+                          </span>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <TrustChip ok label="approved: reviewed true" />
+                            <button
+                              type="button"
+                              onClick={checkDrift}
+                              className="rounded-md border border-white/12 bg-white/[0.03] px-2.5 py-1 text-[11px] font-medium text-haze-200 hover:border-gold-300/40 hover:text-gold-200"
+                            >
+                              Check drift vs the code above
+                            </button>
+                            <span className="text-[11px] text-haze-500">
+                              Edit the code, then re-check.
+                            </span>
+                          </div>
+                          {driftResult && (
+                            <div className="mt-2">
+                              <TrustChip
+                                ok={driftResult.status === "in_sync"}
+                                warn={driftResult.status !== "in_sync"}
+                                label={`drift: ${driftResult.status}`}
+                              />
+                              {driftResult.findings.length > 0 && (
+                                <ul className="mt-1.5 space-y-1">
+                                  {driftResult.findings.map(
+                                    (f: { code: string; message: string; level: string }, i: number) => (
+                                      <li
+                                        key={i}
+                                        className="text-[11px] leading-relaxed text-haze-300"
+                                      >
+                                        <span className="font-mono text-haze-500">
+                                          {f.code}
+                                        </span>{" "}
+                                        {f.message}
+                                      </li>
+                                    ),
+                                  )}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

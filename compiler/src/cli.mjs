@@ -21,7 +21,8 @@ import {
 } from './emit.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
-import { liftSource, liftRepo } from './lift.mjs';
+import { liftSource, liftRepo, languageForFile } from './lift.mjs';
+import { approveIntent, checkDrift } from './drift.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -45,6 +46,9 @@ function parseArgs(argv) {
     else if (a === '--no-ai') args.noAi = true;
     else if (a === '--position') args.position = argv[++i];
     else if (a === '--from') args.from = argv[++i];
+    else if (a === '--intent') args.intent = argv[++i];
+    else if (a === '--by') args.by = argv[++i];
+    else if (a === '--at') args.at = argv[++i];
     else if (a === '--json') args.json = true;
     else if (a === '--targets') args.targets = (argv[++i] || '').split(',').filter(Boolean);
     else args._.push(a);
@@ -133,6 +137,32 @@ function main() {
     }
     printDiagnostics(res.diagnostics);
     return;
+  }
+
+  // Approve an inferred/reviewed intent: reviewed:true + source hash + reviewer.
+  if (cmd === 'approve') {
+    const text = readFileSync(file, 'utf8');
+    const res = approveIntent(text, { approvedBy: args.by || null, approvedAt: args.at || null });
+    // args.out defaults to '.intent'; approve writes back to the file unless a real --out was given.
+    const target = args.out && args.out !== '.intent' ? args.out : file;
+    writeFileSync(target, res.text);
+    console.log(`intent approve ${basename(file)} -> reviewed: true (${res.approval.source_hash.slice(0, 24)}...)`);
+    return;
+  }
+
+  // Drift: does the implementation still satisfy the approved intent?
+  if (cmd === 'drift') {
+    if (!args.intent) { console.error('usage: intent drift <codeFile> --intent <file.intent> [--from <lang>] [--json]'); process.exit(2); }
+    const intentText = readFileSync(args.intent, 'utf8');
+    const codeText = readFileSync(file, 'utf8');
+    const language = args.from && args.from !== 'repo' ? args.from : languageForFile(file);
+    const res = checkDrift(intentText, codeText, { language });
+    if (args.json) { console.log(JSON.stringify(res, null, 2)); }
+    else {
+      console.log(`intent drift: ${res.status.toUpperCase()} (${res.summary.blocking} blocking)`);
+      for (const f of res.findings) console.log(`  [${f.level}] ${f.code}: ${f.message}`);
+    }
+    process.exit(res.status === 'drift' ? 1 : 0);
   }
 
   const { source, ast, sourceHash, sourceFile } = load(file);

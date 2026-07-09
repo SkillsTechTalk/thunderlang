@@ -174,6 +174,13 @@ export function parseIntent(source) {
       case 'needs_review': case 'assumption': case 'source': case 'confidence':
         (ast.lift ||= {})[kw] = leafItems(node);
         break;
+      case 'approval': {
+        const a = {};
+        for (const c of node.children) a[firstWord(c.text)] = rest(c.text);
+        a.reviewed = a.reviewed === 'true';
+        ast.approval = a;
+        break;
+      }
       default:
         ast.diagnostics.push({ level: 'info', code: 'unknown-block', message: `Unrecognized top-level block: "${kw}"` });
     }

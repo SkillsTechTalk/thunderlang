@@ -1,3 +1,20 @@
+declare module "*/compiler/src/drift.mjs" {
+  export function approveIntent(
+    intentText: string,
+    opts?: { approvedBy?: string | null; approvedAt?: string | null },
+  ): { text: string; approval: { reviewed: boolean; source_hash: string } };
+  export function checkDrift(
+    intentText: string,
+    codeSource: string,
+    opts?: { language?: string },
+  ): {
+    status: string;
+    findings: { level: string; code: string; message: string }[];
+    summary: { status: string; findings: number; blocking: number };
+  };
+  export function intentHash(intentText: string): string;
+}
+
 declare module "*/compiler/src/lift.mjs" {
   export interface LiftResult {
     ok: boolean;
