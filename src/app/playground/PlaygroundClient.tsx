@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   heroExample,
   resetPasswordFull,
@@ -116,6 +116,14 @@ function computeScores(code: string, result: CompileResult): Scores {
   return { beauty, strong, improve, trust, trustReason };
 }
 
+// Best-effort mapping from a diagnostic to the source text it refers to.
+function diagnosticNeedle(d: Diagnostic): string | null {
+  const quoted = d.message.match(/"([^"]+)"/);
+  if (quoted) return quoted[1];
+  if (d.code === "missing-goal" || d.code === "missing-mission") return "mission";
+  return null;
+}
+
 const breakers: { label: string; apply: (c: string) => string }[] = [
   { label: "Remove idempotency key", apply: (c) => c.split("\n").filter((l) => !/idempotencyKey/.test(l)).join("\n") },
   { label: "Remove verify block", apply: (c) => removeBlock(c, "verify") },
@@ -149,6 +157,24 @@ export function PlaygroundClient() {
   const [graphView, setGraphView] = useState<"diagram" | "source">("diagram");
   const [copied, setCopied] = useState(false);
   const [compiledSrc, setCompiledSrc] = useState("");
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+
+  // Select and scroll to the first source line containing `needle`.
+  function highlightSource(needle: string | null) {
+    const el = editorRef.current;
+    if (!el || !needle) return;
+    const lines = code.split("\n");
+    const idx = lines.findIndex((l) =>
+      l.toLowerCase().includes(needle.toLowerCase()),
+    );
+    if (idx < 0) return;
+    const start = lines.slice(0, idx).reduce((a, l) => a + l.length + 1, 0);
+    const end = start + lines[idx].length;
+    el.focus();
+    el.setSelectionRange(start, end);
+    const lineHeight = 21; // ~13px * 1.6 leading
+    el.scrollTop = Math.max(0, (idx - 4) * lineHeight);
+  }
 
   async function copy(text: string) {
     try {
@@ -230,6 +256,7 @@ export function PlaygroundClient() {
         </label>
         <textarea
           id="editor"
+          ref={editorRef}
           value={code}
           onChange={(e) => setCode(e.target.value)}
           spellCheck={false}
@@ -404,20 +431,33 @@ export function PlaygroundClient() {
                   </p>
                 ) : (
                   <ul className="space-y-2">
-                    {result.diagnostics.map((d, i) => (
+                    {result.diagnostics.map((d, i) => {
+                      const needle = diagnosticNeedle(d);
+                      return (
                       <li
                         key={i}
                         className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5"
                       >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              d.level === "error" ? "bg-red-400" : "bg-gold-300"
-                            }`}
-                          />
-                          <span className="font-mono text-[11px] uppercase tracking-wide text-haze-400">
-                            {d.level} · {d.code}
-                          </span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${
+                                d.level === "error" ? "bg-red-400" : "bg-gold-300"
+                              }`}
+                            />
+                            <span className="font-mono text-[11px] uppercase tracking-wide text-haze-400">
+                              {d.level} · {d.code}
+                            </span>
+                          </div>
+                          {needle && (
+                            <button
+                              type="button"
+                              onClick={() => highlightSource(needle)}
+                              className="shrink-0 text-[11px] text-gold-300 hover:text-gold-200"
+                            >
+                              Show source
+                            </button>
+                          )}
                         </div>
                         <p className="mt-1.5 text-sm text-haze-100">
                           {d.message}
@@ -449,7 +489,8 @@ export function PlaygroundClient() {
                           </div>
                         )}
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </div>
