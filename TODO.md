@@ -258,6 +258,9 @@ Next slices:
       folds drift into the ship verdict (drift->HOLD, review->CAUTION, in_sync->SHIP;
       only tightens, never loosens) across text/--json/--pr-comment. shipVerdictFromDrift
       + scanRepoEvidence added to @openthunder/intent; +1 vitest. Verified end to end.
+- [x] Documented the drift round-trip + `--intent-pack` gate in docs/ecosystem-brief.md
+      (approve -> handoff -> `openthunder intent drift` / `can-i-ship`); live on
+      intentlanguage.dev/docs/ecosystem-brief.
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
 
 ## Operating checklist status (see docs/operating-checklist.md)
@@ -284,6 +287,8 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 **Later**
 - [ ] VS Code extension (highlight, diagnostics, run, preview) (#90)
 - [ ] Comparison pages: vs prompts, BDD, OpenAPI, Mermaid, ADRs, UML, Terraform, TS, Python (#92)
-- [ ] OpenThunder Intent Drift detection + demo (#71,#96)
+- [x] OpenThunder Intent Drift detection + demo (#71,#96): full round-trip shipped
+      (intent handoff -> consumeDriftHandoff -> intent-drift-report-v1), surfaced in
+      `openthunder intent drift` and the `can-i-ship --intent-pack` gate; documented + live
 - [ ] Runtime split for AI routing; Prompt-to-Intent as a traced, approved assist (#57,#63)
 - [ ] Ecosystem proof consumers: Repo Mastery teaching, STT defense drills, STCE track, Workspace signing (#75-#82)
