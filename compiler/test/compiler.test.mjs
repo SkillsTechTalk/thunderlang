@@ -277,6 +277,7 @@ test('.intent-proof.json carries schema/version/hash for stale-proof detection',
     diagnostics: semanticDiagnostics(ast),
   });
   assert.equal(proof.schemaVersion, PROOF_SCHEMA_VERSION);
+  assert.equal(proof.sourceProduct, 'skillstech-compiler'); // ecosystem source id (STCE cert keying)
   assert.equal(proof.compilerVersion, COMPILER_VERSION);
   assert.match(proof.sourceHash, /^sha256:[0-9a-f]{64}$/);
   assert.equal(proof.ai.used, false);

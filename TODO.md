@@ -326,7 +326,8 @@ Ecosystem contract alignment (downstream tools consume these artifacts):
       become golden tests for the generated artifacts. (Test-pass counts + drift stay consumer-provided.)
 
 Sibling-requested (committed on the coordination bus 2026-07-10; all additive):
-- [ ] Add `sourceProduct: "skillstech-compiler"` to `.intent-proof.json` (asked by STCE, for cert-proof keying).
+- [x] Add `sourceProduct: "skillstech-compiler"` to `.intent-proof.json` (asked by STCE, for cert-proof keying).
+      Additive envelope field (after schemaVersion); sourceHash/join keys unchanged; +assertion. 23/23 tests.
 - [ ] Add an ESM library entry to `@skillstech/intentlang` (`exports`/`main` re-exporting `parseIntent`,
       `buildMissionIndex`, `compileSource`, drift/lift helpers) so Studio/RM can `import` it, not just the CLI
       bin (asked by ST, #134500). Optional hand-written `.d.ts` after.

@@ -21,6 +21,9 @@ export function notesSummary(ast) {
 
 export const COMPILER_VERSION = '0.1.0';
 export const PROOF_SCHEMA_VERSION = '0.1.0';
+// Identifies which ecosystem product emitted this proof. Consumed by SkillsTech
+// Certified to key cert proofs to the compiler. Stable slug per the coordination bus.
+export const SOURCE_PRODUCT = 'skillstech-compiler';
 
 export const sha256 = (s) => 'sha256:' + createHash('sha256').update(s).digest('hex');
 
@@ -185,6 +188,7 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
   const verifiedText = ast.verify.join(' ').toLowerCase();
   return {
     schemaVersion: PROOF_SCHEMA_VERSION,
+    sourceProduct: SOURCE_PRODUCT,
     missionName: ast.mission,
     sourceFile,
     sourceHash,
