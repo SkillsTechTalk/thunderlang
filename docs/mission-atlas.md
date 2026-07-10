@@ -32,7 +32,7 @@ Each level answers a different question:
 - **Product / MVP** , what are we shipping?
 - **User journeys** , what can a user actually do end to end?
 - **Feature areas** , how is the work grouped (Identity, Billing, ...)?
-- **Mission chains** , which missions form one flow? (see [Mission chains](/docs/large-changes#mission-chain))
+- **Mission chains** , which missions form one flow? (see [Mission chains](/docs/mission-chains))
 - **Missions** , what is each single unit of intent?
 - **Guarantees / never rules** , what must always or never be true?
 - **Tests / proof / code evidence** , is it actually verified in the repo?

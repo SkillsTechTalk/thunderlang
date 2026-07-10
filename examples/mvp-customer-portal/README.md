@@ -4,15 +4,16 @@ A worked example for the [Mission Atlas](../../docs/mission-atlas.md) and
 [Working with large changes](../../docs/large-changes.md) docs. It shows how
 IntentLang scales from one `.intent` file to a whole MVP.
 
-## Feature areas and missions
+## Feature areas and missions (15 authored)
 
 - **Identity and Access:** RegisterUser, LoginUser, ManageSession
 - **Onboarding:** VerifyEmail, CreateWorkspace, InviteTeamMember, AcceptInvite
-- **Billing:** CreateCheckoutSession, CreateInvoice
-- **Deployment Readiness:** HealthCheck
+- **Billing:** CreateCheckoutSession, CreateInvoice, ActivateSubscription, CancelSubscription
+- **Deployment Readiness:** HealthCheck, AuditLog, ErrorMonitoring, RollbackPlan
 
-Planned but not yet authored (tracked as gaps): ActivateSubscription,
-CancelSubscription, AuditLog, ErrorMonitoring, RollbackPlan.
+All 15 are authored and pass `intent check`. Several are deliberately
+under-verified (Billing and RollbackPlan) so the Proof Matrix, Risk Radar, and MVP
+Readiness examples stay honest: authoring a mission is not the same as verifying it.
 
 ## Files
 

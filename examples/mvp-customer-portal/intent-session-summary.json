@@ -5,26 +5,27 @@
   "product": "MVP Customer Portal",
   "session": { "date": "2026-07-09", "author": "Claude Code", "since": "HEAD~1" },
   "buildSessionDigest": {
-    "missionsGenerated": 8,
+    "missionsGenerated": 13,
     "missionsModified": 2,
-    "chainsCreated": 2,
-    "headline": "Signup and billing scaffolded by AI; billing is under-verified.",
-    "reviewFirst": ["CreateCheckoutSession", "ManageSession", "InviteTeamMember"]
+    "chainsCreated": 3,
+    "headline": "Full portal scaffolded by AI across 4 feature areas; Billing and rollback are under-verified.",
+    "reviewFirst": ["CreateCheckoutSession", "ActivateSubscription", "RollbackPlan", "InviteTeamMember"]
   },
   "semanticDiff": {
-    "missionsChanged": 10,
-    "guaranteesAdded": 6,
-    "neverRulesAdded": 4,
+    "missionsChanged": 15,
+    "guaranteesAdded": 10,
+    "neverRulesAdded": 8,
     "neverRulesWeakened": 0,
-    "verificationRulesAdded": 9,
+    "verificationRulesAdded": 14,
     "proofArtifactsStale": 1,
-    "chainsCreated": 2
+    "chainsCreated": 3
   },
   "riskRadar": [
     { "rank": 1, "mission": "CreateCheckoutSession", "factors": ["payments", "external API", "missing tests (1/5)", "AI authored", "unreviewed"] },
-    { "rank": 2, "mission": "InviteTeamMember", "factors": ["PII", "public endpoint", "sends email", "partial proof"] },
-    { "rank": 3, "mission": "ManageSession", "factors": ["session lifetime", "revocation", "missing tests (1/2)", "unreviewed"] },
-    { "rank": 4, "mission": "RegisterUser", "factors": ["auth", "secret", "PII", "one test failing"] }
+    { "rank": 2, "mission": "ActivateSubscription", "factors": ["payments", "database write", "no passing test (0/1)", "AI authored", "unreviewed"] },
+    { "rank": 3, "mission": "RollbackPlan", "factors": ["deployment impact", "destructive migration", "no passing test (0/1)", "unreviewed"] },
+    { "rank": 4, "mission": "InviteTeamMember", "factors": ["PII", "public endpoint", "sends email", "partial proof"] },
+    { "rank": 5, "mission": "RegisterUser", "factors": ["auth", "secret", "PII", "one test failing"] }
   ],
-  "teaching": "The digest answers 'what happened today'. The Risk Radar orders 'what to review first' so 10 missions are not reviewed as if equal."
+  "teaching": "The digest answers 'what happened today'. The Risk Radar orders 'what to review first' so 15 missions are not reviewed as if equal."
 }

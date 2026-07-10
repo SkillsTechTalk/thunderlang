@@ -6,8 +6,10 @@
 
 ## Readiness: demo_safe
 
-The Customer Portal MVP is safe to demo in a controlled setting. It is not ready for
-real customers. Billing is the weakest journey and gates the release.
+All 15 missions of the Customer Portal MVP are authored across four feature areas.
+It is safe to demo in a controlled setting. It is not ready for real customers.
+Billing is the weakest journey and gates the release. Authoring a mission is not the
+same as verifying it.
 
 ## What it can do (verified)
 
@@ -18,37 +20,40 @@ real customers. Billing is the weakest journey and gates the release.
 - **Accept an invite.** `AcceptInvite` is verified, including one-time-use invites.
 - **Invoice a completed order.** `CreateInvoice` is verified: idempotent, never
   negative, and it rejects unapproved orders.
-- **Report health.** `HealthCheck` is verified.
+- **Cancel a subscription.** `CancelSubscription` is verified: no charge after
+  cancellation, access retained until period end.
+- **Observe the service.** `HealthCheck`, `ErrorMonitoring`, and `AuditLog` are
+  verified, including secret scrubbing and an append-only audit trail.
 
 ## What works but is not fully proven (review before trusting)
 
-- **Register.** `RegisterUser` has one failing test (`4/5`). Duplicate-email and
-  hashing paths are covered; treat sign-up as not yet trusted end to end.
+- **Register.** `RegisterUser` has one failing test (`4/5`).
 - **Manage sessions.** `ManageSession` is partial (`1/2`): expiry is tested,
   revocation is not.
 - **Invite a teammate.** `InviteTeamMember` is partial (`1/2`) and is a public,
   PII-touching endpoint. It weakens the New Customer Signup chain.
 
-## What it cannot yet do (not shippable)
+## What it cannot yet do safely (authored, under-verified)
 
 - **Take a payment.** `CreateCheckoutSession` is drifting (`1/5` tests) and touches
-  an external payment API. It has unverified never rules.
-- **Activate a subscription.** `ActivateSubscription` is not yet authored, so the
-  Subscription Billing chain is incomplete.
-- **Operate safely in production.** `AuditLog`, `ErrorMonitoring`, and `RollbackPlan`
-  are not yet authored.
+  an external payment API, with unverified never rules.
+- **Activate a subscription.** `ActivateSubscription` has no passing test (`0/1`), so
+  the Subscription Billing chain is not proven end to end.
+- **Recover from a bad deploy.** `RollbackPlan` has no passing test (`0/1`), so
+  recovery is unproven.
 
 ## Journeys
 
-- **New Customer Signup:** at risk. The weakest link is `InviteTeamMember`.
-- **Subscription Billing:** blocked. The paid path is under-verified and missing
-  `ActivateSubscription`.
+- **New Customer Signup:** at risk. Weakest link `InviteTeamMember`.
+- **Subscription Billing:** blocked. The paid path is under-verified.
+- **Operate and Recover:** at risk. Weakest link `RollbackPlan`.
 
 ## To reach the next level (internal_only for the whole MVP)
 
 1. Verify `CreateCheckoutSession` (raise `1/5` to full).
-2. Author `ActivateSubscription` to complete the billing chain.
-3. Finish `InviteTeamMember` tests.
+2. Verify `ActivateSubscription` to prove the billing chain end to end.
+3. Verify `RollbackPlan` so recovery is trusted.
+4. Finish `InviteTeamMember` tests.
 
 This story reports declared intent and repo-provable status only. Verifying the
 running code against these missions is OpenThunder's job.

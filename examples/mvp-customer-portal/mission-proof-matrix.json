@@ -14,8 +14,13 @@
     { "mission": "AcceptInvite", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync" },
     { "mission": "CreateCheckoutSession", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "1/5", "proof": "partial", "drift": "drift" },
     { "mission": "CreateInvoice", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "3/3", "proof": "verified", "drift": "in_sync" },
-    { "mission": "HealthCheck", "risk": "low", "guarantees": 1, "neverRules": 0, "tests": "1/1", "proof": "verified", "drift": "in_sync" }
+    { "mission": "ActivateSubscription", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "0/1", "proof": "partial", "drift": "review" },
+    { "mission": "CancelSubscription", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync" },
+    { "mission": "HealthCheck", "risk": "low", "guarantees": 1, "neverRules": 0, "tests": "1/1", "proof": "verified", "drift": "in_sync" },
+    { "mission": "AuditLog", "risk": "medium", "guarantees": 2, "neverRules": 2, "tests": "1/1", "proof": "verified", "drift": "in_sync" },
+    { "mission": "ErrorMonitoring", "risk": "medium", "guarantees": 2, "neverRules": 2, "tests": "1/1", "proof": "verified", "drift": "in_sync" },
+    { "mission": "RollbackPlan", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "0/1", "proof": "partial", "drift": "review" }
   ],
-  "totals": { "verified": 5, "partial": 3, "drift": 1, "unverifiedNeverRules": 3 },
-  "teaching": "Scan the proof and drift columns first. A 'high' risk row that is 'partial' or 'drift' is where trust is missing."
+  "totals": { "missions": 15, "verified": 9, "partial": 6, "drift": 1, "driftReview": 4, "unverifiedNeverRules": 5 },
+  "teaching": "Scan the proof and drift columns first. A 'high' risk row that is 'partial' or 'drift' is where trust is missing: RegisterUser, CreateCheckoutSession, ActivateSubscription, RollbackPlan."
 }

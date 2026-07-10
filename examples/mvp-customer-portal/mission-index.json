@@ -20,14 +20,13 @@
     { "mission": "AcceptInvite", "area": "Onboarding", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
     { "mission": "CreateCheckoutSession", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "1/5", "proof": "partial", "drift": "drift", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
     { "mission": "CreateInvoice", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "3/3", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false },
-    { "mission": "HealthCheck", "area": "Deployment Readiness", "risk": "low", "guarantees": 1, "neverRules": 0, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false }
+    { "mission": "ActivateSubscription", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "0/1", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "CancelSubscription", "area": "Billing", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "HealthCheck", "area": "Deployment Readiness", "risk": "low", "guarantees": 1, "neverRules": 0, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false },
+    { "mission": "AuditLog", "area": "Deployment Readiness", "risk": "medium", "guarantees": 2, "neverRules": 2, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": true },
+    { "mission": "ErrorMonitoring", "area": "Deployment Readiness", "risk": "medium", "guarantees": 2, "neverRules": 2, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "RollbackPlan", "area": "Deployment Readiness", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "0/1", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true }
   ],
-  "planned": [
-    { "mission": "ActivateSubscription", "area": "Billing", "status": "not_yet_authored" },
-    { "mission": "CancelSubscription", "area": "Billing", "status": "not_yet_authored" },
-    { "mission": "AuditLog", "area": "Deployment Readiness", "status": "not_yet_authored" },
-    { "mission": "ErrorMonitoring", "area": "Deployment Readiness", "status": "not_yet_authored" },
-    { "mission": "RollbackPlan", "area": "Deployment Readiness", "status": "not_yet_authored" }
-  ],
-  "summary": { "authored": 10, "planned": 5, "verified": 5, "partial": 3, "drift": 1 }
+  "planned": [],
+  "summary": { "authored": 15, "planned": 0, "verified": 9, "partial": 6, "driftReview": 4, "drift": 1 }
 }

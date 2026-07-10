@@ -289,11 +289,20 @@ Slice 1 (this slice):
       mvp-readiness-report)
 - [x] Register both docs in `src/lib/docs.ts` (auto-links /docs index + footer)
 
-Slice 2 (planned , split the umbrella into focused pages):
-- [ ] `docs/mission-chains.md`, `docs/build-session-digest.md`, `docs/proof-matrix.md`,
-      `docs/risk-radar.md`, `docs/semantic-diff.md`, `docs/mvp-readiness.md`,
-      `docs/ai-generated-missions.md`
-- [ ] Expand the MVP example to all 15 canonical missions + a dedicated tutorial route
+Slice 2 (this slice , split the umbrella into focused pages):
+- [x] 7 focused concept pages: `docs/mission-chains.md`, `docs/build-session-digest.md`,
+      `docs/proof-matrix.md`, `docs/risk-radar.md`, `docs/semantic-diff.md`,
+      `docs/mvp-readiness.md`, `docs/ai-generated-missions.md`. `large-changes.md`
+      refactored into a hub that links them (no content duplication).
+- [x] Expanded the MVP example to all 15 canonical missions (added ActivateSubscription,
+      CancelSubscription, AuditLog, ErrorMonitoring, RollbackPlan; fixtures + release
+      story recomputed; Billing/RollbackPlan kept under-verified so readiness stays honest).
+- [x] Tutorial promoted to its own route: `docs/release-story-tutorial.md`.
+- [x] All 8 docs registered in `src/lib/docs.ts`.
+
+Slice 3 (planned):
+- [ ] When the compiler ships `intent index`/`chains`/`summarize`/`release`, replace the
+      hand-authored JSON fixtures with generated golden fixtures and un-mark commands.
 
 Compiler support (PLANNED , owned by the SkillsTech Compiler, documented not built here):
 - [ ] `intent index ./intent` , mission inventory (mission-index.json)
