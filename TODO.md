@@ -317,6 +317,14 @@ Slice 3 follow-ups (planned):
 - [ ] `intent chains` (needs a chain-declaration convention or reliable type-linkage detection).
 - [ ] `intent summarize` / `diff` / `release` (need git history + test/drift evidence).
 
+Ecosystem contract alignment (downstream tools consume these artifacts):
+- [ ] Add stable join keys to the Atlas artifacts , `missionId` (stable slug) + `intentProofHash`
+      (the `.intent-proof.json` sourceHash) , so downstream verification tools join to missions with
+      no remapping. Version-bump the affected artifact schemas (additive).
+- [ ] Promote `mission-chain-map.json` / `semantic-diff.json` / `mvp-readiness-report.json` from example
+      fixtures to REAL compiler output. They are consumed downstream as contracts today; the fixtures should
+      become golden tests for the generated artifacts. (Test-pass counts + drift stay consumer-provided.)
+
 Compiler support (PLANNED , owned by the SkillsTech Compiler, documented not built here):
 - [ ] `intent index ./intent` , mission inventory (mission-index.json)
 - [ ] `intent graph ./intent --view atlas` , Mission Atlas view
