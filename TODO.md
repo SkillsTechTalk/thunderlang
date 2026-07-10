@@ -252,6 +252,12 @@ Next slices:
 - [x] OpenThunder consumer (in the OpenThunder repo, @openthunder/intent):
       consumeDriftHandoff ingests il-to-ot-drift-v1, checks vs repo evidence, emits
       intent-drift-report-v1. Cross-repo round-trip verified end to end.
+- [x] `openthunder intent drift --pack --repo`: CLI wraps the consumer; prints the
+      report + a can-i-ship line; exit 1 on drift.
+- [x] Intent drift surfaced in Can-I-Ship: `openthunder can-i-ship --intent-pack`
+      folds drift into the ship verdict (drift->HOLD, review->CAUTION, in_sync->SHIP;
+      only tightens, never loosens) across text/--json/--pr-comment. shipVerdictFromDrift
+      + scanRepoEvidence added to @openthunder/intent; +1 vitest. Verified end to end.
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
 
 ## Operating checklist status (see docs/operating-checklist.md)

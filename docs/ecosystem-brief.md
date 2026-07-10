@@ -58,6 +58,43 @@ Every sibling should recognize these artifact types.
 - `intent-coverage-v1`
 - `can-i-ship-with-intent-v1`
 
+**Running the drift round-trip**
+
+The compiler emits the handoff; OpenThunder consumes it against real repo evidence.
+
+```bash
+# IntentLang side: approve the intent in place (adds the approval + source hash),
+# then emit the handoff pack to a file.
+intent approve CreateInvoice.intent --by "you"
+intent handoff CreateInvoice.intent > intent-handoff.json
+
+# OpenThunder side: check the repo against the pack.
+openthunder intent drift --pack intent-handoff.json --repo .
+```
+
+`openthunder intent drift` prints an `intent-drift-report-v1` and exits non-zero when
+the implementation has drifted from the approved intent.
+
+**Can-I-Ship gate (`--intent-pack`)**
+
+The same pack plugs into OpenThunder's signature verb so a drifted intent stops a
+ship the code-level checks alone would pass:
+
+```bash
+openthunder can-i-ship --intent-pack intent-handoff.json
+```
+
+The drift report is folded into the ship verdict and can only tighten it, never
+loosen it:
+
+- `drift` (a declared input, guarantee, or never rule is unmet) -> **HOLD**
+- `review` (a declared expectation lacks repo evidence) -> **CAUTION**
+- `in_sync` -> no change to the code-level verdict
+
+It is surfaced in the text output, in `--json` (an `intentDrift` block), and in
+`--pr-comment`. Without `--intent-pack`, Can-I-Ship behaves exactly as before, so the
+intent gate is strictly opt-in.
+
 **Repo Mastery output**
 - `intent-learning-pack-v1`
 - `intent-mission-mastery-v1`
