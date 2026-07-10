@@ -300,9 +300,22 @@ Slice 2 (this slice , split the umbrella into focused pages):
 - [x] Tutorial promoted to its own route: `docs/release-story-tutorial.md`.
 - [x] All 8 docs registered in `src/lib/docs.ts`.
 
-Slice 3 (planned):
-- [ ] When the compiler ships `intent index`/`chains`/`summarize`/`release`, replace the
-      hand-authored JSON fixtures with generated golden fixtures and un-mark commands.
+Slice 3 (this slice , first real aggregation command):
+- [x] Implemented `intent index <dir> [--json]` for real: `compiler/src/atlas.mjs`
+      (`buildMissionIndex`) + CLI wiring + 3 vitest-style node tests (23/23 pass). Reports
+      only .intent-derivable fields (mission, area, risk heuristic, guarantee/never counts,
+      declared verification, reviewed); honestly excludes test pass counts and drift, which
+      need a test runner + OpenThunder.
+- [x] `examples/mvp-customer-portal/mission-index.json` is now a GENERATED golden fixture
+      (real `intent index --json` output), not hand-authored.
+- [x] Un-marked `intent index` from planned -> shipped in the docs (mission-atlas,
+      large-changes, tutorial, example README, compiler README). Other aggregation
+      commands stay honestly planned (evidence-dependent).
+
+Slice 3 follow-ups (planned):
+- [ ] Republish `@skillstech/intentlang` (bump) so npm users get `intent index`.
+- [ ] `intent chains` (needs a chain-declaration convention or reliable type-linkage detection).
+- [ ] `intent summarize` / `diff` / `release` (need git history + test/drift evidence).
 
 Compiler support (PLANNED , owned by the SkillsTech Compiler, documented not built here):
 - [ ] `intent index ./intent` , mission inventory (mission-index.json)

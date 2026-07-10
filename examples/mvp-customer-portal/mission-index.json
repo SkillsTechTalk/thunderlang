@@ -1,32 +1,234 @@
 {
-  "_note": "Teaching fixture. This is the shape `intent index ./intent` is PLANNED to emit. It is hand-authored here to illustrate the Mission Atlas, not produced by the compiler yet.",
-  "_plannedCommand": "intent index ./intent",
-  "schemaVersion": "0.1.0-draft",
+  "schema": "mission-index-v1",
+  "generatedBy": "intent index",
   "product": "MVP Customer Portal",
-  "generatedBy": "example-fixture",
-  "featureAreas": [
-    "Identity and Access",
-    "Onboarding",
-    "Billing",
-    "Deployment Readiness"
-  ],
+  "note": "Verification is DECLARED (verify tests present), not proven. Test pass counts and drift require a test runner and OpenThunder; they are not in this index.",
   "missions": [
-    { "mission": "RegisterUser", "area": "Identity and Access", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "4/5", "proof": "partial", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "LoginUser", "area": "Identity and Access", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "3/3", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": true, "changedToday": true },
-    { "mission": "ManageSession", "area": "Identity and Access", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "1/2", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "VerifyEmail", "area": "Onboarding", "risk": "medium", "guarantees": 1, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": true, "changedToday": true },
-    { "mission": "CreateWorkspace", "area": "Onboarding", "risk": "high", "guarantees": 2, "neverRules": 0, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "InviteTeamMember", "area": "Onboarding", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "1/2", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "AcceptInvite", "area": "Onboarding", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "CreateCheckoutSession", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "1/5", "proof": "partial", "drift": "drift", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "CreateInvoice", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "3/3", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false },
-    { "mission": "ActivateSubscription", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "0/1", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "CancelSubscription", "area": "Billing", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "HealthCheck", "area": "Deployment Readiness", "risk": "low", "guarantees": 1, "neverRules": 0, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false },
-    { "mission": "AuditLog", "area": "Deployment Readiness", "risk": "medium", "guarantees": 2, "neverRules": 2, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": true },
-    { "mission": "ErrorMonitoring", "area": "Deployment Readiness", "risk": "medium", "guarantees": 2, "neverRules": 2, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
-    { "mission": "RollbackPlan", "area": "Deployment Readiness", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "0/1", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true }
+    {
+      "mission": "AcceptInvite",
+      "file": "intent/AcceptInvite.intent",
+      "area": "Onboarding",
+      "risk": "medium",
+      "riskFactors": [
+        "secret"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 3,
+      "verification": "declared-full",
+      "reviewed": false
+    },
+    {
+      "mission": "ActivateSubscription",
+      "file": "intent/ActivateSubscription.intent",
+      "area": "Billing",
+      "risk": "high",
+      "riskFactors": [
+        "payments"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 2,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "AuditLog",
+      "file": "intent/AuditLog.intent",
+      "area": "Deployment Readiness",
+      "risk": "medium",
+      "riskFactors": [
+        "secret"
+      ],
+      "guarantees": 2,
+      "neverRules": 2,
+      "verifyTests": 2,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "CancelSubscription",
+      "file": "intent/CancelSubscription.intent",
+      "area": "Billing",
+      "risk": "high",
+      "riskFactors": [
+        "payments"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 2,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "CreateCheckoutSession",
+      "file": "intent/CreateCheckoutSession.intent",
+      "area": "Billing",
+      "risk": "high",
+      "riskFactors": [
+        "payments",
+        "auth"
+      ],
+      "guarantees": 2,
+      "neverRules": 2,
+      "verifyTests": 1,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "CreateInvoice",
+      "file": "intent/CreateInvoice.intent",
+      "area": "Billing",
+      "risk": "high",
+      "riskFactors": [
+        "payments"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 4,
+      "verification": "declared-full",
+      "reviewed": false
+    },
+    {
+      "mission": "CreateWorkspace",
+      "file": "intent/CreateWorkspace.intent",
+      "area": "Onboarding",
+      "risk": "low",
+      "riskFactors": [],
+      "guarantees": 2,
+      "neverRules": 0,
+      "verifyTests": 3,
+      "verification": "declared-full",
+      "reviewed": false
+    },
+    {
+      "mission": "ErrorMonitoring",
+      "file": "intent/ErrorMonitoring.intent",
+      "area": "Deployment Readiness",
+      "risk": "medium",
+      "riskFactors": [
+        "secret",
+        "pii"
+      ],
+      "guarantees": 2,
+      "neverRules": 2,
+      "verifyTests": 2,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "HealthCheck",
+      "file": "intent/HealthCheck.intent",
+      "area": "Deployment Readiness",
+      "risk": "low",
+      "riskFactors": [],
+      "guarantees": 1,
+      "neverRules": 0,
+      "verifyTests": 1,
+      "verification": "declared-full",
+      "reviewed": false
+    },
+    {
+      "mission": "InviteTeamMember",
+      "file": "intent/InviteTeamMember.intent",
+      "area": "Onboarding",
+      "risk": "medium",
+      "riskFactors": [
+        "pii"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 1,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "LoginUser",
+      "file": "intent/LoginUser.intent",
+      "area": "Identity and Access",
+      "risk": "high",
+      "riskFactors": [
+        "auth",
+        "secret",
+        "pii"
+      ],
+      "guarantees": 2,
+      "neverRules": 2,
+      "verifyTests": 3,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "ManageSession",
+      "file": "intent/ManageSession.intent",
+      "area": "Identity and Access",
+      "risk": "medium",
+      "riskFactors": [
+        "auth"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 1,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "RegisterUser",
+      "file": "intent/RegisterUser.intent",
+      "area": "Identity and Access",
+      "risk": "high",
+      "riskFactors": [
+        "auth",
+        "secret",
+        "pii"
+      ],
+      "guarantees": 2,
+      "neverRules": 2,
+      "verifyTests": 3,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "RollbackPlan",
+      "file": "intent/RollbackPlan.intent",
+      "area": "Deployment Readiness",
+      "risk": "high",
+      "riskFactors": [
+        "deployment"
+      ],
+      "guarantees": 2,
+      "neverRules": 1,
+      "verifyTests": 1,
+      "verification": "declared-partial",
+      "reviewed": false
+    },
+    {
+      "mission": "VerifyEmail",
+      "file": "intent/VerifyEmail.intent",
+      "area": "Onboarding",
+      "risk": "medium",
+      "riskFactors": [
+        "secret",
+        "pii"
+      ],
+      "guarantees": 1,
+      "neverRules": 1,
+      "verifyTests": 3,
+      "verification": "declared-full",
+      "reviewed": false
+    }
   ],
-  "planned": [],
-  "summary": { "authored": 15, "planned": 0, "verified": 9, "partial": 6, "driftReview": 4, "drift": 1 }
+  "summary": {
+    "missions": 15,
+    "byArea": {
+      "Onboarding": 4,
+      "Billing": 4,
+      "Deployment Readiness": 4,
+      "Identity and Access": 3
+    },
+    "declaredFull": 5,
+    "declaredPartial": 10,
+    "unverified": 0,
+    "highRisk": 7
+  }
 }

@@ -23,6 +23,7 @@ import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
+import { buildMissionIndex } from './atlas.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -34,6 +35,19 @@ function collectFiles(root, acc = []) {
     const st = statSync(full);
     if (st.isDirectory()) collectFiles(full, acc);
     else if (LIFT_EXTS.some((e) => name.endsWith(e)) && !name.endsWith('.d.ts')) acc.push(full);
+  }
+  return acc;
+}
+
+// Walk a directory for authored .intent files (skips the .intent/ output dir).
+function collectIntents(root, acc = []) {
+  const st = statSync(root);
+  if (!st.isDirectory()) return root.endsWith('.intent') ? [root] : acc;
+  for (const name of readdirSync(root)) {
+    if (SKIP_DIRS.has(name)) continue;
+    const full = join(root, name);
+    if (statSync(full).isDirectory()) collectIntents(full, acc);
+    else if (name.endsWith('.intent')) acc.push(full);
   }
   return acc;
 }
@@ -51,6 +65,7 @@ function parseArgs(argv) {
     else if (a === '--at') args.at = argv[++i];
     else if (a === '--json') args.json = true;
     else if (a === '--targets') args.targets = (argv[++i] || '').split(',').filter(Boolean);
+    else if (a === '--product') args.product = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -177,6 +192,29 @@ function main() {
       for (const f of res.findings) console.log(`  [${f.level}] ${f.code}: ${f.message}`);
     }
     process.exit(res.status === 'drift' ? 1 : 0);
+  }
+
+  // Mission Atlas index: aggregate every .intent under a directory into one inventory.
+  if (cmd === 'index') {
+    const root = file;
+    let intentFiles;
+    try {
+      intentFiles = collectIntents(root).map((f) => ({ path: relative(root, f), source: readFileSync(f, 'utf8') }));
+    } catch (e) {
+      console.error(`intent index: cannot read "${root}": ${e instanceof Error ? e.message : e}`);
+      process.exit(2);
+      return;
+    }
+    const index = buildMissionIndex(intentFiles, { product: args.product });
+    if (args.json) { console.log(JSON.stringify(index, null, 2)); return; }
+    console.log(`intent index ${root}: ${index.summary.missions} mission(s)`);
+    console.log(`  ${JSON.stringify(index.summary.byArea)}`);
+    for (const m of index.missions) {
+      console.log(`  ${m.mission.padEnd(24)} ${String(m.risk).padEnd(7)} G:${m.guarantees} N:${m.neverRules} verify:${m.verification}${m.reviewed ? ' reviewed' : ''}`);
+    }
+    console.log(`  ${index.summary.declaredFull} declared-full, ${index.summary.declaredPartial} partial, ${index.summary.unverified} unverified, ${index.summary.highRisk} high-risk`);
+    console.log('  note: verification is DECLARED, not proven. Test/drift status needs OpenThunder.');
+    return;
   }
 
   const { source, ast, sourceHash, sourceFile } = load(file);

@@ -85,16 +85,16 @@ radar, semantic diff, readiness, and the release story.
 
 ## Command status
 
-This repo teaches the concepts and ships the [example fixtures](/examples). The
-commands that produce these views across many missions are owned by the **SkillsTech
-Compiler** and are documented here as **planned** until they ship. The single-mission
-commands that already exist (`intent check`, `graph`, `proof`, `build`, `lift`,
-`approve`, `drift`, `handoff`) are covered in the
+This repo teaches the concepts and ships the [example fixtures](/examples). The first
+aggregation command, `intent index`, is **shipped**; the rest are owned by the
+**SkillsTech Compiler** and documented here as **planned** until they ship. The
+single-mission commands that already exist (`intent check`, `graph`, `proof`,
+`build`, `lift`, `approve`, `drift`, `handoff`) are covered in the
 [compiler contract](/docs/compiler-contract).
 
 | Command | Status | Produces |
 | --- | --- | --- |
-| `intent index ./intent` | planned | mission inventory (`mission-index.json`) |
+| `intent index ./intent [--json]` | shipped | mission inventory (`mission-index.json`) |
 | `intent graph ./intent --view atlas` | planned | Mission Atlas view |
 | `intent chains ./intent` | planned | mission chains (`mission-chain-map.json`) |
 | `intent summarize ./intent --since today` | planned | Build Session Digest |

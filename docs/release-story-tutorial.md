@@ -27,14 +27,16 @@ This runs `intent check` on all 15 missions. It answers "does each file parse an
 satisfy its own rules?" It does not answer the bigger questions. That is the rest of
 this tutorial.
 
-## 2. Index the missions
+## 2. Index the missions (real)
 
 ```bash
-intent index ./intent            # planned -> mission-index.json
+node compiler/src/cli.mjs index ./intent --json    # shipped -> mission-index.json
 ```
 
 The [Mission Atlas](/docs/mission-atlas) inventory: every mission with its feature
-area, risk, proof, drift, and provenance. This is the map of what exists.
+area, a risk heuristic, guarantee and never counts, and declared verification. This
+command is real today; `mission-index.json` in the example is its actual output.
+Test pass counts, drift, and human review come from later steps and repo evidence.
 
 ## 3. View the Atlas
 

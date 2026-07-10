@@ -26,7 +26,13 @@ intent check <file.intent>                 # parse + semantic diagnostics (exit 
 intent graph <file.intent> [--out .intent] # contract-graph.json + architecture-graph.json + proof
 intent proof <file.intent> [--out .intent] # .intent-proof.json
 intent build <file.intent> [--out .intent] # all artifacts + docs.md + mermaid.mmd + testplan.md
+intent index <dir> [--json]                # Mission Atlas inventory across many .intent files
 ```
+
+`intent index` aggregates a directory of missions into one inventory (mission, area,
+risk heuristic, guarantee/never counts, declared verification). It reports only what
+is derivable from the `.intent` files; test results and drift need a test runner and
+OpenThunder. See the [Mission Atlas](https://intentlanguage.dev/docs/mission-atlas) docs.
 
 Gate your `.intent` files in CI with GitHub Actions: see the
 [compiler contract](https://intentlanguage.dev/docs/compiler-contract) (Continuous integration).
