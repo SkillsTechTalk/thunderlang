@@ -163,7 +163,7 @@ function applyFix(code: string, fix: Fix): string {
 function diagnosticNeedle(d: Diagnostic): string | null {
   const quoted = d.message.match(/"([^"]+)"/);
   if (quoted) return quoted[1];
-  if (d.code === "missing-goal" || d.code === "missing-mission") return "mission";
+  if (d.code === "missing-goal" || d.code === "missing-mission" || d.code === "missing-subject") return "mission";
   return null;
 }
 

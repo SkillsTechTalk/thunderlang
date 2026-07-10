@@ -89,9 +89,16 @@ export function semanticDiagnostics(ast) {
   const warn = (code, message, why, fix = []) => d.push({ level: 'warning', code, message, why, fix });
   const err = (code, message, why, fix = []) => d.push({ level: 'error', code, message, why, fix });
 
-  if (!ast.mission) {
-    err('missing-mission', 'No mission name declared.',
-      'Every file must declare one mission so the compiler knows what it is reasoning about.',
+  // The subject of an intent may be a mission or any first-class architecture
+  // kind (service, event, api, database). Only error when none is declared.
+  const hasSubject = !!ast.mission
+    || (ast.services && ast.services.length > 0)
+    || (ast.events && ast.events.length > 0)
+    || (ast.apis && ast.apis.length > 0)
+    || (ast.databases && ast.databases.length > 0);
+  if (!hasSubject) {
+    err('missing-subject', 'No mission, service, event, api, or database declared.',
+      'Every file must declare one subject so the compiler knows what it is reasoning about.',
       [{ label: 'Add a mission declaration', insert: 'mission MyMission', block: 'top' }]);
   }
   if (!ast.goal) {

@@ -278,7 +278,11 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 - [ ] More semantic diagnostics: unknown-semantic-type, event-payload-contains-Secret, api-sensitive-output-without-auth (#29,#43)
 - [ ] OpenAPI generation when an `api` block exists (#37)
 - [ ] `bin` wiring: `npm install -g` / `npx intent` so the CLI is real (#40,#94)
-- [ ] `intent check` in a GitHub Actions workflow (#95)
+- [x] `intent check` in a GitHub Actions workflow (#95): scripts/intent-check.mjs
+      batch-runs the real CLI over every authored .intent (skips the .intent/ output
+      dir), exit 1 on any error; `.github/workflows/intent-check.yml` gates push/PR;
+      `npm run intent:check` locally. Fixed missing-mission -> missing-subject so
+      service/event/api/database intents are valid subjects (was erroring the examples).
 - [x] Wire the web playground to the real compiler (/api/compile, deterministic, no AI) (#89)
 - [ ] Six more examples toward the target ten: RAG pipeline, webhook handler, event-driven billing, auth API, file upload, AI agent task, data pipeline, deployment policy (#91)
 - [ ] `intentlang-starter` template repo (#93)

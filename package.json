@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "intent:check": "node scripts/intent-check.mjs",
+    "intent:test": "node --test compiler"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

@@ -139,6 +139,33 @@ status. AI assists; humans approve, verify, and own the result.
     intent build
     intent proof
 
+## Continuous integration
+
+`intent check` is deterministic, dependency-free, and exits non-zero on any
+error, so it drops straight into CI to keep a broken intent from merging.
+
+This repo gates every `.intent` file on push and pull request with
+`.github/workflows/intent-check.yml`, which runs `npm run intent:check`
+(`node scripts/intent-check.mjs`). The wrapper finds every authored `.intent`
+file (skipping the `.intent/` output directory) and runs the real `intent check`
+on each, failing the build if any file has errors. Warnings do not fail the build.
+
+A minimal workflow for any repo:
+
+```yaml
+name: Intent Check
+on: [push, pull_request]
+jobs:
+  intent-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm run intent:check
+```
+
 ## MVP scope
 
 The first useful version does **not** generate production code. It makes intent,
