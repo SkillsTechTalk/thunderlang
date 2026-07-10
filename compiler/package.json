@@ -1,11 +1,16 @@
 {
   "name": "@intentlang/compiler",
   "version": "0.1.0",
-  "description": "Deterministic IntentLang compiler (MVP emit stage): .intent -> contract-graph.json, architecture-graph.json, implementation-plan.json, .intent-proof.json. No AI; --no-ai is the only mode today.",
+  "description": "Deterministic IntentLang compiler and CLI. Turns .intent files into contract/architecture graphs, an implementation plan, docs, a Mermaid diagram, a test plan, and a proof artifact. No AI required.",
   "type": "module",
   "bin": {
     "intent": "src/cli.mjs"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
@@ -14,6 +19,29 @@
     "check:example": "node src/cli.mjs check ../examples/CreateInvoice.intent",
     "build:example": "node src/cli.mjs build ../examples/CreateInvoice.intent"
   },
-  "license": "UNLICENSED",
-  "private": true
+  "keywords": [
+    "intent",
+    "intentlang",
+    "intent-oriented-programming",
+    "compiler",
+    "cli",
+    "verification",
+    "contract",
+    "proof",
+    "ai"
+  ],
+  "homepage": "https://intentlanguage.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
+    "directory": "compiler"
+  },
+  "bugs": {
+    "url": "https://github.com/SkillsTechTalk/intent-language/issues"
+  },
+  "author": "SkillsTech",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

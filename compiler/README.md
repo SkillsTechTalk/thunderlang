@@ -1,20 +1,35 @@
-# @intentlang/compiler (MVP emit stage)
+# @intentlang/compiler
 
-Deterministic IntentLang compiler. **No AI** (`--no-ai` is the only mode today). Turns a `.intent` file into
-the artifacts the Skills Tech ecosystem consumes. This is the first, smallest compiler slice: parse → semantic
-diagnostics → contract graph → architecture graph → implementation plan → proof. Code generation comes later.
+Deterministic IntentLang compiler and CLI. **No AI required.** Turns a `.intent` file into the
+artifacts the SkillsTech ecosystem consumes: contract and architecture graphs, an implementation
+plan, Markdown docs, a Mermaid diagram, a test plan, and a proof artifact. The pipeline is
+parse → semantic diagnostics → contract graph → architecture graph → implementation plan → proof.
 
-> Placement (founder decision, 2026-07-09): the compiler **stays in the IntentLang repo for now** (in `compiler/`).
-> It has zero coupling to the website, so it can still move to a dedicated SkillsTech Compiler repo later if needed.
+Part of [IntentLang](https://intentlanguage.dev), the intent language for AI-era software.
+
+## Install
+
+```bash
+npm install -g @intentlang/compiler   # then run: intent check path/to/Mission.intent
+```
+
+Or run without installing:
+
+```bash
+npx @intentlang/compiler check path/to/Mission.intent
+```
 
 ## Commands
 
 ```bash
-node src/cli.mjs check <file.intent>                 # parse + semantic diagnostics (exit 1 on error)
-node src/cli.mjs graph <file.intent> [--out .intent] # contract-graph.json + architecture-graph.json + proof
-node src/cli.mjs proof <file.intent> [--out .intent] # .intent-proof.json
-node src/cli.mjs build <file.intent> [--out .intent] # all artifacts + docs.md + mermaid.mmd + testplan.md
+intent check <file.intent>                 # parse + semantic diagnostics (exit 1 on error)
+intent graph <file.intent> [--out .intent] # contract-graph.json + architecture-graph.json + proof
+intent proof <file.intent> [--out .intent] # .intent-proof.json
+intent build <file.intent> [--out .intent] # all artifacts + docs.md + mermaid.mmd + testplan.md
 ```
+
+Gate your `.intent` files in CI with GitHub Actions: see the
+[compiler contract](https://intentlanguage.dev/docs/compiler-contract) (Continuous integration).
 
 ## Output location (important for OpenThunder)
 
@@ -30,8 +45,9 @@ mirrors the ecosystem dot-dir convention (`.openthunder/`). Emitted per mission:
 
 ## What the semantic pass catches (slice 1)
 
-missing mission / missing goal · guarantee or never-rule without verification · **duplicate-prevention guarantee
-without an idempotency mechanism** (the signature demo) · Secret/Token field without a never-log rule.
+missing subject (mission/service/event/api/database) / missing goal · guarantee or never-rule without
+verification · **duplicate-prevention guarantee without an idempotency mechanism** (the signature demo) ·
+Secret/Token field without a never-log rule.
 
 ## Consumed by
 
