@@ -1,0 +1,26 @@
+{
+  "_note": "Teaching fixture. Shape `intent chains ./intent` is PLANNED to emit. Hand-authored to illustrate Mission Chains.",
+  "_plannedCommand": "intent chains ./intent",
+  "schemaVersion": "0.1.0-draft",
+  "product": "MVP Customer Portal",
+  "chains": [
+    {
+      "name": "New Customer Signup",
+      "journey": "A person goes from no account to an active workspace member.",
+      "steps": ["RegisterUser", "VerifyEmail", "CreateWorkspace", "InviteTeamMember", "AcceptInvite", "LoginUser"],
+      "readiness": "at_risk",
+      "readinessReason": "InviteTeamMember is only partially verified (1/2 tests), so the invite-to-join hop is not proven end to end.",
+      "weakestLink": "InviteTeamMember"
+    },
+    {
+      "name": "Subscription Billing",
+      "journey": "A workspace picks a plan and gets billed.",
+      "steps": ["CreateCheckoutSession", "CreateInvoice", "ActivateSubscription"],
+      "readiness": "blocked",
+      "readinessReason": "CreateCheckoutSession is drifting (1/5 tests) and ActivateSubscription is not yet authored, so the paid path cannot be trusted.",
+      "weakestLink": "CreateCheckoutSession",
+      "missingSteps": ["ActivateSubscription"]
+    }
+  ],
+  "teaching": "Every mission in a chain can pass its own check while the chain is still not ready. Chains measure end-to-end readiness; missions measure per-unit correctness."
+}

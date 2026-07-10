@@ -1,0 +1,29 @@
+# CreateWorkspace.intent , MVP Customer Portal / Onboarding
+
+mission CreateWorkspace
+
+goal
+  Create a workspace and make the creating user its owner.
+
+why
+  The workspace is the tenancy boundary. Getting ownership and isolation wrong
+  leaks one customer's data into another's.
+
+input
+  ownerId: UserId
+  name: WorkspaceName
+
+output
+  workspace: Workspace
+
+guarantees
+  creator becomes the workspace owner
+  workspaces are isolated from each other
+
+guarantee workspaces are isolated from each other
+  because cross-tenant access is a critical data breach
+  verify test tenant isolation
+
+verify
+  test creator is owner
+  test tenant isolation

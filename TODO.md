@@ -263,6 +263,47 @@ Next slices:
       intentlanguage.dev/docs/ecosystem-brief.
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
 
+## Mission Atlas , scaling beyond one .intent file
+
+> Teaching model for navigating MANY missions: one file is not enough when Claude
+> Code / Codex or a team generate dozens or hundreds of `.intent` files a day. This
+> repo owns the CONCEPTS + EXAMPLES. The SkillsTech Compiler owns machine-readable
+> indexing/artifacts; SkillsTech owns the product dashboard; OpenThunder verifies
+> code vs missions; Repo Mastery + Certified own learning. Do NOT build the product
+> UI here. Aggregation commands are documented as PLANNED until the compiler ships them.
+
+Concepts to teach: Mission Atlas (semantic map of missions), Mission Capsule (compact
+per-mission summary), Mission Chain (end-to-end flow), Build Session Digest (what changed
+this session), Release Story (trust-aware release narrative), Proof Matrix (verification
+table), Risk Radar (what to review first), Semantic Diff (diff by meaning), MVP Readiness
+(demo_safe .. production_ready classifier).
+
+Slice 1 (this slice):
+- [x] Roadmap: this Mission Atlas plan
+- [x] `docs/mission-atlas.md` (Atlas + Mission Capsule, the hierarchy, cross-links)
+- [x] `docs/large-changes.md` (umbrella: defines every concept + the "200 missions ->
+      one Release Story" tutorial + a command table marking existing vs PLANNED)
+- [x] `examples/mvp-customer-portal/` , worked example: valid `.intent` missions across
+      4 feature areas, 2 mission chains, release-story.md, and JSON teaching fixtures
+      (mission-index / mission-chain-map / mission-proof-matrix / intent-session-summary /
+      mvp-readiness-report)
+- [x] Register both docs in `src/lib/docs.ts` (auto-links /docs index + footer)
+
+Slice 2 (planned , split the umbrella into focused pages):
+- [ ] `docs/mission-chains.md`, `docs/build-session-digest.md`, `docs/proof-matrix.md`,
+      `docs/risk-radar.md`, `docs/semantic-diff.md`, `docs/mvp-readiness.md`,
+      `docs/ai-generated-missions.md`
+- [ ] Expand the MVP example to all 15 canonical missions + a dedicated tutorial route
+
+Compiler support (PLANNED , owned by the SkillsTech Compiler, documented not built here):
+- [ ] `intent index ./intent` , mission inventory (mission-index.json)
+- [ ] `intent graph ./intent --view atlas` , Mission Atlas view
+- [ ] `intent chains ./intent` , detect + render mission chains
+- [ ] `intent summarize ./intent --since today` , Build Session Digest
+- [ ] `intent diff ./intent --since HEAD~1` , Semantic Diff
+- [ ] `intent proof matrix ./intent` , Proof Matrix
+- [ ] `intent release ./intent --mvp` , MVP Readiness Report + Release Story
+
 ## Operating checklist status (see docs/operating-checklist.md)
 
 The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current state:

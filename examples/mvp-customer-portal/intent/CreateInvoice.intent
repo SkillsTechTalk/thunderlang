@@ -1,0 +1,34 @@
+# CreateInvoice.intent , MVP Customer Portal / Billing
+# The canonical billing mission, reused across the SkillsTech ecosystem.
+
+mission CreateInvoice
+
+goal
+  Create an invoice for a completed order.
+
+why
+  Invoices are financial records. Duplicates and negative totals are audit and
+  trust failures.
+
+input
+  orderId: OrderId
+  idempotencyKey: IdempotencyKey
+
+output
+  invoice: Invoice
+
+guarantees
+  repeated order returns same invoice
+  invoice.total is never negative
+
+guarantee repeated order returns same invoice
+  because retrying an order must not create a duplicate invoice
+  verify test repeated order is idempotent
+
+never
+  create invoice for unapproved order
+
+verify
+  test repeated order is idempotent
+  test total is never negative
+  test unapproved order is rejected

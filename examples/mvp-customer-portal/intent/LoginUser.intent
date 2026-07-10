@@ -1,0 +1,33 @@
+# LoginUser.intent , MVP Customer Portal / Identity and Access
+
+mission LoginUser
+
+goal
+  Authenticate a returning customer and start a session.
+
+why
+  Login is the most-attacked endpoint. Weak rate limiting or leaky errors enable
+  credential stuffing and account takeover.
+
+input
+  email: Email
+  password: Secret
+
+output
+  session: SessionToken
+
+guarantees
+  failed logins are rate limited
+  session token is never logged
+
+guarantee failed logins are rate limited
+  because unbounded attempts enable credential stuffing
+  verify test lockout after repeated failures
+
+never
+  log(password)
+  log(session)
+
+verify
+  test valid credentials issue a session
+  test lockout after repeated failures

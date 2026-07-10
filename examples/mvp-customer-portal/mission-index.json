@@ -1,0 +1,33 @@
+{
+  "_note": "Teaching fixture. This is the shape `intent index ./intent` is PLANNED to emit. It is hand-authored here to illustrate the Mission Atlas, not produced by the compiler yet.",
+  "_plannedCommand": "intent index ./intent",
+  "schemaVersion": "0.1.0-draft",
+  "product": "MVP Customer Portal",
+  "generatedBy": "example-fixture",
+  "featureAreas": [
+    "Identity and Access",
+    "Onboarding",
+    "Billing",
+    "Deployment Readiness"
+  ],
+  "missions": [
+    { "mission": "RegisterUser", "area": "Identity and Access", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "4/5", "proof": "partial", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "LoginUser", "area": "Identity and Access", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "3/3", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": true, "changedToday": true },
+    { "mission": "ManageSession", "area": "Identity and Access", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "1/2", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "VerifyEmail", "area": "Onboarding", "risk": "medium", "guarantees": 1, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": true, "changedToday": true },
+    { "mission": "CreateWorkspace", "area": "Onboarding", "risk": "high", "guarantees": 2, "neverRules": 0, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "InviteTeamMember", "area": "Onboarding", "risk": "medium", "guarantees": 2, "neverRules": 1, "tests": "1/2", "proof": "partial", "drift": "review", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "AcceptInvite", "area": "Onboarding", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "2/2", "proof": "verified", "drift": "in_sync", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "CreateCheckoutSession", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 2, "tests": "1/5", "proof": "partial", "drift": "drift", "aiAuthored": true, "humanReviewed": false, "changedToday": true },
+    { "mission": "CreateInvoice", "area": "Billing", "risk": "high", "guarantees": 2, "neverRules": 1, "tests": "3/3", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false },
+    { "mission": "HealthCheck", "area": "Deployment Readiness", "risk": "low", "guarantees": 1, "neverRules": 0, "tests": "1/1", "proof": "verified", "drift": "in_sync", "aiAuthored": false, "humanReviewed": true, "changedToday": false }
+  ],
+  "planned": [
+    { "mission": "ActivateSubscription", "area": "Billing", "status": "not_yet_authored" },
+    { "mission": "CancelSubscription", "area": "Billing", "status": "not_yet_authored" },
+    { "mission": "AuditLog", "area": "Deployment Readiness", "status": "not_yet_authored" },
+    { "mission": "ErrorMonitoring", "area": "Deployment Readiness", "status": "not_yet_authored" },
+    { "mission": "RollbackPlan", "area": "Deployment Readiness", "status": "not_yet_authored" }
+  ],
+  "summary": { "authored": 10, "planned": 5, "verified": 5, "partial": 3, "drift": 1 }
+}

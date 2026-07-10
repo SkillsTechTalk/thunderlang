@@ -1,0 +1,30 @@
+{
+  "_note": "Teaching fixture. Shape `intent summarize ./intent --since today` / `intent diff` are PLANNED to emit. Hand-authored to illustrate the Build Session Digest, Risk Radar, and Semantic Diff.",
+  "_plannedCommand": "intent summarize ./intent --since today",
+  "schemaVersion": "0.1.0-draft",
+  "product": "MVP Customer Portal",
+  "session": { "date": "2026-07-09", "author": "Claude Code", "since": "HEAD~1" },
+  "buildSessionDigest": {
+    "missionsGenerated": 8,
+    "missionsModified": 2,
+    "chainsCreated": 2,
+    "headline": "Signup and billing scaffolded by AI; billing is under-verified.",
+    "reviewFirst": ["CreateCheckoutSession", "ManageSession", "InviteTeamMember"]
+  },
+  "semanticDiff": {
+    "missionsChanged": 10,
+    "guaranteesAdded": 6,
+    "neverRulesAdded": 4,
+    "neverRulesWeakened": 0,
+    "verificationRulesAdded": 9,
+    "proofArtifactsStale": 1,
+    "chainsCreated": 2
+  },
+  "riskRadar": [
+    { "rank": 1, "mission": "CreateCheckoutSession", "factors": ["payments", "external API", "missing tests (1/5)", "AI authored", "unreviewed"] },
+    { "rank": 2, "mission": "InviteTeamMember", "factors": ["PII", "public endpoint", "sends email", "partial proof"] },
+    { "rank": 3, "mission": "ManageSession", "factors": ["session lifetime", "revocation", "missing tests (1/2)", "unreviewed"] },
+    { "rank": 4, "mission": "RegisterUser", "factors": ["auth", "secret", "PII", "one test failing"] }
+  ],
+  "teaching": "The digest answers 'what happened today'. The Risk Radar orders 'what to review first' so 10 missions are not reviewed as if equal."
+}

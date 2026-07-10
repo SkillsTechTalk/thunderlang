@@ -1,0 +1,114 @@
+# Mission Atlas
+
+A **Mission Atlas** is a semantic map of many IntentLang missions. It lets a team
+understand a large change without opening every `.intent` file.
+
+One mission is a single unit of intent. Real work produces many of them: one per
+feature, one per user journey, one per product area, one per MVP, one per release,
+or one full day of Claude Code or Codex output. Reading them file by file does not
+scale. The Atlas is how IntentLang scales beyond one file.
+
+For the full family of scaling concepts (chains, digests, proof matrix, risk radar,
+semantic diff, MVP readiness), see [Working with large changes](/docs/large-changes).
+
+## The hierarchy
+
+A Mission Atlas organizes intent from the product down to the code evidence:
+
+```
+Product or MVP
+  User journeys
+    Feature areas
+      Mission chains
+        Missions
+          Guarantees
+            Tests
+              Proof
+                Code evidence
+```
+
+Each level answers a different question:
+
+- **Product / MVP** , what are we shipping?
+- **User journeys** , what can a user actually do end to end?
+- **Feature areas** , how is the work grouped (Identity, Billing, ...)?
+- **Mission chains** , which missions form one flow? (see [Mission chains](/docs/large-changes#mission-chain))
+- **Missions** , what is each single unit of intent?
+- **Guarantees / never rules** , what must always or never be true?
+- **Tests / proof / code evidence** , is it actually verified in the repo?
+
+The Atlas is not a file tree. It is a meaning tree. Two missions in different folders
+can belong to the same chain; a single feature area can span many folders.
+
+## Mission Capsule
+
+Opening a mission to understand it is slow. A **Mission Capsule** is a compact
+summary of one mission that answers the review questions at a glance:
+
+- What is it?
+- Why does it matter?
+- What is risky?
+- Is it verified?
+- What changed?
+- Should I review it?
+
+Example capsule:
+
+```
+ResetPassword
+Purpose:       Let users recover access safely.
+Risk:          High security
+Proof:         Partial
+Tests:         6 generated, 4 passing
+Never rules:   3, 1 unverified
+Changed today: yes
+AI authored:   yes
+Human reviewed: no
+```
+
+A capsule is derived, not authored. It is computed from the mission's declared
+guarantees, never rules, and verify blocks, plus repo evidence (which tests exist,
+which pass) and change metadata (what moved, who authored it, whether a human
+reviewed it). The Atlas is a tree of capsules.
+
+## What the Atlas is for
+
+- **Navigate** a product area without reading every mission.
+- **Locate** the risky missions instead of reviewing 200 equally.
+- **See** whether an end-to-end journey is actually complete, not just whether
+  individual missions parse.
+- **Brief** a reviewer, a new engineer, or an AI agent with a trustworthy map.
+
+Teaching line: **do not make people read 200 missions.** Make the system answer
+what exists, what changed, what is risky, what is verified, and what blocks
+deployment.
+
+## Where the Atlas comes from (planned commands)
+
+This repo teaches the Atlas as a concept and ships a worked example
+(`examples/mvp-customer-portal/`). The machine-readable index and the rendered
+Atlas are owned by the **SkillsTech Compiler**, and the interactive dashboard is
+owned by **SkillsTech**. The commands below are the planned interface:
+
+| Command | Status | Produces |
+| --- | --- | --- |
+| `intent index ./intent` | planned | mission inventory (`mission-index.json`) |
+| `intent graph ./intent --view atlas` | planned | the Mission Atlas view |
+| `intent chains ./intent` | planned | detected mission chains |
+
+Until those ship, the Atlas is taught through the example fixtures, which show the
+exact shape the compiler will emit. See
+[the customer-portal example](/examples) and
+[Working with large changes](/docs/large-changes).
+
+## Boundaries
+
+- IntentLang (this repo) teaches the concept and the examples.
+- The **SkillsTech Compiler** owns indexing and the machine-readable artifacts.
+- **SkillsTech** owns the product dashboard.
+- **OpenThunder** verifies code against missions (drift).
+- **Repo Mastery** teaches repo ownership; **SkillsTech Certified** builds
+  certification material.
+
+The Atlas never claims code is correct. It maps declared intent and reports what
+the repo can prove. Correctness against the running code is OpenThunder's job.
