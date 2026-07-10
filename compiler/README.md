@@ -37,6 +37,24 @@ OpenThunder. See the [Mission Atlas](https://intentlanguage.dev/docs/mission-atl
 Gate your `.intent` files in CI with GitHub Actions: see the
 [compiler contract](https://intentlanguage.dev/docs/compiler-contract) (Continuous integration).
 
+## Use as a library
+
+The package is both a CLI (`intent`) and an importable ES module. Both share the same
+core, so there is no duplicated compiler logic. Ships type declarations (`index.d.ts`).
+
+```js
+import { parseIntent, compileSource, buildMissionIndex } from '@skillstech/intentlang';
+
+const ast = parseIntent(source);          // parse one .intent
+const out = compileSource(source);        // graphs + plan + proof for one mission
+const index = buildMissionIndex(files);   // Mission Atlas inventory across many
+```
+
+Also exported: `semanticDiagnostics`, `buildProof`, `buildContractGraph`,
+`buildArchitectureGraph`, `buildImplementationPlan`, `renderMarkdown/Mermaid/Testplan`,
+`getCompletions`, `getHover`, `liftSource`, `liftRepo`, `approveIntent`, `checkDrift`,
+`buildDriftHandoff`, and the `COMPILER_VERSION` / `SOURCE_PRODUCT` constants.
+
 ## Output location (important for OpenThunder)
 
 Artifacts are written to **`.intent/<mission-slug>/`** by default, **not `dist/`**. OpenThunder's scanner

@@ -328,9 +328,10 @@ Ecosystem contract alignment (downstream tools consume these artifacts):
 Sibling-requested (committed on the coordination bus 2026-07-10; all additive):
 - [x] Add `sourceProduct: "skillstech-compiler"` to `.intent-proof.json` (asked by STCE, for cert-proof keying).
       Additive envelope field (after schemaVersion); sourceHash/join keys unchanged; +assertion. 23/23 tests.
-- [ ] Add an ESM library entry to `@skillstech/intentlang` (`exports`/`main` re-exporting `parseIntent`,
-      `buildMissionIndex`, `compileSource`, drift/lift helpers) so Studio/RM can `import` it, not just the CLI
-      bin (asked by ST, #134500). Optional hand-written `.d.ts` after.
+- [x] Add an ESM library entry to `@skillstech/intentlang` (asked by ST, #134500): `src/index.mjs` curated
+      barrel + `main`/`types`/`exports` in package.json + hand-written `src/index.d.ts`. Consumer
+      `import { parseIntent, buildMissionIndex, compileSource, ... }` verified via pack->install->import;
+      CLI bin still coexists; .d.ts typechecks. Rides the pending 0.1.1 publish.
 - [ ] Parse an `errors:` block (PascalCase failure names -> status/result union + per-error tests) (ST #220000).
 - [ ] Parse an `examples:` block (`given -> expect` executable examples) (ST #140500).
 - [ ] Build `intent compile --target openthunder` (native `.openthunder/missions/<id>/contract.yaml`,

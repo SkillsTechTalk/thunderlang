@@ -3,6 +3,15 @@
   "version": "0.1.1",
   "description": "Deterministic IntentLang compiler and CLI. Turns .intent files into contract/architecture graphs, an implementation plan, docs, a Mermaid diagram, a test plan, and a proof artifact. No AI required.",
   "type": "module",
+  "main": "./src/index.mjs",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "intent": "src/cli.mjs"
   },
