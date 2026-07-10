@@ -179,6 +179,16 @@ export function semanticDiagnostics(ast) {
         [{ label: 'Add a sentence explaining the meaning for this reader' }]);
     }
   }
+
+  // ── errors block: PascalCase failure-mode names ──
+  for (const e of ast.errors || []) {
+    if (!/^[A-Z][A-Za-z0-9]*$/.test(e.name)) {
+      warn('error-name-not-pascalcase',
+        `Failure mode "${e.name}" is not PascalCase.`,
+        'Failure modes become status/result union members and per-error tests, so they read best as PascalCase names (for example OrderNotFound).',
+        [{ label: `Rename to PascalCase (for example ${e.name.replace(/[^A-Za-z0-9]+/g, ' ').replace(/(?:^|\s)(\w)/g, (_, c) => c.toUpperCase()).replace(/\s+/g, '') || 'FailureName'})` }]);
+    }
+  }
   return d;
 }
 
@@ -206,6 +216,8 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
       status: n.verify.length > 0 ? 'planned' : 'needs_verification',
       evidence: n.verify,
     })),
+    errors: (ast.errors || []).map((e) => ({ name: e.name })),
+    examples: (ast.examples || []).map((ex) => ({ given: ex.given, expect: ex.expect })),
     verification: { syntaxPassed: true, semanticPassed: passedSemantic, targetsGenerated: targetsGenerated.length > 0 },
     // Notes are understanding metadata only; they never mark a guarantee verified.
     notes: notesSummary(ast),

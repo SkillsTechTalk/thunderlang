@@ -22,9 +22,23 @@ lowercase canonical form, and the compiler normalizes to lowercase internally.
 ## Core constructs
 
 `mission`, `goal`, `why`, `requires`, `input`, `output`, `guarantees`, `never`,
-`constraints`, `assumptions`, `risks`, `target`, `style`, `implementation`,
-`verify`, `test`, `observe`, `secure`, `explain`, `ownership`, `architecture`,
-`dependencies`, `service`, `api`, `event`, `database`, `owner`, `proof`.
+`errors`, `examples`, `constraints`, `assumptions`, `risks`, `target`, `style`,
+`implementation`, `verify`, `test`, `observe`, `secure`, `explain`, `ownership`,
+`architecture`, `dependencies`, `service`, `api`, `event`, `database`, `owner`, `proof`.
+
+`errors` lists named failure modes (PascalCase, e.g. `OrderNotFound`) that become
+result/status union members and per-error tests. `examples` lists executable
+`given <input> -> expect <outcome>` cases. Both are optional and additive:
+
+```
+errors
+  OrderNotFound
+  OrderNotApproved
+
+examples
+  given a new approved order -> expect an invoice is created
+  given an unapproved order -> expect OrderNotApproved
+```
 
 ## A mission
 

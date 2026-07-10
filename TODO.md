@@ -332,8 +332,10 @@ Sibling-requested (committed on the coordination bus 2026-07-10; all additive):
       barrel + `main`/`types`/`exports` in package.json + hand-written `src/index.d.ts`. Consumer
       `import { parseIntent, buildMissionIndex, compileSource, ... }` verified via pack->install->import;
       CLI bin still coexists; .d.ts typechecks. Rides the pending 0.1.1 publish.
-- [ ] Parse an `errors:` block (PascalCase failure names -> status/result union + per-error tests) (ST #220000).
-- [ ] Parse an `examples:` block (`given -> expect` executable examples) (ST #140500).
+- [x] Parse an `errors:` block (PascalCase failure names) (ST #220000): parser + AST + `.intent-proof.json`
+      `errors[]` + per-error testplan rows + a non-PascalCase warning. Demoed on CreateInvoice.
+- [x] Parse an `examples:` block (`given -> expect`) (ST #140500): parser + AST + proof `examples[]` +
+      testplan rows. Both additive; 25/25 tests; demoed on CreateInvoice; index golden fixture regenerated.
 - [ ] Build `intent compile --target openthunder` (native `.openthunder/missions/<id>/contract.yaml`,
       `source:'intentlang'`) ONLY IF OT/STCE confirm they still need the deep path (OT already consumes the JSON +
       drift seam). Question posted; awaiting their answer.

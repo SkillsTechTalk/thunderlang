@@ -16,6 +16,8 @@ export interface IntentAst {
   targets: string[];
   style: string[];
   verify: string[];
+  errors: Array<{ name: string; line: number }>;
+  examples: Array<{ given: string; expect: string | null; line: number }>;
   services: unknown[];
   apis: unknown[];
   events: unknown[];

@@ -136,7 +136,7 @@ export function parseIntent(source) {
     mission: null, goal: '', why: '',
     requires: [], inputs: [], outputs: [],
     guarantees: [], neverRules: [], constraints: [], assumptions: [], risks: [],
-    targets: [], style: [], verify: [],
+    targets: [], style: [], verify: [], errors: [], examples: [],
     services: [], apis: [], events: [], databases: [],
     notes: [], diagnostics: [],
   };
@@ -165,6 +165,18 @@ export function parseIntent(source) {
       case 'target': ast.targets.push(...leafItems(node)); break;
       case 'style': ast.style.push(...leafItems(node)); break;
       case 'verify': ast.verify.push(...leafItems(node)); break;
+      // Named failure modes: PascalCase names -> a result/status union + per-error tests.
+      case 'errors':
+        for (const c of items(node)) ast.errors.push({ name: firstWord(c.text), line: c.line });
+        break;
+      // Executable examples: "given <input> -> expect <outcome>".
+      case 'examples':
+        for (const c of items(node)) {
+          const m = c.text.match(/^(?:given\s+)?(.*?)\s*->\s*(?:expect\s+)?(.*)$/i);
+          if (m) ast.examples.push({ given: m[1].trim(), expect: m[2].trim(), line: c.line });
+          else ast.examples.push({ given: c.text.trim(), expect: null, line: c.line });
+        }
+        break;
       case 'service': ast.services.push(parseService(arg, node)); break;
       case 'api': ast.apis.push(parseApi(arg, node)); break;
       case 'event': ast.events.push(parseEvent(arg, node)); break;

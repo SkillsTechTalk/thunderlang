@@ -302,3 +302,43 @@ test('all four example missions parse without throwing', () => {
     buildArchitectureGraph(ast, FIXED);
   }
 });
+
+// ── errors + examples blocks (ST-ratified, additive) ────────────────────────
+import { renderTestplan } from '../src/compile.mjs';
+
+test('errors and examples blocks parse, land in proof + testplan', () => {
+  const src = [
+    'mission PlaceOrder',
+    'goal',
+    '  place an order',
+    'errors',
+    '  OrderNotFound',
+    '  PaymentDeclined',
+    'examples',
+    '  given a valid cart -> expect an order is created',
+    '  given an empty cart -> expect OrderNotFound',
+  ].join('\n');
+  const ast = parseIntent(src);
+
+  assert.deepEqual(ast.errors.map((e) => e.name), ['OrderNotFound', 'PaymentDeclined']);
+  assert.equal(ast.examples.length, 2);
+  assert.deepEqual(ast.examples[0], { given: 'a valid cart', expect: 'an order is created', line: ast.examples[0].line });
+  assert.equal(ast.examples[1].expect, 'OrderNotFound');
+
+  const proof = buildProof(ast, { sourceFile: 'x.intent', sourceHash: sha256('x'), diagnostics: semanticDiagnostics(ast), generatedAt: '2026-01-01T00:00:00Z', targetsGenerated: [], targetsRequested: [] });
+  assert.deepEqual(proof.errors, [{ name: 'OrderNotFound' }, { name: 'PaymentDeclined' }]);
+  assert.equal(proof.examples.length, 2);
+
+  const plan = renderTestplan(ast);
+  assert.match(plan, /Failure mode handled: OrderNotFound/);
+  assert.match(plan, /Example: given a valid cart -> expect an order is created/);
+});
+
+test('non-PascalCase error name warns (not an error)', () => {
+  const ast = parseIntent('mission M\ngoal\n  g\nerrors\n  order_not_found\n');
+  const diags = semanticDiagnostics(ast);
+  const d = diags.find((x) => x.code === 'error-name-not-pascalcase');
+  assert.ok(d, 'expected a pascalcase warning');
+  assert.equal(d.level, 'warning');
+  assert.equal(diags.filter((x) => x.level === 'error').length, 0);
+});

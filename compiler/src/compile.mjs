@@ -41,6 +41,8 @@ export function renderTestplan(ast) {
   const L = [`# Test plan: ${ast.mission}`, ''];
   for (const g of ast.guarantees) L.push(`- [ ] Guarantee holds: ${g.statement}${g.verify.length ? ` (via ${g.verify.join(', ')})` : ''}`);
   for (const n of ast.neverRules) L.push(`- [ ] Never occurs: ${n.statement}${n.verify.length ? ` (via ${n.verify.join(', ')})` : ''}`);
+  for (const e of ast.errors || []) L.push(`- [ ] Failure mode handled: ${e.name}`);
+  for (const ex of ast.examples || []) L.push(`- [ ] Example: given ${ex.given}${ex.expect ? ` -> expect ${ex.expect}` : ''}`);
   for (const v of ast.verify) L.push(`- [ ] ${v}`);
   return L.join('\n') + '\n';
 }

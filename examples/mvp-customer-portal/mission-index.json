@@ -88,7 +88,7 @@
     {
       "missionId": "createinvoice",
       "mission": "CreateInvoice",
-      "intentProofHash": "sha256:6988e2ad7fa15fe3d0fe6959b889d1fc056363ee2e41b27d8594d1435214d8e7",
+      "intentProofHash": "sha256:29ee08dda6039a6ed988eb0bd41d5f6e1a71dc4cb4905bcd0dc298ac107b079d",
       "file": "intent/CreateInvoice.intent",
       "area": "Billing",
       "risk": "high",
