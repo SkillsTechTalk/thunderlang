@@ -1,6 +1,6 @@
 {
   "name": "@skillstech/intentlang",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Deterministic IntentLang compiler and CLI. Turns .intent files into contract/architecture graphs, an implementation plan, docs, a Mermaid diagram, a test plan, and a proof artifact. No AI required.",
   "type": "module",
   "bin": {
