@@ -325,6 +325,18 @@ Ecosystem contract alignment (downstream tools consume these artifacts):
       fixtures to REAL compiler output. They are consumed downstream as contracts today; the fixtures should
       become golden tests for the generated artifacts. (Test-pass counts + drift stay consumer-provided.)
 
+Sibling-requested (committed on the coordination bus 2026-07-10; all additive):
+- [ ] Add `sourceProduct: "skillstech-compiler"` to `.intent-proof.json` (asked by STCE, for cert-proof keying).
+- [ ] Add an ESM library entry to `@skillstech/intentlang` (`exports`/`main` re-exporting `parseIntent`,
+      `buildMissionIndex`, `compileSource`, drift/lift helpers) so Studio/RM can `import` it, not just the CLI
+      bin (asked by ST, #134500). Optional hand-written `.d.ts` after.
+- [ ] Parse an `errors:` block (PascalCase failure names -> status/result union + per-error tests) (ST #220000).
+- [ ] Parse an `examples:` block (`given -> expect` executable examples) (ST #140500).
+- [ ] Build `intent compile --target openthunder` (native `.openthunder/missions/<id>/contract.yaml`,
+      `source:'intentlang'`) ONLY IF OT/STCE confirm they still need the deep path (OT already consumes the JSON +
+      drift seam). Question posted; awaiting their answer.
+- Note: nested `verify:` per guarantee/never is ALREADY shipped (ratified to ST, no work needed).
+
 Compiler support (PLANNED , owned by the SkillsTech Compiler, documented not built here):
 - [ ] `intent index ./intent` , mission inventory (mission-index.json)
 - [ ] `intent graph ./intent --view atlas` , Mission Atlas view
