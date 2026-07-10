@@ -277,7 +277,10 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 **Near-term (small, high-leverage)**
 - [ ] More semantic diagnostics: unknown-semantic-type, event-payload-contains-Secret, api-sensitive-output-without-auth (#29,#43)
 - [ ] OpenAPI generation when an `api` block exists (#37)
-- [ ] `bin` wiring: `npm install -g` / `npx intent` so the CLI is real (#40,#94)
+- [x] `bin` wiring + npm publish (#40,#94): published `@skillstech/intentlang@0.1.0`
+      (public, MIT). `npm i -g @skillstech/intentlang` -> `intent`; `npx @skillstech/intentlang`.
+      Verified via real registry install. (Scope: @intentlang org doesn't exist; used the
+      owned @skillstech scope, consistent with @skillstech/openthunder.)
 - [x] `intent check` in a GitHub Actions workflow (#95): scripts/intent-check.mjs
       batch-runs the real CLI over every authored .intent (skips the .intent/ output
       dir), exit 1 on any error; `.github/workflows/intent-check.yml` gates push/PR;

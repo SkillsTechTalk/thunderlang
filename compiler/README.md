@@ -1,4 +1,4 @@
-# @intentlang/compiler
+# @skillstech/intentlang
 
 Deterministic IntentLang compiler and CLI. **No AI required.** Turns a `.intent` file into the
 artifacts the SkillsTech ecosystem consumes: contract and architecture graphs, an implementation
@@ -10,13 +10,13 @@ Part of [IntentLang](https://intentlanguage.dev), the intent language for AI-era
 ## Install
 
 ```bash
-npm install -g @intentlang/compiler   # then run: intent check path/to/Mission.intent
+npm install -g @skillstech/intentlang   # then run: intent check path/to/Mission.intent
 ```
 
 Or run without installing:
 
 ```bash
-npx @intentlang/compiler check path/to/Mission.intent
+npx @skillstech/intentlang check path/to/Mission.intent
 ```
 
 ## Commands
