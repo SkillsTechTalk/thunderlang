@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMissionIndex } from '../src/atlas.mjs';
+import { sha256 } from '../src/emit.mjs';
 
 const REGISTER = `# RegisterUser.intent , Demo / Identity and Access
 mission RegisterUser
@@ -54,6 +55,11 @@ test('buildMissionIndex aggregates missions with derivable fields', () => {
   assert.ok(reg.verifyTests >= 1);
   assert.notEqual(reg.verification, 'none');
   assert.equal(health.verification, 'none'); // guarantee with no verify test
+
+  // Stable join keys for downstream consumers (OpenThunder coverage/drift).
+  assert.equal(reg.missionId, 'registeruser');          // deterministic mission slug
+  assert.equal(reg.intentProofHash, sha256(REGISTER));  // identical to .intent-proof.json sourceHash
+  assert.match(reg.intentProofHash, /^sha256:[0-9a-f]{64}$/);
 });
 
 test('buildMissionIndex sorts missions and groups by area', () => {

@@ -8,7 +8,8 @@
 // test runner and OpenThunder (repo evidence), which the compiler does not own.
 // Those columns of the Proof Matrix stay evidence-dependent. See docs/proof-matrix.
 
-import { parseIntent } from './parse.mjs';
+import { parseIntent, slug } from './parse.mjs';
+import { sha256 } from './emit.mjs';
 
 // Feature area convention: an explicit `# area: X` comment wins; otherwise the
 // header comment `# <Name>.intent , <Product> / <Area>` is used; else uncategorized.
@@ -73,7 +74,12 @@ export function buildMissionIndex(files, opts = {}) {
     const { verification, verifyTests } = deriveVerification(ast);
     const { level, factors } = deriveRisk(ast);
     return {
+      // Stable join keys for downstream consumers (e.g. OpenThunder coverage/drift).
+      // missionId is the compiler's deterministic mission slug; intentProofHash is the
+      // same sha256 the .intent-proof.json carries as sourceHash, so joins need no remap.
+      missionId: ast.mission ? slug(ast.mission) : null,
       mission: ast.mission || null,
+      intentProofHash: sha256(source),
       file: p || null,
       area: deriveArea(source),
       risk: level,

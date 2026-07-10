@@ -5,7 +5,9 @@
   "note": "Verification is DECLARED (verify tests present), not proven. Test pass counts and drift require a test runner and OpenThunder; they are not in this index.",
   "missions": [
     {
+      "missionId": "acceptinvite",
       "mission": "AcceptInvite",
+      "intentProofHash": "sha256:d7b0d4242e4b2cddbbe4266669bd07e133067f65fc74e9bb71610e052035b9e4",
       "file": "intent/AcceptInvite.intent",
       "area": "Onboarding",
       "risk": "medium",
@@ -19,7 +21,9 @@
       "reviewed": false
     },
     {
+      "missionId": "activatesubscription",
       "mission": "ActivateSubscription",
+      "intentProofHash": "sha256:ae5205077283ccb34d00053e1cd59b1e0e15a656b683001825af19df1040132b",
       "file": "intent/ActivateSubscription.intent",
       "area": "Billing",
       "risk": "high",
@@ -33,7 +37,9 @@
       "reviewed": false
     },
     {
+      "missionId": "auditlog",
       "mission": "AuditLog",
+      "intentProofHash": "sha256:ad629d32a1df893ddd5b9e3761a1d4b8ab85682529857c9c474e524b4e4f9c51",
       "file": "intent/AuditLog.intent",
       "area": "Deployment Readiness",
       "risk": "medium",
@@ -47,7 +53,9 @@
       "reviewed": false
     },
     {
+      "missionId": "cancelsubscription",
       "mission": "CancelSubscription",
+      "intentProofHash": "sha256:62cec81a783bc71006482cfeb5b6173463ca169addbaf5c2e04947f9ce02d63c",
       "file": "intent/CancelSubscription.intent",
       "area": "Billing",
       "risk": "high",
@@ -61,7 +69,9 @@
       "reviewed": false
     },
     {
+      "missionId": "createcheckoutsession",
       "mission": "CreateCheckoutSession",
+      "intentProofHash": "sha256:a95ccaf6a71daf997f6ef782d2cfa956a32ce73d7243f52c99a35cf99644143a",
       "file": "intent/CreateCheckoutSession.intent",
       "area": "Billing",
       "risk": "high",
@@ -76,7 +86,9 @@
       "reviewed": false
     },
     {
+      "missionId": "createinvoice",
       "mission": "CreateInvoice",
+      "intentProofHash": "sha256:6988e2ad7fa15fe3d0fe6959b889d1fc056363ee2e41b27d8594d1435214d8e7",
       "file": "intent/CreateInvoice.intent",
       "area": "Billing",
       "risk": "high",
@@ -90,7 +102,9 @@
       "reviewed": false
     },
     {
+      "missionId": "createworkspace",
       "mission": "CreateWorkspace",
+      "intentProofHash": "sha256:ba43f13f8a052b1ddc9b4ed7e765528aaa1d58a9d2858a4571fc7d46a07720f9",
       "file": "intent/CreateWorkspace.intent",
       "area": "Onboarding",
       "risk": "low",
@@ -102,7 +116,9 @@
       "reviewed": false
     },
     {
+      "missionId": "errormonitoring",
       "mission": "ErrorMonitoring",
+      "intentProofHash": "sha256:51e62a52aca76bd2563222489e732d5af7ed86e1e06222229bbf6391917d9a66",
       "file": "intent/ErrorMonitoring.intent",
       "area": "Deployment Readiness",
       "risk": "medium",
@@ -117,7 +133,9 @@
       "reviewed": false
     },
     {
+      "missionId": "healthcheck",
       "mission": "HealthCheck",
+      "intentProofHash": "sha256:41e8ad0d11b542de72f1f6863309909906a95b8b97c45e70a792db2bb2709be2",
       "file": "intent/HealthCheck.intent",
       "area": "Deployment Readiness",
       "risk": "low",
@@ -129,7 +147,9 @@
       "reviewed": false
     },
     {
+      "missionId": "inviteteammember",
       "mission": "InviteTeamMember",
+      "intentProofHash": "sha256:d513a4f93b71a2278d7c686180749235950e7d22d423eceddf53ae1f71cdbaa4",
       "file": "intent/InviteTeamMember.intent",
       "area": "Onboarding",
       "risk": "medium",
@@ -143,7 +163,9 @@
       "reviewed": false
     },
     {
+      "missionId": "loginuser",
       "mission": "LoginUser",
+      "intentProofHash": "sha256:2b2f177e7561eb68527ef0d7f7fcff4cf2854ecd0be321767bc800649991757e",
       "file": "intent/LoginUser.intent",
       "area": "Identity and Access",
       "risk": "high",
@@ -159,7 +181,9 @@
       "reviewed": false
     },
     {
+      "missionId": "managesession",
       "mission": "ManageSession",
+      "intentProofHash": "sha256:1da4e121be69900912e25ff90f14c64992d15def3e67d6db98d4276d038ece8b",
       "file": "intent/ManageSession.intent",
       "area": "Identity and Access",
       "risk": "medium",
@@ -173,7 +197,9 @@
       "reviewed": false
     },
     {
+      "missionId": "registeruser",
       "mission": "RegisterUser",
+      "intentProofHash": "sha256:c9ac091470db2a154df2645e8a69c43d9680f634708ba93bfdc834f69e642b42",
       "file": "intent/RegisterUser.intent",
       "area": "Identity and Access",
       "risk": "high",
@@ -189,7 +215,9 @@
       "reviewed": false
     },
     {
+      "missionId": "rollbackplan",
       "mission": "RollbackPlan",
+      "intentProofHash": "sha256:0fb461e014f6d33acb0be1182e3acb4d97a3ab9e350f65d56d71f7c978f6ebac",
       "file": "intent/RollbackPlan.intent",
       "area": "Deployment Readiness",
       "risk": "high",
@@ -203,7 +231,9 @@
       "reviewed": false
     },
     {
+      "missionId": "verifyemail",
       "mission": "VerifyEmail",
+      "intentProofHash": "sha256:e003b44ae8d43e2b5504573c56835b9b66ef021036ca27691f1bbd8725480c84",
       "file": "intent/VerifyEmail.intent",
       "area": "Onboarding",
       "risk": "medium",
