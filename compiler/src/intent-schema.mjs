@@ -94,4 +94,9 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-CONFLICT-010', area: 'conflict', severity: 'blocker', blocks: ['implementation'], summary: 'Scope includes and excludes the same item.' },
   { ruleId: 'IL-CONFLICT-011', area: 'conflict', severity: 'info', blocks: [], summary: 'Redundant constraint from multiple roles.' },
   { ruleId: 'IL-CONFLICT-012', area: 'conflict', severity: 'blocker', blocks: ['implementation'], summary: 'Directly contradictory constraints.' },
+  { ruleId: 'IL-GOV-001', area: 'governance', severity: 'error', blocks: [], summary: 'Waiver names no diagnostic code.' },
+  { ruleId: 'IL-GOV-002', area: 'governance', severity: 'error', blocks: [], summary: 'Waiver has no reason.' },
+  { ruleId: 'IL-GOV-003', area: 'governance', severity: 'error', blocks: [], summary: 'Waiver names no approver.' },
+  { ruleId: 'IL-GOV-004', area: 'governance', severity: 'warning', blocks: [], summary: 'Waiver matches no current diagnostic (stale).' },
+  { ruleId: 'IL-GOV-005', area: 'governance', severity: 'error', blocks: [], summary: 'Waiver has expired.' },
 ];

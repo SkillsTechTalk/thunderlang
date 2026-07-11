@@ -28,6 +28,7 @@ import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
+import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -82,6 +83,7 @@ function parseArgs(argv) {
     else if (a === '--note') args.note = argv[++i];
     else if (a === '--search') args.search = argv[++i];
     else if (a === '--expand') args.expand = argv[++i];
+    else if (a === '--now') args.now = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -106,13 +108,17 @@ function load(file) {
 
 function printDiagnostics(diags) {
   for (const d of diags) {
-    console.log(`  [${d.level}] ${d.code}: ${d.message}`);
-    if (d.why) console.log(`      why: ${d.why}`);
+    const tag = d.waived ? ' (WAIVED)' : '';
+    console.log(`  [${d.level}]${tag} ${d.code}: ${d.message}`);
+    if (d.waived) console.log(`      waived by: ${d.waiver.approvedBy} , ${d.waiver.reason}`);
+    else if (d.why) console.log(`      why: ${d.why}`);
     if (d.fix && d.fix.length) console.log(`      fix: ${d.fix[0].label}`);
   }
-  const errors = diags.filter((d) => d.level === 'error').length;
-  const warnings = diags.filter((d) => d.level === 'warning').length;
-  console.log(`  ${errors} error(s), ${warnings} warning(s)`);
+  // A waived diagnostic is on the record but does not fail the build (governed exception).
+  const errors = diags.filter((d) => d.level === 'error' && !d.waived).length;
+  const warnings = diags.filter((d) => d.level === 'warning' && !d.waived).length;
+  const waived = diags.filter((d) => d.waived).length;
+  console.log(`  ${errors} error(s), ${warnings} warning(s)${waived ? `, ${waived} waived` : ''}`);
   return errors;
 }
 
@@ -474,7 +480,15 @@ function main() {
 
   if (cmd === 'check') {
     console.log(`intent check ${sourceFile} (mission: ${ast.mission})`);
-    process.exit(printDiagnostics(diagnostics) > 0 ? 1 : 0);
+    // Governance (Gap 5): waivers downgrade matching blockers to on-the-record exceptions.
+    let diags = diagnostics;
+    if (ast.waivers && ast.waivers.length) {
+      const now = args.now || null;
+      const applied = applyWaivers(diagnostics, ast.waivers, { now });
+      const gov = governanceDiagnostics(ast.waivers, diagnostics, { now });
+      diags = [...applied.diagnostics, ...gov];
+    }
+    process.exit(printDiagnostics(diags) > 0 ? 1 : 0);
   }
 
   const generated = [];

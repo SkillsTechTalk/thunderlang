@@ -496,7 +496,8 @@ Deferred (IL next slices , from the ecosystem gap-closure program):
 - [x] Intent Atlas (directive #4) SHIPPED: buildAtlas/searchAtlas/expandNode over the graph; `intent atlas` (overview/search/expand); whole-system map over 26 example missions (132 nodes). Mission Atlas = mission-index-v1.
 - [x] Semantic diff (directive #4) SHIPPED: diffGraphs + `intent diff <before> <after>` , added/removed/changed nodes + edges + invalidated-approvals-on-contract-change (deterministic). 94 tests.
 - [x] Semantic MERGE (directive #4, the pair) SHIPPED: mergeGraphs(base,ours,theirs) + `intent merge <base> <ours> <theirs>` , deterministic 3-way merge by node identity/meaning, structured conflicts (keeps ours), presence-based edge merge, exit 1 on conflict (CI). Typed IntentMerge/`intent-merge-v1`. 99 tests. Substrate for ST collaborative Atlas editing. cfa380f.
-- [ ] Gap 5 governance/waivers, Gap 6 data-purpose/privacy, then DMN/BPMN + model-check export adapters.
+- [x] Gap 5 governance/waivers SHIPPED: `waiver <CODE>` block (reason/approved_by/scope/expires) parsed to ast.waivers; governance.mjs applyWaivers + governanceDiagnostics (IL-GOV-001..005), schema `intent-governance-v1`; wired into `intent check` (waived blockers shown on-record, don't fail build; `--now` for deterministic expiry). Exported + typed. 107 tests. docs/governance.md.
+- [ ] Gap 6 data-purpose/privacy, then DMN/BPMN + model-check export adapters.
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
 - [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).
 - [ ] Intent Graph <-> source round-trip (graph -> source) + schema migrations.

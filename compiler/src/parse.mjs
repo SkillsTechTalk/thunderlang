@@ -271,6 +271,8 @@ export function parseIntent(source) {
     commands: [], handlers: [],
     // Decisions, rules, process (Gap 4)
     decisions: [],
+    // Governance: waivers , governed exceptions to blocking diagnostics (Gap 5)
+    waivers: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -367,6 +369,21 @@ export function parseIntent(source) {
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
+      case 'waiver': {
+        // A governed exception to a blocking diagnostic (Gap 5). "waiver <CODE>" +
+        // reason / approved_by / scope / expires. Deterministic; expiry evaluated by caller.
+        const kv = kvChildren(node);
+        ast.waivers.push({
+          id: `waiver.${slug(arg || String(ast.waivers.length + 1))}`,
+          code: arg || null,
+          reason: kv.reason ? stripQuotes(kv.reason) : null,
+          approvedBy: kv.approved_by || kv.by || null,
+          scope: kv.scope || null,
+          expires: kv.expires || null,
+          line: node.line,
+        });
+        break;
+      }
       case 'command': ast.commands.push(parseCommand(arg, node)); break;
       case 'on': ast.handlers.push(parseHandler(arg, node)); break;
       case 'lifecycle': ast.lifecycles.push(parseLifecycle(arg, node)); break;

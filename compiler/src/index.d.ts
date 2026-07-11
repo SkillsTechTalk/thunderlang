@@ -239,6 +239,35 @@ export function analyzeDistributed(ast: IntentAst): Array<{ code: string; target
 // Decisions + rules (Gap 4)
 export function analyzeDecision(dec: IntentAst['decisions'][number]): Array<{ code: string; message: string }>;
 
+// Governance: waivers (Gap 5)
+export interface Waiver {
+  id: string;
+  code: string | null;
+  reason: string | null;
+  approvedBy: string | null;
+  scope: string | null;
+  expires: string | null;
+  line?: number;
+}
+export interface GovernanceDiagnostic {
+  level: string;
+  code: string;
+  role: string;
+  message: string;
+  why: string;
+  waiver: string;
+}
+export interface WaiverApplication {
+  schema: string;
+  diagnostics: Array<Record<string, unknown>>;
+  waived: Array<Record<string, unknown>>;
+  blockingAfter: Array<Record<string, unknown>>;
+  report: { total: number; waived: number; blockingAfter: number; waivers: number; activeWaivers: number };
+}
+export const GOVERNANCE_SCHEMA: string;
+export function governanceDiagnostics(waivers?: Waiver[], diagnostics?: Array<Record<string, unknown>>, opts?: { now?: string | null }): GovernanceDiagnostic[];
+export function applyWaivers(diagnostics?: Array<Record<string, unknown>>, waivers?: Waiver[], opts?: { now?: string | null }): WaiverApplication;
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];
