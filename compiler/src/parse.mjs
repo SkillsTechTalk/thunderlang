@@ -88,6 +88,49 @@ function parseFields(node) {
   });
 }
 
+const kids = (node) => node.children.filter((c) => !isNote(c));
+const RECOVERY_RE = /\b(retry|recover|contact\s*support|contactsupport|retryprocessing|try\s*again|resume)\b/i;
+
+// Experience Contract (intent-graph-v1 Section 7.3): UX behavior as a first-class contract.
+function parseExperience(name, node) {
+  const exp = { name, actor: null, goal: '', enterWhen: [], journeys: [], states: [], responsive: [], accessible: { target: null, requirements: [] }, follows: [], line: node.line };
+  for (const c of kids(node)) {
+    const k = firstWord(c.text); const a = rest(c.text);
+    if (k === 'actor') exp.actor = a || null;
+    else if (k === 'goal') exp.goal = leafItems(c).map(stripQuotes).join(' ').trim();
+    else if (k === 'enter') exp.enterWhen.push(...leafItems(c)); // "enter when" + conditions
+    else if (k === 'journey') exp.journeys.push({ name: a || null, steps: leafItems(c) });
+    else if (k === 'state') {
+      const directives = kids(c).map((x) => x.text);
+      exp.states.push({
+        name: a || null, directives,
+        offers: directives.filter((x) => /^offer\b/i.test(x)).map((x) => x.replace(/^offer\s+/i, '')),
+        preserves: directives.some((x) => /^preserve\b/i.test(x)),
+        hasRecovery: directives.some((x) => RECOVERY_RE.test(x)),
+        line: c.line,
+      });
+    } else if (k === 'responsive') exp.responsive.push(...leafItems(c).map((x) => x.replace(/^support\s+/i, '')));
+    else if (k === 'accessible' || k === 'accessibility') {
+      for (const x of kids(c)) {
+        if (firstWord(x.text) === 'target') exp.accessible.target = rest(x.text);
+        else exp.accessible.requirements.push(x.text);
+      }
+    } else if (k === 'follows') exp.follows.push(a);
+  }
+  return exp;
+}
+
+// Reusable experience pattern (Section 7.3).
+function parsePattern(name, node) {
+  const p = { name, requires: [], accessible: [], line: node.line };
+  for (const c of kids(node)) {
+    const k = firstWord(c.text);
+    if (k === 'requires') p.requires.push(...leafItems(c));
+    else if (k === 'accessible' || k === 'accessibility') p.accessible.push(...leafItems(c));
+  }
+  return p;
+}
+
 function parseService(name, node) {
   return {
     id: slug(name), name,
@@ -151,6 +194,8 @@ export function parseIntent(source) {
     evidence: [], outcomes: [], metrics: [],
     scope: { include: [], exclude: [] }, nonGoals: [],
     owner: null, approvals: [], unknowns: [], questions: [], assumptionDecls: [],
+    // Experience profile (intent-graph-v1)
+    experiences: [], patterns: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -236,6 +281,8 @@ export function parseIntent(source) {
         ast.assumptionDecls.push({ name: arg, confidence: kv.confidence || null, validateWith: (kv.validate || '').replace(/^with\s+/, '') || null, line: node.line });
         break;
       }
+      case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
+      case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
       // Intentionally deferred, AI-assisted implementation. "implement with ai [pending]".
       case 'implement': {
         if (/^with\s+ai\b/.test(arg)) {

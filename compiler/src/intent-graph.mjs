@@ -86,6 +86,25 @@ export function buildIntentGraph(ast) {
     nodes.push(node(id, 'Assumption', a.name, { classification: 'assumed', confidence: a.confidence, status: 'unvalidated' }));
     relationships.push(rel(mId, 'depends_on', id));
   }
+  for (const exp of ast.experiences || []) {
+    const eId = `experience.${slug(exp.name || 'experience')}`;
+    nodes.push(node(eId, 'ExperienceContract', exp.name, { description: exp.goal || null, owner: exp.actor || null }));
+    relationships.push(rel(mId, 'represented_by', eId));
+    for (const p of exp.follows || []) relationships.push(rel(eId, 'derived_from', `pattern.${slug(p)}`));
+    for (const j of exp.journeys || []) {
+      const jId = `journey.${slug(exp.name)}.${slug(j.name || 'journey')}`;
+      nodes.push(node(jId, 'Journey', j.name, { description: `${(j.steps || []).length} step(s)` }));
+      relationships.push(rel(eId, 'represented_by', jId));
+    }
+    for (const st of exp.states || []) {
+      const sId = `experience-state.${slug(exp.name)}.${slug(st.name || 'state')}`;
+      nodes.push(node(sId, 'ExperienceState', st.name, { status: st.hasRecovery ? 'recoverable' : 'defined' }));
+      relationships.push(rel(eId, 'requires', sId));
+    }
+  }
+  for (const pat of ast.patterns || []) {
+    nodes.push(node(`pattern.${slug(pat.name || 'pattern')}`, 'Pattern', pat.name, { description: `${(pat.requires || []).length} requirement(s)` }));
+  }
   for (const role of ast.approvals || []) {
     const id = `approval.${slug(ast.mission)}.${slug(role)}`;
     nodes.push(node(id, 'Approval', role, { status: 'required', owner: role }));

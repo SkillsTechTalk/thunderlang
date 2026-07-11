@@ -455,8 +455,13 @@ Phase 1 slice 1 (IL-owned , SHIPPED):
 - [x] Example `examples/CertificationStudyPlan.intent`; docs/intent-graph.md; library +
       index.d.ts exports; 56/56 tests. Backward-compatible (existing .intent files unaffected).
 
+Phase 1 slice 2 (IL-owned , SHIPPED):
+- [x] Experience Contract syntax (experience/actor/goal/enter-when/journey/state/responsive/
+      accessible/follows + reusable pattern) , typed AST; ExperienceContract/Journey/
+      ExperienceState/Pattern nodes in the Intent Graph; IL-EXP-004 missing-recovery-path (UX
+      blocker, role-rendered) + IL-EXP-001. Example UploadStudyMaterial.intent; 59/59 tests.
+
 Deferred (IL next slices):
-- [ ] Experience Contract syntax (experience/journey/state/responsive/accessible/pattern/follows).
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
 - [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).
 - [ ] Intent Graph <-> source round-trip (graph -> source) + schema migrations.

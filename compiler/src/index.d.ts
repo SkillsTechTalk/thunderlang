@@ -34,6 +34,14 @@ export interface IntentAst {
   unknowns: Array<{ name: string; owner: string | null; resolveBefore: string | null; blocks: string | null; line: number }>;
   questions: Array<{ name: string; askedOf: string | null; blocks: string | null; line: number }>;
   assumptionDecls: Array<{ name: string; confidence: string | null; validateWith: string | null; line: number }>;
+  experiences: Array<{
+    name: string; actor: string | null; goal: string; enterWhen: string[];
+    journeys: Array<{ name: string | null; steps: string[] }>;
+    states: Array<{ name: string | null; directives: string[]; offers: string[]; preserves: boolean; hasRecovery: boolean; line: number }>;
+    responsive: string[]; accessible: { target: string | null; requirements: string[] };
+    follows: string[]; line: number;
+  }>;
+  patterns: Array<{ name: string; requires: string[]; accessible: string[]; line: number }>;
   implementation: null | {
     id?: string; scope?: string; strategy?: string; editing?: string;
     risk?: string; approval?: string; pending: boolean;

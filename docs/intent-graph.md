@@ -81,6 +81,51 @@ approval required from
 
 See `examples/CertificationStudyPlan.intent`.
 
+## Experience Contract
+
+UX behavior is a first-class contract, so a designer can define complete experience
+behavior without writing implementation code:
+
+```
+use experience
+experience UploadStudyMaterial
+  actor Learner
+  goal
+    "Turn my notes into a study plan."
+
+  journey HappyPath
+    start at MaterialUpload
+    when Upload completes
+    show ProcessingStatus
+
+  state Empty
+    offer PasteText
+  state UploadFailure
+    preserve SelectedDocument
+    offer Retry
+
+  responsive
+    support Mobile
+    support Desktop
+  accessible
+    target WCAG_2_2_AA
+    keyboard complete
+
+  follows RecoverableUpload
+
+pattern RecoverableUpload
+  requires
+    retry available
+```
+
+Each experience parses into typed journeys, states (with their recovery affordances),
+responsive targets, accessibility requirements, and reusable patterns, and becomes
+`ExperienceContract` / `Journey` / `ExperienceState` / `Pattern` nodes in the Intent
+Graph. A failure state with no recovery path is a UX blocker (`IL-EXP-004`) that reads
+per role. See `examples/UploadStudyMaterial.intent`. OpenThunder's Experience
+Completeness Lens derives the required states from these declarations plus applied
+patterns and policy.
+
 ## Classification and evidence
 
 Every evidence-backed statement carries a **classification**, so AI-generated content

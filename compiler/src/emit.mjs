@@ -102,13 +102,16 @@ export function semanticDiagnostics(ast) {
     || (ast.services && ast.services.length > 0)
     || (ast.events && ast.events.length > 0)
     || (ast.apis && ast.apis.length > 0)
-    || (ast.databases && ast.databases.length > 0);
+    || (ast.databases && ast.databases.length > 0)
+    || (ast.experiences && ast.experiences.length > 0)
+    || (ast.patterns && ast.patterns.length > 0);
   if (!hasSubject) {
-    err('missing-subject', 'No mission, service, event, api, or database declared.',
+    err('missing-subject', 'No mission, service, event, api, database, or experience declared.',
       'Every file must declare one subject so the compiler knows what it is reasoning about.',
       [{ label: 'Add a mission declaration', insert: 'mission MyMission', block: 'top' }]);
   }
-  if (!ast.goal) {
+  // Only missions warrant a goal; experience/pattern-only files do not.
+  if (!ast.goal && ast.mission) {
     warn('missing-goal', 'Mission has no goal block.',
       'The goal is the outcome the mission exists to achieve. Without it the intent is ambiguous to humans and tools.',
       [{ label: 'Add a goal block', insert: 'goal\n  Describe the outcome', block: 'top' }]);
@@ -268,6 +271,27 @@ export function semanticDiagnostics(ast) {
       level: 'warning', code: 'IL-PM-003', message: `Outcome "${o.name}" has no metric.`,
       why: 'An outcome without a metric cannot be measured, so success cannot be proven.',
       roles: { product: `Outcome "${o.name}" needs a metric to know whether it worked.` },
+    });
+  }
+
+  // ── Experience Contract diagnostics (intent-graph-v1) ──
+  for (const exp of ast.experiences || []) {
+    for (const st of exp.states || []) {
+      const isFailure = /(fail|error|denied|timeout|offline|reject)/i.test(st.name || '');
+      if (isFailure && !st.hasRecovery) d.push({
+        level: 'warning', code: 'IL-EXP-004', severity: 'blocker', blocks: ['experience-approval', 'release'],
+        message: `Experience "${exp.name}" state "${st.name}" is a failure state with no recovery path.`,
+        why: 'A failure state that does not explain how the user recovers strands them.',
+        roles: {
+          ux: `The ${st.name} state defines a failure, but it does not explain how the user can recover.`,
+          engineer: `Experience state \`${st.name}\` has no transition to a recoverable state.`,
+        },
+        fix: [{ label: 'Add a recovery affordance (for example: offer Retry)' }],
+      });
+    }
+    if ((exp.states || []).length === 0) d.push({
+      level: 'info', code: 'IL-EXP-001', message: `Experience "${exp.name}" declares no states.`,
+      why: 'Experiences should declare their states (empty, loading, success, failure, recovery) so completeness can be checked.',
     });
   }
 

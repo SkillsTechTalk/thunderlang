@@ -91,3 +91,58 @@ test('role-aware diagnostics: metric without window blocks release; blocking unk
   // still valid: no error-level diagnostics from these (spec is well-formed)
   assert.equal(diags.filter((d) => d.level === 'error').length, 0);
 });
+
+// ── Experience Contracts (intent-graph-v1 Section 7.3) ──────────────────────
+const EXPERIENCE = [
+  'use experience',
+  'experience UploadStudyMaterial',
+  '  actor Learner',
+  '  goal', '    "turn notes into a plan"',
+  '  enter when', '    Learner is signed_in',
+  '  journey HappyPath', '    start at Upload', '    show Progress',
+  '  state Empty', '    offer PasteText',
+  '  state UploadFailure', '    preserve SelectedDocument', '    offer Retry',
+  '  responsive', '    support Mobile', '    support Desktop',
+  '  accessible', '    target WCAG_2_2_AA', '    keyboard complete',
+  '  follows RecoverableUpload',
+  'pattern RecoverableUpload',
+  '  requires', '    retry available',
+].join('\n');
+
+test('Experience Contract parses into typed AST', () => {
+  const ast = parseIntent(EXPERIENCE);
+  const e = ast.experiences[0];
+  assert.equal(e.name, 'UploadStudyMaterial');
+  assert.equal(e.actor, 'Learner');
+  assert.match(e.goal, /turn notes into a plan/);
+  assert.equal(e.journeys.length, 1);
+  assert.equal(e.states.length, 2);
+  const fail = e.states.find((s) => s.name === 'UploadFailure');
+  assert.equal(fail.hasRecovery, true);   // "offer Retry"
+  assert.equal(fail.preserves, true);
+  assert.deepEqual(e.responsive, ['Mobile', 'Desktop']);
+  assert.equal(e.accessible.target, 'WCAG_2_2_AA');
+  assert.deepEqual(e.follows, ['RecoverableUpload']);
+  assert.equal(ast.patterns[0].name, 'RecoverableUpload');
+});
+
+test('experience nodes land in the Intent Graph', () => {
+  const g = buildIntentGraph(parseIntent(EXPERIENCE));
+  assert.equal(g.summary.byType.ExperienceContract, 1);
+  assert.equal(g.summary.byType.ExperienceState, 2);
+  assert.equal(g.summary.byType.Journey, 1);
+  assert.equal(g.summary.byType.Pattern, 1);
+  assert.ok(g.relationships.some((r) => r.type === 'requires' && r.to.startsWith('experience-state.')));
+  assert.ok(g.relationships.some((r) => r.type === 'derived_from' && r.to.startsWith('pattern.')));
+});
+
+test('IL-EXP-004: failure state without recovery is a UX blocker; recoverable one is clean', () => {
+  const missing = parseIntent('use experience\nexperience X\n  state ProcessingFailure\n    explain problem\n');
+  const d = semanticDiagnostics(missing).find((x) => x.code === 'IL-EXP-004');
+  assert.ok(d);
+  assert.equal(d.severity, 'blocker');
+  assert.ok(d.roles.ux && d.roles.engineer);
+  assert.deepEqual(d.blocks, ['experience-approval', 'release']);
+  // a failure state WITH recovery does not fire
+  assert.ok(!semanticDiagnostics(parseIntent(EXPERIENCE)).some((x) => x.code === 'IL-EXP-004'));
+});
