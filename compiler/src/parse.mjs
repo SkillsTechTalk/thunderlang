@@ -64,6 +64,13 @@ function parseNoteNode(node) {
 const isNote = (node) => firstWord(node.text).toLowerCase() === 'note';
 
 const leafItems = (node) => node.children.map((c) => c.text);
+const stripQuotes = (s) => String(s ?? '').trim().replace(/^"(.*)"$/s, '$1');
+// key/value children: "classification observed" -> { classification: "observed" }.
+const kvChildren = (node) => {
+  const o = {};
+  for (const c of node.children) { if (isNote(c)) continue; o[firstWord(c.text)] = rest(c.text); }
+  return o;
+};
 const childBlock = (node, kw) => node.children.find((c) => firstWord(c.text) === kw);
 
 function parseFields(node) {
@@ -139,6 +146,11 @@ export function parseIntent(source) {
     targets: [], style: [], verify: [], errors: [], examples: [],
     services: [], apis: [], events: [], databases: [], architecture: [],
     implementation: null, selection: [],
+    // Product / intent-graph profile (intent-graph-v1)
+    profiles: [], title: null, actor: null, problem: '',
+    evidence: [], outcomes: [], metrics: [],
+    scope: { include: [], exclude: [] }, nonGoals: [],
+    owner: null, approvals: [], unknowns: [], questions: [], assumptionDecls: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -184,6 +196,46 @@ export function parseIntent(source) {
       case 'database': ast.databases.push({ id: slug(arg), name: arg, engine: leafItems(node)[0] || null }); break;
       case 'architecture': ast.architecture.push(...leafItems(node)); break;
       case 'selection': ast.selection.push(...leafItems(node)); break;
+      // ── Product / intent-graph profile (intent-graph-v1) ──
+      case 'use': if (arg) ast.profiles.push(arg); break;
+      case 'title': ast.title = stripQuotes(arg || leafItems(node).join(' ')); break;
+      case 'for': ast.actor = arg || null; break;
+      case 'problem': ast.problem = leafItems(node).map(stripQuotes).join(' ').trim(); break;
+      case 'evidence': {
+        const kv = kvChildren(node);
+        ast.evidence.push({ name: arg, classification: kv.classification || null, confidence: kv.confidence || null, source: kv.source || null, line: node.line });
+        break;
+      }
+      case 'outcome': ast.outcomes.push({ name: arg, description: stripQuotes(leafItems(node).join(' ')) || null, line: node.line }); break;
+      case 'metric': {
+        const kv = kvChildren(node);
+        ast.metrics.push({ name: arg, baseline: kv.baseline || null, target: kv.target || null, window: kv.window || null, line: node.line });
+        break;
+      }
+      case 'scope':
+        for (const c of items(node)) {
+          const k = firstWord(c.text);
+          if (k === 'include') ast.scope.include.push(rest(c.text));
+          else if (k === 'exclude') ast.scope.exclude.push(rest(c.text));
+        }
+        break;
+      case 'non_goal': ast.nonGoals.push(arg || leafItems(node).join(' ')); break;
+      case 'owner': ast.owner = arg || null; break;
+      case 'unknown': {
+        const kv = kvChildren(node);
+        ast.unknowns.push({ name: arg, owner: kv.owner || null, resolveBefore: (kv.resolve || '').replace(/^before\s+/, '') || null, blocks: kv.blocks || null, line: node.line });
+        break;
+      }
+      case 'question': {
+        const kv = kvChildren(node);
+        ast.questions.push({ name: arg, askedOf: kv.asked_of || null, blocks: kv.blocks || null, line: node.line });
+        break;
+      }
+      case 'assumption': {
+        const kv = kvChildren(node);
+        ast.assumptionDecls.push({ name: arg, confidence: kv.confidence || null, validateWith: (kv.validate || '').replace(/^with\s+/, '') || null, line: node.line });
+        break;
+      }
       // Intentionally deferred, AI-assisted implementation. "implement with ai [pending]".
       case 'implement': {
         if (/^with\s+ai\b/.test(arg)) {
@@ -204,6 +256,12 @@ export function parseIntent(source) {
         (ast.lift ||= {})[kw] = leafItems(node);
         break;
       case 'approval': {
+        // Product Mission form: "approval required from" + a list of approver roles.
+        if (/\bfrom\b/.test(arg) || /\brequired\b/.test(arg)) {
+          ast.approvals.push(...leafItems(node).map((s) => s.trim()).filter(Boolean));
+          break;
+        }
+        // Drift form: reviewed/by metadata block.
         const a = {};
         for (const c of node.children) a[firstWord(c.text)] = rest(c.text);
         a.reviewed = a.reviewed === 'true';

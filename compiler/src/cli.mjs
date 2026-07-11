@@ -25,6 +25,7 @@ import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
+import { buildIntentGraph } from './intent-graph.mjs';
 import {
   buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers,
   contractHash, implementationHash, recordDecision, approvalFor, emptyApprovals, makeEvent,
@@ -403,6 +404,7 @@ function main() {
     generated.push(writeJson(outDir, 'contract-graph.json', buildContractGraph(ast, generatedAt)));
     generated.push(writeJson(outDir, 'architecture-graph.json', buildArchitectureGraph(ast, generatedAt)));
     generated.push(writeJson(outDir, 'implementation-plan.json', buildImplementationPlan(ast, generatedAt)));
+    generated.push(writeJson(outDir, 'intent-graph.json', buildIntentGraph(ast)));
   }
   if (cmd === 'build') {
     generated.push(writeText(outDir, `${slug(ast.mission)}.md`, renderMarkdown(ast)));

@@ -6,6 +6,7 @@
 import { createHash } from 'node:crypto';
 import { slug, KNOWN_LENSES } from './parse.mjs';
 import { parseArchitectureRules } from './arch.mjs';
+import { CLASSIFICATIONS } from './classification.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -222,6 +223,54 @@ export function semanticDiagnostics(ast) {
         [{ label: `Rename to PascalCase (for example ${e.name.replace(/[^A-Za-z0-9]+/g, ' ').replace(/(?:^|\s)(\w)/g, (_, c) => c.toUpperCase()).replace(/\s+/g, '') || 'FailureName'})` }]);
     }
   }
+
+  // ── Product / intent-graph diagnostics (intent-graph-v1) ──
+  // Role-aware. Kept at warning/info so `intent check` stays valid; `severity` +
+  // `blocks` drive phase gates (a valid spec can still be not-ready-to-proceed).
+  for (const m of ast.metrics || []) {
+    if (!m.window) d.push({
+      level: 'warning', code: 'IL-PM-001', severity: 'blocker', blocks: ['release'],
+      message: `Metric "${m.name}" has no measurement window.`,
+      why: 'A success metric without a measurement period cannot be evaluated after release.',
+      roles: { product: `The success metric "${m.name}" has no measurement period. Add when the team should evaluate the result.` },
+      fix: [{ label: 'Add a window (for example: window 30 days after release)' }],
+    });
+  }
+  for (const e of ast.evidence || []) {
+    if (!e.classification) d.push({
+      level: 'info', code: 'IL-EV-001', message: `Evidence "${e.name}" has no classification.`,
+      why: 'Classify evidence (observed / inferred / proposed / assumed) so AI-generated content never silently becomes fact.',
+      fix: [{ label: 'Add: classification observed' }],
+    });
+    else if (!CLASSIFICATIONS.includes(e.classification)) d.push({
+      level: 'warning', code: 'IL-EV-002', message: `Evidence "${e.name}" has an unknown classification "${e.classification}".`,
+      why: `Use one of: ${CLASSIFICATIONS.join(', ')}.`,
+    });
+  }
+  for (const u of ast.unknowns || []) {
+    if (u.resolveBefore) d.push({
+      level: 'warning', code: 'IL-GRAPH-010', severity: 'blocker', blocks: [String(u.resolveBefore).toLowerCase()],
+      message: `Unknown "${u.name}" must be resolved before ${u.resolveBefore}.`,
+      why: 'An unresolved unknown that blocks a declared phase is a blocker for that phase, not an ordinary warning.',
+      roles: { product: `"${u.name}" is unresolved and blocks ${u.resolveBefore}.`, engineer: `Unknown "${u.name}" gates ${u.resolveBefore}.` },
+    });
+  }
+  for (const q of ast.questions || []) {
+    if (q.blocks) d.push({
+      level: 'warning', code: 'IL-GRAPH-011', severity: 'blocker', blocks: [String(q.blocks).toLowerCase()],
+      message: `Open question "${q.name}" blocks ${q.blocks}.`,
+      why: 'An open question that blocks a phase must be answered before that phase proceeds.',
+    });
+  }
+  for (const o of ast.outcomes || []) {
+    const hasMetric = (ast.metrics || []).length > 0;
+    if (!hasMetric) d.push({
+      level: 'warning', code: 'IL-PM-003', message: `Outcome "${o.name}" has no metric.`,
+      why: 'An outcome without a metric cannot be measured, so success cannot be proven.',
+      roles: { product: `Outcome "${o.name}" needs a metric to know whether it worked.` },
+    });
+  }
+
   return d;
 }
 

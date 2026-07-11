@@ -19,6 +19,21 @@ export interface IntentAst {
   errors: Array<{ name: string; line: number }>;
   examples: Array<{ given: string; expect: string | null; line: number }>;
   architecture: string[];
+  // Product / intent-graph profile (intent-graph-v1)
+  profiles: string[];
+  title: string | null;
+  actor: string | null;
+  problem: string;
+  evidence: Array<{ name: string; classification: string | null; confidence: string | null; source: string | null; line: number }>;
+  outcomes: Array<{ name: string; description: string | null; line: number }>;
+  metrics: Array<{ name: string; baseline: string | null; target: string | null; window: string | null; line: number }>;
+  scope: { include: string[]; exclude: string[] };
+  nonGoals: string[];
+  owner: string | null;
+  approvals: string[];
+  unknowns: Array<{ name: string; owner: string | null; resolveBefore: string | null; blocks: string | null; line: number }>;
+  questions: Array<{ name: string; askedOf: string | null; blocks: string | null; line: number }>;
+  assumptionDecls: Array<{ name: string; confidence: string | null; validateWith: string | null; line: number }>;
   implementation: null | {
     id?: string; scope?: string; strategy?: string; editing?: string;
     risk?: string; approval?: string; pending: boolean;
@@ -128,6 +143,30 @@ export function buildMissionIndex(
 export interface ArchitectureRule { from: string; relation: 'must-not-depend-on' | 'must-depend-on' | 'may-depend-on' | 'may-implement'; to: string; raw: string; }
 export function parseArchitectureRules(lines: string[]): { rules: ArchitectureRule[]; unparsed: string[] };
 export function violatesArchitecture(rules: ArchitectureRule[], from: string, to: string): ArchitectureRule | null;
+
+// Canonical Intent Graph (intent-graph-v1)
+export const INTENT_GRAPH_SCHEMA: string;
+export interface IntentGraphNode {
+  id: string; type: string; title: string | null; description: string | null;
+  status: string; owner: string | null; classification: string | null;
+  confidence: string | null; source: string | null; tags: string[];
+  createdTime: string | null; updatedTime: string | null;
+}
+export interface IntentGraph {
+  schema: string; missionId: string;
+  nodes: IntentGraphNode[];
+  relationships: Array<{ from: string; type: string; to: string }>;
+  summary: { nodes: number; relationships: number; byType: Record<string, number>; unresolved: number; approvalsRequired: number };
+}
+export function buildIntentGraph(ast: IntentAst): IntentGraph;
+
+// Classification model (intent-graph-v1 Section 5)
+export const CLASSIFICATIONS: string[];
+export const CONFIDENCE: string[];
+export const UNSETTLED: Set<string>;
+export const BLOCKABLE_PHASES: string[];
+export function classify(word: string): string | null;
+export function isFactual(classification: string): boolean;
 
 // Deterministic candidate selection
 export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }

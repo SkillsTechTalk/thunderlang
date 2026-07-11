@@ -50,6 +50,10 @@ export { parseArchitectureRules, violatesArchitecture } from './arch.mjs';
 // Deterministic candidate selection (AI generates; IL + OT select on measurable rules)
 export { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 
+// Canonical Intent Graph + classification (intent-graph-v1) , the shared cross-product model
+export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
+export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_PHASES } from './classification.mjs';
+
 // Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest
 export {
   IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,

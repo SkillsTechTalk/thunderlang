@@ -432,3 +432,39 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
       `openthunder intent drift` and the `can-i-ship --intent-pack` gate; documented + live
 - [ ] Runtime split for AI routing; Prompt-to-Intent as a traced, approved assist (#57,#63)
 - [ ] Ecosystem proof consumers: Repo Mastery teaching, STT defense drills, STCE track, Workspace signing (#75-#82)
+
+## Intent for every role (intent-graph-v1) , cross-product initiative
+
+> Evolve Intent from a developer language into a shared PRODUCT + software intent
+> language: one canonical model, every role (PM/UX/research/eng/QA/security/analytics/
+> business), verified execution. IL owns the language + Intent Graph; OT verifies; RM
+> teaches; ST authors. Lifecycle: Evidence -> Outcome -> Requirement -> Experience ->
+> Contract -> Implementation -> Verification -> Release -> Result -> Learning.
+
+Phase 1 slice 1 (IL-owned , SHIPPED):
+- [x] Profiles (`use product|experience|assurance|...`) , parser + `ast.profiles`.
+- [x] Product Mission syntax: title/for/problem/evidence(classification,confidence,source)/
+      outcome/metric(baseline,target,window)/scope(include,exclude)/non_goal/owner/
+      approval-required-from/unknown/question/assumption , typed AST.
+- [x] Classification model (`compiler/src/classification.mjs`): observed/inferred/proposed/
+      assumed/unknown/decided/verified + isFactual/UNSETTLED (AI content never silently fact).
+- [x] Canonical Intent Graph (`compiler/src/intent-graph.mjs`, `buildIntentGraph`): typed
+      nodes + relationships, deterministic; emitted as `intent-graph.json` by `intent build`.
+- [x] Role-aware structured diagnostics (IL-PM-001 metric-no-window, IL-EV-001 evidence-no-
+      classification, IL-GRAPH-010/011 blocking unknown/question) with severity/blocks/roles.
+- [x] Example `examples/CertificationStudyPlan.intent`; docs/intent-graph.md; library +
+      index.d.ts exports; 56/56 tests. Backward-compatible (existing .intent files unaffected).
+
+Deferred (IL next slices):
+- [ ] Experience Contract syntax (experience/journey/state/responsive/accessible/pattern/follows).
+- [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
+- [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).
+- [ ] Intent Graph <-> source round-trip (graph -> source) + schema migrations.
+
+Other products (build to intent-graph-v1 in their own repos , NOT built here):
+- [ ] OT: Requirement Coverage + Experience Completeness + Accessibility + Product Intent Drift
+      + Analytics lenses; Product Diff; role-specific findings; verification proof. Reuse OT lenses.
+- [ ] RM: Product/Requirements/Journey/Experience/Implementation/Verification/Outcome mastery
+      tracks + role onboarding packs; classification-preserving (no assumptions-as-fact).
+- [ ] ST: role modes, Intent Canvas, Mission/Experience/Journey builders, Review Mode, approvals,
+      the intentlanguage.dev Playground.
