@@ -35,6 +35,7 @@ import { importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
 import { graphToSource } from './graph-source.mjs';
+import { migrateGraph, validateGraph } from './migrate.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -94,6 +95,7 @@ function parseArgs(argv) {
     else if (a === '--inputs') args.inputs = argv[++i];
     else if (a === '--events') args.events = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--decision') args.decision = argv[++i];
+    else if (a === '--to') args.to = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -470,6 +472,27 @@ function main() {
       for (const st of s.steps) console.log(`  ${st.ok ? 'ok ' : 'X  '} ${st.from} --${st.event}--> ${st.to}${st.reason ? `  (${st.reason})` : ''}`);
     }
     process.exit(sims.some((s) => !s.valid) ? 1 : 0);
+    return;
+  }
+
+  // Schema migration: upgrade a persisted Intent Graph JSON to the current (or a target)
+  // schema version, then validate the result against the canonical vocabulary.
+  if (cmd === 'migrate') {
+    const raw = readFileSync(file, 'utf8');
+    let graph;
+    try { graph = JSON.parse(raw); } catch { console.error('intent migrate: input is not valid JSON'); process.exit(2); return; }
+    if (!graph || !Array.isArray(graph.nodes)) { console.error('intent migrate: not an Intent Graph (no nodes[])'); process.exit(2); return; }
+    let result;
+    try { result = migrateGraph(graph, args.to ? { to: args.to } : {}); }
+    catch (e) { console.error(`intent migrate: ${e instanceof Error ? e.message : e}`); process.exit(2); return; }
+    const v = validateGraph(result.graph);
+    if (args.json) { console.log(JSON.stringify({ ...result, validation: v }, null, 2)); process.exit(v.valid ? 0 : 1); return; }
+    console.log(`intent migrate: ${result.from} -> ${result.to} (${result.migrated ? result.applied.length + ' step(s)' : 'already current'})`);
+    for (const a of result.applied) console.log(`  applied ${a.from} -> ${a.to}: ${a.description}`);
+    console.log(`  validation: ${v.valid ? 'OK' : `${v.issues.length} issue(s)`}`);
+    for (const i of v.issues.slice(0, 10)) console.log(`    [${i.code}] ${i.message}`);
+    if (args.out && args.out !== '.intent') console.log(`  wrote ${writeText(args.out, `${slug((graph.nodes.find((n) => n.type === 'Mission')?.title) || 'graph')}.graph.json`, JSON.stringify(result.graph, null, 2))}`);
+    process.exit(v.valid ? 0 : 1);
     return;
   }
 

@@ -298,6 +298,21 @@ export function localName(name: string): string;
 export const GRAPH_SOURCE_SCHEMA: string;
 export function graphToSource(graph: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string; name?: string | null; within?: string | null }> }): string;
 
+// Schema migrations
+export const MIGRATION_SCHEMA: string;
+export const SCHEMA_CHAIN: string[];
+export interface GraphLike { schema?: string; nodes: IntentGraphNode[]; relationships: Array<Record<string, unknown>>; }
+export interface MigrationResult { schema: string; from: string; to: string; migrated: boolean; applied: Array<{ from: string; to: string; description: string }>; graph: GraphLike; }
+export interface GraphValidation { schema: string; version: string; valid: boolean; issues: Array<{ level: string; code: string; message: string; id?: string }>; }
+export const MIGRATIONS: Array<{ from: string; to: string; description: string; migrate: (g: GraphLike) => GraphLike }>;
+export function graphVersion(graph: GraphLike): string;
+export function migrateGraph(graph: GraphLike, opts?: { to?: string }): MigrationResult;
+export function validateGraph(graph: GraphLike): GraphValidation;
+export function renameNodeType(fromType: string, toType: string): (g: GraphLike) => GraphLike;
+export function renameRelationshipType(fromType: string, toType: string): (g: GraphLike) => GraphLike;
+export function backfillNodeField(field: string, value: unknown): (g: GraphLike) => GraphLike;
+export function dropNodeField(field: string): (g: GraphLike) => GraphLike;
+
 // Intent Runtime: executable intent (no AI)
 export const RUNTIME_SCHEMA: string;
 export interface DecisionRun {

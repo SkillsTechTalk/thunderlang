@@ -70,6 +70,11 @@ export { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from './exporters.
 export { fromDMN, fromBPMN, importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 // Graph -> source , regenerate .intent from an Intent Graph (native round-trip)
 export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
+// Schema migrations , upgrade persisted graphs across schema versions
+export {
+  migrateGraph, validateGraph, graphVersion, MIGRATIONS, SCHEMA_CHAIN, MIGRATION_SCHEMA,
+  renameNodeType, renameRelationshipType, backfillNodeField, dropNodeField,
+} from './migrate.mjs';
 export { parseXml, findAll, find, localName } from './xml.mjs';
 // Intent Runtime , EXECUTABLE intent: evaluate decisions, simulate lifecycles (no AI)
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
