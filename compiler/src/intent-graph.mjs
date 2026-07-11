@@ -175,6 +175,47 @@ export function buildIntentGraph(ast) {
     relationships.push(rel(mId, 'constrained_by', id));
   }
 
+  // ── System profile: capabilities + system contracts (interfaces) ──
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  for (const cap of ast.capabilities || []) {
+    const id = `capability.${slug(cap.name || 'capability')}`;
+    nodes.push(node(id, 'Capability', cap.name, { description: cap.description || null }));
+    relationships.push(rel(mId, 'requires', id));
+    // Link each declared member to the capability if it resolves to an emitted node.
+    for (const m of cap.implements || []) {
+      const target = [`command.${slug(m)}`, `decision.${slug(m)}`, `mission.${slug(m)}`].find((cand) => nodeIds.has(cand));
+      if (target) relationships.push(rel(id, 'implemented_by', target));
+    }
+  }
+  for (const iface of ast.interfaces || []) {
+    const id = `system-contract.${slug(iface.name || 'interface')}`;
+    const desc = [iface.provides.length && `provides ${iface.provides.join(', ')}`, iface.requires.length && `requires ${iface.requires.join(', ')}`, iface.slo && `slo ${iface.slo}`].filter(Boolean).join('; ') || null;
+    nodes.push(node(id, 'SystemContract', iface.name, { description: desc }));
+    relationships.push(rel(mId, 'requires', id));
+  }
+
+  // ── Delivery profile: releases, outcome results, learnings ──
+  for (const r of ast.releases || []) {
+    const id = `release.${slug(r.name || 'release')}`;
+    nodes.push(node(id, 'Release', r.name, { status: r.status || 'planned', description: [r.version && `v${r.version}`, r.date && `date ${r.date}`, r.includes.length && `includes ${r.includes.join(', ')}`].filter(Boolean).join('; ') || null }));
+    relationships.push(rel(mId, 'released_in', id));
+  }
+  for (const res of ast.results || []) {
+    const id = `outcome-result.${slug(res.name || 'result')}`;
+    nodes.push(node(id, 'OutcomeResult', res.name, { description: [res.metric && `metric ${res.metric}`, res.value && `value ${res.value}`, res.baseline && `baseline ${res.baseline}`].filter(Boolean).join('; ') || null }));
+    // A result resolves the outcome it measures (Outcome -resulted_in-> OutcomeResult).
+    const outId = res.measures ? `outcome.${slug(res.measures)}` : null;
+    relationships.push(rel(nodeIds.has(outId) ? outId : mId, 'resulted_in', id));
+  }
+  const releaseNames = new Set((ast.releases || []).map((r) => slug(r.name || '')));
+  for (const l of ast.learnings || []) {
+    const id = `learning.${slug(l.name || 'learning')}`;
+    nodes.push(node(id, 'LearningArtifact', l.name, { description: l.description || null }));
+    // A learning is derived from its source release (if resolvable) or the mission.
+    const fromRelease = l.from && releaseNames.has(slug(l.from));
+    relationships.push(rel(id, 'derived_from', fromRelease ? `release.${slug(l.from)}` : mId));
+  }
+
   const byType = {};
   for (const n of nodes) byType[n.type] = (byType[n.type] || 0) + 1;
   return {

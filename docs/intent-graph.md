@@ -286,6 +286,66 @@ condition but different results (`IL-DEC-002`, ambiguous), redundant rules
 graph. OpenThunder verifies rule coverage and that the implementation matches the
 decision. See `examples/CertificationEligibility.intent`.
 
+## System profile
+
+The system profile lets an architect say what the mission needs from the system, in the
+same graph as everything else. A `capability` groups the work a mission delivers; an
+`interface` (a system contract) states what a dependency provides, requires, and
+guarantees.
+
+```
+use system
+
+capability Billing
+  description "charge and invoice customers"
+  implements ChargeCard
+  implements Eligibility
+
+interface PaymentGateway
+  provides charge
+  requires idempotency_key
+  slo "99.9% availability"
+```
+
+A `capability` becomes a `Capability` node under the mission (`Mission -requires->
+Capability`), and each `implements` link resolves to the command or decision that
+realizes it (`Capability -implemented_by-> ...`), when that node exists, so the edge is
+never dangling. An `interface` becomes a `SystemContract` node. `Capability` is the
+Atlas hierarchy level between Mission and its implementation, and it is the same node
+type OpenThunder infers when it discovers capabilities from an existing codebase.
+
+## Delivery profile
+
+The delivery profile closes the loop from intent to shipped result. A `release` records
+what went out; a `result` records what actually happened to an outcome; a `learning`
+records what the team took away.
+
+```
+use delivery
+
+release v1.2
+  version "1.2.0"
+  status planned
+  date 2026-08-01
+  includes CertificationAttempt
+
+result ConversionUp
+  measures FasterCheckout
+  metric conversion
+  value "62%"
+  baseline "48%"
+
+learning AddressFriction
+  description "users drop at address entry"
+  from v1.2
+```
+
+These use relationships the canonical schema already reserves: `Mission -released_in->
+Release`, `Outcome -resulted_in-> OutcomeResult` (the result resolves the outcome it
+measures), and `LearningArtifact -derived_from-> Release`. So a mission carries its
+whole arc in one graph: the outcome it targets, the release that shipped it, the result
+that outcome produced, and the learning that came back.
+
 ## Canonical schema (no forks)
 
 Every product must speak the same node types, relationship types, classifications, and
@@ -326,10 +386,11 @@ not-ready-to-proceed, which is a phase gate, not a syntax error.
 - **SkillsTech Studio** provides visual authoring (Canvas, builders), collaboration,
   review, approvals, and role-specific experiences.
 
-Status: IL Phase 1 slice 1 shipped (profiles, Product Mission, classification, the
-Intent Graph, role diagnostics). Experience Contracts, design-system mappings, outcome
-contracts, and the remaining profiles are the next IL slices; OT/RM/ST build to
-`intent-graph-v1` in their own repos.
+Status: shipped , all five profiles (core, product, experience, system, delivery) and
+the assurance concepts, Product Mission, classification, Experience Contracts,
+constraints/conflicts, temporal/lifecycle, distributed/failure, decisions/rules, and the
+canonical Intent Graph with role diagnostics. OT/RM/ST build to `intent-graph-v1` in
+their own repos.
 
 ## Intent Atlas
 

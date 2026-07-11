@@ -275,6 +275,10 @@ export function parseIntent(source) {
     waivers: [],
     // Data purpose + privacy , governed data elements (Gap 6)
     dataElements: [],
+    // System profile , capabilities + system contracts (interfaces)
+    capabilities: [], interfaces: [],
+    // Delivery profile , releases, outcome results, learnings
+    releases: [], results: [], learnings: [],
     // Tests , first-class cases that make a .intent file self-verifying
     tests: [],
     notes: [], diagnostics: [],
@@ -373,6 +377,58 @@ export function parseIntent(source) {
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
+      // ── System profile ──
+      case 'capability': {
+        const cap = { name: arg, description: null, implements: [], line: node.line };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'description') cap.description = stripQuotes(a || leafItems(c).join(' '));
+          else if (k === 'implements') cap.implements.push(...(a ? [a] : leafItems(c)));
+        }
+        ast.capabilities.push(cap);
+        break;
+      }
+      case 'interface': {
+        const iface = { name: arg, provides: [], requires: [], slo: null, line: node.line };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'provides') iface.provides.push(...(a ? [a] : leafItems(c)));
+          else if (k === 'requires') iface.requires.push(...(a ? [a] : leafItems(c)));
+          else if (k === 'slo') iface.slo = stripQuotes(a || leafItems(c).join(' '));
+        }
+        ast.interfaces.push(iface);
+        break;
+      }
+      // ── Delivery profile ──
+      case 'release': {
+        const kv = kvChildren(node);
+        const rel = { name: arg, version: kv.version ? stripQuotes(kv.version) : null, status: kv.status || 'planned', date: kv.date || null, includes: [], line: node.line };
+        for (const c of kids(node)) if (firstWord(c.text) === 'includes') rel.includes.push(...(rest(c.text) ? [rest(c.text)] : leafItems(c)));
+        ast.releases.push(rel);
+        break;
+      }
+      case 'result': {
+        const res = { name: arg, measures: null, metric: null, value: null, baseline: null, line: node.line };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'measures') res.measures = a;
+          else if (k === 'metric') res.metric = a;
+          else if (k === 'value') res.value = stripQuotes(a);
+          else if (k === 'baseline') res.baseline = stripQuotes(a);
+        }
+        ast.results.push(res);
+        break;
+      }
+      case 'learning': {
+        const learn = { name: arg, description: null, from: null, line: node.line };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'description') learn.description = stripQuotes(a || leafItems(c).join(' '));
+          else if (k === 'from') learn.from = a;
+        }
+        ast.learnings.push(learn);
+        break;
+      }
       case 'test': {
         // A first-class test block targeting a decision or lifecycle by name. Each `case`
         // (decision) has `given <k> <v>` + `expect <result>`; each `scenario` (lifecycle)
