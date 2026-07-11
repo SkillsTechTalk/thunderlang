@@ -208,10 +208,68 @@ export function resolveState({ ast, region = null, proof = null, approval = null
   if (proof.implementationHash !== iH) { reasons.push({ code: 'INTENT-AI-504', message: 'Proof is stale: the implementation changed.' }); return { status: 'MODIFIED', approvalRequired, reasons }; }
   if (proof.status === 'INVALID') return { status: 'INVALID', approvalRequired, reasons };
 
-  const approved = approval && approval.contractHash === cH && approval.implementationHash === iH;
-  if (approved) return { status: 'APPROVED', approvalRequired, reasons };
+  const hashesMatchApproval = approval && approval.contractHash === cH && approval.implementationHash === iH;
+  if (hashesMatchApproval && approval.decision === 'rejected') return { status: 'REJECTED', approvalRequired, reasons };
+  // A recorded decision defaults to 'approved' when a matching approval has no decision field.
+  if (hashesMatchApproval && (approval.decision === undefined || approval.decision === 'approved')) return { status: 'APPROVED', approvalRequired, reasons };
   if (approvalRequired) return { status: 'VERIFIED_AWAITING_APPROVAL', approvalRequired, reasons: [{ code: 'INTENT-AI-502', message: 'Verified, but human approval is required.' }] };
   return { status: 'VERIFIED', approvalRequired, reasons };
+}
+
+// ── Approvals store (.intent/ai-approvals.json) ──────────────────────────────
+// A decision binds to the exact hashes it reviewed, so a later edit makes it stale
+// (resolveState stops treating it as APPROVED once the hashes move).
+export const APPROVALS_SCHEMA_VERSION = '1.0';
+
+export function emptyApprovals() {
+  return { schemaVersion: APPROVALS_SCHEMA_VERSION, approvals: {} };
+}
+
+export function approvalFor(store, id) {
+  return (store && store.approvals && store.approvals[id]) || null;
+}
+
+/**
+ * Record an approve/reject decision bound to the reviewed hashes. Refuses to record
+ * against hashes that don't match the current contract + implementation (no approving
+ * stale work). Returns { store, record } or { error }.
+ */
+export function recordDecision(store, id, { decision, by, role, note, contractHash: cH, implementationHash: iH, at }) {
+  if (!['approved', 'rejected'].includes(decision)) return { error: `Unknown decision "${decision}".` };
+  if (!cH || !iH) return { error: 'Cannot record a decision without current contract + implementation hashes.' };
+  const record = { decision, by: by || null, role: role || null, note: note || null, contractHash: cH, implementationHash: iH, at: at || null };
+  const next = { ...emptyApprovals(), ...store, approvals: { ...(store?.approvals || {}), [id]: record } };
+  return { store: next, record };
+}
+
+// ── Integration events (versioned; no shared-DB coupling) ────────────────────
+export const INTENT_AI_EVENTS = [
+  'IntentAiImplementationDeclared', 'IntentAiGenerationRequested', 'IntentAiCandidateImported',
+  'IntentAiImplementationGenerated', 'IntentAiVerificationStarted', 'IntentAiVerificationPassed',
+  'IntentAiVerificationFailed', 'IntentAiApprovalRequested', 'IntentAiImplementationApproved',
+  'IntentAiImplementationRejected', 'IntentAiImplementationModified', 'IntentAiProofInvalidated',
+  'IntentAiImplementationAdopted', 'IntentAiMasteryGenerated', 'IntentAiOwnershipUpdated',
+];
+
+/** Build a versioned integration event (the payload shape in contract intent-ai-v1). */
+export function makeEvent(type, fields = {}) {
+  return {
+    schemaVersion: '1.0',
+    type,
+    projectId: fields.projectId ?? null,
+    repoId: fields.repoId ?? null,
+    implementationId: fields.implementationId ?? null,
+    missionId: fields.missionId ?? null,
+    contractHash: fields.contractHash ?? null,
+    implementationHash: fields.implementationHash ?? null,
+    correlationId: fields.correlationId ?? null,
+    timestamp: fields.timestamp ?? null,
+    toolVersion: fields.toolVersion ?? null,
+    actorType: fields.actorType ?? null,
+    actorId: fields.actorId ?? null,
+    previousStatus: fields.previousStatus ?? null,
+    newStatus: fields.newStatus ?? null,
+  };
 }
 
 /**
@@ -270,7 +328,7 @@ export function buildManifest(files, opts = {}) {
       id,
       mission: f.ast.mission || null,
       sourceLocation: f.path || null,
-      targetLocation: impl.targetLocation || null,
+      targetLocation: impl.target || impl.targetLocation || null,
       scope: impl.scope || 'function_body',
       strategy: impl.strategy || 'generate_once',
       editing: impl.editing || 'collaborative',

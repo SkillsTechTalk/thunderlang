@@ -379,8 +379,11 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
       with stale-proof MODIFIED on hash mismatch), `productionGate` + `intent ai gate [--allow-pending]`,
       `intent build --mode production` gate wiring, `intent ai adopt` (marker rewrite AI->human, provenance
       preserved). Exported from the library. 38/38 tests.
-- [ ] IL follow-ups (remaining): shared event schemas (IntentAi*), `architecture` block verification,
-      `intent ai approve/reject` state recording (needs an approvals store).
+- [x] IL follow-ups (SHIPPED): `intent ai approve/reject` + `.intent/ai-approvals.json` store , decisions
+      bind to reviewed hashes (refuses stale/unverified; approval goes stale on any change -> MODIFIED). Shared
+      `IntentAi*` event builder (15 event types, versioned payload). Full approve->PASS->modify->stale verified.
+- [ ] IL follow-ups (remaining): `architecture` block VERIFICATION (parsing exists), an events sink/log,
+      multi-candidate selection policy.
 
 ## Operating checklist status (see docs/operating-checklist.md)
 

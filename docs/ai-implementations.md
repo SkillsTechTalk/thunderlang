@@ -170,6 +170,8 @@ intent ai list ./examples             # the manifest, per implementation + state
 intent ai generate <file.intent>      # provider-neutral prompt for an external agent (Path 1)
 intent ai gate ./examples             # production gate: resolve real state, block if unshippable
 intent ai gate ./examples --allow-pending   # dev build: tolerate PENDING only
+intent ai approve <dir> <id> --by <reviewer> [--role <role>] [--note <note>]   # record approval
+intent ai reject  <dir> <id> --by <reviewer> [--note <note>]                  # record rejection
 intent ai adopt <targetFile> <id>     # rewrite an AI region to human-owned, preserving provenance
 intent build <file> --mode production # refuses to build while an AI implementation is unshippable
 ```
@@ -184,10 +186,15 @@ blocks unless every implementation ships (`APPROVED` / `ADOPTED`). `--allow-pend
 forgives `PENDING` for a dev build but never `MODIFIED` / `INVALID` / missing approval.
 `intent build --mode production` applies the same gate before generating.
 
+`intent ai approve` / `reject` record a human decision in `.intent/ai-approvals.json`,
+**bound to the exact contract and implementation hashes reviewed**. The compiler
+refuses to approve stale or unverified work, and once the code or contract changes the
+recorded approval no longer counts (the implementation returns to `MODIFIED`). Each
+decision emits a versioned `IntentAiImplementationApproved` / `Rejected` event.
+
 `intent ai adopt` rewrites `<intent:ai-implementation>` to
 `<intent:implementation origin="ai" ownership="human">`, keeping the provenance while
-removing active AI management. `verify`, `approve`, and `reject` are driven by
-OpenThunder and providers — see the workflow below.
+removing active AI management. `verify` is driven by OpenThunder — see the workflow below.
 
 ## Provider-neutral generation
 

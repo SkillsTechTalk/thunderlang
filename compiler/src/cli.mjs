@@ -24,7 +24,10 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
-import { buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers } from './ai.mjs';
+import {
+  buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers,
+  contractHash, implementationHash, recordDecision, approvalFor, emptyApprovals, makeEvent,
+} from './ai.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -69,6 +72,8 @@ function parseArgs(argv) {
     else if (a === '--product') args.product = argv[++i];
     else if (a === '--allow-pending') args.allowPending = true;
     else if (a === '--mode') args.mode = argv[++i];
+    else if (a === '--role') args.role = argv[++i];
+    else if (a === '--note') args.note = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -233,6 +238,8 @@ function main() {
       const root = target;
       const parsed = collectIntents(root).map((f) => ({ file: f, ast: parseIntent(readFileSync(f, 'utf8')) }));
       const manifest = buildManifest(parsed.map((p) => ({ path: relative(root, p.file), source: '', ast: p.ast })), { projectId: args.product });
+      const apf = join(root, '.intent', 'ai-approvals.json');
+      const approvals = existsSync(apf) ? JSON.parse(readFileSync(apf, 'utf8')) : emptyApprovals();
       const resolved = manifest.implementations.map((im) => {
         const ast = parsed.find((p) => (p.ast.implementation?.id || slug(p.ast.mission || '')) === im.id)?.ast;
         let region = null;
@@ -242,7 +249,7 @@ function main() {
         }
         const pf = join(root, im.proofLocation);
         const proof = existsSync(pf) ? JSON.parse(readFileSync(pf, 'utf8')) : null;
-        const st = resolveState({ ast, region, proof });
+        const st = resolveState({ ast, region, proof, approval: approvalFor(approvals, im.id) });
         return { id: im.id, status: st.status, approvalRequired: im.approval !== 'none', reasons: st.reasons };
       });
       const gate = productionGate(resolved, { allowPending: args.allowPending });
@@ -264,7 +271,45 @@ function main() {
       console.log(`intent ai adopt ${id} -> human-owned (origin="ai" ownership="human") in ${basename(file)}`);
       return;
     }
-    console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt. verify/approve are OpenThunder-/provider-driven , see docs/ai-implementations.md.`);
+    if (sub === 'approve' || sub === 'reject') {
+      // Record a human decision bound to the reviewed hashes. Refuses stale/unverified.
+      const root = args._[1] || '.'; const id = args._[2];
+      if (!id) { console.error(`usage: intent ai ${sub} <dir> <id> --by <reviewer> [--role <role>] [--note <note>]`); process.exit(2); return; }
+      const parsed = collectIntents(root).map((f) => ({ file: f, ast: parseIntent(readFileSync(f, 'utf8')) }));
+      const manifest = buildManifest(parsed.map((p) => ({ path: relative(root, p.file), source: '', ast: p.ast })), {});
+      const im = manifest.implementations.find((x) => x.id === id);
+      const ast = parsed.find((p) => (p.ast.implementation?.id || slug(p.ast.mission || '')) === id)?.ast;
+      if (!im || !ast) { console.error(`intent ai ${sub}: no implementation "${id}" found under ${root}.`); process.exit(2); return; }
+      let region = null;
+      if (im.targetLocation && existsSync(join(root, im.targetLocation))) region = parseMarkers(readFileSync(join(root, im.targetLocation), 'utf8')).regions.find((r) => r.id === id) || null;
+      const pf = join(root, im.proofLocation);
+      const proof = existsSync(pf) ? JSON.parse(readFileSync(pf, 'utf8')) : null;
+      const state = resolveState({ ast, region, proof });
+      if (!region) { console.error(`INTENT-AI-501: cannot ${sub} "${id}" , no generated region yet (state ${state.status}).`); process.exit(1); return; }
+      if (sub === 'approve' && !['VERIFIED', 'VERIFIED_AWAITING_APPROVAL'].includes(state.status)) {
+        console.error(`INTENT-AI-502: cannot approve "${id}" in state ${state.status}${state.reasons?.[0] ? ` (${state.reasons[0].code})` : ''}. Approve only verified, non-stale work.`);
+        process.exit(1); return;
+      }
+      const apf = join(root, '.intent', 'ai-approvals.json');
+      const store = existsSync(apf) ? JSON.parse(readFileSync(apf, 'utf8')) : emptyApprovals();
+      const at = new Date().toISOString();
+      const { store: next, error } = recordDecision(store, id, {
+        decision: sub === 'approve' ? 'approved' : 'rejected',
+        by: args.by, role: args.role, note: args.note,
+        contractHash: contractHash(ast), implementationHash: implementationHash(region.code), at,
+      });
+      if (error) { console.error(`intent ai ${sub}: ${error}`); process.exit(2); return; }
+      writeJson(join(root, '.intent'), 'ai-approvals.json', next);
+      const event = makeEvent(sub === 'approve' ? 'IntentAiImplementationApproved' : 'IntentAiImplementationRejected', {
+        implementationId: id, missionId: ast.mission, contractHash: contractHash(ast), implementationHash: implementationHash(region.code),
+        timestamp: at, toolVersion: 'intentlang', actorType: 'human', actorId: args.by || null, previousStatus: state.status,
+        newStatus: sub === 'approve' ? 'APPROVED' : 'REJECTED',
+      });
+      console.log(`intent ai ${sub} ${id} by ${args.by || '(anonymous)'}${args.role ? ` [${args.role}]` : ''} -> ${sub === 'approve' ? 'APPROVED' : 'REJECTED'} (bound to current hashes)`);
+      if (args.json) console.log(JSON.stringify(event, null, 2));
+      return;
+    }
+    console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject. OpenThunder runs verification.`);
     process.exit(2);
     return;
   }

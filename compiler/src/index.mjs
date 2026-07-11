@@ -51,4 +51,6 @@ export {
   contractHash, implementationHash,
   buildManifest, buildImplementationPrompt, MANIFEST_SCHEMA_VERSION,
   resolveState, productionGate, adoptRegion,
+  recordDecision, approvalFor, emptyApprovals, APPROVALS_SCHEMA_VERSION,
+  makeEvent, INTENT_AI_EVENTS,
 } from './ai.mjs';

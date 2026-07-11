@@ -179,3 +179,43 @@ test('adoptRegion rewrites AI marker to human-owned, preserving provenance', () 
   assert.match(res.code, /<\/intent:implementation>/);
   assert.equal(adoptRegion(code, 'nope'), null); // unknown id
 });
+
+// ── approvals store + decision-aware resolution + events ────────────────────
+import { recordDecision, approvalFor, emptyApprovals, makeEvent, INTENT_AI_EVENTS } from '../src/ai.mjs';
+
+test('recordDecision binds to hashes; resolveState reads approve/reject', () => {
+  const ast = parseIntent(FULL);
+  const r = region(ast);
+  const cH = contractHash(ast), iH = implementationHash(r.code);
+  const proof = { status: 'VERIFIED', contractHash: cH, implementationHash: iH };
+
+  let store = emptyApprovals();
+  const ok = recordDecision(store, 'calculate-risk-score', { decision: 'approved', by: 'alice', role: 'security_reviewer', contractHash: cH, implementationHash: iH, at: 't' });
+  assert.ok(!ok.error);
+  store = ok.store;
+  assert.equal(approvalFor(store, 'calculate-risk-score').by, 'alice');
+  assert.equal(resolveState({ ast, region: r, proof, approval: approvalFor(store, 'calculate-risk-score') }).status, 'APPROVED');
+
+  // a rejection resolves to REJECTED
+  const rej = recordDecision(emptyApprovals(), 'calculate-risk-score', { decision: 'rejected', by: 'bob', contractHash: cH, implementationHash: iH, at: 't' });
+  assert.equal(resolveState({ ast, region: r, proof, approval: approvalFor(rej.store, 'calculate-risk-score') }).status, 'REJECTED');
+
+  // approval bound to OLD hashes does not count once the impl changes
+  const staleApproval = { decision: 'approved', contractHash: cH, implementationHash: 'sha256:old' };
+  assert.equal(resolveState({ ast, region: r, proof, approval: staleApproval }).status, 'VERIFIED_AWAITING_APPROVAL');
+});
+
+test('recordDecision refuses missing hashes / bad decision', () => {
+  assert.ok(recordDecision(emptyApprovals(), 'x', { decision: 'approved', contractHash: 'sha256:a' }).error); // no impl hash
+  assert.ok(recordDecision(emptyApprovals(), 'x', { decision: 'maybe', contractHash: 'sha256:a', implementationHash: 'sha256:b' }).error);
+});
+
+test('makeEvent builds the versioned integration payload', () => {
+  assert.equal(INTENT_AI_EVENTS.length, 15);
+  const e = makeEvent('IntentAiImplementationApproved', { implementationId: 'x', newStatus: 'APPROVED', actorType: 'human' });
+  assert.equal(e.schemaVersion, '1.0');
+  assert.equal(e.type, 'IntentAiImplementationApproved');
+  assert.equal(e.implementationId, 'x');
+  assert.equal(e.newStatus, 'APPROVED');
+  assert.equal(e.contractHash, null); // unset fields are null, not undefined
+});

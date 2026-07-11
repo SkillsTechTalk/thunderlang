@@ -160,3 +160,14 @@ export function productionGate(
   opts?: { allowPending?: boolean },
 ): { ok: boolean; blocking: Array<{ id?: string; status: ImplementationState }>; total: number };
 export function adoptRegion(code: string, id: string, language?: string): { code: string; adopted: string } | null;
+export const APPROVALS_SCHEMA_VERSION: string;
+export interface ApprovalRecord { decision: 'approved' | 'rejected'; by: string | null; role: string | null; note: string | null; contractHash: string; implementationHash: string; at: string | null; }
+export interface ApprovalsStore { schemaVersion: string; approvals: Record<string, ApprovalRecord>; }
+export function emptyApprovals(): ApprovalsStore;
+export function approvalFor(store: ApprovalsStore, id: string): ApprovalRecord | null;
+export function recordDecision(store: ApprovalsStore, id: string, rec: {
+  decision: 'approved' | 'rejected'; by?: string; role?: string; note?: string;
+  contractHash?: string; implementationHash?: string; at?: string;
+}): { store: ApprovalsStore; record: ApprovalRecord } | { error: string };
+export const INTENT_AI_EVENTS: string[];
+export function makeEvent(type: string, fields?: Record<string, unknown>): Record<string, unknown>;
