@@ -55,6 +55,7 @@ export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
 export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_PHASES } from './classification.mjs';
 export { composeConstraints, detectConflicts } from './conflict.mjs';
 export { buildLifecycle, analyzeLifecycle } from './lifecycle.mjs';
+export { analyzeDistributed } from './distributed.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,

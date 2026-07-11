@@ -48,6 +48,8 @@ export interface IntentAst {
   always: string[];
   eventually: Array<{ statement: string; within: string | null; line: number }>;
   until: Array<{ condition: string; restrict: string | null; line: number }>;
+  commands: Array<{ name: string; idempotencyKey: string | null; timeout: string | null; retry: string | null; backoff: string | null; line: number }>;
+  handlers: Array<{ trigger: string; compensate: string[]; notify: string[]; preserve: string[]; actions: string[] }>;
   implementation: null | {
     id?: string; scope?: string; strategy?: string; editing?: string;
     risk?: string; approval?: string; pending: boolean;
@@ -191,6 +193,9 @@ export function detectConflicts(ast: IntentAst): DetectedConflict[];
 export interface LifecycleIR { name: string; states: string[]; terminals: string[]; initial: string | null; transitions: Array<{ name: string | null; from: string | null; to: string | null; within: string | null }>; out: Record<string, string[]>; reachable: string[]; }
 export function buildLifecycle(lc: IntentAst['lifecycles'][number]): LifecycleIR;
 export function analyzeLifecycle(lc: IntentAst['lifecycles'][number]): { ir: LifecycleIR; findings: Array<{ code: string; message: string }> };
+
+// Distributed + failure semantics (Gap 3)
+export function analyzeDistributed(ast: IntentAst): Array<{ code: string; target: string; message: string }>;
 
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;

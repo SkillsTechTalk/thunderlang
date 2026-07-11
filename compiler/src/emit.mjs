@@ -9,6 +9,7 @@ import { parseArchitectureRules } from './arch.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import { detectConflicts } from './conflict.mjs';
 import { analyzeLifecycle } from './lifecycle.mjs';
+import { analyzeDistributed } from './distributed.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -343,6 +344,25 @@ export function semanticDiagnostics(ast) {
       message: `Eventually "${e.statement}" has no time bound.`,
       why: 'An eventual guarantee with no "within" cannot be verified or alerted on; it may never complete.',
       fix: [{ label: 'Add a bound (for example: within 2 minutes)' }],
+    });
+  }
+
+  // ── Distributed + failure semantics (Gap 3) , static failure-policy checks ──
+  const DIST_WHY = {
+    'IL-DIST-001': 'Retrying a non-idempotent command duplicates work (double charges, duplicate records).',
+    'IL-DIST-002': 'A retried or remote command with no timeout can hang forever and exhaust resources.',
+    'IL-DIST-003': 'At-least-once delivery WILL redeliver; without duplicate handling the effect happens twice.',
+    'IL-DIST-004': 'A permanent failure with no compensation leaves partial state behind.',
+    'IL-DIST-005': 'A handler references an event that is not declared (likely a typo).',
+  };
+  for (const f of analyzeDistributed(ast)) {
+    const isError = f.code === 'IL-DIST-005';
+    d.push({
+      level: isError ? 'error' : 'warning', code: f.code,
+      severity: isError ? undefined : 'blocker', blocks: isError ? undefined : ['implementation'],
+      message: f.message, why: DIST_WHY[f.code],
+      roles: { engineer: f.message, product: f.message },
+      fix: f.code === 'IL-DIST-001' ? [{ label: 'Add: idempotency_key <field>' }] : f.code === 'IL-DIST-003' ? [{ label: `Add: on duplicate ${f.target} ... ignore when ...` }] : [],
     });
   }
 

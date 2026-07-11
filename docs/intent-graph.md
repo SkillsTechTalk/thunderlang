@@ -226,6 +226,38 @@ nodes with `transitions_to` edges. OpenThunder verifies the **implemented realit
 against this same IR and produces counterexample traces. See
 `examples/CertificationAttempt.intent`.
 
+## Distributed and failure semantics
+
+Partial failure is modeled explicitly. Commands carry a failure policy; events carry
+delivery semantics; handlers define duplicate and permanent-failure behavior:
+
+```
+command CreateStudyPlan
+  idempotency_key Request.id
+  timeout 30 seconds
+  retry at_most 2
+    with exponential_backoff
+
+event StudyPlanCreated
+  delivery at_least_once
+  ordered_by Learner.id
+
+on duplicate StudyPlanCreated
+  ignore when Event.id was_processed
+on permanent_failure
+  compensate RemovePartialStudyPlan
+  preserve UploadedMaterial
+```
+
+IntentLang statically checks the **declared** failure policy is safe: a command that
+retries without an `idempotency_key` (`IL-DIST-001`, the classic duplicate-work bug) or
+without a `timeout` (`IL-DIST-002`); an `at_least_once` event with no duplicate handler
+(`IL-DIST-003`); a `permanent_failure` handler with no compensation (`IL-DIST-004`); a
+handler referencing an undeclared event (`IL-DIST-005`, an error). `Command` /
+`FailureHandler` nodes join the graph. OpenThunder verifies the **implementation**
+honors the policy (retry safety, duplicate handling, failure simulation). See
+`examples/CreateStudyPlan.intent`.
+
 ## Canonical schema (no forks)
 
 Every product must speak the same node types, relationship types, classifications, and

@@ -17,6 +17,7 @@ export const NODE_TYPES = [
   'Decision', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
   'VerificationResult', 'Approval', 'Release', 'OutcomeResult', 'LearningArtifact',
   'Unknown', 'Assumption', 'Question', 'Lifecycle', 'LifecycleState', 'Temporal',
+  'Command', 'Event', 'FailureHandler',
 ];
 
 // Canonical relationship types.

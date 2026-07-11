@@ -172,12 +172,43 @@ function parseApi(name, node) {
 
 function parseEvent(name, node) {
   const list = (kw) => { const b = childBlock(node, kw); return b ? leafItems(b) : []; };
+  const one = (kw) => { const c = node.children.find((x) => firstWord(x.text) === kw); return c ? rest(c.text) : null; };
   const payloadBlock = childBlock(node, 'payload');
   return {
     id: slug(name), name,
     publishedBy: list('publishedBy'), consumedBy: list('consumedBy'),
     payload: payloadBlock ? parseFields(payloadBlock) : [],
     guarantees: list('guarantees'),
+    // Distributed delivery semantics (Gap 3): reuse the event, add fields when present.
+    delivery: one('delivery'), orderedBy: one('ordered_by'),
+  };
+}
+
+// Command with failure policy (Gap 3): idempotency / timeout / retry / backoff.
+function parseCommand(name, node) {
+  const cmd = { name, idempotencyKey: null, timeout: null, retry: null, backoff: null, line: node.line };
+  for (const c of node.children.filter((x) => !isNote(x))) {
+    const k = firstWord(c.text); const a = rest(c.text);
+    if (k === 'idempotency_key') cmd.idempotencyKey = a;
+    else if (k === 'timeout') cmd.timeout = a;
+    else if (k === 'retry') {
+      cmd.retry = a; // e.g. "at_most 2"
+      const withBackoff = c.children.find((x) => /^with\b/.test(x.text));
+      if (withBackoff) cmd.backoff = rest(withBackoff.text);
+    }
+  }
+  return cmd;
+}
+
+// Failure / duplicate handler (Gap 3): "on <trigger>" + actions.
+function parseHandler(trigger, node) {
+  const actions = node.children.filter((x) => !isNote(x)).map((c) => c.text.trim());
+  return {
+    trigger,
+    compensate: actions.filter((a) => /^compensate\b/.test(a)).map((a) => a.replace(/^compensate\s+/, '')),
+    notify: actions.filter((a) => /^notify\b/.test(a)).map((a) => a.replace(/^notify\s+/, '')),
+    preserve: actions.filter((a) => /^preserve\b/.test(a)).map((a) => a.replace(/^preserve\s+/, '')),
+    actions,
   };
 }
 
@@ -217,6 +248,8 @@ export function parseIntent(source) {
     roleConstraints: [], conflicts: [],
     // Temporal + lifecycle semantics (Gap 2)
     lifecycles: [], always: [], eventually: [], until: [],
+    // Distributed + failure semantics (Gap 3)
+    commands: [], handlers: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -310,6 +343,8 @@ export function parseIntent(source) {
       }
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
+      case 'command': ast.commands.push(parseCommand(arg, node)); break;
+      case 'on': ast.handlers.push(parseHandler(arg, node)); break;
       case 'lifecycle': ast.lifecycles.push(parseLifecycle(arg, node)); break;
       case 'always': ast.always.push(...leafItems(node)); break;
       case 'eventually': {

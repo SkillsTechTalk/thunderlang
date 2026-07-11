@@ -6,6 +6,7 @@
 import { slug } from './parse.mjs';
 import { detectConflicts } from './conflict.mjs';
 import { buildLifecycle } from './lifecycle.mjs';
+import { analyzeDistributed } from './distributed.mjs';
 
 export const INTENT_GRAPH_SCHEMA = 'intent-graph-v1';
 
@@ -139,6 +140,17 @@ export function buildIntentGraph(ast) {
     for (const t of ir.transitions) {
       if (t.from && t.to) relationships.push(rel(`lifecycle-state.${slug(ir.name)}.${slug(t.from)}`, 'transitions_to', `lifecycle-state.${slug(ir.name)}.${slug(t.to)}`));
     }
+  }
+
+  for (const c of ast.commands || []) {
+    const id = `command.${slug(c.name || 'command')}`;
+    nodes.push(node(id, 'Command', c.name, { description: [c.idempotencyKey && 'idempotent', c.timeout && `timeout ${c.timeout}`, c.retry && `retry ${c.retry}`].filter(Boolean).join('; ') || null }));
+    relationships.push(rel(mId, 'requires', id));
+  }
+  for (const h of ast.handlers || []) {
+    const id = `handler.${slug(h.trigger || 'handler')}`;
+    nodes.push(node(id, 'FailureHandler', h.trigger, { description: (h.compensate || []).length ? `compensate ${h.compensate.join(', ')}` : null }));
+    relationships.push(rel(mId, 'constrained_by', id));
   }
 
   const byType = {};
