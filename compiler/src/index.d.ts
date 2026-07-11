@@ -129,6 +129,15 @@ export interface ArchitectureRule { from: string; relation: 'must-not-depend-on'
 export function parseArchitectureRules(lines: string[]): { rules: ArchitectureRule[]; unparsed: string[] };
 export function violatesArchitecture(rules: ArchitectureRule[], from: string, to: string): ArchitectureRule | null;
 
+// Deterministic candidate selection
+export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }
+export function parseSelection(lines: string[]): SelectionPolicy;
+export function regionMetrics(code: string): { size: number; complexity: number; dependencies: number };
+export function selectCandidate(
+  candidates: Array<{ id: string; metrics: Record<string, number>; checksPassed?: boolean }>,
+  policy?: { prefer?: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks?: boolean },
+): { winner: { id: string } | null; ranking: Array<{ id: string }>; eligibleCount: number; rejected: number; prefer: Array<{ metric: string; direction: string }> };
+
 // Intent AI implementations (intent-ai-v1)
 export type ImplementationState =
   | 'PENDING' | 'GENERATED' | 'VERIFIED' | 'VERIFIED_AWAITING_APPROVAL'

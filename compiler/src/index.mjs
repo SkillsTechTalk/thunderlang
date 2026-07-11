@@ -47,6 +47,9 @@ export { buildMissionIndex } from './atlas.mjs';
 // Architecture rules (structured; OpenThunder's Architecture Lens checks against them)
 export { parseArchitectureRules, violatesArchitecture } from './arch.mjs';
 
+// Deterministic candidate selection (AI generates; IL + OT select on measurable rules)
+export { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
+
 // Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest
 export {
   IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,

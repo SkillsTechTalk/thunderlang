@@ -138,7 +138,7 @@ export function parseIntent(source) {
     guarantees: [], neverRules: [], constraints: [], assumptions: [], risks: [],
     targets: [], style: [], verify: [], errors: [], examples: [],
     services: [], apis: [], events: [], databases: [], architecture: [],
-    implementation: null,
+    implementation: null, selection: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -183,6 +183,7 @@ export function parseIntent(source) {
       case 'event': ast.events.push(parseEvent(arg, node)); break;
       case 'database': ast.databases.push({ id: slug(arg), name: arg, engine: leafItems(node)[0] || null }); break;
       case 'architecture': ast.architecture.push(...leafItems(node)); break;
+      case 'selection': ast.selection.push(...leafItems(node)); break;
       // Intentionally deferred, AI-assisted implementation. "implement with ai [pending]".
       case 'implement': {
         if (/^with\s+ai\b/.test(arg)) {

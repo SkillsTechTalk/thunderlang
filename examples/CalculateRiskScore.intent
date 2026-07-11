@@ -51,6 +51,12 @@ implement with ai
     RiskScore
     architecture
 
+selection
+  require all verification checks
+  prefer lower complexity
+  prefer fewer dependencies
+  prefer smaller implementation
+
 verify
   example low risk customer produces score below 30
   example high risk customer produces score above 70

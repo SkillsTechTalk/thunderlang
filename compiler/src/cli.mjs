@@ -24,6 +24,7 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
+import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import {
   buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers,
   contractHash, implementationHash, recordDecision, approvalFor, emptyApprovals, makeEvent,
@@ -309,7 +310,32 @@ function main() {
       if (args.json) console.log(JSON.stringify(event, null, 2));
       return;
     }
-    console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject. OpenThunder runs verification.`);
+    if (sub === 'select') {
+      // Deterministic candidate selection: AI generates N candidates in
+      // .intent/candidates/<id>/; IL picks by the mission's selection policy.
+      const root = args._[1] || '.'; const id = args._[2];
+      if (!id) { console.error('usage: intent ai select <dir> <id> [--json]'); process.exit(2); return; }
+      const ast = collectIntents(root).map((f) => parseIntent(readFileSync(f, 'utf8')))
+        .find((a) => (a.implementation?.id || slug(a.mission || '')) === id);
+      const policy = parseSelection(ast?.selection || []);
+      const cdir = join(root, '.intent', 'candidates', id);
+      if (!existsSync(cdir)) { console.error(`intent ai select: no candidates at ${relative(process.cwd(), cdir)}.`); process.exit(2); return; }
+      const candidates = readdirSync(cdir).filter((n) => !n.endsWith('.proof.json') && !n.endsWith('.json')).map((name) => {
+        const code = readFileSync(join(cdir, name), 'utf8');
+        const region = parseMarkers(code).regions.find((r) => r.id === id);
+        const proofFile = join(cdir, name.replace(/\.[^.]+$/, '') + '.proof.json');
+        let checksPassed;
+        if (existsSync(proofFile)) { const pr = JSON.parse(readFileSync(proofFile, 'utf8')); checksPassed = Object.values(pr.checks || {}).every((v) => v !== 'failed'); }
+        return { id: name, metrics: regionMetrics(region ? region.code : code), checksPassed };
+      });
+      const result = selectCandidate(candidates, policy);
+      if (args.json) { console.log(JSON.stringify({ ...result, policy }, null, 2)); return; }
+      console.log(`intent ai select ${id}: ${result.winner ? result.winner.id : '(none eligible)'} wins (${result.eligibleCount}/${candidates.length} eligible)`);
+      console.log(`  policy: prefer ${result.prefer.map((p) => `${p.direction} ${p.metric}`).join(', ')}${policy.requireAllChecks ? '; require all checks' : ''}`);
+      for (const c of result.ranking) console.log(`  ${c.id.padEnd(20)} ${JSON.stringify(c.metrics)}${c.checksPassed === false ? ' [checks FAILED]' : ''}`);
+      return;
+    }
+    console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject | select. OpenThunder runs verification.`);
     process.exit(2);
     return;
   }

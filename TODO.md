@@ -390,7 +390,11 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
       (zero Node deps) + published `@skillstech/intentlang/core` subpath so RM's browser bundle can import
       states/blocksProduction/makeEvent; locked `PROOF_CHECK_KEYS` (9 keys, `contracts` plural); pinned the
       canonical contractHash clause set + proof shape + SARIF rule catalog in contracts/intent-ai-v1.md.
-- [ ] IL follow-ups (remaining): an events sink/log, multi-candidate deterministic selection policy.
+- [x] Deterministic candidate selection (SHIPPED): `compiler/src/select.mjs` , `selection` block
+      (require/prefer), `regionMetrics` (size/complexity/deps), `selectCandidate` (measurable ranking,
+      require-checks filter, stable tiebreak). `intent ai select <dir> <id>`. An LLM never picks. Pure
+      (browser-safe). 51/51 tests; verified a failed-checks candidate loses to a worse-but-passing one.
+- [ ] IL follow-ups (remaining): an events sink/log (last minor IL piece).
 
 ## Operating checklist status (see docs/operating-checklist.md)
 

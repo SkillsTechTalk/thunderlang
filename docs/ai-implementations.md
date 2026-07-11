@@ -163,6 +163,27 @@ them in the contract graph and the contract hash. OpenThunder's Architecture Len
 checks the real dependency graph against them; a forbidden edge is `INTENT-ARCH-307`.
 A line the rule parser cannot understand is a `INTENT-ARCH-001` warning, not an error.
 
+## Candidate selection
+
+The AI may generate several candidates; **IntentLang and OpenThunder pick the winner
+by measurable rules — an LLM never decides.** Declare the policy:
+
+```
+selection
+  require all verification checks
+  prefer lower complexity
+  prefer fewer dependencies
+  prefer smaller implementation
+  prefer better mutation score
+```
+
+`require` filters out candidates whose verification failed (a smaller candidate that
+fails its checks never wins). `prefer` rules rank the survivors lexicographically, and
+ties break stably by id, so selection is fully deterministic and reproducible.
+IntentLang derives `size` / `complexity` / `dependencies` from the region; OpenThunder
+supplies the verified metrics (`mutationScore`, `allocation`). `intent ai select`
+applies the policy over `.intent/candidates/<id>/`.
+
 ## Hashing and proof validity
 
 Two independent hashes, both deterministic:
@@ -190,6 +211,7 @@ intent ai gate ./examples --allow-pending   # dev build: tolerate PENDING only
 intent ai approve <dir> <id> --by <reviewer> [--role <role>] [--note <note>]   # record approval
 intent ai reject  <dir> <id> --by <reviewer> [--note <note>]                  # record rejection
 intent ai adopt <targetFile> <id>     # rewrite an AI region to human-owned, preserving provenance
+intent ai select <dir> <id>           # deterministically pick a winning candidate by measurable rules
 intent build <file> --mode production # refuses to build while an AI implementation is unshippable
 ```
 
