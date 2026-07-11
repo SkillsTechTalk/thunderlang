@@ -14,7 +14,7 @@ export const NODE_TYPES = [
   'Mission', 'Actor', 'Persona', 'Evidence', 'Opportunity', 'Outcome', 'Metric',
   'Requirement', 'Constraint', 'Guarantee', 'Never', 'Conflict', 'Journey',
   'ExperienceContract', 'ExperienceState', 'Pattern', 'DesignArtifact', 'DesignComponent',
-  'Decision', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
+  'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
   'VerificationResult', 'Approval', 'Release', 'OutcomeResult', 'LearningArtifact',
   'Unknown', 'Assumption', 'Question', 'Lifecycle', 'LifecycleState', 'Temporal',
   'Command', 'Event', 'FailureHandler', 'Decision', 'Rule',

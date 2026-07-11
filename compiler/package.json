@@ -11,7 +11,7 @@
       "import": "./src/index.mjs"
     },
     "./core": {
-      "import": "./src/ai-core.mjs"
+      "import": "./src/core.mjs"
     },
     "./package.json": "./package.json"
   },

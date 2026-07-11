@@ -40,3 +40,13 @@ test('diagnostic-rule catalog has stable ids for every IL rule area', () => {
   // every rule has a severity + blocks array
   for (const r of DIAGNOSTIC_RULES) { assert.ok(r.severity); assert.ok(Array.isArray(r.blocks)); }
 });
+
+test('NODE_TYPES has no duplicates (RM bug 2026-07-11: Decision was listed twice)', () => {
+  assert.equal(new Set(NODE_TYPES).size, NODE_TYPES.length, `duplicate node types: ${NODE_TYPES.filter((t, i) => NODE_TYPES.indexOf(t) !== i)}`);
+  // the JSON Schema enum must match the (now unique) list exactly
+  assert.equal(intentGraphJsonSchema().definitions.node.properties.type.enum.length, NODE_TYPES.length);
+});
+
+test('RELATIONSHIP_TYPES has no duplicates', () => {
+  assert.equal(new Set(RELATIONSHIP_TYPES).size, RELATIONSHIP_TYPES.length);
+});

@@ -23,7 +23,7 @@ function node(id, type, title, extra = {}) {
     createdTime: null, updatedTime: null, // deterministic; stamped by consumers
   };
 }
-const rel = (from, type, to) => ({ from, type, to });
+const rel = (from, type, to, extra) => (extra ? { from, type, to, ...extra } : { from, type, to });
 
 /**
  * Build the canonical Intent Graph from a parsed AST.
@@ -89,6 +89,7 @@ export function buildIntentGraph(ast) {
   for (const q of ast.questions || []) {
     const id = `question.${slug(q.name || 'question')}`;
     nodes.push(node(id, 'Question', q.name, { classification: 'unknown', owner: q.askedOf, status: 'open' }));
+    relationships.push(rel(mId, 'depends_on', id)); // container edge (Question -> Mission via depends_on), matching Unknown
     if (q.blocks) relationships.push(rel(id, 'blocks', `phase.${slug(q.blocks)}`));
   }
   for (const a of ast.assumptionDecls || []) {
@@ -145,7 +146,11 @@ export function buildIntentGraph(ast) {
       relationships.push(rel(lId, 'requires', sId));
     }
     for (const t of ir.transitions) {
-      if (t.from && t.to) relationships.push(rel(`lifecycle-state.${slug(ir.name)}.${slug(t.from)}`, 'transitions_to', `lifecycle-state.${slug(ir.name)}.${slug(t.to)}`));
+      // Transition metadata (name / within) rides ON the transitions_to edge, not the state node.
+      if (t.from && t.to) relationships.push(rel(
+        `lifecycle-state.${slug(ir.name)}.${slug(t.from)}`, 'transitions_to', `lifecycle-state.${slug(ir.name)}.${slug(t.to)}`,
+        (t.name || t.within) ? { name: t.name || null, within: t.within || null } : undefined,
+      ));
     }
   }
 
