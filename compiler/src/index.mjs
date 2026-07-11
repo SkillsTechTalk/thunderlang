@@ -72,6 +72,8 @@ export { parseXml, findAll, find, localName } from './xml.mjs';
 // Intent Runtime , EXECUTABLE intent: evaluate decisions, simulate lifecycles (no AI)
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
 export { compileExpr, evalExpr, tokenize, ExprError } from './expr.mjs';
+// First-class tests , self-verifying .intent files
+export { runTests, TEST_SCHEMA } from './testing.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,

@@ -32,6 +32,7 @@ import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
+import { runTests } from './testing.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -418,6 +419,23 @@ function main() {
       for (const t of r.trace) console.log(`  ${t.matched ? 'x' : ' '} ${t.rule || '(rule)'}${t.when ? `: when ${t.when}` : ''}${t.error ? `  !! ${t.error}` : ''}`);
     }
     process.exit(runs.some((r) => r.undecided || !r.ok) ? 1 : 0);
+    return;
+  }
+
+  // Self-verifying intent: run the `test` blocks in a .intent file (decisions + lifecycles).
+  if (cmd === 'test') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const r = runTests(ast);
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); return; }
+    if (r.total === 0) { console.log(`intent test ${basename(file)}: no test blocks found.`); return; }
+    console.log(`intent test ${basename(file)}: ${r.passed}/${r.total} passed`);
+    for (const c of r.results) {
+      const detail = c.error ? `  ${c.error}`
+        : c.kind === 'lifecycle' ? `expected ${c.expected ?? '(any)'}, got ${c.actual} (valid=${c.valid})`
+        : `expected ${c.expected}, got ${c.actual}`;
+      console.log(`  ${c.pass ? 'PASS' : 'FAIL'}  ${c.target} / ${c.case}${c.pass ? '' : `  , ${detail}`}`);
+    }
+    process.exit(r.ok ? 0 : 1);
     return;
   }
 

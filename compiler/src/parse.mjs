@@ -275,6 +275,8 @@ export function parseIntent(source) {
     waivers: [],
     // Data purpose + privacy , governed data elements (Gap 6)
     dataElements: [],
+    // Tests , first-class cases that make a .intent file self-verifying
+    tests: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -371,6 +373,33 @@ export function parseIntent(source) {
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
+      case 'test': {
+        // A first-class test block targeting a decision or lifecycle by name. Each `case`
+        // (decision) has `given <k> <v>` + `expect <result>`; each `scenario` (lifecycle)
+        // has `events a, b, c` + optional `expect <finalState>` / `valid` / `invalid`.
+        const t = { name: arg || null, cases: [], line: node.line };
+        for (const c of kids(node)) {
+          const ck = firstWord(c.text);
+          if (ck !== 'case' && ck !== 'scenario') continue;
+          const cs = { name: rest(c.text) || null, given: {}, expect: null, events: null, expectValid: null, line: c.line };
+          for (const cc of kids(c)) {
+            const k = firstWord(cc.text); const a = rest(cc.text);
+            if (k === 'given') {
+              for (const pair of a.split(',')) {
+                const bits = pair.trim().split(/\s+/);
+                const key = bits.shift();
+                if (key) cs.given[key] = bits.join(' ');
+              }
+            } else if (k === 'expect') cs.expect = a;
+            else if (k === 'events') cs.events = a.split(',').map((s) => s.trim()).filter(Boolean);
+            else if (k === 'valid') cs.expectValid = true;
+            else if (k === 'invalid') cs.expectValid = false;
+          }
+          t.cases.push(cs);
+        }
+        ast.tests.push(t);
+        break;
+      }
       case 'data': {
         // A governed data element (Gap 6). "data <path>" + classification / purpose /
         // retention / basis (lawful basis). Purpose limitation is enforced by privacy.mjs.

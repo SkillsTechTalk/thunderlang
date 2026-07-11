@@ -325,6 +325,18 @@ export function compileExpr(src: string): (inputs?: Record<string, unknown>) => 
 export function evalExpr(src: string, inputs?: Record<string, unknown>): unknown;
 export function tokenize(src: string): Array<{ t: string; v: unknown }>;
 
+// First-class tests (self-verifying .intent files)
+export const TEST_SCHEMA: string;
+export interface TestReport {
+  schema: string;
+  total: number;
+  passed: number;
+  failed: number;
+  ok: boolean;
+  results: Array<{ target: string | null; case: string; kind: string; expected?: unknown; actual?: unknown; valid?: boolean; expectValid?: boolean | null; pass: boolean; error?: string; note?: string }>;
+}
+export function runTests(ast: IntentAst): TestReport;
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];
