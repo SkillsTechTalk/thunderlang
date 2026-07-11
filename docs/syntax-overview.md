@@ -1,295 +1,224 @@
 # IntentLang Syntax Overview
 
-> Status: draft (v0). Syntax is illustrative and will change. There is no
-> released compiler yet.
+> A tour of the language. IntentLang has a deterministic reference compiler
+> (`@skillstech/intentlang`, the `intent` CLI) that implements everything here, with no
+> AI required. For the exhaustive grammar and every keyword, see the
+> [language specification](/docs/spec); this page is the friendly overview.
 
-IntentLang files use the `.intent` extension. `.il` is reserved for a possible
-internal compiler intermediate language and is not used publicly.
+IntentLang files use the `.intent` extension and are UTF-8 text.
 
 ## Style
 
-Canonical keywords are **lowercase**. Blocks are introduced by a keyword on its
-own line; their contents are indented. Title-case aliases (for example `Mission`
-instead of `mission`) may be accepted later for readability, but docs teach the
-lowercase canonical form, and the compiler normalizes to lowercase internally.
+Keywords are **lowercase** and introduce a block on their own line; the block's contents
+are indented (two spaces is canonical). Indentation defines structure.
 
 - Comments start with `#`.
-- Identifiers are `PascalCase` for entities and types (for example `Customer`,
-  `Invoice`, `Email`).
-- Lists are written one item per line, indented under a block.
-- `key: Type` declares a typed field.
+- Entity and type identifiers are `PascalCase` (`Customer`, `Invoice`, `Email`).
+- Lists are one item per line, indented under a block.
+- `name: Type` declares a typed field.
 
-## Core constructs
+## Profiles
 
-`mission`, `goal`, `why`, `requires`, `input`, `output`, `guarantees`, `never`,
-`errors`, `examples`, `constraints`, `assumptions`, `risks`, `target`, `style`,
-`implementation`, `verify`, `test`, `observe`, `secure`, `explain`, `ownership`,
-`architecture`, `dependencies`, `service`, `api`, `event`, `database`, `owner`, `proof`.
-
-`errors` lists named failure modes (PascalCase, e.g. `OrderNotFound`) that become
-result/status union members and per-error tests. `examples` lists executable
-`given <input> -> expect <outcome>` cases. Both are optional and additive:
+A small shared core plus optional profiles keeps the language coherent without forcing
+every role to learn everything. Declare the profiles a file uses:
 
 ```
-errors
-  OrderNotFound
-  OrderNotApproved
-
-examples
-  given a new approved order -> expect an invoice is created
-  given an unapproved order -> expect OrderNotApproved
+use product
+use experience
+use system
+use delivery
+use design
 ```
 
-## A mission
+The five profiles: **product** (outcome, metric, evidence, persona), **experience**
+(experience contracts, states, patterns, design), **system** (capability, interface),
+**delivery** (release, result, learning, outcome contracts), and the **core** everything
+shares (mission, guarantee, never, requires, verify).
 
-```intent
+## The core mission
+
+```
 mission CreateInvoice
 
 goal
   Generate an invoice from approved orders
 
 why
-  Customers need accurate invoices that are auditable and never duplicated.
-
-requires
-  Customer
-  ApprovedOrders
+  Customers need accurate, auditable invoices that are never duplicated.
 
 input
   customer: Customer
   orders: List<Order>
-
 output
   invoice: Invoice
 
 guarantees
   invoice.total is never negative
   duplicate invoices are not created
-  every invoice is auditable
 
 never
-  create invoice for unapproved order
+  create invoice for an unapproved order
   expose payment token in logs
 
-target
-  TypeScript
-  DotNet
-  OpenAPI
-  Tests
-
 verify
-  unit tests
   duplicate prevention test
   audit trail test
-  security scan
 ```
 
-## Rationale: `why` / `because`
+## Rationale: why / because
 
-Rationale captures engineering judgment, not just technical shape. Attach it to
-a guarantee or a `never` rule:
+Rationale captures judgment, not just shape. Attach it to a guarantee or a `never` rule
+(the attached form also carries `verify`):
 
-```intent
+```
 guarantee duplicate invoices are not created
   because duplicate billing damages customer trust
   verify duplicate prevention test
-
-never expose payment token in logs
-  because logs may be visible to support and observability tools
-  verify security scan
 ```
 
-## Three layers
+## Three layers of precision
 
-The same mission can be written at three levels of precision.
+The same mission can be written at three levels.
 
-**Layer 1 - Human Intent** (readable, beginner-friendly):
+**Layer 1, Human Intent** (readable):
 
-```intent
+```
 mission ResetPassword
-
 goal
   Let a user securely reset their password
-
-requires
-  verified email
-  reset token
-
 guarantees
   token expires after 15 minutes
   token can only be used once
   password is never logged
 ```
 
-**Layer 2 - Typed Intent** (precise, semantic types, constraints):
+**Layer 2, Typed Intent** (semantic types + constraints):
 
-```intent
+```
 mission ResetPassword
-
 input
   email: Email
   token: ResetToken
   newPassword: Secret
-
-output
-  result: PasswordResetResult
-
 constraints
   token.ttl <= 15 minutes
   password.minLength >= 12
-
 never
-  log(newPassword)
-  return token
+  log the new password
 ```
 
-**Layer 3 - Executable Intent** (compiler-ready, target + style):
+**Layer 3, Executable Intent** (target + verification):
 
-```intent
+```
 mission ResetPassword
-
 target
   DotNet
-
-style
-  ASP.NET Core
-  EntityFramework
-  BCrypt
-
 verify
   test token expiration
   test one time use
-  test password hash stored
   test raw password not logged
 ```
 
-## Targets, style, and adapters
+## Decisions (executable)
 
-`target` names what to produce. `style` gives paradigm and stack hints so an
-adapter can generate idiomatic output instead of forcing one paradigm:
+A `decision` is a runnable specification: give it inputs and it decides, first matching
+rule wins, with `default` as the catch-all.
 
-```intent
-target
-  DotNet
-style
-  CleanArchitecture
-  CQRS
-  EntityFramework
+```
+decision CanEnroll
+  inputs
+    age
+    score
+  rule adult
+    when age >= 18 and score >= 70
+    return Eligible
+  default
+    return NotEligible
 ```
 
-```intent
-target
-  TypeScript
-style
-  Functional
-  Zod
-  Fastify
+`intent run mission.intent --inputs '{"age":20,"score":90}'` evaluates it and prints the
+result plus a per-rule trace, no AI, no generated code.
+
+## Lifecycles, commands, and failures
+
+```
+lifecycle Enrollment
+  state Draft
+  state Submitted
+  state Approved
+  transition submit
+    from Draft
+    to Submitted
+  terminal Approved
+
+command ChargeCard
+  idempotency_key paymentId
+  timeout 30 seconds
+on ChargeFailed
+  compensate refund
 ```
 
-Generation is adapter-driven (`intent-dotnet-adapter`,
-`intent-typescript-adapter`, `intent-openapi-adapter`, and so on). Each adapter
-declares what source blocks it needs, what artifacts it produces, what
-verification it can run, and what proof it can emit.
+`intent simulate mission.intent --events submit,approve` walks the lifecycle and rejects
+any illegal transition.
+
+## Outcome contracts
+
+Bind an outcome to a target so it can be judged met or missed:
+
+```
+outcome_contract FasterCheckout
+  outcome CheckoutConversion
+  metric conversion_rate
+  baseline 48%
+  target 60%
+  window 30 days after release
+```
+
+## Tests (first-class)
+
+Tests live in the file, next to the intent they verify, and run through the same
+deterministic runtime with `intent test`:
+
+```
+test CanEnroll                 # a decision
+  case adult
+    given age 20, score 90
+    expect Eligible
+  case minor
+    given age 10
+    expect NotEligible
+
+test Enrollment                # a lifecycle
+  scenario happy
+    events submit, approve
+    expect Approved
+    valid
+```
 
 ## Semantic types
 
-Prefer semantic types over primitives. `email: Email` lets tools reason about
-meaning, not just shape. Planned built-in types include:
-
-`Email`, `Money`, `Currency`, `Url`, `UserId`, `AccountId`, `Secret`, `Token`,
-`Jwt`, `Date`, `DateTime`, `Duration`, `Percentage`, `FilePath`, `Repository`,
-`ServiceName`, `ApiEndpoint`, `EventName`, `DatabaseTable`, `TraceId`,
-`CorrelationId`, `IdempotencyKey`, `Version`, `EnvironmentName`.
+Prefer semantic types over primitives, so tools reason about meaning, not just shape:
+`Email`, `Money`, `Secret`, `Token`, `Duration`, `Percentage`, `IdempotencyKey`,
+`Version`, and more. Container types use angle brackets: `List<Order>`.
 
 ## Security modifiers
 
-Security is first-class. Fields can be marked so the compiler and verifier can
-enforce handling:
+Security is first-class. `Secret`, `PII`, `Encrypted`, `NeverLog`, `NeverReturn`,
+`AuditRequired`, `RequiresPermission`, `Redacted`, and others let the compiler and
+OpenThunder enforce handling (a `Secret` field is expected to carry `never log` /
+`never return` behavior).
 
-```intent
-field paymentToken: Secret
-  never log
-  never return to client
-  store encrypted
-```
+## Governance and data
 
-Modifiers: `Sensitive`, `Secret`, `Encrypted`, `Internal`, `Public`, `PII`,
-`AuditRequired`, `RequiresPermission`, `NeverLog`, `NeverReturn`, `Redacted`.
+A `waiver` records a governed exception to a blocking diagnostic (with an approver and an
+expiry); a `data` block declares a piece of data's classification, purpose, retention,
+and lawful basis. See [Governance](/docs/governance) and
+[Data privacy](/docs/data-privacy).
 
-## Architecture, API, and event blocks
+## The CLI
 
-```intent
-service BillingService
-owns
-  Invoice
-  PaymentAttempt
-consumes
-  OrderApproved
-publishes
-  InvoiceCreated
-database
-  Postgres
-owner
-  Finance Platform Team
-```
-
-```intent
-api CreateInvoice
-method
-  POST
-path
-  /invoices
-requires
-  authenticated user
-  permission invoice:create
-input
-  CreateInvoiceRequest
-output
-  InvoiceResponse
-errors
-  400 InvalidOrder
-  401 Unauthorized
-  409 DuplicateInvoice
-```
-
-```intent
-event InvoiceCreated
-publishedBy
-  BillingService
-consumedBy
-  NotificationService
-  ReportingService
-payload
-  invoiceId: InvoiceId
-  customerId: CustomerId
-  total: Money
-guarantees
-  event is idempotent
-  event contains no payment secrets
-```
-
-## Behavior-first tests
-
-```intent
-test DuplicateInvoicePrevention
-given
-  approved order already invoiced
-when
-  CreateInvoice runs again
-then
-  no duplicate invoice is created
-  existing invoice is returned
-```
-
-## Verification
-
-```intent
-verify
-  typecheck
-  unit tests
-  integration tests
-  security scan
-  architecture boundary check
-  performance threshold
-  accessibility check
-```
+`intent check` (diagnostics), `build` (docs, graph, test plan, proof), `run` /
+`simulate` / `test` / `outcomes` (execute), `export` / `import` (DMN/BPMN), `graph` /
+`source` / `migrate` (the Intent Graph), `atlas` / `diff` / `merge`, `lift` (code ->
+intent), `drift` (intent vs code). Start with `intent check` and the
+[tutorial](/docs/tutorial).

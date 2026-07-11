@@ -1,48 +1,44 @@
 # IntentLang Tutorial
 
-> Status: draft. There is no compiler to run yet. This tutorial teaches the
-> mental model and syntax so the intent is ready the day the tooling lands.
-
-By the end you will have written a complete mission for a secure password reset
-flow, and you will understand how it becomes docs, diagrams, a test plan, and a
-proof artifact.
+> By the end you will have written a complete mission for a secure password reset, run a
+> decision from it with no code, and tested it, all with the deterministic `intent`
+> compiler (no AI required).
 
 ## 1. What is IntentLang?
 
-IntentLang is the intent language for AI-era software. You describe what software
-should do, why it matters, what must never happen, and how it will be verified,
-before implementation begins. A deterministic compiler turns that into artifacts;
-optional AI can assist, but the compiler works without it.
+IntentLang is the intent language for AI-era software. You describe what software should
+do, why it matters, what must never happen, and how it will be verified, before
+implementation begins. A deterministic compiler turns that into diagnostics, docs,
+graphs, a test plan, and a proof artifact, and, for decisions and lifecycles, it *runs*
+the intent directly.
 
-## 2. Prompt vs Intent
+## 2. Prompt vs intent
 
-A prompt is a conversation:
-
-> Build a password reset flow.
-
-It is useful but throwaway. IntentLang makes it durable by turning it into a
-reviewed, versioned `.intent` file. The rule to remember:
+A prompt is a throwaway conversation ("build a password reset flow"). IntentLang makes it
+durable by turning it into a reviewed, versioned `.intent` file:
 
     prompt → intent → review → plan → implementation → verification → proof
 
-The AI never jumps straight from prompt to code.
+The AI never jumps straight from prompt to code. And as you will see, some intent does not
+need code generated at all, it executes as written.
 
 ## 3. Your first mission
 
-Start with the smallest complete mission: a name and a goal.
+Start with the smallest complete mission: a name and a goal. Save this as
+`ResetPassword.intent`.
 
-```intent
+```
 mission ResetPassword
 
 goal
   Let a user securely reset their password
 ```
 
-## 4. Add input and output
+## 4. Add typed input and output
 
-Describe what the mission consumes and produces, using semantic types.
+Use semantic types, so tools reason about meaning, not just shape.
 
-```intent
+```
 input
   email: Email
   token: ResetToken
@@ -54,10 +50,10 @@ output
 
 ## 5. Add guarantees
 
-Guarantees are properties that must always hold. They are contracts, not tests
-bolted on later.
+Guarantees are properties that must always hold. They are contracts, not tests bolted on
+later.
 
-```intent
+```
 guarantees
   token expires after 15 minutes
   token can only be used once
@@ -68,77 +64,130 @@ guarantees
 
 `never` lists forbidden behavior. This is where security intent lives.
 
-```intent
+```
 never
-  log(newPassword)
-  return token
+  log the new password
+  return the token to the client
 ```
 
-## 7. Add why / because rationale
+## 7. Add rationale
 
-Rationale captures judgment and makes review and generation better.
+Rationale captures judgment and makes review and generation better. The attached form
+carries `because` and `verify`:
 
-```intent
+```
 guarantee token can only be used once
   because a reusable reset token is an account-takeover risk
   verify test one time use
 ```
 
-## 8. Add verification
+## 8. Check it
 
-State how the guarantees will be proven.
+Now run the compiler. This is real, not conceptual:
 
-```intent
-verify
-  test token expiration
-  test one time use
-  test password hash stored
-  test raw password not logged
+```
+intent check ResetPassword.intent
 ```
 
-## 9. Add a target (and style)
+It reports diagnostics: missing measurement windows, unresolved unknowns, weakened
+guarantees. `intent check` exits non-zero on errors, so it drops straight into CI.
 
-Name what to generate and, optionally, the paradigm and stack.
+## 9. Make part of the intent executable
 
-```intent
-target
-  DotNet
+Security rules like "the token expires and can only be tried a few times" are a
+**decision**, and a decision is not a wish, it runs. Add this to the file:
 
-style
-  ASP.NET Core
-  EntityFramework
-  BCrypt
+```
+decision CanReset
+  inputs
+    tokenAgeMinutes
+    attempts
+  rule expired
+    when tokenAgeMinutes > 15
+    return Denied
+  rule tooManyAttempts
+    when attempts >= 5
+    return Denied
+  rule allowed
+    when attempts < 5
+    return Allowed
+  default
+    return Denied
 ```
 
-## 10. Generate docs
+Now execute it, with no AI and no generated code:
 
-Conceptually, `intent docs ResetPassword.intent --no-ai` produces a Markdown
-summary of the goal, guarantees, never rules, and verification, suitable for a
-pull request or a design review.
+```
+intent run ResetPassword.intent --inputs '{"tokenAgeMinutes":3,"attempts":1}'
+  decision CanReset: Allowed  [rule: allowed]
+      expired: when tokenAgeMinutes > 15
+      tooManyAttempts: when attempts >= 5
+    x allowed: when attempts < 5
+```
 
-## 11. Generate graphs
+The `x` marks the rule that fired (first match wins).
 
-`intent graph ResetPassword.intent --no-ai` produces a Mermaid diagram of the
-mission, its inputs, outputs, and any services or events it touches.
+```
+intent run ResetPassword.intent --inputs '{"tokenAgeMinutes":20,"attempts":1}'
+  decision CanReset: Denied  [rule: expired]
+```
 
-## 12. Generate a proof artifact
+The trace shows every rule that was tried and why the winner won. A stale token is
+denied; too many attempts is denied; a fresh token within the attempt limit is allowed.
+That is the security policy, running as written.
 
-`intent proof ResetPassword.intent` emits `.intent-proof.json`: the mission, a
-hash of the source, the targets produced, the status of each guarantee and
-`never` rule (verified, needs_review, or failed) with evidence, and any AI usage
-metadata. Proof is how trust is earned.
+## 10. Test it, in the same file
 
-## 13. How the ecosystem uses your intent (later)
+Because the decision executes, you can assert its behavior right next to it. Add:
 
-- **OpenThunder** compares your `.intent` files to the real repo and flags intent
-  drift: guarantees without tests, violated `never` rules, undeclared events.
+```
+test CanReset
+  case fresh token
+    given tokenAgeMinutes 3, attempts 1
+    expect Allowed
+  case expired token
+    given tokenAgeMinutes 20, attempts 1
+    expect Denied
+  case locked out
+    given tokenAgeMinutes 3, attempts 5
+    expect Denied
+```
+
+```
+intent test ResetPassword.intent
+  intent test ResetPassword.intent: 3/3 passed
+    PASS  CanReset / fresh token
+    PASS  CanReset / expired token
+    PASS  CanReset / locked out
+```
+
+The `.intent` file is now **self-verifying**: no code, no test framework, no AI. Run
+`intent test` in CI next to `intent check`, and the intent proves itself on every commit.
+
+## 11. Build the artifacts
+
+When you want the full output:
+
+```
+intent build ResetPassword.intent
+```
+
+produces the generated docs, a contract graph, a test plan, and `.intent-proof.json`, a
+hash of the source with the status of every guarantee and `never` rule. Proof is how
+trust is earned. `intent graph` emits the Intent Graph; `intent source` regenerates
+`.intent` back from a graph.
+
+## 12. How the ecosystem uses your intent
+
+- **OpenThunder** compares your `.intent` files to the real repo and flags intent drift:
+  guarantees without tests, violated `never` rules, undeclared events.
 - **Repo Mastery** turns missions into learning paths and quizzes.
-- **SkillsTech Talk** turns missions into explanation and defense drills.
+- **SkillsTech Studio** provides visual authoring over the same Intent Graph.
 
 ## Where to go next
 
-- Read the [manifesto](./manifesto.md) for the why.
-- Read the [syntax overview](./syntax-overview.md) for the full construct list.
-- Read the [compiler contract](./compiler-contract.md) for how source becomes
-  artifacts.
-- Browse the [examples](../examples) directory for complete missions.
+- The [syntax overview](/docs/syntax-overview) for the full construct tour.
+- The [language specification](/docs/spec) for the exhaustive grammar.
+- The [Intent Runtime](/docs/intent-runtime) and [first-class tests](/docs/intent-tests)
+  for executable intent in depth.
+- The [examples](/examples) directory for complete missions.
