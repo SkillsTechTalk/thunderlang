@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { slug, KNOWN_LENSES } from './parse.mjs';
 import { parseArchitectureRules } from './arch.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
+import { detectConflicts } from './conflict.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -292,6 +293,34 @@ export function semanticDiagnostics(ast) {
     if ((exp.states || []).length === 0) d.push({
       level: 'info', code: 'IL-EXP-001', message: `Experience "${exp.name}" declares no states.`,
       why: 'Experiences should declare their states (empty, loading, success, failure, recovery) so completeness can be checked.',
+    });
+  }
+
+  // ── Constraint conflicts (Gap 1) , the reconciliation layer ──
+  for (const c of detectConflicts(ast)) {
+    if (c.type === 'declared') d.push({
+      level: 'warning', code: 'IL-CONFLICT-001', severity: 'blocker', blocks: c.before ? [String(c.before).toLowerCase()] : ['implementation'],
+      owners: c.resolveBy || [],
+      message: `Unresolved conflict "${c.name}" between ${(c.between || []).join(' and ')}.`,
+      why: 'Roles disagree about what must be true. The conflict must be resolved before the blocked phase, or implementation will satisfy one constraint by violating another.',
+      roles: {
+        product: `"${c.name}": ${(c.between || []).join(' vs ')} conflict. Resolve with ${(c.resolveBy || ['the owners']).join(', ')} before ${c.before || 'implementation'}.`,
+      },
+      fix: (c.options || []).map((o) => ({ label: `Option: ${o}` })),
+    });
+    else if (c.type === 'scope-contradiction') d.push({
+      level: 'warning', code: 'IL-CONFLICT-010', severity: 'blocker', blocks: ['implementation'],
+      message: `Scope both includes and excludes "${c.name}".`,
+      why: 'A single item cannot be in and out of scope. One of the two declarations is wrong.',
+    });
+    else if (c.type === 'negation') d.push({
+      level: 'warning', code: 'IL-CONFLICT-012', severity: 'blocker', blocks: ['implementation'],
+      message: `Contradictory constraints: ${c.name}.`,
+      why: `${(c.between || []).join(' and ')} directly contradict each other.`,
+    });
+    else if (c.type === 'redundant') d.push({
+      level: 'info', code: 'IL-CONFLICT-011', message: `Redundant constraint "${c.name}" declared by ${(c.between || []).join(', ')}.`,
+      why: 'The same constraint is contributed by more than one role. Harmless, but consolidate for clarity.',
     });
   }
 

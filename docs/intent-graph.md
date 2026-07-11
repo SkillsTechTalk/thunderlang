@@ -126,6 +126,43 @@ per role. See `examples/UploadStudyMaterial.intent`. OpenThunder's Experience
 Completeness Lens derives the required states from these declarations plus applied
 patterns and policy.
 
+## Constraints and conflicts
+
+The reconciliation layer, and the point of the whole system: **every role declares what
+must be true, independently, and Intent detects when they disagree.**
+
+```
+mission CertificationCheckout
+
+product requires
+  purchase_completion at_least 70 percent
+experience requires
+  guest_checkout available
+security requires
+  strong_authentication for HighRiskPurchase
+
+conflict GuestCheckoutAuthentication
+  between
+    Experience.GuestCheckout
+    Security.StrongAuthentication
+  options
+    authenticate after payment
+    authenticate before payment
+  resolve_by Product, UX, Security
+  before ExperienceApproval
+```
+
+IntentLang composes role-scoped constraints **deterministically and order-independently**
+and detects: author-declared conflicts, scope contradictions (an item both included and
+excluded), redundant constraints (the same rule from two roles), and direct negations. An
+unresolved conflict is a blocker (`IL-CONFLICT-001`) that names the **owners required to
+resolve it**, the **phase it blocks**, and the **options** to choose from, rendered per
+role. The conflict becomes a first-class `Conflict` node in the Intent Graph, with
+`contradicts` edges to the constraints and `blocks` to the phase. An LLM never decides the
+resolution: IntentLang surfaces the conflict, SkillsTech Studio runs the resolution
+workspace, OpenThunder verifies the accepted resolution survives implementation, and Repo
+Mastery teaches why the decision was made. See `examples/CertificationCheckout.intent`.
+
 ## Classification and evidence
 
 Every evidence-backed statement carries a **classification**, so AI-generated content

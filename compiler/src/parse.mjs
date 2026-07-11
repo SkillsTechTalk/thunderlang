@@ -88,6 +88,8 @@ function parseFields(node) {
   });
 }
 
+// Roles that can contribute scoped constraints (Gap 1).
+const ROLE_KEYWORDS = new Set(['product', 'experience', 'security', 'legal', 'operations', 'analytics', 'engineering', 'accessibility', 'business', 'design', 'qa', 'ux']);
 const kids = (node) => node.children.filter((c) => !isNote(c));
 const RECOVERY_RE = /\b(retry|recover|contact\s*support|contactsupport|retryprocessing|try\s*again|resume)\b/i;
 
@@ -196,6 +198,8 @@ export function parseIntent(source) {
     owner: null, approvals: [], unknowns: [], questions: [], assumptionDecls: [],
     // Experience profile (intent-graph-v1)
     experiences: [], patterns: [],
+    // Constraint composition + conflict resolution (Gap 1)
+    roleConstraints: [], conflicts: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -203,6 +207,12 @@ export function parseIntent(source) {
   for (const node of buildTree(toRows(source))) {
     const kw = firstWord(node.text);
     const arg = rest(node.text);
+    // Role-scoped constraints (Gap 1): "product requires", "security requires", ...
+    // Each role contributes constraints independently; IL composes them deterministically.
+    if (ROLE_KEYWORDS.has(kw) && /^requires\b/.test(arg)) {
+      for (const c of items(node)) ast.roleConstraints.push({ role: kw, statement: c.text.trim(), line: c.line });
+      continue;
+    }
     switch (kw) {
       case 'mission': ast.mission = arg || null; break;
       case 'note': missionNotes.push(parseNoteNode(node)); break;
@@ -283,6 +293,18 @@ export function parseIntent(source) {
       }
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
+      case 'conflict': {
+        const c = { name: arg, between: [], options: [], resolveBy: [], before: null, line: node.line };
+        for (const ch of items(node)) {
+          const k = firstWord(ch.text);
+          if (k === 'between') c.between.push(...leafItems(ch));
+          else if (k === 'options') c.options.push(...leafItems(ch));
+          else if (k === 'resolve_by') c.resolveBy.push(...rest(ch.text).split(',').map((s) => s.trim()).filter(Boolean));
+          else if (k === 'before') c.before = rest(ch.text) || null;
+        }
+        ast.conflicts.push(c);
+        break;
+      }
       // Intentionally deferred, AI-assisted implementation. "implement with ai [pending]".
       case 'implement': {
         if (/^with\s+ai\b/.test(arg)) {

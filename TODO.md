@@ -461,7 +461,21 @@ Phase 1 slice 2 (IL-owned , SHIPPED):
       ExperienceState/Pattern nodes in the Intent Graph; IL-EXP-004 missing-recovery-path (UX
       blocker, role-rendered) + IL-EXP-001. Example UploadStudyMaterial.intent; 59/59 tests.
 
-Deferred (IL next slices):
+Phase 1 slice 3 (IL-owned , SHIPPED , Gap 1 / founder gap-closure program):
+- [x] Constraint composition + conflict resolution , the reconciliation layer (the ecosystem
+      differentiator). Role-scoped constraints (`product|experience|security|legal|operations|...
+      requires`) compose DETERMINISTICALLY + ORDER-INDEPENDENTLY. First-class `conflict` block
+      (between/options/resolve_by/before). `compiler/src/conflict.mjs`: detectConflicts (declared +
+      scope-contradiction + redundant + negation) + composeConstraints. Diagnostics IL-CONFLICT-001
+      (declared, blocker w/ owners+phase+options)/010/011/012. Conflict + Constraint nodes in the
+      Intent Graph. Example CertificationCheckout.intent. 66/66 tests. An LLM never resolves.
+
+Deferred (IL next slices , from the ecosystem gap-closure program):
+- [ ] Phase 0 audit + §28 repo report (largely done: intent-graph-v1 already covers the language moat).
+- [ ] Extract `@skillstech/intent-schema` / `intent-graph` / `intent-diagnostics` packages (non-negotiable
+      #1: nobody hand-recreates nodes/enums; generate bindings from the canonical schema).
+- [ ] Gap 2 temporal/lifecycle, Gap 3 distributed/failure, Gap 4 decisions/rules, Gap 5 governance/waivers,
+      Gap 6 data-purpose/privacy , IL syntax + AST + adapters per §7-11.
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
 - [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).
 - [ ] Intent Graph <-> source round-trip (graph -> source) + schema migrations.

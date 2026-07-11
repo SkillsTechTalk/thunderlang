@@ -42,6 +42,8 @@ export interface IntentAst {
     follows: string[]; line: number;
   }>;
   patterns: Array<{ name: string; requires: string[]; accessible: string[]; line: number }>;
+  roleConstraints: Array<{ role: string; statement: string; line: number }>;
+  conflicts: Array<{ name: string; between: string[]; options: string[]; resolveBy: string[]; before: string | null; line: number }>;
   implementation: null | {
     id?: string; scope?: string; strategy?: string; editing?: string;
     risk?: string; approval?: string; pending: boolean;
@@ -175,6 +177,11 @@ export const UNSETTLED: Set<string>;
 export const BLOCKABLE_PHASES: string[];
 export function classify(word: string): string | null;
 export function isFactual(classification: string): boolean;
+
+// Constraint composition + conflict resolution (Gap 1)
+export interface DetectedConflict { type: 'declared' | 'scope-contradiction' | 'redundant' | 'negation'; name: string; between: string[]; options?: string[]; resolveBy?: string[]; before?: string | null; status: string; }
+export function composeConstraints(ast: IntentAst): { total: number; byRole: Record<string, string[]> };
+export function detectConflicts(ast: IntentAst): DetectedConflict[];
 
 // Deterministic candidate selection
 export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }

@@ -4,6 +4,7 @@
 // pure (no Node deps): browser-safe. OT/RM/ST read this; they do not re-parse .intent.
 
 import { slug } from './parse.mjs';
+import { detectConflicts } from './conflict.mjs';
 
 export const INTENT_GRAPH_SCHEMA = 'intent-graph-v1';
 
@@ -111,6 +112,19 @@ export function buildIntentGraph(ast) {
     relationships.push(rel(mId, 'approved_by', id));
   }
 
+  (ast.roleConstraints || []).forEach((rc, i) => {
+    const id = `constraint.${slug(rc.role)}.${i + 1}`;
+    nodes.push(node(id, 'Constraint', rc.statement, { owner: rc.role }));
+    relationships.push(rel(mId, 'requires', id));
+  });
+  detectConflicts(ast).forEach((c, i) => {
+    const id = `conflict.${slug(c.name || String(i + 1))}`;
+    nodes.push(node(id, 'Conflict', c.name, { status: c.status, description: c.type }));
+    for (const b of c.between || []) relationships.push(rel(id, 'contradicts', `constraint.${slug(b)}`));
+    if (c.before) relationships.push(rel(id, 'blocks', `phase.${slug(c.before)}`));
+    for (const r of c.resolveBy || []) relationships.push(rel(id, 'approved_by', `approval.${slug(ast.mission)}.${slug(r)}`));
+  });
+
   const byType = {};
   for (const n of nodes) byType[n.type] = (byType[n.type] || 0) + 1;
   return {
@@ -123,6 +137,7 @@ export function buildIntentGraph(ast) {
       relationships: relationships.length,
       byType,
       unresolved: (ast.unknowns || []).length + (ast.questions || []).length,
+      conflicts: detectConflicts(ast).filter((c) => c.status === 'unresolved').length,
       approvalsRequired: (ast.approvals || []).length,
     },
   };
