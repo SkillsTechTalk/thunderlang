@@ -286,6 +286,40 @@ condition but different results (`IL-DEC-002`, ambiguous), redundant rules
 graph. OpenThunder verifies rule coverage and that the implementation matches the
 decision. See `examples/CertificationEligibility.intent`.
 
+## Design system
+
+The design profile connects the experience layer to the concrete design system, so a
+designer's components and mockups live in the same graph as the journeys and states they
+realize. A `component` is a reusable piece of the design system; an `artifact` is a
+design deliverable (a Figma file, a mockup) that depicts it.
+
+```
+use design
+
+component AddressForm
+  description "collects and validates a shipping address"
+  variant default
+  variant error
+  token color.error
+  token spacing.md
+  implements AddressEntry        # an experience state or pattern it realizes
+  implements FormValidation
+
+artifact CheckoutMockups
+  kind figma
+  ref "figma.com/file/abc"
+  covers AddressForm
+```
+
+A `component` becomes a `DesignComponent` node (`Mission -requires-> DesignComponent`),
+carrying its variants and design tokens. Each `implements` resolves to the experience
+state or pattern it realizes, and the edge runs the way UX reads it: the experience state
+is `implemented_by` the component. An `artifact` becomes a `DesignArtifact` node whose
+`ref` is kept as the node's source; each `covers` link records that a component is
+`represented_by` that mockup. So the chain is complete and navigable: a journey's state
+is implemented by a component, which is represented by a Figma file, all resolvable
+without leaving the graph. Unresolved references fall back to the mission, never dangle.
+
 ## System profile
 
 The system profile lets an architect say what the mission needs from the system, in the

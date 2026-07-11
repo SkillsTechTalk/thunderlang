@@ -277,6 +277,8 @@ export function parseIntent(source) {
     dataElements: [],
     // System profile , capabilities + system contracts (interfaces)
     capabilities: [], interfaces: [],
+    // Design profile , design-system components + artifacts (mockups)
+    components: [], artifacts: [],
     // Delivery profile , releases, outcome results, learnings
     releases: [], results: [], learnings: [],
     // Tests , first-class cases that make a .intent file self-verifying
@@ -397,6 +399,30 @@ export function parseIntent(source) {
           else if (k === 'slo') iface.slo = stripQuotes(a || leafItems(c).join(' '));
         }
         ast.interfaces.push(iface);
+        break;
+      }
+      // ── Design profile (design-system mappings) ──
+      case 'component': {
+        const comp = { name: arg, description: null, variants: [], tokens: [], implements: [], line: node.line };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'description') comp.description = stripQuotes(a || leafItems(c).join(' '));
+          else if (k === 'variant') comp.variants.push(...(a ? [a] : leafItems(c)));
+          else if (k === 'token') comp.tokens.push(...(a ? [a] : leafItems(c)));
+          else if (k === 'implements') comp.implements.push(...(a ? [a] : leafItems(c)));
+        }
+        ast.components.push(comp);
+        break;
+      }
+      case 'artifact': {
+        const art = { name: arg, kind: null, ref: null, covers: [], line: node.line };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'kind') art.kind = a;
+          else if (k === 'ref' || k === 'url') art.ref = stripQuotes(a);
+          else if (k === 'covers') art.covers.push(...(a ? [a] : leafItems(c)));
+        }
+        ast.artifacts.push(art);
         break;
       }
       // ── Delivery profile ──

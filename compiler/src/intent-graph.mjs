@@ -194,6 +194,37 @@ export function buildIntentGraph(ast) {
     relationships.push(rel(mId, 'requires', id));
   }
 
+  // ── Design profile: design-system components + artifacts (mockups) ──
+  // Resolve a design reference to a Pattern / ExperienceContract / ExperienceState node.
+  const allIds = nodes.map((n) => n.id);
+  const resolveDesignTarget = (name) => {
+    const s = slug(name);
+    return [`pattern.${s}`, `experience.${s}`].find((c) => nodeIds.has(c))
+      || allIds.find((id) => id.startsWith('experience-state.') && id.endsWith(`.${s}`))
+      || null;
+  };
+  for (const comp of ast.components || []) {
+    const id = `design-component.${slug(comp.name || 'component')}`;
+    const desc = [comp.description, comp.variants.length && `variants: ${comp.variants.join(', ')}`, comp.tokens.length && `tokens: ${comp.tokens.join(', ')}`].filter(Boolean).join('; ') || null;
+    nodes.push(node(id, 'DesignComponent', comp.name, { description: desc }));
+    relationships.push(rel(mId, 'requires', id));
+    // Each experience state / pattern the component implements: <target> -implemented_by-> component.
+    for (const m of comp.implements || []) {
+      const target = resolveDesignTarget(m);
+      if (target) relationships.push(rel(target, 'implemented_by', id));
+    }
+  }
+  const componentNames = new Set((ast.components || []).map((c) => slug(c.name || '')));
+  for (const art of ast.artifacts || []) {
+    const id = `design-artifact.${slug(art.name || 'artifact')}`;
+    nodes.push(node(id, 'DesignArtifact', art.name, { source: art.ref || null, description: [art.kind && `kind ${art.kind}`, art.covers.length && `covers ${art.covers.join(', ')}`].filter(Boolean).join('; ') || null }));
+    relationships.push(rel(mId, 'represented_by', id));
+    // A covered component is represented_by this artifact (the mockup depicts it).
+    for (const c of art.covers || []) {
+      if (componentNames.has(slug(c))) relationships.push(rel(`design-component.${slug(c)}`, 'represented_by', id));
+    }
+  }
+
   // ── Delivery profile: releases, outcome results, learnings ──
   for (const r of ast.releases || []) {
     const id = `release.${slug(r.name || 'release')}`;
