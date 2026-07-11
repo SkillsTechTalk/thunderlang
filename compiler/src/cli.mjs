@@ -31,6 +31,7 @@ import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
+import { importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -433,6 +434,26 @@ function main() {
       for (const st of s.steps) console.log(`  ${st.ok ? 'ok ' : 'X  '} ${st.from} --${st.event}--> ${st.to}${st.reason ? `  (${st.reason})` : ''}`);
     }
     process.exit(sims.some((s) => !s.valid) ? 1 : 0);
+    return;
+  }
+
+  // Import adapters: lift an external DMN / BPMN document back into IntentLang source.
+  if (cmd === 'import') {
+    const xml = readFileSync(file, 'utf8');
+    const fmt = args.format || detectFormat(xml);
+    if (!fmt || !IMPORT_FORMATS.includes(fmt)) {
+      console.error(`intent import: could not detect format; pass --format <${IMPORT_FORMATS.join('|')}>`);
+      process.exit(2); return;
+    }
+    const src = importIntent(xml, fmt);
+    if (src == null) { console.error(`intent import: unsupported format "${fmt}"`); process.exit(2); return; }
+    if (args.out && args.out !== '.intent') {
+      const base = basename(file).replace(/\.[^.]+$/, '');
+      const p = writeText(args.out, `${slug(base)}.intent`, src);
+      console.log(`intent import: wrote ${p}`);
+    } else {
+      process.stdout.write(src.endsWith('\n') ? src : src + '\n');
+    }
     return;
   }
 

@@ -282,6 +282,18 @@ export function toBPMN(ast: IntentAst): string;
 export function toSMV(ast: IntentAst): string;
 export function exportIntent(ast: IntentAst, format: string): { format: string; ext: string; content: string } | null;
 
+// Import adapters (round-trip): external DMN / BPMN -> IntentLang source
+export const IMPORT_FORMATS: string[];
+export function fromDMN(xml: string): string;
+export function fromBPMN(xml: string): string;
+export function importIntent(xml: string, format?: string): string | null;
+export function detectFormat(xml: string): "dmn" | "bpmn" | null;
+export interface XmlNode { name: string; attrs: Record<string, string>; children: XmlNode[]; text: string; }
+export function parseXml(input: string): XmlNode;
+export function findAll(node: XmlNode, localName: string): XmlNode[];
+export function find(node: XmlNode, localName: string): XmlNode | null;
+export function localName(name: string): string;
+
 // Intent Runtime: executable intent (no AI)
 export const RUNTIME_SCHEMA: string;
 export interface DecisionRun {
