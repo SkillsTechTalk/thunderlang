@@ -11,6 +11,7 @@ import { detectConflicts } from './conflict.mjs';
 import { analyzeLifecycle } from './lifecycle.mjs';
 import { analyzeDistributed } from './distributed.mjs';
 import { analyzeDecision } from './decision.mjs';
+import { analyzePrivacy } from './privacy.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -383,6 +384,25 @@ export function semanticDiagnostics(ast) {
       message: f.message, why: DIST_WHY[f.code],
       roles: { engineer: f.message, product: f.message },
       fix: f.code === 'IL-DIST-001' ? [{ label: 'Add: idempotency_key <field>' }] : f.code === 'IL-DIST-003' ? [{ label: `Add: on duplicate ${f.target} ... ignore when ...` }] : [],
+    });
+  }
+
+  // ── Data purpose + privacy (Gap 6) , purpose limitation on declared data elements ──
+  const PRIVACY_WHY = {
+    'IL-DATA-001': 'Personal data with no stated purpose cannot be limited to that purpose; purpose limitation is the core privacy duty.',
+    'IL-DATA-002': 'Personal data with no retention rule is kept indefinitely, which is a storage-limitation violation.',
+    'IL-DATA-003': 'Holding personal data requires a lawful basis (consent, contract, legitimate interest, ...).',
+    'IL-DATA-004': 'An unknown classification cannot be governed; use one of public/internal/confidential/pii/sensitive.',
+    'IL-DATA-005': 'The lawful basis is not one of the recognized GDPR Art. 6 bases.',
+    'IL-DATA-006': 'Sensitive data returned to a caller with no "never expose" guard risks over-exposure.',
+  };
+  for (const f of analyzePrivacy(ast)) {
+    const isBlocker = f.severity === 'blocker';
+    d.push({
+      level: 'warning', code: f.code,
+      severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['release'] : undefined,
+      message: f.message, why: PRIVACY_WHY[f.code],
+      roles: { product: f.message, engineer: f.message, legal: f.message },
     });
   }
 

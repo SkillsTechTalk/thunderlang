@@ -62,6 +62,8 @@ export { analyzeDistributed } from './distributed.mjs';
 export { analyzeDecision } from './decision.mjs';
 // Governance: waivers , governed exceptions to blocking diagnostics (Gap 5)
 export { applyWaivers, governanceDiagnostics, GOVERNANCE_SCHEMA } from './governance.mjs';
+// Data purpose + privacy , purpose limitation on declared data elements (Gap 6)
+export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } from './privacy.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,

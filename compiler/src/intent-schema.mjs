@@ -99,4 +99,10 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-GOV-003', area: 'governance', severity: 'error', blocks: [], summary: 'Waiver names no approver.' },
   { ruleId: 'IL-GOV-004', area: 'governance', severity: 'warning', blocks: [], summary: 'Waiver matches no current diagnostic (stale).' },
   { ruleId: 'IL-GOV-005', area: 'governance', severity: 'error', blocks: [], summary: 'Waiver has expired.' },
+  { ruleId: 'IL-DATA-001', area: 'privacy', severity: 'blocker', blocks: ['release'], summary: 'Sensitive data held with no stated purpose.' },
+  { ruleId: 'IL-DATA-002', area: 'privacy', severity: 'warning', blocks: [], summary: 'Sensitive data has no retention rule.' },
+  { ruleId: 'IL-DATA-003', area: 'privacy', severity: 'blocker', blocks: ['release'], summary: 'Sensitive data declares no lawful basis.' },
+  { ruleId: 'IL-DATA-004', area: 'privacy', severity: 'warning', blocks: [], summary: 'Data has an unknown classification.' },
+  { ruleId: 'IL-DATA-005', area: 'privacy', severity: 'warning', blocks: [], summary: 'Unrecognized lawful basis.' },
+  { ruleId: 'IL-DATA-006', area: 'privacy', severity: 'warning', blocks: [], summary: 'Sensitive data exposed as output with no guard.' },
 ];

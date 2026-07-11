@@ -273,6 +273,8 @@ export function parseIntent(source) {
     decisions: [],
     // Governance: waivers , governed exceptions to blocking diagnostics (Gap 5)
     waivers: [],
+    // Data purpose + privacy , governed data elements (Gap 6)
+    dataElements: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -369,6 +371,21 @@ export function parseIntent(source) {
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
+      case 'data': {
+        // A governed data element (Gap 6). "data <path>" + classification / purpose /
+        // retention / basis (lawful basis). Purpose limitation is enforced by privacy.mjs.
+        const kv = kvChildren(node);
+        ast.dataElements.push({
+          id: `data.${slug(arg || String(ast.dataElements.length + 1))}`,
+          path: arg || null,
+          classification: kv.classification || null,
+          purpose: kv.purpose ? stripQuotes(kv.purpose) : null,
+          retention: kv.retention || null,
+          basis: kv.basis || null,
+          line: node.line,
+        });
+        break;
+      }
       case 'waiver': {
         // A governed exception to a blocking diagnostic (Gap 5). "waiver <CODE>" +
         // reason / approved_by / scope / expires. Deterministic; expiry evaluated by caller.

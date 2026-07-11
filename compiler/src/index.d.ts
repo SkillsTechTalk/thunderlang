@@ -268,6 +268,13 @@ export const GOVERNANCE_SCHEMA: string;
 export function governanceDiagnostics(waivers?: Waiver[], diagnostics?: Array<Record<string, unknown>>, opts?: { now?: string | null }): GovernanceDiagnostic[];
 export function applyWaivers(diagnostics?: Array<Record<string, unknown>>, waivers?: Waiver[], opts?: { now?: string | null }): WaiverApplication;
 
+// Data purpose + privacy (Gap 6)
+export interface PrivacyFinding { code: string; path: string | null; message: string; severity: string; }
+export const PRIVACY_SCHEMA: string;
+export const DATA_CLASSIFICATIONS: string[];
+export const LAWFUL_BASES: string[];
+export function analyzePrivacy(ast: IntentAst): PrivacyFinding[];
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];
