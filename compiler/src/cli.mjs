@@ -30,6 +30,7 @@ import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
+import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -86,6 +87,9 @@ function parseArgs(argv) {
     else if (a === '--expand') args.expand = argv[++i];
     else if (a === '--now') args.now = argv[++i];
     else if (a === '--format') args.format = argv[++i];
+    else if (a === '--inputs') args.inputs = argv[++i];
+    else if (a === '--events') args.events = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
+    else if (a === '--decision') args.decision = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -395,6 +399,40 @@ function main() {
     console.log(`intent merge: ${res.clean ? 'CLEAN' : 'CONFLICTS'} , ${res.summary.nodes} node(s), ${res.summary.conflicts} conflict(s)`);
     for (const c of res.conflicts) console.log(`  conflict: ${c.type} ${c.id} (changed differently on both sides)`);
     process.exit(res.clean ? 0 : 1);
+    return;
+  }
+
+  // Intent Runtime: EXECUTE intent , evaluate decisions against concrete inputs.
+  if (cmd === 'run') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    let inputs = {};
+    if (args.inputs) { try { inputs = JSON.parse(args.inputs); } catch { console.error('intent run: --inputs must be JSON'); process.exit(2); return; } }
+    let decisions = ast.decisions || [];
+    if (args.decision) decisions = decisions.filter((d) => slug(d.name) === slug(args.decision));
+    if (!decisions.length) { console.error('intent run: no decision to run' + (args.decision ? ` matching "${args.decision}"` : '')); process.exit(2); return; }
+    const runs = decisions.map((d) => evaluateDecision(d, inputs));
+    if (args.json) { console.log(JSON.stringify(runs.length === 1 ? runs[0] : runs, null, 2)); return; }
+    for (const r of runs) {
+      console.log(`decision ${r.decision}: ${r.result === null ? '(undecided)' : r.result}${r.matched ? `  [rule: ${r.matched}]` : ''}`);
+      for (const t of r.trace) console.log(`  ${t.matched ? 'x' : ' '} ${t.rule || '(rule)'}${t.when ? `: when ${t.when}` : ''}${t.error ? `  !! ${t.error}` : ''}`);
+    }
+    process.exit(runs.some((r) => r.undecided || !r.ok) ? 1 : 0);
+    return;
+  }
+
+  // Intent Runtime: SIMULATE a lifecycle against a sequence of events.
+  if (cmd === 'simulate') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const lcs = ast.lifecycles || [];
+    if (!lcs.length) { console.error('intent simulate: no lifecycle in this mission'); process.exit(2); return; }
+    const events = args.events || [];
+    const sims = lcs.map((lc) => simulateLifecycle(lc, events));
+    if (args.json) { console.log(JSON.stringify(sims.length === 1 ? sims[0] : sims, null, 2)); return; }
+    for (const s of sims) {
+      console.log(`lifecycle ${s.lifecycle}: ${s.path.join(' -> ')}  (${s.valid ? 'valid' : 'INVALID'}${s.endedTerminal ? ', terminal' : ''})`);
+      for (const st of s.steps) console.log(`  ${st.ok ? 'ok ' : 'X  '} ${st.from} --${st.event}--> ${st.to}${st.reason ? `  (${st.reason})` : ''}`);
+    }
+    process.exit(sims.some((s) => !s.valid) ? 1 : 0);
     return;
   }
 

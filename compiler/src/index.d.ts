@@ -282,6 +282,37 @@ export function toBPMN(ast: IntentAst): string;
 export function toSMV(ast: IntentAst): string;
 export function exportIntent(ast: IntentAst, format: string): { format: string; ext: string; content: string } | null;
 
+// Intent Runtime: executable intent (no AI)
+export const RUNTIME_SCHEMA: string;
+export interface DecisionRun {
+  schema: string;
+  decision: string;
+  result: string | null;
+  matched: string | null;
+  undecided: boolean;
+  explanationRequired: boolean;
+  trace: Array<{ rule: string | null; when: string | null; matched: boolean; error?: string; note?: string }>;
+  ok: boolean;
+}
+export interface LifecycleSim {
+  schema: string;
+  lifecycle: string;
+  path: string[];
+  steps: Array<{ event: string; from: string; to: string; ok: boolean; reason?: string; transition?: string | null }>;
+  finalState: string | null;
+  valid: boolean;
+  endedTerminal: boolean;
+}
+export function evaluateDecision(dec: IntentAst['decisions'][number], inputs?: Record<string, unknown>): DecisionRun;
+export function simulateLifecycle(lc: IntentAst['lifecycles'][number], events?: string[]): LifecycleSim;
+export function checkDecisionCases(dec: IntentAst['decisions'][number], cases?: Array<{ name?: string; inputs?: Record<string, unknown>; expect?: unknown }>): { schema: string; decision: string; total: number; passed: number; results: Array<{ case: string; inputs: Record<string, unknown>; expected: unknown; actual: string | null; matched: string | null; pass: boolean }> };
+
+// Safe deterministic expression evaluator (decision conditions)
+export class ExprError extends Error {}
+export function compileExpr(src: string): (inputs?: Record<string, unknown>) => unknown;
+export function evalExpr(src: string, inputs?: Record<string, unknown>): unknown;
+export function tokenize(src: string): Array<{ t: string; v: unknown }>;
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];

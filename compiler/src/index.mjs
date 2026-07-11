@@ -66,6 +66,9 @@ export { applyWaivers, governanceDiagnostics, GOVERNANCE_SCHEMA } from './govern
 export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } from './privacy.mjs';
 // Export adapters , decisions/lifecycles/temporal -> DMN / BPMN / NuSMV (interop)
 export { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
+// Intent Runtime , EXECUTABLE intent: evaluate decisions, simulate lifecycles (no AI)
+export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
+export { compileExpr, evalExpr, tokenize, ExprError } from './expr.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,
