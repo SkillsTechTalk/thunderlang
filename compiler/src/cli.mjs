@@ -24,6 +24,7 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
+import { buildManifest, buildImplementationPrompt } from './ai.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -192,6 +193,42 @@ function main() {
       for (const f of res.findings) console.log(`  [${f.level}] ${f.code}: ${f.message}`);
     }
     process.exit(res.status === 'drift' ? 1 : 0);
+  }
+
+  // Intent AI implementations (intent-ai-v1): declare + list + manifest + prompt handoff.
+  if (cmd === 'ai') {
+    const sub = args._[0];
+    const target = args._[1] || '.';
+    if (sub === 'list') {
+      const root = target;
+      const parsed = collectIntents(root).map((f) => {
+        const source = readFileSync(f, 'utf8');
+        return { path: relative(root, f), source, ast: parseIntent(source) };
+      });
+      const manifest = buildManifest(parsed, { projectId: args.product });
+      if (args.json) { console.log(JSON.stringify(manifest, null, 2)); return; }
+      console.log(`intent ai list ${root}: ${manifest.summary.total} AI implementation(s)`);
+      for (const im of manifest.implementations) {
+        console.log(`  ${im.id.padEnd(28)} ${im.status.padEnd(9)} risk:${im.risk} approval:${im.approval} scope:${im.scope}`);
+      }
+      console.log(`  ${JSON.stringify(manifest.summary.byStatus)} | ${manifest.summary.approvalRequired} require approval`);
+      console.log('  note: PENDING = declared, no target region yet. OpenThunder verifies + advances state.');
+      return;
+    }
+    if (sub === 'generate') {
+      // Provider-neutral: emit the structured handoff prompt for one mission's .intent file.
+      const file = args._[1];
+      if (!file) { console.error('usage: intent ai generate <file.intent> [--from <lang>]'); process.exit(2); return; }
+      const ast = parseIntent(readFileSync(file, 'utf8'));
+      if (!ast.implementation) { console.error(`intent ai generate: ${basename(file)} has no "implement with ai" block.`); process.exit(2); return; }
+      const prompt = buildImplementationPrompt(ast, { language: args.from || 'typescript' });
+      if (args.out && args.out !== '.intent') { const p = writeText(args.out, `${slug(ast.mission)}.prompt.md`, prompt); console.log(`wrote ${p.replace(process.cwd() + '/', '')}`); }
+      else console.log(prompt);
+      return;
+    }
+    console.error(`intent ai ${sub || ''}: MVP supports "list" and "generate" here (IL owns declare/list/manifest/hashing/prompt). verify/approve/adopt are OpenThunder- and provider-driven , see docs/ai-implementations.md.`);
+    process.exit(2);
+    return;
   }
 
   // Mission Atlas index: aggregate every .intent under a directory into one inventory.

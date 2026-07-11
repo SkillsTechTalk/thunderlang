@@ -350,6 +350,34 @@ Compiler support (PLANNED , owned by the SkillsTech Compiler, documented not bui
 - [ ] `intent proof matrix ./intent` , Proof Matrix
 - [ ] `intent release ./intent --mvp` , MVP Readiness Report + Release Story
 
+## Intent AI Implementations (intent-ai-v1) , cross-product initiative
+
+> Intentionally deferred, AI-assisted implementations as a first-class, traceable,
+> verifiable, reviewable concept. AI writes a candidate; IL defines what is allowed;
+> OT proves it; RM teaches it; ST connects the experience. Deterministic, provider-optional.
+
+Phase 1 (IL-owned , SHIPPED):
+- [x] `implement with ai { ... }` block (full + concise `implement with ai pending`) , parser + AST
+      (`ast.implementation`, `ast.architecture`).
+- [x] `compiler/src/ai.mjs`: 9-state model + `blocksProduction`; shared multi-language managed-region
+      marker parser (`parseMarkers`/`renderMarker`, `//` and `#`); `contractHash` + `implementationHash`
+      (normalized); `.intent/ai-implementations.json` manifest (`buildManifest`); provider-neutral
+      `buildImplementationPrompt` (Path 1 handoff).
+- [x] Semantic: intentional-pending is INFO `INTENT-AI-001` (NOT missing-code); scope/risk/editing +
+      high-risk-needs-approval warnings (`INTENT-AI-010..013`).
+- [x] CLI: `intent ai list`, `intent ai generate`. Library barrel + `index.d.ts` export the AI API.
+- [x] Docs `docs/ai-implementations.md`; example `examples/CalculateRiskScore.intent`. 34/34 tests.
+
+Deferred (other products' instances, coordinated via the intent-ai-v1 contract , NOT built here):
+- [ ] Phase 2 OT: verification pipeline (region integrity/syntax/types/contract/effects/architecture/
+      security/tests/determinism), proof at `.intent/proofs/{id}.json`, SARIF (INTENT-AI-* rules),
+      production gating. Reuse OT Architecture Lens + Security Lens + scan SARIF.
+- [ ] Phase 3 ST/IDE: status indicators + generate/import/verify/approve/reject/regenerate/adopt actions.
+- [ ] Phase 4 RM: explanation/walkthrough/checklist/flashcards/quiz/explain-back/handoff + ownership.
+- [ ] Phase 5: multi-candidate + deterministic selection, mutation testing, org policies, signed proofs.
+- [ ] IL follow-ups: `intent ai adopt` (marker rewrite), `intent build --mode production` gate wiring,
+      shared event schemas (IntentAi*), architecture-block verification.
+
 ## Operating checklist status (see docs/operating-checklist.md)
 
 The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current state:

@@ -18,6 +18,12 @@ export interface IntentAst {
   verify: string[];
   errors: Array<{ name: string; line: number }>;
   examples: Array<{ given: string; expect: string | null; line: number }>;
+  architecture: string[];
+  implementation: null | {
+    id?: string; scope?: string; strategy?: string; editing?: string;
+    risk?: string; approval?: string; pending: boolean;
+    mayModify?: string[]; mustNotModify?: string[]; line?: number;
+  };
   services: unknown[];
   apis: unknown[];
   events: unknown[];
@@ -117,3 +123,29 @@ export function buildMissionIndex(
   files: Array<{ path?: string; source: string }>,
   opts?: { product?: string },
 ): MissionIndex;
+
+// Intent AI implementations (intent-ai-v1)
+export type ImplementationState =
+  | 'PENDING' | 'GENERATED' | 'VERIFIED' | 'VERIFIED_AWAITING_APPROVAL'
+  | 'APPROVED' | 'MODIFIED' | 'INVALID' | 'REJECTED' | 'ADOPTED';
+export const IMPLEMENTATION_STATES: ImplementationState[];
+export const RISK_LEVELS: Array<'low' | 'medium' | 'high' | 'critical'>;
+export const HIGH_RISK: Set<string>;
+export const MANIFEST_SCHEMA_VERSION: string;
+export const COMMENT_PREFIX: Record<string, string>;
+export function blocksProduction(status: ImplementationState, opts?: { approvalRequired?: boolean }): boolean;
+export interface MarkerRegion { token: string; id: string | null; attrs: Record<string, string>; startLine: number; endLine?: number; code?: string; }
+export interface MarkerFinding { code: string; line: number; message: string; }
+export function parseMarkers(code: string): { regions: MarkerRegion[]; findings: MarkerFinding[] };
+export function renderMarker(meta: Record<string, unknown>, language?: string, opts?: { token?: string }): { open: string; close: string };
+export function contractHash(ast: IntentAst): string;
+export function implementationHash(regionCode: string): string;
+export function buildImplementationPrompt(ast: IntentAst, opts?: { language?: string }): string;
+export function buildManifest(
+  files: Array<{ path?: string; source: string; ast: IntentAst }>,
+  opts?: { projectId?: string },
+): {
+  schemaVersion: string; projectId: string | null; generatedBy: string;
+  implementations: Array<Record<string, unknown>>;
+  summary: { total: number; byStatus: Record<string, number>; approvalRequired: number };
+};

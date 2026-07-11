@@ -180,6 +180,29 @@ export function semanticDiagnostics(ast) {
     }
   }
 
+  // ── AI implementation declaration (intent-ai-v1) ──
+  // An intentionally deferred AI implementation is NOT accidentally-missing code.
+  const impl = ast.implementation;
+  if (impl) {
+    const SCOPES = ['expression', 'function_body', 'method', 'test', 'adapter'];
+    const RISKS = ['low', 'medium', 'high', 'critical'];
+    const EDITS = ['managed', 'collaborative', 'adopted'];
+    d.push({
+      level: 'info', code: 'INTENT-AI-001',
+      message: `Mission declares an AI implementation "${impl.id || 'implementation'}" (risk ${impl.risk || 'low'}, ${impl.pending ? 'pending' : 'declared'}).`,
+      why: 'This is an intentionally deferred, AI-assisted implementation, not missing code. OpenThunder verifies it and gates production; the compiler tracks its state.',
+      fix: [],
+    });
+    if (impl.scope && !SCOPES.includes(impl.scope)) warn('INTENT-AI-010', `Unsupported implementation scope "${impl.scope}".`, `MVP scopes: ${SCOPES.join(', ')}.`);
+    if (impl.risk && !RISKS.includes(impl.risk)) warn('INTENT-AI-011', `Unknown risk level "${impl.risk}".`, `Use one of: ${RISKS.join(', ')}.`);
+    if (impl.editing && !EDITS.includes(impl.editing)) warn('INTENT-AI-012', `Unknown editing policy "${impl.editing}".`, `Use one of: ${EDITS.join(', ')}.`);
+    if (['high', 'critical'].includes(impl.risk) && (!impl.approval || impl.approval === 'none')) {
+      warn('INTENT-AI-013', `High-risk implementation "${impl.id || ''}" should require approval.`,
+        'High and critical risk must require human approval even after automated verification passes.',
+        [{ label: 'Add approval: required' }]);
+    }
+  }
+
   // ── errors block: PascalCase failure-mode names ──
   for (const e of ast.errors || []) {
     if (!/^[A-Z][A-Za-z0-9]*$/.test(e.name)) {

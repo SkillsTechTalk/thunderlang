@@ -137,7 +137,8 @@ export function parseIntent(source) {
     requires: [], inputs: [], outputs: [],
     guarantees: [], neverRules: [], constraints: [], assumptions: [], risks: [],
     targets: [], style: [], verify: [], errors: [], examples: [],
-    services: [], apis: [], events: [], databases: [],
+    services: [], apis: [], events: [], databases: [], architecture: [],
+    implementation: null,
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -181,6 +182,21 @@ export function parseIntent(source) {
       case 'api': ast.apis.push(parseApi(arg, node)); break;
       case 'event': ast.events.push(parseEvent(arg, node)); break;
       case 'database': ast.databases.push({ id: slug(arg), name: arg, engine: leafItems(node)[0] || null }); break;
+      case 'architecture': ast.architecture.push(...leafItems(node)); break;
+      // Intentionally deferred, AI-assisted implementation. "implement with ai [pending]".
+      case 'implement': {
+        if (/^with\s+ai\b/.test(arg)) {
+          const impl = { pending: /\bpending\b/.test(arg), line: node.line };
+          for (const c of items(node)) {
+            const k = firstWord(c.text).replace(/:$/, '');
+            if (k === 'may_modify') impl.mayModify = leafItems(c);
+            else if (k === 'must_not_modify') impl.mustNotModify = leafItems(c);
+            else impl[k] = rest(c.text);
+          }
+          ast.implementation = impl;
+        }
+        break;
+      }
       // IntentLift inferred-draft metadata blocks: recognized, kept as metadata, not errors.
       case 'inferred': case 'maps_to': case 'evidence': case 'unknown':
       case 'needs_review': case 'assumption': case 'source': case 'confidence':

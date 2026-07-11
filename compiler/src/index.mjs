@@ -43,3 +43,11 @@ export { approveIntent, checkDrift, buildDriftHandoff, intentHash } from './drif
 
 // Mission Atlas index (mission-index-v1)
 export { buildMissionIndex } from './atlas.mjs';
+
+// Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest
+export {
+  IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,
+  COMMENT_PREFIX, parseMarkers, renderMarker,
+  contractHash, implementationHash,
+  buildManifest, buildImplementationPrompt, MANIFEST_SCHEMA_VERSION,
+} from './ai.mjs';
