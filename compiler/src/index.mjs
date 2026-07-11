@@ -52,7 +52,7 @@ export {
   IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,
   COMMENT_PREFIX, parseMarkers, renderMarker,
   contractHash, implementationHash,
-  buildManifest, buildImplementationPrompt, MANIFEST_SCHEMA_VERSION,
+  buildManifest, buildImplementationPrompt, MANIFEST_SCHEMA_VERSION, PROOF_CHECK_KEYS,
   resolveState, productionGate, adoptRegion,
   recordDecision, approvalFor, emptyApprovals, APPROVALS_SCHEMA_VERSION,
   makeEvent, INTENT_AI_EVENTS,

@@ -386,6 +386,10 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
       constraints into structured rules (from/relation/to) + `violatesArchitecture(rules,from,to)` (the
       reusable forbidden-edge check OT calls, INTENT-ARCH-307). In the contract graph + contract hash;
       malformed lines -> INTENT-ARCH-001 warning. Exported from the library. 45/45 tests.
+- [x] intent-ai-v1 reconcile (from OT #216 + RM redline): extracted pure helpers to `ai-core.mjs`
+      (zero Node deps) + published `@skillstech/intentlang/core` subpath so RM's browser bundle can import
+      states/blocksProduction/makeEvent; locked `PROOF_CHECK_KEYS` (9 keys, `contracts` plural); pinned the
+      canonical contractHash clause set + proof shape + SARIF rule catalog in contracts/intent-ai-v1.md.
 - [ ] IL follow-ups (remaining): an events sink/log, multi-candidate deterministic selection policy.
 
 ## Operating checklist status (see docs/operating-checklist.md)

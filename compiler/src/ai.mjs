@@ -11,42 +11,18 @@
 
 import { sha256 } from './emit.mjs';
 import { slug } from './parse.mjs';
-
-// ── State model (one shared lifecycle across all products) ───────────────────
-export const IMPLEMENTATION_STATES = [
-  'PENDING',                    // declared, no implementation exists
-  'GENERATED',                  // code exists, not verified
-  'VERIFIED',                   // automated verification passed
-  'VERIFIED_AWAITING_APPROVAL', // passed, but policy requires human approval
-  'APPROVED',                   // required human approval recorded
-  'MODIFIED',                   // code or contract changed after verification
-  'INVALID',                    // verification failed or proof integrity broken
-  'REJECTED',                   // reviewer explicitly rejected
-  'ADOPTED',                    // AI region became human-owned code
-];
-
-export const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
-// Risk categories that force approval even after automated verification passes.
-export const HIGH_RISK = new Set(['high', 'critical']);
-
-/** True if a state means the implementation must block a production build. */
-export function blocksProduction(status, { approvalRequired = false } = {}) {
-  if (['PENDING', 'GENERATED', 'MODIFIED', 'INVALID', 'REJECTED'].includes(status)) return true;
-  if (status === 'VERIFIED_AWAITING_APPROVAL') return true;
-  if (status === 'VERIFIED' && approvalRequired) return true;
-  return false; // APPROVED and ADOPTED ship
-}
+// Pure, browser-safe helpers live in ai-core.mjs (no Node deps). Re-exported here so
+// the main API is unchanged; browser consumers can import '@skillstech/intentlang/core'.
+import { COMMENT_PREFIX, HIGH_RISK, blocksProduction } from './ai-core.mjs';
+export {
+  IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,
+  COMMENT_PREFIX, INTENT_AI_EVENTS, makeEvent, PROOF_CHECK_KEYS,
+} from './ai-core.mjs';
 
 // ── Managed-region markers (multi-language, one shared parser) ───────────────
 // The machine-readable <intent:ai-implementation ...> ... </intent:ai-implementation>
 // marker is authoritative. Comment prefix varies by language; the marker token is
 // the same everywhere, so we detect it regardless of prefix.
-export const COMMENT_PREFIX = {
-  typescript: '//', javascript: '//', tsx: '//', jsx: '//',
-  csharp: '//', java: '//', go: '//', rust: '//',
-  python: '#', ruby: '#', perl: '#', shell: '#',
-};
-
 const OPEN_TOKEN = 'intent:ai-implementation';   // AI-managed
 const ADOPTED_TOKEN = 'intent:implementation';   // human-owned after adoption
 const attrRe = /([a-zA-Z][\w-]*)\s*=\s*"([^"]*)"/g;
@@ -242,35 +218,7 @@ export function recordDecision(store, id, { decision, by, role, note, contractHa
   return { store: next, record };
 }
 
-// ── Integration events (versioned; no shared-DB coupling) ────────────────────
-export const INTENT_AI_EVENTS = [
-  'IntentAiImplementationDeclared', 'IntentAiGenerationRequested', 'IntentAiCandidateImported',
-  'IntentAiImplementationGenerated', 'IntentAiVerificationStarted', 'IntentAiVerificationPassed',
-  'IntentAiVerificationFailed', 'IntentAiApprovalRequested', 'IntentAiImplementationApproved',
-  'IntentAiImplementationRejected', 'IntentAiImplementationModified', 'IntentAiProofInvalidated',
-  'IntentAiImplementationAdopted', 'IntentAiMasteryGenerated', 'IntentAiOwnershipUpdated',
-];
-
-/** Build a versioned integration event (the payload shape in contract intent-ai-v1). */
-export function makeEvent(type, fields = {}) {
-  return {
-    schemaVersion: '1.0',
-    type,
-    projectId: fields.projectId ?? null,
-    repoId: fields.repoId ?? null,
-    implementationId: fields.implementationId ?? null,
-    missionId: fields.missionId ?? null,
-    contractHash: fields.contractHash ?? null,
-    implementationHash: fields.implementationHash ?? null,
-    correlationId: fields.correlationId ?? null,
-    timestamp: fields.timestamp ?? null,
-    toolVersion: fields.toolVersion ?? null,
-    actorType: fields.actorType ?? null,
-    actorId: fields.actorId ?? null,
-    previousStatus: fields.previousStatus ?? null,
-    newStatus: fields.newStatus ?? null,
-  };
-}
+// (INTENT_AI_EVENTS + makeEvent live in ai-core.mjs and are re-exported at the top.)
 
 /**
  * Production gate over resolved implementations. Blocks unless every implementation

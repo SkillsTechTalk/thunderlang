@@ -10,6 +10,9 @@
       "types": "./src/index.d.ts",
       "import": "./src/index.mjs"
     },
+    "./core": {
+      "import": "./src/ai-core.mjs"
+    },
     "./package.json": "./package.json"
   },
   "bin": {

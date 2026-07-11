@@ -138,6 +138,7 @@ export const RISK_LEVELS: Array<'low' | 'medium' | 'high' | 'critical'>;
 export const HIGH_RISK: Set<string>;
 export const MANIFEST_SCHEMA_VERSION: string;
 export const COMMENT_PREFIX: Record<string, string>;
+export const PROOF_CHECK_KEYS: string[];
 export function blocksProduction(status: ImplementationState, opts?: { approvalRequired?: boolean }): boolean;
 export interface MarkerRegion { token: string; id: string | null; attrs: Record<string, string>; startLine: number; endLine?: number; code?: string; }
 export interface MarkerFinding { code: string; line: number; message: string; }
