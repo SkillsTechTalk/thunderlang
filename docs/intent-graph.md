@@ -258,6 +258,34 @@ handler referencing an undeclared event (`IL-DIST-005`, an error). `Command` /
 honors the policy (retry safety, duplicate handling, failure simulation). See
 `examples/CreateStudyPlan.intent`.
 
+## Decisions and rules
+
+Business decisions are declarative and checkable:
+
+```
+decision CertificationEligibility
+  inputs
+    Candidate.completed_courses
+    Certification.prerequisites
+  rule Eligible
+    when all prerequisites completed
+    return Eligible
+  rule EligibleWithWaiver
+    when prerequisite_waiver approved
+    return EligibleWithWaiver
+  default
+    return NotEligible
+  explanation required
+  owner CertificationProduct
+```
+
+IntentLang statically checks the **declared** decision: a decision with rules but no
+`default` (`IL-DEC-001`, undefined when nothing matches), two rules with the same
+condition but different results (`IL-DEC-002`, ambiguous), redundant rules
+(`IL-DEC-003`), and empty decisions (`IL-DEC-004`). `Decision` / `Rule` nodes join the
+graph. OpenThunder verifies rule coverage and that the implementation matches the
+decision. See `examples/CertificationEligibility.intent`.
+
 ## Canonical schema (no forks)
 
 Every product must speak the same node types, relationship types, classifications, and

@@ -10,6 +10,7 @@ import { CLASSIFICATIONS } from './classification.mjs';
 import { detectConflicts } from './conflict.mjs';
 import { analyzeLifecycle } from './lifecycle.mjs';
 import { analyzeDistributed } from './distributed.mjs';
+import { analyzeDecision } from './decision.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -355,6 +356,24 @@ export function semanticDiagnostics(ast) {
     'IL-DIST-004': 'A permanent failure with no compensation leaves partial state behind.',
     'IL-DIST-005': 'A handler references an event that is not declared (likely a typo).',
   };
+  // ── Decisions / rules (Gap 4) , conflict + coverage on the declared decision ──
+  for (const dec of ast.decisions || []) {
+    for (const f of analyzeDecision(dec)) {
+      const isBlocker = f.code === 'IL-DEC-001' || f.code === 'IL-DEC-002';
+      d.push({
+        level: 'warning', code: f.code,
+        severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['implementation'] : undefined,
+        message: f.message,
+        why: f.code === 'IL-DEC-001' ? 'Without a default, the decision is undefined when no rule matches.'
+          : f.code === 'IL-DEC-002' ? 'Two rules fire on the same condition with different results, so the outcome is ambiguous.'
+          : f.code === 'IL-DEC-003' ? 'Two rules are identical; one is dead.'
+          : 'A decision with no rules cannot decide anything.',
+        roles: { product: f.message, engineer: f.message },
+        fix: f.code === 'IL-DEC-001' ? [{ label: 'Add a default (for example: default\\n  return NotEligible)' }] : [],
+      });
+    }
+  }
+
   for (const f of analyzeDistributed(ast)) {
     const isError = f.code === 'IL-DIST-005';
     d.push({

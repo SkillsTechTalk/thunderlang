@@ -50,6 +50,7 @@ export interface IntentAst {
   until: Array<{ condition: string; restrict: string | null; line: number }>;
   commands: Array<{ name: string; idempotencyKey: string | null; timeout: string | null; retry: string | null; backoff: string | null; line: number }>;
   handlers: Array<{ trigger: string; compensate: string[]; notify: string[]; preserve: string[]; actions: string[] }>;
+  decisions: Array<{ name: string; inputs: string[]; rules: Array<{ name: string | null; when: string | null; result: string | null; priority: string | null; line: number }>; default: string | null; explanationRequired: boolean; owner: string | null; line: number }>;
   implementation: null | {
     id?: string; scope?: string; strategy?: string; editing?: string;
     risk?: string; approval?: string; pending: boolean;
@@ -196,6 +197,9 @@ export function analyzeLifecycle(lc: IntentAst['lifecycles'][number]): { ir: Lif
 
 // Distributed + failure semantics (Gap 3)
 export function analyzeDistributed(ast: IntentAst): Array<{ code: string; target: string; message: string }>;
+
+// Decisions + rules (Gap 4)
+export function analyzeDecision(dec: IntentAst['decisions'][number]): Array<{ code: string; message: string }>;
 
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;

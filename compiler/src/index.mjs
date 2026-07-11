@@ -56,6 +56,7 @@ export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_
 export { composeConstraints, detectConflicts } from './conflict.mjs';
 export { buildLifecycle, analyzeLifecycle } from './lifecycle.mjs';
 export { analyzeDistributed } from './distributed.mjs';
+export { analyzeDecision } from './decision.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,

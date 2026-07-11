@@ -142,6 +142,16 @@ export function buildIntentGraph(ast) {
     }
   }
 
+  for (const dec of ast.decisions || []) {
+    const dId = `decision.${slug(dec.name || 'decision')}`;
+    nodes.push(node(dId, 'Decision', dec.name, { owner: dec.owner || null, description: `${(dec.rules || []).length} rules${dec.default ? ', default ' + dec.default : ''}` }));
+    relationships.push(rel(mId, 'requires', dId));
+    for (const r of dec.rules || []) {
+      const rId = `rule.${slug(dec.name)}.${slug(r.name || 'rule')}`;
+      nodes.push(node(rId, 'Rule', r.name, { description: r.when ? `when ${r.when} -> ${r.result}` : null }));
+      relationships.push(rel(dId, 'requires', rId));
+    }
+  }
   for (const c of ast.commands || []) {
     const id = `command.${slug(c.name || 'command')}`;
     nodes.push(node(id, 'Command', c.name, { description: [c.idempotencyKey && 'idempotent', c.timeout && `timeout ${c.timeout}`, c.retry && `retry ${c.retry}`].filter(Boolean).join('; ') || null }));

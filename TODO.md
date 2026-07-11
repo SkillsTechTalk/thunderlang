@@ -489,7 +489,11 @@ Deferred (IL next slices , from the ecosystem gap-closure program):
       preserve). `compiler/src/distributed.mjs` analyzeDistributed: IL-DIST-001 retry-without-idempotency
       (the classic bug), 002 no-timeout, 003 at-least-once-without-dedup, 004 missing-compensation, 005
       undeclared-event (error). Command/FailureHandler nodes. Example CreateStudyPlan.intent. 78/78 tests.
-- [ ] Gap 4 decisions/rules, Gap 5 governance/waivers, Gap 6 data-purpose/privacy.
+- [x] Gap 4 decisions/rules , SHIPPED: `decision` (inputs/rule[when/return/priority]/default/explanation/
+      owner). `compiler/src/decision.mjs` analyzeDecision: IL-DEC-001 missing-default, 002 conflicting-rules
+      (same when, diff return), 003 redundant-rules, 004 no-rules. Decision/Rule nodes. Example
+      CertificationEligibility.intent. 84/84 tests. OT verifies rule coverage + impl match.
+- [ ] Gap 5 governance/waivers, Gap 6 data-purpose/privacy, then DMN/BPMN + model-check export adapters.
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
 - [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).
 - [ ] Intent Graph <-> source round-trip (graph -> source) + schema migrations.

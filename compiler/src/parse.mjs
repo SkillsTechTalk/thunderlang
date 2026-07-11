@@ -122,6 +122,25 @@ function parseExperience(name, node) {
   return exp;
 }
 
+// Decision / rules (intent-graph-v1 Gap 4).
+function parseDecision(name, node) {
+  const dec = { name, inputs: [], rules: [], default: null, explanationRequired: false, owner: null, line: node.line };
+  for (const c of node.children.filter((x) => !isNote(x))) {
+    const k = firstWord(c.text); const a = rest(c.text);
+    if (k === 'inputs') dec.inputs.push(...leafItems(c));
+    else if (k === 'rule') {
+      const kv = {};
+      for (const ch of c.children.filter((x) => !isNote(x))) kv[firstWord(ch.text)] = rest(ch.text);
+      dec.rules.push({ name: a || null, when: kv.when || null, result: kv.return || null, priority: kv.priority || null, line: c.line });
+    } else if (k === 'default') {
+      const ret = c.children.find((x) => firstWord(x.text) === 'return');
+      dec.default = ret ? rest(ret.text) : (a || null);
+    } else if (k === 'explanation') dec.explanationRequired = /required/.test(a);
+    else if (k === 'owner') dec.owner = a || null;
+  }
+  return dec;
+}
+
 // Lifecycle state machine (intent-graph-v1 Gap 2).
 function parseLifecycle(name, node) {
   const lc = { name, states: [], transitions: [], terminals: [], line: node.line };
@@ -250,6 +269,8 @@ export function parseIntent(source) {
     lifecycles: [], always: [], eventually: [], until: [],
     // Distributed + failure semantics (Gap 3)
     commands: [], handlers: [],
+    // Decisions, rules, process (Gap 4)
+    decisions: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -343,6 +364,7 @@ export function parseIntent(source) {
       }
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
+      case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
       case 'command': ast.commands.push(parseCommand(arg, node)); break;
       case 'on': ast.handlers.push(parseHandler(arg, node)); break;
       case 'lifecycle': ast.lifecycles.push(parseLifecycle(arg, node)); break;
