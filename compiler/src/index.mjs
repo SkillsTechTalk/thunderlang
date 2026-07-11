@@ -44,6 +44,9 @@ export { approveIntent, checkDrift, buildDriftHandoff, intentHash } from './drif
 // Mission Atlas index (mission-index-v1)
 export { buildMissionIndex } from './atlas.mjs';
 
+// Architecture rules (structured; OpenThunder's Architecture Lens checks against them)
+export { parseArchitectureRules, violatesArchitecture } from './arch.mjs';
+
 // Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest
 export {
   IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,

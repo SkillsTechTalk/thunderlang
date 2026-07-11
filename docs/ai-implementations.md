@@ -146,6 +146,23 @@ Project-level metadata lives in `.intent/ai-implementations.json` (schema `1.0`)
 }
 ```
 
+## Architecture rules
+
+A mission (or project) can declare dependency constraints that the AI implementation
+must not violate:
+
+```
+architecture
+  domain must not depend on infrastructure
+  application may depend on domain
+  infrastructure may implement application ports
+```
+
+IntentLang parses these into structured rules (`from`, `relation`, `to`) and includes
+them in the contract graph and the contract hash. OpenThunder's Architecture Lens
+checks the real dependency graph against them; a forbidden edge is `INTENT-ARCH-307`.
+A line the rule parser cannot understand is a `INTENT-ARCH-001` warning, not an error.
+
 ## Hashing and proof validity
 
 Two independent hashes, both deterministic:

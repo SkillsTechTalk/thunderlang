@@ -5,6 +5,7 @@
 
 import { createHash } from 'node:crypto';
 import { slug, KNOWN_LENSES } from './parse.mjs';
+import { parseArchitectureRules } from './arch.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -47,6 +48,8 @@ export function buildContractGraph(ast, generatedAt) {
     events: ast.events.map((e) => ({ id: e.id, name: e.name })),
     services: ast.services.map((s) => ({ id: s.id, name: s.name, owner: s.owner })),
     verify: ast.verify,
+    // Structured architecture rules OpenThunder's Architecture Lens checks against.
+    architecture: parseArchitectureRules(ast.architecture).rules,
   };
   return { compilerVersion: COMPILER_VERSION, generatedAt, missions: [mission] };
 }
@@ -178,6 +181,13 @@ export function semanticDiagnostics(ast) {
         'An empty note adds noise without meaning. Explain the meaning, risk, usage, or verification for that reader.',
         [{ label: 'Add a sentence explaining the meaning for this reader' }]);
     }
+  }
+
+  // ── architecture rules: flag lines the rule parser cannot understand ──
+  for (const u of parseArchitectureRules(ast.architecture).unparsed) {
+    warn('INTENT-ARCH-001', `Architecture rule not understood: "${u}".`,
+      'Architecture rules must be dependency constraints so tools can enforce them. Supported forms: "A must not depend on B", "A may depend on B", "A may implement B [ports]".',
+      [{ label: 'Rephrase as "<layer> must not depend on <layer>"' }]);
   }
 
   // ── AI implementation declaration (intent-ai-v1) ──

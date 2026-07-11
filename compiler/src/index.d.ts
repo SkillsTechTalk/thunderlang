@@ -124,6 +124,11 @@ export function buildMissionIndex(
   opts?: { product?: string },
 ): MissionIndex;
 
+// Architecture rules
+export interface ArchitectureRule { from: string; relation: 'must-not-depend-on' | 'must-depend-on' | 'may-depend-on' | 'may-implement'; to: string; raw: string; }
+export function parseArchitectureRules(lines: string[]): { rules: ArchitectureRule[]; unparsed: string[] };
+export function violatesArchitecture(rules: ArchitectureRule[], from: string, to: string): ArchitectureRule | null;
+
 // Intent AI implementations (intent-ai-v1)
 export type ImplementationState =
   | 'PENDING' | 'GENERATED' | 'VERIFIED' | 'VERIFIED_AWAITING_APPROVAL'

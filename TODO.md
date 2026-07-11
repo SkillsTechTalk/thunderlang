@@ -382,8 +382,11 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
 - [x] IL follow-ups (SHIPPED): `intent ai approve/reject` + `.intent/ai-approvals.json` store , decisions
       bind to reviewed hashes (refuses stale/unverified; approval goes stale on any change -> MODIFIED). Shared
       `IntentAi*` event builder (15 event types, versioned payload). Full approve->PASS->modify->stale verified.
-- [ ] IL follow-ups (remaining): `architecture` block VERIFICATION (parsing exists), an events sink/log,
-      multi-candidate selection policy.
+- [x] IL follow-ups (SHIPPED): `architecture` rules , `compiler/src/arch.mjs` parses dependency
+      constraints into structured rules (from/relation/to) + `violatesArchitecture(rules,from,to)` (the
+      reusable forbidden-edge check OT calls, INTENT-ARCH-307). In the contract graph + contract hash;
+      malformed lines -> INTENT-ARCH-001 warning. Exported from the library. 45/45 tests.
+- [ ] IL follow-ups (remaining): an events sink/log, multi-candidate deterministic selection policy.
 
 ## Operating checklist status (see docs/operating-checklist.md)
 
