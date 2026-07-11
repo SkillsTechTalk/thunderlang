@@ -29,6 +29,7 @@ import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
+import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -84,6 +85,7 @@ function parseArgs(argv) {
     else if (a === '--search') args.search = argv[++i];
     else if (a === '--expand') args.expand = argv[++i];
     else if (a === '--now') args.now = argv[++i];
+    else if (a === '--format') args.format = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -393,6 +395,25 @@ function main() {
     console.log(`intent merge: ${res.clean ? 'CLEAN' : 'CONFLICTS'} , ${res.summary.nodes} node(s), ${res.summary.conflicts} conflict(s)`);
     for (const c of res.conflicts) console.log(`  conflict: ${c.type} ${c.id} (changed differently on both sides)`);
     process.exit(res.clean ? 0 : 1);
+    return;
+  }
+
+  // Export adapters: render decisions/lifecycles to DMN / BPMN / NuSMV (interop).
+  if (cmd === 'export') {
+    const fmt = args.format;
+    if (!fmt || !EXPORT_FORMATS.includes(fmt)) {
+      console.error(`usage: intent export <file> --format <${EXPORT_FORMATS.join('|')}> [--out <dir>]`);
+      process.exit(2); return;
+    }
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const res = exportIntent(ast, fmt);
+    if (args.out && args.out !== '.intent') {
+      const name = `${slug(ast.mission || basename(file, '.intent'))}.${res.ext}`;
+      const p = writeText(args.out, name, res.content);
+      console.log(`intent export: wrote ${p}`);
+    } else {
+      process.stdout.write(res.content);
+    }
     return;
   }
 

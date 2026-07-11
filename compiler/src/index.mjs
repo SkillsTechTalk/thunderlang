@@ -64,6 +64,8 @@ export { analyzeDecision } from './decision.mjs';
 export { applyWaivers, governanceDiagnostics, GOVERNANCE_SCHEMA } from './governance.mjs';
 // Data purpose + privacy , purpose limitation on declared data elements (Gap 6)
 export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } from './privacy.mjs';
+// Export adapters , decisions/lifecycles/temporal -> DMN / BPMN / NuSMV (interop)
+export { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,

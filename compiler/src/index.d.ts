@@ -275,6 +275,13 @@ export const DATA_CLASSIFICATIONS: string[];
 export const LAWFUL_BASES: string[];
 export function analyzePrivacy(ast: IntentAst): PrivacyFinding[];
 
+// Export adapters (interop): decisions/lifecycles/temporal -> DMN / BPMN / NuSMV
+export const EXPORT_FORMATS: string[];
+export function toDMN(ast: IntentAst): string;
+export function toBPMN(ast: IntentAst): string;
+export function toSMV(ast: IntentAst): string;
+export function exportIntent(ast: IntentAst, format: string): { format: string; ext: string; content: string } | null;
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];
