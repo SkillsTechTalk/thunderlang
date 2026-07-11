@@ -44,6 +44,10 @@ export interface IntentAst {
   patterns: Array<{ name: string; requires: string[]; accessible: string[]; line: number }>;
   roleConstraints: Array<{ role: string; statement: string; line: number }>;
   conflicts: Array<{ name: string; between: string[]; options: string[]; resolveBy: string[]; before: string | null; line: number }>;
+  lifecycles: Array<{ name: string; states: string[]; transitions: Array<{ name: string | null; from: string | null; to: string | null; within: string | null }>; terminals: string[]; line: number }>;
+  always: string[];
+  eventually: Array<{ statement: string; within: string | null; line: number }>;
+  until: Array<{ condition: string; restrict: string | null; line: number }>;
   implementation: null | {
     id?: string; scope?: string; strategy?: string; editing?: string;
     risk?: string; approval?: string; pending: boolean;
@@ -182,6 +186,11 @@ export function isFactual(classification: string): boolean;
 export interface DetectedConflict { type: 'declared' | 'scope-contradiction' | 'redundant' | 'negation'; name: string; between: string[]; options?: string[]; resolveBy?: string[]; before?: string | null; status: string; }
 export function composeConstraints(ast: IntentAst): { total: number; byRole: Record<string, string[]> };
 export function detectConflicts(ast: IntentAst): DetectedConflict[];
+
+// Temporal + lifecycle semantics (Gap 2)
+export interface LifecycleIR { name: string; states: string[]; terminals: string[]; initial: string | null; transitions: Array<{ name: string | null; from: string | null; to: string | null; within: string | null }>; out: Record<string, string[]>; reachable: string[]; }
+export function buildLifecycle(lc: IntentAst['lifecycles'][number]): LifecycleIR;
+export function analyzeLifecycle(lc: IntentAst['lifecycles'][number]): { ir: LifecycleIR; findings: Array<{ code: string; message: string }> };
 
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;

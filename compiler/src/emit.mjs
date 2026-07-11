@@ -8,6 +8,7 @@ import { slug, KNOWN_LENSES } from './parse.mjs';
 import { parseArchitectureRules } from './arch.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import { detectConflicts } from './conflict.mjs';
+import { analyzeLifecycle } from './lifecycle.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -321,6 +322,27 @@ export function semanticDiagnostics(ast) {
     else if (c.type === 'redundant') d.push({
       level: 'info', code: 'IL-CONFLICT-011', message: `Redundant constraint "${c.name}" declared by ${(c.between || []).join(', ')}.`,
       why: 'The same constraint is contributed by more than one role. Harmless, but consolidate for clarity.',
+    });
+  }
+
+  // ── Temporal + lifecycle (Gap 2) , static state-machine analysis ──
+  for (const lc of ast.lifecycles || []) {
+    for (const f of analyzeLifecycle(lc).findings) {
+      const isError = f.code === 'IL-LIFE-001'; // undefined-state reference is a real bug
+      d.push({
+        level: isError ? 'error' : 'warning', code: f.code,
+        message: `Lifecycle "${lc.name}": ${f.message}`,
+        why: 'The declared state machine is not well-formed. OpenThunder verifies the implementation against this same model.',
+        roles: { engineer: `Lifecycle \`${lc.name}\`: ${f.message}` },
+      });
+    }
+  }
+  for (const e of ast.eventually || []) {
+    if (!e.within) d.push({
+      level: 'warning', code: 'IL-TEMP-001', severity: 'blocker', blocks: ['verification'],
+      message: `Eventually "${e.statement}" has no time bound.`,
+      why: 'An eventual guarantee with no "within" cannot be verified or alerted on; it may never complete.',
+      fix: [{ label: 'Add a bound (for example: within 2 minutes)' }],
     });
   }
 

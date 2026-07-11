@@ -122,6 +122,21 @@ function parseExperience(name, node) {
   return exp;
 }
 
+// Lifecycle state machine (intent-graph-v1 Gap 2).
+function parseLifecycle(name, node) {
+  const lc = { name, states: [], transitions: [], terminals: [], line: node.line };
+  for (const c of node.children.filter((x) => !isNote(x))) {
+    const k = firstWord(c.text); const a = rest(c.text);
+    if (k === 'state') lc.states.push(a);
+    else if (k === 'transition') {
+      const kv = {};
+      for (const ch of c.children.filter((x) => !isNote(x))) kv[firstWord(ch.text)] = rest(ch.text);
+      lc.transitions.push({ name: a || null, from: kv.from || null, to: kv.to || null, within: kv.within || null });
+    } else if (k === 'terminal') lc.terminals.push(...a.split(',').map((s) => s.trim()).filter(Boolean));
+  }
+  return lc;
+}
+
 // Reusable experience pattern (Section 7.3).
 function parsePattern(name, node) {
   const p = { name, requires: [], accessible: [], line: node.line };
@@ -200,6 +215,8 @@ export function parseIntent(source) {
     experiences: [], patterns: [],
     // Constraint composition + conflict resolution (Gap 1)
     roleConstraints: [], conflicts: [],
+    // Temporal + lifecycle semantics (Gap 2)
+    lifecycles: [], always: [], eventually: [], until: [],
     notes: [], diagnostics: [],
   };
   const missionNotes = [];
@@ -293,6 +310,22 @@ export function parseIntent(source) {
       }
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
+      case 'lifecycle': ast.lifecycles.push(parseLifecycle(arg, node)); break;
+      case 'always': ast.always.push(...leafItems(node)); break;
+      case 'eventually': {
+        const lines = leafItems(node);
+        const within = (lines.find((l) => /^within\b/i.test(l)) || '').replace(/^within\s+/i, '') || null;
+        const statement = lines.filter((l) => !/^within\b/i.test(l)).join(' ').trim();
+        ast.eventually.push({ statement, within, line: node.line });
+        break;
+      }
+      case 'until': {
+        const lines = leafItems(node);
+        const restrict = lines.find((l) => /^restrict\b/i.test(l)) || null;
+        const condition = lines.filter((l) => !/^restrict\b/i.test(l)).join(' ').trim();
+        ast.until.push({ condition, restrict: restrict ? restrict.replace(/^restrict\s+/i, '') : null, line: node.line });
+        break;
+      }
       case 'conflict': {
         const c = { name: arg, between: [], options: [], resolveBy: [], before: null, line: node.line };
         for (const ch of items(node)) {

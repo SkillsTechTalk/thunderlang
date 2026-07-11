@@ -193,6 +193,39 @@ type, status, owner, classification, and confidence. `intent build` emits it as
 `intent-graph.json`. This is what OpenThunder, Repo Mastery, and SkillsTech Studio
 consume; they do not re-parse `.intent`.
 
+## Temporal and lifecycle
+
+Behavior over time is first-class. Temporal primitives (`always`, `eventually ... within`,
+`never A before B`, `until C restrict X from Y`) and a formal **lifecycle** state machine:
+
+```
+lifecycle CertificationAttempt
+  state NotStarted
+  state InProgress
+  state Scored
+  transition Start
+    from NotStarted
+    to InProgress
+  transition Score
+    from InProgress
+    to Scored
+    within 30 seconds
+  terminal Scored
+
+eventually
+  Submitted becomes Scored
+  within 30 seconds
+```
+
+IntentLang builds the formal IR (states, typed transitions, initial state, reachable
+set) and statically checks the **declared model**: undefined-state references
+(`IL-LIFE-001`, an error), terminal states with outgoing transitions (`IL-LIFE-002`),
+unreachable states (`IL-LIFE-003`), and dead ends (`IL-LIFE-004`). An `eventually` with
+no time bound is `IL-TEMP-001`. The lifecycle becomes `Lifecycle` / `LifecycleState`
+nodes with `transitions_to` edges. OpenThunder verifies the **implemented reality**
+against this same IR and produces counterexample traces. See
+`examples/CertificationAttempt.intent`.
+
 ## Canonical schema (no forks)
 
 Every product must speak the same node types, relationship types, classifications, and

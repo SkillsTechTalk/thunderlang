@@ -478,8 +478,13 @@ Deferred (IL next slices , from the ecosystem gap-closure program):
       only emit canonical types. Consumers generate bindings from this instead of hand-recreating. 69/69.
       (Full separate npm packages `@skillstech/intent-schema/graph/diagnostics` are a later split; the
       canonical source + `intent schema` output serve as the binding source now.)
-- [ ] Gap 2 temporal/lifecycle, Gap 3 distributed/failure, Gap 4 decisions/rules, Gap 5 governance/waivers,
-      Gap 6 data-purpose/privacy , IL syntax + AST + adapters per §7-11.
+- [x] Gap 2 temporal/lifecycle , SHIPPED: `lifecycle` state machine (state/transition[from/to/within]/
+      terminal) + temporal primitives (always/eventually-within/never-before/until-restrict); formal IR
+      (`compiler/src/lifecycle.mjs` buildLifecycle: initial/reachable/adjacency) + static analysis
+      (IL-LIFE-001 undefined-state=error, 002 terminal-with-outgoing, 003 unreachable, 004 dead-end;
+      IL-TEMP-001 eventually-no-bound). Lifecycle/LifecycleState nodes + transitions_to. Example
+      CertificationAttempt.intent. 73/73 tests. OT verifies the implemented reality vs this IR.
+- [ ] Gap 3 distributed/failure, Gap 4 decisions/rules, Gap 5 governance/waivers, Gap 6 data-purpose/privacy.
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
 - [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).
 - [ ] Intent Graph <-> source round-trip (graph -> source) + schema migrations.

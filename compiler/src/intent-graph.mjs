@@ -5,6 +5,7 @@
 
 import { slug } from './parse.mjs';
 import { detectConflicts } from './conflict.mjs';
+import { buildLifecycle } from './lifecycle.mjs';
 
 export const INTENT_GRAPH_SCHEMA = 'intent-graph-v1';
 
@@ -124,6 +125,21 @@ export function buildIntentGraph(ast) {
     if (c.before) relationships.push(rel(id, 'blocks', `phase.${slug(c.before)}`));
     for (const r of c.resolveBy || []) relationships.push(rel(id, 'approved_by', `approval.${slug(ast.mission)}.${slug(r)}`));
   });
+
+  for (const raw of ast.lifecycles || []) {
+    const ir = buildLifecycle(raw);
+    const lId = `lifecycle.${slug(ir.name || 'lifecycle')}`;
+    nodes.push(node(lId, 'Lifecycle', ir.name, { description: `${ir.states.length} states, ${ir.transitions.length} transitions`, status: ir.initial ? 'defined' : 'draft' }));
+    relationships.push(rel(mId, 'represented_by', lId));
+    for (const s of ir.states) {
+      const sId = `lifecycle-state.${slug(ir.name)}.${slug(s)}`;
+      nodes.push(node(sId, 'LifecycleState', s, { status: ir.terminals.includes(s) ? 'verified' : 'defined' }));
+      relationships.push(rel(lId, 'requires', sId));
+    }
+    for (const t of ir.transitions) {
+      if (t.from && t.to) relationships.push(rel(`lifecycle-state.${slug(ir.name)}.${slug(t.from)}`, 'transitions_to', `lifecycle-state.${slug(ir.name)}.${slug(t.to)}`));
+    }
+  }
 
   const byType = {};
   for (const n of nodes) byType[n.type] = (byType[n.type] || 0) + 1;
