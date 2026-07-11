@@ -165,15 +165,29 @@ until re-verification.
 ## CLI (IntentLang)
 
 ```bash
-intent check                       # reports pending implementations, stale proofs, approvals
-intent ai list ./examples          # the manifest, per implementation + state
-intent ai generate <file.intent>   # provider-neutral prompt for an external agent (Path 1)
+intent check                          # reports pending implementations, stale proofs, approvals
+intent ai list ./examples             # the manifest, per implementation + state
+intent ai generate <file.intent>      # provider-neutral prompt for an external agent (Path 1)
+intent ai gate ./examples             # production gate: resolve real state, block if unshippable
+intent ai gate ./examples --allow-pending   # dev build: tolerate PENDING only
+intent ai adopt <targetFile> <id>     # rewrite an AI region to human-owned, preserving provenance
+intent build <file> --mode production # refuses to build while an AI implementation is unshippable
 ```
 
 `intent ai generate` produces a structured prompt (mission, contract, scope, allowed
 and forbidden targets, architecture rules, verification requirements, and the exact
-marker format) with **no AI required**. `verify`, `approve`, `reject`, and `adopt` are
-driven by OpenThunder and providers — see the workflow below.
+marker format) with **no AI required**.
+
+`intent ai gate` resolves each implementation's **real state** from three inputs — the
+declaration, the generated region (parsed from its markers), and the proof — then
+blocks unless every implementation ships (`APPROVED` / `ADOPTED`). `--allow-pending`
+forgives `PENDING` for a dev build but never `MODIFIED` / `INVALID` / missing approval.
+`intent build --mode production` applies the same gate before generating.
+
+`intent ai adopt` rewrites `<intent:ai-implementation>` to
+`<intent:implementation origin="ai" ownership="human">`, keeping the provenance while
+removing active AI management. `verify`, `approve`, and `reject` are driven by
+OpenThunder and providers — see the workflow below.
 
 ## Provider-neutral generation
 

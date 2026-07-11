@@ -5,6 +5,7 @@ import { semanticDiagnostics } from '../src/emit.mjs';
 import {
   IMPLEMENTATION_STATES, blocksProduction, parseMarkers, renderMarker,
   contractHash, implementationHash, buildManifest,
+  resolveState, productionGate, adoptRegion,
 } from '../src/ai.mjs';
 
 const FULL = [
@@ -116,4 +117,65 @@ test('buildManifest produces PENDING entries with derived approval', () => {
   // A high-risk impl with no explicit approval still defaults to required.
   const hr = parseIntent('mission H\ngoal\n  g\nimplement with ai\n  id: h\n  risk: critical\n');
   assert.equal(buildManifest([{ path: 'h.intent', source: '', ast: hr }]).implementations[0].approval, 'required');
+});
+
+// ── state resolution + production gate + adoption ───────────────────────────
+function region(ast) {
+  const { open, close } = renderMarker({ id: ast.implementation.id, mission: ast.mission, status: 'verified' }, 'typescript');
+  const code = [open, 'function f(){ return 1; }', close].join('\n');
+  return parseMarkers(code).regions[0];
+}
+
+test('resolveState walks the lifecycle', () => {
+  const ast = parseIntent(FULL);
+  const r = region(ast);
+  const validProof = { status: 'VERIFIED', contractHash: contractHash(ast), implementationHash: implementationHash(r.code) };
+
+  assert.equal(resolveState({ ast, region: null, proof: null }).status, 'PENDING');
+  assert.equal(resolveState({ ast, region: r, proof: null }).status, 'GENERATED');
+  // valid proof + approval required -> awaiting approval
+  assert.equal(resolveState({ ast, region: r, proof: validProof }).status, 'VERIFIED_AWAITING_APPROVAL');
+  // recorded approval matching the hashes -> APPROVED
+  assert.equal(resolveState({ ast, region: r, proof: validProof, approval: { contractHash: validProof.contractHash, implementationHash: validProof.implementationHash } }).status, 'APPROVED');
+  // contract changed since proof -> MODIFIED (stale)
+  assert.equal(resolveState({ ast, region: r, proof: { ...validProof, contractHash: 'sha256:old' } }).status, 'MODIFIED');
+  // implementation changed since proof -> MODIFIED (stale)
+  assert.equal(resolveState({ ast, region: r, proof: { ...validProof, implementationHash: 'sha256:old' } }).status, 'MODIFIED');
+});
+
+test('resolveState: no-approval impl verifies to VERIFIED; adopted region is ADOPTED', () => {
+  const ast = parseIntent('mission M\ngoal\n  g\nguarantees\n  x\nimplement with ai\n  id: m\n  risk: low\n');
+  const r = region(ast);
+  const proof = { status: 'VERIFIED', contractHash: contractHash(ast), implementationHash: implementationHash(r.code) };
+  assert.equal(resolveState({ ast, region: r, proof }).status, 'VERIFIED');
+
+  const adopted = adoptRegion([renderMarker({ id: 'm', mission: 'M', status: 'verified' }, 'typescript').open, 'code', renderMarker({ id: 'm' }, 'typescript').close].join('\n'), 'm');
+  const ar = parseMarkers(adopted.code).regions[0];
+  assert.equal(resolveState({ ast, region: ar, proof }).status, 'ADOPTED');
+});
+
+test('productionGate blocks unshippable states; --allow-pending tolerates PENDING only', () => {
+  const resolved = [
+    { id: 'a', status: 'APPROVED', approvalRequired: true },
+    { id: 'b', status: 'PENDING', approvalRequired: false },
+    { id: 'c', status: 'MODIFIED', approvalRequired: false },
+  ];
+  assert.equal(productionGate(resolved).ok, false);
+  assert.equal(productionGate(resolved).blocking.length, 2);
+  // allow-pending forgives PENDING but NOT MODIFIED
+  const dev = productionGate(resolved, { allowPending: true });
+  assert.equal(dev.ok, false);
+  assert.deepEqual(dev.blocking.map((r) => r.id), ['c']);
+  // all shippable -> ok
+  assert.equal(productionGate([{ id: 'a', status: 'APPROVED' }, { id: 'd', status: 'ADOPTED' }]).ok, true);
+});
+
+test('adoptRegion rewrites AI marker to human-owned, preserving provenance', () => {
+  const { open, close } = renderMarker({ id: 'x', mission: 'M', status: 'verified' }, 'typescript');
+  const code = [open, 'const y = 1;', close].join('\n');
+  const res = adoptRegion(code, 'x');
+  assert.ok(res);
+  assert.match(res.code, /<intent:implementation id="x" mission="M" origin="ai" ownership="human">/);
+  assert.match(res.code, /<\/intent:implementation>/);
+  assert.equal(adoptRegion(code, 'nope'), null); // unknown id
 });

@@ -189,6 +189,63 @@ export function buildImplementationPrompt(ast, { language = 'typescript' } = {})
   ].join('\n');
 }
 
+// ── State resolution (declaration + marker + proof -> actual state) ──────────
+// The heart of the lifecycle: given the contract, the generated region (if any),
+// and the proof (if any), compute the current state per the shared rules.
+export function resolveState({ ast, region = null, proof = null, approval = null }) {
+  const impl = ast.implementation || {};
+  const approvalRequired = !!impl.approval && impl.approval !== 'none';
+  const reasons = [];
+
+  if (region && region.token === ADOPTED_TOKEN) return { status: 'ADOPTED', approvalRequired, reasons };
+  if (region && region.attrs && region.attrs.status === 'rejected') return { status: 'REJECTED', approvalRequired, reasons };
+  if (!region) return { status: 'PENDING', approvalRequired, reasons: [{ code: 'INTENT-AI-501', message: 'No implementation region yet.' }] };
+  if (!proof) return { status: 'GENERATED', approvalRequired, reasons: [{ code: 'INTENT-AI-501', message: 'Generated but not verified.' }] };
+
+  const cH = contractHash(ast);
+  const iH = implementationHash(region.code || '');
+  if (proof.contractHash !== cH) { reasons.push({ code: 'INTENT-AI-503', message: 'Proof is stale: the contract changed.' }); return { status: 'MODIFIED', approvalRequired, reasons }; }
+  if (proof.implementationHash !== iH) { reasons.push({ code: 'INTENT-AI-504', message: 'Proof is stale: the implementation changed.' }); return { status: 'MODIFIED', approvalRequired, reasons }; }
+  if (proof.status === 'INVALID') return { status: 'INVALID', approvalRequired, reasons };
+
+  const approved = approval && approval.contractHash === cH && approval.implementationHash === iH;
+  if (approved) return { status: 'APPROVED', approvalRequired, reasons };
+  if (approvalRequired) return { status: 'VERIFIED_AWAITING_APPROVAL', approvalRequired, reasons: [{ code: 'INTENT-AI-502', message: 'Verified, but human approval is required.' }] };
+  return { status: 'VERIFIED', approvalRequired, reasons };
+}
+
+/**
+ * Production gate over resolved implementations. Blocks unless every implementation
+ * ships (APPROVED / ADOPTED). --allow-pending lets a dev build tolerate PENDING only.
+ */
+export function productionGate(resolved, { allowPending = false } = {}) {
+  const blocking = resolved.filter((r) => {
+    if (allowPending && r.status === 'PENDING') return false;
+    return blocksProduction(r.status, { approvalRequired: r.approvalRequired });
+  });
+  return { ok: blocking.length === 0, blocking, total: resolved.length };
+}
+
+// ── Adoption (AI-owned region -> human-owned) ────────────────────────────────
+/**
+ * Rewrite a managed region's markers from AI-managed to human-adopted, preserving
+ * provenance (origin="ai" ownership="human"). Returns { code, adopted } or null if
+ * the id is not found.
+ */
+export function adoptRegion(code, id, language = 'typescript') {
+  const { regions } = parseMarkers(code);
+  const region = regions.find((r) => r.id === id && r.token === OPEN_TOKEN);
+  if (!region) return null;
+  const lines = String(code).split('\n');
+  const { open, close } = renderMarker(
+    { id, mission: region.attrs.mission, origin: 'ai', ownership: 'human' },
+    language, { token: ADOPTED_TOKEN },
+  );
+  lines[region.startLine - 1] = open;   // 1-indexed marker lines
+  lines[region.endLine - 1] = close;
+  return { code: lines.join('\n'), adopted: id };
+}
+
 // ── Manifest (.intent/ai-implementations.json) ───────────────────────────────
 export const MANIFEST_SCHEMA_VERSION = '1.0';
 

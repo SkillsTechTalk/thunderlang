@@ -50,4 +50,5 @@ export {
   COMMENT_PREFIX, parseMarkers, renderMarker,
   contractHash, implementationHash,
   buildManifest, buildImplementationPrompt, MANIFEST_SCHEMA_VERSION,
+  resolveState, productionGate, adoptRegion,
 } from './ai.mjs';

@@ -149,3 +149,14 @@ export function buildManifest(
   implementations: Array<Record<string, unknown>>;
   summary: { total: number; byStatus: Record<string, number>; approvalRequired: number };
 };
+export interface ResolvedState { status: ImplementationState; approvalRequired: boolean; reasons: MarkerFinding[]; }
+export function resolveState(ctx: {
+  ast: IntentAst; region?: MarkerRegion | null;
+  proof?: { status?: string; contractHash?: string; implementationHash?: string } | null;
+  approval?: { contractHash?: string; implementationHash?: string } | null;
+}): ResolvedState;
+export function productionGate(
+  resolved: Array<{ id?: string; status: ImplementationState; approvalRequired?: boolean }>,
+  opts?: { allowPending?: boolean },
+): { ok: boolean; blocking: Array<{ id?: string; status: ImplementationState }>; total: number };
+export function adoptRegion(code: string, id: string, language?: string): { code: string; adopted: string } | null;

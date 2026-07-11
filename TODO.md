@@ -375,8 +375,12 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
 - [ ] Phase 3 ST/IDE: status indicators + generate/import/verify/approve/reject/regenerate/adopt actions.
 - [ ] Phase 4 RM: explanation/walkthrough/checklist/flashcards/quiz/explain-back/handoff + ownership.
 - [ ] Phase 5: multi-candidate + deterministic selection, mutation testing, org policies, signed proofs.
-- [ ] IL follow-ups: `intent ai adopt` (marker rewrite), `intent build --mode production` gate wiring,
-      shared event schemas (IntentAi*), architecture-block verification.
+- [x] IL follow-ups (SHIPPED): state resolver (`resolveState`: declaration + region + proof -> real state,
+      with stale-proof MODIFIED on hash mismatch), `productionGate` + `intent ai gate [--allow-pending]`,
+      `intent build --mode production` gate wiring, `intent ai adopt` (marker rewrite AI->human, provenance
+      preserved). Exported from the library. 38/38 tests.
+- [ ] IL follow-ups (remaining): shared event schemas (IntentAi*), `architecture` block verification,
+      `intent ai approve/reject` state recording (needs an approvals store).
 
 ## Operating checklist status (see docs/operating-checklist.md)
 

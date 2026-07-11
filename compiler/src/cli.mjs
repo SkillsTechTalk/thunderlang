@@ -12,7 +12,7 @@
 //
 // --no-ai is the default and only mode today; the flag is accepted for forward-compatibility.
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import { parseIntent, slug } from './parse.mjs';
 import {
@@ -24,7 +24,7 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
-import { buildManifest, buildImplementationPrompt } from './ai.mjs';
+import { buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers } from './ai.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -67,6 +67,8 @@ function parseArgs(argv) {
     else if (a === '--json') args.json = true;
     else if (a === '--targets') args.targets = (argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--product') args.product = argv[++i];
+    else if (a === '--allow-pending') args.allowPending = true;
+    else if (a === '--mode') args.mode = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -226,7 +228,43 @@ function main() {
       else console.log(prompt);
       return;
     }
-    console.error(`intent ai ${sub || ''}: MVP supports "list" and "generate" here (IL owns declare/list/manifest/hashing/prompt). verify/approve/adopt are OpenThunder- and provider-driven , see docs/ai-implementations.md.`);
+    if (sub === 'gate') {
+      // Production gate: resolve each implementation's real state (declaration + region + proof).
+      const root = target;
+      const parsed = collectIntents(root).map((f) => ({ file: f, ast: parseIntent(readFileSync(f, 'utf8')) }));
+      const manifest = buildManifest(parsed.map((p) => ({ path: relative(root, p.file), source: '', ast: p.ast })), { projectId: args.product });
+      const resolved = manifest.implementations.map((im) => {
+        const ast = parsed.find((p) => (p.ast.implementation?.id || slug(p.ast.mission || '')) === im.id)?.ast;
+        let region = null;
+        if (im.targetLocation) {
+          const tp = join(root, im.targetLocation);
+          if (existsSync(tp)) region = parseMarkers(readFileSync(tp, 'utf8')).regions.find((r) => r.id === im.id) || null;
+        }
+        const pf = join(root, im.proofLocation);
+        const proof = existsSync(pf) ? JSON.parse(readFileSync(pf, 'utf8')) : null;
+        const st = resolveState({ ast, region, proof });
+        return { id: im.id, status: st.status, approvalRequired: im.approval !== 'none', reasons: st.reasons };
+      });
+      const gate = productionGate(resolved, { allowPending: args.allowPending });
+      if (args.json) { console.log(JSON.stringify({ ...gate, mode: args.mode || 'production', resolved }, null, 2)); process.exit(gate.ok ? 0 : 1); return; }
+      console.log(`intent ai gate ${root} (${args.mode || 'production'}): ${gate.ok ? 'PASS' : 'BLOCKED'} , ${resolved.length} implementation(s)`);
+      for (const r of resolved) console.log(`  ${r.id.padEnd(28)} ${r.status}${r.reasons?.[0] ? ` , ${r.reasons[0].code}: ${r.reasons[0].message}` : ''}`);
+      if (!gate.ok) console.log(`  ${gate.blocking.length} implementation(s) block production. Use --allow-pending for dev builds.`);
+      process.exit(gate.ok ? 0 : 1);
+      return;
+    }
+    if (sub === 'adopt') {
+      // Rewrite an AI-managed region to human-owned, preserving provenance.
+      const file = args._[1]; const id = args._[2];
+      if (!file || !id) { console.error('usage: intent ai adopt <targetFile> <id> [--from <lang>]'); process.exit(2); return; }
+      const code = readFileSync(file, 'utf8');
+      const res = adoptRegion(code, id, args.from || languageForFile(file));
+      if (!res) { console.error(`intent ai adopt: no AI-managed region "${id}" in ${basename(file)}.`); process.exit(2); return; }
+      writeFileSync(file, res.code);
+      console.log(`intent ai adopt ${id} -> human-owned (origin="ai" ownership="human") in ${basename(file)}`);
+      return;
+    }
+    console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt. verify/approve are OpenThunder-/provider-driven , see docs/ai-implementations.md.`);
     process.exit(2);
     return;
   }
@@ -258,6 +296,22 @@ function main() {
   const generatedAt = new Date().toISOString();
   const diagnostics = semanticDiagnostics(ast);
   const outDir = join(args.out, slug(ast.mission || basename(file, '.intent')));
+
+  // Production gate: a build --mode production refuses to proceed while an AI
+  // implementation is not shippable. --allow-pending is for dev builds only.
+  if (cmd === 'build' && args.mode === 'production' && ast.implementation) {
+    const id = ast.implementation.id || slug(ast.mission || '');
+    const pf = join(args.out, 'proofs', `${id}.json`);
+    const proof = existsSync(pf) ? JSON.parse(readFileSync(pf, 'utf8')) : null;
+    const st = resolveState({ ast, region: null, proof });
+    const approvalRequired = !!ast.implementation.approval && ast.implementation.approval !== 'none';
+    const gate = productionGate([{ ...st, id, approvalRequired }], { allowPending: args.allowPending });
+    if (!gate.ok) {
+      const r = gate.blocking[0];
+      console.error(`INTENT-AI-501: production build blocked , implementation "${id}" is ${r.status}${r.reasons?.[0] ? ` (${r.reasons[0].code})` : ''}. Verify + approve, or use --allow-pending for a dev build.`);
+      process.exit(1);
+    }
+  }
 
   if (cmd === 'completions' || cmd === 'hover') {
     const [ln, coln] = (args.position || '1:1').split(':').map(Number);
