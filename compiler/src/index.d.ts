@@ -193,6 +193,18 @@ export function atlasNode(atlas: IntentAtlas, id: string): IntentGraphNode | nul
 export function expandNode(atlas: IntentAtlas, id: string): { node: IntentGraphNode; out: Array<{ rel: string; node: { id: string } }>; inbound: Array<{ rel: string; node: { id: string } }> } | null;
 export function searchAtlas(atlas: IntentAtlas, query: string, opts?: { type?: string; limit?: number }): IntentGraphNode[];
 
+// Semantic diff (by meaning; invalidated-approval detection)
+export interface IntentDiff {
+  schema: string;
+  addedNodes: IntentGraphNode[]; removedNodes: IntentGraphNode[];
+  changedNodes: Array<{ id: string; type: string; before: IntentGraphNode; after: IntentGraphNode }>;
+  addedRelationships: Array<{ from: string; type: string; to: string }>;
+  removedRelationships: Array<{ from: string; type: string; to: string }>;
+  invalidatedApprovals: string[];
+  summary: { added: number; removed: number; changed: number; addedByType: Record<string, number>; removedByType: Record<string, number>; relationshipsAdded: number; relationshipsRemoved: number; approvalsInvalidated: number };
+}
+export function diffGraphs(before: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string }> }, after: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string }> }): IntentDiff;
+
 // Classification model (intent-graph-v1 Section 5)
 export const CLASSIFICATIONS: string[];
 export const CONFIDENCE: string[];

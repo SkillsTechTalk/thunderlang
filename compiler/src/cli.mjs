@@ -27,6 +27,7 @@ import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
+import { diffGraphs } from './semantic-diff.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -353,6 +354,24 @@ function main() {
     }
     console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject | select. OpenThunder runs verification.`);
     process.exit(2);
+    return;
+  }
+
+  // Semantic diff: compare two snapshots (dirs or .intent files) by meaning.
+  if (cmd === 'diff') {
+    const b = args._[0]; const a = args._[1];
+    if (!b || !a) { console.error('usage: intent diff <before-dir|file> <after-dir|file> [--json]'); process.exit(2); return; }
+    const snap = (p) => {
+      if (statSync(p).isDirectory()) return buildAtlas(collectIntents(p).map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8')))));
+      return buildIntentGraph(parseIntent(readFileSync(p, 'utf8')));
+    };
+    const diff = diffGraphs(snap(b), snap(a));
+    if (args.json) { console.log(JSON.stringify(diff, null, 2)); return; }
+    console.log(`intent diff ${b} -> ${a}: +${diff.summary.added} / -${diff.summary.removed} / ~${diff.summary.changed} node(s), +${diff.summary.relationshipsAdded} / -${diff.summary.relationshipsRemoved} edge(s)`);
+    if (Object.keys(diff.summary.addedByType).length) console.log(`  added: ${JSON.stringify(diff.summary.addedByType)}`);
+    if (Object.keys(diff.summary.removedByType).length) console.log(`  removed: ${JSON.stringify(diff.summary.removedByType)}`);
+    for (const c of diff.changedNodes.slice(0, 8)) console.log(`  ~ ${c.type} ${c.id}`);
+    if (diff.invalidatedApprovals.length) console.log(`  approvals invalidated by the change: ${diff.invalidatedApprovals.join(', ')}`);
     return;
   }
 

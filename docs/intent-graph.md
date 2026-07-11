@@ -348,3 +348,19 @@ intent atlas ./examples --expand <node-id>  # a node + its inbound/outbound neig
 `mission-index-v1` (`intent index`). SkillsTech Studio renders the Atlas UX; OpenThunder
 surfaces findings (intent-with-no-impl, impl-with-no-intent) as Atlas nodes; Repo Mastery
 teaches through it. All consume this one Atlas, owned by IntentLang.
+
+## Semantic diff
+
+`intent diff` compares two snapshots (files or directories) by **meaning**, not text:
+
+```bash
+intent diff ./before ./after        # + / - / ~ nodes, + / - edges, by type
+```
+
+`diffGraphs` reports added / removed / changed nodes (a node "changed" when the same id
+has different content), added / removed relationships, and , the load-bearing feature ,
+**which approvals the change invalidates**: an approval is invalidated when its mission's
+contract (its `requires` / `constrained_by` / `targets` / `measured_by` nodes) changed. A
+note-only edit invalidates nothing. This is how "an intent change invalidates affected
+approvals" is enforced deterministically. SkillsTech Studio renders the Atlas diff and
+re-requests the invalidated approvals; OpenThunder keys drift on the same diff.
