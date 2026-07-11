@@ -247,6 +247,19 @@ export function buildIntentGraph(ast) {
     relationships.push(rel(id, 'derived_from', fromRelease ? `release.${slug(l.from)}` : mId));
   }
 
+  // ── Outcome contracts: executable commitments binding an outcome to a target ──
+  for (const c of ast.outcomeContracts || []) {
+    const id = `outcome-contract.${slug(c.name || 'contract')}`;
+    const desc = [c.baseline && `baseline ${c.baseline}`, c.target && `target ${c.target}`, `${c.direction || 'higher'} is better`, c.window && `window ${c.window}`].filter(Boolean).join('; ') || null;
+    nodes.push(node(id, 'OutcomeContract', c.name, { owner: c.owner || null, description: desc }));
+    relationships.push(rel(mId, 'requires', id));
+    // The contract targets the outcome it governs and is measured by its metric (when they resolve).
+    const outId = c.outcome ? `outcome.${slug(c.outcome)}` : null;
+    if (nodeIds.has(outId)) relationships.push(rel(id, 'targets', outId));
+    const metId = c.metric ? `metric.${slug(c.metric)}` : null;
+    if (nodeIds.has(metId)) relationships.push(rel(id, 'measured_by', metId));
+  }
+
   const byType = {};
   for (const n of nodes) byType[n.type] = (byType[n.type] || 0) + 1;
   return {

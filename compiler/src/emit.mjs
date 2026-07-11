@@ -12,6 +12,7 @@ import { analyzeLifecycle } from './lifecycle.mjs';
 import { analyzeDistributed } from './distributed.mjs';
 import { analyzeDecision } from './decision.mjs';
 import { analyzePrivacy } from './privacy.mjs';
+import { outcomeDiagnostics } from './outcome.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -403,6 +404,23 @@ export function semanticDiagnostics(ast) {
       severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['release'] : undefined,
       message: f.message, why: PRIVACY_WHY[f.code],
       roles: { product: f.message, engineer: f.message, legal: f.message },
+    });
+  }
+
+  // ── Outcome contracts , the commitment must be evaluable ──
+  const OUTCOME_WHY = {
+    'IL-OC-001': 'A contract with no target is a wish; give a target so the outcome can be judged met or missed.',
+    'IL-OC-002': 'Without a metric there is nothing to measure the outcome against.',
+    'IL-OC-003': 'A commitment with no measurement window cannot be evaluated after release.',
+    'IL-OC-004': 'The target is no better than the baseline, so meeting it proves no improvement.',
+  };
+  for (const f of outcomeDiagnostics(ast)) {
+    const isBlocker = f.severity === 'blocker';
+    d.push({
+      level: 'warning', code: f.code,
+      severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['release'] : undefined,
+      message: f.message, why: OUTCOME_WHY[f.code],
+      roles: { product: f.message },
     });
   }
 

@@ -337,6 +337,26 @@ export interface TestReport {
 }
 export function runTests(ast: IntentAst): TestReport;
 
+// Outcome contracts (executable commitments)
+export const OUTCOME_SCHEMA: string;
+export interface OutcomeEvaluation {
+  schema: string;
+  contract: string;
+  target: string | null;
+  actual: string | null;
+  baseline: string | null;
+  direction: "higher" | "lower";
+  met: boolean | null;
+  improvement: number | null;
+  comparable: boolean;
+  matchedResult?: string | null;
+  status?: "met" | "missed" | "pending";
+}
+export function parseValue(raw: unknown): { value: number | null; unit: string | null; raw: unknown };
+export function evaluateOutcomeContract(contract: Record<string, unknown>, actual: unknown): OutcomeEvaluation;
+export function evaluateOutcomes(ast: IntentAst): { schema: string; total: number; met: number; missed: number; pending: number; evaluations: OutcomeEvaluation[] };
+export function outcomeDiagnostics(ast: IntentAst): Array<{ code: string; contract: string; severity: string; message: string }>;
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];

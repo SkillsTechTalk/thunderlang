@@ -33,6 +33,7 @@ import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
+import { evaluateOutcomes } from './outcome.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -419,6 +420,22 @@ function main() {
       for (const t of r.trace) console.log(`  ${t.matched ? 'x' : ' '} ${t.rule || '(rule)'}${t.when ? `: when ${t.when}` : ''}${t.error ? `  !! ${t.error}` : ''}`);
     }
     process.exit(runs.some((r) => r.undecided || !r.ok) ? 1 : 0);
+    return;
+  }
+
+  // Outcome contracts: evaluate each commitment against the delivery result that measures it.
+  if (cmd === 'outcomes') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const r = evaluateOutcomes(ast);
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.missed > 0 ? 1 : 0); return; }
+    if (r.total === 0) { console.log(`intent outcomes ${basename(file)}: no outcome contracts found.`); return; }
+    console.log(`intent outcomes ${basename(file)}: ${r.met} met, ${r.missed} missed, ${r.pending} pending`);
+    for (const e of r.evaluations) {
+      const tag = e.status === 'met' ? 'MET   ' : e.status === 'missed' ? 'MISSED' : 'PENDING';
+      const detail = e.comparable ? `actual ${e.actual} vs target ${e.target} (${e.direction})${e.improvement != null ? `, ${e.improvement >= 0 ? '+' : ''}${e.improvement} vs baseline` : ''}` : `no measured result yet (target ${e.target})`;
+      console.log(`  ${tag}  ${e.contract}  , ${detail}`);
+    }
+    process.exit(r.missed > 0 ? 1 : 0);
     return;
   }
 

@@ -281,6 +281,8 @@ export function parseIntent(source) {
     components: [], artifacts: [],
     // Delivery profile , releases, outcome results, learnings
     releases: [], results: [], learnings: [],
+    // Outcome contracts , executable commitments binding an outcome to a target
+    outcomeContracts: [],
     // Tests , first-class cases that make a .intent file self-verifying
     tests: [],
     notes: [], diagnostics: [],
@@ -423,6 +425,23 @@ export function parseIntent(source) {
           else if (k === 'covers') art.covers.push(...(a ? [a] : leafItems(c)));
         }
         ast.artifacts.push(art);
+        break;
+      }
+      case 'outcome_contract': {
+        // An executable commitment: outcome achieved when its metric hits target within the
+        // window. `direction` (higher|lower, default higher) sets which way is "better".
+        const kv = kvChildren(node);
+        ast.outcomeContracts.push({
+          name: arg,
+          outcome: kv.outcome || null,
+          metric: kv.metric || null,
+          baseline: kv.baseline ? stripQuotes(kv.baseline) : null,
+          target: kv.target ? stripQuotes(kv.target) : null,
+          direction: /lower/i.test(kv.direction || '') ? 'lower' : 'higher',
+          window: kv.window || null,
+          owner: kv.owner || null,
+          line: node.line,
+        });
         break;
       }
       // ── Delivery profile ──

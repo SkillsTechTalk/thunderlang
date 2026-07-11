@@ -15,7 +15,7 @@ export const NODE_TYPES = [
   'Requirement', 'Constraint', 'Guarantee', 'Never', 'Conflict', 'Journey',
   'ExperienceContract', 'ExperienceState', 'Pattern', 'DesignArtifact', 'DesignComponent',
   'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
-  'VerificationResult', 'Approval', 'Release', 'OutcomeResult', 'LearningArtifact',
+  'VerificationResult', 'Approval', 'Release', 'OutcomeContract', 'OutcomeResult', 'LearningArtifact',
   'Unknown', 'Assumption', 'Question', 'Lifecycle', 'LifecycleState', 'Temporal',
   'Command', 'Event', 'FailureHandler', 'Decision', 'Rule',
 ];
@@ -105,4 +105,8 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-DATA-004', area: 'privacy', severity: 'warning', blocks: [], summary: 'Data has an unknown classification.' },
   { ruleId: 'IL-DATA-005', area: 'privacy', severity: 'warning', blocks: [], summary: 'Unrecognized lawful basis.' },
   { ruleId: 'IL-DATA-006', area: 'privacy', severity: 'warning', blocks: [], summary: 'Sensitive data exposed as output with no guard.' },
+  { ruleId: 'IL-OC-001', area: 'outcome', severity: 'blocker', blocks: ['release'], summary: 'Outcome contract has no target (cannot be evaluated).' },
+  { ruleId: 'IL-OC-002', area: 'outcome', severity: 'warning', blocks: [], summary: 'Outcome contract names no metric.' },
+  { ruleId: 'IL-OC-003', area: 'outcome', severity: 'blocker', blocks: ['release'], summary: 'Outcome contract has no measurement window.' },
+  { ruleId: 'IL-OC-004', area: 'outcome', severity: 'warning', blocks: [], summary: 'Outcome contract target is not better than its baseline.' },
 ];
