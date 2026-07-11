@@ -26,6 +26,7 @@ import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
+import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -78,6 +79,8 @@ function parseArgs(argv) {
     else if (a === '--mode') args.mode = argv[++i];
     else if (a === '--role') args.role = argv[++i];
     else if (a === '--note') args.note = argv[++i];
+    else if (a === '--search') args.search = argv[++i];
+    else if (a === '--expand') args.expand = argv[++i];
     else args._.push(a);
   }
   return args;
@@ -350,6 +353,35 @@ function main() {
     }
     console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject | select. OpenThunder runs verification.`);
     process.exit(2);
+    return;
+  }
+
+  // Intent Atlas: the navigable/searchable whole-system map over the Intent Graph.
+  if (cmd === 'atlas') {
+    const root = file || '.';
+    const graphs = collectIntents(root).map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8'))));
+    const atlas = buildAtlas(graphs, { product: args.product });
+    if (args.search) {
+      const hits = searchAtlas(atlas, args.search, { type: args.from });
+      if (args.json) { console.log(JSON.stringify(hits, null, 2)); return; }
+      console.log(`intent atlas search "${args.search}": ${hits.length} hit(s)`);
+      for (const h of hits) console.log(`  ${h.type.padEnd(18)} ${h.id}${h.title ? `  , ${h.title}` : ''}`);
+      return;
+    }
+    if (args.expand) {
+      const ex = expandNode(atlas, args.expand);
+      if (!ex) { console.error(`intent atlas: no node "${args.expand}".`); process.exit(2); return; }
+      if (args.json) { console.log(JSON.stringify(ex, null, 2)); return; }
+      console.log(`${ex.node.type} ${ex.node.id}${ex.node.title ? `  , ${ex.node.title}` : ''}`);
+      for (const e of ex.out) console.log(`  -> ${e.rel.padEnd(16)} ${e.node.id}`);
+      for (const e of ex.inbound) console.log(`  <- ${e.rel.padEnd(16)} ${e.node.id}`);
+      return;
+    }
+    if (args.json) { console.log(JSON.stringify(atlas, null, 2)); return; }
+    console.log(`intent atlas ${root}: ${atlas.overview.missions} mission(s), ${atlas.overview.nodes} node(s), ${atlas.overview.relationships} edge(s)`);
+    console.log(`  ${JSON.stringify(atlas.overview.byType)}`);
+    for (const m of atlas.missions) console.log(`  mission  ${m.id}${m.title ? `  , ${m.title}` : ''}`);
+    console.log('  expand a node: intent atlas . --expand <id> | search: --search <query>');
     return;
   }
 

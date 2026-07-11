@@ -52,6 +52,8 @@ export { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 
 // Canonical Intent Graph + classification (intent-graph-v1) , the shared cross-product model
 export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
+// Intent Atlas , the navigable/searchable whole-system map over the graph (directive #4)
+export { buildAtlas, atlasNode, expandNode, searchAtlas, ATLAS_SCHEMA } from './intent-atlas.mjs';
 export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_PHASES } from './classification.mjs';
 export { composeConstraints, detectConflicts } from './conflict.mjs';
 export { buildLifecycle, analyzeLifecycle } from './lifecycle.mjs';

@@ -493,6 +493,7 @@ Deferred (IL next slices , from the ecosystem gap-closure program):
       owner). `compiler/src/decision.mjs` analyzeDecision: IL-DEC-001 missing-default, 002 conflicting-rules
       (same when, diff return), 003 redundant-rules, 004 no-rules. Decision/Rule nodes. Example
       CertificationEligibility.intent. 84/84 tests. OT verifies rule coverage + impl match.
+- [x] Intent Atlas (directive #4) SHIPPED: buildAtlas/searchAtlas/expandNode over the graph; `intent atlas` (overview/search/expand); whole-system map over 26 example missions (132 nodes). Mission Atlas = mission-index-v1.
 - [ ] Gap 5 governance/waivers, Gap 6 data-purpose/privacy, then DMN/BPMN + model-check export adapters.
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
 - [ ] Interop adapters (JSON Schema, OpenAPI, Playwright, Mermaid, Design Tokens, Figma refs).

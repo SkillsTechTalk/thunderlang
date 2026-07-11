@@ -330,3 +330,21 @@ Status: IL Phase 1 slice 1 shipped (profiles, Product Mission, classification, t
 Intent Graph, role diagnostics). Experience Contracts, design-system mappings, outcome
 contracts, and the remaining profiles are the next IL slices; OT/RM/ST build to
 `intent-graph-v1` in their own repos.
+
+## Intent Atlas
+
+The **Intent Atlas** is the navigable, searchable map of a whole system, built over the
+Intent Graph, not a fork of it. Missions are the entry points (progressive disclosure:
+you never start from files or a 1000-node dump). Deterministic, no AI.
+
+```bash
+intent atlas ./examples                     # overview: missions + node-type counts
+intent atlas ./examples --search checkout   # exact + substring search (deterministic)
+intent atlas ./examples --expand <node-id>  # a node + its inbound/outbound neighbors
+```
+
+`buildAtlas` assembles many mission Intent Graphs into one; `searchAtlas` and
+`expandNode` are the navigation primitives. The per-mission focused map is
+`mission-index-v1` (`intent index`). SkillsTech Studio renders the Atlas UX; OpenThunder
+surfaces findings (intent-with-no-impl, impl-with-no-intent) as Atlas nodes; Repo Mastery
+teaches through it. All consume this one Atlas, owned by IntentLang.

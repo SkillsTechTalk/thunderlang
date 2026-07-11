@@ -179,6 +179,20 @@ export interface IntentGraph {
 }
 export function buildIntentGraph(ast: IntentAst): IntentGraph;
 
+// Intent Atlas (whole-system navigable map over the graph)
+export const ATLAS_SCHEMA: string;
+export interface IntentAtlas {
+  schema: string; product: string | null;
+  overview: { missions: number; nodes: number; relationships: number; byType: Record<string, number> };
+  missions: Array<{ id: string; title: string }>;
+  nodes: IntentGraphNode[];
+  relationships: Array<{ from: string; type: string; to: string }>;
+}
+export function buildAtlas(graphs: IntentGraph[], opts?: { product?: string }): IntentAtlas;
+export function atlasNode(atlas: IntentAtlas, id: string): IntentGraphNode | null;
+export function expandNode(atlas: IntentAtlas, id: string): { node: IntentGraphNode; out: Array<{ rel: string; node: { id: string } }>; inbound: Array<{ rel: string; node: { id: string } }> } | null;
+export function searchAtlas(atlas: IntentAtlas, query: string, opts?: { type?: string; limit?: number }): IntentGraphNode[];
+
 // Classification model (intent-graph-v1 Section 5)
 export const CLASSIFICATIONS: string[];
 export const CONFIDENCE: string[];
