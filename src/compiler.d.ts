@@ -111,3 +111,49 @@ declare module "*/compiler/src/compile.mjs" {
     opts?: { sourceFile?: string; generatedAt?: string },
   ): CompileResult;
 }
+
+declare module "*/compiler/src/parse.mjs" {
+  export function parseIntent(source: string): {
+    mission?: string | null;
+    decisions?: Array<{
+      name: string;
+      inputs: string[];
+      rules: Array<{ name: string | null; when: string | null; result: string | null }>;
+      default: string | null;
+      explanationRequired: boolean;
+    }>;
+    lifecycles?: Array<{
+      name: string;
+      states: string[];
+      transitions: Array<{ name: string | null; from: string | null; to: string | null }>;
+      terminals: string[];
+    }>;
+    [key: string]: unknown;
+  };
+  export function slug(s: string): string;
+}
+
+declare module "*/compiler/src/runtime.mjs" {
+  export interface DecisionRun {
+    schema: string;
+    decision: string;
+    result: string | null;
+    matched: string | null;
+    undecided: boolean;
+    explanationRequired: boolean;
+    trace: Array<{ rule: string | null; when: string | null; matched: boolean; error?: string; note?: string }>;
+    ok: boolean;
+  }
+  export interface LifecycleSim {
+    schema: string;
+    lifecycle: string;
+    path: string[];
+    steps: Array<{ event: string; from: string; to: string; ok: boolean; reason?: string; transition?: string | null }>;
+    finalState: string | null;
+    valid: boolean;
+    endedTerminal: boolean;
+  }
+  export function evaluateDecision(dec: unknown, inputs?: Record<string, unknown>): DecisionRun;
+  export function simulateLifecycle(lc: unknown, events?: string[]): LifecycleSim;
+  export function checkDecisionCases(dec: unknown, cases?: Array<{ name?: string; inputs?: Record<string, unknown>; expect?: unknown }>): { schema: string; decision: string; total: number; passed: number; results: unknown[] };
+}
