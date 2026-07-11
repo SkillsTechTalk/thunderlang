@@ -257,7 +257,7 @@ export function parseIntent(source) {
     services: [], apis: [], events: [], databases: [], architecture: [],
     implementation: null, selection: [],
     // Product / intent-graph profile (intent-graph-v1)
-    profiles: [], title: null, actor: null, problem: '',
+    profiles: [], title: null, actor: null, problem: '', persona: null, customer: null,
     evidence: [], outcomes: [], metrics: [],
     scope: { include: [], exclude: [] }, nonGoals: [],
     owner: null, approvals: [], unknowns: [], questions: [], assumptionDecls: [],
@@ -326,6 +326,8 @@ export function parseIntent(source) {
       case 'use': if (arg) ast.profiles.push(arg); break;
       case 'title': ast.title = stripQuotes(arg || leafItems(node).join(' ')); break;
       case 'for': ast.actor = arg || null; break;
+      case 'persona': ast.persona = arg || null; break;
+      case 'customer': ast.customer = arg || null; break;
       case 'problem': ast.problem = leafItems(node).map(stripQuotes).join(' ').trim(); break;
       case 'evidence': {
         const kv = kvChildren(node);
@@ -384,13 +386,19 @@ export function parseIntent(source) {
         break;
       }
       case 'conflict': {
-        const c = { name: arg, between: [], options: [], resolveBy: [], before: null, line: node.line };
+        const c = { name: arg, between: [], options: [], resolveBy: [], before: null, resolution: null, line: node.line };
         for (const ch of items(node)) {
           const k = firstWord(ch.text);
           if (k === 'between') c.between.push(...leafItems(ch));
           else if (k === 'options') c.options.push(...leafItems(ch));
           else if (k === 'resolve_by') c.resolveBy.push(...rest(ch.text).split(',').map((s) => s.trim()).filter(Boolean));
           else if (k === 'before') c.before = rest(ch.text) || null;
+          else if (k === 'resolution') {
+            // A human's recorded choice (Studio Conflict Workspace write-back).
+            const kv = {};
+            for (const g of ch.children.filter((x) => !isNote(x))) kv[firstWord(g.text)] = rest(g.text);
+            c.resolution = { chosen: kv.choose || rest(ch.text) || null, by: kv.by || null, at: kv.at || null, decision: kv.decision || null };
+          }
         }
         ast.conflicts.push(c);
         break;

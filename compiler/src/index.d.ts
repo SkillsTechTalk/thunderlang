@@ -24,6 +24,8 @@ export interface IntentAst {
   title: string | null;
   actor: string | null;
   problem: string;
+  persona: string | null;
+  customer: string | null;
   evidence: Array<{ name: string; classification: string | null; confidence: string | null; source: string | null; line: number }>;
   outcomes: Array<{ name: string; description: string | null; line: number }>;
   metrics: Array<{ name: string; baseline: string | null; target: string | null; window: string | null; line: number }>;
@@ -43,7 +45,7 @@ export interface IntentAst {
   }>;
   patterns: Array<{ name: string; requires: string[]; accessible: string[]; line: number }>;
   roleConstraints: Array<{ role: string; statement: string; line: number }>;
-  conflicts: Array<{ name: string; between: string[]; options: string[]; resolveBy: string[]; before: string | null; line: number }>;
+  conflicts: Array<{ name: string; between: string[]; options: string[]; resolveBy: string[]; before: string | null; resolution: null | { chosen: string | null; by: string | null; at: string | null; decision: string | null }; line: number }>;
   lifecycles: Array<{ name: string; states: string[]; transitions: Array<{ name: string | null; from: string | null; to: string | null; within: string | null }>; terminals: string[]; line: number }>;
   always: string[];
   eventually: Array<{ statement: string; within: string | null; line: number }>;

@@ -301,6 +301,7 @@ export function semanticDiagnostics(ast) {
 
   // ── Constraint conflicts (Gap 1) , the reconciliation layer ──
   for (const c of detectConflicts(ast)) {
+    if (c.type === 'declared' && c.status === 'resolved') continue; // a recorded human choice clears it
     if (c.type === 'declared') d.push({
       level: 'warning', code: 'IL-CONFLICT-001', severity: 'blocker', blocks: c.before ? [String(c.before).toLowerCase()] : ['implementation'],
       owners: c.resolveBy || [],

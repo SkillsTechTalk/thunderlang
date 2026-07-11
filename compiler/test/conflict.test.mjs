@@ -64,3 +64,26 @@ test('no conflicts -> empty (compatible constraints do not false-positive)', () 
   const c = detectConflicts(parseIntent('mission M\nproduct requires\n  fast checkout\nsecurity requires\n  strong auth\n'));
   assert.equal(c.length, 0);
 });
+
+test('persona/customer on Product Mission -> Persona nodes (ST ask #3)', async () => {
+  const { buildIntentGraph } = await import('../src/intent-graph.mjs');
+  const ast = parseIntent('use product\nmission M\nfor Learner\npersona BusyProfessional\ncustomer Enterprise\n');
+  assert.equal(ast.persona, 'BusyProfessional');
+  assert.equal(ast.customer, 'Enterprise');
+  const personas = buildIntentGraph(ast).nodes.filter((n) => n.type === 'Persona').map((n) => n.title);
+  assert.deepEqual(personas.sort(), ['BusyProfessional', 'Enterprise']);
+});
+
+test('conflict resolution write-back clears the blocker (ST ask #2)', () => {
+  const base = 'mission M\nconflict C\n  between\n    A\n    B\n  resolve_by Product\n  before Impl\n';
+  const unresolved = detectConflicts(parseIntent(base))[0];
+  assert.equal(unresolved.status, 'unresolved');
+  assert.ok(semanticDiagnostics(parseIntent(base)).some((d) => d.code === 'IL-CONFLICT-001'));
+
+  const resolved = parseIntent(base + '  resolution\n    choose authenticate after payment\n    by alice\n    at 2026-07-11\n');
+  const c = detectConflicts(resolved)[0];
+  assert.equal(c.status, 'resolved');
+  assert.equal(c.resolution.chosen, 'authenticate after payment');
+  assert.equal(c.resolution.by, 'alice');
+  assert.ok(!semanticDiagnostics(resolved).some((d) => d.code === 'IL-CONFLICT-001')); // cleared
+});

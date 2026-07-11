@@ -39,6 +39,13 @@ export function buildIntentGraph(ast) {
     owner: ast.owner || null,
     status: ast.approvals && ast.approvals.length ? 'approval-required' : 'draft',
   }));
+  // Persona / customer the mission serves (product profile).
+  for (const [kind, name] of [['persona', ast.persona], ['customer', ast.customer]]) {
+    if (!name) continue;
+    const id = `persona.${slug(name)}`;
+    nodes.push(node(id, 'Persona', name, { description: kind }));
+    relationships.push(rel(mId, 'addresses', id));
+  }
 
   for (const e of ast.evidence || []) {
     const id = `evidence.${slug(e.name || 'evidence')}`;
