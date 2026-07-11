@@ -60,20 +60,27 @@ export function buildIntentGraph(ast) {
   for (const m of ast.metrics || []) {
     const id = `metric.${slug(m.name || 'metric')}`;
     nodes.push(node(id, 'Metric', m.name, { description: [m.baseline && `baseline ${m.baseline}`, m.target && `target ${m.target}`, m.window && `window ${m.window}`].filter(Boolean).join('; ') || null }));
-    // Attach a metric to an outcome by name overlap, else to the mission.
-    const o = (ast.outcomes || []).find((x) => slug(x.name).includes(slug(m.name)) || slug(m.name).includes(slug(x.name)));
-    relationships.push(rel(o ? `outcome.${slug(o.name)}` : mId, 'measured_by', id));
+    // Attach a metric to an outcome by name overlap, else to the mission. Use the SAME id
+    // computation as the outcome node (with its 'outcome' fallback) so the edge never dangles.
+    const ms = slug(m.name || 'metric');
+    const o = (ast.outcomes || []).find((x) => { const xs = slug(x.name || 'outcome'); return xs.includes(ms) || ms.includes(xs); });
+    relationships.push(rel(o ? `outcome.${slug(o.name || 'outcome')}` : mId, 'measured_by', id));
   }
   (ast.requires || []).forEach((r, i) => {
     const id = `requirement.${slug(ast.mission)}.${i + 1}`;
     nodes.push(node(id, 'Requirement', r, { classification: 'observed' }));
     relationships.push(rel(mId, 'requires', id));
   });
+  const emittedVerifs = new Set();
   for (const g of ast.guarantees || []) {
     const id = `guarantee.${g.id || slug(g.statement)}`;
     nodes.push(node(id, 'Guarantee', g.statement, { status: g.verify && g.verify.length ? 'verify-declared' : 'unverified' }));
     relationships.push(rel(mId, 'requires', id));
-    for (const v of g.verify || []) relationships.push(rel(id, 'verified_by', `verification.${slug(v)}`));
+    for (const v of g.verify || []) {
+      const vid = `verification.${slug(v)}`;
+      if (!emittedVerifs.has(vid)) { nodes.push(node(vid, 'VerificationRule', v, { status: 'verify-declared' })); emittedVerifs.add(vid); }
+      relationships.push(rel(id, 'verified_by', vid));
+    }
   }
   for (const n of ast.neverRules || []) {
     const id = `never.${n.id || slug(n.statement)}`;
@@ -97,11 +104,13 @@ export function buildIntentGraph(ast) {
     nodes.push(node(id, 'Assumption', a.name, { classification: 'assumed', confidence: a.confidence, status: 'unvalidated' }));
     relationships.push(rel(mId, 'depends_on', id));
   }
+  const patternIds = new Set((ast.patterns || []).map((p) => `pattern.${slug(p.name || 'pattern')}`));
   for (const exp of ast.experiences || []) {
     const eId = `experience.${slug(exp.name || 'experience')}`;
     nodes.push(node(eId, 'ExperienceContract', exp.name, { description: exp.goal || null, owner: exp.actor || null }));
     relationships.push(rel(mId, 'represented_by', eId));
-    for (const p of exp.follows || []) relationships.push(rel(eId, 'derived_from', `pattern.${slug(p)}`));
+    // Only link to a pattern the mission actually declares (a `follows` ref may not resolve).
+    for (const p of exp.follows || []) { const t = `pattern.${slug(p)}`; if (patternIds.has(t)) relationships.push(rel(eId, 'derived_from', t)); }
     for (const j of exp.journeys || []) {
       const jId = `journey.${slug(exp.name)}.${slug(j.name || 'journey')}`;
       nodes.push(node(jId, 'Journey', j.name, { description: `${(j.steps || []).length} step(s)` }));
@@ -127,12 +136,21 @@ export function buildIntentGraph(ast) {
     nodes.push(node(id, 'Constraint', rc.statement, { owner: rc.role }));
     relationships.push(rel(mId, 'requires', id));
   });
+  // Conflict `between`/`resolveBy` entries are informational references that may or may not
+  // name an emitted node; only edge to targets that actually exist so nothing dangles.
+  const existingIds = new Set(nodes.map((n) => n.id));
   detectConflicts(ast).forEach((c, i) => {
     const id = `conflict.${slug(c.name || String(i + 1))}`;
     nodes.push(node(id, 'Conflict', c.name, { status: c.status, description: c.type }));
-    for (const b of c.between || []) relationships.push(rel(id, 'contradicts', `constraint.${slug(b)}`));
+    for (const b of c.between || []) {
+      const target = `constraint.${slug(b)}`;
+      if (existingIds.has(target)) relationships.push(rel(id, 'contradicts', target));
+    }
     if (c.before) relationships.push(rel(id, 'blocks', `phase.${slug(c.before)}`));
-    for (const r of c.resolveBy || []) relationships.push(rel(id, 'approved_by', `approval.${slug(ast.mission)}.${slug(r)}`));
+    for (const r of c.resolveBy || []) {
+      const target = `approval.${slug(ast.mission)}.${slug(r)}`;
+      if (existingIds.has(target)) relationships.push(rel(id, 'approved_by', target));
+    }
   });
 
   for (const raw of ast.lifecycles || []) {
