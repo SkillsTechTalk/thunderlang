@@ -193,6 +193,23 @@ type, status, owner, classification, and confidence. `intent build` emits it as
 `intent-graph.json`. This is what OpenThunder, Repo Mastery, and SkillsTech Studio
 consume; they do not re-parse `.intent`.
 
+## Canonical schema (no forks)
+
+Every product must speak the same node types, relationship types, classifications, and
+diagnostic rule IDs. IntentLang owns and versions the canonical schema, and consumers
+**generate bindings from it** rather than hand-recreating enums:
+
+```bash
+intent schema            # emits the JSON Schema + node/relationship/classification enums + rule catalog
+```
+
+`intent schema` outputs a draft-07 JSON Schema (`$id`
+`https://intentlanguage.dev/schema/intent-graph-v1.json`), the canonical `NODE_TYPES`
+(30) and `RELATIONSHIP_TYPES` (19), and the `DIAGNOSTIC_RULES` catalog with stable IDs.
+The compiler is tested so that `buildIntentGraph` can only emit node and relationship
+types that exist in this schema, so OpenThunder, Repo Mastery, and SkillsTech Studio can
+rely on it without drift.
+
 ## Role-aware diagnostics
 
 Diagnostics render per role. The same finding reads differently for a PM vs an engineer,

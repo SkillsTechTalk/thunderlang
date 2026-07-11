@@ -54,6 +54,10 @@ export { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
 export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_PHASES } from './classification.mjs';
 export { composeConstraints, detectConflicts } from './conflict.mjs';
+export {
+  SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
+  intentGraphJsonSchema, DIAGNOSTIC_RULES,
+} from './intent-schema.mjs';
 
 // Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest
 export {

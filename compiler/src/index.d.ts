@@ -183,6 +183,14 @@ export interface DetectedConflict { type: 'declared' | 'scope-contradiction' | '
 export function composeConstraints(ast: IntentAst): { total: number; byRole: Record<string, string[]> };
 export function detectConflicts(ast: IntentAst): DetectedConflict[];
 
+// Canonical schema (consumers generate bindings from this)
+export const SCHEMA_VERSION: string;
+export const NODE_TYPES: string[];
+export const RELATIONSHIP_TYPES: string[];
+export const NODE_STATUSES: string[];
+export function intentGraphJsonSchema(): Record<string, unknown>;
+export const DIAGNOSTIC_RULES: Array<{ ruleId: string; area: string; severity: string; blocks: string[]; summary: string }>;
+
 // Deterministic candidate selection
 export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }
 export function parseSelection(lines: string[]): SelectionPolicy;

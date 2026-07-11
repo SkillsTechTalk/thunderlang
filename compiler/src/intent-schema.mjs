@@ -1,0 +1,96 @@
+// Canonical Intent Graph schema (intent-graph-v1) , the single source consumers
+// generate bindings from, so nobody hand-recreates node types / relationship types /
+// enums / diagnostics (gap-closure program non-negotiable #1). Pure (no Node deps).
+//
+// IL owns + versions this. OT/RM/ST/STW import these enums + the JSON Schema instead
+// of maintaining their own copies. `intent schema` emits the JSON Schema.
+
+import { CLASSIFICATIONS, CONFIDENCE } from './classification.mjs';
+
+export const SCHEMA_VERSION = 'intent-graph-v1';
+
+// Canonical node types (superset; Phase-1 emits a subset).
+export const NODE_TYPES = [
+  'Mission', 'Actor', 'Persona', 'Evidence', 'Opportunity', 'Outcome', 'Metric',
+  'Requirement', 'Constraint', 'Guarantee', 'Never', 'Conflict', 'Journey',
+  'ExperienceContract', 'ExperienceState', 'Pattern', 'DesignArtifact', 'DesignComponent',
+  'Decision', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
+  'VerificationResult', 'Approval', 'Release', 'OutcomeResult', 'LearningArtifact',
+  'Unknown', 'Assumption', 'Question',
+];
+
+// Canonical relationship types.
+export const RELATIONSHIP_TYPES = [
+  'supported_by', 'derived_from', 'addresses', 'targets', 'measured_by', 'requires',
+  'constrained_by', 'implemented_by', 'represented_by', 'verified_by', 'approved_by',
+  'released_in', 'resulted_in', 'contradicts', 'supersedes', 'depends_on', 'blocks',
+  'teaches', 'generated_from',
+];
+
+export const NODE_STATUSES = [
+  'draft', 'proposed', 'approval-required', 'unresolved', 'unvalidated', 'open',
+  'required', 'verify-declared', 'unverified', 'verified', 'recoverable', 'defined', 'redundant',
+];
+
+/** The canonical JSON Schema (draft-07) for an intent-graph-v1 document. */
+export function intentGraphJsonSchema() {
+  return {
+    $schema: 'http://json-schema.org/draft-07/schema#',
+    $id: `https://intentlanguage.dev/schema/${SCHEMA_VERSION}.json`,
+    title: 'Intent Graph',
+    type: 'object',
+    required: ['schema', 'missionId', 'nodes', 'relationships'],
+    properties: {
+      schema: { const: SCHEMA_VERSION },
+      missionId: { type: 'string' },
+      nodes: { type: 'array', items: { $ref: '#/definitions/node' } },
+      relationships: { type: 'array', items: { $ref: '#/definitions/relationship' } },
+      summary: { type: 'object' },
+    },
+    definitions: {
+      node: {
+        type: 'object',
+        required: ['id', 'type'],
+        properties: {
+          id: { type: 'string' },
+          type: { enum: NODE_TYPES },
+          title: { type: ['string', 'null'] },
+          description: { type: ['string', 'null'] },
+          status: { type: ['string', 'null'] },
+          owner: { type: ['string', 'null'] },
+          classification: { type: ['string', 'null'], enum: [...CLASSIFICATIONS, null] },
+          confidence: { type: ['string', 'null'], enum: [...CONFIDENCE, null] },
+          source: { type: ['string', 'null'] },
+          tags: { type: 'array', items: { type: 'string' } },
+          createdTime: { type: ['string', 'null'] },
+          updatedTime: { type: ['string', 'null'] },
+        },
+      },
+      relationship: {
+        type: 'object',
+        required: ['from', 'type', 'to'],
+        properties: {
+          from: { type: 'string' },
+          type: { enum: RELATIONSHIP_TYPES },
+          to: { type: 'string' },
+        },
+      },
+    },
+  };
+}
+
+// Canonical diagnostic-rule catalog , stable IDs so every product uses the same ones.
+export const DIAGNOSTIC_RULES = [
+  { ruleId: 'IL-PM-001', area: 'product', severity: 'warning', blocks: ['release'], summary: 'Metric has no measurement window.' },
+  { ruleId: 'IL-PM-003', area: 'product', severity: 'warning', blocks: [], summary: 'Outcome has no metric.' },
+  { ruleId: 'IL-EV-001', area: 'evidence', severity: 'info', blocks: [], summary: 'Evidence has no classification.' },
+  { ruleId: 'IL-EV-002', area: 'evidence', severity: 'warning', blocks: [], summary: 'Evidence has an unknown classification.' },
+  { ruleId: 'IL-GRAPH-010', area: 'graph', severity: 'blocker', blocks: ['<declared-phase>'], summary: 'Unresolved unknown blocks a phase.' },
+  { ruleId: 'IL-GRAPH-011', area: 'graph', severity: 'blocker', blocks: ['<declared-phase>'], summary: 'Open question blocks a phase.' },
+  { ruleId: 'IL-EXP-001', area: 'experience', severity: 'info', blocks: [], summary: 'Experience declares no states.' },
+  { ruleId: 'IL-EXP-004', area: 'experience', severity: 'blocker', blocks: ['experience-approval', 'release'], summary: 'Failure state has no recovery path.' },
+  { ruleId: 'IL-CONFLICT-001', area: 'conflict', severity: 'blocker', blocks: ['<declared-phase>'], summary: 'Declared conflict is unresolved.' },
+  { ruleId: 'IL-CONFLICT-010', area: 'conflict', severity: 'blocker', blocks: ['implementation'], summary: 'Scope includes and excludes the same item.' },
+  { ruleId: 'IL-CONFLICT-011', area: 'conflict', severity: 'info', blocks: [], summary: 'Redundant constraint from multiple roles.' },
+  { ruleId: 'IL-CONFLICT-012', area: 'conflict', severity: 'blocker', blocks: ['implementation'], summary: 'Directly contradictory constraints.' },
+];

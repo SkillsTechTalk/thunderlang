@@ -26,6 +26,8 @@ import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
+import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
+import { CLASSIFICATIONS } from './classification.mjs';
 import {
   buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers,
   contractHash, implementationHash, recordDecision, approvalFor, emptyApprovals, makeEvent,
@@ -114,8 +116,18 @@ function main() {
   const [cmd, ...restArgv] = process.argv.slice(2);
   const args = parseArgs(restArgv);
   const file = args._[0];
+  // `schema` takes no file (it emits the canonical Intent Graph schema).
+  if (cmd === 'schema') {
+    const out = {
+      schemaVersion: SCHEMA_VERSION, nodeTypes: NODE_TYPES, relationshipTypes: RELATIONSHIP_TYPES,
+      classifications: CLASSIFICATIONS, diagnostics: DIAGNOSTIC_RULES, jsonSchema: intentGraphJsonSchema(),
+    };
+    if (args.out && args.out !== '.intent') { const p = writeJson(args.out, 'intent-graph.schema.json', out); console.log(`wrote ${p.replace(process.cwd() + '/', '')}`); }
+    else console.log(JSON.stringify(out, null, 2));
+    return;
+  }
   if (!cmd || !file) {
-    console.error('usage: intent <check|graph|proof|build> <file.intent> [--out .intent] [--no-ai]');
+    console.error('usage: intent <check|graph|proof|build|index|ai|schema> <file.intent> [--out .intent] [--no-ai]');
     process.exit(2);
   }
   // IntentLift: lift source CODE into inferred .intent drafts (not intent parsing).

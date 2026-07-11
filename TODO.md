@@ -472,8 +472,12 @@ Phase 1 slice 3 (IL-owned , SHIPPED , Gap 1 / founder gap-closure program):
 
 Deferred (IL next slices , from the ecosystem gap-closure program):
 - [ ] Phase 0 audit + §28 repo report (largely done: intent-graph-v1 already covers the language moat).
-- [ ] Extract `@skillstech/intent-schema` / `intent-graph` / `intent-diagnostics` packages (non-negotiable
-      #1: nobody hand-recreates nodes/enums; generate bindings from the canonical schema).
+- [x] Canonical schema (non-negotiable #1, anti-fork) , `compiler/src/intent-schema.mjs`: canonical
+      NODE_TYPES (30) + RELATIONSHIP_TYPES (19) + NODE_STATUSES + a draft-07 `intentGraphJsonSchema()` +
+      DIAGNOSTIC_RULES catalog (stable IDs). `intent schema` emits it. Test enforces buildIntentGraph can
+      only emit canonical types. Consumers generate bindings from this instead of hand-recreating. 69/69.
+      (Full separate npm packages `@skillstech/intent-schema/graph/diagnostics` are a later split; the
+      canonical source + `intent schema` output serve as the binding source now.)
 - [ ] Gap 2 temporal/lifecycle, Gap 3 distributed/failure, Gap 4 decisions/rules, Gap 5 governance/waivers,
       Gap 6 data-purpose/privacy , IL syntax + AST + adapters per §7-11.
 - [ ] outcome_contract, design_system mappings, the remaining profiles (system/delivery keywords).
