@@ -282,6 +282,11 @@ export function toBPMN(ast: IntentAst): string;
 export function toSMV(ast: IntentAst): string;
 export function exportIntent(ast: IntentAst, format: string): { format: string; ext: string; content: string } | null;
 
+// Data-shape export: typed fields -> JSON Schema / OpenAPI
+export function typeToJsonSchema(type: string): Record<string, unknown>;
+export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
+export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
+
 // Import adapters (round-trip): external DMN / BPMN -> IntentLang source
 export const IMPORT_FORMATS: string[];
 export function fromDMN(xml: string): string;

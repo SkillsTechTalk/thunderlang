@@ -66,6 +66,8 @@ export { applyWaivers, governanceDiagnostics, GOVERNANCE_SCHEMA } from './govern
 export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } from './privacy.mjs';
 // Export adapters , decisions/lifecycles/temporal -> DMN / BPMN / NuSMV (interop)
 export { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
+// Data-shape export , typed fields -> JSON Schema / OpenAPI
+export { toJSONSchema, toOpenAPI, typeToJsonSchema } from './data-schema.mjs';
 // Import adapters , external DMN / BPMN -> IntentLang source (round-trip)
 export { fromDMN, fromBPMN, importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 // Graph -> source , regenerate .intent from an Intent Graph (native round-trip)
