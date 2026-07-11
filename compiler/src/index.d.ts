@@ -205,6 +205,16 @@ export interface IntentDiff {
 }
 export function diffGraphs(before: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string }> }, after: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string }> }): IntentDiff;
 
+// Three-way semantic merge
+export interface IntentMerge {
+  schema: string;
+  merged: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string }> };
+  conflicts: Array<{ id: string; type: string; base: IntentGraphNode | null; ours: IntentGraphNode | null; theirs: IntentGraphNode | null }>;
+  clean: boolean;
+  summary: { nodes: number; relationships: number; conflicts: number };
+}
+export function mergeGraphs(base: { nodes: IntentGraphNode[]; relationships: unknown[] }, ours: { nodes: IntentGraphNode[]; relationships: unknown[] }, theirs: { nodes: IntentGraphNode[]; relationships: unknown[] }): IntentMerge;
+
 // Classification model (intent-graph-v1 Section 5)
 export const CLASSIFICATIONS: string[];
 export const CONFIDENCE: string[];

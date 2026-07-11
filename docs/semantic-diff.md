@@ -48,7 +48,44 @@ The semantic-diff block in
 `examples/mvp-customer-portal/intent-session-summary.json` shows the shape for the
 customer portal's first session.
 
-## Where it comes from (planned)
+## Semantic Merge
 
-`intent diff ./intent --since HEAD~1` is a **planned** command owned by the
-SkillsTech Compiler. This repo teaches the concept and ships the example fixture.
+If a diff answers "what changed?", a **merge** answers "how do two concurrent
+changes combine?" When two people edit the same Atlas at the same time (a PM
+sharpens a guarantee while a designer adds an experience state), a line-based merge
+sees overlapping text and reports a conflict on characters. A semantic merge reasons
+over the Intent Graph instead: it merges by node identity and by meaning.
+
+`mergeGraphs(base, ours, theirs)` is a deterministic three-way merge:
+
+- A node changed on **only one side** is taken automatically.
+- A node changed the **same way on both sides** is taken once (no false conflict).
+- A node changed **differently on each side** is a real **conflict**: the result
+  records `{ id, base, ours, theirs }` and keeps `ours` provisionally so the merged
+  graph is always usable.
+- Relationships merge by presence: whichever side added or removed an edge relative
+  to the base wins.
+
+Because identity is the stable node id and equality is content (timestamps ignored),
+the merge is order-independent and reproducible: the same three inputs always produce
+the same merged graph and the same conflict set. That determinism is what lets a
+collaborative Atlas editor auto-merge the safe majority of concurrent edits and
+surface only the genuine intent conflicts for a human to resolve.
+
+```
+intent merge <base> <ours> <theirs>
+  intent merge: CONFLICTS , 58 node(s), 1 conflict(s)
+    conflict: Guarantee guarantee.pay.amount-never-negative (changed differently on both sides)
+```
+
+Each argument is a mission file or a directory of missions (merged as an Atlas). The
+command exits `0` when the merge is clean and `1` when conflicts remain, so it drops
+into CI the same way `intent diff` does. `--json` emits the full merge result,
+including the merged graph and the structured conflict list.
+
+## Where it comes from
+
+`diffGraphs` / `mergeGraphs` and the `intent diff` / `intent merge` commands are
+owned by the SkillsTech Compiler (`@skillstech/intentlang`). This repo teaches the
+concepts, ships the example fixture, and exposes both from the library and CLI.
+`intent diff ./intent --since HEAD~1` (git-range diffing) remains **planned**.

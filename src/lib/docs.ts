@@ -68,7 +68,7 @@ const DOC_BLURBS: Record<string, string> = {
   "large-changes": "The hub for navigating many missions. Links every scaling concept.",
   "mission-chains": "Connected missions that form one end-to-end flow.",
   "build-session-digest": "What changed this session, expressed in intent.",
-  "semantic-diff": "A diff by meaning: guarantees, never rules, and proof.",
+  "semantic-diff": "A diff by meaning, plus a deterministic three-way semantic merge.",
   "proof-matrix": "Verification status across many missions, at a glance.",
   "risk-radar": "Which missions to review first, ranked by risk.",
   "mvp-readiness": "demo_safe to production_ready: can this ship, and what blocks it.",

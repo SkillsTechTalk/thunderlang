@@ -165,6 +165,24 @@ export function buildImplementationPrompt(ast, { language = 'typescript' } = {})
   ].join('\n');
 }
 
+// ── Candidate import + scope validation ─────────────────────────────────────
+/**
+ * Validate an imported candidate against the permitted scope of one implementation.
+ * A candidate may contain ONLY the region for `id`; a region for any other id is a
+ * scope escape (INTENT-AI-505). Reuses the marker parser's integrity findings.
+ * Returns { ok, findings, region }.
+ */
+export function validateCandidate(code, id) {
+  const { regions, findings } = parseMarkers(code);
+  const out = [...findings];
+  const own = regions.filter((r) => r.id === id);
+  const foreign = regions.filter((r) => r.id && r.id !== id);
+  if (own.length === 0) out.push({ code: 'INTENT-AI-103', line: 1, message: `Candidate has no managed region "${id}".` });
+  if (own.length > 1) out.push({ code: 'INTENT-AI-102', line: own[1]?.startLine ?? 1, message: `Candidate has duplicate region "${id}".` });
+  for (const f of foreign) out.push({ code: 'INTENT-AI-505', line: f.startLine, message: `Candidate modifies region "${f.id}", outside the permitted scope of "${id}".` });
+  return { ok: out.length === 0 && own.length === 1, findings: out, region: own[0] || null };
+}
+
 // ── State resolution (declaration + marker + proof -> actual state) ──────────
 // The heart of the lifecycle: given the contract, the generated region (if any),
 // and the proof (if any), compute the current state per the shared rules.

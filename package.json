@@ -4,9 +4,9 @@
   "private": true,
   "description": "Official website for Intent — the Intent-Oriented Programming language by SkillsTech.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 5187",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 5187",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "intent:check": "node scripts/intent-check.mjs",

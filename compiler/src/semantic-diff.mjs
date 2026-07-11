@@ -56,6 +56,7 @@ export function diffGraphs(before, after) {
   }
 
   const byType = (arr) => arr.reduce((m, n) => ((m[n.type] = (m[n.type] || 0) + 1), m), {});
+  void relKey; // (used by mergeGraphs below)
   return {
     schema: 'intent-diff-v1',
     addedNodes, removedNodes, changedNodes,
@@ -67,5 +68,58 @@ export function diffGraphs(before, after) {
       relationshipsAdded: addedRelationships.length, relationshipsRemoved: removedRelationships.length,
       approvalsInvalidated: [...new Set(invalidatedApprovals)].length,
     },
+  };
+}
+
+/**
+ * Three-way semantic merge over the Intent Graph. Given a common `base` and two
+ * concurrent versions `ours` / `theirs`, produce the merged graph and the list of
+ * CONFLICTS (the same node changed differently on both sides). Deterministic; the side
+ * that changed a node from base wins; if both changed it differently, it is a conflict
+ * (merged keeps `ours` provisionally). Node identity is the stable id; equality is content.
+ */
+export function mergeGraphs(base, ours, theirs) {
+  const key = (n) => (n ? contentKey(n) : 'MISSING');
+  const bN = new Map((base?.nodes || []).map((n) => [n.id, n]));
+  const oN = new Map((ours?.nodes || []).map((n) => [n.id, n]));
+  const tN = new Map((theirs?.nodes || []).map((n) => [n.id, n]));
+
+  const ids = [...new Set([...bN.keys(), ...oN.keys(), ...tN.keys()])].sort();
+  const merged = new Map();
+  const conflicts = [];
+  for (const id of ids) {
+    const b = bN.get(id) || null;
+    const o = oN.get(id) || null;
+    const t = tN.get(id) || null;
+    const oChanged = key(o) !== key(b);
+    const tChanged = key(t) !== key(b);
+    if (!oChanged && !tChanged) { if (b) merged.set(id, b); continue; }        // untouched (or both removed)
+    if (oChanged && !tChanged) { if (o) merged.set(id, o); continue; }         // only ours
+    if (!oChanged && tChanged) { if (t) merged.set(id, t); continue; }         // only theirs
+    if (key(o) === key(t)) { if (o) merged.set(id, o); continue; }             // both made the same change
+    conflicts.push({ id, type: (o || t || b).type, base: b, ours: o, theirs: t }); // both changed differently
+    if (o) merged.set(id, o); else if (t) merged.set(id, t);                   // keep ours provisionally
+  }
+
+  // Relationships (presence booleans): whoever changed presence from base wins.
+  const bR = new Set((base?.relationships || []).map(relKey));
+  const oR = new Set((ours?.relationships || []).map(relKey));
+  const tR = new Set((theirs?.relationships || []).map(relKey));
+  const byKey = new Map();
+  for (const r of [...(ours?.relationships || []), ...(theirs?.relationships || []), ...(base?.relationships || [])]) byKey.set(relKey(r), r);
+  const mergedRels = [];
+  for (const [k, r] of byKey) {
+    const inB = bR.has(k), inO = oR.has(k), inT = tR.has(k);
+    const present = inO !== inB ? inO : inT; // ours changed presence -> ours; else theirs
+    if (present) mergedRels.push(r);
+  }
+  mergedRels.sort((a, b2) => relKey(a).localeCompare(relKey(b2)));
+
+  return {
+    schema: 'intent-merge-v1',
+    merged: { nodes: [...merged.values()].sort((a, b2) => a.id.localeCompare(b2.id)), relationships: mergedRels },
+    conflicts: conflicts.sort((a, b2) => a.id.localeCompare(b2.id)),
+    clean: conflicts.length === 0,
+    summary: { nodes: merged.size, relationships: mergedRels.length, conflicts: conflicts.length },
   };
 }

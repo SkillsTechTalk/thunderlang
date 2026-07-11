@@ -27,7 +27,7 @@ import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
-import { diffGraphs } from './semantic-diff.mjs';
+import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -372,6 +372,21 @@ function main() {
     if (Object.keys(diff.summary.removedByType).length) console.log(`  removed: ${JSON.stringify(diff.summary.removedByType)}`);
     for (const c of diff.changedNodes.slice(0, 8)) console.log(`  ~ ${c.type} ${c.id}`);
     if (diff.invalidatedApprovals.length) console.log(`  approvals invalidated by the change: ${diff.invalidatedApprovals.join(', ')}`);
+    return;
+  }
+
+  // Semantic merge: 3-way merge of two concurrent Intent versions over a common base.
+  if (cmd === 'merge') {
+    const [bp, op, tp] = [args._[0], args._[1], args._[2]];
+    if (!bp || !op || !tp) { console.error('usage: intent merge <base> <ours> <theirs> [--json]'); process.exit(2); return; }
+    const snap = (p) => statSync(p).isDirectory()
+      ? buildAtlas(collectIntents(p).map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8')))))
+      : buildIntentGraph(parseIntent(readFileSync(p, 'utf8')));
+    const res = mergeGraphs(snap(bp), snap(op), snap(tp));
+    if (args.json) { console.log(JSON.stringify(res, null, 2)); process.exit(res.clean ? 0 : 1); return; }
+    console.log(`intent merge: ${res.clean ? 'CLEAN' : 'CONFLICTS'} , ${res.summary.nodes} node(s), ${res.summary.conflicts} conflict(s)`);
+    for (const c of res.conflicts) console.log(`  conflict: ${c.type} ${c.id} (changed differently on both sides)`);
+    process.exit(res.clean ? 0 : 1);
     return;
   }
 
