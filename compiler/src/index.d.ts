@@ -294,6 +294,10 @@ export function findAll(node: XmlNode, localName: string): XmlNode[];
 export function find(node: XmlNode, localName: string): XmlNode | null;
 export function localName(name: string): string;
 
+// Graph -> source (native round-trip)
+export const GRAPH_SOURCE_SCHEMA: string;
+export function graphToSource(graph: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string; name?: string | null; within?: string | null }> }): string;
+
 // Intent Runtime: executable intent (no AI)
 export const RUNTIME_SCHEMA: string;
 export interface DecisionRun {

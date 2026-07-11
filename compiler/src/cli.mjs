@@ -34,6 +34,7 @@ import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
+import { graphToSource } from './graph-source.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
@@ -469,6 +470,27 @@ function main() {
       for (const st of s.steps) console.log(`  ${st.ok ? 'ok ' : 'X  '} ${st.from} --${st.event}--> ${st.to}${st.reason ? `  (${st.reason})` : ''}`);
     }
     process.exit(sims.some((s) => !s.valid) ? 1 : 0);
+    return;
+  }
+
+  // Graph -> source: regenerate .intent from an Intent Graph (a graph JSON, or an .intent
+  // file which is parsed + built first , a normalizing round-trip).
+  if (cmd === 'source') {
+    const raw = readFileSync(file, 'utf8');
+    let graph;
+    if (file.endsWith('.json')) {
+      try { graph = JSON.parse(raw); } catch { console.error('intent source: input .json is not valid JSON'); process.exit(2); return; }
+      if (!graph || !Array.isArray(graph.nodes)) { console.error('intent source: JSON is not an Intent Graph (no nodes[])'); process.exit(2); return; }
+    } else {
+      graph = buildIntentGraph(parseIntent(raw));
+    }
+    const src = graphToSource(graph);
+    if (args.out && args.out !== '.intent') {
+      const base = (graph.nodes.find((n) => n.type === 'Mission')?.title) || basename(file).replace(/\.[^.]+$/, '');
+      console.log(`intent source: wrote ${writeText(args.out, `${slug(base)}.intent`, src)}`);
+    } else {
+      process.stdout.write(src);
+    }
     return;
   }
 

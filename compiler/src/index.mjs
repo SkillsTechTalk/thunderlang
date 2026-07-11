@@ -68,6 +68,8 @@ export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } fr
 export { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 // Import adapters , external DMN / BPMN -> IntentLang source (round-trip)
 export { fromDMN, fromBPMN, importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
+// Graph -> source , regenerate .intent from an Intent Graph (native round-trip)
+export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
 export { parseXml, findAll, find, localName } from './xml.mjs';
 // Intent Runtime , EXECUTABLE intent: evaluate decisions, simulate lifecycles (no AI)
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
