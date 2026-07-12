@@ -156,6 +156,7 @@ Interop
   import <file> [--format dmn|bpmn] [--json]                 lift DMN/BPMN into intent
   source <file|graph.json>                                   regenerate .intent from a graph
   migrate <graph.json> [--to <version>]                      upgrade a persisted graph
+  validate <graph.json> [--json]                             check a graph is canonical (anti-fork)
 
 Navigate & compare (over many missions)
   atlas <dir> [--search q | --expand id]   the whole-system Atlas
@@ -518,6 +519,20 @@ function main() {
 
   // Schema migration: upgrade a persisted Intent Graph JSON to the current (or a target)
   // schema version, then validate the result against the canonical vocabulary.
+  // Validate an Intent Graph against the canonical vocabulary (consumer anti-fork self-check).
+  if (cmd === 'validate') {
+    const raw = readFileSync(file, 'utf8');
+    let graph;
+    try { graph = JSON.parse(raw); } catch { console.error('intent validate: input is not valid JSON'); process.exit(2); return; }
+    if (!graph || !Array.isArray(graph.nodes)) { console.error('intent validate: not an Intent Graph (no nodes[])'); process.exit(2); return; }
+    const v = validateGraph(graph);
+    if (args.json) { console.log(JSON.stringify(v, null, 2)); process.exit(v.valid ? 0 : 1); return; }
+    console.log(`intent validate ${basename(file)}: ${v.valid ? 'VALID' : `${v.issues.length} issue(s)`} (${v.version})`);
+    for (const i of v.issues) console.log(`  [${i.code}] ${i.message}${i.id ? ` (${i.id})` : ''}`);
+    process.exit(v.valid ? 0 : 1);
+    return;
+  }
+
   if (cmd === 'migrate') {
     const raw = readFileSync(file, 'utf8');
     let graph;
