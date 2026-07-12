@@ -127,6 +127,13 @@ export const COMPILER_VERSION: string;
 export const PROOF_SCHEMA_VERSION: string;
 export const SOURCE_PRODUCT: string;
 
+// Canonical proof envelope schema (intent-proof-v1)
+export const PROOF_SCHEMA: string;
+export const CLAIM_STATUSES: string[];
+export const PROOF_STATUSES: string[];
+export function intentProofJsonSchema(): Record<string, unknown>;
+export function validateProof(proof: unknown): { valid: boolean; errors: Array<{ path: string; message: string }> };
+
 // Compile + render
 export function compileSource(source: string, opts?: { sourceFile?: string; generatedAt?: string }): Record<string, unknown>;
 export function renderMarkdown(ast: IntentAst): string;

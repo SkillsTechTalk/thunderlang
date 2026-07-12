@@ -38,6 +38,11 @@ The executable + interoperable release. Everything is deterministic and requires
   `styleDiagnostics`, `intent style`, diagnostics `IL-STYLE-001..005`, canonical `StyleIntent`
   node with graph round-trip. Browser-safe via `/core`. Exports to **W3C Design Tokens
   (DTCG)** via `intent export --format tokens` / `toDesignTokens` (`intent-design-tokens-v1`).
+- **Canonical proof envelope (`intent-proof-v1`).** The `.intent-proof.json` shape is now a
+  published, versioned contract: `intentProofJsonSchema()` (JSON Schema), `validateProof()`
+  (dependency-free structural check), `intent proof --schema`, and a well-formedness gate in
+  `intent verify`. Browser-safe via `/core` so signers/renderers validate the envelope with
+  no Node build.
 - **Browser-safe `/core` subpath**, the committed `intent-graph.schema.json`, and the
   complete 46-rule diagnostic catalog.
 

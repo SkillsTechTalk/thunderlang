@@ -16,6 +16,12 @@ export {
   intentGraphJsonSchema, DIAGNOSTIC_RULES,
 } from './intent-schema.mjs';
 
+// Canonical proof envelope schema (intent-proof-v1) , browser-safe so a signing service or
+// a cert renderer can validate the shared proof shape without a Node build.
+export {
+  PROOF_SCHEMA, CLAIM_STATUSES, PROOF_STATUSES, intentProofJsonSchema, validateProof,
+} from './proof-schema.mjs';
+
 // The Intent Runtime , executable intent (evaluate decisions, simulate lifecycles). Pure.
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
 export { compileExpr, evalExpr, ExprError } from './expr.mjs';

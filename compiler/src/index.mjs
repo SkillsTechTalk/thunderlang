@@ -22,6 +22,11 @@ export {
   SOURCE_PRODUCT,
 } from './emit.mjs';
 
+// Canonical proof envelope schema (intent-proof-v1) , the shared, signable proof shape
+export {
+  PROOF_SCHEMA, CLAIM_STATUSES, PROOF_STATUSES, intentProofJsonSchema, validateProof,
+} from './proof-schema.mjs';
+
 // Compile + render (docs, Mermaid, test plan)
 export { compileSource, renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 

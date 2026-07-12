@@ -113,10 +113,22 @@ Guarantee and never-rule `status` values: `planned`, `needs_verification`,
 `verified`, or `failed`. `proofStatus` is `draft` until a human approves.
 
 A proof can be **verified** against its source: `intent verify <proof.json> [source]`
-re-hashes the source and re-derives the proof's claims, confirming the source has not
-drifted or been tampered with since the proof was generated (exit non-zero on a mismatch).
-Commit a `.intent-proof.json` next to its source and verify it in CI to keep the proof
-honest.
+first checks the envelope is a well-formed `intent-proof-v1` document, then re-hashes the
+source and re-derives the proof's claims, confirming the source has not drifted or been
+tampered with since the proof was generated (exit non-zero on a mismatch). Commit a
+`.intent-proof.json` next to its source and verify it in CI to keep the proof honest.
+
+### The proof is a canonical, signable envelope
+
+The proof shape is published as a versioned contract, `intent-proof-v1`, so other products
+sign it and re-verify it against one schema instead of each re-describing the proof. Emit the
+JSON Schema with `intent proof --schema`, and validate any envelope with `validateProof(proof)`
+(exported from `@skillstech/intentlang`, and browser-safe via `/core` so a signing service or
+cert renderer needs no Node build). `validateProof` returns `{ valid, errors }` , a
+deterministic structural check with no dependencies. Claim statuses are `planned`,
+`needs_verification`, `verified`, `failed`; the proof as a whole is `draft` until a human
+approves or rejects it. IL owns the envelope shape; signing, holder binding, and signature
+scope are the signer's concern layered on top.
 
 ## Determinism and AI
 

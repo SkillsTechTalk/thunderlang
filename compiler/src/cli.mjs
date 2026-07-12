@@ -37,6 +37,7 @@ import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './impo
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
 import { analyzeStyle } from './style.mjs';
+import { intentProofJsonSchema, validateProof } from './proof-schema.mjs';
 import { graphToSource } from './graph-source.mjs';
 import { migrateGraph, validateGraph } from './migrate.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
@@ -102,6 +103,7 @@ function parseArgs(argv) {
     else if (a === '--force') args.force = true;
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
+    else if (a === '--schema') args.schema = true;
     else args._.push(a);
   }
   return args;
@@ -152,7 +154,8 @@ Author & check
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
-  verify <proof.json> [src]  confirm a proof still matches its source (drift/tamper check)
+  proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
+  verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
@@ -203,6 +206,12 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
+  // `intent proof --schema` emits the canonical proof envelope JSON Schema (no file needed).
+  // This is the "shared envelope" schema siblings sign (STW) and re-verify (RM/OT) against.
+  if (cmd === 'proof' && args.schema) {
+    console.log(JSON.stringify(intentProofJsonSchema(), null, 2));
+    return;
+  }
   // Verify a .intent-proof.json against its source: the source hash still matches (no
   // drift / tampering) and the proof's claims re-derive from the source.
   if (cmd === 'verify') {
@@ -220,10 +229,13 @@ function main() {
     const semanticMatch = proof.verification ? semanticNow === !!proof.verification.semanticPassed : true;
     const guaranteesMatch = !Array.isArray(proof.guarantees) || proof.guarantees.length === (ast.guarantees || []).length;
     const neverMatch = !Array.isArray(proof.neverRules) || proof.neverRules.length === (ast.neverRules || []).length;
-    const valid = hashMatch && semanticMatch && guaranteesMatch && neverMatch;
-    const result = { schema: 'intent-verify-v1', proof: proofPath, source: srcPath, valid, checks: { hashMatch, semanticMatch, guaranteesMatch, neverMatch } };
+    // Structural gate: the envelope must be a well-formed intent-proof-v1 document first.
+    const structure = validateProof(proof);
+    const valid = structure.valid && hashMatch && semanticMatch && guaranteesMatch && neverMatch;
+    const result = { schema: 'intent-verify-v1', proof: proofPath, source: srcPath, valid, checks: { wellFormed: structure.valid, hashMatch, semanticMatch, guaranteesMatch, neverMatch }, structureErrors: structure.errors };
     if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(valid ? 0 : 1); return; }
     console.log(`intent verify ${basename(proofPath)}: ${valid ? 'VALID' : 'FAILED'} (source ${basename(srcPath)})`);
+    if (!structure.valid) { console.log(`  X proof is not a well-formed intent-proof-v1 document:`); for (const e of structure.errors) console.log(`      ${e.path || '(root)'}: ${e.message}`); }
     if (!hashMatch) console.log('  X source hash does not match , the source has changed since the proof was generated (drift or tampering).');
     if (!semanticMatch) console.log('  X the proof claims a different semantic result than the source produces now.');
     if (!guaranteesMatch) console.log('  X guarantee count differs from the proof.');
