@@ -116,29 +116,29 @@ Guarantee and never-rule `status` values: `planned`, `needs_verification`,
 
 The following must succeed with `--no-ai`:
 
-    intent check   CreateInvoice.intent --no-ai
-    intent graph   CreateInvoice.intent --no-ai
-    intent docs    CreateInvoice.intent --no-ai
-    intent proof   CreateInvoice.intent --no-ai
+    intent check   CreateInvoice.intent
+    intent graph   CreateInvoice.intent
+    intent build   CreateInvoice.intent   # docs, test plan, proof
+    intent proof   CreateInvoice.intent
 
 Optional AI-assisted commands (`intent plan`, `intent generate`, `intent explain`,
 `intent translate`, and prompt-to-intent drafting) must record provider, model,
 prompt hash, input hashes, output hashes, verification result, and human approval
 status. AI assists; humans approve, verify, and own the result.
 
-## Proposed CLI
+## The CLI
 
-    intent init
-    intent check
-    intent plan
-    intent generate
-    intent verify
-    intent explain
-    intent graph
-    intent docs
-    intent testplan
-    intent build
-    intent proof
+Shipped and deterministic (run `intent help` for the full reference):
+
+    intent check · build · graph · proof · schema        # author & check
+    intent run · simulate · test · outcomes              # execute (no AI)
+    intent export · import · source · migrate            # interop
+    intent atlas · index · diff · merge                  # navigate & compare
+    intent lift · approve · drift                        # code <-> intent
+
+Proposed (AI-assisted; humans approve, verify, and own the result):
+
+    intent init · plan · generate · verify · explain · translate
 
 ## Continuous integration
 
