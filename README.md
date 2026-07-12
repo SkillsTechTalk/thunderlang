@@ -15,21 +15,39 @@ functional, service-oriented, event-driven, API-first, infrastructure, and
 documentation artifacts depending on the adapter. It does not replace TypeScript,
 Python, Java, .NET, Rust, or Go, and it is not magic AI code generation.
 
-### This repository
+## Try it
 
-This repo (`intent-language-site`) is the **website** for intentlanguage.dev. It
-also hosts the early language material:
+There is a real, deterministic compiler and CLI, published as
+[`@skillstech/intentlang`](https://www.npmjs.com/package/@skillstech/intentlang). No AI.
 
-- Roadmap: [`TODO.md`](./TODO.md)
-- Manifesto: [`docs/manifesto.md`](./docs/manifesto.md)
-- Syntax overview: [`docs/syntax-overview.md`](./docs/syntax-overview.md)
-- Tutorial: [`docs/tutorial.md`](./docs/tutorial.md)
-- Compiler contract: [`docs/compiler-contract.md`](./docs/compiler-contract.md)
-- Examples: [`examples/`](./examples)
+```bash
+npm install -g @skillstech/intentlang
+intent init Eligibility                              # scaffold a runnable starter
+intent run Eligibility.intent --inputs '{"age":20}'  # a decision decides, with a trace
+intent test Eligibility.intent                       # in-file tests prove it (2/2 passed)
+intent check .                                       # gate every .intent in the repo
+```
 
-The compiler and CLI do not exist yet. Everything is deliberately labeled draft
-and forward-looking. The deterministic compiler, when built, must work without
-AI; AI is optional, traced, and human-approved.
+That is the point of IntentLang: some intent does not need code generated, it **runs**.
+A decision evaluates against inputs, a lifecycle simulates against events, an outcome
+contract is judged against a result, all deterministically. See
+[Getting started](./docs/getting-started.md).
+
+### This repository (a monorepo)
+
+- `compiler/` , the deterministic compiler, CLI, and Language Server (published as
+  `@skillstech/intentlang`). Executable runtime, first-class tests, outcome contracts,
+  five-profile language, DMN/BPMN/JSON-Schema/OpenAPI interop, schema migrations. 280+
+  tests.
+- `editors/vscode/` , a VS Code extension (grammar + language client).
+- `src/`, `docs/`, `examples/` , the website (intentlanguage.dev), the concept docs, and
+  worked example missions.
+- Roadmap: [`TODO.md`](./TODO.md) · Manifesto: [`docs/manifesto.md`](./docs/manifesto.md)
+  · Spec: [`docs/spec.md`](./docs/spec.md) · Editor support:
+  [`docs/editor-support.md`](./docs/editor-support.md)
+
+The compiler is deterministic and works without AI; AI is optional, traced, and
+human-approved.
 
 ## Tech stack
 
@@ -38,12 +56,15 @@ AI; AI is optional, traced, and human-approved.
 - Tailwind CSS
 - Deployed on [Vercel](https://vercel.com) → `intentlanguage.dev`
 
-## Getting started
+## Website development
+
+The website (this repo's `src/`) is a Next.js app. The compiler is a zero-dependency
+sibling in `compiler/` (no install needed to run `node compiler/src/cli.mjs ...`).
 
 ```bash
 npm install
 cp .env.example .env.local   # optional, see Environment variables
-npm run dev                  # http://localhost:3000
+npm run dev                  # http://localhost:5187
 ```
 
 ### Scripts
@@ -64,7 +85,7 @@ npm run dev                  # http://localhost:3000
 | `/vision`      | The vision and beliefs behind Intent             |
 | `/docs`        | Early docs: concepts, Mission block, contracts   |
 | `/examples`    | Draft Intent examples                            |
-| `/playground`  | In-browser syntax preview (no execution yet)     |
+| `/playground`  | Run decisions + simulate lifecycles in-browser, and compile a mission |
 | `/roadmap`     | Directional roadmap                              |
 | `/blog`        | Blog index + posts (`/blog/[slug]`)              |
 | `/community`   | How to get involved                              |
@@ -126,5 +147,8 @@ is reproduced as inline SVG in `src/components/StarMark.tsx` for crisp scaling.
 
 ## Status
 
-Early and honest. Draft syntax throughout. Not production-ready. Does not claim
-to outperform Rust, Go, Python, Java, TypeScript, or .NET today.
+Pre-1.0 and honest. The compiler is real, deterministic, and tested (280+ tests, fuzz +
+property + composition, with CI guards for checks, docs, schema sync, and formatting).
+The language and its `intent-graph-v1` schema version independently and can still change
+before 1.0. IntentLang sits above paradigms; it does not replace Rust, Go, Python, Java,
+TypeScript, or .NET.
