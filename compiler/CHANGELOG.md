@@ -20,7 +20,8 @@ The executable + interoperable release. Everything is deterministic and requires
 - **Full five-profile language.** System (`capability`, `interface`), delivery (`release`,
   `result`, `learning`), and design (`component`, `artifact`) profiles join core, product,
   and experience. Governance (`waiver`) and data privacy (`data`) too.
-- **Interop.** Export to DMN, BPMN, NuSMV, JSON Schema, and OpenAPI (`intent export`);
+- **Interop.** Export to DMN, BPMN, NuSMV, JSON Schema, OpenAPI, W3C Design Tokens, and
+  Mermaid , the whole Intent Graph as a paste-anywhere diagram , (`intent export`, `toMermaid`);
   import from DMN and BPMN with a fidelity report (`intent import`, `importReport`); native
   graph <-> source round-trip (`graphToSource`, `intent source`); schema migrations
   (`migrateGraph`, `validateGraph`, `intent migrate` / `validate`); semantic diff + 3-way

@@ -129,12 +129,35 @@ intent export mission.intent --format tokens
 Accessibility targets ride along in `$extensions` as **proposed** claims, never as verified
 conformance, so a token pipeline never mistakes "aiming for AA" for "is AA."
 
+## Mermaid (the whole graph as a diagram)
+
+`--format mermaid` renders the entire [Intent Graph](/docs/intent-graph) as a Mermaid
+`graph TD` , every canonical node shaped by category (rounded for states and lifecycles,
+hexagon for guarantees/never/constraints, rhombus for decisions and rules, rectangle for the
+rest) and every relationship as a labeled edge. Node ids are made Mermaid-safe and labels are
+sanitized, so the output pastes straight into GitHub, Markdown, or Notion as a live diagram.
+
+```
+intent export mission.intent --format mermaid
+```
+
+```
+graph TD
+  n_mission_upgrade["Mission: Upgrade a customer to a higher tier"]
+  n_lifecycle_state_upgradeflow_charged(["LifecycleState: Charged"])
+  n_decision_canupgrade{"Decision: CanUpgrade"}
+  n_mission_upgrade -->|represented_by| n_lifecycle_upgradeflow
+```
+
+Unlike the mission-summary diagram written into the build's `.mmd` artifact, this is the
+complete graph, so it is the fastest way to see an entire intent at a glance.
+
 ## Usage
 
-`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens>` prints to stdout, or
-writes a file when `--out <dir>` is given. From the library, `toDMN(ast)`, `toBPMN(ast)`,
-`toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, `toDesignTokens(ast)`, and
-`exportIntent(ast, format)` are exported from `@skillstech/intentlang` (`toDesignTokens` is
-also browser-safe via `/core`). The exports are byte-deterministic: the same intent always
-produces the same document, so they diff cleanly and belong in version control alongside the
-intent.
+`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid>` prints to
+stdout, or writes a file when `--out <dir>` is given. From the library, `toDMN(ast)`,
+`toBPMN(ast)`, `toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, `toDesignTokens(ast)`,
+`toMermaid(ast)`, and `exportIntent(ast, format)` are exported from `@skillstech/intentlang`
+(`toDesignTokens` is also browser-safe via `/core`). The exports are byte-deterministic: the
+same intent always produces the same document, so they diff cleanly and belong in version
+control alongside the intent.

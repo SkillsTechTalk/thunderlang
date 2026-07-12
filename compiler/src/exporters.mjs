@@ -10,9 +10,10 @@
 import { buildLifecycle } from './lifecycle.mjs';
 import { toJSONSchema, toOpenAPI } from './data-schema.mjs';
 import { toDesignTokens } from './style.mjs';
+import { buildIntentGraph } from './intent-graph.mjs';
 
 export { toDesignTokens };
-export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens'];
+export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid'];
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 // A safe XML NCName / SMV identifier from arbitrary text (letters, digits, _; never leading digit).
@@ -146,6 +147,37 @@ ${reachSpecs ? '\n' + reachSpecs : ''}${tempSpecs ? '\n' + tempSpecs : ''}`;
 }
 
 /** Dispatch by format name. Returns { format, ext, content } or null for unknown formats. */
+// ── Mermaid (full Intent Graph flowchart) ───────────────────────────────────
+/**
+ * Render the whole Intent Graph as a Mermaid `graph TD` , every canonical node with a
+ * shape by category and every typed relationship as a labeled edge. Unlike the mission
+ * summary emitted into the build's `.mmd` artifact, this is the complete graph, so it
+ * pastes into any Markdown/GitHub/Notion surface as a live diagram. Deterministic.
+ */
+export function toMermaid(ast) {
+  const graph = buildIntentGraph(ast);
+  const L = ['graph TD'];
+  const mid = (id) => `n_${String(id).replace(/[^A-Za-z0-9]+/g, '_')}`;
+  // Mermaid labels break on quotes/brackets/pipes/angles; normalize to plain text.
+  const lbl = (s) => String(s ?? '').replace(/"/g, "'").replace(/[[\]{}()<>|#]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Node shape by category (rounded = states/lifecycle, hexagon = prohibitions/constraints,
+  // rhombus = decisions/rules, rectangle = everything else).
+  const shape = (type) => {
+    if (/State$/.test(type) || type === 'Lifecycle' || type === 'Journey') return ['(["', '"])'];
+    if (type === 'Never' || type === 'Constraint' || type === 'Guarantee') return ['{{"', '"}}'];
+    if (type === 'Decision' || type === 'Rule') return ['{"', '"}'];
+    return ['["', '"]'];
+  };
+  for (const n of graph.nodes) {
+    const [open, close] = shape(n.type);
+    L.push(`  ${mid(n.id)}${open}${lbl(`${n.type}: ${n.title || n.id}`)}${close}`);
+  }
+  for (const r of graph.relationships) {
+    L.push(`  ${mid(r.from)} -->|${lbl(r.type)}| ${mid(r.to)}`);
+  }
+  return `${L.join('\n')}\n`;
+}
+
 export function exportIntent(ast, format) {
   switch (format) {
     case 'dmn': return { format, ext: 'dmn', content: toDMN(ast) };
@@ -154,6 +186,7 @@ export function exportIntent(ast, format) {
     case 'jsonschema': return { format, ext: 'schema.json', content: JSON.stringify(toJSONSchema(ast, { which: 'both' }), null, 2) + '\n' };
     case 'openapi': return { format, ext: 'openapi.json', content: JSON.stringify(toOpenAPI(ast), null, 2) + '\n' };
     case 'tokens': return { format, ext: 'tokens.json', content: JSON.stringify(toDesignTokens(ast), null, 2) + '\n' };
+    case 'mermaid': return { format, ext: 'mmd', content: toMermaid(ast) };
     default: return null;
   }
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseIntent } from '../src/parse.mjs';
-import { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
+import { toDMN, toBPMN, toSMV, toMermaid, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
 
 const decisionSrc = `mission Eligibility
 decision CanEnroll
@@ -99,11 +99,42 @@ test('exportIntent dispatches by format and rejects unknown formats', () => {
   assert.equal(exportIntent(ast, 'bpmn').ext, 'bpmn');
   assert.equal(exportIntent(ast, 'smv').ext, 'smv');
   assert.equal(exportIntent(ast, 'yaml'), null);
-  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens']);
+  assert.equal(exportIntent(ast, 'mermaid').ext, 'mmd');
+  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid']);
+});
+
+test('toMermaid renders the full graph with safe ids, shapes, and labeled edges', () => {
+  const mmd = toMermaid(parseIntent(lifecycleSrc));
+  assert.ok(mmd.startsWith('graph TD\n'));
+  // states render as rounded nodes; edges carry the relationship type as a label
+  assert.match(mmd, /\(\["LifecycleState:/);
+  assert.match(mmd, /-->\|requires\|/);
+  // node ids are mermaid-safe (no dots) , the graph ids contain dots
+  for (const line of mmd.split('\n').slice(1).filter(Boolean)) {
+    const id = line.trim().split(/[[({]/)[0].split(' ')[0];
+    assert.ok(!id.includes('.'), `id "${id}" must be mermaid-safe`);
+  }
+});
+
+test('toMermaid never leaks quotes/brackets/pipes that would break mermaid parsing', () => {
+  const mmd = toMermaid(parseIntent(`mission M
+guarantee the "customer" is [charged] once | twice
+`));
+  // label content sits inside {{"..."}} with no raw quote/bracket/pipe inside the label text
+  const labels = [...mmd.matchAll(/(?:\["|\(\["|\{\{"|\{")(.*?)(?:"\]|"\]\)|"\}\}|"\})/g)].map((m) => m[1]);
+  assert.ok(labels.length > 0);
+  for (const l of labels) assert.ok(!/["\[\]|]/.test(l), `label leaked a special char: ${l}`);
+});
+
+test('toMermaid on an empty mission is a valid, minimal diagram', () => {
+  const mmd = toMermaid(parseIntent('mission Solo\n'));
+  assert.ok(mmd.startsWith('graph TD\n'));
+  assert.match(mmd, /Mission: Solo/);
 });
 
 test('exports are deterministic (same input -> byte-identical output)', () => {
   assert.equal(toDMN(parseIntent(decisionSrc)), toDMN(parseIntent(decisionSrc)));
   assert.equal(toBPMN(parseIntent(lifecycleSrc)), toBPMN(parseIntent(lifecycleSrc)));
   assert.equal(toSMV(parseIntent(lifecycleSrc)), toSMV(parseIntent(lifecycleSrc)));
+  assert.equal(toMermaid(parseIntent(lifecycleSrc)), toMermaid(parseIntent(lifecycleSrc)));
 });
