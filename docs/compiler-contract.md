@@ -136,7 +136,7 @@ status. AI assists; humans approve, verify, and own the result.
 
 Shipped and deterministic (run `intent help` for the full reference):
 
-    intent check · build · graph · proof · schema        # author & check
+    intent check · build · graph · proof · schema · rules # author & check
     intent run · simulate · test · outcomes              # execute (no AI)
     intent export · import · source · migrate            # interop
     intent atlas · index · diff · merge                  # navigate & compare

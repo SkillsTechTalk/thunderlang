@@ -27,3 +27,20 @@ test('intent explain exits 1 on an unknown code', () => {
   assert.equal(res.status, 1);
   assert.match(res.stderr, /not in the diagnostic catalog/);
 });
+
+const rules = (...a) => spawnSync(process.execPath, [CLI, 'rules', ...a], { encoding: 'utf8' });
+
+test('intent rules lists the whole catalog grouped by area', () => {
+  const res = rules();
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(res.stdout, /canonical diagnostics/);
+  assert.match(res.stdout, /IL-STYLE-001/);
+  assert.match(res.stdout, /IL-OC-001/);
+});
+
+test('intent rules --json returns the full DIAGNOSTIC_RULES array', () => {
+  const out = JSON.parse(rules('--json').stdout);
+  assert.ok(Array.isArray(out));
+  assert.ok(out.length >= 46);
+  assert.ok(out.every((r) => r.ruleId && r.area && r.severity));
+});

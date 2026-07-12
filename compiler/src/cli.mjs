@@ -155,6 +155,7 @@ Author & check
   verify <proof.json> [src]  confirm a proof still matches its source (drift/tamper check)
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
+  rules [--json]            list the whole canonical diagnostic catalog
 
 Execute (no AI, no generated code)
   run <file> --inputs '<json>'      evaluate the decision(s) against inputs
@@ -242,6 +243,23 @@ function main() {
     console.log(`${rule.ruleId}  (area: ${rule.area})`);
     console.log(`  ${rule.summary}`);
     console.log(`  severity: ${rule.severity}${rule.blocks && rule.blocks.length ? `  |  blocks: ${rule.blocks.join(', ')}` : '  |  does not block a phase'}`);
+    return;
+  }
+
+  // The whole canonical diagnostic catalog (IL owns it; editors/CI/OT consume it).
+  if (cmd === 'rules') {
+    if (args.json) { console.log(JSON.stringify(DIAGNOSTIC_RULES, null, 2)); return; }
+    const byArea = {};
+    for (const r of DIAGNOSTIC_RULES) (byArea[r.area] ||= []).push(r);
+    console.log(`intent rules: ${DIAGNOSTIC_RULES.length} canonical diagnostics in ${Object.keys(byArea).length} areas\n`);
+    for (const area of Object.keys(byArea).sort()) {
+      console.log(`${area}`);
+      for (const r of byArea[area]) {
+        const blocks = r.blocks && r.blocks.length ? `blocks ${r.blocks.join(', ')}` : 'non-blocking';
+        console.log(`  ${r.ruleId.padEnd(16)} [${r.severity}, ${blocks}]  ${r.summary}`);
+      }
+      console.log();
+    }
     return;
   }
 

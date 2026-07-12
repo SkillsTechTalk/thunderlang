@@ -37,6 +37,10 @@ jobs:
       - name: schema sync
         run: npm run schema:check
 
+      # Keep the diagnostics catalog doc in sync with the compiler's rule catalog.
+      - name: diagnostics doc sync
+        run: npm run diagnostics:check
+
       # Every .intent file stays canonically formatted.
       - name: format check
         run: npm run fmt:check
