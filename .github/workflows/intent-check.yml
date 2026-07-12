@@ -23,3 +23,12 @@ jobs:
       # The compiler is pure Node (no dependencies), so no install step is needed.
       - name: intent check (all .intent files)
         run: npm run intent:check
+
+      # Compiler unit + property tests.
+      - name: intent tests
+        run: npm run intent:test
+
+      # Keep the docs honest against the shipped compiler (links, diagnostic codes,
+      # parseable code blocks, doc registration).
+      - name: docs consistency
+        run: npm run docs:check
