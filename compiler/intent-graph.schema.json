@@ -1,0 +1,497 @@
+{
+  "schemaVersion": "intent-graph-v1",
+  "nodeTypes": [
+    "Mission",
+    "Actor",
+    "Persona",
+    "Evidence",
+    "Opportunity",
+    "Outcome",
+    "Metric",
+    "Requirement",
+    "Constraint",
+    "Guarantee",
+    "Never",
+    "Conflict",
+    "Journey",
+    "ExperienceContract",
+    "ExperienceState",
+    "Pattern",
+    "DesignArtifact",
+    "DesignComponent",
+    "Capability",
+    "SystemContract",
+    "ImplementationMapping",
+    "VerificationRule",
+    "VerificationResult",
+    "Approval",
+    "Release",
+    "OutcomeContract",
+    "OutcomeResult",
+    "LearningArtifact",
+    "Unknown",
+    "Assumption",
+    "Question",
+    "Lifecycle",
+    "LifecycleState",
+    "Temporal",
+    "Command",
+    "Event",
+    "FailureHandler",
+    "Decision",
+    "Rule"
+  ],
+  "relationshipTypes": [
+    "supported_by",
+    "derived_from",
+    "addresses",
+    "targets",
+    "measured_by",
+    "requires",
+    "constrained_by",
+    "implemented_by",
+    "represented_by",
+    "verified_by",
+    "approved_by",
+    "released_in",
+    "resulted_in",
+    "contradicts",
+    "supersedes",
+    "depends_on",
+    "blocks",
+    "teaches",
+    "generated_from",
+    "transitions_to"
+  ],
+  "classifications": [
+    "observed",
+    "inferred",
+    "proposed",
+    "assumed",
+    "unknown",
+    "decided",
+    "verified"
+  ],
+  "diagnostics": [
+    {
+      "ruleId": "IL-PM-001",
+      "area": "product",
+      "severity": "warning",
+      "blocks": [
+        "release"
+      ],
+      "summary": "Metric has no measurement window."
+    },
+    {
+      "ruleId": "IL-PM-003",
+      "area": "product",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Outcome has no metric."
+    },
+    {
+      "ruleId": "IL-EV-001",
+      "area": "evidence",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Evidence has no classification."
+    },
+    {
+      "ruleId": "IL-EV-002",
+      "area": "evidence",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Evidence has an unknown classification."
+    },
+    {
+      "ruleId": "IL-GRAPH-010",
+      "area": "graph",
+      "severity": "blocker",
+      "blocks": [
+        "<declared-phase>"
+      ],
+      "summary": "Unresolved unknown blocks a phase."
+    },
+    {
+      "ruleId": "IL-GRAPH-011",
+      "area": "graph",
+      "severity": "blocker",
+      "blocks": [
+        "<declared-phase>"
+      ],
+      "summary": "Open question blocks a phase."
+    },
+    {
+      "ruleId": "IL-EXP-001",
+      "area": "experience",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Experience declares no states."
+    },
+    {
+      "ruleId": "IL-EXP-004",
+      "area": "experience",
+      "severity": "blocker",
+      "blocks": [
+        "experience-approval",
+        "release"
+      ],
+      "summary": "Failure state has no recovery path."
+    },
+    {
+      "ruleId": "IL-CONFLICT-001",
+      "area": "conflict",
+      "severity": "blocker",
+      "blocks": [
+        "<declared-phase>"
+      ],
+      "summary": "Declared conflict is unresolved."
+    },
+    {
+      "ruleId": "IL-CONFLICT-010",
+      "area": "conflict",
+      "severity": "blocker",
+      "blocks": [
+        "implementation"
+      ],
+      "summary": "Scope includes and excludes the same item."
+    },
+    {
+      "ruleId": "IL-CONFLICT-011",
+      "area": "conflict",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Redundant constraint from multiple roles."
+    },
+    {
+      "ruleId": "IL-CONFLICT-012",
+      "area": "conflict",
+      "severity": "blocker",
+      "blocks": [
+        "implementation"
+      ],
+      "summary": "Directly contradictory constraints."
+    },
+    {
+      "ruleId": "IL-GOV-001",
+      "area": "governance",
+      "severity": "error",
+      "blocks": [],
+      "summary": "Waiver names no diagnostic code."
+    },
+    {
+      "ruleId": "IL-GOV-002",
+      "area": "governance",
+      "severity": "error",
+      "blocks": [],
+      "summary": "Waiver has no reason."
+    },
+    {
+      "ruleId": "IL-GOV-003",
+      "area": "governance",
+      "severity": "error",
+      "blocks": [],
+      "summary": "Waiver names no approver."
+    },
+    {
+      "ruleId": "IL-GOV-004",
+      "area": "governance",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Waiver matches no current diagnostic (stale)."
+    },
+    {
+      "ruleId": "IL-GOV-005",
+      "area": "governance",
+      "severity": "error",
+      "blocks": [],
+      "summary": "Waiver has expired."
+    },
+    {
+      "ruleId": "IL-DATA-001",
+      "area": "privacy",
+      "severity": "blocker",
+      "blocks": [
+        "release"
+      ],
+      "summary": "Sensitive data held with no stated purpose."
+    },
+    {
+      "ruleId": "IL-DATA-002",
+      "area": "privacy",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Sensitive data has no retention rule."
+    },
+    {
+      "ruleId": "IL-DATA-003",
+      "area": "privacy",
+      "severity": "blocker",
+      "blocks": [
+        "release"
+      ],
+      "summary": "Sensitive data declares no lawful basis."
+    },
+    {
+      "ruleId": "IL-DATA-004",
+      "area": "privacy",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Data has an unknown classification."
+    },
+    {
+      "ruleId": "IL-DATA-005",
+      "area": "privacy",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Unrecognized lawful basis."
+    },
+    {
+      "ruleId": "IL-DATA-006",
+      "area": "privacy",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Sensitive data exposed as output with no guard."
+    },
+    {
+      "ruleId": "IL-OC-001",
+      "area": "outcome",
+      "severity": "blocker",
+      "blocks": [
+        "release"
+      ],
+      "summary": "Outcome contract has no target (cannot be evaluated)."
+    },
+    {
+      "ruleId": "IL-OC-002",
+      "area": "outcome",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Outcome contract names no metric."
+    },
+    {
+      "ruleId": "IL-OC-003",
+      "area": "outcome",
+      "severity": "blocker",
+      "blocks": [
+        "release"
+      ],
+      "summary": "Outcome contract has no measurement window."
+    },
+    {
+      "ruleId": "IL-OC-004",
+      "area": "outcome",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Outcome contract target is not better than its baseline."
+    }
+  ],
+  "jsonSchema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://intentlanguage.dev/schema/intent-graph-v1.json",
+    "title": "Intent Graph",
+    "type": "object",
+    "required": [
+      "schema",
+      "missionId",
+      "nodes",
+      "relationships"
+    ],
+    "properties": {
+      "schema": {
+        "const": "intent-graph-v1"
+      },
+      "missionId": {
+        "type": "string"
+      },
+      "nodes": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/node"
+        }
+      },
+      "relationships": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/relationship"
+        }
+      },
+      "summary": {
+        "type": "object"
+      }
+    },
+    "definitions": {
+      "node": {
+        "type": "object",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "Mission",
+              "Actor",
+              "Persona",
+              "Evidence",
+              "Opportunity",
+              "Outcome",
+              "Metric",
+              "Requirement",
+              "Constraint",
+              "Guarantee",
+              "Never",
+              "Conflict",
+              "Journey",
+              "ExperienceContract",
+              "ExperienceState",
+              "Pattern",
+              "DesignArtifact",
+              "DesignComponent",
+              "Capability",
+              "SystemContract",
+              "ImplementationMapping",
+              "VerificationRule",
+              "VerificationResult",
+              "Approval",
+              "Release",
+              "OutcomeContract",
+              "OutcomeResult",
+              "LearningArtifact",
+              "Unknown",
+              "Assumption",
+              "Question",
+              "Lifecycle",
+              "LifecycleState",
+              "Temporal",
+              "Command",
+              "Event",
+              "FailureHandler",
+              "Decision",
+              "Rule"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "classification": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "observed",
+              "inferred",
+              "proposed",
+              "assumed",
+              "unknown",
+              "decided",
+              "verified",
+              null
+            ]
+          },
+          "confidence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              null
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedTime": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "relationship": {
+        "type": "object",
+        "required": [
+          "from",
+          "type",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "supported_by",
+              "derived_from",
+              "addresses",
+              "targets",
+              "measured_by",
+              "requires",
+              "constrained_by",
+              "implemented_by",
+              "represented_by",
+              "verified_by",
+              "approved_by",
+              "released_in",
+              "resulted_in",
+              "contradicts",
+              "supersedes",
+              "depends_on",
+              "blocks",
+              "teaches",
+              "generated_from",
+              "transitions_to"
+            ]
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

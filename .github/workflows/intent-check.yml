@@ -32,3 +32,7 @@ jobs:
       # parseable code blocks, doc registration).
       - name: docs consistency
         run: npm run docs:check
+
+      # Keep the committed canonical schema in sync with the compiler.
+      - name: schema sync
+        run: npm run schema:check

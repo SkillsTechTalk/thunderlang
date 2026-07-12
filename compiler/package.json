@@ -20,6 +20,7 @@
   },
   "files": [
     "src",
+    "intent-graph.schema.json",
     "README.md",
     "LICENSE"
   ],

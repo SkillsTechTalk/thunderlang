@@ -99,8 +99,10 @@ constants, classification helpers, and the pure runtime.
 Compilation produces a canonical graph of 39 typed node kinds and 20 directed
 relationship types, across five profiles (product, experience, system, delivery, design).
 The vocabulary is closed and enforced (an anti-fork test guarantees the compiler only
-emits canonical types); `intent schema` emits its draft-07 JSON Schema. Consumers
-(OpenThunder, Repo Mastery, SkillsTech Studio) build to this graph rather than re-parsing.
+emits canonical types); `intent schema` emits its draft-07 JSON Schema, also shipped as
+the static `intent-graph.schema.json` in this package (CI-guaranteed in sync with the
+code). Consumers (OpenThunder, Repo Mastery, SkillsTech Studio) build to this graph, and
+`intent validate <graph.json>` self-checks a graph against the canonical vocabulary.
 
 ## Output location
 
