@@ -21,6 +21,7 @@
   "files": [
     "src",
     "intent-graph.schema.json",
+    "syntaxes",
     "README.md",
     "LICENSE"
   ],

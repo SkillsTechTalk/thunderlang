@@ -66,6 +66,28 @@ client.start();
 Point it at the command `intent lsp` (stdio transport) for documents with the `.intent`
 extension. The server advertises its capabilities in the `initialize` response.
 
+## Syntax highlighting
+
+The Language Server provides semantics (diagnostics, completion, hover). For coloring,
+the package ships a **TextMate grammar** at `syntaxes/intent.tmLanguage.json` (scope
+`source.intent`), the format VS Code, GitHub Linguist, and most editors use. It colors
+comments, strings, block keywords, typed fields (`name: Type`), semantic/entity types,
+expression operators, and numbers.
+
+Point your editor's grammar registration at that file for `.intent` files. In a VS Code
+extension, reference it in `package.json`:
+
+```json
+"contributes": {
+  "languages": [{ "id": "intent", "extensions": [".intent"] }],
+  "grammars": [{
+    "language": "intent",
+    "scopeName": "source.intent",
+    "path": "./syntaxes/intent.tmLanguage.json"
+  }]
+}
+```
+
 ## The library
 
 `startLspServer({ readable, writable })` is exported from `@skillstech/intentlang` if you
