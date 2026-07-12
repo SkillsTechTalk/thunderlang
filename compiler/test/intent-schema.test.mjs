@@ -50,3 +50,19 @@ test('NODE_TYPES has no duplicates (RM bug 2026-07-11: Decision was listed twice
 test('RELATIONSHIP_TYPES has no duplicates', () => {
   assert.equal(new Set(RELATIONSHIP_TYPES).size, RELATIONSHIP_TYPES.length);
 });
+
+test('the diagnostic catalog covers every code the semantic pass can emit (completeness)', () => {
+  const cataloged = new Set(DIAGNOSTIC_RULES.map((r) => r.ruleId));
+  // representative codes from every check-time family , the catalog must include all of them
+  for (const code of [
+    'IL-PM-001', 'IL-EV-001', 'IL-GRAPH-010', 'IL-EXP-004', 'IL-CONFLICT-001',
+    'IL-GOV-001', 'IL-DATA-001', 'IL-OC-001',
+    'IL-DEC-001', 'IL-DEC-004', 'IL-DIST-001', 'IL-DIST-005',
+    'IL-LIFE-001', 'IL-LIFE-004', 'IL-TEMP-001',
+  ]) assert.ok(cataloged.has(code), `catalog is missing ${code}`);
+  // every rule is well-formed
+  for (const r of DIAGNOSTIC_RULES) {
+    assert.match(r.ruleId, /^IL-[A-Z]+-\d+$/);
+    assert.ok(r.area && r.severity && Array.isArray(r.blocks) && r.summary);
+  }
+});

@@ -148,6 +148,7 @@ Author & check
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
   schema                    emit the canonical graph schema + diagnostic catalog
+  explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
 
 Execute (no AI, no generated code)
   run <file> --inputs '<json>'      evaluate the decision(s) against inputs
@@ -194,6 +195,19 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
+  // Explain a diagnostic code from the canonical catalog. `intent explain IL-DEC-001`.
+  if (cmd === 'explain') {
+    const code = file;
+    if (!code) { console.error('usage: intent explain <IL-CODE>'); process.exit(2); return; }
+    const rule = DIAGNOSTIC_RULES.find((r) => r.ruleId.toLowerCase() === code.toLowerCase());
+    if (args.json) { console.log(JSON.stringify(rule || { ruleId: code, found: false }, null, 2)); process.exit(rule ? 0 : 1); return; }
+    if (!rule) { console.error(`intent explain: "${code}" is not in the diagnostic catalog. Run "intent schema" for the full list.`); process.exit(1); return; }
+    console.log(`${rule.ruleId}  (area: ${rule.area})`);
+    console.log(`  ${rule.summary}`);
+    console.log(`  severity: ${rule.severity}${rule.blocks && rule.blocks.length ? `  |  blocks: ${rule.blocks.join(', ')}` : '  |  does not block a phase'}`);
+    return;
+  }
+
   // Language Server (LSP over stdio) for editors. Long-running; no file argument.
   if (cmd === 'lsp') {
     startLspServer();
