@@ -95,11 +95,13 @@ single-mission commands that already exist (`intent check`, `graph`, `proof`,
 | Command | Status | Produces |
 | --- | --- | --- |
 | `intent index ./intent [--json]` | shipped | mission inventory (`mission-index.json`) |
-| `intent graph ./intent --view atlas` | planned | Mission Atlas view |
+| `intent atlas ./intent [--search \| --expand]` | shipped | navigable/searchable whole-system Atlas |
+| `intent diff <before> <after>` | shipped | Semantic Diff (by meaning + invalidated approvals) |
+| `intent merge <base> <ours> <theirs>` | shipped | deterministic 3-way semantic merge |
+| `intent diff ./intent --since HEAD~1` | planned | Semantic Diff over a git range |
+| `intent graph ./intent --view atlas` | planned | rendered visual Atlas view |
 | `intent chains ./intent` | planned | mission chains (`mission-chain-map.json`) |
 | `intent summarize ./intent --since today` | planned | Build Session Digest |
-| `intent session summarize --from git` | planned | Build Session Digest from git history |
-| `intent diff ./intent --since HEAD~1` | planned | Semantic Diff |
 | `intent proof matrix ./intent` | planned | Proof Matrix (`mission-proof-matrix.json`) |
 | `intent release ./intent --mvp` | planned | MVP Readiness Report + Release Story |
 

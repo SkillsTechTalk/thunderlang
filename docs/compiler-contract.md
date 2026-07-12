@@ -1,7 +1,8 @@
 # IntentLang Compiler Contract
 
-> Status: draft specification. This describes the intended contract of a future
-> SkillsTech Compiler for IntentLang. No implementation lives in this repository.
+> Status: this describes the contract the reference compiler upholds. It is implemented
+> in this repository (`compiler/`, published as `@skillstech/intentlang`) and is
+> deterministic, no AI required. Pre-1.0, so the contract can still change.
 
 The compiler does not merely convert syntax into code. It converts intent into
 validated engineering artifacts. It must be **deterministic first**: every stage
@@ -166,11 +167,12 @@ jobs:
       - run: npm run intent:check
 ```
 
-## MVP scope
+## Scope
 
-The first useful version does **not** generate production code. It makes intent,
-contracts, architecture, and verification explicit by producing: Markdown docs,
-Mermaid diagrams, a test plan, an OpenAPI draft when an `api` block exists, a
-proof JSON, contract and architecture graphs, and semantic warnings. Language
-code generation (TypeScript, Python, .NET, Java scaffolding, tests, patches)
-comes in later phases.
+The compiler does **not** generate production code. It makes intent, contracts,
+architecture, and verification explicit, and it *executes* the executable parts
+(decisions, lifecycles, outcome contracts) without generating code. It produces:
+Markdown docs, Mermaid diagrams, a test plan, JSON Schema / OpenAPI from typed fields, a
+proof JSON, the canonical Intent Graph, and semantic diagnostics, plus DMN/BPMN/NuSMV
+export and DMN/BPMN import. Language code generation (TypeScript, Python, .NET, Java
+scaffolding, tests, patches) is an adapter concern for later phases.

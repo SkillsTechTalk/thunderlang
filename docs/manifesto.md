@@ -67,7 +67,8 @@ Intent becomes target-specific implementation using the idioms of each ecosystem
 - Not just a prompt format.
 - Not magic AI code generation.
 - Not a replacement for TypeScript, Python, Java, .NET, Rust, or Go.
-- Not production-ready. This is early, honest work.
+- Not 1.0 yet. The compiler is real, deterministic, and tested, but the language and its
+  schema are pre-1.0 and can still change. Honest work, in the open.
 
 The right framing:
 

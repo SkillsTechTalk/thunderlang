@@ -83,17 +83,18 @@ Teaching line: **do not make people read 200 missions.** Make the system answer
 what exists, what changed, what is risky, what is verified, and what blocks
 deployment.
 
-## Where the Atlas comes from (planned commands)
+## Where the Atlas comes from
 
 This repo teaches the Atlas as a concept, ships a worked example
-(`examples/mvp-customer-portal/`), and ships the first real indexing command. The
-rendered Atlas view and the interactive dashboard are owned by the **SkillsTech
-Compiler** and **SkillsTech**.
+(`examples/mvp-customer-portal/`), and ships the indexing and navigation commands. The
+rendered visual Atlas view and the interactive dashboard are owned by **SkillsTech
+Studio**.
 
 | Command | Status | Produces |
 | --- | --- | --- |
 | `intent index ./intent [--json]` | shipped | mission inventory (`mission-index.json`) |
-| `intent graph ./intent --view atlas` | planned | the rendered Mission Atlas view |
+| `intent atlas ./intent [--search q \| --expand id]` | shipped | the navigable/searchable whole-system Atlas |
+| `intent graph ./intent --view atlas` | planned | the rendered visual Atlas view |
 | `intent chains ./intent` | planned | detected mission chains |
 
 `intent index` is real today. It reports only what is derivable from the `.intent`
