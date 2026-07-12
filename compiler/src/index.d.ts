@@ -408,6 +408,8 @@ export interface StyleIntentView {
 }
 export function styleDiagnostics(ast: IntentAst): Array<{ ruleId: string; severity: string; blocks: string[]; message: string; styleIntent: string; line: number }>;
 export function analyzeStyle(ast: IntentAst): { schema: string; styleIntents: StyleIntentView[]; diagnostics: ReturnType<typeof styleDiagnostics>; addressSpace: string[]; accessibilityTargets: string[] };
+export const DESIGN_TOKENS_SCHEMA: string;
+export function toDesignTokens(ast: IntentAst): Record<string, unknown>;
 
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;

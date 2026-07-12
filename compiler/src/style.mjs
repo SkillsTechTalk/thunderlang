@@ -41,7 +41,39 @@ export const MODE_VALUES = ['light', 'dark', 'auto', 'both'];
 /** IL's stance: an accessibility target is a proposed goal, never IL-verified. */
 export const ACCESSIBILITY_CLASSIFICATION = 'proposed';
 
+export const DESIGN_TOKENS_SCHEMA = 'intent-design-tokens-v1';
+
 const isKnownPath = (p) => STYLE_ADDRESS_SPACE.includes(p);
+
+// W3C Design Tokens (DTCG) `$type` for a canonical token address.
+function tokenType(path) {
+  if (path === 'brand.logo') return 'asset';
+  if (path === 'mode') return 'other';
+  if (path === 'density') return 'number';
+  if (path.startsWith('color.')) return 'color';
+  if (path.startsWith('typography.families.')) return 'fontFamily';
+  if (path === 'typography.scale' || path === 'typography.headingWeight') return 'number';
+  if (path.startsWith('shape.')) return 'dimension';
+  return 'other';
+}
+
+// Coerce a raw token value: bare numerics become numbers; everything else stays a string.
+function coerceValue(v) {
+  if (v == null) return null;
+  return /^-?\d+(?:\.\d+)?$/.test(v) ? Number(v) : v;
+}
+
+// Set a dotted address to a leaf value inside a nested group tree (last write wins).
+function setPath(root, path, leaf) {
+  const parts = path.split('.');
+  let cur = root;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const k = parts[i];
+    if (typeof cur[k] !== 'object' || cur[k] === null || '$value' in cur[k]) cur[k] = {};
+    cur = cur[k];
+  }
+  cur[parts[parts.length - 1]] = leaf;
+}
 
 /**
  * Deterministic diagnostics for every `style_intent` block. Returns an array of
@@ -135,5 +167,46 @@ export function analyzeStyle(ast) {
     diagnostics: styleDiagnostics(ast),
     addressSpace: STYLE_ADDRESS_SPACE,
     accessibilityTargets: ACCESSIBILITY_TARGETS,
+  };
+}
+
+/**
+ * Render the style intents' tokens as a W3C Design Tokens (DTCG) document , the standard
+ * shape Style Dictionary, Figma Tokens, and CSS pipelines consume. Deterministic and pure.
+ * Every declared token is emitted (canonical or not); accessibility targets ride along in
+ * `$extensions` as PROPOSED claims, never as verified conformance. Empty-but-valid when a
+ * file declares no style intents.
+ */
+export function toDesignTokens(ast) {
+  const styles = ast.styleIntents || [];
+  const root = {};
+  const provenance = [];
+  for (const si of styles) {
+    provenance.push({
+      name: si.name || null,
+      purpose: si.purpose || null,
+      appliesTo: si.appliesTo || null,
+      accessibility: si.accessibilityTarget
+        ? { target: si.accessibilityTarget, classification: ACCESSIBILITY_CLASSIFICATION, verified: false }
+        : null,
+    });
+    for (const t of si.tokens) {
+      const leaf = { $value: coerceValue(t.value), $type: tokenType(t.path) };
+      if (!isKnownPath(t.path)) leaf.$extensions = { 'dev.intentlanguage': { canonical: false } };
+      setPath(root, t.path, leaf);
+    }
+  }
+  return {
+    $description: `Design tokens for ${ast.title || ast.mission || 'intent'} (generated from style_intent by @skillstech/intentlang)`,
+    ...root,
+    $extensions: {
+      'dev.intentlanguage': {
+        schema: DESIGN_TOKENS_SCHEMA,
+        format: 'W3C Design Tokens (DTCG)',
+        source: ast.mission || null,
+        styleIntents: provenance,
+        note: 'accessibility targets are proposed claims, not verified conformance',
+      },
+    },
   };
 }

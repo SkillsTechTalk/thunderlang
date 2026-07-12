@@ -4,9 +4,10 @@ import { parseIntent } from '../src/parse.mjs';
 import { buildIntentGraph } from '../src/intent-graph.mjs';
 import { semanticDiagnostics } from '../src/emit.mjs';
 import {
-  analyzeStyle, styleDiagnostics, STYLE_SCHEMA, TOKEN_PATHS, STYLE_ADDRESS_SPACE,
-  ACCESSIBILITY_TARGETS, ACCESSIBILITY_CLASSIFICATION,
+  analyzeStyle, styleDiagnostics, toDesignTokens, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
+  TOKEN_PATHS, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, ACCESSIBILITY_CLASSIFICATION,
 } from '../src/style.mjs';
+import { exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
 import { NODE_TYPES, DIAGNOSTIC_RULES } from '../src/intent-schema.mjs';
 
 const src = `mission Storefront
@@ -167,6 +168,51 @@ test('StyleIntent is a canonical node type and IL-STYLE rules are catalogued', (
   const styleRules = DIAGNOSTIC_RULES.filter((r) => r.ruleId.startsWith('IL-STYLE-'));
   assert.equal(styleRules.length, 5);
   for (const r of styleRules) assert.equal(r.area, 'style');
+});
+
+test('toDesignTokens renders canonical W3C (DTCG) tokens', () => {
+  const dt = toDesignTokens(ast);
+  // nested groups from dotted paths
+  assert.equal(dt.color.primary.$value, '#0B5FFF');
+  assert.equal(dt.color.primary.$type, 'color');
+  // numeric coercion
+  assert.equal(dt.typography.scale.$value, 1.25);
+  assert.equal(dt.typography.scale.$type, 'number');
+  // fontFamily + mode type inference
+  // (sample has color.primary, typography.scale, mode)
+  assert.equal(dt.mode.$type, 'other');
+  // provenance rides in $extensions, accessibility as a proposed claim never verified
+  const meta = dt.$extensions['dev.intentlanguage'];
+  assert.equal(meta.schema, DESIGN_TOKENS_SCHEMA);
+  assert.equal(meta.styleIntents[0].accessibility.classification, 'proposed');
+  assert.equal(meta.styleIntents[0].accessibility.verified, false);
+});
+
+test('off-namespace tokens still export, flagged non-canonical', () => {
+  const bad = parseIntent(`mission M
+use design
+style_intent Look
+  token color.tertiary #999
+  accessibility_target WCAG_2_2_AA
+`);
+  const dt = toDesignTokens(bad);
+  assert.equal(dt.color.tertiary.$value, '#999');
+  assert.equal(dt.color.tertiary.$extensions['dev.intentlanguage'].canonical, false);
+});
+
+test('a file with no style intents yields an empty-but-valid tokens doc', () => {
+  const none = parseIntent('mission M\nuse product\n');
+  const dt = toDesignTokens(none);
+  assert.ok(dt.$description);
+  assert.deepEqual(dt.$extensions['dev.intentlanguage'].styleIntents, []);
+});
+
+test('tokens is a registered export format wired through exportIntent', () => {
+  assert.ok(EXPORT_FORMATS.includes('tokens'));
+  const r = exportIntent(ast, 'tokens');
+  assert.equal(r.ext, 'tokens.json');
+  const parsed = JSON.parse(r.content);
+  assert.equal(parsed.color.primary.$value, '#0B5FFF');
 });
 
 test('canonical token space is stable and non-empty', () => {

@@ -9,8 +9,10 @@
 
 import { buildLifecycle } from './lifecycle.mjs';
 import { toJSONSchema, toOpenAPI } from './data-schema.mjs';
+import { toDesignTokens } from './style.mjs';
 
-export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi'];
+export { toDesignTokens };
+export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens'];
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 // A safe XML NCName / SMV identifier from arbitrary text (letters, digits, _; never leading digit).
@@ -151,6 +153,7 @@ export function exportIntent(ast, format) {
     case 'smv': return { format, ext: 'smv', content: toSMV(ast) };
     case 'jsonschema': return { format, ext: 'schema.json', content: JSON.stringify(toJSONSchema(ast, { which: 'both' }), null, 2) + '\n' };
     case 'openapi': return { format, ext: 'openapi.json', content: JSON.stringify(toOpenAPI(ast), null, 2) + '\n' };
+    case 'tokens': return { format, ext: 'tokens.json', content: JSON.stringify(toDesignTokens(ast), null, 2) + '\n' };
     default: return null;
   }
 }

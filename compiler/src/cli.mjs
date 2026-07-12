@@ -164,7 +164,7 @@ Execute (no AI, no generated code)
   style <file>                      resolve style intents vs the canonical token space
 
 Interop
-  export <file> --format <dmn|bpmn|smv|jsonschema|openapi>   render to a standard format
+  export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens>   render to a standard format
   import <file> [--format dmn|bpmn] [--json]                 lift DMN/BPMN into intent
   source <file|graph.json>                                   regenerate .intent from a graph
   migrate <graph.json> [--to <version>]                      upgrade a persisted graph

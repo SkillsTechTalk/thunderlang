@@ -35,7 +35,8 @@ The executable + interoperable release. Everything is deterministic and requires
   Experience-profile extension: design tokens bind to a canonical, lockable address space,
   and `accessibility_target` is always a `proposed` claim (never IL-verified). `analyzeStyle`,
   `styleDiagnostics`, `intent style`, diagnostics `IL-STYLE-001..005`, canonical `StyleIntent`
-  node with graph round-trip. Browser-safe via `/core`.
+  node with graph round-trip. Browser-safe via `/core`. Exports to **W3C Design Tokens
+  (DTCG)** via `intent export --format tokens` / `toDesignTokens` (`intent-design-tokens-v1`).
 - **Browser-safe `/core` subpath**, the committed `intent-graph.schema.json`, and the
   complete 46-rule diagnostic catalog.
 

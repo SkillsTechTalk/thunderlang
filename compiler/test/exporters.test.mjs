@@ -99,7 +99,7 @@ test('exportIntent dispatches by format and rejects unknown formats', () => {
   assert.equal(exportIntent(ast, 'bpmn').ext, 'bpmn');
   assert.equal(exportIntent(ast, 'smv').ext, 'smv');
   assert.equal(exportIntent(ast, 'yaml'), null);
-  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi']);
+  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens']);
 });
 
 test('exports are deterministic (same input -> byte-identical output)', () => {

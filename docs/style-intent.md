@@ -104,5 +104,12 @@ const view = analyzeStyle(parseIntent(source));
 // view.styleIntents[0].accessibility -> { target, classification: 'proposed', verified: false }
 ```
 
+## Export to standard design tokens
+
+Tokens are only useful if they flow downstream. `intent export <file> --format tokens`
+renders the style intent as a [W3C Design Tokens (DTCG)](/docs/export-adapters) document ,
+the shape Style Dictionary, Figma Tokens, and CSS pipelines consume , so the same canonical
+addresses become real theme variables with no hand-translation.
+
 Style intent is `intent-style-v1`. Like the rest of the language it is pre-1.0 and versions
 independently.

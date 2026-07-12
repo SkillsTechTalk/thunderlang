@@ -100,11 +100,41 @@ intent export mission.intent --format openapi
 So a mission with typed inputs and outputs is, for free, a validatable JSON Schema and a
 usable OpenAPI operation, no hand-written contract.
 
+## Design tokens (from style intent)
+
+A [`style_intent`](/docs/style-intent) declares brand tokens against a canonical address
+space. `--format tokens` renders them as a **W3C Design Tokens (DTCG)** document , the shape
+Style Dictionary, Figma Tokens, and CSS pipelines consume. Dotted addresses become nested
+groups, and each token carries the inferred `$type` (`color.primary → color`,
+`typography.scale → number`, `typography.families.body → fontFamily`, `shape.radius →
+dimension`).
+
+```
+intent export mission.intent --format tokens
+```
+
+```json
+{
+  "color": { "primary": { "$value": "#0B5FFF", "$type": "color" } },
+  "typography": { "scale": { "$value": 1.25, "$type": "number" } },
+  "$extensions": {
+    "dev.intentlanguage": {
+      "schema": "intent-design-tokens-v1",
+      "styleIntents": [{ "name": "CheckoutLook", "accessibility": { "target": "WCAG_2_2_AA", "classification": "proposed", "verified": false } }]
+    }
+  }
+}
+```
+
+Accessibility targets ride along in `$extensions` as **proposed** claims, never as verified
+conformance, so a token pipeline never mistakes "aiming for AA" for "is AA."
+
 ## Usage
 
-`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi>` prints to stdout, or
+`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens>` prints to stdout, or
 writes a file when `--out <dir>` is given. From the library, `toDMN(ast)`, `toBPMN(ast)`,
-`toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, and `exportIntent(ast, format)` are
-exported from `@skillstech/intentlang`. The exports are byte-deterministic: the same
-intent always produces the same document, so they diff cleanly and belong in version
-control alongside the intent.
+`toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, `toDesignTokens(ast)`, and
+`exportIntent(ast, format)` are exported from `@skillstech/intentlang` (`toDesignTokens` is
+also browser-safe via `/core`). The exports are byte-deterministic: the same intent always
+produces the same document, so they diff cleanly and belong in version control alongside the
+intent.
