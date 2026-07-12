@@ -36,3 +36,7 @@ jobs:
       # Keep the committed canonical schema in sync with the compiler.
       - name: schema sync
         run: npm run schema:check
+
+      # Every .intent file stays canonically formatted.
+      - name: format check
+        run: npm run fmt:check

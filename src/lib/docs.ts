@@ -14,6 +14,7 @@ const EXAMPLES_DIR = path.join(process.cwd(), "examples");
 // Curated reading order + friendly labels for the docs index.
 const DOC_ORDER = [
   "manifesto",
+  "getting-started",
   "syntax-overview",
   "spec",
   "tutorial",
@@ -47,6 +48,7 @@ const DOC_ORDER = [
 
 const DOC_LABELS: Record<string, string> = {
   manifesto: "Manifesto",
+  "getting-started": "Getting started",
   "syntax-overview": "Syntax overview",
   spec: "Language specification",
   tutorial: "Tutorial",
@@ -80,6 +82,7 @@ const DOC_LABELS: Record<string, string> = {
 
 const DOC_BLURBS: Record<string, string> = {
   manifesto: "Why IntentLang exists, and prompt vs durable intent.",
+  "getting-started": "Ten minutes from install to running, testing, and gating intent.",
   "syntax-overview": "The keywords, three layers, types, and blocks.",
   spec: "Draft language specification: lexical rules and constructs.",
   tutorial: "Write your first mission, step by step.",

@@ -14,7 +14,8 @@
     "docs:check": "node scripts/docs-check.mjs",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "schema:emit": "node compiler/src/cli.mjs schema > compiler/intent-graph.schema.json",
-    "schema:check": "node scripts/schema-check.mjs"
+    "schema:check": "node scripts/schema-check.mjs",
+    "fmt:check": "node compiler/src/cli.mjs fmt . --check"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
