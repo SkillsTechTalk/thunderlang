@@ -69,7 +69,7 @@ export { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from './exporters.
 // Data-shape export , typed fields -> JSON Schema / OpenAPI
 export { toJSONSchema, toOpenAPI, typeToJsonSchema } from './data-schema.mjs';
 // Import adapters , external DMN / BPMN -> IntentLang source (round-trip)
-export { fromDMN, fromBPMN, importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
+export { fromDMN, fromBPMN, importIntent, importReport, detectFormat, IMPORT_FORMATS, IMPORT_SCHEMA } from './importers.mjs';
 // Graph -> source , regenerate .intent from an Intent Graph (native round-trip)
 export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
 // Schema migrations , upgrade persisted graphs across schema versions

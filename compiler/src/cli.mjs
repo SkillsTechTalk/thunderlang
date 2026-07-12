@@ -31,7 +31,7 @@ import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
-import { importIntent, detectFormat, IMPORT_FORMATS } from './importers.mjs';
+import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
 import { graphToSource } from './graph-source.mjs';
@@ -525,8 +525,10 @@ function main() {
       console.error(`intent import: could not detect format; pass --format <${IMPORT_FORMATS.join('|')}>`);
       process.exit(2); return;
     }
-    const src = importIntent(xml, fmt);
-    if (src == null) { console.error(`intent import: unsupported format "${fmt}"`); process.exit(2); return; }
+    const report = importReport(xml, fmt);
+    if (report == null) { console.error(`intent import: unsupported format "${fmt}"`); process.exit(2); return; }
+    if (args.json) { console.log(JSON.stringify(report, null, 2)); return; }
+    const src = report.source;
     if (args.out && args.out !== '.intent') {
       const base = basename(file).replace(/\.[^.]+$/, '');
       const p = writeText(args.out, `${slug(base)}.intent`, src);
@@ -534,6 +536,8 @@ function main() {
     } else {
       process.stdout.write(src.endsWith('\n') ? src : src + '\n');
     }
+    // Fidelity warnings go to stderr, so stdout stays clean for piping the source.
+    for (const w of report.warnings) console.error(`intent import: [${w.code}] ${w.message}`);
     return;
   }
 

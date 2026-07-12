@@ -289,10 +289,20 @@ export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 
 // Import adapters (round-trip): external DMN / BPMN -> IntentLang source
 export const IMPORT_FORMATS: string[];
+export const IMPORT_SCHEMA: string;
 export function fromDMN(xml: string): string;
 export function fromBPMN(xml: string): string;
 export function importIntent(xml: string, format?: string): string | null;
 export function detectFormat(xml: string): "dmn" | "bpmn" | null;
+export interface ImportReport {
+  schema: string;
+  format: "dmn" | "bpmn";
+  source: string;
+  warnings: Array<{ code: string; message: string; subject?: string }>;
+  stats: Record<string, number>;
+  ok: boolean;
+}
+export function importReport(xml: string, format?: string): ImportReport | null;
 export interface XmlNode { name: string; attrs: Record<string, string>; children: XmlNode[]; text: string; }
 export function parseXml(input: string): XmlNode;
 export function findAll(node: XmlNode, localName: string): XmlNode[];

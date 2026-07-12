@@ -59,6 +59,37 @@ decision Approve
 That decision is immediately executable with `intent run`, so a table that used to live
 only inside a decision engine is now runnable, diffable, versionable intent.
 
+## Fidelity report: what an import could not represent
+
+DMN and BPMN can express things an Intent Graph deliberately does not model, a COLLECT
+hit policy, a BPMN gateway, a guarded sequence flow. Rather than drop those silently,
+`importReport` returns the source **plus** a list of warnings naming exactly what was
+lost, so nothing goes missing without a trace.
+
+```
+intent import ticket.bpmn
+  mission Ticket
+  lifecycle Ticket
+    state Open
+    state Closed
+  intent import: [IL-IMP-BPMN-001] Process "Ticket" has 1 gateway(s); branching is flattened into direct transitions.
+  intent import: [IL-IMP-BPMN-002] A sequence flow carries a condition; IntentLang transitions have no guards, so the condition is dropped.
+```
+
+The source prints to stdout (clean for piping); the warnings print to stderr. Pass
+`--json` for the full report , `{ source, warnings, stats, ok }`. A clean round-trip (a
+file IntentLang itself produced) reports zero warnings. Warning families:
+
+- **DMN**: `IL-IMP-DMN-001` decision with no table (skipped), `-002` non-first hit policy
+  (semantics may differ), `-003` a rule with a condition but no result, `-004` multiple
+  output columns (only the first imported).
+- **BPMN**: `IL-IMP-BPMN-001` gateways (branching flattened), `-002` a guarded flow
+  (condition dropped), `-003` a flow referencing a non-task node (dropped), `-004`
+  intermediate events, `-005` a process with no tasks.
+
+This is the import-result shape Studio surfaces so a user sees the fidelity loss before
+adopting the imported intent.
+
 ## Why this matters
 
 Import closes the loop. Intent can now come *from* the tools teams already use, not
@@ -69,7 +100,8 @@ which is how a standard earns adoption.
 
 ## The surface
 
-- CLI: `intent import <file> [--format dmn|bpmn] [--out <dir>]`.
+- CLI: `intent import <file> [--format dmn|bpmn] [--out <dir>] [--json]`.
 - Library (`@skillstech/intentlang`): `fromDMN(xml)`, `fromBPMN(xml)`,
-  `importIntent(xml, format?)`, `detectFormat(xml)`, and the small XML reader
-  (`parseXml`, `find`, `findAll`, `localName`).
+  `importIntent(xml, format?)`, `importReport(xml, format?)` (schema
+  `intent-import-v1`), `detectFormat(xml)`, and the small XML reader (`parseXml`,
+  `find`, `findAll`, `localName`).
