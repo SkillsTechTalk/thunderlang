@@ -13,7 +13,7 @@
 // --no-ai is the default and only mode today; the flag is accepted for forward-compatibility.
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { basename, join, relative } from 'node:path';
+import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
@@ -96,6 +96,7 @@ function parseArgs(argv) {
     else if (a === '--events') args.events = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--decision') args.decision = argv[++i];
     else if (a === '--to') args.to = argv[++i];
+    else if (a === '--force') args.force = true;
     else args._.push(a);
   }
   return args;
@@ -139,6 +140,7 @@ const HELP = `intent , the deterministic IntentLang compiler (no AI required)
 usage: intent <command> <file> [options]
 
 Author & check
+  init [Name]              scaffold a runnable starter mission (Name.intent)
   check <file> [--json]    report diagnostics (exits non-zero on errors; --json for tooling)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
@@ -190,6 +192,53 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
+  // Scaffold a runnable starter mission (deterministic, no AI). `intent init [Name]`.
+  if (cmd === 'init') {
+    const name = (file || 'Mission').replace(/\.intent$/i, '');
+    const target = join(args.out && args.out !== '.intent' ? args.out : '.', `${name}.intent`);
+    if (existsSync(target) && !args.force) {
+      console.error(`intent init: ${target} already exists (use --force to overwrite).`);
+      process.exit(1); return;
+    }
+    const starter = `mission ${name}
+use product
+
+goal
+  Describe what this mission must achieve.
+
+guarantee an example property that must always hold
+  because state why it matters
+  verify a test that proves it
+
+never
+  do something this mission must never do
+
+# A runnable decision. Try: intent run ${name}.intent --inputs '{"age":20}'
+decision Example
+  inputs
+    age
+  rule adult
+    when age >= 18
+    return Allowed
+  default
+    return Blocked
+
+# Tests live in the file. Try: intent test ${name}.intent
+test Example
+  case adult
+    given age 20
+    expect Allowed
+  case minor
+    given age 10
+    expect Blocked
+`;
+    if (target.includes('/')) mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, starter);
+    console.log(`intent init: wrote ${target}`);
+    console.log(`  next: intent check ${target}  |  intent run ${target} --inputs '{"age":20}'  |  intent test ${target}`);
+    return;
+  }
+
   if (!file) {
     console.error(`intent ${cmd}: missing a file argument. Run "intent help" for usage.`);
     process.exit(2);
