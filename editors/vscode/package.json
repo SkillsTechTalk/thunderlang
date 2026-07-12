@@ -1,0 +1,55 @@
+{
+  "name": "intentlang-vscode",
+  "displayName": "IntentLang",
+  "description": "Syntax highlighting and language intelligence (diagnostics, completion, hover) for IntentLang .intent files.",
+  "version": "0.1.1",
+  "publisher": "skillstech",
+  "license": "MIT",
+  "homepage": "https://intentlanguage.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:intent"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "intent",
+        "aliases": ["IntentLang", "intent"],
+        "extensions": [".intent"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "intent",
+        "scopeName": "source.intent",
+        "path": "./syntaxes/intent.tmLanguage.json"
+      }
+    ]
+  },
+  "scripts": {
+    "sync-grammar": "node -e \"require('fs').copyFileSync('../../compiler/syntaxes/intent.tmLanguage.json','./syntaxes/intent.tmLanguage.json')\"",
+    "compile": "npm run sync-grammar && tsc -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.4.0"
+  }
+}

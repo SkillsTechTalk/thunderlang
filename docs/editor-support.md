@@ -46,20 +46,18 @@ vim.filetype.add({ extension = { intent = "intent" } })
 
 ### VS Code
 
-A thin extension registers the `.intent` language and starts the server with
-`vscode-languageclient`:
+A ready-to-build extension lives in the repo at `editors/vscode/`. It contributes the
+`intent` language + the grammar and starts the language server:
 
-```ts
-import { LanguageClient, TransportKind } from "vscode-languageclient/node";
-
-const client = new LanguageClient(
-  "intentlang",
-  "IntentLang",
-  { command: "intent", args: ["lsp"], transport: TransportKind.stdio },
-  { documentSelector: [{ scheme: "file", language: "intent" }] },
-);
-client.start();
+```bash
+cd editors/vscode
+npm install
+npm run compile              # syncs the grammar, type-checks, emits out/extension.js
+npx @vscode/vsce package     # -> intentlang-vscode-<version>.vsix, install via "Install from VSIX"
 ```
+
+The extension runs `intent lsp` (configurable via `intentlang.serverCommand`), so install
+the CLI too (`npm install -g @skillstech/intentlang`).
 
 ### Any LSP client
 
