@@ -139,7 +139,7 @@ const HELP = `intent , the deterministic IntentLang compiler (no AI required)
 usage: intent <command> <file> [options]
 
 Author & check
-  check <file>              report diagnostics (exits non-zero on errors)
+  check <file> [--json]    report diagnostics (exits non-zero on errors; --json for tooling)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
@@ -684,7 +684,6 @@ function main() {
   }
 
   if (cmd === 'check') {
-    console.log(`intent check ${sourceFile} (mission: ${ast.mission})`);
     // Governance (Gap 5): waivers downgrade matching blockers to on-the-record exceptions.
     let diags = diagnostics;
     if (ast.waivers && ast.waivers.length) {
@@ -693,6 +692,32 @@ function main() {
       const gov = governanceDiagnostics(ast.waivers, diagnostics, { now });
       diags = [...applied.diagnostics, ...gov];
     }
+    const errors = diags.filter((d) => d.level === 'error' && !d.waived).length;
+    if (args.json) {
+      // Machine-readable diagnostics for editors, CI, and OpenThunder.
+      const out = {
+        schema: 'intent-check-v1',
+        file: sourceFile,
+        mission: ast.mission || null,
+        ok: errors === 0,
+        summary: {
+          errors,
+          warnings: diags.filter((d) => d.level === 'warning' && !d.waived).length,
+          info: diags.filter((d) => d.level === 'info').length,
+          waived: diags.filter((d) => d.waived).length,
+        },
+        diagnostics: diags.map((d) => ({
+          level: d.level, code: d.code, message: d.message,
+          ...(d.why ? { why: d.why } : {}),
+          ...(d.severity ? { severity: d.severity } : {}),
+          ...(Array.isArray(d.blocks) && d.blocks.length ? { blocks: d.blocks } : {}),
+          ...(d.waived ? { waived: true, waiver: d.waiver } : {}),
+        })),
+      };
+      console.log(JSON.stringify(out, null, 2));
+      process.exit(errors > 0 ? 1 : 0);
+    }
+    console.log(`intent check ${sourceFile} (mission: ${ast.mission})`);
     process.exit(printDiagnostics(diags) > 0 ? 1 : 0);
   }
 

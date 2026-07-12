@@ -143,7 +143,10 @@ Proposed (AI-assisted; humans approve, verify, and own the result):
 ## Continuous integration
 
 `intent check` is deterministic, dependency-free, and exits non-zero on any
-error, so it drops straight into CI to keep a broken intent from merging.
+error, so it drops straight into CI to keep a broken intent from merging. Pass
+`--json` for a machine-readable `intent-check-v1` report (`ok`, a summary, and the
+full diagnostics with codes, severities, and any waivers) that editors, CI, and
+OpenThunder can consume directly.
 
 This repo gates every `.intent` file on push and pull request with
 `.github/workflows/intent-check.yml`, which runs `npm run intent:check`
