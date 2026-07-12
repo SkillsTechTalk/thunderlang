@@ -141,7 +141,7 @@ usage: intent <command> <file> [options]
 
 Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
-  check <file> [--json]    report diagnostics (exits non-zero on errors; --json for tooling)
+  check <file|dir> [--json]  diagnostics for one file, or gate every .intent in a dir
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
@@ -715,6 +715,30 @@ test Example
     console.log(`  ${index.summary.declaredFull} declared-full, ${index.summary.declaredPartial} partial, ${index.summary.unverified} unverified, ${index.summary.highRisk} high-risk`);
     console.log('  note: verification is DECLARED, not proven. Test/drift status needs OpenThunder.');
     return;
+  }
+
+  // `intent check <dir>` recurses and gates every .intent file (self-contained CI, no
+  // wrapper script needed). Errors fail the run; warnings do not.
+  if (cmd === 'check' && existsSync(file) && statSync(file).isDirectory()) {
+    const files = collectIntents(file);
+    const reports = files.map((f) => {
+      const a = parseIntent(readFileSync(f, 'utf8'));
+      let diags = semanticDiagnostics(a);
+      if (a.waivers && a.waivers.length) {
+        const now = args.now || null;
+        diags = [...applyWaivers(diags, a.waivers, { now }).diagnostics, ...governanceDiagnostics(a.waivers, diags, { now })];
+      }
+      const errors = diags.filter((d) => d.level === 'error' && !d.waived).length;
+      return { file: relative(file, f) || f, mission: a.mission || null, errors, warnings: diags.filter((d) => d.level === 'warning' && !d.waived).length, ok: errors === 0 };
+    });
+    const failed = reports.filter((r) => !r.ok);
+    if (args.json) {
+      console.log(JSON.stringify({ schema: 'intent-check-batch-v1', root: file, total: reports.length, failed: failed.length, ok: failed.length === 0, files: reports }, null, 2));
+      process.exit(failed.length ? 1 : 0);
+    }
+    console.log(`intent check ${file}: ${reports.length - failed.length}/${reports.length} passed`);
+    for (const r of reports) console.log(`  ${r.ok ? 'ok ' : 'ERR'} ${r.file}${r.errors ? ` , ${r.errors} error(s)` : ''}${r.warnings ? ` (${r.warnings} warning(s))` : ''}`);
+    process.exit(failed.length ? 1 : 0);
   }
 
   const { source, ast, sourceHash, sourceFile } = load(file);

@@ -148,11 +148,19 @@ error, so it drops straight into CI to keep a broken intent from merging. Pass
 full diagnostics with codes, severities, and any waivers) that editors, CI, and
 OpenThunder can consume directly.
 
-This repo gates every `.intent` file on push and pull request with
-`.github/workflows/intent-check.yml`, which runs `npm run intent:check`
-(`node scripts/intent-check.mjs`). The wrapper finds every authored `.intent`
-file (skipping the `.intent/` output directory) and runs the real `intent check`
-on each, failing the build if any file has errors. Warnings do not fail the build.
+`intent check` accepts a directory and recurses it, so gating a whole repo is one
+command , `intent check .` , with no wrapper script. Any project can add the gate in
+three lines with the published GitHub Action:
+
+```yaml
+- uses: SkillsTechTalk/intent-language@main
+  with:
+    paths: ./intent   # a file or directory; default is the whole repo
+```
+
+This repo gates itself on push and pull request with
+`.github/workflows/intent-check.yml`, which also runs the test suite, docs-consistency,
+and schema-sync checks. Warnings do not fail the build; errors do.
 
 A minimal workflow for any repo:
 
