@@ -459,3 +459,7 @@ export function makeEvent(type: string, fields?: Record<string, unknown>): Recor
 
 // Language Server
 export function startLspServer(opts?: { readable?: NodeJS.ReadableStream; writable?: NodeJS.WritableStream }): void;
+
+// Formatter
+export function formatSource(source: string): string;
+export function isFormatted(source: string): boolean;

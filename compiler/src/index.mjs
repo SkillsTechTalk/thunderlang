@@ -103,3 +103,6 @@ export {
 
 // Language Server (LSP over stdio) for editors
 export { startLspServer } from "./lsp.mjs";
+
+// Formatter , canonical .intent formatting (whitespace only)
+export { formatSource, isFormatted } from "./format.mjs";

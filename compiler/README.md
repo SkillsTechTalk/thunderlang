@@ -19,7 +19,9 @@ npx @skillstech/intentlang help           # or run without installing
 
 ```bash
 # Author & check
-intent check <file>          # semantic diagnostics (exit 1 on error)
+intent init [Name]           # scaffold a runnable starter mission
+intent check <file|dir>      # semantic diagnostics (exit 1 on error); a dir gates the repo
+intent fmt <file|dir> -w     # canonical formatting (whitespace only; comments preserved)
 intent build <file>          # docs, contract graph, test plan, .intent-proof.json
 intent graph <file>          # the canonical Intent Graph (intent-graph-v1)
 intent schema                # emit the graph schema + diagnostic catalog

@@ -22,6 +22,7 @@ import {
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
+import { formatSource } from './format.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -98,6 +99,8 @@ function parseArgs(argv) {
     else if (a === '--decision') args.decision = argv[++i];
     else if (a === '--to') args.to = argv[++i];
     else if (a === '--force') args.force = true;
+    else if (a === '--write' || a === '-w') args.write = true;
+    else if (a === '--check') args.check = true;
     else args._.push(a);
   }
   return args;
@@ -143,6 +146,7 @@ usage: intent <command> <file> [options]
 Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
   check <file|dir> [--json]  diagnostics for one file, or gate every .intent in a dir
+  fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   lsp                      start the Language Server (LSP over stdio, for editors)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
@@ -761,6 +765,30 @@ test Example
     console.log(`intent check ${file}: ${reports.length - failed.length}/${reports.length} passed`);
     for (const r of reports) console.log(`  ${r.ok ? 'ok ' : 'ERR'} ${r.file}${r.errors ? ` , ${r.errors} error(s)` : ''}${r.warnings ? ` (${r.warnings} warning(s))` : ''}`);
     process.exit(failed.length ? 1 : 0);
+  }
+
+  // `intent fmt <file|dir>` , canonical formatting (whitespace only; content + comments
+  // preserved). Prints to stdout, or --write in place, or --check for CI (exit 1 if any
+  // file is not already formatted).
+  if (cmd === 'fmt') {
+    const targets = statSync(file).isDirectory() ? collectIntents(file) : [file];
+    const unformatted = [];
+    let changed = 0;
+    for (const f of targets) {
+      const src = readFileSync(f, 'utf8');
+      const formatted = formatSource(src);
+      const same = src.replace(/\r\n?/g, '\n') === formatted;
+      if (args.check) { if (!same) unformatted.push(relative('.', f) || f); continue; }
+      if (args.write) { if (!same) { writeFileSync(f, formatted); changed++; } continue; }
+      process.stdout.write(formatted);
+    }
+    if (args.check) {
+      if (unformatted.length) { console.error(`intent fmt --check: ${unformatted.length} file(s) not formatted:`); for (const u of unformatted) console.error(`  ${u}`); process.exit(1); }
+      console.log('intent fmt --check: all formatted.');
+      process.exit(0);
+    }
+    if (args.write) console.log(`intent fmt: formatted ${changed} file(s), ${targets.length - changed} already clean.`);
+    return;
   }
 
   const { source, ast, sourceHash, sourceFile } = load(file);
