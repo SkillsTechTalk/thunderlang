@@ -1,85 +1,119 @@
 # @skillstech/intentlang
 
-Deterministic IntentLang compiler and CLI. **No AI required.** Turns a `.intent` file into the
-artifacts the SkillsTech ecosystem consumes: contract and architecture graphs, an implementation
-plan, Markdown docs, a Mermaid diagram, a test plan, and a proof artifact. The pipeline is
-parse → semantic diagnostics → contract graph → architecture graph → implementation plan → proof.
+Deterministic IntentLang compiler and CLI. **No AI required.** Turns a `.intent` file into
+the canonical **Intent Graph** plus diagnostics, docs, a test plan, and a proof artifact,
+and, for decisions, lifecycles, and outcomes, **executes the intent directly** (no code
+generated). Every output is pure and deterministic: the same source always yields the same
+result, so intent can be diffed, merged, tested, and trusted.
 
 Part of [IntentLang](https://intentlanguage.dev), the intent language for AI-era software.
 
 ## Install
 
 ```bash
-npm install -g @skillstech/intentlang   # then run: intent check path/to/Mission.intent
-```
-
-Or run without installing:
-
-```bash
-npx @skillstech/intentlang check path/to/Mission.intent
+npm install -g @skillstech/intentlang     # then: intent check path/to/Mission.intent
+npx @skillstech/intentlang help           # or run without installing
 ```
 
 ## Commands
 
 ```bash
-intent check <file.intent>                 # parse + semantic diagnostics (exit 1 on error)
-intent graph <file.intent> [--out .intent] # contract-graph.json + architecture-graph.json + proof
-intent proof <file.intent> [--out .intent] # .intent-proof.json
-intent build <file.intent> [--out .intent] # all artifacts + docs.md + mermaid.mmd + testplan.md
-intent index <dir> [--json]                # Mission Atlas inventory across many .intent files
+# Author & check
+intent check <file>          # semantic diagnostics (exit 1 on error)
+intent build <file>          # docs, contract graph, test plan, .intent-proof.json
+intent graph <file>          # the canonical Intent Graph (intent-graph-v1)
+intent schema                # emit the graph schema + diagnostic catalog
+
+# Execute (no AI, no generated code)
+intent run <file> --inputs '{"age":20}'    # evaluate the decision(s) against inputs
+intent simulate <file> --events submit,approve  # walk the lifecycle(s)
+intent test <file>                          # run in-file test blocks (case/scenario)
+intent outcomes <file>                      # evaluate outcome contracts vs results
+
+# Interop
+intent export <file> --format dmn|bpmn|smv|jsonschema|openapi
+intent import <file> [--format dmn|bpmn] [--json]   # lift DMN/BPMN into intent
+intent source <file|graph.json>             # regenerate .intent from a graph
+intent migrate <graph.json> [--to <ver>]    # upgrade a persisted graph
+
+# Navigate & compare
+intent atlas <dir> [--search q]   intent index <dir>
+intent diff <before> <after>      intent merge <base> <ours> <theirs>
+
+# Code <-> intent
+intent lift <file>   intent approve <file>   intent drift <file>
 ```
 
-`intent index` aggregates a directory of missions into one inventory (mission, area,
-risk heuristic, guarantee/never counts, declared verification). It reports only what
-is derivable from the `.intent` files; test results and drift need a test runner and
-OpenThunder. See the [Mission Atlas](https://intentlanguage.dev/docs/mission-atlas) docs.
+Run `intent help` for the full reference.
 
-Gate your `.intent` files in CI with GitHub Actions: see the
-[compiler contract](https://intentlanguage.dev/docs/compiler-contract) (Continuous integration).
+## Executable intent
+
+A decision is a runnable specification, and tests live in the same file:
+
+```
+mission CanEnroll
+decision Eligibility
+  inputs
+    age
+    score
+  rule adult
+    when age >= 18 and score >= 70
+    return Eligible
+  default
+    return NotEligible
+test Eligibility
+  case adult
+    given age 20, score 90
+    expect Eligible
+```
+
+```bash
+intent run mission.intent --inputs '{"age":20,"score":90}'   # -> Eligible, with a trace
+intent test mission.intent                                    # -> 1/1 passed
+```
+
+No AI, no generated code. The intent itself decides.
 
 ## Use as a library
 
-The package is both a CLI (`intent`) and an importable ES module. Both share the same
-core, so there is no duplicated compiler logic. Ships type declarations (`index.d.ts`).
+Both the CLI and the ES module share one core (ships `index.d.ts`).
 
 ```js
-import { parseIntent, compileSource, buildMissionIndex } from '@skillstech/intentlang';
+import {
+  parseIntent, compileSource, buildIntentGraph,
+  evaluateDecision, simulateLifecycle, runTests, evaluateOutcomes,
+  toDMN, toBPMN, toJSONSchema, toOpenAPI, fromDMN, fromBPMN, importReport,
+  graphToSource, migrateGraph, validateGraph, diffGraphs, mergeGraphs,
+} from '@skillstech/intentlang';
 
-const ast = parseIntent(source);          // parse one .intent
-const out = compileSource(source);        // graphs + plan + proof for one mission
-const index = buildMissionIndex(files);   // Mission Atlas inventory across many
+const ast = parseIntent(source);
+const graph = buildIntentGraph(ast);                 // canonical intent-graph-v1
+const run = evaluateDecision(ast.decisions[0], { age: 20 });
 ```
 
-Also exported: `semanticDiagnostics`, `buildProof`, `buildContractGraph`,
-`buildArchitectureGraph`, `buildImplementationPlan`, `renderMarkdown/Mermaid/Testplan`,
-`getCompletions`, `getHover`, `liftSource`, `liftRepo`, `approveIntent`, `checkDrift`,
-`buildDriftHandoff`, and the `COMPILER_VERSION` / `SOURCE_PRODUCT` constants.
+The browser-safe subset (zero Node deps) is `@skillstech/intentlang/core`: the schema
+constants, classification helpers, and the pure runtime.
 
-## Output location (important for OpenThunder)
+## The Intent Graph (`intent-graph-v1`)
 
-Artifacts are written to **`.intent/<mission-slug>/`** by default, **not `dist/`**. OpenThunder's scanner
-excludes `dist/` and `node_modules/`, so proof artifacts must live in a committed, scannable location. `.intent/`
-mirrors the ecosystem dot-dir convention (`.openthunder/`). Emitted per mission:
+Compilation produces a canonical graph of 39 typed node kinds and 20 directed
+relationship types, across five profiles (product, experience, system, delivery, design).
+The vocabulary is closed and enforced (an anti-fork test guarantees the compiler only
+emits canonical types); `intent schema` emits its draft-07 JSON Schema. Consumers
+(OpenThunder, Repo Mastery, SkillsTech Studio) build to this graph rather than re-parsing.
 
-- `contract-graph.json` — missions, guarantees, never-rules, apis, events, services (stable slug IDs)
-- `architecture-graph.json` — services, apis, events, databases, dependencies
-- `implementation-plan.json` — deterministic ordered plan (no code gen)
-- `.intent-proof.json` — schema-versioned proof (source hash, compiler version, guarantee/never status, diagnostics)
-- `<mission>.md`, `<mission>.mmd`, `<mission>.testplan.md` — Markdown docs, Mermaid graph, test plan
+## Output location
 
-## What the semantic pass catches (slice 1)
-
-missing subject (mission/service/event/api/database) / missing goal · guarantee or never-rule without
-verification · **duplicate-prevention guarantee without an idempotency mechanism** (the signature demo) ·
-Secret/Token field without a never-log rule.
-
-## Consumed by
-
-OpenThunder reads `contract-graph.json` / `architecture-graph.json` / `.intent-proof.json` for Intent Inventory,
-Coverage, and Drift (its `packages/intent` reader, flag `OPENTHUNDER_INTENTLANG`). Stable slug IDs let OT key drift
-precisely. See the ecosystem vault: `il-to-ot-intent-v1`.
+Artifacts are written to **`.intent/<mission-slug>/`** (not `dist/`), a committed,
+scannable location: `contract-graph.json`, `architecture-graph.json`,
+`implementation-plan.json`, `.intent-proof.json`, and `<mission>.md` / `.mmd` /
+`.testplan.md`.
 
 ## Status
 
-MVP, deterministic, tested against `examples/CreateInvoice.intent`. Not production-ready. Parser covers the core +
-architecture constructs; full grammar, OpenAPI target, and richer semantics are the next slices (see `../TODO.md`).
+Deterministic and tested (230+ tests). Five-profile language with an executable runtime,
+first-class tests, outcome contracts, governance/privacy, DMN/BPMN/JSON-Schema/OpenAPI
+export, DMN/BPMN import, native graph<->source round-trip, and schema migrations. Draft
+(pre-1.0): the language and `intent-graph-v1` schema version independently and may still
+change. See the [docs](https://intentlanguage.dev/docs) and the
+[spec](https://intentlanguage.dev/docs/spec).
