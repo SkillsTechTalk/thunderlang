@@ -1,9 +1,9 @@
 import { Fragment } from "react";
 
 /**
- * Lightweight, dependency-free highlighter for Intent's *draft* syntax.
- * This is intentionally simple (keyword + comment + string tinting), Intent
- * has no compiler yet, so this is illustrative, not a real grammar.
+ * Lightweight, dependency-free highlighter for IntentLang's (pre-1.0) syntax.
+ * Intentionally simple (keyword + comment + string tinting) for display only; the
+ * canonical grammar lives in the compiler (@skillstech/intentlang), not here.
  */
 
 // Canonical IntentLang keywords are lowercase and mostly line-leading.

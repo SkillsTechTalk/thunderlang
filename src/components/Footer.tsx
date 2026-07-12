@@ -15,8 +15,8 @@ export function Footer() {
             {siteConfig.builtBy} for the AI era.
           </p>
           <p className="mt-4 text-xs text-haze-400">
-            Draft syntax and forward-looking statements throughout. Nothing here
-            is production-ready yet.
+            Pre-1.0 syntax and forward-looking statements throughout. The compiler
+            is real and deterministic; the ecosystem is still being built.
           </p>
         </div>
 

@@ -120,7 +120,7 @@ export default function HomePage() {
           <div className="animate-fade-up [animation-delay:120ms]">
             <IntentCode code={heroExample} filename="CreateInvoice.intent" />
             <p className="mt-3 text-center text-xs text-haze-500">
-              Draft syntax, illustrative only.
+              Pre-1.0 syntax , and it compiles with the intent CLI today.
             </p>
           </div>
         </div>
@@ -264,8 +264,8 @@ export default function HomePage() {
             </div>
             <div className="mt-6">
               <DraftNote>
-                This is <strong>draft syntax</strong>. Names, keywords, and
-                structure will change as the language and compiler take shape.
+                This is <strong>pre-1.0 syntax</strong>. It compiles today, but
+                names, keywords, and structure can still change before 1.0.
               </DraftNote>
             </div>
             <div className="mt-6">

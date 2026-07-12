@@ -11,8 +11,8 @@ export const metadata = pageMeta({
 
 const perks = [
   "Early access to docs, examples, and the playground",
-  "Updates as the language and compiler take shape",
-  "A chance to influence draft syntax before v1",
+  "Updates as the language evolves toward 1.0",
+  "A chance to influence the syntax before v1",
 ];
 
 export default function WaitlistPage() {
