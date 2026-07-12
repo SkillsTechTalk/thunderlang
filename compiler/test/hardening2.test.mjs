@@ -8,7 +8,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseIntent } from '../src/parse.mjs';
 import { buildIntentGraph } from '../src/intent-graph.mjs';
-import { toDMN, toBPMN, toSMV, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
+import { toDMN, toBPMN, toSMV, toMermaid, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
+import { analyzeStyle, styleDiagnostics, toDesignTokens } from '../src/style.mjs';
 import { toJSONSchema, toOpenAPI } from '../src/data-schema.mjs';
 import { fromDMN, fromBPMN, importReport } from '../src/importers.mjs';
 import { graphToSource } from '../src/graph-source.mjs';
@@ -25,8 +26,8 @@ const pick = (r, a) => a[Math.floor(r() * a.length)];
 const times = (r, m) => Math.floor(r() * m);
 
 // ── a fuzzed but real AST (garbage source through the real parser) ──
-const KEYWORDS = ['mission', 'use', 'goal', 'input', 'output', 'guarantees', 'never', 'metric', 'outcome', 'decision', 'rule', 'default', 'when', 'return', 'lifecycle', 'state', 'transition', 'from', 'to', 'terminal', 'command', 'on', 'capability', 'interface', 'release', 'result', 'learning', 'component', 'artifact', 'outcome_contract', 'test', 'case', 'scenario', 'given', 'expect', 'events', 'data', 'waiver', 'errors', 'api', 'title'];
-const FRAGS = ['', 'X', 'name: Type', '"q, s"', '18', '60%', 'age >= 18', 'a.b', '-', ':', 'List<Order>', 'ünï', '<<>>', '{}', 'idempotency_key id'];
+const KEYWORDS = ['mission', 'use', 'goal', 'input', 'output', 'guarantees', 'never', 'metric', 'outcome', 'decision', 'rule', 'default', 'when', 'return', 'lifecycle', 'state', 'transition', 'from', 'to', 'terminal', 'command', 'on', 'capability', 'interface', 'release', 'result', 'learning', 'component', 'artifact', 'outcome_contract', 'test', 'case', 'scenario', 'given', 'expect', 'events', 'data', 'waiver', 'errors', 'api', 'title', 'experience', 'style_intent', 'applies_to', 'purpose', 'audience', 'surface', 'token', 'accessibility_target', 'scope'];
+const FRAGS = ['', 'X', 'name: Type', '"q, s"', '18', '60%', 'age >= 18', 'a.b', '-', ':', 'List<Order>', 'ünï', '<<>>', '{}', 'idempotency_key id', 'color.primary #0B5FFF', 'color.tertiary bad', 'mode neon', 'WCAG_2_2_AA', 'WCAG_9', 'brand.logo /x.svg'];
 const INDENTS = ['', '  ', '    ', '\t', '      '];
 const randLine = (r) => pick(r, INDENTS) + pick(r, KEYWORDS) + (r() < 0.7 ? ' ' + pick(r, FRAGS) : '');
 const randSource = (r) => Array.from({ length: 1 + times(r, 30) }, () => randLine(r)).join('\n');
@@ -58,7 +59,7 @@ const XML_TOK = ['<a>', '</a>', '<b x="1">', '<c/>', 'txt', '<!-- -->', '&lt;', 
 const randXml = (r) => Array.from({ length: 1 + times(r, 25) }, () => pick(r, XML_TOK)).join('');
 
 // ── exporters never throw on ANY parsed AST; JSON exporters emit valid JSON ──
-test('all five exporters never throw on fuzzed ASTs; JSON outputs parse (1500 cases)', () => {
+test('all exporters never throw on fuzzed ASTs; JSON outputs parse (1500 cases)', () => {
   const r = rng(0xE1);
   for (let i = 0; i < 1500; i++) {
     const ast = parseIntent(randSource(r));
@@ -66,14 +67,23 @@ test('all five exporters never throw on fuzzed ASTs; JSON outputs parse (1500 ca
       let res;
       try { res = exportIntent(ast, fmt); } catch (e) { assert.fail(`export ${fmt} threw on #${i}: ${e.stack}`); }
       assert.ok(res && typeof res.content === 'string');
-      if (fmt === 'jsonschema' || fmt === 'openapi') {
+      if (fmt === 'jsonschema' || fmt === 'openapi' || fmt === 'tokens') {
         try { JSON.parse(res.content); } catch { assert.fail(`export ${fmt} produced invalid JSON on #${i}`); }
       }
+      if (fmt === 'mermaid') {
+        assert.ok(res.content.startsWith('graph TD\n'), `mermaid #${i} missing header`);
+        // No label may leak a char that breaks the mermaid parser.
+        const labels = [...res.content.matchAll(/(?:\["|\(\["|\{\{"|\{")(.*?)(?:"\]|"\]\)|"\}\}|"\})/g)].map((m) => m[1]);
+        for (const l of labels) assert.ok(!/["\[\]|]/.test(l), `mermaid #${i} leaked special char in label: ${JSON.stringify(l)}`);
+      }
     }
-    // direct calls too
-    for (const f of [toDMN, toBPMN, toSMV, toJSONSchema, toOpenAPI]) {
+    // direct calls too, including the style + tokens + mermaid paths
+    for (const f of [toDMN, toBPMN, toSMV, toJSONSchema, toOpenAPI, toMermaid, toDesignTokens, analyzeStyle, styleDiagnostics]) {
       try { f(ast); } catch (e) { assert.fail(`${f.name} threw on #${i}: ${e.stack}`); }
     }
+    // toDesignTokens is always a valid object carrying its provenance extension.
+    const dt = toDesignTokens(ast);
+    assert.ok(dt && typeof dt === 'object' && dt.$extensions && dt.$extensions['dev.intentlanguage']);
   }
 });
 
