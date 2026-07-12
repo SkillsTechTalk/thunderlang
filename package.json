@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "intent:check": "node scripts/intent-check.mjs",
     "intent:test": "node --test compiler",
-    "docs:check": "node scripts/docs-check.mjs"
+    "docs:check": "node scripts/docs-check.mjs",
+    "pack:smoke": "node scripts/pack-smoke.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
