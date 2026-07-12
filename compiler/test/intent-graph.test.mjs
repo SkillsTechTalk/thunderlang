@@ -146,3 +146,15 @@ test('IL-EXP-004: failure state without recovery is a UX blocker; recoverable on
   // a failure state WITH recovery does not fire
   assert.ok(!semanticDiagnostics(parseIntent(EXPERIENCE)).some((x) => x.code === 'IL-EXP-004'));
 });
+
+test('a lifecycle transition to an undeclared state emits no dangling edge (regression, fuzz-found)', () => {
+  const g = buildIntentGraph(parseIntent('mission M\nlifecycle L\n  state A\n  state B\n  transition go\n    from A\n    to GHOST\n'));
+  const ids = new Set(g.nodes.map((n) => n.id));
+  for (const r of g.relationships) {
+    assert.ok(ids.has(r.from) || r.from.startsWith('phase.'), `dangling from ${r.from}`);
+    assert.ok(ids.has(r.to) || r.to.startsWith('phase.'), `dangling to ${r.to}`);
+  }
+  // the transition to GHOST is dropped from the graph, but IL-LIFE-001 still warns the author
+  assert.equal(g.relationships.filter((r) => r.type === 'transitions_to').length, 0);
+  assert.ok(semanticDiagnostics(parseIntent('mission M\nlifecycle L\n  state A\n  transition go\n    from A\n    to GHOST\n')).some((d) => d.code === 'IL-LIFE-001'));
+});

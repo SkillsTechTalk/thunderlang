@@ -1,0 +1,106 @@
+mission SubscriptionUpgrade
+use product
+use delivery
+
+title "Upgrade a customer to a higher subscription tier"
+for BillingCustomer
+
+goal
+  Let a customer move to a higher tier, charged correctly and reversibly.
+
+guarantee the customer is charged at most once per upgrade
+  because a double charge on an upgrade is a trust-breaking billing error
+  verify idempotent charge test
+
+never
+  charge a customer whose payment method is invalid
+  downgrade entitlements before the new charge settles
+
+outcome FasterUpgrades
+  "customers complete an upgrade in one step, without contacting support"
+
+metric upgrade_completion_rate
+  baseline 71%
+  target 85%
+  window 30 days after release
+
+# An executable decision: run it with `intent run`, assert it with `intent test`.
+decision CanUpgrade
+  inputs
+    currentTier
+    targetTier
+    paymentValid
+    outstandingBalance
+  rule noPayment
+    when paymentValid == false
+    return Blocked
+  rule owesMoney
+    when outstandingBalance > 0
+    return Blocked
+  rule higherTier
+    when targetTier > currentTier
+    return Allowed
+  default
+    return NoChange
+
+# A lifecycle: walk it with `intent simulate`.
+lifecycle UpgradeFlow
+  state Requested
+  state Charged
+  state Active
+  state Failed
+  transition charge
+    from Requested
+    to Charged
+  transition activate
+    from Charged
+    to Active
+  transition chargeFailed
+    from Requested
+    to Failed
+  terminal Active, Failed
+
+command ChargeUpgrade
+  idempotency_key upgradeId
+  timeout 20 seconds
+on ChargeUpgradeFailed
+  compensate release entitlement hold
+
+# An outcome contract + the delivery result that measures it: `intent outcomes`.
+outcome_contract UpgradeConversion
+  outcome FasterUpgrades
+  metric upgrade_completion_rate
+  baseline 71%
+  target 85%
+  window 30 days after release
+  owner GrowthPM
+
+result Q3Upgrades
+  measures FasterUpgrades
+  metric upgrade_completion_rate
+  value 88%
+  baseline 71%
+
+# Tests live in the file , `intent test` runs them through the deterministic runtime.
+test CanUpgrade
+  case valid upgrade
+    given currentTier 1, targetTier 2, paymentValid true, outstandingBalance 0
+    expect Allowed
+  case invalid payment
+    given currentTier 1, targetTier 2, paymentValid false, outstandingBalance 0
+    expect Blocked
+  case owes money
+    given currentTier 1, targetTier 2, paymentValid true, outstandingBalance 25
+    expect Blocked
+  case same tier
+    given currentTier 2, targetTier 2, paymentValid true, outstandingBalance 0
+    expect NoChange
+
+test UpgradeFlow
+  scenario happy path
+    events charge, activate
+    expect Active
+    valid
+  scenario cannot activate first
+    events activate
+    invalid
