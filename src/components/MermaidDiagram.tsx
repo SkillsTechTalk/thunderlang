@@ -81,12 +81,19 @@ export function MermaidDiagram({ code }: { code: string }) {
   // Render a fresh (unique-id) copy into the fullscreen modal when opened.
   useEffect(() => {
     if (!expanded) return;
-    setZoom(1);
+    setZoom(1.5); // sensible default until we can measure and fit
     let cancelled = false;
     loadMermaid()
       .then(async (mermaid) => {
         const { svg } = await mermaid.render(`${idRef.current}-modal`, code);
-        if (!cancelled && modalRef.current) modalRef.current.innerHTML = svg;
+        if (cancelled || !modalRef.current) return;
+        modalRef.current.innerHTML = svg;
+        // Fit to the viewport width: wide maps fill the screen, small maps scale up, so
+        // the expanded view is always readable regardless of the diagram's natural size.
+        const el = modalRef.current.querySelector("svg");
+        const natural = el?.viewBox?.baseVal?.width || el?.getBoundingClientRect().width || 0;
+        const avail = Math.max(320, window.innerWidth - 120);
+        if (natural > 0) setZoom(Number(Math.min(3, Math.max(1, avail / natural)).toFixed(2)));
       })
       .catch(() => {});
     return () => {
@@ -121,23 +128,29 @@ export function MermaidDiagram({ code }: { code: string }) {
 
   return (
     <>
-      <div className="group relative overflow-auto rounded-xl border border-white/10 bg-ink-900/60 p-4">
+      <div className="group relative rounded-xl border border-white/10 bg-ink-900/60">
         {loading && (
           <p className="py-8 text-center text-xs text-haze-500">Drawing diagram…</p>
         )}
-        {!loading && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            title="Expand diagram"
-            aria-label="Expand diagram"
-            className="absolute right-2 top-2 z-10 inline-flex items-center gap-1.5 rounded-md border border-white/12 bg-ink-900/80 px-2 py-1 text-[11px] font-medium text-haze-300 opacity-0 backdrop-blur transition-opacity hover:border-gold-300/40 hover:text-gold-200 focus:opacity-100 group-hover:opacity-100"
-          >
-            <ExpandIcon />
-            Expand
-          </button>
-        )}
-        <div ref={ref} className="mermaid-host flex justify-center [&_svg]:max-w-full" />
+        {/* The whole diagram area is a click target: tap anywhere to open the large,
+            zoomable view (the inline thumbnail can get small for wide maps). */}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Expand diagram to a larger, zoomable view"
+          title="Click to expand"
+          onClick={() => !loading && setExpanded(true)}
+          onKeyDown={(e) => { if (!loading && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setExpanded(true); } }}
+          className={`relative overflow-auto rounded-xl p-4 outline-none focus-visible:ring-2 focus-visible:ring-gold-300/40 ${loading ? '' : 'cursor-zoom-in'}`}
+        >
+          {!loading && (
+            <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex items-center gap-1.5 rounded-md border border-white/12 bg-ink-900/80 px-2 py-1 text-[11px] font-medium text-haze-400 backdrop-blur transition-colors group-hover:border-gold-300/40 group-hover:text-gold-200">
+              <ExpandIcon />
+              Expand
+            </span>
+          )}
+          <div ref={ref} className="mermaid-host flex justify-center [&_svg]:max-w-full" />
+        </div>
       </div>
 
       {expanded && (
