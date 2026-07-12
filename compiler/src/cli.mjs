@@ -134,10 +134,51 @@ function printDiagnostics(diags) {
   return errors;
 }
 
+const HELP = `intent , the deterministic IntentLang compiler (no AI required)
+
+usage: intent <command> <file> [options]
+
+Author & check
+  check <file>              report diagnostics (exits non-zero on errors)
+  build <file>              docs, contract graph, test plan, and .intent-proof.json
+  graph <file>              the canonical Intent Graph (intent-graph-v1)
+  proof <file>              the .intent-proof.json artifact
+  schema                    emit the canonical graph schema + diagnostic catalog
+
+Execute (no AI, no generated code)
+  run <file> --inputs '<json>'      evaluate the decision(s) against inputs
+  simulate <file> --events a,b,c    walk the lifecycle(s) over events
+  test <file>                       run the in-file test blocks (case/scenario)
+  outcomes <file>                   evaluate outcome contracts vs delivery results
+
+Interop
+  export <file> --format <dmn|bpmn|smv|jsonschema|openapi>   render to a standard format
+  import <file> [--format dmn|bpmn] [--json]                 lift DMN/BPMN into intent
+  source <file|graph.json>                                   regenerate .intent from a graph
+  migrate <graph.json> [--to <version>]                      upgrade a persisted graph
+
+Navigate & compare (over many missions)
+  atlas <dir> [--search q | --expand id]   the whole-system Atlas
+  index <dir>                              the Mission Atlas inventory
+  diff <before> <after>                    semantic diff (by meaning)
+  merge <base> <ours> <theirs>             deterministic 3-way semantic merge
+
+Code <-> intent
+  lift <file> [--from <lang>]   lift source code into inferred intent
+  approve <file> --by <name>    approve intent (drift baseline)
+  drift <file> --from <code>    check intent vs code drift
+  handoff <file>                the OpenThunder drift handoff
+
+Common options: --out <dir>, --json, --no-ai. See https://intentlanguage.dev/docs`;
+
 function main() {
   const [cmd, ...restArgv] = process.argv.slice(2);
   const args = parseArgs(restArgv);
   const file = args._[0];
+  if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
+    console.log(HELP);
+    process.exit(cmd ? 0 : 2);
+  }
   // `schema` takes no file (it emits the canonical Intent Graph schema).
   if (cmd === 'schema') {
     const out = {
@@ -148,8 +189,8 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
-  if (!cmd || !file) {
-    console.error('usage: intent <check|graph|proof|build|index|ai|schema> <file.intent> [--out .intent] [--no-ai]');
+  if (!file) {
+    console.error(`intent ${cmd}: missing a file argument. Run "intent help" for usage.`);
     process.exit(2);
   }
   // IntentLift: lift source CODE into inferred .intent drafts (not intent parsing).
