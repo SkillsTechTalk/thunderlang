@@ -49,6 +49,24 @@ const whyPoints = [
 
 const targets = ["TypeScript", "Python", ".NET", "Java", "Go", "Rust"];
 
+const runnable = `decision CanEnroll
+  inputs
+    age
+    score
+  rule adult
+    when age >= 18 and score >= 70
+    return Eligible
+  default
+    return NotEligible
+
+test CanEnroll
+  case adult
+    given age 20, score 90
+    expect Eligible
+  case minor
+    given age 10
+    expect NotEligible`;
+
 export default function HomePage() {
   return (
     <>
@@ -187,6 +205,45 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      </Section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Executable intent                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      <Section id="executable">
+        <SectionHeading
+          eyebrow="Beyond prompt engineering"
+          title="Intent you can run. No code. No AI."
+          intro="A decision is not a description of behavior, it is the behavior. Give it inputs and it decides, first matching rule wins, deterministically, before any implementation exists. Tests live in the same file and prove it."
+        />
+        <div className="mt-10 grid gap-6 lg:grid-cols-2 lg:items-start">
+          <IntentCode code={runnable} filename="eligibility.intent" />
+          <div className="rounded-2xl border border-white/10 bg-ink-950/70 p-5 font-mono text-[12.5px] leading-relaxed text-haze-200">
+            <div className="text-haze-500">
+              {"$ intent run eligibility.intent --inputs '{\"age\":20,\"score\":90}'"}
+            </div>
+            <div className="mt-1">
+              <span className="text-emerald-300">decision CanEnroll: Eligible</span>{" "}
+              <span className="text-haze-500">[rule: adult]</span>
+            </div>
+            <div className="mt-5 text-haze-500">$ intent test eligibility.intent</div>
+            <div className="mt-1">
+              <span className="text-emerald-300">PASS</span>&nbsp;&nbsp;CanEnroll / adult
+            </div>
+            <div>
+              <span className="text-emerald-300">PASS</span>&nbsp;&nbsp;CanEnroll / minor
+            </div>
+            <div className="mt-1 text-haze-300">2/2 passed</div>
+          </div>
+        </div>
+        <p className="mt-5 text-sm leading-relaxed text-haze-400">
+          Deterministic: the same intent and inputs always decide the same way, with a full
+          trace, no model in the loop. Run it yourself in the{" "}
+          <Link href="/playground" className="text-gold-300 hover:text-gold-200">
+            playground
+          </Link>
+          .
+        </p>
       </Section>
 
       {/* ------------------------------------------------------------------ */}
