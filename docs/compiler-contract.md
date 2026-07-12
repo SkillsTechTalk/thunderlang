@@ -112,6 +112,12 @@ Emits `.intent-proof.json`. Shape:
 Guarantee and never-rule `status` values: `planned`, `needs_verification`,
 `verified`, or `failed`. `proofStatus` is `draft` until a human approves.
 
+A proof can be **verified** against its source: `intent verify <proof.json> [source]`
+re-hashes the source and re-derives the proof's claims, confirming the source has not
+drifted or been tampered with since the proof was generated (exit non-zero on a mismatch).
+Commit a `.intent-proof.json` next to its source and verify it in CI to keep the proof
+honest.
+
 ## Determinism and AI
 
 The following must succeed with `--no-ai`:

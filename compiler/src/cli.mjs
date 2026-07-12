@@ -151,6 +151,7 @@ Author & check
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
+  verify <proof.json> [src]  confirm a proof still matches its source (drift/tamper check)
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
 
@@ -199,6 +200,36 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
+  // Verify a .intent-proof.json against its source: the source hash still matches (no
+  // drift / tampering) and the proof's claims re-derive from the source.
+  if (cmd === 'verify') {
+    const proofPath = args._[0];
+    if (!proofPath) { console.error('usage: intent verify <proof.json> [<source.intent>]'); process.exit(2); return; }
+    let proof;
+    try { proof = JSON.parse(readFileSync(proofPath, 'utf8')); } catch { console.error('intent verify: proof is not valid JSON'); process.exit(2); return; }
+    const srcPath = args._[1] || proof.sourceFile;
+    if (!srcPath || !existsSync(srcPath)) { console.error(`intent verify: source not found (${srcPath || 'none'}). Pass it: intent verify <proof.json> <source.intent>`); process.exit(2); return; }
+    const src = readFileSync(srcPath, 'utf8');
+    const ast = parseIntent(src);
+    const diags = semanticDiagnostics(ast);
+    const hashMatch = sha256(src) === proof.sourceHash;
+    const semanticNow = !diags.some((d) => d.level === 'error');
+    const semanticMatch = proof.verification ? semanticNow === !!proof.verification.semanticPassed : true;
+    const guaranteesMatch = !Array.isArray(proof.guarantees) || proof.guarantees.length === (ast.guarantees || []).length;
+    const neverMatch = !Array.isArray(proof.neverRules) || proof.neverRules.length === (ast.neverRules || []).length;
+    const valid = hashMatch && semanticMatch && guaranteesMatch && neverMatch;
+    const result = { schema: 'intent-verify-v1', proof: proofPath, source: srcPath, valid, checks: { hashMatch, semanticMatch, guaranteesMatch, neverMatch } };
+    if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(valid ? 0 : 1); return; }
+    console.log(`intent verify ${basename(proofPath)}: ${valid ? 'VALID' : 'FAILED'} (source ${basename(srcPath)})`);
+    if (!hashMatch) console.log('  X source hash does not match , the source has changed since the proof was generated (drift or tampering).');
+    if (!semanticMatch) console.log('  X the proof claims a different semantic result than the source produces now.');
+    if (!guaranteesMatch) console.log('  X guarantee count differs from the proof.');
+    if (!neverMatch) console.log('  X never-rule count differs from the proof.');
+    if (valid) console.log(`  ok proof matches source (hash + ${(proof.guarantees || []).length} guarantee(s), ${(proof.neverRules || []).length} never-rule(s)).`);
+    process.exit(valid ? 0 : 1);
+    return;
+  }
+
   // Explain a diagnostic code from the canonical catalog. `intent explain IL-DEC-001`.
   if (cmd === 'explain') {
     const code = file;
