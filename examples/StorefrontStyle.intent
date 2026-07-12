@@ -1,0 +1,31 @@
+mission Storefront
+use experience
+use design
+
+title Storefront checkout look and feel
+goal "give checkout a premium, accessible visual language across surfaces"
+problem "Checkout must feel premium and stay accessible across surfaces"
+
+experience CheckoutFlow
+  goal "complete a purchase with confidence"
+  state Reviewing
+  state Paying
+  state Paid
+
+style_intent CheckoutLook
+  applies_to CheckoutFlow
+  purpose "premium, trustworthy checkout"
+  audience enterprise buyers, procurement
+  surface checkout
+  surface receipt
+  token color.primary #0B5FFF
+  token color.surface #FFFFFF
+  token color.text #0A0A0A
+  token color.feedback.error #D8000C
+  token typography.scale 1.25
+  token typography.families.body Inter
+  token shape.radius 8px
+  token mode both
+  token brand.logo /brand/mark.svg
+  accessibility_target WCAG_2_2_AA
+  scope surface:checkout

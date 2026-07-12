@@ -125,6 +125,21 @@ export function buildIntentGraph(ast) {
   for (const pat of ast.patterns || []) {
     nodes.push(node(`pattern.${slug(pat.name || 'pattern')}`, 'Pattern', pat.name, { description: `${(pat.requires || []).length} requirement(s)` }));
   }
+  // Style intents , brand/visual language governing an experience. The whole node is
+  // `proposed` (design intent), and its accessibility target is never emitted as verified.
+  const experienceIds = new Set((ast.experiences || []).map((e) => `experience.${slug(e.name || 'experience')}`));
+  for (const si of ast.styleIntents || []) {
+    const stId = `style.${slug(si.name || 'style')}`;
+    const desc = [
+      si.purpose,
+      si.accessibilityTarget && `a11y target ${si.accessibilityTarget} (proposed)`,
+      si.tokens && si.tokens.length ? `${si.tokens.length} token(s)` : null,
+    ].filter(Boolean).join('; ') || null;
+    nodes.push(node(stId, 'StyleIntent', si.name, { description: desc, classification: 'proposed' }));
+    const target = si.appliesTo ? `experience.${slug(si.appliesTo)}` : null;
+    if (target && experienceIds.has(target)) relationships.push(rel(target, 'constrained_by', stId));
+    else relationships.push(rel(mId, 'requires', stId));
+  }
   for (const role of ast.approvals || []) {
     const id = `approval.${slug(ast.mission)}.${slug(role)}`;
     nodes.push(node(id, 'Approval', role, { status: 'required', owner: role }));

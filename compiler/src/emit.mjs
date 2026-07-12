@@ -13,6 +13,7 @@ import { analyzeDistributed } from './distributed.mjs';
 import { analyzeDecision } from './decision.mjs';
 import { analyzePrivacy } from './privacy.mjs';
 import { outcomeDiagnostics } from './outcome.mjs';
+import { styleDiagnostics } from './style.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -421,6 +422,24 @@ export function semanticDiagnostics(ast) {
       severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['release'] : undefined,
       message: f.message, why: OUTCOME_WHY[f.code],
       roles: { product: f.message },
+    });
+  }
+
+  // ── Style intent , canonical token space + accessibility as a proposed claim ──
+  const STYLE_WHY = {
+    'IL-STYLE-001': 'Tokens address a canonical, lockable namespace so themes stay portable; an off-namespace path forks the design system.',
+    'IL-STYLE-002': 'The accessibility target must be a recognized standard so tools and OT agree on what is being claimed.',
+    'IL-STYLE-003': 'State the accessibility goal as a proposed claim; leaving it implicit lets "accessible" go unverified.',
+    'IL-STYLE-004': 'The mode token drives light/dark rendering; an unrecognized value has no defined behavior.',
+    'IL-STYLE-005': 'A style intent that applies to an undeclared experience will not be attached to anything in this file.',
+  };
+  for (const f of styleDiagnostics(ast)) {
+    const isBlocker = f.severity === 'blocker';
+    d.push({
+      level: f.severity === 'info' ? 'info' : 'warning', code: f.ruleId,
+      severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? f.blocks : undefined,
+      message: f.message, why: STYLE_WHY[f.ruleId],
+      roles: { designer: f.message, product: f.message },
     });
   }
 

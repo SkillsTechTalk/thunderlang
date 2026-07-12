@@ -263,6 +263,8 @@ export function parseIntent(source) {
     owner: null, approvals: [], unknowns: [], questions: [], assumptionDecls: [],
     // Experience profile (intent-graph-v1)
     experiences: [], patterns: [],
+    // Style intent , brand/visual language as a governed Experience-profile extension
+    styleIntents: [],
     // Constraint composition + conflict resolution (Gap 1)
     roleConstraints: [], conflicts: [],
     // Temporal + lifecycle semantics (Gap 2)
@@ -380,6 +382,31 @@ export function parseIntent(source) {
       }
       case 'experience': ast.experiences.push(parseExperience(arg, node)); break;
       case 'pattern': ast.patterns.push(parsePattern(arg, node)); break;
+      case 'style_intent': {
+        // Brand + visual language as a governed Experience-profile extension. Tokens are
+        // (path value) pairs against a canonical address space; accessibility_target is
+        // always a PROPOSED claim (IL never labels it verified , that is OT's verdict).
+        const si = {
+          name: arg || null, appliesTo: null, purpose: null,
+          audience: [], surfaces: [], tokens: [], accessibilityTarget: null,
+          scope: null, line: node.line,
+        };
+        for (const c of kids(node)) {
+          const k = firstWord(c.text); const a = rest(c.text);
+          if (k === 'applies_to') si.appliesTo = a || null;
+          else if (k === 'purpose') si.purpose = stripQuotes(a || leafItems(c).join(' '));
+          else if (k === 'audience') si.audience.push(...(a ? a.split(',').map((s) => s.trim()).filter(Boolean) : leafItems(c)));
+          else if (k === 'surface' || k === 'surfaces') si.surfaces.push(...(a ? a.split(',').map((s) => s.trim()).filter(Boolean) : leafItems(c)));
+          else if (k === 'token') {
+            const bits = a.split(/\s+/);
+            const path = bits.shift();
+            if (path) si.tokens.push({ path, value: stripQuotes(bits.join(' ')) || null, line: c.line });
+          } else if (k === 'accessibility_target' || k === 'accessibility') si.accessibilityTarget = (a || '').trim() || null;
+          else if (k === 'scope') si.scope = a || null;
+        }
+        ast.styleIntents.push(si);
+        break;
+      }
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
       // ── System profile ──
       case 'capability': {

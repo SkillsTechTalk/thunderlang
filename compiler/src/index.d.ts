@@ -391,6 +391,24 @@ export function evaluateOutcomeContract(contract: Record<string, unknown>, actua
 export function evaluateOutcomes(ast: IntentAst): { schema: string; total: number; met: number; missed: number; pending: number; evaluations: OutcomeEvaluation[] };
 export function outcomeDiagnostics(ast: IntentAst): Array<{ code: string; contract: string; severity: string; message: string }>;
 
+// Style intent , brand/visual language as a governed Experience-profile extension
+export const STYLE_SCHEMA: string;
+export const TOKEN_PATHS: string[];
+export const BRAND_PATHS: string[];
+export const STYLE_ADDRESS_SPACE: string[];
+export const ACCESSIBILITY_TARGETS: string[];
+export const MODE_VALUES: string[];
+export const ACCESSIBILITY_CLASSIFICATION: string;
+export interface StyleToken { path: string; value: string | null; canonical: boolean }
+export interface StyleIntentView {
+  id: string; name: string | null; appliesTo: string | null; purpose: string | null;
+  audience: string[]; surfaces: string[]; scope: string | null;
+  accessibility: { target: string; classification: string; verified: boolean } | null;
+  tokens: StyleToken[];
+}
+export function styleDiagnostics(ast: IntentAst): Array<{ ruleId: string; severity: string; blocks: string[]; message: string; styleIntent: string; line: number }>;
+export function analyzeStyle(ast: IntentAst): { schema: string; styleIntents: StyleIntentView[]; diagnostics: ReturnType<typeof styleDiagnostics>; addressSpace: string[]; accessibilityTargets: string[] };
+
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;
 export const NODE_TYPES: string[];

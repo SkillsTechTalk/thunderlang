@@ -36,6 +36,7 @@ import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
+import { analyzeStyle } from './style.mjs';
 import { graphToSource } from './graph-source.mjs';
 import { migrateGraph, validateGraph } from './migrate.mjs';
 import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
@@ -160,6 +161,7 @@ Execute (no AI, no generated code)
   simulate <file> --events a,b,c    walk the lifecycle(s) over events
   test <file>                       run the in-file test blocks (case/scenario)
   outcomes <file>                   evaluate outcome contracts vs delivery results
+  style <file>                      resolve style intents vs the canonical token space
 
 Interop
   export <file> --format <dmn|bpmn|smv|jsonschema|openapi>   render to a standard format
@@ -587,6 +589,23 @@ test Example
       console.log(`  ${tag}  ${e.contract}  , ${detail}`);
     }
     process.exit(r.missed > 0 ? 1 : 0);
+    return;
+  }
+
+  // Style intent: resolve brand/visual language against the canonical token address space.
+  if (cmd === 'style') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const r = analyzeStyle(ast);
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.diagnostics.some((d) => d.severity === 'blocker') ? 1 : 0); return; }
+    if (r.styleIntents.length === 0) { console.log(`intent style ${basename(file)}: no style intents found.`); return; }
+    console.log(`intent style ${basename(file)}: ${r.styleIntents.length} style intent(s)`);
+    for (const s of r.styleIntents) {
+      const a11y = s.accessibility ? `${s.accessibility.target} (${s.accessibility.classification}, verified=${s.accessibility.verified})` : 'no target';
+      console.log(`  ${s.name}  , a11y ${a11y}, ${s.tokens.length} token(s)${s.appliesTo ? `, applies_to ${s.appliesTo}` : ''}`);
+      for (const t of s.tokens) console.log(`      ${t.canonical ? ' ' : '?'} ${t.path} = ${t.value ?? '(unset)'}`);
+    }
+    for (const d of r.diagnostics) console.log(`  [${d.severity}] ${d.ruleId}: ${d.message}`);
+    process.exit(0);
     return;
   }
 

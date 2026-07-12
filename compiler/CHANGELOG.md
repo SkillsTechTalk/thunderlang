@@ -31,8 +31,13 @@ The executable + interoperable release. Everything is deterministic and requires
 - **Onboarding + CI.** `intent init` scaffolds a runnable starter; `intent check <dir>`
   recurses and gates a whole repo; `intent check --json` and `intent explain <CODE>` for
   tooling; a composite GitHub Action.
+- **Style intent.** `style_intent` models brand + visual language as a governed
+  Experience-profile extension: design tokens bind to a canonical, lockable address space,
+  and `accessibility_target` is always a `proposed` claim (never IL-verified). `analyzeStyle`,
+  `styleDiagnostics`, `intent style`, diagnostics `IL-STYLE-001..005`, canonical `StyleIntent`
+  node with graph round-trip. Browser-safe via `/core`.
 - **Browser-safe `/core` subpath**, the committed `intent-graph.schema.json`, and the
-  complete 41-rule diagnostic catalog.
+  complete 46-rule diagnostic catalog.
 
 ### Fixed
 

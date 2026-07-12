@@ -19,3 +19,10 @@ export {
 // The Intent Runtime , executable intent (evaluate decisions, simulate lifecycles). Pure.
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
 export { compileExpr, evalExpr, ExprError } from './expr.mjs';
+
+// Style intent , canonical token address space + accessibility vocabulary (browser-safe).
+// Studio and renderers bind to these instead of forking their own design-token trees.
+export {
+  analyzeStyle, styleDiagnostics, STYLE_SCHEMA, TOKEN_PATHS, BRAND_PATHS,
+  STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, MODE_VALUES, ACCESSIBILITY_CLASSIFICATION,
+} from './style.mjs';

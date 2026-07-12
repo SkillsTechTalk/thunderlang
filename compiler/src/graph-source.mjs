@@ -131,6 +131,16 @@ export function graphToSource(graph) {
   }
   for (const p of byType('Pattern')) push(`pattern ${title(p)}`);
 
+  // Style intents , re-emit the block (name, the experience it constrains, a11y target).
+  for (const si of byType('StyleIntent')) {
+    push(`style_intent ${title(si)}`);
+    const edge = rels.find((r) => r.to === si.id && r.type === 'constrained_by');
+    const exp = edge ? byId.get(edge.from) : null;
+    if (exp && exp.type === 'ExperienceContract') push(`  applies_to ${title(exp)}`);
+    const am = String(si.description || '').match(/a11y target (\S+)/);
+    if (am) push(`  accessibility_target ${am[1]}`);
+  }
+
   // Lifecycles.
   for (const lc of byType('Lifecycle')) {
     push(`lifecycle ${title(lc)}`);

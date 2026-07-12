@@ -19,6 +19,7 @@
     "Pattern",
     "DesignArtifact",
     "DesignComponent",
+    "StyleIntent",
     "Capability",
     "SystemContract",
     "ImplementationMapping",
@@ -396,6 +397,41 @@
         "verification"
       ],
       "summary": "Eventually with no time bound (cannot be verified)."
+    },
+    {
+      "ruleId": "IL-STYLE-001",
+      "area": "style",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Style intent binds a token outside the canonical address space."
+    },
+    {
+      "ruleId": "IL-STYLE-002",
+      "area": "style",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Unrecognized accessibility target."
+    },
+    {
+      "ruleId": "IL-STYLE-003",
+      "area": "style",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Style intent declares no accessibility target (a proposed claim)."
+    },
+    {
+      "ruleId": "IL-STYLE-004",
+      "area": "style",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Invalid mode token value."
+    },
+    {
+      "ruleId": "IL-STYLE-005",
+      "area": "style",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Style intent applies to an undeclared experience."
     }
   ],
   "jsonSchema": {
@@ -463,6 +499,7 @@
               "Pattern",
               "DesignArtifact",
               "DesignComponent",
+              "StyleIntent",
               "Capability",
               "SystemContract",
               "ImplementationMapping",

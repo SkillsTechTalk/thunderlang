@@ -85,6 +85,11 @@ export { compileExpr, evalExpr, tokenize, ExprError } from './expr.mjs';
 export { runTests, TEST_SCHEMA } from './testing.mjs';
 // Outcome contracts , executable commitments (evaluate an outcome against its result)
 export { evaluateOutcomeContract, evaluateOutcomes, outcomeDiagnostics, parseValue, OUTCOME_SCHEMA } from './outcome.mjs';
+// Style intent , brand/visual language as a governed Experience-profile extension
+export {
+  analyzeStyle, styleDiagnostics, STYLE_SCHEMA, TOKEN_PATHS, BRAND_PATHS,
+  STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, MODE_VALUES, ACCESSIBILITY_CLASSIFICATION,
+} from './style.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES,

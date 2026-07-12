@@ -14,7 +14,7 @@ export const NODE_TYPES = [
   'Mission', 'Actor', 'Persona', 'Evidence', 'Opportunity', 'Outcome', 'Metric',
   'Requirement', 'Constraint', 'Guarantee', 'Never', 'Conflict', 'Journey',
   'ExperienceContract', 'ExperienceState', 'Pattern', 'DesignArtifact', 'DesignComponent',
-  'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
+  'StyleIntent', 'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
   'VerificationResult', 'Approval', 'Release', 'OutcomeContract', 'OutcomeResult', 'LearningArtifact',
   'Unknown', 'Assumption', 'Question', 'Lifecycle', 'LifecycleState', 'Temporal',
   'Command', 'Event', 'FailureHandler', 'Decision', 'Rule',
@@ -123,4 +123,9 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-LIFE-003', area: 'lifecycle', severity: 'warning', blocks: [], summary: 'Non-terminal dead-end state (no way out).' },
   { ruleId: 'IL-LIFE-004', area: 'lifecycle', severity: 'warning', blocks: [], summary: 'Lifecycle has no initial state.' },
   { ruleId: 'IL-TEMP-001', area: 'temporal', severity: 'blocker', blocks: ['verification'], summary: 'Eventually with no time bound (cannot be verified).' },
+  { ruleId: 'IL-STYLE-001', area: 'style', severity: 'warning', blocks: [], summary: 'Style intent binds a token outside the canonical address space.' },
+  { ruleId: 'IL-STYLE-002', area: 'style', severity: 'warning', blocks: [], summary: 'Unrecognized accessibility target.' },
+  { ruleId: 'IL-STYLE-003', area: 'style', severity: 'info', blocks: [], summary: 'Style intent declares no accessibility target (a proposed claim).' },
+  { ruleId: 'IL-STYLE-004', area: 'style', severity: 'warning', blocks: [], summary: 'Invalid mode token value.' },
+  { ruleId: 'IL-STYLE-005', area: 'style', severity: 'info', blocks: [], summary: 'Style intent applies to an undeclared experience.' },
 ];
