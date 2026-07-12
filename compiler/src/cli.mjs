@@ -21,6 +21,7 @@ import {
 } from './emit.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
+import { startLspServer } from './lsp.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -142,6 +143,7 @@ usage: intent <command> <file> [options]
 Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
   check <file|dir> [--json]  diagnostics for one file, or gate every .intent in a dir
+  lsp                      start the Language Server (LSP over stdio, for editors)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
@@ -192,6 +194,12 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
+  // Language Server (LSP over stdio) for editors. Long-running; no file argument.
+  if (cmd === 'lsp') {
+    startLspServer();
+    return; // keep the process alive on stdin
+  }
+
   // Scaffold a runnable starter mission (deterministic, no AI). `intent init [Name]`.
   if (cmd === 'init') {
     const name = (file || 'Mission').replace(/\.intent$/i, '');

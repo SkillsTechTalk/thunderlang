@@ -100,3 +100,6 @@ export {
   recordDecision, approvalFor, emptyApprovals, APPROVALS_SCHEMA_VERSION,
   makeEvent, INTENT_AI_EVENTS,
 } from './ai.mjs';
+
+// Language Server (LSP over stdio) for editors
+export { startLspServer } from "./lsp.mjs";

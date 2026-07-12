@@ -456,3 +456,6 @@ export function recordDecision(store: ApprovalsStore, id: string, rec: {
 }): { store: ApprovalsStore; record: ApprovalRecord } | { error: string };
 export const INTENT_AI_EVENTS: string[];
 export function makeEvent(type: string, fields?: Record<string, unknown>): Record<string, unknown>;
+
+// Language Server
+export function startLspServer(opts?: { readable?: NodeJS.ReadableStream; writable?: NodeJS.WritableStream }): void;
