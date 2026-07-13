@@ -118,20 +118,35 @@ export default function ExamplesPage() {
             Browse the <span className="font-mono text-gold-200">.intent</span>{" "}
             files.
           </h2>
+          <p className="mt-2 text-sm text-haze-400">
+            Every example here is <span className="text-emerald-300">compiler-valid</span> (CI
+            gates it). <span className="text-emerald-300">Runnable</span> ones also execute end to
+            end with <span className="font-mono text-haze-200">intent test</span>.
+          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {files.map((f) => (
             <Link key={f.slug} href={`/examples/${f.slug}`}>
               <Card className="h-full">
-                <h3 className="text-base font-semibold text-white">
-                  {f.title}
-                </h3>
-                <p className="mt-2 font-mono text-xs text-haze-400">
-                  {f.filename}
-                </p>
-                <span className="mt-3 inline-block text-sm text-gold-300">
-                  Open →
-                </span>
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-base font-semibold text-white">{f.title}</h3>
+                  <span
+                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                      f.runnable
+                        ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                        : "border-white/15 bg-white/5 text-haze-400"
+                    }`}
+                    title={
+                      f.runnable
+                        ? "Runs end to end with intent test"
+                        : "Compiles cleanly; no in-file tests"
+                    }
+                  >
+                    {f.runnable ? "Runnable" : "Compiler-valid"}
+                  </span>
+                </div>
+                <p className="mt-2 font-mono text-xs text-haze-400">{f.filename}</p>
+                <span className="mt-3 inline-block text-sm text-gold-300">Open →</span>
               </Card>
             </Link>
           ))}

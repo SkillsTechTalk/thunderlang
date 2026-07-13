@@ -247,7 +247,8 @@ export function getDoc(slug: string): { label: string; html: string } | null {
   return { label: DOC_LABELS[slug] ?? slug, html };
 }
 
-export type ExampleMeta = { slug: string; filename: string; title: string };
+export type ExampleStatus = "runnable" | "compiler-valid";
+export type ExampleMeta = { slug: string; filename: string; title: string; runnable: boolean; status: ExampleStatus };
 
 /** examples/CreateInvoice.intent -> slug "createinvoice". */
 export function getExampleList(): ExampleMeta[] {
@@ -256,7 +257,17 @@ export function getExampleList(): ExampleMeta[] {
     .filter((f) => f.endsWith(".intent"))
     .map((filename) => {
       const stem = filename.replace(/\.intent$/, "");
-      return { slug: stem.toLowerCase(), filename, title: stem };
+      // Every tracked example is compiler-valid (CI gates it). Those with an in-file `test`
+      // block are runnable end to end with `intent test`.
+      const code = fs.readFileSync(path.join(EXAMPLES_DIR, filename), "utf8");
+      const runnable = /^test\s+\w/m.test(code);
+      return {
+        slug: stem.toLowerCase(),
+        filename,
+        title: stem,
+        runnable,
+        status: (runnable ? "runnable" : "compiler-valid") as ExampleStatus,
+      };
     })
     .sort((a, b) => a.title.localeCompare(b.title));
 }
