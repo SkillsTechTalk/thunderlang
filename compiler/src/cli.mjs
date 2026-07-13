@@ -28,6 +28,7 @@ import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
 import { scanProject } from './scan.mjs';
+import { guardianReport } from './guardian.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -171,6 +172,7 @@ Author & check
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
   scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
+  guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
@@ -914,6 +916,26 @@ test Example
     console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
     if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
     console.log('  use: import { compileGuard } from "@skillstech/intentlang/core"');
+    return;
+  }
+
+  // `intent guardian <before> <after>` , drift detection: what a change did to the intent , which
+  // intent it affects, what risk it introduced, what must be reverified, what learning is stale.
+  if (cmd === 'guardian') {
+    const beforeArg = args._[0]; const afterArg = args._[1];
+    if (!beforeArg || !afterArg) { console.error('usage: intent guardian <before.intent|dir> <after.intent|dir> [--json]'); process.exit(2); return; }
+    const collect = (p) => (existsSync(p) && statSync(p).isDirectory() ? collectIntents(p) : [p]).map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') }));
+    const r = guardianReport(collect(beforeArg), collect(afterArg));
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.verdict === 'needs-attention' ? 1 : 0); return; }
+    const c = r.changed;
+    console.log(`intent guardian: ${r.verdict.toUpperCase()}  (${beforeArg} -> ${afterArg})`);
+    console.log(`  changed    +${c.nodesAdded} / -${c.nodesRemoved} / ~${c.nodesChanged} nodes, +${c.relationshipsAdded} / -${c.relationshipsRemoved} relationships`);
+    if (r.affectedIntent.length) console.log(`  affected   ${r.affectedIntent.map((n) => n.title || n.id).join(', ')}`);
+    if (r.introducedRisk.length) { console.log(`  introduced risk (${r.introducedRisk.length}):`); for (const f of r.introducedRisk.slice(0, 6)) console.log(`    [${f.severity}] ${f.ruleId} , ${f.detected}`); }
+    if (r.resolvedRisk.length) console.log(`  resolved risk: ${r.resolvedRisk.length}`);
+    if (r.mustReverify.length) { console.log(`  must reverify (${r.mustReverify.length}):`); for (const m of r.mustReverify.slice(0, 6)) console.log(`    ${m.type} ${m.title || m.id} , ${m.reason}`); }
+    if (r.staleLearning.length) { console.log('  learning to refresh:'); for (const l of r.staleLearning.slice(0, 6)) console.log(`    ${l.scope} , ${l.reason}`); }
+    process.exit(r.verdict === 'needs-attention' ? 1 : 0);
     return;
   }
 

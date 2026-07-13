@@ -88,6 +88,11 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Intent Guardian (`intent-guardian-v1`).** `intent guardian <before> <after>` / `guardianReport`
+  detects drift a change introduced: what changed (semantic diff by mission identity, rename-safe),
+  what intent it affects, the risk it INTRODUCED (findings new in after), what must be reverified
+  (changed contract elements + invalidated approvals), and which missions' learning is now stale.
+  `needs-attention` only on newly-introduced blocking risk; exit non-zero gates a PR. Browser-safe.
 - **Intent Scanner + Fable (`intent-scan-v1` / `intent-fable-v1`).** `intent scan [dir]` runs the
   deterministic pipeline , parse -> Intent IR -> Fable findings -> risk themes , and prints an
   executive/risk summary + a highest-impact remediation sequence; `--json` for the machine report,

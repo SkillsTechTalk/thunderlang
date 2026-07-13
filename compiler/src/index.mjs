@@ -105,6 +105,8 @@ export { buildReport, REPORT_SCHEMA } from './report.mjs';
 export { FABLE_SCHEMA, RISK_CATEGORIES, fableRuleFor, universalPack, toFinding } from './fable.mjs';
 // Intent Scanner , intent -> Intent IR -> Fable findings -> risk themes (deterministic pipeline)
 export { scanIntent, scanProject, SCAN_SCHEMA } from './scan.mjs';
+// Intent Guardian , continuous drift detection (what changed, what risk, what to reverify, stale learning)
+export { guardianReport, GUARDIAN_SCHEMA } from './guardian.mjs';
 // Verify a code change against its intent , the AI generate/verify loop gate
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 // MCP server , IntentLang as a native tool for AI coding agents

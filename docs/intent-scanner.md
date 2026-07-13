@@ -60,3 +60,37 @@ an AI-suggested issue is never presented as a confirmed fact.
 Findings roll up into **risk themes** (one per risk category) and a **highest-impact remediation
 sequence** , blockers first, then the most common rules , so a team knows what to fix first. The
 Scanner is the deterministic spine; inferred rules and role-aware explanations layer on top.
+
+## Continuous drift , Intent Guardian
+
+The Scanner tells you the risk in a project *now*. **Intent Guardian** tells you what a *change*
+did to it. Given a before and after state, `intent guardian <before> <after>` answers the one
+question drift monitoring exists for:
+
+> what changed, what intent it affects, what risk it introduced, what must be reverified, and
+> what learning content should be refreshed.
+
+```bash
+intent guardian old/ new/
+```
+
+```
+intent guardian: NEEDS-ATTENTION  (before.intent -> after.intent)
+  changed    +0 / -1 / ~1 nodes
+  affected   CreateInvoice
+  introduced risk (2):
+    [warning] guarantee-without-verification , Guarantee "no duplicate invoice" has no verification.
+    [blocker] IL-SEC-001 , Event "Charged" payload field "token" is a Secret; secrets must not ...
+  must reverify (2):
+    Guarantee no duplicate invoice , contract element changed, its verification no longer holds
+  learning to refresh:
+    CreateInvoice , a governing intent artifact changed, lessons for it may be stale
+```
+
+It compares the two states by **mission identity** (not file path, so it survives a rename),
+composing the [semantic diff](/docs/semantic-diff) with the Scanner: findings present after but
+not before are *introduced risk*; contract elements (guarantees, never-rules, verifications,
+decisions) that changed *must be reverified*; and the missions whose intent changed have lessons
+that are now stale. `needs-attention` fires only when a change introduces *blocking* risk , an
+improvement that merely adds a test is `review`, not an alarm. `--json` for the machine report;
+exit is non-zero on `needs-attention`, so it gates a pull request.
