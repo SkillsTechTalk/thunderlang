@@ -8,12 +8,16 @@ import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 
 export const TEST_SCHEMA = 'intent-test-v1';
 
-// Coerce declared `given` values: numeric-looking -> number, true/false -> boolean, else string.
+// Coerce declared `given` values: numeric-looking -> number, true/false -> boolean, else
+// string. A value wrapped in matching quotes is treated as a string with the quotes stripped,
+// so `given severity "high"` and `given severity high` behave identically.
 function coerce(given) {
   const out = {};
   for (const [k, raw] of Object.entries(given || {})) {
     const v = String(raw).trim();
-    if (v === 'true' || v === 'false') out[k] = v === 'true';
+    const quoted = v.length >= 2 && ((v[0] === '"' && v[v.length - 1] === '"') || (v[0] === "'" && v[v.length - 1] === "'"));
+    if (quoted) out[k] = v.slice(1, -1);
+    else if (v === 'true' || v === 'false') out[k] = v === 'true';
     else if (v !== '' && !isNaN(Number(v))) out[k] = Number(v);
     else out[k] = v;
   }

@@ -118,6 +118,32 @@ test D
   assert.equal(r.ok, true);
 });
 
+test('string given-values work quoted or bare (quotes are stripped)', () => {
+  const s = `mission M
+decision D
+  inputs
+    severity
+  rule high
+    when severity == "high"
+    return Page
+  default
+    return Queue
+test D
+  case quoted
+    given severity "high"
+    expect Page
+  case bare
+    given severity high
+    expect Page
+  case other
+    given severity low
+    expect Queue
+`;
+  const r = runTests(parseIntent(s));
+  assert.equal(r.ok, true, JSON.stringify(r.results.filter((x) => !x.pass)));
+  assert.equal(r.passed, 3);
+});
+
 test('a test targeting a missing decision/lifecycle is a clear failure', () => {
   const s = 'mission M\ntest Nope\n  case c\n    given x 1\n    expect Y\n';
   const r = runTests(parseIntent(s));

@@ -101,11 +101,12 @@ export default function ExamplesPage() {
       <PageHero
         eyebrow="Examples"
         title="See how intent reads before any code is written."
-        intro="Each example is a self-contained sketch. Read it top to bottom, that is the point. They are illustrative drafts, not runnable programs."
+        intro="Each example is a self-contained mission. Read it top to bottom, that is the point, and many now run: decisions evaluate, lifecycles simulate, and in-file tests pass through the deterministic compiler."
       >
         <DraftNote>
-          All examples use <strong>draft syntax</strong> and do not run yet.
-          There is no compiler or playground execution behind them today.
+          The executable parts run for real via{" "}
+          <strong>@skillstech/intentlang</strong> , no AI, no generated code. Try one in the{" "}
+          <Link href="/playground">playground</Link>. The language is pre-1.0 and can still change.
         </DraftNote>
       </PageHero>
 
