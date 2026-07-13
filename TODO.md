@@ -133,27 +133,44 @@ repo and implementation is approved.
       docs-index page to stop overclaiming code generation (P5).
 
 ### P7 - Certification track (future)
-- [ ] Document "SkillsTech Certified Intent-Oriented Programming Associate"
+- [x] Document "SkillsTech Certified Intent-Oriented Programming Associate"
+      SHIPPED: `docs/certification.md` , the concept, what the credential proves (the
+      fourth proof-chain link: the method), what an Associate can do, how IntentLang's
+      deterministic check/test/proof back an objective assessment, and planned higher
+      tiers. Keeps the repo boundary explicit: the concept + shared vocabulary live here;
+      the certification product is built by SkillsTech Certified (a sibling). Registered
+      in src/lib/docs.ts. tsc clean, docs:check OK (42 docs).
 
 ## Cross-cutting concepts to carry through docs
-- [ ] **Intent Drift** - implementation no longer satisfies declared intent
-- [ ] **Proof artifact** - `.intent-proof.json` as a first-class output
-- [ ] **Adapters** - per-target generators (dotnet, typescript, python, openapi,
-      mermaid, markdown, tests)
-- [ ] **why / because** - rationale that captures engineering judgment
-- [ ] **Style** - paradigm/stack hints per target (CleanArchitecture, CQRS, …)
+- [x] **Intent Drift** - manifesto (§Intent Drift), guardian, semantic-diff, verifying-ai-changes
+- [x] **Proof artifact** - compiler-contract (§8) + manifesto (proof chain); real `.intent-proof.json`
+- [x] **Adapters** - export-adapters.md, import-adapters.md, compiler-contract (§6 target generation)
+- [x] **why / because** - spec (§5.1 attached guarantee), every example, ai-assist
+- [x] **Style** - style-intent.md (design-token binding) + `style` block in examples
 
 ## Ecosystem integrations (later)
 
 The through-line is **proof**. Each product proves a different thing about the
-same mission:
+same mission. IntentLang (this repo) owns the shared artifacts + seams; the SIBLING
+products own their own internals and are NOT built here. Status is IL's side of each seam:
 
-- [ ] **SkillsTech Compiler** proves the language can produce artifacts
-- [ ] **OpenThunder** proves the repo matches the declared intent (drift)
-- [ ] **Repo Mastery** proves the human understands the mission
-- [ ] **SkillsTech Certified** proves the learner understands the method
-- [ ] SkillsTech Talk: turn missions into explanation/defense drills
-- [ ] SkillsTech Workspace: store signed proof artifacts and adoption metrics
+- [x] **SkillsTech Compiler** proves the language can produce artifacts , SHIPPED: the
+      deterministic compiler lives in `compiler/` and emits contract/architecture graphs,
+      implementation plan, proof, docs, mermaid, test plan.
+- [x] **OpenThunder** proves the repo matches the declared intent (drift) , IL SIDE DONE:
+      `intent handoff` emits `il-to-ot-drift-v1`; the `@openthunder/intent` consumer +
+      `can-i-ship --intent-pack` round-trip is verified end to end (see IntentLift section).
+      OT's own drift engine is sibling-owned.
+- [~] **Repo Mastery** proves the human understands the mission , IL SIDE READY: missions,
+      IntentLens notes/lenses, and the `@skillstech/intentlang/core` browser subpath are
+      published for RM to consume. RM's learning product is sibling-owned.
+- [x] **SkillsTech Certified** proves the learner understands the method , CONCEPT
+      DOCUMENTED here in `docs/certification.md` (P7). The certification product is
+      sibling-owned.
+- [ ] SkillsTech Talk: turn missions into explanation/defense drills , SIBLING-OWNED
+      (IL provides the missions + notes; no IL work pending).
+- [ ] SkillsTech Workspace: store signed proof artifacts and adoption metrics ,
+      SIBLING-OWNED (IL emits the proof envelope with join keys; storage is theirs).
 
 ## Acceptance criteria (for the foundation slice)
 - [x] Repository has a clear roadmap
@@ -261,6 +278,13 @@ Next slices (compiler core first):
 - [x] Monaco editor with intent language, dark theme, and inline compiler completions + hover
 - [ ] Quick-fix lightbulb (code-actions), fix-preview diff, Fix-all-safe, lens-aware ranking
 - [ ] Self-host Monaco (currently CDN via @monaco-editor/react loader)
+      DEFERRED (not a quick, safely-verifiable change): the plan is to add `monaco-editor`
+      as a direct dep and call `loader.config({ monaco })` in IntentMonaco.tsx so assets
+      load locally instead of from jsdelivr, plus wire `MonacoEnvironment` workers for the
+      Next build. The failure mode (web-worker resolution) only surfaces at runtime in a
+      browser against a production build, and this is the LIVE playground on
+      intentlanguage.dev , so it needs a `next build` + browser smoke test before shipping.
+      Left for a session that can run that verification rather than shipped blind.
 - [ ] Do NOT hardcode completions in the playground; do NOT duplicate the parser
 
 ## IntentLift (Code-to-Intent)
