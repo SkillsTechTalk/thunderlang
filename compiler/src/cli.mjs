@@ -601,7 +601,7 @@ test Example
     if (args.json) { console.log(JSON.stringify(runs.length === 1 ? runs[0] : runs, null, 2)); return; }
     for (const r of runs) {
       console.log(`decision ${r.decision}: ${r.result === null ? '(undecided)' : r.result}${r.matched ? `  [rule: ${r.matched}]` : ''}`);
-      for (const t of r.trace) console.log(`  ${t.matched ? 'x' : ' '} ${t.rule || '(rule)'}${t.when ? `: when ${t.when}` : ''}${t.error ? `  !! ${t.error}` : ''}`);
+      for (const t of r.trace) console.log(`  ${t.matched ? '>' : ' '} ${t.rule || '(rule)'}${t.when ? `: when ${t.when}` : ''}${t.error ? `  !! ${t.error}` : t.matched ? '  (matched)' : ''}`);
     }
     process.exit(runs.some((r) => r.undecided || !r.ok) ? 1 : 0);
     return;
