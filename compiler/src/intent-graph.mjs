@@ -84,8 +84,13 @@ export function buildIntentGraph(ast) {
   }
   for (const n of ast.neverRules || []) {
     const id = `never.${n.id || slug(n.statement)}`;
-    nodes.push(node(id, 'Never', n.statement));
+    nodes.push(node(id, 'Never', n.statement, { status: n.verify && n.verify.length ? 'verify-declared' : 'unverified' }));
     relationships.push(rel(mId, 'constrained_by', id));
+    for (const v of n.verify || []) {
+      const vid = `verification.${slug(v)}`;
+      if (!emittedVerifs.has(vid)) { nodes.push(node(vid, 'VerificationRule', v, { status: 'verify-declared' })); emittedVerifs.add(vid); }
+      relationships.push(rel(id, 'verified_by', vid));
+    }
   }
   for (const u of ast.unknowns || []) {
     const id = `unknown.${slug(u.name || 'unknown')}`;

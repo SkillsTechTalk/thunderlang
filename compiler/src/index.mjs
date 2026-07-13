@@ -105,6 +105,10 @@ export { buildReport, REPORT_SCHEMA } from './report.mjs';
 export { FABLE_SCHEMA, RISK_CATEGORIES, fableRuleFor, universalPack, toFinding } from './fable.mjs';
 // Intent Scanner , intent -> Intent IR -> Fable findings -> risk themes (deterministic pipeline)
 export { scanIntent, scanProject, SCAN_SCHEMA } from './scan.mjs';
+// Focused scanner query views (Part 3): risks / gaps / unverified / coverage / unknowns / contradictions
+export {
+  VIEW_SCHEMA, VIEWS, risksView, gapsView, unverifiedView, coverageView, unknownsView, contradictionsView,
+} from './scan-queries.mjs';
 // Intent Guardian , continuous drift detection (what changed, what risk, what to reverify, stale learning)
 export { guardianReport, GUARDIAN_SCHEMA } from './guardian.mjs';
 // Intent Simulator , estimate a change's impact BEFORE implementation (blast radius + risk)

@@ -28,6 +28,7 @@ import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
 import { scanProject } from './scan.mjs';
+import { VIEWS } from './scan-queries.mjs';
 import { guardianReport } from './guardian.mjs';
 import { simulateChange } from './simulate.mjs';
 import { verifyLedger, explain as ledgerExplain } from './ledger.mjs';
@@ -193,6 +194,7 @@ Author & check
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
   scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
+  risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
   ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
@@ -1105,6 +1107,39 @@ test Example
 
   // `intent scan [dir]` , the Scanner spine: intent -> Intent IR -> explainable Fable findings ->
   // risk themes. Deterministic, no AI. --json for the machine report; --ir writes the merged IR.
+  // Part 3 focused scan queries , one question each over the Intent IR + Fable findings:
+  // `intent risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]`.
+  if (VIEWS[cmd]) {
+    const root = file || '.';
+    const targets = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : [root];
+    if (!targets.length || !existsSync(targets[0])) { console.error(`intent ${cmd}: no .intent files under ${root}`); process.exit(2); return; }
+    const scan = scanProject(targets.map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') })));
+    const v = VIEWS[cmd](scan);
+    if (args.json) { console.log(JSON.stringify(v, null, 2)); return; }
+    if (cmd === 'coverage') {
+      console.log(`intent coverage ${root}: ${v.verified}/${v.total} claims verified (${v.coverage}%)`);
+      for (const c of v.unverified) console.log(`  unverified [${c.type}] ${c.title}`);
+      process.exit(v.coverage === 100 ? 0 : 1); return;
+    }
+    if (cmd === 'risks') {
+      const s = v.bySeverity;
+      console.log(`intent risks ${root}: ${v.count} risk theme(s)  ,  ${s.blocker || 0} blocker, ${s.error || 0} error, ${s.warning || 0} warning, ${s.info || 0} info`);
+      for (const t of v.themes) console.log(`  ${String(t.count).padStart(3)}  ${t.category}${t.blocker ? `  (${t.blocker} blocker)` : ''}`);
+      for (const r of v.remediationSequence.slice(0, 5)) console.log(`  fix [${r.severity}] ${r.ruleId} (${r.count}x) , ${r.remediation}`);
+      process.exit((s.blocker || 0) + (s.error || 0) === 0 ? 0 : 1); return;
+    }
+    // gaps / unverified / unknowns / contradictions , a uniform list
+    console.log(`intent ${cmd} ${root}: ${v.count}`);
+    for (const g of v.gaps || []) console.log(`  [${g.severity}] ${g.ruleId} , ${g.detected}`);
+    for (const c of v.claims || []) console.log(`  [${c.type}] ${c.title}`);
+    for (const u of v.unknowns || []) console.log(`  [${u.type}] ${u.title}${u.confidence ? `  (${u.confidence})` : ''}`);
+    for (const c of v.conflicts || []) console.log(`  [Conflict] ${c.title}`);
+    for (const l of v.links || []) console.log(`  ${l.from} ${l.type} ${l.to}`);
+    for (const f of v.findings || []) console.log(`  ${f.ruleId} , ${f.detected}`);
+    process.exit(v.count === 0 ? 0 : 1);
+    return;
+  }
+
   if (cmd === 'scan') {
     const root = file || '.';
     const targets = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : [root];

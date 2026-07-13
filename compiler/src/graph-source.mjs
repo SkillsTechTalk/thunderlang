@@ -88,8 +88,17 @@ export function graphToSource(graph) {
     for (const v of out(g.id, 'verified_by')) push(`  verify ${title(v)}`);
   }
 
+  // Never-rules: attached form when a `verify` exists (so it round-trips to VerificationRule
+  // nodes), plain `never` block otherwise.
   const nevers = byType('Never');
-  if (nevers.length) { push('never'); for (const n of nevers) push(`  ${title(n)}`); }
+  const neverBare = nevers.filter((n) => out(n.id, 'verified_by').length === 0);
+  if (neverBare.length) { push('never'); for (const n of neverBare) push(`  ${title(n)}`); }
+  for (const n of nevers) {
+    const vs = out(n.id, 'verified_by');
+    if (!vs.length) continue;
+    push(`never ${title(n)}`);
+    for (const v of vs) push(`  verify ${title(v)}`);
+  }
 
   for (const u of byType('Unknown')) {
     push(`unknown ${title(u)}`);

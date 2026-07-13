@@ -88,6 +88,17 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Focused scanner queries (`intent risks | gaps | unverified | coverage | unknowns |
+  contradictions`).** Part 3 of the Intent Scanner: one deterministic question each over the
+  shared Intent IR + Fable findings (`scan-queries.mjs`, `intent-scan-view-v1`), so a person
+  can ask "what is unverified?" or "what is the verification coverage?" without reading the
+  whole scan report. `coverage` exits non-zero below 100%; `risks` gates on blocker/error.
+  Pure views, exported from the barrel.
+- **IR fix: never-rules now carry their verification.** `buildIntentGraph` was emitting
+  `verified_by` edges for guarantees but not for attached never-rules, so the shared Intent IR
+  under-counted never-rule verification (and coverage read wrong). Never-rules with a `verify`
+  now emit `verified_by` edges + a `verify-declared` status, and `graphToSource` round-trips
+  them. Every downstream consumer (OpenThunder, RepoMastery) sees never-verification faithfully.
 - **Code actions + autocorrect (`intent code-actions` / `apply-fix`).** `getCodeActions`
   surfaces the available quick-fixes, safety-graded (`safe` autocorrects and `reviewable`
   diagnostic fixes); `autocorrectSource` applies only meaning-preserving header fixes
