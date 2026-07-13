@@ -17,6 +17,8 @@ import {
   whatIntentIsNot,
 } from "@/lib/content";
 import { siteConfig } from "@/lib/site";
+import { CAPABILITIES } from "@/lib/capabilities";
+import { StatusBadge } from "@/components/StatusBadge";
 
 const philosophy = [
   { step: "Prompt", body: "How the conversation starts. Useful, but temporary." },
@@ -81,39 +83,44 @@ export default function HomePage() {
           <div className="animate-fade-up">
             <div className="flex items-center gap-3">
               <StarMark className="h-6 w-6 animate-twinkle" />
-              <Pill>The intent language for AI-era software</Pill>
+              <Pill>The human control layer for AI-written software</Pill>
             </div>
 
-            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
-              Intent-Oriented Programming{" "}
-              <span className="text-gradient-gold">for the AI era.</span>
+            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.2rem]">
+              Understand what your software is supposed to do,{" "}
+              <span className="text-gradient-gold">
+                what it actually does, and whether you can trust it.
+              </span>
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-haze-300">
-              {siteConfig.wordmark} lets engineers define what software should
-              do, why it matters, what must never happen, and how the result
-              must be verified, before code is generated, changed, or shipped.
-              Built by {siteConfig.builtBy}.
+              {siteConfig.wordmark} turns human goals into durable software
+              contracts, scans existing code to recover meaning, maps the system,
+              and connects implementation to verification and proof , so humans
+              stay in control as AI writes more of the code. Built by{" "}
+              {siteConfig.builtBy}.
             </p>
 
             <div className="mt-8">
               <CTAButtons
-                primary={{ href: "/waitlist", label: "Join the Waitlist" }}
-                secondary={{ href: "/vision", label: "Read the Vision" }}
+                primary={{ href: "/playground", label: "Try the Playground" }}
+                secondary={{ href: "/docs/getting-started", label: "Install the CLI" }}
               />
-              <div className="mt-3">
-                <Link
-                  href="/examples"
-                  className="text-sm font-medium text-gold-300 hover:text-gold-200"
-                >
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                <Link href="/atlas" className="font-medium text-gold-300 hover:text-gold-200">
+                  Explore Intent Atlas →
+                </Link>
+                <Link href="/examples" className="font-medium text-gold-300 hover:text-gold-200">
                   View Examples →
                 </Link>
               </div>
             </div>
 
             <p className="mt-8 max-w-lg text-sm leading-relaxed text-haze-400">
-              <span className="text-haze-200">The core promise:</span>{" "}
-              {siteConfig.promise}
+              <span className="text-haze-200">Deterministic core.</span>{" "}
+              AI-assisted only when you enable it. No model required for the
+              supported local analysis , the compiler, scanner, and proof run
+              offline with no key.
             </p>
           </div>
 
@@ -125,6 +132,36 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* What works today (single source of truth: the capability manifest) */}
+      {/* ------------------------------------------------------------------ */}
+      <Section id="today">
+        <SectionHeading
+          eyebrow="Honest status"
+          title="What works today, and what is still being built."
+          intro="One manifest drives every status label on this site, so it can never claim more than the compiler actually does. Available means it ships in the compiler and is tested."
+        />
+        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {CAPABILITIES.map((c) => (
+            <div
+              key={c.key}
+              className="flex flex-col gap-2 rounded-2xl border border-white/8 bg-ink-850/40 p-4"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-white">{c.name}</h3>
+                <StatusBadge status={c.status} />
+              </div>
+              <p className="text-xs leading-relaxed text-haze-400">{c.blurb}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-sm text-haze-400">
+          <Link href="/roadmap" className="font-medium text-gold-300 hover:text-gold-200">
+            See the full roadmap →
+          </Link>
+        </p>
+      </Section>
 
       {/* ------------------------------------------------------------------ */}
       {/* Why Intent                                                         */}
