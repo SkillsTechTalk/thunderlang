@@ -1535,15 +1535,649 @@
           "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Complement\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:complement\n\nevidence\n  function signature complement\n\ngoal\n  complement (inferred from the complement signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
         }
       ]
+    },
+    {
+      "name": "Newtonsoft.Json",
+      "language": "csharp",
+      "license": "MIT",
+      "what": "the .NET JSON library's public convert API",
+      "source": "https://raw.githubusercontent.com/JamesNK/Newtonsoft.Json/master/Src/Newtonsoft.Json/JsonConvert.cs",
+      "path": "Src/Newtonsoft.Json/JsonConvert.cs",
+      "publicFunctions": 7,
+      "missionCount": 7,
+      "missions": [
+        {
+          "mission": "ToString",
+          "fn": "ToString",
+          "line": 104,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission ToString\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:ToString\n\nevidence\n  function signature ToString\n  error ArgumentException\n\ngoal\n  to string (inferred from the ToString signature)\n\ninput\n  value: DateTime\n\noutput\n  result: string\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "EnsureFloatFormat",
+          "fn": "EnsureFloatFormat",
+          "line": 273,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission EnsureFloatFormat\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:EnsureFloatFormat\n\nevidence\n  function signature EnsureFloatFormat\n  error ArgumentException\n\ngoal\n  ensure float format (inferred from the EnsureFloatFormat signature)\n\ninput\n  value: double\n  text: string\n  floatFormatHandling: FloatFormatHandling\n  quoteChar: char\n  nullable: bool\n\noutput\n  result: string\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "EnsureDecimalPlace",
+          "fn": "EnsureDecimalPlace",
+          "line": 303,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission EnsureDecimalPlace\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:EnsureDecimalPlace\n\nevidence\n  function signature EnsureDecimalPlace\n  error ArgumentException\n\ngoal\n  ensure decimal place (inferred from the EnsureDecimalPlace signature)\n\ninput\n  value: double\n  text: string\n\noutput\n  result: string\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SerializeObject",
+          "fn": "SerializeObject",
+          "line": 530,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission SerializeObject\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:SerializeObject\n\nevidence\n  function signature SerializeObject\n  error ArgumentException\n\ngoal\n  serialize object (inferred from the SerializeObject signature)\n\ninput\n  value: object?\n\noutput\n  result: string\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PopulateObject",
+          "fn": "PopulateObject",
+          "line": 883,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission PopulateObject\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:PopulateObject\n\nevidence\n  function signature PopulateObject\n  error ArgumentException\n\ngoal\n  populate object (inferred from the PopulateObject signature)\n\ninput\n  value: string\n  target: object\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SerializeXmlNode",
+          "fn": "SerializeXmlNode",
+          "line": 930,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission SerializeXmlNode\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:SerializeXmlNode\n\nevidence\n  function signature SerializeXmlNode\n  error ArgumentException\n\ngoal\n  serialize xml node (inferred from the SerializeXmlNode signature)\n\ninput\n  node: XmlNode?\n\noutput\n  result: string\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SerializeXnode",
+          "fn": "SerializeXNode",
+          "line": 1047,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C#. Draft, unverified, needs human review.\nmission SerializeXnode\n\ninferred\n  from C#\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function Src/Newtonsoft.Json/JsonConvert.cs:SerializeXNode\n\nevidence\n  function signature SerializeXNode\n  error ArgumentException\n\ngoal\n  serialize xnode (inferred from the SerializeXNode signature)\n\ninput\n  node: XObject?\n\noutput\n  result: string\n\nnever\n  cause argument exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Redis util",
+      "language": "cpp",
+      "license": "BSD-3-Clause",
+      "what": "Redis's core C string/number utilities",
+      "source": "https://raw.githubusercontent.com/redis/redis/unstable/src/util.c",
+      "path": "src/util.c",
+      "publicFunctions": 50,
+      "missionCount": 40,
+      "missions": [
+        {
+          "mission": "Prefixmatch",
+          "fn": "prefixmatch",
+          "line": 207,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Prefixmatch\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:prefixmatch\n\nevidence\n  function signature prefixmatch\n\ngoal\n  prefixmatch (inferred from the prefixmatch signature)\n\ninput\n  pattern: char\n  patternLen: int\n  prefixStr: char\n  prefixStrLen: int\n  nocase: int\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Stringmatchlen",
+          "fn": "stringmatchlen",
+          "line": 237,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Stringmatchlen\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:stringmatchlen\n\nevidence\n  function signature stringmatchlen\n\ngoal\n  stringmatchlen (inferred from the stringmatchlen signature)\n\ninput\n  pattern: char\n  patternLen: int\n  string: char\n  stringLen: int\n  nocase: int\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Stringmatch",
+          "fn": "stringmatch",
+          "line": 243,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Stringmatch\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:stringmatch\n\nevidence\n  function signature stringmatch\n\ngoal\n  stringmatch (inferred from the stringmatch signature)\n\ninput\n  pattern: char\n  string: char\n  nocase: int\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Memtoull",
+          "fn": "memtoull",
+          "line": 271,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Memtoull\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:memtoull\n\nevidence\n  function signature memtoull\n\ngoal\n  memtoull (inferred from the memtoull signature)\n\ninput\n  p: char\n  err: int\n\noutput\n  result: unsigned long long\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Mempbrk",
+          "fn": "mempbrk",
+          "line": 331,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Mempbrk\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:mempbrk\n\nevidence\n  function signature mempbrk\n\ngoal\n  mempbrk (inferred from the mempbrk signature)\n\ninput\n  s: char\n  len: size_t\n  chars: char\n  charslen: size_t\n\noutput\n  result: const char *\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Memmapchars",
+          "fn": "memmapchars",
+          "line": 343,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Memmapchars\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:memmapchars\n\nevidence\n  function signature memmapchars\n\ngoal\n  memmapchars (inferred from the memmapchars signature)\n\ninput\n  s: char\n  len: size_t\n  from: char\n  to: char\n  setlen: size_t\n\noutput\n  result: char *\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Digits10",
+          "fn": "digits10",
+          "line": 357,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Digits10\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:digits10\n\nevidence\n  function signature digits10\n\ngoal\n  digits10 (inferred from the digits10 signature)\n\ninput\n  v: uint64_t\n\noutput\n  result: uint32_t\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Sdigits10",
+          "fn": "sdigits10",
+          "line": 378,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Sdigits10\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:sdigits10\n\nevidence\n  function signature sdigits10\n\ngoal\n  sdigits10 (inferred from the sdigits10 signature)\n\ninput\n  v: int64_t\n\noutput\n  result: uint32_t\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Ll2string",
+          "fn": "ll2string",
+          "line": 392,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Ll2string\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:ll2string\n\nevidence\n  function signature ll2string\n\ngoal\n  ll2string (inferred from the ll2string signature)\n\ninput\n  dst: char\n  dstlen: size_t\n  svalue: long long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Ull2string",
+          "fn": "ull2string",
+          "line": 434,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Ull2string\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:ull2string\n\nevidence\n  function signature ull2string\n\ngoal\n  ull2string (inferred from the ull2string signature)\n\ninput\n  dst: char\n  dstlen: size_t\n  value: unsigned long long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "String2ll",
+          "fn": "string2ll",
+          "line": 485,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission String2ll\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:string2ll\n\nevidence\n  function signature string2ll\n\ngoal\n  string2ll (inferred from the string2ll signature)\n\ninput\n  s: char\n  slen: size_t\n  value: long long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "String2ull",
+          "fn": "string2ull",
+          "line": 556,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission String2ull\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:string2ull\n\nevidence\n  function signature string2ull\n\ngoal\n  string2ull (inferred from the string2ull signature)\n\ninput\n  s: char\n  value: unsigned long long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "String2l",
+          "fn": "string2l",
+          "line": 574,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission String2l\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:string2l\n\nevidence\n  function signature string2l\n\ngoal\n  string2l (inferred from the string2l signature)\n\ninput\n  s: char\n  slen: size_t\n  lval: long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SafeIsCInRange",
+          "fn": "safe_is_c_in_range",
+          "line": 588,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission SafeIsCInRange\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:safe_is_c_in_range\n\nevidence\n  function signature safe_is_c_in_range\n\ngoal\n  safe is c in range (inferred from the safe_is_c_in_range signature)\n\ninput\n  c: char\n  start: char\n  end: char\n\noutput\n  result: static int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Base16CharType",
+          "fn": "base_16_char_type",
+          "line": 593,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Base16CharType\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:base_16_char_type\n\nevidence\n  function signature base_16_char_type\n\ngoal\n  base 16 char type (inferred from the base_16_char_type signature)\n\ninput\n  c: char\n\noutput\n  result: static int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "String2ulBase16AsyncSignalSafe",
+          "fn": "string2ul_base16_async_signal_safe",
+          "line": 604,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission String2ulBase16AsyncSignalSafe\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:string2ul_base16_async_signal_safe\n\nevidence\n  function signature string2ul_base16_async_signal_safe\n\ngoal\n  string2ul base16 async signal safe (inferred from the string2ul_base16_async_signal_safe signature)\n\ninput\n  src: char\n  slen: size_t\n  result_output: unsigned long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "String2ld",
+          "fn": "string2ld",
+          "line": 631,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission String2ld\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:string2ld\n\nevidence\n  function signature string2ld\n\ngoal\n  string2ld (inferred from the string2ld signature)\n\ninput\n  s: char\n  slen: size_t\n  dp: long double\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "String2d",
+          "fn": "string2d",
+          "line": 661,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission String2d\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:string2d\n\nevidence\n  function signature string2d\n\ngoal\n  string2d (inferred from the string2d signature)\n\ninput\n  s: char\n  slen: size_t\n  dp: double\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Double2ll",
+          "fn": "double2ll",
+          "line": 683,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Double2ll\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:double2ll\n\nevidence\n  function signature double2ll\n\ngoal\n  double2ll (inferred from the double2ll signature)\n\ninput\n  d: double\n  : long long\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "D2string",
+          "fn": "d2string",
+          "line": 716,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission D2string\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:d2string\n\nevidence\n  function signature d2string\n\ngoal\n  d2string (inferred from the d2string signature)\n\ninput\n  buf: char\n  len: size_t\n  value: double\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FixedpointD2string",
+          "fn": "fixedpoint_d2string",
+          "line": 769,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission FixedpointD2string\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:fixedpoint_d2string\n\nevidence\n  function signature fixedpoint_d2string\n\ngoal\n  fixedpoint d2string (inferred from the fixedpoint_d2string signature)\n\ninput\n  dst: char\n  dstlen: size_t\n  dvalue: double\n  fractional_digits: int\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "TrimDoubleString",
+          "fn": "trimDoubleString",
+          "line": 861,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission TrimDoubleString\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:trimDoubleString\n\nevidence\n  function signature trimDoubleString\n\ngoal\n  trim double string (inferred from the trimDoubleString signature)\n\ninput\n  buf: char\n  len: size_t\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Ld2string",
+          "fn": "ld2string",
+          "line": 883,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission Ld2string\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:ld2string\n\nevidence\n  function signature ld2string\n\ngoal\n  ld2string (inferred from the ld2string signature)\n\ninput\n  buf: char\n  len: size_t\n  value: long double\n  mode: ld2string_mode\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetRandomBytes",
+          "fn": "getRandomBytes",
+          "line": 953,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission GetRandomBytes\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:getRandomBytes\n\nevidence\n  function signature getRandomBytes\n\ngoal\n  get random bytes (inferred from the getRandomBytes signature)\n\ninput\n  p: unsigned char\n  len: size_t\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetRandomHexChars",
+          "fn": "getRandomHexChars",
+          "line": 1021,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission GetRandomHexChars\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:getRandomHexChars\n\nevidence\n  function signature getRandomHexChars\n\ngoal\n  get random hex chars (inferred from the getRandomHexChars signature)\n\ninput\n  p: char\n  len: size_t\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetAbsolutePath",
+          "fn": "getAbsolutePath",
+          "line": 1036,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission GetAbsolutePath\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:getAbsolutePath\n\nevidence\n  function signature getAbsolutePath\n\ngoal\n  get absolute path (inferred from the getAbsolutePath signature)\n\ninput\n  filename: char\n\noutput\n  result: sds\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetTimeZone",
+          "fn": "getTimeZone",
+          "line": 1085,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission GetTimeZone\n\ninferred\n  from C++\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:getTimeZone\n\nevidence\n  function signature getTimeZone\n\ngoal\n  get time zone (inferred from the getTimeZone signature)\n\ninput\n  void: Unknown\n\noutput\n  result: long\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PathIsBaseName",
+          "fn": "pathIsBaseName",
+          "line": 1101,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission PathIsBaseName\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:pathIsBaseName\n\nevidence\n  function signature pathIsBaseName\n\ngoal\n  path is base name (inferred from the pathIsBaseName signature)\n\ninput\n  path: char\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FileExist",
+          "fn": "fileExist",
+          "line": 1105,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission FileExist\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:fileExist\n\nevidence\n  function signature fileExist\n\ngoal\n  file exist (inferred from the fileExist signature)\n\ninput\n  filename: char\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DirExists",
+          "fn": "dirExists",
+          "line": 1110,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission DirExists\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:dirExists\n\nevidence\n  function signature dirExists\n\ngoal\n  dir exists (inferred from the dirExists signature)\n\ninput\n  dname: char\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DirCreateIfMissing",
+          "fn": "dirCreateIfMissing",
+          "line": 1115,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission DirCreateIfMissing\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:dirCreateIfMissing\n\nevidence\n  function signature dirCreateIfMissing\n\ngoal\n  dir create if missing (inferred from the dirCreateIfMissing signature)\n\ninput\n  dname: char\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DirRemove",
+          "fn": "dirRemove",
+          "line": 1127,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission DirRemove\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:dirRemove\n\nevidence\n  function signature dirRemove\n\ngoal\n  dir remove (inferred from the dirRemove signature)\n\ninput\n  dname: char\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MakePath",
+          "fn": "makePath",
+          "line": 1178,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission MakePath\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:makePath\n\nevidence\n  function signature makePath\n\ngoal\n  make path (inferred from the makePath signature)\n\ninput\n  path: char\n  filename: char\n\noutput\n  result: sds\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FsyncFileDir",
+          "fn": "fsyncFileDir",
+          "line": 1190,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission FsyncFileDir\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:fsyncFileDir\n\nevidence\n  function signature fsyncFileDir\n\ngoal\n  fsync file dir (inferred from the fsyncFileDir signature)\n\ninput\n  filename: char\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ReclaimFilePageCache",
+          "fn": "reclaimFilePageCache",
+          "line": 1231,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission ReclaimFilePageCache\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:reclaimFilePageCache\n\nevidence\n  function signature reclaimFilePageCache\n\ngoal\n  reclaim file page cache (inferred from the reclaimFilePageCache signature)\n\ninput\n  fd: int\n  offset: size_t\n  length: size_t\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FgetsAsyncSignalSafe",
+          "fn": "fgets_async_signal_safe",
+          "line": 1255,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission FgetsAsyncSignalSafe\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:fgets_async_signal_safe\n\nevidence\n  function signature fgets_async_signal_safe\n\ngoal\n  fgets async signal safe (inferred from the fgets_async_signal_safe signature)\n\ninput\n  dest: char\n  buff_size: int\n  fd: int\n\noutput\n  result: char *\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "U2stringAsyncSignalSafe",
+          "fn": "u2string_async_signal_safe",
+          "line": 1273,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission U2stringAsyncSignalSafe\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:u2string_async_signal_safe\n\nevidence\n  function signature u2string_async_signal_safe\n\ngoal\n  u2string async signal safe (inferred from the u2string_async_signal_safe signature)\n\ninput\n  _base: int\n  val: uint64_t\n  buf: char\n\noutput\n  result: static char *\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "I2stringAsyncSignalSafe",
+          "fn": "i2string_async_signal_safe",
+          "line": 1282,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission I2stringAsyncSignalSafe\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:i2string_async_signal_safe\n\nevidence\n  function signature i2string_async_signal_safe\n\ngoal\n  i2string async signal safe (inferred from the i2string_async_signal_safe signature)\n\ninput\n  base: int\n  val: int64_t\n  buf: char\n\noutput\n  result: static char *\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CheckLonglongAsyncSignalSafe",
+          "fn": "check_longlong_async_signal_safe",
+          "line": 1334,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission CheckLonglongAsyncSignalSafe\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:check_longlong_async_signal_safe\n\nevidence\n  function signature check_longlong_async_signal_safe\n\ngoal\n  check longlong async signal safe (inferred from the check_longlong_async_signal_safe signature)\n\ninput\n  fmt: char\n  have_longlong: int32_t\n\noutput\n  result: static const char *\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "VsnprintfAsyncSignalSafe",
+          "fn": "vsnprintf_async_signal_safe",
+          "line": 1348,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from C++. Draft, unverified, needs human review.\nmission VsnprintfAsyncSignalSafe\n\ninferred\n  from C++\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/util.c:vsnprintf_async_signal_safe\n\nevidence\n  function signature vsnprintf_async_signal_safe\n\ngoal\n  vsnprintf async signal safe (inferred from the vsnprintf_async_signal_safe signature)\n\ninput\n  to: char\n  size: size_t\n  format: char\n  ap: va_list\n\noutput\n  result: int\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Mojo::Util",
+      "language": "perl",
+      "license": "Artistic-2.0",
+      "what": "Mojolicious's Perl utility subs",
+      "source": "https://raw.githubusercontent.com/mojolicious/mojo/main/lib/Mojo/Util.pm",
+      "path": "lib/Mojo/Util.pm",
+      "publicFunctions": 38,
+      "missionCount": 38,
+      "missions": [
+        {
+          "mission": "Camelize",
+          "fn": "camelize",
+          "line": 104,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Camelize\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:camelize\n\nevidence\n  function signature camelize\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  camelize (inferred from the camelize signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ClassToFile",
+          "fn": "class_to_file",
+          "line": 114,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission ClassToFile\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:class_to_file\n\nevidence\n  function signature class_to_file\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  class to file (inferred from the class_to_file signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Decamelize",
+          "fn": "decamelize",
+          "line": 121,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Decamelize\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:decamelize\n\nevidence\n  function signature decamelize\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  decamelize (inferred from the decamelize signature)\n\ninput\n  value: Unknown\n  key: Unknown\n  salt: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DecryptCookie",
+          "fn": "decrypt_cookie",
+          "line": 131,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission DecryptCookie\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:decrypt_cookie\n\nevidence\n  function signature decrypt_cookie\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  decrypt cookie (inferred from the decrypt_cookie signature)\n\ninput\n  value: Unknown\n  key: Unknown\n  salt: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Decode",
+          "fn": "decode",
+          "line": 143,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Decode\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:decode\n\nevidence\n  function signature decode\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  decode (inferred from the decode signature)\n\ninput\n  encoding: Unknown\n  bytes: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Deprecated",
+          "fn": "deprecated",
+          "line": 149,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Deprecated\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:deprecated\n\nevidence\n  function signature deprecated\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  deprecated (inferred from the deprecated signature)\n\ninput\n  value: Unknown\n  key: Unknown\n  salt: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Dumper",
+          "fn": "dumper",
+          "line": 154,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Dumper\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:dumper\n\nevidence\n  function signature dumper\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  dumper (inferred from the dumper signature)\n\ninput\n  value: Unknown\n  key: Unknown\n  salt: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Encode",
+          "fn": "encode",
+          "line": 156,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Encode\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:encode\n\nevidence\n  function signature encode\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  encode (inferred from the encode signature)\n\ninput\n  value: Unknown\n  key: Unknown\n  salt: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "EncryptCookie",
+          "fn": "encrypt_cookie",
+          "line": 158,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission EncryptCookie\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:encrypt_cookie\n\nevidence\n  function signature encrypt_cookie\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  encrypt cookie (inferred from the encrypt_cookie signature)\n\ninput\n  value: Unknown\n  key: Unknown\n  salt: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ExtractUsage",
+          "fn": "extract_usage",
+          "line": 169,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission ExtractUsage\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:extract_usage\n\nevidence\n  function signature extract_usage\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  extract usage (inferred from the extract_usage signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GenerateSecret",
+          "fn": "generate_secret",
+          "line": 180,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission GenerateSecret\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:generate_secret\n\nevidence\n  function signature generate_secret\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  generate secret (inferred from the generate_secret signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Getopt",
+          "fn": "getopt",
+          "line": 184,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Getopt\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:getopt\n\nevidence\n  function signature getopt\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  getopt (inferred from the getopt signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Gunzip",
+          "fn": "gunzip",
+          "line": 194,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Gunzip\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:gunzip\n\nevidence\n  function signature gunzip\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  gunzip (inferred from the gunzip signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Gzip",
+          "fn": "gzip",
+          "line": 201,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Gzip\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:gzip\n\nevidence\n  function signature gzip\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  gzip (inferred from the gzip signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "HeaderParams",
+          "fn": "header_params",
+          "line": 207,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission HeaderParams\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:header_params\n\nevidence\n  function signature header_params\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  header params (inferred from the header_params signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "HtmlAttrUnescape",
+          "fn": "html_attr_unescape",
+          "line": 224,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission HtmlAttrUnescape\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:html_attr_unescape\n\nevidence\n  function signature html_attr_unescape\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  html attr unescape (inferred from the html_attr_unescape signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "HtmlUnescape",
+          "fn": "html_unescape",
+          "line": 225,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission HtmlUnescape\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:html_unescape\n\nevidence\n  function signature html_unescape\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  html unescape (inferred from the html_unescape signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "HumanizeBytes",
+          "fn": "humanize_bytes",
+          "line": 227,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission HumanizeBytes\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:humanize_bytes\n\nevidence\n  function signature humanize_bytes\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  humanize bytes (inferred from the humanize_bytes signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "NetworkContains",
+          "fn": "network_contains",
+          "line": 239,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission NetworkContains\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:network_contains\n\nevidence\n  function signature network_contains\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  network contains (inferred from the network_contains signature)\n\ninput\n  cidr: Unknown\n  addr: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PunycodeDecode",
+          "fn": "punycode_decode",
+          "line": 261,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission PunycodeDecode\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:punycode_decode\n\nevidence\n  function signature punycode_decode\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  punycode decode (inferred from the punycode_decode signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PunycodeEncode",
+          "fn": "punycode_encode",
+          "line": 294,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission PunycodeEncode\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:punycode_encode\n\nevidence\n  function signature punycode_encode\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  punycode encode (inferred from the punycode_encode signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Quote",
+          "fn": "quote",
+          "line": 341,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Quote\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:quote\n\nevidence\n  function signature quote\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  quote (inferred from the quote signature)\n\ninput\n  count: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "RandomBytes",
+          "fn": "random_bytes",
+          "line": 347,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission RandomBytes\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:random_bytes\n\nevidence\n  function signature random_bytes\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  random bytes (inferred from the random_bytes signature)\n\ninput\n  count: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ScopeGuard",
+          "fn": "scope_guard",
+          "line": 377,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission ScopeGuard\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:scope_guard\n\nevidence\n  function signature scope_guard\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  scope guard (inferred from the scope_guard signature)\n\ninput\n  one: Unknown\n  two: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SecureCompare",
+          "fn": "secure_compare",
+          "line": 379,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission SecureCompare\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:secure_compare\n\nevidence\n  function signature secure_compare\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  secure compare (inferred from the secure_compare signature)\n\ninput\n  one: Unknown\n  two: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Slugify",
+          "fn": "slugify",
+          "line": 387,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Slugify\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:slugify\n\nevidence\n  function signature slugify\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  slugify (inferred from the slugify signature)\n\ninput\n  value: Unknown\n  allow_unicode: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SplitCookieHeader",
+          "fn": "split_cookie_header",
+          "line": 405,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission SplitCookieHeader\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:split_cookie_header\n\nevidence\n  function signature split_cookie_header\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  split cookie header (inferred from the split_cookie_header signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SplitHeader",
+          "fn": "split_header",
+          "line": 406,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission SplitHeader\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:split_header\n\nevidence\n  function signature split_header\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  split header (inferred from the split_header signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Tablify",
+          "fn": "tablify",
+          "line": 408,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Tablify\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:tablify\n\nevidence\n  function signature tablify\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  tablify (inferred from the tablify signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "TermEscape",
+          "fn": "term_escape",
+          "line": 424,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission TermEscape\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:term_escape\n\nevidence\n  function signature term_escape\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  term escape (inferred from the term_escape signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Trim",
+          "fn": "trim",
+          "line": 430,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Trim\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:trim\n\nevidence\n  function signature trim\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  trim (inferred from the trim signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Unindent",
+          "fn": "unindent",
+          "line": 437,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Unindent\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:unindent\n\nevidence\n  function signature unindent\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  unindent (inferred from the unindent signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Unquote",
+          "fn": "unquote",
+          "line": 444,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Unquote\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:unquote\n\nevidence\n  function signature unquote\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  unquote (inferred from the unquote signature)\n\ninput\n  str: Unknown\n  pattern: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "UrlEscape",
+          "fn": "url_escape",
+          "line": 452,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission UrlEscape\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:url_escape\n\nevidence\n  function signature url_escape\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  url escape (inferred from the url_escape signature)\n\ninput\n  str: Unknown\n  pattern: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "UrlUnescape",
+          "fn": "url_unescape",
+          "line": 467,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission UrlUnescape\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:url_unescape\n\nevidence\n  function signature url_unescape\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  url unescape (inferred from the url_unescape signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "XmlEscape",
+          "fn": "xml_escape",
+          "line": 473,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission XmlEscape\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:xml_escape\n\nevidence\n  function signature xml_escape\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  xml escape (inferred from the xml_escape signature)\n\ninput\n  input: Unknown\n  key: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "XorEncode",
+          "fn": "xor_encode",
+          "line": 480,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission XorEncode\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:xor_encode\n\nevidence\n  function signature xor_encode\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  xor encode (inferred from the xor_encode signature)\n\ninput\n  input: Unknown\n  key: Unknown\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Destroy",
+          "fn": "DESTROY",
+          "line": 601,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Perl. Draft, unverified, needs human review.\nmission Destroy\n\ninferred\n  from Perl\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/Mojo/Util.pm:DESTROY\n\nevidence\n  function signature DESTROY\n  error Unable to open html entities file ($path): $!\n  error CryptX 0.080+ required for encrypted cookie support\n  error Couldn\n  error Byte count must be a defined, non-negative integer\n  error Could not import SystemFunction036: $^E\n\ngoal\n  destroy (inferred from the DESTROY signature)\n\nnever\n  cause unable to open html entities file ($path): $!\n  cause crypt x 0.080+ required for encrypted cookie support\n  cause couldn\n  cause byte count must be a defined, non negative integer\n  cause could not import system function036: $^e\n  cause can\n  cause unknown encoding\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
     }
   ],
   "totals": {
-    "projects": 10,
-    "missions": 202,
+    "projects": 13,
+    "missions": 287,
     "languages": [
+      "cpp",
+      "csharp",
       "go",
       "java",
       "javascript",
+      "perl",
       "php",
       "python",
       "ruby",

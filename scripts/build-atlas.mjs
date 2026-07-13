@@ -29,6 +29,9 @@ const CURATED = [
   { name: 'Laravel Str', language: 'php', license: 'MIT', what: "Laravel's string helper", url: 'https://raw.githubusercontent.com/laravel/framework/master/src/Illuminate/Support/Str.php', path: 'src/Illuminate/Support/Str.php' },
   { name: 'Rack::Utils', language: 'ruby', license: 'MIT', what: "Rack's HTTP utility methods", url: 'https://raw.githubusercontent.com/rack/rack/main/lib/rack/utils.rb', path: 'lib/rack/utils.rb' },
   { name: 'bitflags', language: 'rust', license: 'Apache-2.0', what: 'a widely-used Rust bitflags crate', url: 'https://raw.githubusercontent.com/bitflags/bitflags/main/src/lib.rs', path: 'src/lib.rs' },
+  { name: 'Newtonsoft.Json', language: 'csharp', license: 'MIT', what: "the .NET JSON library's public convert API", url: 'https://raw.githubusercontent.com/JamesNK/Newtonsoft.Json/master/Src/Newtonsoft.Json/JsonConvert.cs', path: 'Src/Newtonsoft.Json/JsonConvert.cs' },
+  { name: 'Redis util', language: 'cpp', license: 'BSD-3-Clause', what: "Redis's core C string/number utilities", url: 'https://raw.githubusercontent.com/redis/redis/unstable/src/util.c', path: 'src/util.c' },
+  { name: 'Mojo::Util', language: 'perl', license: 'Artistic-2.0', what: "Mojolicious's Perl utility subs", url: 'https://raw.githubusercontent.com/mojolicious/mojo/main/lib/Mojo/Util.pm', path: 'lib/Mojo/Util.pm' },
 ];
 
 // Keep the page + dataset usable: show a representative slice of very large APIs (honestly noted).

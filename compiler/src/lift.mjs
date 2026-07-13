@@ -495,6 +495,8 @@ export function languageForFile(file) {
 //  - Otherwise keep everything but drop underscore-private names.
 function isPublicFn(fn, language) {
   const name = fn.name || '';
+  // Common private-helper naming conventions, across languages.
+  if (/(?:Internal|Impl|_impl|_helper|_test|Helper)$/.test(name)) return false;
   if (language === 'go' || language === 'golang') return /^[A-Z]/.test(name) && name !== 'Test';
   if (language === 'python' || language === 'ruby') return !name.startsWith('_') && (fn.indent == null || fn.indent <= 4);
   return !name.startsWith('_') && name !== 'init' && name !== 'constructor';
