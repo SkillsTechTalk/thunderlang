@@ -88,6 +88,15 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Intent Lens , Intent Scope + Focus Graph (`intent focus`).** A Focus Graph is a
+  deterministic subgraph of the Intent Atlas around a selected scope (a mission, a feature
+  query, or `--nodes a,b`), with every node tagged by WHY it is in focus (selected / governing
+  / dependency / dependent / implementation / verification / risk / contextual) and bounded by
+  `--depth`. `makeScope` builds the typed Intent Scope; `buildFocusGraph` the subgraph;
+  `intentBrief` a deterministic what/who/guarantees/prohibitions/risks/unknowns brief whose
+  confidence is the weakest in scope (honesty). `intent focus <mission|query|--nodes>
+  [--depth N] [--json]`. Built over the existing Atlas (not a fork); pure and browser-safe so
+  Studio / OpenThunder / RepoMastery / Skills Tech Talk consume one focused representation.
 - **Focused scanner queries (`intent risks | gaps | unverified | coverage | unknowns |
   contradictions`).** Part 3 of the Intent Scanner: one deterministic question each over the
   shared Intent IR + Fable findings (`scan-queries.mjs`, `intent-scan-view-v1`), so a person

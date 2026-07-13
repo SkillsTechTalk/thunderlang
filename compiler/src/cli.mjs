@@ -41,6 +41,7 @@ import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
+import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
@@ -121,6 +122,9 @@ function parseArgs(argv) {
     else if (a === '--ir') args.ir = argv[++i];
     else if (a === '--subject') args.subject = argv[++i];
     else if (a === '--lens') args.lens = argv[++i];
+    else if (a === '--nodes') args.nodes = argv[++i];
+    else if (a === '--depth') args.depth = argv[++i];
+    else if (a === '--dir') args.dir = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -195,6 +199,7 @@ Author & check
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
   scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
   risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
+  focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
   ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
@@ -402,6 +407,40 @@ function main() {
       if (reviewable.length) console.log(`  ${reviewable.length} reviewable quick-fix(es) left for a human (run: intent code-actions ${basename(file)})`);
     }
     if (args.write && fixed !== source) { writeFileSync(file, fixed); if (!args.json) console.log(`  wrote ${basename(file)}`); }
+    return;
+  }
+
+  // `intent focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]` , Intent Lens:
+  // a focused Focus Graph + Intent Brief around a selected scope, built over the Atlas.
+  if (cmd === 'focus') {
+    const dir = args.dir || '.';
+    const files = existsSync(dir) && statSync(dir).isDirectory() ? collectIntents(dir) : (file && existsSync(file) ? [file] : []);
+    if (!files.length) { console.error(`intent focus: no .intent files under ${dir}`); process.exit(2); return; }
+    const atlas = buildAtlas(files.map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8')))));
+    // Resolve seeds: --nodes ids, or a mission/feature query, or (default) all missions.
+    let seeds = [];
+    let scopeType = 'custom';
+    let scopeTitle = null;
+    if (args.nodes) { seeds = args.nodes.split(',').map((s) => s.trim()).filter(Boolean); scopeType = 'custom'; scopeTitle = `${seeds.length} selected node(s)`; }
+    else if (file && !existsSync(file)) {
+      const hit = searchAtlas(atlas, file)[0];
+      if (!hit) { console.error(`intent focus: no Atlas node matches "${file}"`); process.exit(1); return; }
+      seeds = [hit.id]; scopeType = hit.type === 'Mission' ? 'mission' : 'feature'; scopeTitle = hit.title || hit.id;
+    } else { seeds = atlas.missions.map((m) => m.id); scopeType = 'capability'; scopeTitle = 'whole project'; }
+    const scope = makeScope({ type: scopeType, title: scopeTitle, seeds, createdAt: null });
+    const focus = buildFocusGraph(atlas, { seeds, depth: args.depth ? Number(args.depth) : 2, scope });
+    const brief = intentBrief(focus);
+    if (args.json) { console.log(JSON.stringify({ scope, brief, focus }, null, 2)); return; }
+    console.log(`intent focus , ${scope.title}  [${scope.type}]  (${scope.scopeId})`);
+    console.log(`  what: ${brief.what || '(unnamed)'}${brief.confidence ? `   confidence: ${brief.confidence}` : ''}`);
+    if (brief.who.length) console.log(`  who: ${brief.who.join(', ')}`);
+    console.log(`  focus graph: ${focus.overview.nodes} node(s), ${focus.overview.relationships} edge(s), depth ${focus.depth}`);
+    const br = focus.overview.byReason;
+    console.log(`  by reason: ${Object.entries(br).map(([k, v]) => `${v} ${k}`).join(', ')}`);
+    if (brief.guarantees.length) console.log(`  guarantees: ${brief.guarantees.length}   prohibitions: ${brief.prohibitions.length}   verification: ${brief.verification}`);
+    if (brief.risks) console.log(`  risks in scope: ${brief.risks}`);
+    if (brief.unknowns.length) console.log(`  unknowns: ${brief.unknowns.join('; ')}`);
+    if (brief.needsReview) console.log('  note: scope includes low-confidence inferred intent , review before trusting.');
     return;
   }
 
