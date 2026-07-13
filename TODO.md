@@ -218,7 +218,12 @@ Shipped (compiler core + IL playground):
 - [x] Playground Notes tab grouped by lens, lens selector, click-to-source, trust-strip count
 
 Next slices:
-- [ ] `intent notes <file> --json` and `intent docs --lens <lens>` CLI commands
+- [x] `intent notes <file> --json` , SHIPPED: lists the compiled `note <lens>:` blocks
+      grouped by lens, each with its target kind, target path, and source line; `--lens
+      <lens>` filters to one audience; `--json` emits the `intent-notes-v1` report. Unknown
+      lenses are flagged. Reuses the existing `ast.notes` (no new parser). +4 CLI tests.
+- [ ] `intent docs --lens <lens>` , render a whole file as docs for one audience (bigger:
+      needs a notes-aware doc generator, not just a listing)
 - [ ] Lens-aware reader VIEWS (PM/Beginner/QA/Security render the whole file per audience)
 - [ ] Notes-aware docs generation (include the lens's notes inline)
 - [ ] Diagnostics: INTENT_NOTE_RESTATES_TARGET, INTENT_TERM/RISK/PM/SECURITY_NOTE_RECOMMENDED

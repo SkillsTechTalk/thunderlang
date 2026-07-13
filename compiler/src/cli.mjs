@@ -14,7 +14,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { basename, join, relative, dirname } from 'node:path';
-import { parseIntent, slug } from './parse.mjs';
+import { parseIntent, slug, KNOWN_LENSES } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION,
@@ -118,6 +118,7 @@ function parseArgs(argv) {
     else if (a === '--all') args.all = true;
     else if (a === '--ir') args.ir = argv[++i];
     else if (a === '--subject') args.subject = argv[++i];
+    else if (a === '--lens') args.lens = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -191,6 +192,7 @@ Author & check
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
+  notes <file> [--lens <lens>] [--json]  IntentLens: the compiled note blocks by lens (not verification)
 
 Execute (no AI, no generated code)
   run <file> --inputs '<json>'      evaluate the decision(s) against inputs
@@ -304,6 +306,34 @@ function main() {
         console.log(`  ${r.ruleId.padEnd(16)} [${r.severity}, ${blocks}]  ${r.summary}`);
       }
       console.log();
+    }
+    return;
+  }
+
+  // `intent notes <file> [--lens <lens>] [--json]` , the IntentLens report: the compiled
+  // semantic comments (`note <lens>:`) grouped by lens, each with its target and source
+  // line. Notes explain meaning for a reader; they are NEVER verification.
+  if (cmd === 'notes') {
+    if (!file) { console.error('usage: intent notes <file> [--lens <lens>] [--json]'); process.exit(2); return; }
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    let notes = ast.notes || [];
+    if (args.lens) notes = notes.filter((n) => n.lens === args.lens);
+    if (args.json) {
+      console.log(JSON.stringify({ schema: 'intent-notes-v1', mission: ast.mission || null, lens: args.lens || null, count: notes.length, notes }, null, 2));
+      return;
+    }
+    const scope = args.lens ? ` (lens: ${args.lens})` : '';
+    console.log(`intent notes ${basename(file)}${scope}: ${notes.length} note${notes.length === 1 ? '' : 's'}`);
+    const known = new Set(KNOWN_LENSES);
+    const byLens = {};
+    for (const n of notes) (byLens[n.lens] ||= []).push(n);
+    for (const lens of Object.keys(byLens).sort()) {
+      console.log(`\n${lens}${known.has(lens) ? '' : '  (unknown lens)'}`);
+      for (const n of byLens[lens]) {
+        const label = n.targetKind === 'mission' ? (ast.mission || 'mission') : n.targetPath.split('.').slice(3).join('.');
+        console.log(`  [${n.targetKind}] ${label}  , line ${n.sourceSpan.line}`);
+        for (const line of String(n.text).split('\n')) console.log(`    ${line.trim()}`);
+      }
     }
     return;
   }

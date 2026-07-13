@@ -88,6 +88,11 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **IntentLens notes CLI (`intent-notes-v1`).** `intent notes <file>` lists the compiled
+  `note <lens>:` blocks grouped by lens, each with its target (mission / input / output /
+  guarantee / never) and source line; `--lens <lens>` filters to one audience and `--json`
+  emits the report. Notes explain meaning for a reader and are never verification. Reuses
+  the parser's `ast.notes` (no new parsing).
 - **Intent Ledger (`intent-ledger-v1`).** `intent ledger <file.json>` / `verifyLedger`, `record*`,
   `explain` keep the append-only, hash-chained (tamper-evident) record of a project's MEANING and
   history: why a mission was built, who approved it, what was assumed, which inferred intent a human
