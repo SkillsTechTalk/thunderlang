@@ -56,8 +56,8 @@ function assertGraphSound(g, ctx) {
 }
 
 // ── generators ──
-const KEYWORDS = ['mission', 'goal', 'why', 'requires', 'input', 'output', 'guarantees', 'never', 'metric', 'outcome', 'decision', 'rule', 'default', 'lifecycle', 'state', 'transition', 'from', 'to', 'terminal', 'command', 'on', 'compensate', 'capability', 'interface', 'release', 'result', 'learning', 'component', 'artifact', 'outcome_contract', 'test', 'case', 'scenario', 'given', 'expect', 'events', 'waiver', 'data', 'classification', 'when', 'return', 'target', 'baseline', 'window', 'evidence', 'experience', 'pattern', 'conflict', 'always', 'eventually', 'security requires'];
-const FRAGS = ['', 'X', 'Foo', 'name value', '"quoted, text"', '18', '60%', 'a >= 18', 'a.b.c', '-', ':', '::', 'a: Type', 'age >= 18 and score < 3', '   ', '\t', 'ünïçödé', '<<>>', 'a,b,c', '{}', 'null'];
+const KEYWORDS = ['mission', 'goal', 'why', 'requires', 'input', 'output', 'guarantees', 'never', 'metric', 'outcome', 'decision', 'rule', 'default', 'lifecycle', 'state', 'transition', 'from', 'to', 'terminal', 'command', 'on', 'compensate', 'capability', 'interface', 'release', 'result', 'learning', 'component', 'artifact', 'outcome_contract', 'test', 'case', 'scenario', 'given', 'expect', 'events', 'waiver', 'data', 'classification', 'when', 'return', 'target', 'baseline', 'window', 'evidence', 'experience', 'pattern', 'conflict', 'always', 'eventually', 'security requires', 'event', 'api', 'payload', 'method', 'path'];
+const FRAGS = ['', 'X', 'Foo', 'name value', '"quoted, text"', '18', '60%', 'a >= 18', 'a.b.c', '-', ':', '::', 'a: Type', 'age >= 18 and score < 3', '   ', '\t', 'ünïçödé', '<<>>', 'a,b,c', '{}', 'null', 'pw: Secret', 'tok: Password', 'field: jwt', 'age: yaers', 'x: List<Secret>'];
 const INDENTS = ['', '  ', '    ', '      ', ' ', '\t', '        '];
 
 function randLine(r) {
