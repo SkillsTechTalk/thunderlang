@@ -121,9 +121,16 @@ repo and implementation is approved.
 - [x] Surface `docs/` and `examples/` on the site (render `.intent` + Markdown)
 
 ### P6 - Optional AI assist (documented, gated)
-- [ ] Document Prompt-to-Intent, intent review, missing-guarantee/risk/test
+- [x] Document Prompt-to-Intent, intent review, missing-guarantee/risk/test
       suggestions, target planning, explanation generation
-- [ ] Make explicit: AI optional, compiler works without it, outputs approved
+      SHIPPED: `docs/ai-assist.md` covers all five surfaces, honestly splitting the
+      deterministic half (`intent draft` rigor + review checklist, the diagnostics that
+      flag missing guarantees/risks/tests, the implementation-plan, `intent explain` +
+      IntentLens notes) from the optional AI half, and cross-links ai-implementations.
+- [x] Make explicit: AI optional, compiler works without it, outputs approved
+      SHIPPED: the doc leads with "The rule" (AI optional / never decides / every action
+      traced + human-approved) and reiterates `--no-ai` throughout. Also fixed the
+      docs-index page to stop overclaiming code generation (P5).
 
 ### P7 - Certification track (future)
 - [ ] Document "SkillsTech Certified Intent-Oriented Programming Associate"
