@@ -72,7 +72,10 @@ repo and implementation is approved.
 
 ### P3 - Compiler contract (spec, not implementation)
 - [x] `docs/compiler-contract.md`: pipeline, proof artifact, `--no-ai`, MVP scope
-- [ ] Document the full semantic-diagnostics catalog (missing goal, secret field
+- [x] Semantic-diagnostics catalog documented + CI-guarded: docs/diagnostics.md generated
+      from DIAGNOSTIC_RULES (49 rules), `intent rules`, `intent explain <CODE>`. Security
+      checks (secret field / api sensitive output without auth) shipped in security.mjs.
+- [ ] (superseded) Document the full semantic-diagnostics catalog (missing goal, secret field
       without never-log, duplicate-prevention guarantee without idempotency, API
       with sensitive output but no auth, event payload containing Secret, ...)
 - [ ] Define `implementation-plan.json` and the CST → AST stages in detail
@@ -408,7 +411,7 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 - Website, manifesto, tutorial, spec, compiler-contract, ai-age-best-practices, ecosystem-brief; 4 examples browsable
 
 **Near-term (small, high-leverage)**
-- [ ] More semantic diagnostics: unknown-semantic-type, event-payload-contains-Secret, api-sensitive-output-without-auth (#29,#43)
+- [x] SECURITY + TYPE DIAGNOSTICS SHIPPED (#29,#43): security.mjs , IL-SEC-001 (secret-typed field Secret/Password/Jwt on an event payload = secret over the bus, blocker/release), IL-SEC-002 (API returns a secret with no `requires` auth gate, blocker/release), IL-TYPE-001 (unrecognized/mistyped field type, info). isRecognizedType + SEMANTIC_TYPES/PRIMITIVE_TYPES hoisted from data-schema.mjs (one source of truth). Wired into semanticDiagnostics (gate-safe). Catalog 49 rules; diagnostics.md + schema regenerated. Fuzz-covered (event/api/payload keywords + secret/typo frags). Exported + typed. 323 tests. docs/compiler-contract.md + diagnostics.md. schema intent-security-v1.
 - [ ] OpenAPI generation when an `api` block exists (#37)
 - [x] `bin` wiring + npm publish (#40,#94): published `@skillstech/intentlang@0.1.0`
       (public, MIT). `npm i -g @skillstech/intentlang` -> `intent`; `npx @skillstech/intentlang`.
