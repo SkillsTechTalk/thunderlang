@@ -24,6 +24,7 @@ import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
 import { formatSource } from './format.mjs';
+import { applyEdits } from './patch.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -105,6 +106,12 @@ function parseArgs(argv) {
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
+    else if (a === '--edits') args.edits = argv[++i];
+    else if (a === '--set-goal') args.setGoal = argv[++i];
+    else if (a === '--add-guarantee') (args.addGuarantee ||= []).push(argv[++i]);
+    else if (a === '--add-never') (args.addNever ||= []).push(argv[++i]);
+    else if (a === '--remove-guarantee') (args.removeGuarantee ||= []).push(argv[++i]);
+    else if (a === '--remove-never') (args.removeNever ||= []).push(argv[++i]);
     else args._.push(a);
   }
   return args;
@@ -151,6 +158,7 @@ Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
+  edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
   lsp                      start the Language Server (LSP over stdio, for editors)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
@@ -864,6 +872,39 @@ test Example
     console.log(`intent check ${file}: ${reports.length - failed.length}/${reports.length} passed`);
     for (const r of reports) console.log(`  ${r.ok ? 'ok ' : 'ERR'} ${r.file}${r.errors ? ` , ${r.errors} error(s)` : ''}${r.warnings ? ` (${r.warnings} warning(s))` : ''}`);
     process.exit(failed.length ? 1 : 0);
+  }
+
+  // `intent edit <file>` , apply structural field edits (intent-patch-v1) to the source,
+  // preserving comments + formatting. Edits come from --edits <json|-> and/or convenience
+  // flags. Prints the result to stdout, or --write applies it in place.
+  if (cmd === 'edit') {
+    const src = readFileSync(file, 'utf8');
+    const edits = [];
+    if (args.edits) {
+      const raw = args.edits === '-' ? readFileSync(0, 'utf8') : readFileSync(args.edits, 'utf8');
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch { console.error('intent edit: --edits is not valid JSON'); process.exit(2); return; }
+      if (!Array.isArray(parsed)) { console.error('intent edit: --edits must be a JSON array of edit ops'); process.exit(2); return; }
+      edits.push(...parsed);
+    }
+    if (args.setGoal) edits.push({ op: 'setField', field: 'goal', value: args.setGoal });
+    for (const s of args.addGuarantee || []) edits.push({ op: 'addGuarantee', statement: s });
+    for (const s of args.addNever || []) edits.push({ op: 'addNever', statement: s });
+    for (const m of args.removeGuarantee || []) edits.push({ op: 'removeGuarantee', match: m });
+    for (const m of args.removeNever || []) edits.push({ op: 'removeNever', match: m });
+    if (!edits.length) { console.error('intent edit: no edits given. Use --edits <file|-> or --set-goal/--add-guarantee/...'); process.exit(2); return; }
+
+    const result = applyEdits(src, edits);
+    if (args.json) { console.log(JSON.stringify({ ...result, source: undefined, applied: result.applied.length, skipped: result.skipped }, null, 2)); }
+    for (const s of result.skipped) console.error(`  skipped: ${s.reason}`);
+    if (args.write) {
+      if (result.source !== src.replace(/\r\n?/g, '\n')) writeFileSync(file, result.source);
+      console.error(`intent edit ${basename(file)}: applied ${result.applied.length}, skipped ${result.skipped.length}.`);
+    } else if (!args.json) {
+      process.stdout.write(result.source);
+    }
+    process.exit(0);
+    return;
   }
 
   // `intent fmt <file|dir>` , canonical formatting (whitespace only; content + comments

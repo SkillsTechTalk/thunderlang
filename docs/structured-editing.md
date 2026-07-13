@@ -84,6 +84,22 @@ Supported operations:
 Nothing is applied blindly: an edit that matches nothing, has a bad section, or is missing
 arguments lands in `skipped` with a reason, and the rest still apply.
 
+### From the command line
+
+The same patcher is a CLI command, so scripts and CI can edit intent without the library:
+
+```bash
+intent edit mission.intent --set-goal "Create an approved invoice, once." \
+  --add-guarantee "an order is invoiced at most once" --write
+
+# or drive it with the full JSON edit list (from a file or stdin)
+echo '[{"op":"addField","section":"input","name":"age","type":"int"}]' \
+  | intent edit mission.intent --edits -
+```
+
+Without `--write` it prints the edited source to stdout; with `--write` it applies in place and
+reports how many edits applied and were skipped.
+
 ## The loop
 
 Together the three close the Human ↔ Structured ↔ IntentLang loop with IL as the source of
