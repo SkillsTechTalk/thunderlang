@@ -46,14 +46,18 @@ export function buildGuard(ast, { denyResults, mask = '[redacted]' } = {}) {
   const isSecretKey = (k) => secretFields.has(k) || SENSITIVE_NAME.test(k);
   const decisions = new Map((ast.decisions || []).map((d) => [d.name, d]));
 
-  // Deep-mask any field the intent declares secret. Cycle-safe.
-  function redact(value, seen = new WeakSet()) {
-    if (Array.isArray(value)) return value.map((v) => redact(v, seen));
+  // Deep-mask any field the intent declares secret. Cycle-safe AND depth-bounded: this runs in
+  // production (wrapping a logger), so it must never throw. Beyond MAX_DEPTH it stops descending
+  // rather than overflowing the stack on a pathologically deep object.
+  const MAX_DEPTH = 100;
+  function redact(value, seen = new WeakSet(), depth = 0) {
+    if (depth > MAX_DEPTH) return value;
+    if (Array.isArray(value)) return value.map((v) => redact(v, seen, depth + 1));
     if (value && typeof value === 'object') {
       if (seen.has(value)) return value;
       seen.add(value);
       const out = {};
-      for (const [k, v] of Object.entries(value)) out[k] = isSecretKey(k) ? mask : redact(v, seen);
+      for (const [k, v] of Object.entries(value)) out[k] = isSecretKey(k) ? mask : redact(v, seen, depth + 1);
       return out;
     }
     return value;

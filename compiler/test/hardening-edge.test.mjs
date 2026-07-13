@@ -11,7 +11,8 @@ import { buildIntentGraph } from '../src/intent-graph.mjs';
 import { graphToSource } from '../src/graph-source.mjs';
 import { buildAtlas } from '../src/intent-atlas.mjs';
 import { buildFocusGraph } from '../src/focus.mjs';
-import { evaluateDecision } from '../src/runtime.mjs';
+import { evaluateDecision, simulateLifecycle } from '../src/runtime.mjs';
+import { compileGuard } from '../src/guard.mjs';
 
 // ── Expression engine , the two bugs found + fixed ───────────────────────────
 
@@ -107,6 +108,38 @@ test('no default + no matching rule yields a null result, not a crash', () => {
   const ast = parseIntent('mission M\ndecision D\n  inputs\n    x\n  rule r\n    when x > 100\n    return A\n');
   const res = evaluateDecision(ast.decisions[0], { x: 5 });
   assert.equal(res.result, null);
+});
+
+// ── Lifecycle , initial state must be the first declared state (bug fix) ─────
+
+test('a lifecycle whose start state is in a cycle still starts at the first declared state', () => {
+  // A <-> B cycle + isolated terminal C. The old "first state with no inbound" heuristic wrongly
+  // picked C (the only state with no inbound), so a legal `go` from A was reported invalid.
+  const lc = parseIntent('mission M\nlifecycle L\n  state A\n  state B\n  state C\n  transition go\n    from A\n    to B\n  transition back\n    from B\n    to A\n  terminal C\n').lifecycles[0];
+  const legal = simulateLifecycle(lc, ['go']);
+  assert.equal(legal.path[0], 'A', 'starts at the first declared state');
+  assert.equal(legal.finalState, 'B');
+  assert.equal(legal.valid, true);
+  assert.equal(simulateLifecycle(lc, ['go', 'back']).valid, true, 'the cycle is walkable');
+  assert.equal(simulateLifecycle(lc, ['back']).valid, false, 'no `back` from the start');
+  assert.equal(simulateLifecycle(lc, []).finalState, 'A', 'no events -> still at the start');
+});
+
+// ── Guard , redaction must never crash in production (depth-bounded) ─────────
+
+test('redact masks secrets deeply, survives cycles, and never overflows on deep nesting', () => {
+  const g = compileGuard('mission M\ninput\n  paymentToken: Secret\nnever\n  log paymentToken');
+  // shallow + nested secrets are masked
+  const r = g.redact({ user: 'u', paymentToken: 'SEKRIT', nested: { paymentToken: 'ALSO' } });
+  assert.notEqual(r.paymentToken, 'SEKRIT');
+  assert.notEqual(r.nested.paymentToken, 'ALSO');
+  // a cycle does not loop forever
+  const c = { paymentToken: 'X' }; c.self = c;
+  assert.doesNotThrow(() => g.redact(c));
+  // a pathologically deep object does not blow the stack
+  let deep = { paymentToken: 'T' };
+  for (let i = 0; i < 10000; i += 1) deep = { child: deep };
+  assert.doesNotThrow(() => g.redact(deep), 'deep nesting must not overflow the stack');
 });
 
 // ── Round-trip fidelity on a realistic + adversarial mission ─────────────────

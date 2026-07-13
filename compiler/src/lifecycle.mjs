@@ -14,9 +14,10 @@ export function buildLifecycle(lc) {
   const out = {};
   for (const s of states) out[s] = [];
   for (const t of transitions) if (out[t.from]) out[t.from].push(t.to);
-  // initial = a state with no inbound transition (else the first declared).
-  const inbound = new Set(transitions.map((t) => t.to));
-  const initial = states.find((s) => !inbound.has(s)) ?? states[0] ?? null;
+  // initial = the first declared state (the canonical start). The earlier "first state with no
+  // inbound transition" heuristic was wrong whenever the start state has a back-edge: in a cycle
+  // (e.g. A -> B -> A) every cyclic state has inbound, so it wrongly picked an isolated terminal.
+  const initial = states[0] ?? null;
   // reachability (DFS from initial).
   const reachable = new Set();
   const stack = initial ? [initial] : [];

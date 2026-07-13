@@ -95,6 +95,13 @@ The executable + interoperable release. Everything is deterministic and requires
   - *Unknown-operand ordering* was inconsistent: `null < 1` was `true` (JS coerces `null` to 0)
     while `null > 1` was `false`. Every ordering comparison against an unknown / neutralized
     value (a missing input, a divide-by-zero) is now `false` , unknowns are un-orderable.
+  - *Lifecycle initial state* was picked as "the first state with no inbound transition," which
+    is wrong when the start state is in a cycle (`A -> B -> A`: every cyclic state has inbound, so
+    it wrongly chose an isolated terminal). A legal first transition was then reported invalid.
+    The initial state is now the first declared state (the canonical start).
+  - *Guard `redact` could stack-overflow* on a pathologically deep object (it was cycle-safe but
+    not depth-bounded). Since it runs in production wrapping a logger, it must never throw; it is
+    now depth-capped and stops descending instead of crashing.
   - *`buildFocusGraph` was O(n²)* (it scanned every relationship for every frontier node); an
     adjacency index makes it O(n + e). A 20k-node focus dropped from ~2s to ~85ms.
   - Adds `test/hardening-edge.test.mjs`: div/zero + null-ordering regressions, a "parser never
