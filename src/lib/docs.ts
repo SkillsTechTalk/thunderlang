@@ -176,6 +176,69 @@ export function getDocList(): DocMeta[] {
   }));
 }
 
+// Docs grouped into task-oriented sections (the review's information architecture), so a
+// first-time visitor knows where to start instead of facing one long list.
+const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
+  {
+    title: "Start here",
+    blurb: "The mental model and your first ten minutes.",
+    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-intentlang", "verifying-ai-changes"],
+  },
+  {
+    title: "Understand the language",
+    blurb: "The syntax and the constructs you write.",
+    slugs: ["syntax-overview", "language-principles", "intent-runtime", "intent-tests", "outcome-contracts", "data-privacy", "style-intent", "governance"],
+  },
+  {
+    title: "Understand software",
+    blurb: "Scan, map, and reason about existing and AI-written code.",
+    slugs: ["intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "mission-chains", "ai-generated-missions"],
+  },
+  {
+    title: "Build and verify",
+    blurb: "From source to proof, editor, and adapters.",
+    slugs: ["runtime-enforcement", "compiler-contract", "proof-matrix", "editor-support", "structured-editing", "graph-to-source", "export-adapters", "import-adapters", "schema-migrations"],
+  },
+  {
+    title: "Scale across a system",
+    blurb: "Navigate many missions and large changes.",
+    slugs: ["large-changes", "build-session-digest", "mvp-readiness", "release-story-tutorial"],
+  },
+  {
+    title: "Reference",
+    blurb: "The exhaustive specification and catalogs.",
+    slugs: ["spec", "diagnostics", "intent-graph", "single-compiler", "ai-age-best-practices", "operating-checklist"],
+  },
+  {
+    title: "Ecosystem",
+    blurb: "How IntentLang fits the wider SkillsTech ecosystem.",
+    slugs: ["ecosystem-brief", "ecosystem-current-state", "certification"],
+  },
+  {
+    title: "Experimental and forward-looking",
+    blurb: "Designed and in progress. Read as direction, not a contract.",
+    slugs: ["ai-implementations"],
+  },
+];
+
+export type DocCategory = { title: string; blurb: string; docs: DocMeta[] };
+
+/** The docs grouped into sections; any doc not placed in a category lands in "More guides". */
+export function getDocCategories(): DocCategory[] {
+  const all = getDocList();
+  const bySlug = new Map(all.map((d) => [d.slug, d]));
+  const placed = new Set<string>();
+  const cats: DocCategory[] = DOC_CATEGORIES.map((c) => ({
+    title: c.title,
+    blurb: c.blurb,
+    docs: c.slugs.map((s) => bySlug.get(s)).filter((d): d is DocMeta => Boolean(d)),
+  }));
+  for (const c of DOC_CATEGORIES) for (const s of c.slugs) placed.add(s);
+  const extras = all.filter((d) => !placed.has(d.slug));
+  if (extras.length) cats.push({ title: "More guides", blurb: "", docs: extras });
+  return cats.filter((c) => c.docs.length > 0);
+}
+
 export function getDoc(slug: string): { label: string; html: string } | null {
   const file = path.join(DOCS_DIR, `${slug}.md`);
   if (!fs.existsSync(file)) return null;

@@ -3,7 +3,7 @@ import { PageHero, Section, DraftNote, Pill, Card } from "@/components/ui";
 import { IntentCode } from "@/components/IntentCode";
 import { pageMeta } from "@/lib/seo";
 import { heroExample } from "@/lib/content";
-import { getDocList } from "@/lib/docs";
+import { getDocCategories } from "@/lib/docs";
 
 export const metadata = pageMeta({
   title: "Documentation",
@@ -87,37 +87,35 @@ const concepts = [
 ];
 
 export default function DocsPage() {
-  const guides = getDocList();
+  const categories = getDocCategories();
   return (
     <>
       <PageHero
         eyebrow="Documentation"
-        title="Learn IntentLang, from the idea to the draft syntax."
-        intro="This is an early documentation stub. It captures the mental model and the current draft syntax while the language and compiler are still taking shape."
+        title="Everything from your first mission to the full specification."
+        intro="Start with the mental model and a runnable tutorial, then go as deep as the reference. The language and its schemas are pre-1.0, but the compiler, CLI, and these docs are real today."
       />
 
       <Section>
-        <div className="mb-4">
-          <p className="eyebrow">Full guides</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-            Read the language docs.
-          </h2>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {guides.map((g) => (
-            <Link key={g.slug} href={`/docs/${g.slug}`}>
-              <Card className="h-full">
-                <h3 className="text-base font-semibold text-white">
-                  {g.label}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-haze-300">
-                  {g.blurb}
-                </p>
-                <span className="mt-3 inline-block text-sm text-gold-300">
-                  Read →
-                </span>
-              </Card>
-            </Link>
+        <div className="space-y-12">
+          {categories.map((cat) => (
+            <div key={cat.title}>
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold tracking-tight text-white">{cat.title}</h2>
+                {cat.blurb && <p className="mt-1 text-sm text-haze-400">{cat.blurb}</p>}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {cat.docs.map((g) => (
+                  <Link key={g.slug} href={`/docs/${g.slug}`}>
+                    <Card className="h-full">
+                      <h3 className="text-base font-semibold text-white">{g.label}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-haze-300">{g.blurb}</p>
+                      <span className="mt-3 inline-block text-sm text-gold-300">Read →</span>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </Section>
