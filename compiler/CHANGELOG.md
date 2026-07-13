@@ -73,7 +73,7 @@ The executable + interoperable release. Everything is deterministic and requires
   `intent verify`. Browser-safe via `/core` so signers/renderers validate the envelope with
   no Node build.
 - **Browser-safe `/core` subpath**, the committed `intent-graph.schema.json`, and the
-  complete 46-rule diagnostic catalog.
+  canonical 49-rule `IL-*` diagnostic catalog (60 codes documented including legacy core codes).
 
 ### Fixed
 
