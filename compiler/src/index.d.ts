@@ -299,6 +299,9 @@ export function securityDiagnostics(ast: IntentAst): Array<{ code: string; sever
 export const SARIF_SCHEMA: string;
 export function sarifLevel(diag: { level?: string; severity?: string }): "error" | "warning" | "note";
 export function toSarif(reports: Array<{ file: string; diagnostics: Array<Record<string, unknown>> }>, opts?: { version?: string; toolName?: string }): Record<string, unknown>;
+export const SYNC_SCHEMA: string;
+export function parseToStructured(source: string): { schema: string; mission: string | null; graph: Record<string, unknown>; fields: Record<string, unknown> };
+export function proposeIntent(structured: unknown, opts?: { base?: string | Record<string, unknown> | null }): { schema: string; ok: boolean; source?: string; diff?: Record<string, unknown> | null; ambiguities?: unknown[]; lostNodes?: unknown[]; validation?: Record<string, unknown>; warnings?: string[]; applied?: boolean; error?: string };
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 

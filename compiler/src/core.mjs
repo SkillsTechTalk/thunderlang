@@ -22,6 +22,9 @@ export {
   PROOF_SCHEMA, CLAIM_STATUSES, PROOF_STATUSES, intentProofJsonSchema, validateProof,
 } from './proof-schema.mjs';
 
+// Human <-> Structured <-> IntentLang sync (browser-safe) , Studio's proposeIntent/parseToStructured.
+export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
+
 // The Intent Runtime , executable intent (evaluate decisions, simulate lifecycles). Pure.
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
 export { compileExpr, evalExpr, ExprError } from './expr.mjs';

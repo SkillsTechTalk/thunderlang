@@ -94,6 +94,8 @@ export { evaluateOutcomeContract, evaluateOutcomes, outcomeDiagnostics, parseVal
 export { securityDiagnostics, SECURITY_SCHEMA } from './security.mjs';
 // SARIF 2.1.0 output , IntentLang diagnostics in GitHub/GitLab code scanning + IDEs
 export { toSarif, sarifLevel, SARIF_SCHEMA } from './sarif.mjs';
+// Human <-> Structured <-> IntentLang sync , Studio edits structured, IL stays source of truth
+export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
