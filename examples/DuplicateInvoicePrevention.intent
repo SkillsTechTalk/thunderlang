@@ -1,0 +1,92 @@
+# DuplicateInvoicePrevention.intent
+# The signature IntentLang pattern: a "no duplicates" guarantee is only real when
+# an idempotency key backs it. This mission says so out loud, and proves it.
+
+mission DuplicateInvoicePrevention
+use product
+
+title "Turn a retried checkout into exactly one invoice"
+for BillingCustomer
+
+note pm:
+  A network retry, a double-click, or an at-least-once queue must never bill twice.
+
+goal
+  Ensure one purchase produces exactly one invoice, no matter how many times the
+  request arrives.
+
+why
+  Duplicate invoices cause double charges, refunds, support tickets, finance
+  cleanup, and lost trust. Preventing them is cheaper than curing them.
+
+requires
+  Customer
+  ApprovedOrder
+
+input
+  customer: Customer
+  order: Order
+  idempotencyKey: IdempotencyKey
+    note beginner:
+      The retry key. The same key always returns the first invoice instead of
+      creating a second one.
+    note qa:
+      Send the same order twice with the same key and expect one invoice, same id.
+
+output
+  invoice: Invoice
+
+guarantee a repeated request with the same key returns the first invoice
+  because at-least-once delivery means the same request will arrive more than once
+  note risk:
+    Without this, every retry is a new invoice and a new charge.
+  verify idempotency replay test
+
+guarantee two different keys never collapse into one invoice
+  because over-deduplication silently drops real, distinct purchases
+  verify distinct keys test
+
+never
+  create a second invoice for an already-processed key
+  bill a customer more than once for one order
+
+never create a second invoice for an already-processed key
+  because that is the exact failure this mission exists to prevent
+  verify idempotency replay test
+
+never bill a customer more than once for one order
+  because a double charge is a trust-breaking billing error
+  verify duplicate charge scan
+
+# The idempotency decision, run it with `intent run`, assert it with `intent test`.
+decision InvoiceForKey
+  inputs
+    keySeen
+    orderApproved
+  rule replay
+    when keySeen == true
+    return ReturnExisting
+  rule unapproved
+    when orderApproved == false
+    return Reject
+  default
+    return CreateNew
+
+target
+  TypeScript
+  OpenAPI
+  Tests
+
+test InvoiceForKey
+  case first request creates the invoice
+    given keySeen false, orderApproved true
+    expect CreateNew
+  case retry returns the existing invoice
+    given keySeen true, orderApproved true
+    expect ReturnExisting
+  case a seen key wins even over approval checks
+    given keySeen true, orderApproved false
+    expect ReturnExisting
+  case unapproved order is rejected
+    given keySeen false, orderApproved false
+    expect Reject

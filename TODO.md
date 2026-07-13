@@ -57,9 +57,9 @@ repo and implementation is approved.
 - [x] Adopt canonical `CreateInvoice` (add `idempotencyKey`, full target list)
 - [x] Align `.intent-proof.json` schema to v0.1.0 (schemaVersion, neverRules, proofStatus)
 - [x] Convert site examples to lowercase canonical syntax + highlighter
-- [ ] Add `docs/language-principles.md`
-- [ ] Add `docs/intent-oriented-programming.md`
-- [ ] Add `examples/DuplicateInvoicePrevention.intent`
+- [x] Add `docs/language-principles.md`
+- [x] Add `docs/intent-oriented-programming.md`
+- [x] Add `examples/DuplicateInvoicePrevention.intent`
 
 ### P1 - Tutorial expansion
 - [ ] Grow `docs/tutorial.md` into a full walk-through (first mission → proof)

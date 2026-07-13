@@ -14,6 +14,8 @@ const EXAMPLES_DIR = path.join(process.cwd(), "examples");
 // Curated reading order + friendly labels for the docs index.
 const DOC_ORDER = [
   "manifesto",
+  "intent-oriented-programming",
+  "language-principles",
   "getting-started",
   "adopting-intentlang",
   "verifying-ai-changes",
@@ -55,6 +57,8 @@ const DOC_ORDER = [
 
 const DOC_LABELS: Record<string, string> = {
   manifesto: "Manifesto",
+  "intent-oriented-programming": "Intent-oriented programming",
+  "language-principles": "Language principles",
   "getting-started": "Getting started",
   "adopting-intentlang": "Adopting on an existing codebase",
   "verifying-ai-changes": "Verifying AI code changes",
@@ -96,6 +100,8 @@ const DOC_LABELS: Record<string, string> = {
 
 const DOC_BLURBS: Record<string, string> = {
   manifesto: "Why IntentLang exists, and prompt vs durable intent.",
+  "intent-oriented-programming": "The paradigm above OOP and FP: build around meaning, prove the code still honors it.",
+  "language-principles": "The ten design rules the language holds itself to.",
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",
   "adopting-intentlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
