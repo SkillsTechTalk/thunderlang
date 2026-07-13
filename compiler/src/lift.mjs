@@ -182,16 +182,171 @@ export function extractFactsPerl(source, file = 'input.pl') {
   return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'perl', sourceRoot: file, functions, tests, errors };
 }
 
+// Params written "Type name" (Java, C#, Go, C++). Strips annotations/qualifiers; the last
+// token is the name, the rest is the type. Handles varargs and array brackets best-effort.
+function parseTypeFirstParams(raw) {
+  return splitTopLevel(raw, ',').map((p) => p.trim()).filter(Boolean).map((p) => {
+    const cleaned = p.replace(/@\w+(\([^)]*\))?/g, '').replace(/\b(final|const|readonly|in|out|ref|params)\b/g, '').replace(/=.*$/, '').trim();
+    const parts = cleaned.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const name = parts[parts.length - 1].replace(/[[\]]/g, '').replace(/^[*&]+/, '');
+      const type = parts.slice(0, -1).join(' ').replace(/^[*&]+/, '');
+      return { name, type };
+    }
+    return { name: cleaned.replace(/[[\]*&]/g, ''), type: null };
+  });
+}
+const addErrOf = (errors, seen, source) => (name, idx) => {
+  if (name && !seen.has(name)) { seen.add(name); errors.push({ name, file: source._file, line: lineOf(source._src, idx) }); }
+};
+
+// ── Python adapter (dynamic: types when annotated, else Unknown) ─────────────
+export function extractFactsPython(source, file = 'input.py') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const fnRe = /^[ \t]*(?:async\s+)?def\s+(\w+)\s*\(([\s\S]*?)\)\s*(?:->\s*([^:]+))?:/gm;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1];
+    if (/^test_/.test(name)) { tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    const params = splitTopLevel(m[2] || '', ',').map((p) => p.trim()).filter((p) => p && !/^(self|cls)$/.test(p) && !p.startsWith('*'))
+      .map((p) => { const nd = p.split('=')[0].trim(); const mm = nd.match(/^(\w+)\s*:\s*(.+)$/); return mm ? { name: mm[1], type: mm[2].trim() } : { name: nd, type: null }; });
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: params, returnType: m[3] ? m[3].trim() : null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  const classErr = /class\s+(\w*(?:Error|Exception))\s*[(:]/g; while ((m = classErr.exec(source))) addErr(m[1], m.index);
+  const raiseRe = /raise\s+(\w+)\s*\(/g; while ((m = raiseRe.exec(source))) addErr(m[1], m.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'python', sourceRoot: file, functions, tests, errors };
+}
+
+// ── Java adapter (Type-first params, @Test methods, *Exception) ──────────────
+export function extractFactsJava(source, file = 'input.java') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const testMethods = new Set(); const ta = /@Test\b[\s\S]{0,120}?\b(\w+)\s*\(/g; while ((m = ta.exec(source))) testMethods.add(m[1]);
+  const methodRe = /(?:public|private|protected|static|final|abstract|synchronized|default)\s+(?:[\w$.<>,\[\]\s]*?\s+)?([A-Za-z_$][\w$.<>,\[\]]*?)\s+([A-Za-z_$]\w*)\s*\(([^)]*)\)\s*(?:throws[\w\s,.]+)?\{/g;
+  while ((m = methodRe.exec(source))) {
+    const ret = m[1].trim(); const name = m[2];
+    if (['if', 'for', 'while', 'switch', 'catch', 'return'].includes(name)) continue;
+    if (['class', 'interface', 'enum', 'new', 'return'].includes(ret)) continue;
+    if (testMethods.has(name)) { if (!tests.some((t) => t.name === name)) tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: parseTypeFirstParams(m[3] || ''), returnType: ret, evidence: [{ kind: 'method', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /class\s+(\w*(?:Exception|Error))\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  const th = /throw\s+new\s+(\w+)\s*\(/g; while ((mm = th.exec(source))) addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'java', sourceRoot: file, functions, tests, errors };
+}
+
+// ── C# adapter (Type-first, [Fact]/[Test], *Exception) ───────────────────────
+export function extractFactsCSharp(source, file = 'input.cs') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const testMethods = new Set(); const ta = /\[(?:Fact|Test|TestMethod|Theory)\][\s\S]{0,160}?\b(\w+)\s*\(/g; while ((m = ta.exec(source))) testMethods.add(m[1]);
+  const methodRe = /(?:public|private|protected|internal|static|async|virtual|override|sealed)\s+(?:[\w.<>,\[\]\s]*?\s+)?([A-Za-z_][\w.<>,\[\]]*?)\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{/g;
+  while ((m = methodRe.exec(source))) {
+    const ret = m[1].trim(); const name = m[2];
+    if (['if', 'for', 'while', 'switch', 'catch', 'return', 'using', 'lock'].includes(name)) continue;
+    if (testMethods.has(name)) { if (!tests.some((t) => t.name === name)) tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: parseTypeFirstParams(m[3] || ''), returnType: ret, evidence: [{ kind: 'method', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /class\s+(\w*(?:Exception|Error))\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  const th = /throw\s+new\s+(\w+)\s*\(/g; while ((mm = th.exec(source))) addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'csharp', sourceRoot: file, functions, tests, errors };
+}
+
+// ── Go adapter (name-Type params, TestXxx, error values) ─────────────────────
+export function extractFactsGo(source, file = 'input.go') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const fnRe = /func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)\s*\(([^)]*)\)\s*([^{]*?)\{/g;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1]; const params = m[2] || '';
+    if (/^Test/.test(name) && /testing\.[TBM]/.test(params)) { tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    const parameters = splitTopLevel(params, ',').map((p) => p.trim()).filter(Boolean).map((p) => { const parts = p.split(/\s+/); return parts.length >= 2 ? { name: parts[0], type: parts.slice(1).join(' ').replace(/^[*&]+/, '') } : { name: p, type: null }; });
+    functions.push({ name, file, line: lineOf(source, m.index), parameters, returnType: (m[3] || '').trim() || null, evidence: [{ kind: 'func', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const seenErr = new Set();
+  const addErr = (n, idx) => { const k = String(n).toLowerCase(); if (n && !seenErr.has(k)) { seenErr.add(k); errors.push({ name: n, file, line: lineOf(source, idx) }); } };
+  let mm; const es = /(?:errors\.New|fmt\.Errorf)\(\s*"([^"]+)"/g; while ((mm = es.exec(source))) addErr(mm[1].slice(0, 60), mm.index);
+  const et = /type\s+(\w*Error)\s+struct/g; while ((mm = et.exec(source))) addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'go', sourceRoot: file, functions, tests, errors };
+}
+
+// ── C / C++ adapter (Type-first, gtest TEST, throw/exception) ────────────────
+export function extractFactsCpp(source, file = 'input.cpp') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const tr = /\bTEST(?:_F|_P)?\s*\(\s*\w+\s*,\s*(\w+)\s*\)/g; while ((m = tr.exec(source))) tests.push({ name: m[1], file, line: lineOf(source, m.index) });
+  const CTRL = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'sizeof', 'else', 'do']);
+  const fnRe = /(?:^|\n)[ \t]*((?:[A-Za-z_][\w:]*(?:\s*<[^;{>]*>)?[\s*&]+)+)([A-Za-z_]\w*)\s*\(([^)]*)\)\s*(?:const|noexcept|override)?\s*\{/g;
+  while ((m = fnRe.exec(source))) {
+    const ret = m[1].trim(); const name = m[2];
+    if (CTRL.has(name)) continue;
+    if (seen.has(name)) continue; seen.add(name);
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: parseTypeFirstParams(m[3] || ''), returnType: ret, evidence: [{ kind: 'function', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /(?:class|struct)\s+(\w*(?:Exception|Error))\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  const th = /throw\s+(?:std::)?(\w+)\s*[({]/g; while ((mm = th.exec(source))) addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'cpp', sourceRoot: file, functions, tests, errors };
+}
+
+// ── PHP adapter (Type $name params, test* methods, *Exception) ───────────────
+export function extractFactsPhp(source, file = 'input.php') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const fnRe = /(?:public|private|protected|static|final|abstract)?\s*function\s+(\w+)\s*\(([^)]*)\)\s*(?::\s*\??([\w\\]+))?/g;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1];
+    if (/^test/i.test(name)) { tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    const parameters = splitTopLevel(m[2] || '', ',').map((p) => p.trim()).filter(Boolean).map((p) => { const mm = p.match(/^(?:\??([\w\\|]+)\s+)?[&.]*\$(\w+)/); return mm ? { name: mm[2], type: mm[1] || null } : { name: p.replace(/[^\w]/g, ''), type: null }; });
+    functions.push({ name, file, line: lineOf(source, m.index), parameters, returnType: m[3] ? m[3].trim() : null, evidence: [{ kind: 'function', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /class\s+(\w*(?:Exception|Error))\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  const th = /throw\s+new\s+(\w+)\s*\(/g; while ((mm = th.exec(source))) addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'php', sourceRoot: file, functions, tests, errors };
+}
+
+// ── Ruby adapter (dynamic, def methods, it/test blocks, *Error) ──────────────
+export function extractFactsRuby(source, file = 'input.rb') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const fnRe = /^[ \t]*def\s+(?:self\.)?([a-z_]\w*[!?=]?)\s*(?:\(([^)]*)\))?/gm;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1];
+    if (/^test_/.test(name)) { tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    const parameters = splitTopLevel(m[2] || '', ',').map((p) => p.trim()).filter(Boolean).map((p) => ({ name: p.split(/[:=]/)[0].trim().replace(/^[*&]+/, ''), type: null }));
+    functions.push({ name, file, line: lineOf(source, m.index), parameters, returnType: null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
+  }
+  const seenT = new Set(); const addTest = (n, idx) => { const k = String(n).toLowerCase(); if (n && !seenT.has(k)) { seenT.add(k); tests.push({ name: n, file, line: lineOf(source, idx) }); } };
+  const itRe = /\b(?:it|test|describe|context|specify)\s+["']([^"']+)["']/g; while ((m = itRe.exec(source))) addTest(m[1], m.index);
+  const errors = []; const seenErr = new Set(); const addErr = (n, idx) => { if (n && !seenErr.has(n)) { seenErr.add(n); errors.push({ name: n, file, line: lineOf(source, idx) }); } };
+  const ce = /class\s+(\w*(?:Error|Exception))\s*</g; while ((m = ce.exec(source))) addErr(m[1], m.index);
+  const raiseRe = /raise\s+(\w+)/g; while ((m = raiseRe.exec(source))) { if (/^[A-Z]/.test(m[1])) addErr(m[1], m.index); }
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'ruby', sourceRoot: file, functions, tests, errors };
+}
+
 const ADAPTERS = {
   typescript: extractFactsTypeScript, ts: extractFactsTypeScript,
   javascript: extractFactsTypeScript, js: extractFactsTypeScript,
   rust: extractFactsRust, rs: extractFactsRust,
   perl: extractFactsPerl, pl: extractFactsPerl,
+  python: extractFactsPython, py: extractFactsPython,
+  java: extractFactsJava,
+  csharp: extractFactsCSharp, cs: extractFactsCSharp, 'c#': extractFactsCSharp,
+  go: extractFactsGo, golang: extractFactsGo,
+  cpp: extractFactsCpp, 'c++': extractFactsCpp, c: extractFactsCpp, cc: extractFactsCpp,
+  php: extractFactsPhp,
+  ruby: extractFactsRuby, rb: extractFactsRuby,
 };
-export const SUPPORTED_LANGUAGES = ['typescript', 'rust', 'perl'];
-const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript']);
+export const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl'];
+const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript', 'python', 'ruby', 'php']);
 
-const LANG_DISPLAY = { typescript: 'TypeScript', rust: 'Rust', javascript: 'JavaScript', perl: 'Perl' };
+const LANG_DISPLAY = {
+  typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', java: 'Java',
+  csharp: 'C#', go: 'Go', rust: 'Rust', cpp: 'C++', php: 'PHP', ruby: 'Ruby', perl: 'Perl',
+};
 
 // Unwrap Result<T, E> / Promise<T> / T -> { output, error }
 function unwrapReturn(ret) {
@@ -317,6 +472,14 @@ function liftDiagnostics(lift, facts) {
 export function languageForFile(file) {
   if (/\.rs$/i.test(file)) return 'rust';
   if (/\.(pl|pm|t)$/i.test(file)) return 'perl';
+  if (/\.pyi?$/i.test(file)) return 'python';
+  if (/\.java$/i.test(file)) return 'java';
+  if (/\.cs$/i.test(file)) return 'csharp';
+  if (/\.go$/i.test(file)) return 'go';
+  if (/\.(cpp|cc|cxx|hpp|hh|c|h)$/i.test(file)) return 'cpp';
+  if (/\.php$/i.test(file)) return 'php';
+  if (/\.rb$/i.test(file)) return 'ruby';
+  if (/\.(mjs|cjs|jsx?)$/i.test(file)) return 'javascript';
   return 'typescript';
 }
 
@@ -356,13 +519,21 @@ export function liftRepo(files, { language } = {}) {
   };
 }
 
+// Default source file extension per language (for accurate source-map evidence in the draft).
+const LANG_EXT = {
+  typescript: 'ts', javascript: 'js', python: 'py', java: 'java', csharp: 'cs',
+  go: 'go', rust: 'rs', cpp: 'cpp', php: 'php', ruby: 'rb', perl: 'pl',
+};
+
 /** Lift source into an inferred IntentLang draft. Deterministic, no AI. */
-export function liftSource(source, { language = 'typescript', file = 'input.ts' } = {}) {
-  const adapter = ADAPTERS[String(language).toLowerCase()];
+export function liftSource(source, { language = 'typescript', file = '' } = {}) {
+  const key = String(language).toLowerCase();
+  const adapter = ADAPTERS[key];
   if (!adapter) {
     return { ok: false, error: `Unsupported language "${language}". Supported: ${SUPPORTED_LANGUAGES.join(', ')}.` };
   }
-  const codeFacts = adapter(source, file);
+  const resolvedFile = file || `input.${LANG_EXT[key] || 'txt'}`;
+  const codeFacts = adapter(source, resolvedFile);
   const lifted = inferIntent(codeFacts);
   if (!lifted) {
     return { ok: false, error: 'No functions found to infer intent from.', codeFacts };

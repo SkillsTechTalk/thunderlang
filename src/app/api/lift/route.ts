@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = liftSource(source, { language, file: "input.ts" });
+    const result = liftSource(source, { language });
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 200 });
     }

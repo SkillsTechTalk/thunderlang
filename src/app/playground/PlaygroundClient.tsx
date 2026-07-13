@@ -423,7 +423,7 @@ export function PlaygroundClient() {
           <span className="text-sm font-medium text-white">
             IntentLift{" "}
             <span className="text-haze-400">
-              · lift TypeScript into an inferred intent draft
+              · lift code from 11 languages into an inferred intent draft
             </span>
           </span>
           <span className="text-haze-400">{showLift ? "−" : "+"}</span>
@@ -458,7 +458,15 @@ export function PlaygroundClient() {
                     className="rounded-md border border-white/12 bg-ink-900 px-2 py-1 text-xs text-haze-200 outline-none focus:border-gold-300/40"
                   >
                     <option value="typescript">TypeScript</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="python">Python</option>
+                    <option value="java">Java</option>
+                    <option value="csharp">C#</option>
+                    <option value="go">Go</option>
                     <option value="rust">Rust</option>
+                    <option value="cpp">C++</option>
+                    <option value="php">PHP</option>
+                    <option value="ruby">Ruby</option>
                     <option value="perl">Perl</option>
                   </select>
                   <span className="text-[11px] text-haze-500">no AI</span>
