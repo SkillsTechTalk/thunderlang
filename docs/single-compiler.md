@@ -86,9 +86,13 @@ Once the package is published, each consumer retires its fork/copy and imports t
   `ide/.../graph`) with this package's `buildIntentGraph` / `buildAtlas` / `graphToIR`.
 - **SkillsTech Mobile** (React Native / Hermes) , import from `/core`. The compiler is now
   engine-safe: it uses no `TextEncoder`, `Buffer`, or other non-guaranteed global (enforced by
-  the conformance test). **Metro caveat:** Metro must resolve the package `exports` map , on
-  React Native < 0.79 set `resolver.unstable_enablePackageExports = true` in `metro.config.js`
-  (it is the default from 0.79). Without it, the `/core` subpath will not resolve.
+  the conformance test). A **verified, turnkey drop-in** (a `missionLens` data module + jest
+  test + steps) is in
+  [`examples/adoption/skillstech-mobile/`](https://github.com/SkillsTech/intent-language-site/tree/main/examples/adoption/skillstech-mobile)
+  , it typechecks against the packed tarball. **Metro caveat:** Metro must resolve the package
+  `exports` map , on React Native < 0.79 set `resolver.unstable_enablePackageExports = true` in
+  `metro.config.js` (it is the default from 0.79, and SkillsTech Mobile is on 0.81, so no change
+  is needed there).
 
 Every consumer gets the same functions, the same graph shape, and the same `intentProofHash`.
 
