@@ -668,3 +668,16 @@ export function toTypeScript(ast: IntentAst): string;
 export const GENERATORS: Record<string, (ast: IntentAst) => string>;
 export function exprToJs(src: string, opts?: { inputs?: string[] }): string;
 export function subjectName(ast: IntentAst): string | null;
+
+// Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
+export const CHANGES_SCHEMA: string;
+export interface ChangeReport {
+  schema: string;
+  totals: { files: number; added: number; removed: number; changed: number; invalidatedApprovals: number; touched: number };
+  verdict: "review" | "changed" | "no-semantic-change";
+  regressions: Array<{ kind: string; type: string; thing: string; title: string; path: string }>;
+  highlights: Array<{ kind: string; type: string; thing: string; title: string; path: string }>;
+  files: Array<{ path: string; status: string; added: number; removed: number; changed: number; invalidatedApprovals: number }>;
+  touchedNodeIds: string[];
+}
+export function changeReport(pairs: Array<{ path: string; before: IntentGraph | null; after: IntentGraph | null }>): ChangeReport;

@@ -128,6 +128,14 @@ The executable + interoperable release. Everything is deterministic and requires
   UTF-8 encoder instead of the `TextEncoder` global, so it runs on Hermes / React Native (the
   conformance test now fails CI if any `/core` module references `TextEncoder`, `Buffer`, or
   another non-guaranteed global, and asserts hashing works with `TextEncoder` deleted).
+- **Change Lens , what a branch/PR changed by meaning (`intent changes`).** `intent changes
+  <base>..<head>` git-diffs the `.intent` files, semantic-diffs each (reusing `diffGraphs`), and
+  reports the behavior-level changes: guarantees / never-rules / invariants / decisions added or
+  removed, verification removed, and , crucially , a claim that **lost its verification** is
+  flagged as *weakened*. The verdict is `review` when a promise or its proof was removed or
+  weakened (or an approval invalidated), else `changed` / `no-semantic-change`; exit non-zero on
+  `review` gates a PR. Returns the touched node ids to seed a Focus Graph. `changeReport` is pure
+  and exported from `/core` (the CLI supplies the git-diffed graphs).
 - **Global `invariant` , system-wide laws (first-class).** `invariant <Name>` declares a law that
   must hold across every feature and service, not just one mission (tenant isolation, financial
   consistency, "every mutation is authorized"). Fields: `statement`, `scope`, `applies_to`,

@@ -44,6 +44,8 @@ import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
 import { GENERATORS } from './codegen.mjs';
+import { changeReport } from './changes.mjs';
+import { execSync } from 'node:child_process';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
@@ -208,6 +210,7 @@ Author & check
   focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
   comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
   gen <file> [--target typescript] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
+  changes [<base>..<head> | <base>] [--json]  Change Lens: what a branch/PR changed by meaning
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
   ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
@@ -494,6 +497,38 @@ function main() {
       return;
     }
     console.log(code);
+    return;
+  }
+
+  // `intent changes [<base>..<head> | <base>] [--json]` , Change Lens: what a branch / PR / commit
+  // range changed BY MEANING. git-diffs the .intent files, semantic-diffs each, and reports the
+  // behavior-level changes + regression risk. Default: HEAD vs the working tree.
+  if (cmd === 'changes') {
+    const git = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }); } catch { return null; } };
+    if (git('rev-parse --is-inside-work-tree') === null) { console.error('intent changes: not a git repository'); process.exit(2); return; }
+    const range = file || '';
+    let base, head; // head === null means "the working tree"
+    if (range.includes('..')) { [base, head] = range.split('..'); head = head || 'HEAD'; }
+    else if (range) { base = range; head = null; }
+    else { base = 'HEAD'; head = null; }
+    const diffSpec = head ? `${base} ${head}` : base;
+    const names = (git(`diff --name-only ${diffSpec} -- "*.intent"`) || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    if (!names.length) { console.log(`intent changes ${range || `${base}..working-tree`}: no .intent files changed`); return; }
+    const readAt = (ref, p) => (ref === null ? (existsSync(p) ? readFileSync(p, 'utf8') : null) : git(`show ${ref}:${p}`));
+    const toGraph = (src) => (src != null ? buildIntentGraph(parseIntent(src)) : null);
+    const pairs = names.map((p) => ({ path: p, before: toGraph(readAt(base, p)), after: toGraph(readAt(head, p)) }));
+    const report = changeReport(pairs);
+    if (args.json) { console.log(JSON.stringify(report, null, 2)); process.exit(report.verdict === 'review' ? 1 : 0); return; }
+    const t = report.totals;
+    console.log(`intent changes ${range || `${base}..working-tree`}: ${report.verdict.toUpperCase()}`);
+    console.log(`  ${t.files} file(s) , +${t.added} / -${t.removed} / ~${t.changed} nodes${t.invalidatedApprovals ? `, ${t.invalidatedApprovals} approval(s) invalidated` : ''}`);
+    if (report.regressions.length) {
+      console.log('  regression risk (a promise or its proof was removed or weakened):');
+      for (const r of report.regressions) console.log(`    - ${r.kind === 'weakened' ? 'weakened' : 'removed'} ${r.thing}: ${r.title}`);
+    }
+    const nonReg = report.highlights.filter((h) => !(h.kind === 'removed' && report.regressions.includes(h)));
+    for (const h of nonReg.slice(0, 12)) console.log(`  ${h.kind === 'added' ? '+' : h.kind === 'removed' ? '-' : '~'} ${h.kind} ${h.thing}: ${h.title}`);
+    process.exit(report.verdict === 'review' ? 1 : 0);
     return;
   }
 

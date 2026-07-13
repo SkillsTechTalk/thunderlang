@@ -46,6 +46,9 @@ export {
 // Code generation , deterministic scaffolds from intent.
 export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, subjectName } from './index';
 
+// Change Lens , what a branch/PR changed by meaning.
+export { CHANGES_SCHEMA, ChangeReport, changeReport } from './index';
+
 // Change Lens , semantic diff + 3-way merge + graph->source round-trip.
 export {
   IntentDiff, IntentMerge, diffGraphs, mergeGraphs,
