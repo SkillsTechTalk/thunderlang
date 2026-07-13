@@ -1,0 +1,105 @@
+mission CustomerDataRequest
+use product
+
+title "Handle a data-subject access request (DSAR) under GDPR / CCPA"
+for PrivacyOfficer
+
+goal
+  Verify the requester, gather only the data they are entitled to, and respond in time.
+
+guarantee a request is fulfilled or refused within the statutory window
+  because a missed DSAR deadline is a reportable compliance failure
+  verify sla-timer test
+
+never disclose one customer's data to another person
+  verify identity-verification test
+
+# Governed data elements: each names why it is held, how long, and on what lawful basis,
+# so the compiler can enforce purpose limitation (see the IL-DATA-* diagnostics).
+data customer.email
+  classification pii
+  purpose "contact the requester and confirm their identity"
+  retention until account closure plus 30 days
+  basis contract
+
+data customer.ssn
+  classification sensitive
+  purpose "verify identity for a data-subject access request"
+  retention 30 days
+  basis legal_obligation
+
+data customer.orderHistory
+  classification confidential
+  purpose "include the customer's own records in the response"
+  retention 7 years
+  basis legal_obligation
+
+# Whether the request can be fulfilled as filed. Run it:
+#   intent run CustomerDataRequest.intent
+#     --inputs '{"identityVerified":true,"withinWindow":true,"requestType":"access"}'
+decision CanFulfil
+  inputs
+    identityVerified
+    withinWindow
+    requestType
+  rule unverified
+    when identityVerified == false
+    return RefuseUnverified
+  rule expired
+    when withinWindow == false
+    return RefuseOutOfWindow
+  rule erasure
+    when requestType == "erasure"
+    return QueueErasure
+  default
+    return Fulfil
+
+# The life of a request. Walk it: intent simulate CustomerDataRequest.intent
+#   --events verify,gather,respond
+lifecycle RequestLifecycle
+  state Received
+  state Verified
+  state Gathering
+  state Responded
+  state Refused
+  transition verify
+    from Received
+    to Verified
+  transition refuse
+    from Received
+    to Refused
+  transition gather
+    from Verified
+    to Gathering
+  transition respond
+    from Gathering
+    to Responded
+  terminal Responded, Refused
+
+# The spec proves itself: intent test CustomerDataRequest.intent
+test CanFulfil
+  case verified in window is fulfilled
+    given identityVerified true, withinWindow true, requestType "access"
+    expect Fulfil
+  case unverified is refused
+    given identityVerified false, withinWindow true, requestType "access"
+    expect RefuseUnverified
+  case out of window is refused
+    given identityVerified true, withinWindow false, requestType "access"
+    expect RefuseOutOfWindow
+  case erasure is queued
+    given identityVerified true, withinWindow true, requestType "erasure"
+    expect QueueErasure
+
+test RequestLifecycle
+  scenario verified and answered
+    events verify, gather, respond
+    expect Responded
+    valid
+  scenario refused up front
+    events refuse
+    expect Refused
+    valid
+  scenario cannot gather before verifying
+    events gather
+    invalid
