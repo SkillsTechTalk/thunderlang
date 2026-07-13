@@ -96,6 +96,8 @@ export { securityDiagnostics, SECURITY_SCHEMA } from './security.mjs';
 export { toSarif, sarifLevel, SARIF_SCHEMA } from './sarif.mjs';
 // Human <-> Structured <-> IntentLang sync , Studio edits structured, IL stays source of truth
 export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
+// Structural source editing , apply field edits in place, preserving comments + formatting
+export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,

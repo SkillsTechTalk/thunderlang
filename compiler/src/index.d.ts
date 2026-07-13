@@ -302,6 +302,14 @@ export function toSarif(reports: Array<{ file: string; diagnostics: Array<Record
 export const SYNC_SCHEMA: string;
 export function parseToStructured(source: string): { schema: string; mission: string | null; graph: Record<string, unknown>; fields: Record<string, unknown> };
 export function proposeIntent(structured: unknown, opts?: { base?: string | Record<string, unknown> | null }): { schema: string; ok: boolean; source?: string; diff?: Record<string, unknown> | null; ambiguities?: unknown[]; lostNodes?: unknown[]; validation?: Record<string, unknown>; warnings?: string[]; applied?: boolean; error?: string };
+export const PATCH_SCHEMA: string;
+export type IntentEdit =
+  | { op: "setField"; field: "goal" | "why" | "problem"; value: string }
+  | { op: "addGuarantee"; statement: string; because?: string; verify?: string }
+  | { op: "removeGuarantee"; match: string }
+  | { op: "addNever"; statement: string }
+  | { op: "removeNever"; match: string };
+export function applyEdits(source: string, edits: IntentEdit[]): { schema: string; source: string; applied: IntentEdit[]; skipped: Array<{ edit: IntentEdit; reason: string }> };
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 

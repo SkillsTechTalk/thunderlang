@@ -1,0 +1,139 @@
+// Structural source editing (intent-patch-v1) , apply field-level edits to EXISTING IntentLang
+// source, touching only the target lines so comments, formatting, ids, and untouched blocks stay
+// byte-identical. This is the comment-preserving half of the Human <-> Structured sync: a PM
+// changes a field and IL patches the source in place rather than regenerating it from the graph
+// (which would drop `#` comments). Pure ESM, zero Node deps , browser-safe for Studio.
+//
+//   applyEdits(source, edits) -> { schema, source, applied, skipped }
+//   edits: [{ op, ... }]
+//     { op: 'setField', field: 'goal'|'why'|'problem', value }
+//     { op: 'addGuarantee', statement, because?, verify? }
+//     { op: 'removeGuarantee', match }        // substring match on the statement
+//     { op: 'addNever', statement }
+//     { op: 'removeNever', match }
+// Unsupported / not-found edits are returned in `skipped` with a reason , never applied blindly.
+
+export const PATCH_SCHEMA = 'intent-patch-v1';
+
+const isTopLevel = (line) => line.length > 0 && line[0] !== ' ' && line[0] !== '\t' && line.trim() !== '' && !line.trim().startsWith('#');
+const firstWord = (line) => line.trim().split(/\s+/)[0];
+const restOf = (line) => line.trim().slice(firstWord(line).length).trim();
+
+// Top-level blocks with raw line ranges [start, end] (0-based, inclusive of body + trailing
+// blank/comment lines up to the next top-level block).
+function blocks(lines) {
+  const out = [];
+  let cur = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (isTopLevel(lines[i])) {
+      if (cur) { cur.end = i - 1; out.push(cur); }
+      cur = { keyword: firstWord(lines[i]), header: lines[i].trim(), start: i, end: i };
+    }
+  }
+  if (cur) { cur.end = lines.length - 1; out.push(cur); }
+  return out;
+}
+
+// Trim trailing blank lines off a block's range so inserts land tightly (keeps them as spacing).
+function bodyEnd(lines, block) {
+  let e = block.end;
+  while (e > block.start && lines[e].trim() === '') e -= 1;
+  return e;
+}
+
+function setField(lines, field, value) {
+  const bs = blocks(lines);
+  const block = bs.find((b) => b.keyword === field);
+  const newBody = [`${field}`, `  ${value}`];
+  if (!block) {
+    // Insert after the mission header (and its title/for/persona lines if present), else at top.
+    const mission = bs.find((b) => b.keyword === 'mission');
+    const at = mission ? bodyEnd(lines, mission) + 1 : 0;
+    return { ok: true, lines: [...lines.slice(0, at), '', ...newBody, ...lines.slice(at)] };
+  }
+  const e = bodyEnd(lines, block);
+  return { ok: true, lines: [...lines.slice(0, block.start), ...newBody, ...lines.slice(e + 1)] };
+}
+
+// Insert a block after an anchor block (or at end), separated by one blank line.
+function insertAfterAnchor(lines, body, anchorKeywords) {
+  const bs = blocks(lines);
+  let anchor = null;
+  for (const kw of anchorKeywords) { const found = bs.filter((b) => b.keyword === kw).slice(-1)[0]; if (found) { anchor = found; break; } }
+  const at = anchor ? bodyEnd(lines, anchor) + 1 : lines.length;
+  return { ok: true, lines: [...lines.slice(0, at), '', ...body, ...lines.slice(at)] };
+}
+
+function addGuarantee(lines, { statement, because, verify }) {
+  const body = [`guarantee ${statement}`];
+  if (because) body.push(`  because ${because}`);
+  if (verify) body.push(`  verify ${verify}`);
+  return insertAfterAnchor(lines, body, ['guarantee', 'why', 'goal', 'mission']);
+}
+
+function addNever(lines, statement) {
+  return insertAfterAnchor(lines, [`never ${statement}`], ['never', 'guarantee', 'goal', 'mission']);
+}
+
+// Remove a `guarantee <match>` / `never <match>` single block, or a matching line inside a
+// plural `guarantees` / `never` block.
+function removeRule(lines, keyword, pluralKeyword, match) {
+  const bs = blocks(lines);
+  const needle = String(match).toLowerCase();
+  // 1) single form: `guarantee <statement ...>`
+  const single = bs.find((b) => b.keyword === keyword && restOf(b.header).toLowerCase().includes(needle));
+  if (single) {
+    let s = single.start; let e = single.end;
+    // don't swallow a trailing blank that separates from the next block; trim trailing blanks
+    while (e > s && lines[e].trim() === '') e -= 1;
+    // also drop one leading blank line if present (keeps spacing tidy)
+    const out = [...lines.slice(0, s), ...lines.slice(e + 1)];
+    if (s > 0 && out[s - 1] !== undefined && out[s - 1].trim() === '' && (out[s] === undefined || out[s].trim() === '')) out.splice(s - 1, 1);
+    return { ok: true, lines: out };
+  }
+  // 2) plural block: `guarantees` with indented statement lines
+  const plural = bs.find((b) => b.keyword === pluralKeyword);
+  if (plural) {
+    for (let i = plural.start + 1; i <= plural.end; i++) {
+      if (lines[i].trim() && !lines[i].trim().startsWith('#') && lines[i].toLowerCase().includes(needle)) {
+        return { ok: true, lines: [...lines.slice(0, i), ...lines.slice(i + 1)] };
+      }
+    }
+  }
+  return { ok: false, reason: `no ${keyword} matching "${match}" found` };
+}
+
+function applyOne(lines, edit) {
+  switch (edit && edit.op) {
+    case 'setField':
+      if (!['goal', 'why', 'problem'].includes(edit.field)) return { ok: false, reason: `setField only supports goal/why/problem, not "${edit.field}"` };
+      if (typeof edit.value !== 'string' || !edit.value.trim()) return { ok: false, reason: 'setField needs a non-empty value' };
+      return setField(lines, edit.field, edit.value.trim());
+    case 'addGuarantee':
+      if (!edit.statement) return { ok: false, reason: 'addGuarantee needs a statement' };
+      return addGuarantee(lines, edit);
+    case 'removeGuarantee':
+      if (!edit.match) return { ok: false, reason: 'removeGuarantee needs a match' };
+      return removeRule(lines, 'guarantee', 'guarantees', edit.match);
+    case 'addNever':
+      if (!edit.statement) return { ok: false, reason: 'addNever needs a statement' };
+      return addNever(lines, edit.statement);
+    case 'removeNever':
+      if (!edit.match) return { ok: false, reason: 'removeNever needs a match' };
+      return removeRule(lines, 'never', 'never', edit.match);
+    default:
+      return { ok: false, reason: `unknown op "${edit && edit.op}"` };
+  }
+}
+
+/** Apply structural edits to IntentLang source, preserving comments and untouched blocks. */
+export function applyEdits(source, edits) {
+  let lines = String(source ?? '').split('\n');
+  const applied = []; const skipped = [];
+  for (const edit of edits || []) {
+    const r = applyOne(lines, edit);
+    if (r && r.ok) { lines = r.lines; applied.push(edit); }
+    else skipped.push({ edit, reason: (r && r.reason) || 'not applied' });
+  }
+  return { schema: PATCH_SCHEMA, source: lines.join('\n'), applied, skipped };
+}

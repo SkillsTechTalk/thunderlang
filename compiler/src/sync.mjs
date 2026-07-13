@@ -85,7 +85,7 @@ export function proposeIntent(structured, { base = null } = {}) {
   const ambiguities = collectAmbiguities(graph);
 
   const warnings = [];
-  if (hasComments(base)) warnings.push('Regenerating source from the graph does not preserve free-text comments in the base. To keep comments, apply structural edits to the base source instead of replacing it.');
+  if (hasComments(base)) warnings.push('Regenerating source from the graph does not preserve free-text comments in the base. To keep comments, use applyEdits(base, edits) (intent-patch-v1) to edit the source in place instead of replacing it.');
   if (lostNodes.length) warnings.push(`${lostNodes.length} node(s) did not survive the graph->source round-trip; review before applying.`);
   if (!validation.valid) warnings.push('Proposed graph has validation issues (see validation).');
 

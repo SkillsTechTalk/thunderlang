@@ -24,6 +24,8 @@ export {
 
 // Human <-> Structured <-> IntentLang sync (browser-safe) , Studio's proposeIntent/parseToStructured.
 export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
+// Structural source editing (browser-safe) , comment-preserving field edits for Studio.
+export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 
 // The Intent Runtime , executable intent (evaluate decisions, simulate lifecycles). Pure.
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
