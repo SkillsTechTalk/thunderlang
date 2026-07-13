@@ -31,6 +31,7 @@ type IntentNote = {
 type CompileResult = {
   mission: string;
   aiUsed: boolean;
+  generatedCode?: string;
   diagnostics: Diagnostic[];
   notes: IntentNote[];
   artifacts: {
@@ -53,11 +54,12 @@ const samples = [
   { label: "InvoiceCreated event", code: eventExample },
 ];
 
-type Tab = "debug" | "diagnostics" | "notes" | "docs" | "graph" | "testplan" | "proof";
+type Tab = "debug" | "diagnostics" | "notes" | "code" | "docs" | "graph" | "testplan" | "proof";
 const TABS: { id: Tab; label: string }[] = [
   { id: "debug", label: "Debug" },
   { id: "diagnostics", label: "Diagnostics" },
   { id: "notes", label: "Notes" },
+  { id: "code", label: "Code" },
   { id: "docs", label: "Docs" },
   { id: "graph", label: "Graph" },
   { id: "testplan", label: "Test Plan" },
@@ -1012,6 +1014,25 @@ export function PlaygroundClient() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {tab === "code" && (
+              <div>
+                <p className="mb-3 text-xs text-haze-400">
+                  Deterministic TypeScript from your intent (no AI). The typed contract and the
+                  decision logic are generated in full; business logic is left as{" "}
+                  <code>TODO</code>, with the guarantees and never-rules your code must uphold.
+                  Change the intent and watch the code change.
+                </p>
+                <DownloadRow
+                  onClick={() =>
+                    download(`${result.mission}.ts`, result.generatedCode ?? "", "text/typescript")
+                  }
+                  onCopy={() => copy(result.generatedCode ?? "")}
+                  label="Download .ts"
+                />
+                <OutputBlock text={result.generatedCode ?? "// Compile to generate code."} />
               </div>
             )}
 

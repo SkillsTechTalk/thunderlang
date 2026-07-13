@@ -19,6 +19,15 @@ export function slug(text) {
     .slice(0, 80) || 'unnamed';
 }
 
+// The primary subject of a file, so a non-mission root (a standalone service / api / event /
+// capability) titles its graph and docs by its real name instead of a null "mission".
+export function subjectName(ast) {
+  return ast?.mission || ast?.title
+    || ast?.services?.[0]?.name || ast?.apis?.[0]?.name || ast?.events?.[0]?.name
+    || ast?.capabilities?.[0]?.name || ast?.commands?.[0]?.name || ast?.decisions?.[0]?.name
+    || ast?.lifecycles?.[0]?.name || null;
+}
+
 // Strip comments (ignored), drop blank lines, keep indentation and 1-based line.
 // A `#` comment is IGNORED by the compiler; `note <lens>:` blocks are compiled.
 function toRows(source) {

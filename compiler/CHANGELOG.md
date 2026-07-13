@@ -128,6 +128,20 @@ The executable + interoperable release. Everything is deterministic and requires
   UTF-8 encoder instead of the `TextEncoder` global, so it runs on Hermes / React Native (the
   conformance test now fails CI if any `/core` module references `TextEncoder`, `Buffer`, or
   another non-guaranteed global, and asserts hashing works with `TextEncoder` deleted).
+- **Code generation , deterministic TypeScript from intent (`intent gen`).** `toTypeScript(ast)`
+  (`intent-codegen-v1`, no AI) generates what the intent fully determines , typed input/output
+  interfaces, and the **decision logic**, which is real and behaviorally identical to the runtime
+  evaluator (proven by a property test over the input space) , and leaves honest `TODO` markers
+  for business logic, annotated with the guarantees and never-rules the code must uphold. Powered
+  by a new `exprToJs` that translates the `when` grammar to correct JS (input-aware, so a bare
+  token becomes a string literal). `intent gen <file> [--target typescript] [--out <dir>]`. Pure
+  / browser-safe and exported from `/core`, so the **playground now has a "Code" tab** , change
+  the intent, watch the code change. Completes the round-trip with `intent lift` (code -> intent).
+- **Fix: non-mission root files no longer render as `# null`.** A standalone `event` / `api` /
+  `service` / `capability` file has no `mission`, so the graph titled its root node `null` and the
+  docs rendered `# null` (visible in the playground's BillingService / API / event examples). A
+  new `subjectName(ast)` derives the title from the primary construct, so these render under their
+  real name everywhere (graph, docs, generated code).
 - **Comprehension Contract , the C0..C7 understanding level (`intent comprehension`).** The
   measurable backbone of the Software Understanding System: `comprehensionLevel(ast)` scores how
   well-understood a mission is, deterministically, from C0 (Unknown) through C4 (Verified) which

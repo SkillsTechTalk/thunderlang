@@ -3,7 +3,7 @@
 // Unknown, Assumption, Question, Approval, ...) + typed relationships. Deterministic;
 // pure (no Node deps): browser-safe. OT/RM/ST read this; they do not re-parse .intent.
 
-import { slug } from './parse.mjs';
+import { slug, subjectName } from './parse.mjs';
 import { detectConflicts } from './conflict.mjs';
 import { buildLifecycle } from './lifecycle.mjs';
 import { analyzeDistributed } from './distributed.mjs';
@@ -33,8 +33,9 @@ const rel = (from, type, to, extra) => (extra ? { from, type, to, ...extra } : {
 export function buildIntentGraph(ast) {
   const nodes = [];
   const relationships = [];
-  const mId = `mission.${slug(ast.mission || 'unnamed')}`;
-  nodes.push(node(mId, 'Mission', ast.title || ast.mission, {
+  const subject = subjectName(ast);
+  const mId = `mission.${slug(subject || 'unnamed')}`;
+  nodes.push(node(mId, 'Mission', ast.title || subject, {
     description: ast.problem || ast.goal || null,
     owner: ast.owner || null,
     status: ast.approvals && ast.approvals.length ? 'approval-required' : 'draft',

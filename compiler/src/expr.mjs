@@ -200,3 +200,28 @@ export function compileExpr(src) {
 export function evalExpr(src, inputs = {}) {
   return compileExpr(src)(inputs);
 }
+
+/**
+ * Render a `when` condition as an equivalent JavaScript/TypeScript expression, for code
+ * generation. Input names (passed in) render as identifiers; any other bare token is an enum
+ * literal and renders as a string. Reuses the parser, so precedence is exact.
+ */
+export function exprToJs(src, { inputs = [] } = {}) {
+  const known = new Set(inputs);
+  const render = (n) => {
+    switch (n.k) {
+      case 'or': return `(${render(n.a)} || ${render(n.b)})`;
+      case 'and': return `(${render(n.a)} && ${render(n.b)})`;
+      case 'not': return `!${render(n.a)}`;
+      case 'neg': return `-${render(n.a)}`;
+      case 'arith': return `(${render(n.a)} ${n.op} ${render(n.b)})`;
+      case 'cmp': { const op = n.op === '==' ? '===' : n.op === '!=' ? '!==' : n.op; return `(${render(n.a)} ${op} ${render(n.b)})`; }
+      case 'in': return `[${n.list.map(render).join(', ')}].includes(${render(n.a)})`;
+      case 'list': return `[${n.items.map(render).join(', ')}]`;
+      case 'lit': return typeof n.v === 'string' ? JSON.stringify(n.v) : String(n.v);
+      case 'ref': return (known.has(n.path) || known.has(n.path.split('.')[0])) ? n.path : JSON.stringify(n.path);
+      default: return 'undefined';
+    }
+  };
+  return render(parse(tokenize(src)));
+}

@@ -76,6 +76,9 @@ export { buildAtlas, atlasNode, expandNode, searchAtlas, ATLAS_SCHEMA } from './
 export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, intentBrief } from './focus.mjs';
 // Comprehension Contract: the C0..C7 understanding level (browser-safe; every product reads it).
 export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
+// Code generation: deterministic scaffolds from intent (browser-safe, so the playground renders it).
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript } from './codegen.mjs';
+export { subjectName } from './parse.mjs';
 // Semantic diff + 3-way merge (Change Lens: diff by meaning).
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.

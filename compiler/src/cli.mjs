@@ -14,7 +14,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { basename, join, relative, dirname } from 'node:path';
-import { parseIntent, slug, KNOWN_LENSES } from './parse.mjs';
+import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION,
@@ -43,6 +43,7 @@ import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
+import { GENERATORS } from './codegen.mjs';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
@@ -129,6 +130,7 @@ function parseArgs(argv) {
     else if (a === '--observed') args.observed = true;
     else if (a === '--learning') args.learning = true;
     else if (a === '--governed') args.governed = true;
+    else if (a === '--target') args.target = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -205,6 +207,7 @@ Author & check
   risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
   focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
   comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
+  gen <file> [--target typescript] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
   ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
@@ -471,6 +474,26 @@ function main() {
         console.log(`    next: reach ${next.level} ${next.name} , ${next.need}  [${next.owner}]`);
       }
     }
+    return;
+  }
+
+  // `intent gen <file> [--target typescript] [--out <dir>]` , deterministic code scaffold from
+  // intent. Generates the typed contract + the decision logic (already executable) and leaves
+  // honest TODO markers for business logic. No AI. Prints, or writes with --out.
+  if (cmd === 'gen') {
+    if (!file) { console.error(`usage: intent gen <file> [--target ${Object.keys(GENERATORS).join('|')}] [--out <dir>]`); process.exit(2); return; }
+    const target = (args.target || 'typescript').toLowerCase();
+    const generate = GENERATORS[target];
+    if (!generate) { console.error(`intent gen: unknown target "${target}" (have: ${Object.keys(GENERATORS).join(', ')})`); process.exit(2); return; }
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const code = generate(ast);
+    if (args.outExplicit) {
+      const ext = target.startsWith('ts') || target === 'typescript' ? 'ts' : target;
+      const p = writeText(args.out, `${slug(subjectName(ast) || 'intent')}.${ext}`, code.endsWith('\n') ? code : code + '\n');
+      console.log(`wrote ${p.replace(process.cwd() + '/', '')}`);
+      return;
+    }
+    console.log(code);
     return;
   }
 

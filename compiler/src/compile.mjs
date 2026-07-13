@@ -2,7 +2,7 @@
 // web playground (returns artifacts as strings). No filesystem, no AI.
 // Deterministic given a fixed `generatedAt`.
 
-import { parseIntent, slug } from './parse.mjs';
+import { parseIntent, slug, subjectName } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256,
@@ -10,7 +10,7 @@ import {
 
 export function renderMarkdown(ast) {
   const L = [];
-  L.push(`# ${ast.mission}`, '');
+  L.push(`# ${subjectName(ast) || 'Untitled intent'}`, '');
   if (ast.goal) L.push(`**Goal.** ${ast.goal}`, '');
   if (ast.why) L.push(`**Why.** ${ast.why}`, '');
   if (ast.guarantees.length) {

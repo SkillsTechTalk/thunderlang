@@ -43,6 +43,9 @@ export {
   comprehensionLevel, comprehensionReport,
 } from './index';
 
+// Code generation , deterministic scaffolds from intent.
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, subjectName } from './index';
+
 // Change Lens , semantic diff + 3-way merge + graph->source round-trip.
 export {
   IntentDiff, IntentMerge, diffGraphs, mergeGraphs,
