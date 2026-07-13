@@ -53,6 +53,7 @@ const DOC_ORDER = [
   "release-story-tutorial",
   "compiler-contract",
   "ecosystem-brief",
+  "ecosystem-current-state",
   "certification",
   "operating-checklist",
 ];
@@ -98,6 +99,7 @@ const DOC_LABELS: Record<string, string> = {
   "release-story-tutorial": "Tutorial: 200 missions to a release",
   "compiler-contract": "Compiler contract",
   "ecosystem-brief": "Ecosystem brief",
+  "ecosystem-current-state": "Ecosystem current-state map",
   certification: "Certification track",
   "operating-checklist": "Operating checklist",
 };
@@ -143,6 +145,7 @@ const DOC_BLURBS: Record<string, string> = {
   "release-story-tutorial": "From 200 missions to one Release Story, step by step.",
   "compiler-contract": "The deterministic pipeline from source to proof.",
   "ecosystem-brief": "How each SkillsTech sibling uses IntentLang.",
+  "ecosystem-current-state": "Grounded inventory of the ecosystem: what exists, what is duplicated, what IntentLang owns.",
   certification: "The Intent-Oriented Programming Associate credential, and how intent backs it.",
   "operating-checklist": "The Top 100 things IntentLang must do, mapped to status.",
 };
