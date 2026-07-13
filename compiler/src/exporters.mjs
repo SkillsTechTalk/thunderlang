@@ -13,7 +13,7 @@ import { toDesignTokens, toCss } from './style.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 
 export { toDesignTokens, toCss };
-export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid', 'css'];
+export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid', 'css', 'playwright'];
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 // A safe XML NCName / SMV identifier from arbitrary text (letters, digits, _; never leading digit).
@@ -178,6 +178,57 @@ export function toMermaid(ast) {
   return `${L.join('\n')}\n`;
 }
 
+// ── Playwright (experience -> E2E test scaffold) ─────────────────────────────
+// A SKELETON, not a passing test: declared experiences/journeys/states become structured
+// Playwright stubs (describe/test/test.step) with TODOs for selectors + assertions. This is
+// the test-plan target for the experience profile , it turns "what the UI must do" into the
+// shape of the test that proves it, deterministically. Consistent with the compiler's scope
+// (test scaffolds, not production code).
+const jsStr = (s) => `'${String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}'`;
+
+export function toPlaywright(ast) {
+  const exps = ast.experiences || [];
+  const L = [];
+  L.push('// Playwright test scaffold generated from experience intent by @skillstech/intentlang.');
+  L.push('// SKELETON: fill in selectors and assertions. It is not a passing test until you do.');
+  L.push("import { test, expect } from '@playwright/test';");
+  L.push('');
+  if (!exps.length) {
+    L.push('// No `experience` blocks declared, so there is nothing to scaffold.');
+    return `${L.join('\n')}\n`;
+  }
+  for (const exp of exps) {
+    L.push(`test.describe(${jsStr(exp.name || 'experience')}, () => {`);
+    if (exp.accessible && exp.accessible.target) {
+      L.push(`  // accessibility goal: ${exp.accessible.target} (proposed , verify with an a11y audit, do not assume met)`);
+    }
+    for (const j of exp.journeys || []) {
+      L.push(`  test(${jsStr(j.name || 'journey')}, async ({ page }) => {`);
+      if (!(j.steps || []).length) L.push('    // TODO: no steps declared for this journey');
+      for (const step of j.steps || []) {
+        L.push(`    await test.step(${jsStr(step)}, async () => {`);
+        L.push('      // TODO: implement this step');
+        L.push('    });');
+      }
+      L.push('  });');
+    }
+    for (const st of exp.states || []) {
+      if (st.hasRecovery) {
+        L.push(`  test(${jsStr(`failure state "${st.name}" offers a recovery path`)}, async ({ page }) => {`);
+        L.push(`    // TODO: drive the UI into "${st.name}", assert a recovery action is available`);
+        L.push('  });');
+      } else {
+        L.push(`  test(${jsStr(`reaches state: ${st.name}`)}, async ({ page }) => {`);
+        L.push(`    // TODO: drive the UI to "${st.name}" and assert it is shown`);
+        L.push('  });');
+      }
+    }
+    L.push('});');
+    L.push('');
+  }
+  return `${L.join('\n')}\n`;
+}
+
 export function exportIntent(ast, format) {
   switch (format) {
     case 'dmn': return { format, ext: 'dmn', content: toDMN(ast) };
@@ -188,6 +239,7 @@ export function exportIntent(ast, format) {
     case 'tokens': return { format, ext: 'tokens.json', content: JSON.stringify(toDesignTokens(ast), null, 2) + '\n' };
     case 'mermaid': return { format, ext: 'mmd', content: toMermaid(ast) };
     case 'css': return { format, ext: 'css', content: toCss(ast) };
+    case 'playwright': return { format, ext: 'spec.ts', content: toPlaywright(ast) };
     default: return null;
   }
 }

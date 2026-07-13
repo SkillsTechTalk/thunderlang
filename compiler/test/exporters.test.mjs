@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseIntent } from '../src/parse.mjs';
-import { toDMN, toBPMN, toSMV, toMermaid, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
+import { toDMN, toBPMN, toSMV, toMermaid, toPlaywright, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
 
 const decisionSrc = `mission Eligibility
 decision CanEnroll
@@ -101,7 +101,8 @@ test('exportIntent dispatches by format and rejects unknown formats', () => {
   assert.equal(exportIntent(ast, 'yaml'), null);
   assert.equal(exportIntent(ast, 'mermaid').ext, 'mmd');
   assert.equal(exportIntent(ast, 'css').ext, 'css');
-  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid', 'css']);
+  assert.equal(exportIntent(ast, 'playwright').ext, 'spec.ts');
+  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid', 'css', 'playwright']);
 });
 
 test('toMermaid renders the full graph with safe ids, shapes, and labeled edges', () => {
@@ -131,6 +132,46 @@ test('toMermaid on an empty mission is a valid, minimal diagram', () => {
   const mmd = toMermaid(parseIntent('mission Solo\n'));
   assert.ok(mmd.startsWith('graph TD\n'));
   assert.match(mmd, /Mission: Solo/);
+});
+
+test('toPlaywright scaffolds describe/test/test.step from experiences + journeys', () => {
+  const src = `mission Storefront
+use experience
+experience CheckoutFlow
+  goal "buy"
+  accessible
+    target WCAG_2_2_AA
+  journey HappyPath
+    user reviews the cart
+    user pays
+  state Reviewing
+  state Failed
+    recover retry
+`;
+  const spec = toPlaywright(parseIntent(src));
+  assert.match(spec, /import \{ test, expect \} from '@playwright\/test';/);
+  assert.match(spec, /test\.describe\('CheckoutFlow'/);
+  assert.match(spec, /test\('HappyPath'/);
+  assert.match(spec, /await test\.step\('user reviews the cart'/);
+  assert.match(spec, /reaches state: Reviewing/);
+  assert.match(spec, /failure state "Failed" offers a recovery path/);
+  assert.match(spec, /WCAG_2_2_AA \(proposed/);
+});
+
+test('toPlaywright escapes quotes in journey/step text (valid JS strings)', () => {
+  const spec = toPlaywright(parseIntent(`mission M
+use experience
+experience E
+  journey J
+    user clicks the 'Buy' button
+`));
+  assert.match(spec, /await test\.step\('user clicks the \\'Buy\\' button'/);
+});
+
+test('toPlaywright with no experiences is a valid, empty scaffold', () => {
+  const spec = toPlaywright(parseIntent('mission M\nuse product\n'));
+  assert.match(spec, /@playwright\/test/);
+  assert.match(spec, /nothing to scaffold/);
 });
 
 test('exports are deterministic (same input -> byte-identical output)', () => {

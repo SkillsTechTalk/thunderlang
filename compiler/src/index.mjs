@@ -70,7 +70,7 @@ export { applyWaivers, governanceDiagnostics, GOVERNANCE_SCHEMA } from './govern
 // Data purpose + privacy , purpose limitation on declared data elements (Gap 6)
 export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } from './privacy.mjs';
 // Export adapters , decisions/lifecycles/temporal -> DMN / BPMN / NuSMV (interop)
-export { toDMN, toBPMN, toSMV, toMermaid, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
+export { toDMN, toBPMN, toSMV, toMermaid, toPlaywright, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 // Data-shape export , typed fields -> JSON Schema / OpenAPI
 export { toJSONSchema, toOpenAPI, typeToJsonSchema, isRecognizedType, SEMANTIC_TYPES, PRIMITIVE_TYPES } from './data-schema.mjs';
 // Import adapters , external DMN / BPMN -> IntentLang source (round-trip)

@@ -6,7 +6,7 @@ standardized tooling already reasons about: decision-table engines, process mode
 and model checkers. Export adapters render those slices of the graph into the industry
 formats so intent can be validated by existing tools without leaving IntentLang.
 
-Five adapters ship, all deterministic and pure (string in, string out):
+Nine adapters ship, all deterministic and pure (string in, string out):
 
 | Format | From | For |
 |---|---|---|
@@ -15,6 +15,10 @@ Five adapters ship, all deterministic and pure (string in, string out):
 | **NuSMV** | lifecycles + temporal | model checkers (NuSMV, nuXmv) |
 | **JSON Schema** | typed input/output fields | validators, codegen, mock servers |
 | **OpenAPI 3.1** | the mission as an operation | API tooling (Swagger, clients, gateways) |
+| **Design Tokens (DTCG)** | style intent tokens | Style Dictionary, Figma Tokens |
+| **CSS** | style intent tokens | a drop-in `:root` custom-property sheet |
+| **Mermaid** | the whole Intent Graph | a paste-anywhere diagram |
+| **Playwright** | experiences + journeys | an E2E test scaffold |
 
 Each exports only what is declared: a mission with no decisions produces an
 empty-but-valid DMN document, and a mission with no lifecycle produces an SMV note
@@ -165,12 +169,28 @@ graph TD
 Unlike the mission-summary diagram written into the build's `.mmd` artifact, this is the
 complete graph, so it is the fastest way to see an entire intent at a glance.
 
+## Playwright (experience -> E2E test scaffold)
+
+`--format playwright` turns declared `experience` blocks into a Playwright spec skeleton:
+each experience becomes a `test.describe`, each journey a `test` whose steps become
+`test.step` stubs, and each state a reachability test (failure states get a recovery-path
+test). It is a **scaffold** , the structure of the test that proves the experience, with
+`TODO`s for selectors and assertions , not a passing test. The accessibility target rides
+along as a comment (a proposed goal, never assumed met).
+
+```
+intent export mission.intent --format playwright
+```
+
+This is the test-plan target for the experience profile: it turns "what the UI must do" into
+the shape of the test that proves it, deterministically.
+
 ## Usage
 
-`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css>` prints to
+`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css|playwright>` prints to
 stdout, or writes a file when `--out <dir>` is given. From the library, `toDMN(ast)`,
 `toBPMN(ast)`, `toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, `toDesignTokens(ast)`,
-`toMermaid(ast)`, `toCss(ast)`, and `exportIntent(ast, format)` are exported from
+`toMermaid(ast)`, `toCss(ast)`, `toPlaywright(ast)`, and `exportIntent(ast, format)` are exported from
 `@skillstech/intentlang` (`toDesignTokens` and `toCss` are also browser-safe via `/core`).
 The exports are byte-deterministic: the
 same intent always produces the same document, so they diff cleanly and belong in version

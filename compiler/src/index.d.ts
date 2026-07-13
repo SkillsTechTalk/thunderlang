@@ -288,6 +288,7 @@ export function toDMN(ast: IntentAst): string;
 export function toBPMN(ast: IntentAst): string;
 export function toSMV(ast: IntentAst): string;
 export function toMermaid(ast: IntentAst): string;
+export function toPlaywright(ast: IntentAst): string;
 export function exportIntent(ast: IntentAst, format: string): { format: string; ext: string; content: string } | null;
 
 // Data-shape export: typed fields -> JSON Schema / OpenAPI
