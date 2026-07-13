@@ -316,7 +316,11 @@ export type IntentEdit =
   | { op: "removeMetric"; name: string }
   | { op: "setMetricField"; name: string; field: "baseline" | "target" | "window"; value: string }
   | { op: "addOutcome"; name: string; description?: string }
-  | { op: "removeOutcome"; name: string };
+  | { op: "removeOutcome"; name: string }
+  | { op: "addRule"; decision: string; name: string; when?: string; return?: string }
+  | { op: "removeRule"; decision: string; name: string }
+  | { op: "setRule"; decision: string; name: string; when?: string; return?: string }
+  | { op: "setDefault"; decision: string; return: string };
 export function applyEdits(source: string, edits: IntentEdit[]): { schema: string; source: string; applied: IntentEdit[]; skipped: Array<{ edit: IntentEdit; reason: string }> };
 export const REPORT_SCHEMA: string;
 export function buildReport(files: Array<{ file: string; source: string }>): {

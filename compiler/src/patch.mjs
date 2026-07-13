@@ -18,6 +18,8 @@
 //     { op: 'removeMetric', name }
 //     { op: 'setMetricField', name, field: 'baseline'|'target'|'window', value }
 //     { op: 'addOutcome', name, description? }   { op: 'removeOutcome', name }
+//     { op: 'addRule', decision, name, when?, return? }   { op: 'removeRule', decision, name }
+//     { op: 'setRule', decision, name, when?, return? }   { op: 'setDefault', decision, return }
 // Unsupported / not-found edits are returned in `skipped` with a reason , never applied blindly.
 
 export const PATCH_SCHEMA = 'intent-patch-v1';
@@ -198,6 +200,78 @@ function addOutcome(lines, { name, description }) {
   return insertAfterAnchor(lines, body, ['outcome', 'why', 'goal', 'mission']);
 }
 
+// The indent of a block's direct children (or a default when the block is empty).
+function childIndentOf(lines, block, fallback = 2) {
+  for (let i = block.start + 1; i <= block.end; i++) {
+    if (lines[i].trim() && !lines[i].trim().startsWith('#')) return indentOf(lines[i]);
+  }
+  return fallback;
+}
+
+// A sub-block inside a parent block: its header line (at the parent's child indent) matches
+// `matchHeader`, and it owns every following deeper-indented line. Returns { start, end, indent }.
+function childSubBlock(lines, block, matchHeader) {
+  const indent = childIndentOf(lines, block);
+  for (let i = block.start + 1; i <= block.end; i++) {
+    if (lines[i].trim() && !lines[i].trim().startsWith('#') && indentOf(lines[i]) === indent && matchHeader(lines[i].trim())) {
+      let j = i + 1;
+      while (j <= block.end && (lines[j].trim() === '' || indentOf(lines[j]) > indent)) j += 1;
+      let e = j - 1;
+      while (e > i && lines[e].trim() === '') e -= 1;
+      return { start: i, end: e, indent };
+    }
+  }
+  return null;
+}
+
+const isRule = (name) => (h) => firstWord(h) === 'rule' && restOf(h) === name;
+
+function addRule(lines, decision, name, when, ret) {
+  const d = findNamedBlock(lines, 'decision', decision);
+  if (!d) return { ok: false, reason: `no decision "${decision}" found` };
+  if (childSubBlock(lines, d, isRule(name))) return { ok: false, reason: `rule "${name}" already exists in ${decision}` };
+  const ci = childIndentOf(lines, d);
+  const body = [`${' '.repeat(ci)}rule ${name}`];
+  if (when) body.push(`${' '.repeat(ci + 2)}when ${when}`);
+  if (ret) body.push(`${' '.repeat(ci + 2)}return ${ret}`);
+  const def = childSubBlock(lines, d, (h) => firstWord(h) === 'default'); // keep default last
+  const at = def ? def.start : bodyEnd(lines, d) + 1;
+  return { ok: true, lines: [...lines.slice(0, at), ...body, ...lines.slice(at)] };
+}
+
+function removeDecisionRule(lines, decision, name) {
+  const d = findNamedBlock(lines, 'decision', decision);
+  if (!d) return { ok: false, reason: `no decision "${decision}" found` };
+  const sub = childSubBlock(lines, d, isRule(name));
+  if (!sub) return { ok: false, reason: `no rule "${name}" in ${decision}` };
+  return { ok: true, lines: [...lines.slice(0, sub.start), ...lines.slice(sub.end + 1)] };
+}
+
+// Set a `keyword <value>` line inside a rule (or default) sub-block, inserting if absent.
+function setSubLine(lines, decision, matchHeader, keyword, value, missingMsg) {
+  const d = findNamedBlock(lines, 'decision', decision);
+  if (!d) return { ok: false, reason: `no decision "${decision}" found` };
+  const sub = childSubBlock(lines, d, matchHeader);
+  if (!sub) return { ok: false, reason: missingMsg };
+  for (let i = sub.start + 1; i <= sub.end; i++) {
+    if (lines[i].trim() && firstWord(lines[i]) === keyword) {
+      const ind = lines[i].slice(0, indentOf(lines[i]));
+      return { ok: true, lines: [...lines.slice(0, i), `${ind}${keyword} ${value}`, ...lines.slice(i + 1)] };
+    }
+  }
+  return { ok: true, lines: [...lines.slice(0, sub.start + 1), `${' '.repeat(sub.indent + 2)}${keyword} ${value}`, ...lines.slice(sub.start + 1)] };
+}
+
+function setDefault(lines, decision, ret) {
+  const d = findNamedBlock(lines, 'decision', decision);
+  if (!d) return { ok: false, reason: `no decision "${decision}" found` };
+  const def = childSubBlock(lines, d, (h) => firstWord(h) === 'default');
+  if (def) return setSubLine(lines, decision, (h) => firstWord(h) === 'default', 'return', ret, 'no default');
+  const ci = childIndentOf(lines, d);
+  const at = bodyEnd(lines, d) + 1;
+  return { ok: true, lines: [...lines.slice(0, at), `${' '.repeat(ci)}default`, `${' '.repeat(ci + 2)}return ${ret}`, ...lines.slice(at)] };
+}
+
 function applyOne(lines, edit) {
   switch (edit && edit.op) {
     case 'setField':
@@ -244,6 +318,23 @@ function applyOne(lines, edit) {
     case 'removeOutcome':
       if (!edit.name) return { ok: false, reason: 'removeOutcome needs a name' };
       return removeNamedBlock(lines, 'outcome', edit.name);
+    case 'addRule':
+      if (!edit.decision || !edit.name) return { ok: false, reason: 'addRule needs decision and name' };
+      return addRule(lines, edit.decision, edit.name, edit.when, edit.return);
+    case 'removeRule':
+      if (!edit.decision || !edit.name) return { ok: false, reason: 'removeRule needs decision and name' };
+      return removeDecisionRule(lines, edit.decision, edit.name);
+    case 'setRule': {
+      if (!edit.decision || !edit.name) return { ok: false, reason: 'setRule needs decision and name' };
+      if (edit.when == null && edit.return == null) return { ok: false, reason: 'setRule needs when and/or return' };
+      let cur = lines; let any = false; let reason = '';
+      if (edit.when != null) { const r = setSubLine(cur, edit.decision, isRule(edit.name), 'when', edit.when, `no rule "${edit.name}" in ${edit.decision}`); if (r.ok) { cur = r.lines; any = true; } else reason = r.reason; }
+      if (edit.return != null) { const r = setSubLine(cur, edit.decision, isRule(edit.name), 'return', edit.return, `no rule "${edit.name}" in ${edit.decision}`); if (r.ok) { cur = r.lines; any = true; } else reason = r.reason; }
+      return any ? { ok: true, lines: cur } : { ok: false, reason: reason || 'setRule failed' };
+    }
+    case 'setDefault':
+      if (!edit.decision || edit.return == null) return { ok: false, reason: 'setDefault needs decision and return' };
+      return setDefault(lines, edit.decision, edit.return);
     default:
       return { ok: false, reason: `unknown op "${edit && edit.op}"` };
   }

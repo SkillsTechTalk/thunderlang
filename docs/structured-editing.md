@@ -83,6 +83,9 @@ Supported operations:
 | `addMetric` / `removeMetric` | Add or remove a `metric` block (with optional baseline/target/window). |
 | `setMetricField` | Set a metric's `baseline` / `target` / `window` (inserting the line if absent). |
 | `addOutcome` / `removeOutcome` | Add or remove an `outcome` (with an optional description). |
+| `addRule` / `removeRule` | Add a decision rule (before `default`) or remove one by name. |
+| `setRule` | Edit a rule's `when` / `return` in place. |
+| `setDefault` | Set the decision's `default` return (creating the default block if absent). |
 
 Nothing is applied blindly: an edit that matches nothing, has a bad section, or is missing
 arguments lands in `skipped` with a reason, and the rest still apply.

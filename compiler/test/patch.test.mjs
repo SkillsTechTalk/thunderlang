@@ -190,6 +190,68 @@ test('metric/outcome edits that do not match are skipped with a reason', () => {
   assert.match(r.skipped[1].reason, /already exists/);
 });
 
+const DECISION_SRC = `mission Access
+use product
+
+# a decision comment to keep
+decision CanUpgrade
+  inputs
+    tier
+    paid
+  rule higherTier
+    when tier > 1
+    return Allowed
+  default
+    return NoChange
+`;
+
+test('addRule inserts a rule before default and keeps it running', async () => {
+  const { evaluateDecision } = await import('../src/runtime.mjs');
+  const r = applyEdits(DECISION_SRC, [{ op: 'addRule', decision: 'CanUpgrade', name: 'unpaid', when: 'paid == false', return: 'Blocked' }]);
+  assert.equal(r.applied.length, 1);
+  assert.match(r.source, /# a decision comment to keep/);
+  assert.equal(isFormatted(r.source), true);
+  const d = parseIntent(r.source).decisions[0];
+  // default is still the last child
+  const lines = r.source.split('\n').map((l) => l.trim()).filter(Boolean);
+  assert.ok(lines.indexOf('rule unpaid') < lines.indexOf('default'), 'new rule precedes default');
+  assert.equal(evaluateDecision(d, { tier: 0, paid: false }).result, 'Blocked');
+});
+
+test('setRule edits when/return, setDefault edits the default return', async () => {
+  const { evaluateDecision } = await import('../src/runtime.mjs');
+  const r = applyEdits(DECISION_SRC, [
+    { op: 'setRule', decision: 'CanUpgrade', name: 'higherTier', return: 'Upgraded' },
+    { op: 'setDefault', decision: 'CanUpgrade', return: 'Hold' },
+  ]);
+  const d = parseIntent(r.source).decisions[0];
+  assert.equal(evaluateDecision(d, { tier: 2, paid: true }).result, 'Upgraded');
+  assert.equal(evaluateDecision(d, { tier: 0, paid: true }).result, 'Hold');
+  assert.equal(isFormatted(r.source), true);
+});
+
+test('removeRule deletes a rule; setDefault creates a default when absent', () => {
+  const removed = applyEdits(DECISION_SRC, [{ op: 'removeRule', decision: 'CanUpgrade', name: 'higherTier' }]);
+  assert.ok(!/rule higherTier/.test(removed.source));
+  assert.equal(parseIntent(removed.source).decisions[0].rules.length, 0);
+
+  const noDefault = `mission M\nuse product\ndecision D\n  rule r\n    when x > 1\n    return Y\n`;
+  const withDefault = applyEdits(noDefault, [{ op: 'setDefault', decision: 'D', return: 'Z' }]);
+  assert.match(withDefault.source, /default\n {4}return Z/);
+  assert.equal(isFormatted(withDefault.source), true);
+});
+
+test('decision edits on a missing decision/rule are skipped with a reason', () => {
+  const r = applyEdits(DECISION_SRC, [
+    { op: 'addRule', decision: 'Nope', name: 'x', when: 'a', return: 'B' },
+    { op: 'setRule', decision: 'CanUpgrade', name: 'ghost', return: 'B' },
+    { op: 'addRule', decision: 'CanUpgrade', name: 'higherTier', when: 'a', return: 'B' },
+  ]);
+  assert.equal(r.applied.length, 0);
+  assert.match(r.skipped[0].reason, /no decision/);
+  assert.match(r.skipped[2].reason, /already exists/);
+});
+
 test('applyEdits is browser-safe (exported from /core)', () => {
   assert.equal(typeof core.applyEdits, 'function');
 });
