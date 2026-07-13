@@ -95,7 +95,7 @@ export function renderTestplan(ast) {
  * Compile IntentLang source in memory and return every artifact `intent build`
  * would emit, without touching the filesystem.
  */
-export function compileSource(source, { sourceFile = 'playground.intent', generatedAt } = {}) {
+export function compileSource(source, { sourceFile = 'playground.intent', generatedAt, origin = 'authored' } = {}) {
   const ast = parseIntent(source);
   const at = generatedAt || new Date().toISOString();
   const sourceHash = sha256(source);
@@ -114,12 +114,13 @@ export function compileSource(source, { sourceFile = 'playground.intent', genera
     `${slug(mission)}.md`, `${slug(mission)}.mmd`, `${slug(mission)}.testplan.md`,
   ];
   const proof = buildProof(ast, {
-    sourceFile, sourceHash, generatedAt: at,
+    sourceFile, sourceHash, generatedAt: at, origin,
     targetsRequested: ast.targets, targetsGenerated, diagnostics,
   });
 
   return {
     mission,
+    origin,
     diagnostics,
     notes: ast.notes || [],
     artifacts: {

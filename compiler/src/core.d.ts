@@ -15,6 +15,11 @@ export {
   semanticDiagnostics, buildContractGraph, buildArchitectureGraph, buildImplementationPlan, buildProof,
 } from './index';
 
+// IntentLift: code -> inferred candidate intent (OT orchestrates this in-process).
+export {
+  liftSource, liftAll, liftRepo, languageForFile, inferIntent, renderLiftedIntent, SUPPORTED_LANGUAGES,
+} from './index';
+
 // Intent Scanner + Fable.
 export {
   SCAN_SCHEMA, ScanResult, scanIntent, scanProject,

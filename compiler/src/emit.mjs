@@ -472,12 +472,16 @@ export function semanticDiagnostics(ast) {
 }
 
 // ── .intent-proof.json ───────────────────────────────────────────────────────
-export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targetsGenerated, diagnostics, generatedAt }) {
+export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targetsGenerated, diagnostics, generatedAt, origin = 'authored' }) {
   const passedSemantic = !diagnostics.some((x) => x.level === 'error');
   const verifiedText = ast.verify.join(' ').toLowerCase();
   return {
     schemaVersion: PROOF_SCHEMA_VERSION,
     sourceProduct: SOURCE_PRODUCT,
+    // Provenance envelope: whether the intent was human-authored or recovered from code (lifted).
+    // A recovered artifact must never read as authored truth , OpenThunder stamps this so the
+    // proof carries "recovered" through the compile. Additive; defaults to authored.
+    origin,
     missionName: ast.mission,
     sourceFile,
     sourceHash,
