@@ -100,6 +100,15 @@ export function graphToSource(graph) {
     for (const v of vs) push(`  verify ${title(v)}`);
   }
 
+  // Global invariants , regenerate name + statement + verify so they round-trip to Invariant nodes.
+  for (const iv of byType('Invariant')) {
+    const nm = (iv.id || '').replace(/^invariant\./, '')
+      || String(title(iv)).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'invariant';
+    push(`invariant ${nm}`);
+    push(`  statement ${title(iv)}`);
+    for (const v of out(iv.id, 'verified_by')) push(`  verify ${title(v)}`);
+  }
+
   for (const u of byType('Unknown')) {
     push(`unknown ${title(u)}`);
     if (u.owner) push(`  owner ${u.owner}`);

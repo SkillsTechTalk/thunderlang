@@ -128,6 +128,15 @@ The executable + interoperable release. Everything is deterministic and requires
   UTF-8 encoder instead of the `TextEncoder` global, so it runs on Hermes / React Native (the
   conformance test now fails CI if any `/core` module references `TextEncoder`, `Buffer`, or
   another non-guaranteed global, and asserts hashing works with `TextEncoder` deleted).
+- **Global `invariant` , system-wide laws (first-class).** `invariant <Name>` declares a law that
+  must hold across every feature and service, not just one mission (tenant isolation, financial
+  consistency, "every mutation is authorized"). Fields: `statement`, `scope`, `applies_to`,
+  `severity`, `because`, `verify`. Compiles to a canonical `Invariant` node in `intent-graph-v1`
+  (additive: 40 -> 41 node types), `constrained_by` the mission, with a `verified_by` edge when a
+  `verify` is attached; it round-trips through graph -> source. A new Fable rule
+  `invariant-without-verification` warns when a global law has nothing proving it (that is exactly
+  where a locally-valid change silently breaks the whole system). Invariants count toward
+  comprehension C2 (Structured). Example: `examples/TenantIsolation.intent`.
 - **Code generation , deterministic TypeScript from intent (`intent gen`).** `toTypeScript(ast)`
   (`intent-codegen-v1`, no AI) generates what the intent fully determines , typed input/output
   interfaces, and the **decision logic**, which is real and behaviorally identical to the runtime

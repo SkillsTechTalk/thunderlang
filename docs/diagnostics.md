@@ -9,7 +9,7 @@ the contract: editors, CI, and OpenThunder key off them, and they never change m
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
 same data as JSON with `intent rules --json`, or one rule with `intent explain <CODE>`.
 
-60 canonical diagnostics across 19 areas.
+61 canonical diagnostics across 19 areas.
 
 ## AI implementation
 
@@ -40,6 +40,7 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `duplicate-without-idempotency` | warning | — | A duplicate-prevention guarantee declares no idempotency key or lookup rule. |
 | `guarantee-without-verification` | warning | — | Guarantee has no explicit verification. |
 | `never-without-verification` | warning | — | Never-rule has no explicit verification. |
+| `invariant-without-verification` | warning | — | Global invariant has no explicit verification. |
 | `secret-without-never-log` | warning | — | A secret field has no "never log/expose" guard. |
 | `error-name-not-pascalcase` | info | — | Named error is not PascalCase. |
 | `unknown-block` | info | — | Unrecognized top-level block. |

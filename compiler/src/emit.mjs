@@ -161,6 +161,14 @@ export function semanticDiagnostics(ast) {
         [{ label: 'Attach a verify check (for example a security scan)', insert: `never ${n.statement}\n  verify security scan`, block: 'top' }]);
     }
   }
+  for (const iv of ast.invariants || []) {
+    if ((iv.verify || []).length === 0) {
+      warn('invariant-without-verification',
+        `Invariant "${iv.name}" (${iv.severity}) has no explicit verification.`,
+        'A global invariant is a system-wide law , unverified, nothing stops a locally-valid change from violating it across services.',
+        [{ label: `Attach a verify check to invariant ${iv.name}`, insert: `invariant ${iv.name}\n  verify ${slug(iv.name).replace(/-/g, ' ')} test`, block: 'top' }]);
+    }
+  }
 
   // Secret field with no never-log/never-return protection.
   const neverText = ast.neverRules.map((n) => n.statement.toLowerCase()).join(' ');

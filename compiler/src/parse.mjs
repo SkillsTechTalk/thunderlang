@@ -176,6 +176,23 @@ function parsePattern(name, node) {
   return p;
 }
 
+// A global invariant , a system-wide law that must hold across features / services / data.
+// `invariant Name` + statement / scope / applies_to / severity / because / verify.
+function parseInvariant(name, node) {
+  const list = (kw) => { const b = childBlock(node, kw); return b ? leafItems(b) : []; };
+  const inv = { id: slug(name), name, statement: name, scope: 'global', appliesTo: list('applies_to'), severity: 'critical', because: null, verify: [], line: node.line };
+  for (const c of kids(node)) {
+    const k = firstWord(c.text);
+    if (k === 'verify') inv.verify.push(rest(c.text));
+    else if (k === 'because') inv.because = rest(c.text);
+    else if (k === 'statement') inv.statement = rest(c.text) || leafItems(c).join(' ');
+    else if (k === 'scope') inv.scope = (rest(c.text) || leafItems(c).join(' ')).toLowerCase();
+    else if (k === 'severity') inv.severity = (rest(c.text) || leafItems(c).join(' ')).toLowerCase();
+  }
+  inv.verify = inv.verify.filter(Boolean);
+  return inv;
+}
+
 function parseService(name, node) {
   return {
     id: slug(name), name,
@@ -261,7 +278,7 @@ export function parseIntent(source) {
   const ast = {
     mission: null, goal: '', why: '',
     requires: [], inputs: [], outputs: [],
-    guarantees: [], neverRules: [], constraints: [], assumptions: [], risks: [],
+    guarantees: [], neverRules: [], constraints: [], invariants: [], assumptions: [], risks: [],
     targets: [], style: [], verify: [], errors: [], examples: [],
     services: [], apis: [], events: [], databases: [], architecture: [],
     implementation: null, selection: [],
@@ -324,6 +341,7 @@ export function parseIntent(source) {
         else for (const c of items(node)) upsertRule(ast.neverRules, c.text, c.line);
         break;
       case 'constraints': ast.constraints.push(...leafItems(node)); break;
+      case 'invariant': if (arg) ast.invariants.push(parseInvariant(arg, node)); break;
       case 'assumptions': ast.assumptions.push(...leafItems(node)); break;
       case 'risks': ast.risks.push(...leafItems(node)); break;
       case 'target': ast.targets.push(...leafItems(node)); break;

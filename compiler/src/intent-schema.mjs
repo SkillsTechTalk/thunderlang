@@ -12,7 +12,7 @@ export const SCHEMA_VERSION = 'intent-graph-v1';
 // Canonical node types (superset; Phase-1 emits a subset).
 export const NODE_TYPES = [
   'Mission', 'Actor', 'Persona', 'Evidence', 'Opportunity', 'Outcome', 'Metric',
-  'Requirement', 'Constraint', 'Guarantee', 'Never', 'Conflict', 'Journey',
+  'Requirement', 'Constraint', 'Invariant', 'Guarantee', 'Never', 'Conflict', 'Journey',
   'ExperienceContract', 'ExperienceState', 'Pattern', 'DesignArtifact', 'DesignComponent',
   'StyleIntent', 'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
   'VerificationResult', 'Approval', 'Release', 'OutcomeContract', 'OutcomeResult', 'LearningArtifact',
@@ -142,6 +142,7 @@ export const CORE_DIAGNOSTICS = [
   { ruleId: 'duplicate-without-idempotency', area: 'core', severity: 'warning', blocks: [], summary: 'A duplicate-prevention guarantee declares no idempotency key or lookup rule.' },
   { ruleId: 'guarantee-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Guarantee has no explicit verification.' },
   { ruleId: 'never-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Never-rule has no explicit verification.' },
+  { ruleId: 'invariant-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Global invariant has no explicit verification.' },
   { ruleId: 'secret-without-never-log', area: 'core', severity: 'warning', blocks: [], summary: 'A secret field has no "never log/expose" guard.' },
   { ruleId: 'error-name-not-pascalcase', area: 'core', severity: 'info', blocks: [], summary: 'Named error is not PascalCase.' },
   { ruleId: 'unknown-block', area: 'core', severity: 'info', blocks: [], summary: 'Unrecognized top-level block.' },

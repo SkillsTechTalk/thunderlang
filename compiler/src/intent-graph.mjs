@@ -93,6 +93,20 @@ export function buildIntentGraph(ast) {
       relationships.push(rel(id, 'verified_by', vid));
     }
   }
+  // Global invariants , system-wide laws. The mission is constrained by each; verify -> edge.
+  for (const iv of ast.invariants || []) {
+    const id = `invariant.${iv.id || slug(iv.name)}`;
+    nodes.push(node(id, 'Invariant', iv.statement || iv.name, {
+      status: iv.verify && iv.verify.length ? 'verify-declared' : 'unverified',
+      description: iv.because || null,
+    }));
+    relationships.push(rel(mId, 'constrained_by', id));
+    for (const v of iv.verify || []) {
+      const vid = `verification.${slug(v)}`;
+      if (!emittedVerifs.has(vid)) { nodes.push(node(vid, 'VerificationRule', v, { status: 'verify-declared' })); emittedVerifs.add(vid); }
+      relationships.push(rel(id, 'verified_by', vid));
+    }
+  }
   for (const u of ast.unknowns || []) {
     const id = `unknown.${slug(u.name || 'unknown')}`;
     nodes.push(node(id, 'Unknown', u.name, { classification: 'unknown', owner: u.owner, status: 'unresolved' }));

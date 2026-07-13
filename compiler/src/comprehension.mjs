@@ -47,10 +47,11 @@ export function comprehensionLevel(ast, { observed = false, learningPath = false
     },
     structure: {
       met: nonEmpty(guarantees) || nonEmpty(nevers) || nonEmpty(ast?.decisions)
-        || nonEmpty(ast?.lifecycles) || nonEmpty(ast?.errors) || nonEmpty(ast?.constraints),
+        || nonEmpty(ast?.lifecycles) || nonEmpty(ast?.errors) || nonEmpty(ast?.constraints) || nonEmpty(ast?.invariants),
       evidence: [
         nonEmpty(guarantees) && 'guarantees', nonEmpty(nevers) && 'never', nonEmpty(ast?.decisions) && 'decisions',
         nonEmpty(ast?.lifecycles) && 'lifecycles', nonEmpty(ast?.errors) && 'errors', nonEmpty(ast?.constraints) && 'constraints',
+        nonEmpty(ast?.invariants) && 'invariants',
       ].filter(Boolean),
       owner: 'IntentLang',
     },
