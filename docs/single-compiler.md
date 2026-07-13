@@ -70,6 +70,28 @@ The single compiler owns the *semantic representation*. It deliberately stops th
 So the layering is clean: this package is the shared truth about *what the intent is*; the
 siblings decide what to *do* with it.
 
+## Adopting it (per consumer)
+
+Once the package is published, each consumer retires its fork/copy and imports this one.
+
+- **The `intent` CLI** , already this package. Nothing to do.
+- **OpenThunder** (Node / TypeScript) , `npm i @skillstech/intentlang`. Import `parseIntent`,
+  `buildIntentGraph`, `scanProject`, `graphToIR` from `.` (Node) or `/core`. Keep ArchGraph as
+  a *language extractor* that projects up via `graphToIR` into `intent-ir-v1`; delete any local
+  `.intent` parsing or graph re-derivation.
+- **Repo Mastery** (web / TypeScript) , import from `/core`. It can now parse `.intent` directly
+  (previously it only ingested JSON) and feed its `projectIntentGraph` from `buildIntentGraph`.
+- **SkillsTech** (browser / TypeScript) , import from `/core`. Replace the `SkillsTech/compiler`
+  TypeScript fork and the three graph copies (`studio-model`, `app/studio/shared`,
+  `ide/.../graph`) with this package's `buildIntentGraph` / `buildAtlas` / `graphToIR`.
+- **SkillsTech Mobile** (React Native / Hermes) , import from `/core`. The compiler is now
+  engine-safe: it uses no `TextEncoder`, `Buffer`, or other non-guaranteed global (enforced by
+  the conformance test). **Metro caveat:** Metro must resolve the package `exports` map , on
+  React Native < 0.79 set `resolver.unstable_enablePackageExports = true` in `metro.config.js`
+  (it is the default from 0.79). Without it, the `/core` subpath will not resolve.
+
+Every consumer gets the same functions, the same graph shape, and the same `intentProofHash`.
+
 ## For contributors
 
 - Anything importable from `/core` must stay Node-free. Need a filesystem or process API? It

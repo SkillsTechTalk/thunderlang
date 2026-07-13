@@ -39,6 +39,21 @@ test('the /core entry and its whole transitive graph are Node-free (bundles for 
   assert.deepEqual(offenders, [], `these modules reachable from /core import a node: builtin: ${offenders.join(', ')}`);
 });
 
+test('the universal surface uses no engine-specific globals (Hermes / React Native safe)', () => {
+  // Static: no module reachable from /core may reference a non-universal global.
+  const BANNED = /\b(TextEncoder|TextDecoder|Buffer|structuredClone|queueMicrotask)\b/;
+  const offenders = reachableFiles('core.mjs')
+    .filter((f) => BANNED.test(readFileSync(f, 'utf8').replace(/\/\/[^\n]*/g, '')))
+    .map((f) => f.replace(SRC + '/', ''));
+  assert.deepEqual(offenders, [], `these /core modules use a non-universal global: ${offenders.join(', ')}`);
+  // Runtime: hashing still works with the TextEncoder global removed (as on some RN engines).
+  const saved = globalThis.TextEncoder;
+  try {
+    delete globalThis.TextEncoder;
+    assert.equal(sha256hex('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  } finally { globalThis.TextEncoder = saved; }
+});
+
 test('the pure SHA-256 is byte-identical to node:crypto (locks the shared join-key hash)', () => {
   for (const s of ['', 'a', 'abc', 'mission X\n  goal do', 'café ☕ 日本語', 'x'.repeat(64), 'x'.repeat(120)]) {
     assert.equal(sha256hex(s), createHash('sha256').update(s).digest('hex'));

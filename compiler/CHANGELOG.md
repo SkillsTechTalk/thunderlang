@@ -104,7 +104,10 @@ The executable + interoperable release. Everything is deterministic and requires
   TypeScript types (`core.d.ts`), and `index.d.ts` gained the scan / Fable / scan-query /
   Intent Lens / Intent IR declarations, so the TypeScript consumers (OpenThunder, Repo
   Mastery, SkillsTech) get full types on the shared surface , proven by a TS-consumer
-  typecheck in `pack:smoke`.
+  typecheck in `pack:smoke`. The universal surface is also engine-safe: `hash.mjs` uses a pure
+  UTF-8 encoder instead of the `TextEncoder` global, so it runs on Hermes / React Native (the
+  conformance test now fails CI if any `/core` module references `TextEncoder`, `Buffer`, or
+  another non-guaranteed global, and asserts hashing works with `TextEncoder` deleted).
 - **Intent Lens , Intent Scope + Focus Graph (`intent focus`).** A Focus Graph is a
   deterministic subgraph of the Intent Atlas around a selected scope (a mission, a feature
   query, or `--nodes a,b`), with every node tagged by WHY it is in focus (selected / governing

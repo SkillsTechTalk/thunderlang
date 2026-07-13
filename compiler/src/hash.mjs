@@ -18,8 +18,26 @@ const K = new Uint32Array([
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
 
-// UTF-8 encode a string to bytes (TextEncoder is universal: Node, browsers, React Native).
-const utf8 = (str) => new TextEncoder().encode(str);
+// UTF-8 encode a string to bytes with ZERO global dependencies (no TextEncoder, no Buffer),
+// so it runs in any JS engine , Node, browsers, and Hermes/React Native, where TextEncoder is
+// not guaranteed. Handles the full BMP + surrogate pairs; output matches TextEncoder exactly.
+function utf8(str) {
+  const s = String(str);
+  const out = [];
+  for (let i = 0; i < s.length; i += 1) {
+    let cp = s.charCodeAt(i);
+    // combine a high+low surrogate pair into a single code point
+    if (cp >= 0xd800 && cp <= 0xdbff && i + 1 < s.length) {
+      const lo = s.charCodeAt(i + 1);
+      if (lo >= 0xdc00 && lo <= 0xdfff) { cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00); i += 1; }
+    }
+    if (cp < 0x80) out.push(cp);
+    else if (cp < 0x800) out.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f));
+    else if (cp < 0x10000) out.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+    else out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 0x3f), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+  }
+  return Uint8Array.from(out);
+}
 
 /** Lowercase hex SHA-256 digest of a string (no prefix). Deterministic, sync, Node-free. */
 export function sha256hex(input) {
