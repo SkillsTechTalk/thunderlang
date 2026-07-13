@@ -23,9 +23,25 @@ below runs without AI when invoked with `--no-ai`.
 ## Stages
 
 ### 1. Parse
-Input: `.intent` files. Output: an Intent AST. Validates syntax and identifies
-missions, goals, inputs, outputs, guarantees, never rules, targets, and
-verification requirements.
+Input: `.intent` files. Output: a typed Intent AST. Parsing runs in three
+deterministic sub-stages, no lookahead grammar and no AI:
+
+1. **Lex into rows.** The source is split into significant lines, each carrying its
+   indentation depth. Blank lines are dropped; `#` comments are stripped here, so
+   they never reach the tree (semantic `note` blocks are kept, they are meaning, not
+   comments).
+2. **Build the indentation tree (the concrete tree).** Rows nest by indentation into
+   a tree of `{ text, children, line }` nodes. Indentation *is* the block structure,
+   so the concrete tree mirrors the source one-to-one and every node keeps its source
+   line for diagnostics and spans.
+3. **Lower to the typed AST.** Per-construct parsers walk the tree, one per block
+   kind (`parseFields`, `parseDecision`, `parseLifecycle`, `parseService`,
+   `parseApi`, `parseEvent`, `parseCommand`, ...), producing the typed Intent AST:
+   missions, goals, inputs, outputs, guarantees, never rules, decisions, lifecycles,
+   targets, verification requirements, and attached `note`s with their spans.
+
+Because the tree is derived purely from indentation and the lowering is a fixed walk,
+the same source always yields the same AST, byte for byte.
 
 ### 2. Semantic analysis
 Validates type usage and detects missing requirements, impossible or ambiguous
@@ -50,17 +66,36 @@ A graph of services, APIs, events, databases, dependencies, owners, boundaries,
 consumers, and publishers.
 
 ### 5. Implementation plan
-A deterministic, ordered plan produced before any code generation. Example:
+A deterministic, ordered plan produced before any code generation, emitted as
+`implementation-plan.json`. The steps are derived from the AST in a fixed category
+order, so the plan is reproducible and diffable: **APIs → preconditions (`requires`)
+→ guarantees → never rules → events → verifications**, each category in source order,
+numbered from 1. No AI, no heuristics, no reordering.
 
-    Plan CreateInvoice
-    1. Add CreateInvoice API endpoint
-    2. Validate approved orders
-    3. Check existing invoice by orderId
-    4. Create invoice transactionally
-    5. Publish InvoiceCreated event
-    6. Add duplicate prevention tests
-    7. Add audit log tests
-    8. Update API docs
+```json
+{
+  "compilerVersion": "0.1.0",
+  "generatedAt": "2026-07-13T00:00:00.000Z",
+  "mission": "CreateInvoice",
+  "steps": [
+    { "order": 1,  "description": "Validate precondition: Customer" },
+    { "order": 2,  "description": "Validate precondition: ApprovedOrders" },
+    { "order": 3,  "description": "Enforce guarantee: invoice.total is never negative" },
+    { "order": 4,  "description": "Enforce guarantee: duplicate invoices are not created" },
+    { "order": 5,  "description": "Enforce guarantee: every invoice is auditable" },
+    { "order": 6,  "description": "Prevent forbidden behavior: create invoice for unapproved order" },
+    { "order": 7,  "description": "Prevent forbidden behavior: expose payment token in logs" },
+    { "order": 8,  "description": "Add verification: unit tests" },
+    { "order": 9,  "description": "Add verification: duplicate prevention test" },
+    { "order": 10, "description": "Add verification: audit trail test" },
+    { "order": 11, "description": "Add verification: security scan" }
+  ]
+}
+```
+
+Each `description` names the AST element it came from, so a downstream tool (or a human
+reviewer) can trace every planned step back to the intent that required it. `generatedAt`
+is the only non-deterministic field; everything else is a pure function of the source.
 
 ### 6. Target generation (adapters)
 Each target is produced by a modular adapter. No target is hardcoded into the

@@ -66,9 +66,13 @@ repo and implementation is approved.
 - [x] Worked example: build a secure password reset mission end to end
 
 ### P2 - Language specification
-- [ ] Add `docs/spec.md`: lexical rules, comments, indentation, identifiers,
+- [x] Add `docs/spec.md`: lexical rules, comments, indentation, identifiers,
       strings, lists, block structure, every construct block, semantic types,
       security modifiers, error model, versioning
+      (SHIPPED: `docs/spec.md` is at draft v0.2 and covers all of the above ,
+      §2 lexical/comments/indentation/identifiers/strings/lists, §5-17 every
+      construct block across all five profiles, §19 semantic types, §20 security
+      modifiers, §22 error model, §24 versioning + determinism.)
 
 ### P3 - Compiler contract (spec, not implementation)
 - [x] `docs/compiler-contract.md`: pipeline, proof artifact, `--no-ai`, MVP scope
@@ -78,9 +82,15 @@ repo and implementation is approved.
 - [ ] (superseded) Document the full semantic-diagnostics catalog (missing goal, secret field
       without never-log, duplicate-prevention guarantee without idempotency, API
       with sensitive output but no auth, event payload containing Secret, ...)
-- [ ] Define `implementation-plan.json` and the CST → AST stages in detail
-- [ ] Note: compiler implementation lives in the **SkillsTech Compiler repo**,
-      not here
+- [x] Define `implementation-plan.json` and the CST → AST stages in detail
+      (SHIPPED in `docs/compiler-contract.md`: §1 documents the real three-stage parse
+      , lex-to-rows, indentation tree (the concrete tree), lower to typed AST via
+      per-construct parsers; §5 documents the real `implementation-plan.json` shape +
+      its fixed deterministic category order, verified against `intent build` output.)
+- [x] ~~Note: compiler implementation lives in the SkillsTech Compiler repo~~
+      CORRECTED: the deterministic compiler now lives IN this repo under `compiler/`
+      (decided 2026-07-09, zero coupling; can still move later). This repo is both the
+      website and the compiler home.
 
 ### P4 - Examples library (multi-domain)
 - [ ] auth, billing, notifications, ecommerce, AI agent workflow, RAG pipeline,
