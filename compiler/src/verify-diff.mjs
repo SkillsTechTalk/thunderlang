@@ -29,6 +29,22 @@ function sensitiveTermsOf(statement) {
   return SENSITIVE_TERMS.filter((t) => new RegExp(`\\b${t.replace('_', '[_ ]?')}`, 'i').test(s));
 }
 
+// Split a code line into identifier words, breaking camelCase and snake_case, so a term like
+// "token" matches `paymentToken`, `payment_token`, and `paymenttoken` , the common ways an AI
+// diff names a secret variable.
+function identifierWords(text) {
+  return String(text)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[^A-Za-z0-9]+/g, ' ')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+const lineHitsTerm = (text, terms) => {
+  const words = identifierWords(text);
+  return terms.some((term) => words.some((w) => w === term || w.endsWith(term)));
+};
+
 // Lines present in `after` but not in `before` (exact-text set diff , enough to spot an added
 // sink line). When there is no `before`, every non-trivial line is "added" (verifying fresh code).
 function addedLines(before, after) {
@@ -66,8 +82,7 @@ export function verifyDiff(intentText, { before = null, after, language = 'types
     if (!terms.length) continue;
     const wantsSink = /\b(log|logs|logged|logging|expose|exposed|leak|print|return|respond|response|send|output)\b/i.test(n.statement);
     for (const { line, text } of added) {
-      const t = text.toLowerCase();
-      const hitsTerm = terms.some((term) => new RegExp(`\\b${term.replace('_', '[_ ]?')}`, 'i').test(t));
+      const hitsTerm = lineHitsTerm(text, terms);
       if (hitsTerm && (SINK_RE.test(text) || wantsSink && /=|\(|:/.test(text))) {
         findings.push({
           level: 'error', code: 'INTENT_VERIFY_NEVER_VIOLATED', regression: true, line,

@@ -102,6 +102,8 @@ export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 export { buildReport, REPORT_SCHEMA } from './report.mjs';
 // Verify a code change against its intent , the AI generate/verify loop gate
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
+// MCP server , IntentLang as a native tool for AI coding agents
+export { startMcpServer, MCP_TOOLS } from './mcp.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,

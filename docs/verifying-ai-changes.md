@@ -72,3 +72,32 @@ high-cost mistakes never merge unnoticed.
 This is what lets an AI move fast without breaking intent: the agent proposes, the gate checks
 against the committed contract, and a violation sends the change back before it lands. Intent
 stops being documentation and becomes the thing generated code is measured against.
+
+## Give the agent the tools directly (MCP)
+
+The cleanest way to close the loop is to let the agent call IntentLang itself. `intent mcp`
+starts a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, so a
+coding agent (Claude Code, Cursor, ...) uses IntentLang natively , no wrapper. Point an MCP
+client at the command:
+
+```json
+{
+  "mcpServers": {
+    "intentlang": { "command": "intent", "args": ["mcp"] }
+  }
+}
+```
+
+The server exposes the deterministic capabilities an agent needs:
+
+| Tool | For |
+| --- | --- |
+| `intent_verify_diff` | **the gate** , check a proposed change against its intent before shipping |
+| `intent_check` | run diagnostics on intent source |
+| `intent_lift` | bootstrap intent from existing code (11 languages) |
+| `intent_run` / `intent_test` | evaluate a decision / run in-file tests |
+| `intent_graph` / `intent_explain` | the canonical graph / explain a diagnostic code |
+
+An agent's workflow becomes: draft or read the intent (`intent_check`), propose a change, and
+**call `intent_verify_diff` on its own output** , refusing to ship on a `BLOCK`. IntentLang
+becomes part of how the agent thinks, not a step someone remembers to run.

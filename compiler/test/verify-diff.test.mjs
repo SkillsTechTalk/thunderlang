@@ -81,6 +81,14 @@ input
   assert.ok(!r.findings.some((f) => f.code === 'INTENT_VERIFY_NEVER_VIOLATED'), 'no secret term -> no guardrail cry-wolf');
 });
 
+test('the guardrail catches camelCase / snake_case secret names, not just spaced words', () => {
+  const intent = 'mission M\nuse product\nnever expose the payment token in logs\ninput\n  paymentToken: Secret\n';
+  assert.equal(verifyDiff(intent, { after: 'function f(paymentToken){ console.log(paymentToken); }', language: 'javascript' }).verdict, 'BLOCK');
+  assert.equal(verifyDiff(intent, { after: 'def f(payment_token):\n    print(payment_token)', language: 'python' }).verdict, 'BLOCK');
+  // no cry-wolf on an unrelated identifier that merely contains the letters
+  assert.equal(verifyDiff(intent, { after: 'const x = tokenizer(); console.log(x);', language: 'javascript' }).verdict, 'PASS');
+});
+
 test('the verdict summary reports counts', () => {
   const r = verifyDiff(INTENT, { before: BEFORE, after: LEAK });
   assert.equal(r.summary.verdict, 'BLOCK');

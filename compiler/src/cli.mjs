@@ -23,6 +23,7 @@ import { toSarif } from './sarif.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
+import { startMcpServer } from './mcp.mjs';
 import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
@@ -165,6 +166,7 @@ Author & check
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
   lsp                      start the Language Server (LSP over stdio, for editors)
+  mcp                      start the MCP server (for AI coding agents; stdio)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
   proof <file>              the .intent-proof.json artifact
@@ -293,6 +295,13 @@ function main() {
   // Language Server (LSP over stdio) for editors. Long-running; no file argument.
   if (cmd === 'lsp') {
     startLspServer();
+    return; // keep the process alive on stdin
+  }
+
+  // MCP server (Model Context Protocol over stdio) , makes IntentLang a native tool for AI
+  // coding agents. Long-running; no file argument. Point an MCP client at `intent mcp`.
+  if (cmd === 'mcp') {
+    startMcpServer();
     return; // keep the process alive on stdin
   }
 
