@@ -58,13 +58,13 @@ const securityMarkers = [
 ];
 
 const cliCommands = [
-  ["intent check", "Parse and validate a .intent file."],
-  ["intent plan", "Produce a deterministic implementation plan."],
-  ["intent generate", "Generate code for a target language."],
-  ["intent verify", "Run the checks that prove the guarantees."],
-  ["intent docs", "Generate Markdown documentation."],
-  ["intent graph", "Render the architecture as a diagram."],
-  ["intent proof", "Emit an .intent-proof.json artifact."],
+  ["intent check", "Parse a .intent file and report diagnostics; gate a whole directory."],
+  ["intent run", "Evaluate the decisions against inputs, with a full trace."],
+  ["intent test", "Run the in-file test blocks (cases and scenarios)."],
+  ["intent build", "Emit docs, the contract graph, a test plan, and .intent-proof.json."],
+  ["intent graph", "Emit the canonical Intent Graph (intent-graph-v1)."],
+  ["intent proof", "Emit the .intent-proof.json artifact."],
+  ["intent verify-diff", "Gate a code change against the intent it must uphold."],
 ];
 
 const secureFieldExample = `field paymentToken: Secret
@@ -289,9 +289,10 @@ export default function DocsPage() {
                 The intent CLI
               </h2>
               <p className="mt-3 text-haze-300">
-                A planned command-line interface drives the pipeline from source
-                to proof. AI assistance is optional and traceable; every
-                generated artifact records how it was produced.
+                The <code>intent</code> command-line interface drives the
+                pipeline from source to proof, deterministically and with no AI
+                required. AI assistance is optional and traceable; every generated
+                artifact records how it was produced.
               </p>
               <dl className="mt-6 divide-y divide-white/8 rounded-2xl border border-white/8">
                 {cliCommands.map(([cmd, def]) => (

@@ -17,7 +17,7 @@ import {
 export const metadata = pageMeta({
   title: "Examples",
   description:
-    "Draft IntentLang examples: missions, three syntax layers, and architecture, API, event, and test intent showing how IntentLang describes what software should do.",
+    "IntentLang examples: missions, three syntax layers, and architecture, API, event, and test intent showing how IntentLang describes what software should do.",
   path: "/examples",
 });
 

@@ -1,5 +1,5 @@
 # InvoiceCreated.intent
-# Draft IntentLang (v0). Event intent. Illustrative only.
+# Event intent: the published contract other services react to.
 
 event InvoiceCreated
 

@@ -109,7 +109,15 @@ repo and implementation is approved.
 - [x] New homepage line/pill: "The intent language for AI-era software."
 - [x] "Prompt is temporary. Intent is durable." section on the homepage
 - [x] Proof-chain framing in the ecosystem section
-- [ ] Remaining page-by-page prose polish (vision/docs/examples still say "Intent")
+- [x] Remaining page-by-page prose polish (vision/docs/examples still say "Intent")
+      Vision page already brand-consistent. Fixed the two accuracy problems that
+      mattered more than branding: the docs-index CLI table listed non-existent /
+      overclaiming commands (`intent plan`, `intent generate` code-gen, `intent docs`)
+      , replaced with the real surface (check/run/test/build/graph/proof/verify-diff);
+      the CLI section called itself "planned" though it has shipped. Dropped stale
+      "Draft (v0) / Illustrative only; there is no compiler yet" headers from the
+      CreateInvoice/BillingService/InvoiceCreated examples and the "Draft" examples
+      metadata. tsc clean.
 - [x] Surface `docs/` and `examples/` on the site (render `.intent` + Markdown)
 
 ### P6 - Optional AI assist (documented, gated)

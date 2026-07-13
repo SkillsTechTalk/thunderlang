@@ -1,5 +1,5 @@
 # BillingService.intent
-# Draft IntentLang (v0). Architecture as code. Illustrative only.
+# Architecture as code: a service and its boundaries, ownership, and dependencies.
 
 service BillingService
 
