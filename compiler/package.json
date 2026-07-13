@@ -11,6 +11,7 @@
       "import": "./src/index.mjs"
     },
     "./core": {
+      "types": "./src/core.d.ts",
       "import": "./src/core.mjs"
     },
     "./package.json": "./package.json"

@@ -36,7 +36,7 @@ try {
   // 3. smoke the MAIN entry + the /core subpath from the installed package
   const smoke = `
     import { parseIntent, buildIntentGraph, evaluateDecision, toOpenAPI, migrateGraph, graphToSource, importReport } from '@skillstech/intentlang';
-    import { NODE_TYPES, classify, evalExpr } from '@skillstech/intentlang/core';
+    import { NODE_TYPES, classify, evalExpr, buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/intentlang/core';
     const ast = parseIntent('mission M\\ndecision D\\n  inputs\\n    age\\n  rule a\\n    when age >= 18\\n    return Y\\n  default\\n    return N\\n');
     const asrt = (c, m) => { if (!c) { console.error('assert failed: ' + m); process.exit(3); } };
     asrt(ast.mission === 'M', 'parseIntent');
@@ -47,10 +47,44 @@ try {
     asrt(typeof graphToSource === 'function' && typeof importReport === 'function', 'graph/import exports');
     asrt(Array.isArray(NODE_TYPES) && NODE_TYPES.length >= 39, '/core NODE_TYPES');
     asrt(typeof classify === 'function' && evalExpr('age >= 18', { age: 20 }) === true, '/core runtime');
+    // the universal compiler surface: parse -> graph -> atlas -> focus, all from /core, no Node APIs
+    const atlas = buildAtlas([buildIntentGraph(ast)]);
+    const focus = buildFocusGraph(atlas, { seeds: [atlas.missions[0].id], depth: 2 });
+    asrt(intentBrief(focus).what === 'M', '/core focus graph');
+    asrt(scanProject([{ file: 'M.intent', source: 'mission M\\ngoal\\n  x\\n' }]).schema === 'intent-scan-v1', '/core scanProject');
+    asrt(sha256('abc') === 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', '/core sha256');
     console.log('api-ok');
   `;
   const apiRes = run(process.execPath, ['--input-type=module', '-e', smoke], tmp);
   if (apiRes.status !== 0 || !apiRes.stdout.includes('api-ok')) die('installed-package API smoke failed', (apiRes.stdout || '') + (apiRes.stderr || ''));
+
+  // 3b. TYPES: prove a TypeScript consumer resolves types through the exports map for BOTH
+  // entries , this is what OpenThunder / Repo Mastery / SkillsTech (all TS) rely on.
+  const tsc = join(HERE, '..', 'node_modules', '.bin', 'tsc');
+  if (existsSync(tsc)) {
+    writeFileSync(join(tmp, 'tsconfig.json'), JSON.stringify({
+      compilerOptions: { module: 'esnext', moduleResolution: 'bundler', strict: true, noEmit: true, skipLibCheck: true, types: [] },
+      files: ['consumer.ts'],
+    }));
+    writeFileSync(join(tmp, 'consumer.ts'), `
+      import { parseIntent, buildIntentGraph } from '@skillstech/intentlang';
+      import { buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/intentlang/core';
+      import type { FocusGraph, IntentBrief, IntentScope, ScanResult, IntentAtlas } from '@skillstech/intentlang/core';
+      const ast = parseIntent('mission M\\ngoal\\n  x\\n');
+      const atlas: IntentAtlas = buildAtlas([buildIntentGraph(ast)]);
+      const focus: FocusGraph = buildFocusGraph(atlas, { seeds: [atlas.missions[0].id], depth: 2 });
+      const brief: IntentBrief = intentBrief(focus);
+      const scope: IntentScope = focus.scope;
+      const scan: ScanResult = scanProject([{ file: 'M.intent', source: 'mission M\\n' }]);
+      // exercise typed fields so a wrong type would fail the build
+      const summary: string = \`\${brief.what ?? '?'} \${scope.type} \${scan.ok} \${focus.overview.nodes} \${sha256('x')}\`;
+      if (!summary) throw new Error('unreachable');
+    `);
+    const tcheck = run(tsc, ['-p', join(tmp, 'tsconfig.json')], tmp);
+    if (tcheck.status !== 0) die('TypeScript consumer failed to resolve /core types', (tcheck.stdout || '') + (tcheck.stderr || ''));
+  } else {
+    console.warn('pack:smoke , skipped the TS types check (tsc not found; run npm install at the repo root)');
+  }
 
   // 4. smoke the CLI bin from the installed package
   const bin = join(tmp, 'node_modules', '@skillstech', 'intentlang', 'src', 'cli.mjs');

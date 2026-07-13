@@ -58,9 +58,12 @@ The single compiler owns the *semantic representation*. It deliberately stops th
 
 - **AI provider calls** go through **SkillsTech Runtime (STRU)**, never an SDK in this package.
   `intent draft` builds a provider-neutral brief; STRU executes it.
-- **Learning / mastery** (lessons, quizzes, spaced repetition) is **Repo Mastery**, which
-  *consumes* this graph via its own projection; the compiler ships the vocabulary, not the
-  engine.
+- **Deterministic comprehension / mastery** (source-grounded knowledge, quizzes, flashcards,
+  spaced repetition) is **Repo Mastery**, which *consumes* this graph via its own projection.
+  The compiler ships the vocabulary, not the engine.
+- **AI-driven practice / training** (asking more questions, teaching more, adaptive dialogue,
+  voice) is **Skills Tech Talk**, which calls SkillsTech Runtime for the model. Repo Mastery
+  is deterministic; Skills Tech Talk is the generative pedagogy layer on top of it.
 - **Verification of code against intent** is **OpenThunder**, which consumes the intent
   artifacts and emits its own evidence.
 

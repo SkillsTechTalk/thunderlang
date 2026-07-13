@@ -560,3 +560,91 @@ export function startLspServer(opts?: { readable?: NodeJS.ReadableStream; writab
 // Formatter
 export function formatSource(source: string): string;
 export function isFormatted(source: string): boolean;
+
+// The pure hash (byte-identical to node:crypto), the ecosystem join-key digest.
+export function sha256hex(input: string): string;
+
+// Intent IR (intent-ir-v1) , the shared semantic representation
+export const IR_SCHEMA: string;
+export const IR_EMBEDS: string;
+export const IR_NODE_TYPES: string[];
+export const IR_RELATIONSHIP_TYPES: string[];
+export const PROVENANCE: string[];
+export const FACTUAL_PROVENANCE: Set<string>;
+export function isFactualProvenance(p: string): boolean;
+export const IR_CONFIDENCE: string[];
+export const IR_CONFIDENCE_MEANING: Record<string, string>;
+export function confidenceFromClassification(classification: string): string;
+export const SENSITIVITY: string[];
+export const RETENTION: string[];
+export const REVIEW_STATUS: string[];
+export const APPROVAL_STATUS: string[];
+export const NODE_FIELDS: string[];
+export interface IntentIRNode extends IntentGraphNode { provenance: string; confidence?: string | null; evidence?: unknown[]; }
+export interface IntentIR { schema: string; embeds: string; missionId: string | null; nodes: IntentIRNode[]; relationships: Array<{ from: string; type: string; to: string }>; }
+export function validateIR(ir: unknown): { valid: boolean; errors: Array<{ path: string; message: string }> };
+export function graphToIR(graph: IntentGraph, opts?: { provenance?: string }): IntentIR;
+
+// Fable , explainable rule + finding model
+export const FABLE_SCHEMA: string;
+export const RISK_CATEGORIES: string[];
+export interface Finding {
+  findingId: string; ruleId: string; ruleVersion: string; category: string;
+  detected: string; why: string; evidence: unknown[]; affectedNodes: string[];
+  severity: string; confidence: string; detectionType: string; potentialImpact: string;
+  remediation: string; suggestedVerification: string; humanReviewRequired: boolean;
+  suppressed: boolean; riskAccepted: boolean;
+}
+export function toFinding(diag: Diagnostic, opts?: { file?: string | null; index?: number; affectedNodes?: string[] }): Finding;
+export function fableRuleFor(ruleId: string): Record<string, unknown> | null;
+export function universalPack(): Record<string, unknown>;
+
+// Intent Scanner (intent-scan-v1)
+export const SCAN_SCHEMA: string;
+export interface ScanResult {
+  schema: string;
+  totals?: { files: number; missions: number; findings: number };
+  bySeverity: Record<string, number>;
+  risks: Array<{ category: string; count: number; blocker: number; error: number; warning: number; info: number; findingIds: string[] }>;
+  remediationSequence?: Array<{ ruleId: string; category: string; severity: string; count: number; remediation: string }>;
+  ir: IntentIR;
+  findings: Finding[];
+  ok: boolean;
+}
+export function scanIntent(source: string, opts?: { file?: string | null }): ScanResult & { file: string | null; mission: string | null; summary: Record<string, unknown> };
+export function scanProject(files: Array<{ file: string; source: string }>): ScanResult;
+
+// Focused scanner query views (intent-scan-view-v1)
+export const VIEW_SCHEMA: string;
+export function risksView(scan: ScanResult): Record<string, unknown>;
+export function gapsView(scan: ScanResult): { schema: string; view: string; count: number; gaps: Array<{ ruleId: string; severity: string; detected: string; why: string; remediation: string }> };
+export function unverifiedView(scan: ScanResult): { schema: string; view: string; count: number; claims: Array<{ id: string; type: string; title: string }>; findings: Array<{ ruleId: string; detected: string }> };
+export function coverageView(scan: ScanResult): { schema: string; view: string; total: number; verified: number; coverage: number; unverified: Array<{ id: string; type: string; title: string }> };
+export function unknownsView(scan: ScanResult): { schema: string; view: string; count: number; unknowns: Array<{ id: string; type: string; title: string; confidence: string | null; provenance: string | null }> };
+export function contradictionsView(scan: ScanResult): Record<string, unknown>;
+export const VIEWS: Record<string, (scan: ScanResult) => Record<string, unknown>>;
+
+// Intent Lens , Intent Scope + Focus Graph + Intent Brief (intent-focus-v1)
+export const FOCUS_SCHEMA: string;
+export const SCOPE_TYPES: string[];
+export const FOCUS_REASONS: string[];
+export interface IntentScope {
+  schema: string; scopeId: string; projectId: string | null; type: string; title: string;
+  selectedNodeIds: string[]; createdBy: string | null; createdAt: string | null; provenance: string;
+  [key: string]: unknown;
+}
+export function makeScope(opts?: { type?: string; title?: string | null; seeds?: string[]; projectId?: string | null; createdBy?: string | null; createdAt?: string | null; [key: string]: unknown }): IntentScope;
+export interface FocusNode { id: string; type: string; title: string; focusReason: string; depth: number; confidence: string | null; provenance: string | null; }
+export interface FocusGraph {
+  schema: string; scope: IntentScope; depth: number; freshness: string;
+  overview: { nodes: number; relationships: number; byReason: Record<string, number>; byType: Record<string, number> };
+  nodes: FocusNode[];
+  relationships: Array<{ from: string; type: string; to: string }>;
+}
+export function buildFocusGraph(atlas: { nodes: IntentGraphNode[]; relationships: Array<{ from: string; type: string; to: string }> }, opts?: { seeds?: string[]; depth?: number; scope?: IntentScope }): FocusGraph;
+export interface IntentBrief {
+  schema: string; scopeId: string | null; what: string | null; who: string[];
+  involves: Record<string, number>; guarantees: string[]; prohibitions: string[];
+  risks: number; verification: number; unknowns: string[]; confidence: string | null; needsReview: boolean;
+}
+export function intentBrief(focus: FocusGraph): IntentBrief;

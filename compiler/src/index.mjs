@@ -17,6 +17,7 @@ export {
   buildImplementationPlan,
   buildProof,
   sha256,
+  sha256hex,
   COMPILER_VERSION,
   PROOF_SCHEMA_VERSION,
   SOURCE_PRODUCT,

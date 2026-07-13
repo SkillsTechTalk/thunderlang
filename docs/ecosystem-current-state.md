@@ -15,10 +15,10 @@ does and does not own**.
 | --- | --- | --- | --- |
 | **IntentLang** (this repo) | The language + shared schema | `intent-graph-v1`, `intent-ir-v1` (superset IR), Fable rules (`intent-fable-v1`), the Scanner spine (`intent-scan-v1`), Ledger, Guardian, Simulator, Atlas, Lift, Draft, the AI-implementation contract | Built |
 | **OpenThunder** | Verify code vs intent | Verification verdicts (`verification-verdict-v1`), evidence packs, risk (`risk-assessment-v1`), SARIF-with-ship-verdict, `can-i-ship`; consumes `il-to-ot-drift-v1` / `mission-index-v1` | Built |
-| **RepoMastery** | Learn / master a codebase | Comprehension learning: `intent-learning-pack-v1`, the **Atlas Learning Compiler** (`CompiledLearningPath`, `teach-this-session-v1`), `intent-mission-mastery-v1`; consumes `intent-graph-v1` + `mastery-pack-v1` | Built |
+| **RepoMastery** | **Deterministic** comprehension / mastery | Source-grounded learning: `intent-learning-pack-v1`, the **Atlas Learning Compiler** (`CompiledLearningPath`, `teach-this-session-v1`), `intent-mission-mastery-v1`; consumes `intent-graph-v1` + `mastery-pack-v1`. No AI invention. | Built |
 | **SkillsTech Runtime (STRU)** | Provider-neutral AI gateway | `run({ product, task, privacyMode })`, provider registry (Anthropic/OpenAI-compat/Ollama/local/private), BYOK, **no-silent-fallback + fail-closed privacy**, audit-without-content | Built |
 | **SkillsTech (monorepo)** | Studio + site + IDE | Intent/Mission Atlas UI (`app/atlas`, `ide/…/intentatlas`), `@skillstech/studio-model` (graph precursor), authz/entitlements SDK | Built |
-| **Skills Tech Talk** | Explain / defend / voice drills | External SaaS (`skillstechtalk.com`); consumes approved Atlas + mastery output | External |
+| **Skills Tech Talk** | **AI-driven** practice / training | External SaaS (`skillstechtalk.com`); the generative pedagogy layer , asks more questions, teaches more, explain/defend/voice , calls SkillsTech Runtime for the model; consumes Repo Mastery's deterministic output | External |
 | **SkillsTech Workspace** | Control plane | Identity, entitlements, proof aggregation, provider policy | Partial |
 
 ## The shared Intent IR already exists , do not fork it
@@ -54,10 +54,12 @@ correctly abandoned as "subsumed by `intent-graph-v1`."
 
 ## Boundaries this repo will respect
 
-- **IntentLang does not build a learning / mastery engine.** RepoMastery owns comprehension
-  learning and already has the Atlas Learning Compiler; a learning compiler here would be the
-  "second divergent mastery engine" the ecosystem constitution forbids. IntentLang's job is to
-  emit a faithful Intent IR (`intent scan --ir`) that RepoMastery projects into lessons.
+- **IntentLang does not build a learning / mastery engine.** RepoMastery owns the
+  *deterministic* comprehension/mastery engine and already has the Atlas Learning Compiler;
+  Skills Tech Talk owns the *AI-driven* practice/training on top of it. A learning compiler
+  here would be the "second divergent mastery engine" the ecosystem constitution forbids.
+  IntentLang's job is to emit a faithful Intent IR (`intent scan --ir`, or `/core` directly)
+  that RepoMastery projects into lessons and Skills Tech Talk turns into practice.
 - **IntentLang does not add AI SDKs or a provider router.** SkillsTech Runtime (STRU) is the
   provider-neutral gateway with BYOK and no-silent-fallback. IntentLang's AI surface stays
   provider-neutral (`intent draft` builds a brief; STRU executes it).

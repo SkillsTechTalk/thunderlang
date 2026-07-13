@@ -100,7 +100,11 @@ The executable + interoperable release. Everything is deterministic and requires
   `diffGraphs`, `graphToSource`, `semanticDiagnostics`, `sha256`/`sha256hex`). A conformance
   test statically fails CI if any module reachable from `/core` ever imports a `node:` builtin,
   so the single-source-of-truth boundary cannot silently regress. Only `cli.mjs` and
-  `drift.mjs` (the Node entry points) touch the filesystem.
+  `drift.mjs` (the Node entry points) touch the filesystem. The `./core` subpath now ships
+  TypeScript types (`core.d.ts`), and `index.d.ts` gained the scan / Fable / scan-query /
+  Intent Lens / Intent IR declarations, so the TypeScript consumers (OpenThunder, Repo
+  Mastery, SkillsTech) get full types on the shared surface , proven by a TS-consumer
+  typecheck in `pack:smoke`.
 - **Intent Lens , Intent Scope + Focus Graph (`intent focus`).** A Focus Graph is a
   deterministic subgraph of the Intent Atlas around a selected scope (a mission, a feature
   query, or `--nodes a,b`), with every node tagged by WHY it is in focus (selected / governing

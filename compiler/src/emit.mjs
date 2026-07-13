@@ -3,7 +3,7 @@
 // contract (contract-graph.json, architecture-graph.json) and the canonical .intent-proof.json.
 // Stable IDs (slugs) let OpenThunder key Intent Drift precisely instead of fuzzy string-matching.
 
-import { sha256 } from './hash.mjs';
+import { sha256, sha256hex } from './hash.mjs';
 import { slug, KNOWN_LENSES } from './parse.mjs';
 import { parseArchitectureRules } from './arch.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
@@ -35,7 +35,7 @@ export const PROOF_SCHEMA_VERSION = '0.1.0';
 // Certified to key cert proofs to the compiler. Stable slug per the coordination bus.
 export const SOURCE_PRODUCT = 'skillstech-compiler';
 
-export { sha256 };  // re-exported for the many modules that import it from emit.mjs
+export { sha256, sha256hex };  // re-exported for the many modules that import them from emit.mjs
 
 // ── contract-graph.json ──────────────────────────────────────────────────────
 // missions[].guarantees / neverRules / apis / events / services , the declared contract.
