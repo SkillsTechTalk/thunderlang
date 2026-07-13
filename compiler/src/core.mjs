@@ -49,3 +49,32 @@ export {
   TOKEN_PATHS, BRAND_PATHS, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, MODE_VALUES,
   ACCESSIBILITY_CLASSIFICATION,
 } from './style.mjs';
+
+// ── The compiler proper (now universal: the pure SHA-256 removed the last node:crypto dep) ──
+// One source of truth for parsing, graph-building, analysis, and navigation, so OpenThunder
+// (Node), the CLI (Node), SkillsTech Studio (browser), Repo Mastery (web), and SkillsTech
+// Mobile (React Native) all run the SAME code, never a fork.
+
+// The canonical SHA-256 the ecosystem keys on (intentProofHash, join keys). Node-free.
+export { sha256, sha256hex } from './hash.mjs';
+// Parser: `.intent` source -> Intent AST (+ slug for stable ids, KNOWN_LENSES).
+export { parseIntent, slug, KNOWN_LENSES } from './parse.mjs';
+// Intent Graph builder (intent-graph-v1): AST -> canonical graph.
+export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
+// In-memory compile: AST/source -> every artifact (docs, graphs, plan, proof), no filesystem.
+export { compileSource, renderMarkdown, renderLensDoc, renderMermaid, renderTestplan } from './compile.mjs';
+// Semantic diagnostics (the Fable/scan spine input) , now Node-free.
+export { semanticDiagnostics, buildContractGraph, buildArchitectureGraph, buildImplementationPlan, buildProof } from './emit.mjs';
+// Intent Scanner + Fable: project -> Intent IR + explainable findings + risk themes.
+export { scanIntent, scanProject, SCAN_SCHEMA } from './scan.mjs';
+export { toFinding, universalPack, RISK_CATEGORIES, FABLE_SCHEMA } from './fable.mjs';
+// Focused scan queries (risks/gaps/unverified/coverage/unknowns/contradictions).
+export { VIEW_SCHEMA, VIEWS, coverageView, unverifiedView, gapsView, risksView, unknownsView, contradictionsView } from './scan-queries.mjs';
+// Intent Atlas (whole-system map) + navigation primitives.
+export { buildAtlas, atlasNode, expandNode, searchAtlas, ATLAS_SCHEMA } from './intent-atlas.mjs';
+// Intent Lens: Intent Scope + Focus Graph + Intent Brief (a focused subgraph of the Atlas).
+export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, intentBrief } from './focus.mjs';
+// Semantic diff + 3-way merge (Change Lens: diff by meaning).
+export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
+// Graph -> source (native round-trip) so a browser editor can regenerate .intent.
+export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';

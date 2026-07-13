@@ -54,6 +54,7 @@ const DOC_ORDER = [
   "compiler-contract",
   "ecosystem-brief",
   "ecosystem-current-state",
+  "single-compiler",
   "certification",
   "operating-checklist",
 ];
@@ -100,6 +101,7 @@ const DOC_LABELS: Record<string, string> = {
   "compiler-contract": "Compiler contract",
   "ecosystem-brief": "Ecosystem brief",
   "ecosystem-current-state": "Ecosystem current-state map",
+  "single-compiler": "One compiler, five consumers",
   certification: "Certification track",
   "operating-checklist": "Operating checklist",
 };
@@ -146,6 +148,7 @@ const DOC_BLURBS: Record<string, string> = {
   "compiler-contract": "The deterministic pipeline from source to proof.",
   "ecosystem-brief": "How each SkillsTech sibling uses IntentLang.",
   "ecosystem-current-state": "Grounded inventory of the ecosystem: what exists, what is duplicated, what IntentLang owns.",
+  "single-compiler": "The universal /core surface OpenThunder, Repo Mastery, Studio, Mobile, and the CLI all share.",
   certification: "The Intent-Oriented Programming Associate credential, and how intent backs it.",
   "operating-checklist": "The Top 100 things IntentLang must do, mapped to status.",
 };

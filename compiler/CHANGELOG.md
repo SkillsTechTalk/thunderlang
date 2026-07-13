@@ -88,6 +88,19 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **One compiler for five consumers (universal `@skillstech/intentlang/core`).** The whole
+  analysis layer is now Node-free, so OpenThunder (Node), the `intent` CLI (Node), SkillsTech
+  Studio (browser), Repo Mastery (web), and SkillsTech Mobile (React Native) run the SAME
+  code, not a fork. The one blocker , `emit.mjs` importing `node:crypto` for SHA-256 , is
+  replaced by a pure, dependency-free `hash.mjs` whose output is **byte-identical** to
+  `node:crypto` (proven over 2000+ cases + a known-answer test), so every existing proof,
+  ledger, and join-key hash is unchanged. `./core` now exports the full compiler surface
+  (`parseIntent`, `buildIntentGraph`, `compileSource`, `scanIntent`/`scanProject`, the scan
+  query views, `buildAtlas`/`searchAtlas`/`expandNode`, `buildFocusGraph`/`intentBrief`,
+  `diffGraphs`, `graphToSource`, `semanticDiagnostics`, `sha256`/`sha256hex`). A conformance
+  test statically fails CI if any module reachable from `/core` ever imports a `node:` builtin,
+  so the single-source-of-truth boundary cannot silently regress. Only `cli.mjs` and
+  `drift.mjs` (the Node entry points) touch the filesystem.
 - **Intent Lens , Intent Scope + Focus Graph (`intent focus`).** A Focus Graph is a
   deterministic subgraph of the Intent Atlas around a selected scope (a mission, a feature
   query, or `--nodes a,b`), with every node tagged by WHY it is in focus (selected / governing
