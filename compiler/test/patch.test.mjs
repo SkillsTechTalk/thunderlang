@@ -80,6 +80,64 @@ test('untouched source is byte-identical outside edited blocks', () => {
   assert.ok(r.source.split('\n').includes('# This comment must survive any structured edit.'));
 });
 
+const FIELDS_SRC = `mission CreateInvoice
+use product
+
+# preserve me
+input
+  orderId: OrderId
+  total: Money
+
+output
+  invoice: Invoice
+`;
+
+test('addField / setFieldType / removeField edit fields in place, comments intact', () => {
+  const r = applyEdits(FIELDS_SRC, [
+    { op: 'addField', section: 'input', name: 'idempotencyKey', type: 'IdempotencyKey' },
+    { op: 'setFieldType', section: 'input', name: 'total', type: 'Percentage' },
+    { op: 'removeField', section: 'output', name: 'invoice' },
+  ]);
+  assert.equal(r.applied.length, 3);
+  assert.match(r.source, /# preserve me/);
+  const ast = parseIntent(r.source);
+  const inputs = Object.fromEntries(ast.inputs.map((f) => [f.name, f.type]));
+  assert.equal(inputs.idempotencyKey, 'IdempotencyKey');
+  assert.equal(inputs.total, 'Percentage');
+  assert.ok(!ast.outputs.some((f) => f.name === 'invoice'));
+  assert.equal(isFormatted(r.source), true);
+});
+
+test('addField rejects a duplicate name and creates the block when absent', () => {
+  const dup = applyEdits(FIELDS_SRC, [{ op: 'addField', section: 'input', name: 'orderId', type: 'OrderId' }]);
+  assert.equal(dup.applied.length, 0);
+  assert.match(dup.skipped[0].reason, /already exists/);
+
+  const created = applyEdits('mission M\nuse product\n', [{ op: 'addField', section: 'input', name: 'age', type: 'int' }]);
+  assert.match(created.source, /input\n {2}age: int/);
+  assert.equal(parseIntent(created.source).inputs[0].name, 'age');
+});
+
+test('removeField also removes the field\'s indented children (no orphans)', () => {
+  const withChild = `mission M
+use product
+input
+  password: Secret
+    never log
+  age: int
+`;
+  const r = applyEdits(withChild, [{ op: 'removeField', section: 'input', name: 'password' }]);
+  assert.ok(!/password/.test(r.source));
+  assert.ok(!/never log/.test(r.source), 'the field\'s child modifier is removed too');
+  assert.deepEqual(parseIntent(r.source).inputs.map((f) => f.name), ['age']);
+});
+
+test('field ops with a bad section are skipped with a reason', () => {
+  const r = applyEdits(FIELDS_SRC, [{ op: 'addField', section: 'payload', name: 'x', type: 'int' }]);
+  assert.equal(r.applied.length, 0);
+  assert.match(r.skipped[0].reason, /input\/output/);
+});
+
 test('applyEdits is browser-safe (exported from /core)', () => {
   assert.equal(typeof core.applyEdits, 'function');
 });

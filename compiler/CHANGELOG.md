@@ -49,10 +49,12 @@ The executable + interoperable release. Everything is deterministic and requires
   IntentLang source with a reviewable diff, surfaced ambiguities (non-factual nodes), round-trip
   fidelity gaps, and validation , never a silent rewrite. Browser-safe via `/core` (for Studio).
 - **Comment-preserving structural editing (`intent-patch-v1`).** `applyEdits(source, edits)`
-  applies field-level edits (`setField`, `add/removeGuarantee`, `add/removeNever`) directly to
-  the `.intent` source, touching only the target lines so comments, formatting, and untouched
-  blocks stay byte-identical. Closes the sync fidelity gap: a PM edits fields and IL keeps the
-  comments. Unmatched/unsupported edits are reported, never applied blindly. Browser-safe.
+  applies field-level edits (`setField`, `add/removeGuarantee`, `add/removeNever`,
+  `add/removeField`, `setFieldType` on inputs/outputs) directly to the `.intent` source, touching
+  only the target lines so comments, formatting, and untouched blocks stay byte-identical. Closes
+  the sync fidelity gap: a PM edits fields and IL keeps the comments. Field removal takes the
+  field's indented modifiers with it (no orphans). Unmatched/unsupported edits are reported,
+  never applied blindly. Browser-safe.
 - **SARIF code scanning.** `intent check <path> --format sarif` emits a SARIF 2.1.0 log
   (`toSarif`), so diagnostics appear natively in GitHub/GitLab code scanning and SARIF-aware
   IDEs , with rule metadata, level mapping, and precise line regions where known.

@@ -11,6 +11,9 @@
 //     { op: 'removeGuarantee', match }        // substring match on the statement
 //     { op: 'addNever', statement }
 //     { op: 'removeNever', match }
+//     { op: 'addField', section: 'input'|'output', name, type }
+//     { op: 'removeField', section: 'input'|'output', name }
+//     { op: 'setFieldType', section: 'input'|'output', name, type }
 // Unsupported / not-found edits are returned in `skipped` with a reason , never applied blindly.
 
 export const PATCH_SCHEMA = 'intent-patch-v1';
@@ -103,6 +106,53 @@ function removeRule(lines, keyword, pluralKeyword, match) {
   return { ok: false, reason: `no ${keyword} matching "${match}" found` };
 }
 
+const indentOf = (line) => line.length - line.trimStart().length;
+const fieldMatches = (line, name) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`).test(line.trim());
+
+// Add a typed field to an `input`/`output` block (creating the block if absent).
+function addField(lines, section, name, type) {
+  const block = blocks(lines).find((b) => b.keyword === section);
+  const fieldLine = `  ${name}: ${type}`;
+  if (!block) return insertAfterAnchor(lines, [section, fieldLine], ['output', 'input', 'why', 'goal', 'mission']);
+  for (let i = block.start + 1; i <= block.end; i++) {
+    if (lines[i].trim() && !lines[i].trim().startsWith('#') && fieldMatches(lines[i], name)) return { ok: false, reason: `field "${name}" already exists in ${section}` };
+  }
+  const e = bodyEnd(lines, block);
+  return { ok: true, lines: [...lines.slice(0, e + 1), fieldLine, ...lines.slice(e + 1)] };
+}
+
+// Locate a field line + any deeper-indented child lines (modifiers/notes) that belong to it.
+function fieldRange(lines, block, name) {
+  for (let i = block.start + 1; i <= block.end; i++) {
+    if (!lines[i].trim() || lines[i].trim().startsWith('#')) continue;
+    if (fieldMatches(lines[i], name)) {
+      const ind = indentOf(lines[i]);
+      let j = i + 1;
+      while (j <= block.end && lines[j].trim() !== '' && indentOf(lines[j]) > ind) j += 1;
+      return { start: i, end: j - 1 };
+    }
+  }
+  return null;
+}
+
+function removeField(lines, section, name) {
+  const block = blocks(lines).find((b) => b.keyword === section);
+  if (!block) return { ok: false, reason: `no ${section} block` };
+  const range = fieldRange(lines, block, name);
+  if (!range) return { ok: false, reason: `field "${name}" not found in ${section}` };
+  return { ok: true, lines: [...lines.slice(0, range.start), ...lines.slice(range.end + 1)] };
+}
+
+function setFieldType(lines, section, name, type) {
+  const block = blocks(lines).find((b) => b.keyword === section);
+  if (!block) return { ok: false, reason: `no ${section} block` };
+  const range = fieldRange(lines, block, name);
+  if (!range) return { ok: false, reason: `field "${name}" not found in ${section}` };
+  const ind = lines[range.start].slice(0, indentOf(lines[range.start]));
+  const rebuilt = `${ind}${name}: ${type}`;
+  return { ok: true, lines: [...lines.slice(0, range.start), rebuilt, ...lines.slice(range.start + 1)] };
+}
+
 function applyOne(lines, edit) {
   switch (edit && edit.op) {
     case 'setField':
@@ -121,6 +171,18 @@ function applyOne(lines, edit) {
     case 'removeNever':
       if (!edit.match) return { ok: false, reason: 'removeNever needs a match' };
       return removeRule(lines, 'never', 'never', edit.match);
+    case 'addField':
+      if (!['input', 'output'].includes(edit.section)) return { ok: false, reason: `addField section must be input/output, not "${edit.section}"` };
+      if (!edit.name || !edit.type) return { ok: false, reason: 'addField needs name and type' };
+      return addField(lines, edit.section, edit.name, edit.type);
+    case 'removeField':
+      if (!['input', 'output'].includes(edit.section)) return { ok: false, reason: `removeField section must be input/output, not "${edit.section}"` };
+      if (!edit.name) return { ok: false, reason: 'removeField needs a name' };
+      return removeField(lines, edit.section, edit.name);
+    case 'setFieldType':
+      if (!['input', 'output'].includes(edit.section)) return { ok: false, reason: `setFieldType section must be input/output, not "${edit.section}"` };
+      if (!edit.name || !edit.type) return { ok: false, reason: 'setFieldType needs name and type' };
+      return setFieldType(lines, edit.section, edit.name, edit.type);
     default:
       return { ok: false, reason: `unknown op "${edit && edit.op}"` };
   }

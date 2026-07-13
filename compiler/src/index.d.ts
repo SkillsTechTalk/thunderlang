@@ -308,7 +308,10 @@ export type IntentEdit =
   | { op: "addGuarantee"; statement: string; because?: string; verify?: string }
   | { op: "removeGuarantee"; match: string }
   | { op: "addNever"; statement: string }
-  | { op: "removeNever"; match: string };
+  | { op: "removeNever"; match: string }
+  | { op: "addField"; section: "input" | "output"; name: string; type: string }
+  | { op: "removeField"; section: "input" | "output"; name: string }
+  | { op: "setFieldType"; section: "input" | "output"; name: string; type: string };
 export function applyEdits(source: string, edits: IntentEdit[]): { schema: string; source: string; applied: IntentEdit[]; skipped: Array<{ edit: IntentEdit; reason: string }> };
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
