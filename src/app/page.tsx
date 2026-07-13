@@ -228,6 +228,38 @@ BLOCK  payment token found
       </Section>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Intent Truth: Intended / Implemented / Observed / Outcome          */}
+      {/* ------------------------------------------------------------------ */}
+      <Section id="truth">
+        <SectionHeading
+          eyebrow="Intent Truth"
+          title="Four truths about the same software , and where they disagree is where risk lives."
+          intro="A feature can pass every test and still fail its purpose. IntentLang keeps these four truths separate so you can compare them honestly, rather than assuming technical success means success."
+        />
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { name: "Intended", status: "available" as const, body: "What humans approved: goals, guarantees, prohibitions, and how each must be verified. This is the intent you write." },
+            { name: "Implemented", status: "experimental" as const, body: "What the code actually does, recovered from source with intent lift and surfaced by the Intent Scanner." },
+            { name: "Observed", status: "planned" as const, body: "What actually happens at runtime , traces, metrics, errors. Connected through OpenThunder and runtime evidence." },
+            { name: "Outcome", status: "experimental" as const, body: "Whether it achieved its purpose. Outcome contracts bind a target and guardrails; real measurement needs product analytics." },
+          ].map((t) => (
+            <div key={t.name} className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-white">{t.name} Truth</h3>
+                <StatusBadge status={t.status} />
+              </div>
+              <p className="mt-2 text-sm leading-relaxed text-haze-300">{t.body}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-sm text-haze-400">
+          Intended Truth is available today. Implemented, Observed, and Outcome Truth arrive as
+          the scanner, runtime evidence, and the wider ecosystem connect , honestly labeled, never
+          assumed.
+        </p>
+      </Section>
+
+      {/* ------------------------------------------------------------------ */}
       {/* Why Intent                                                         */}
       {/* ------------------------------------------------------------------ */}
       <Section id="why">
