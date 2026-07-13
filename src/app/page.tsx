@@ -19,6 +19,7 @@ import {
 import { siteConfig } from "@/lib/site";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { StatusBadge } from "@/components/StatusBadge";
+import { PROJECT_FACTS, NPM_PACKAGE } from "@/lib/facts";
 
 const philosophy = [
   { step: "Prompt", body: "How the conversation starts. Useful, but temporary." },
@@ -160,6 +161,20 @@ export default function HomePage() {
           <Link href="/roadmap" className="font-medium text-gold-300 hover:text-gold-200">
             See the full roadmap →
           </Link>
+        </p>
+
+        {/* Inspectable evidence, not hype , the IntentLang way. */}
+        <div className="mt-10 grid grid-cols-2 gap-4 rounded-2xl border border-white/8 bg-ink-850/40 p-6 sm:grid-cols-3 lg:grid-cols-6">
+          {PROJECT_FACTS.map((f) => (
+            <div key={f.label} className="text-center">
+              <div className="text-2xl font-semibold text-white">{f.value}</div>
+              <div className="mt-1 text-[11px] leading-tight text-haze-400">{f.label}</div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-center text-xs text-haze-500">
+          Install today:{" "}
+          <span className="font-mono text-haze-300">npm i {NPM_PACKAGE}</span>
         </p>
       </Section>
 
