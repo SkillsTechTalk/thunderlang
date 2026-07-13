@@ -29,6 +29,7 @@ import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { guardSummary } from './guard.mjs';
+import { draftIntent } from './draft.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -110,6 +111,7 @@ function parseArgs(argv) {
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
+    else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
     else if (a === '--edits') args.edits = argv[++i];
@@ -162,6 +164,7 @@ usage: intent <command> <file> [options]
 
 Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
+  draft --brief <json|->   scaffold a rigorous intent draft + gap checklist from a brief
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
   guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
@@ -354,7 +357,7 @@ test Example
     return;
   }
 
-  if (!file) {
+  if (!file && cmd !== 'draft') {
     console.error(`intent ${cmd}: missing a file argument. Run "intent help" for usage.`);
     process.exit(2);
   }
@@ -866,6 +869,22 @@ test Example
     }
     if (r.ok) console.log('  ok the change upholds the declared contract (deterministic checks; tests + humans still own correctness).');
     process.exit(r.ok ? 0 : 1);
+    return;
+  }
+
+  // `intent draft --brief <json|->` , scaffold a rigorous intent draft from a structured brief,
+  // plus a review checklist of what a human must still fill in. Prints the draft; --write saves it.
+  if (cmd === 'draft') {
+    const briefPath = args.brief || (cmd === 'draft' && file && file.endsWith('.json') ? file : null);
+    if (!briefPath) { console.error('usage: intent draft --brief <brief.json|-> [--write <out.intent>]'); process.exit(2); return; }
+    const raw = briefPath === '-' ? readFileSync(0, 'utf8') : readFileSync(briefPath, 'utf8');
+    let brief;
+    try { brief = JSON.parse(raw); } catch { console.error('intent draft: --brief is not valid JSON'); process.exit(2); return; }
+    const r = draftIntent(brief);
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
+    if (args.write) { writeFileSync(args.write, r.source); console.error(`intent draft: wrote ${args.write}`); }
+    else process.stdout.write(r.source);
+    if (r.review.length) { console.error('\nreview (fill these in , the draft is a proposal, not verified):'); for (const x of r.review) console.error(`  - ${x.message}`); }
     return;
   }
 

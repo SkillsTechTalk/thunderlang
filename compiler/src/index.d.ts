@@ -328,6 +328,12 @@ export function verifyDiff(intentText: string, change: { before?: string | null;
   findings: Array<{ level: string; code: string; message: string; line?: number; regression: boolean }>;
   blocking: number; summary: { verdict: string; findings: number; blocking: number; regressions: number };
 };
+export const DRAFT_SCHEMA: string;
+export function draftIntent(brief: Record<string, unknown>): {
+  schema: string; source: string;
+  review: Array<{ kind: string; message: string }>;
+  diagnostics: Array<Record<string, unknown>>;
+};
 export const GUARD_SCHEMA: string;
 export interface IntentGuard {
   schema: string;

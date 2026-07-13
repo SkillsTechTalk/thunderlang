@@ -65,6 +65,12 @@ The executable + interoperable release. Everything is deterministic and requires
   before and broke after) and guardrail hits (an added line pushing a never-rule's protected
   secret into a log/response). The keystone of the AI generate-verify loop; honest (catches
   mechanical violations, does not claim to prove correctness).
+- **Prompt -> intent (`intent-draft-v1`).** `draftIntent(brief)` / `intent draft --brief <json|->`
+  turns a structured brief into a rigorous, canonically-formatted intent draft PLUS a review
+  checklist of what a human must still fill in (unverified guarantee, decision with no default,
+  unguarded secret, missing goal). The deterministic half of prompt->intent , an agent produces
+  the brief (MCP tool `intent_draft`), IL makes it rigorous, a human approves. Never verified.
+  Browser-safe.
 - **Runtime enforcement (`intent-guard-v1`).** `compileGuard(intentSource)` / `buildGuard(ast)`
   turns intent into a guard that runs IN the application: `redact(obj)` masks every field the
   intent declares secret (Secret/Password/Token type, pii/sensitive data, or a secret-looking

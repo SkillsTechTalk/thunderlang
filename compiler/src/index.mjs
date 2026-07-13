@@ -106,6 +106,8 @@ export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 export { startMcpServer, MCP_TOOLS } from './mcp.mjs';
 // Runtime enforcement , compile intent into a guard that blocks forbidden actions + redacts secrets
 export { buildGuard, compileGuard, guardSummary, GUARD_SCHEMA } from './guard.mjs';
+// Prompt -> intent (deterministic half) , scaffold a rigorous draft + gap checklist from a brief
+export { draftIntent, DRAFT_SCHEMA } from './draft.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,

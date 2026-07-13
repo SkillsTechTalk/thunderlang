@@ -13,6 +13,31 @@ It has three pieces, all deterministic (no AI) and browser-safe via
 - `proposeIntent(structured, { base })` , a reviewable proposal from an edited graph.
 - `applyEdits(source, edits)` , lossless, comment-preserving field edits on the source.
 
+## Draft: a brief into rigorous intent
+
+Authoring intent by hand is friction most developers skip. `draftIntent(brief)` removes it: give
+a **structured brief** , the essentials you already know , and it scaffolds a canonical, parseable
+intent draft **and** a review checklist of exactly what is still missing. No AI runs; the draft is
+a proposal, never marked verified. (An agent can produce the brief from a free-text request , via
+the [`intent_draft` MCP tool](/docs/verifying-ai-changes) , and a human approves the result.)
+
+```js
+import { draftIntent } from "@skillstech/intentlang/core";
+
+const { source, review } = draftIntent({
+  mission: "create invoice",
+  goal: "Create exactly one invoice for an approved order.",
+  guarantees: [{ statement: "no duplicate invoice", verify: "idempotency test" }, "totals are never negative"],
+  inputs: [{ name: "paymentToken", type: "Secret" }],
+});
+// source -> canonical IntentLang
+// review -> [ "Guarantee 'totals are never negative' has no verification ...",
+//             "Input 'paymentToken' is a secret , add a never-expose rule ..." ]
+```
+
+From the shell: `intent draft --brief brief.json` (or `--brief -` for stdin), `--write out.intent`
+to save. The gaps print so you know what to fill in before the draft becomes a commitment.
+
 ## Read: source to structured
 
 `parseToStructured` returns the canonical [Intent Graph](/docs/intent-graph) (what a projector

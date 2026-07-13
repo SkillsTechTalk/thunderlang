@@ -93,6 +93,7 @@ The server exposes the deterministic capabilities an agent needs:
 | Tool | For |
 | --- | --- |
 | `intent_verify_diff` | **the gate** , check a proposed change against its intent before shipping |
+| `intent_draft` | turn a structured brief into a rigorous intent draft + a gap checklist |
 | `intent_check` | run diagnostics on intent source |
 | `intent_lift` | bootstrap intent from existing code (11 languages) |
 | `intent_run` / `intent_test` | evaluate a decision / run in-file tests |

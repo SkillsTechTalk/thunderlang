@@ -13,6 +13,7 @@ import { liftSource, SUPPORTED_LANGUAGES } from './lift.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateDecision } from './runtime.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
+import { draftIntent } from './draft.mjs';
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';
 
 const PROTOCOL_VERSION = '2024-11-05';
@@ -42,6 +43,15 @@ const TOOLS = [
       },
     },
     run: ({ intent, after, before = null, language = 'typescript' }) => verifyDiff(String(intent), { before: before == null ? null : String(before), after: String(after), language }),
+  },
+  {
+    name: 'intent_draft',
+    description: 'Turn a STRUCTURED brief into a rigorous, canonically-formatted IntentLang draft plus a review checklist of what a human must still fill in (unverified guarantees, unguarded secrets, missing goal). Use this after distilling a user request into structured fields; the draft is a proposal for human approval, never verified.',
+    inputSchema: {
+      type: 'object', required: ['brief'],
+      properties: { brief: { type: 'object', description: 'fields: mission, goal, actor, problem, guarantees[], neverRules[], inputs[{name,type}], outputs[], decisions[]' } },
+    },
+    run: ({ brief }) => draftIntent(brief || {}),
   },
   {
     name: 'intent_lift',

@@ -31,6 +31,8 @@ export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
 // Runtime enforcement (browser-safe) , a guard that blocks forbidden actions + redacts secrets.
 export { buildGuard, compileGuard, guardSummary, GUARD_SCHEMA } from './guard.mjs';
+// Prompt -> intent (browser-safe) , scaffold a rigorous draft + gap checklist from a brief.
+export { draftIntent, DRAFT_SCHEMA } from './draft.mjs';
 export { compileExpr, evalExpr, ExprError } from './expr.mjs';
 
 // Style intent , canonical token address space + accessibility vocabulary (browser-safe).
