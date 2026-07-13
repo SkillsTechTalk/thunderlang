@@ -9,6 +9,7 @@
       "what": "the Python HTTP library , its public verb API",
       "source": "https://raw.githubusercontent.com/psf/requests/main/src/requests/api.py",
       "path": "src/requests/api.py",
+      "publicFunctions": 8,
       "missionCount": 8,
       "missions": [
         {
@@ -76,6 +77,7 @@
       "what": "the Node web framework , its application methods",
       "source": "https://raw.githubusercontent.com/expressjs/express/master/lib/application.js",
       "path": "lib/application.js",
+      "publicFunctions": 20,
       "missionCount": 20,
       "missions": [
         {
@@ -227,6 +229,7 @@
       "what": "a popular Go HTTP router",
       "source": "https://raw.githubusercontent.com/gorilla/mux/main/mux.go",
       "path": "mux.go",
+      "publicFunctions": 27,
       "missionCount": 27,
       "missions": [
         {
@@ -427,6 +430,7 @@
       "what": "the Python micro web framework , its helpers",
       "source": "https://raw.githubusercontent.com/pallets/flask/main/src/flask/helpers.py",
       "path": "src/flask/helpers.py",
+      "publicFunctions": 15,
       "missionCount": 15,
       "missions": [
         {
@@ -543,6 +547,7 @@
       "what": "a lightweight Go HTTP router",
       "source": "https://raw.githubusercontent.com/go-chi/chi/master/mux.go",
       "path": "mux.go",
+      "publicFunctions": 29,
       "missionCount": 29,
       "missions": [
         {
@@ -749,15 +754,801 @@
           "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission MethodNotAllowedHandler\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:MethodNotAllowedHandler\n\nevidence\n  function signature MethodNotAllowedHandler\n\ngoal\n  method not allowed handler (inferred from the MethodNotAllowedHandler signature)\n\ninput\n  methodsAllowed: ...methodTyp\n\noutput\n  result: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
         }
       ]
+    },
+    {
+      "name": "radash",
+      "language": "typescript",
+      "license": "MIT",
+      "what": "a modern TypeScript utility library , its array helpers",
+      "source": "https://raw.githubusercontent.com/sodiray/radash/master/src/array.ts",
+      "path": "src/array.ts",
+      "publicFunctions": 5,
+      "missionCount": 5,
+      "missions": [
+        {
+          "mission": "Max",
+          "fn": "max",
+          "line": 241,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Max\n\ninferred\n  from TypeScript\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/array.ts:max\n\nevidence\n  function signature max\n\ngoal\n  max (inferred from the max signature)\n\ninput\n  array: readonly [number\n  ...number[]]: Unknown\n\noutput\n  result: number\nexport function max(array: readonly number[]): number | null\nexport function max<T>(\n  array: readonly T[],\n  getter: (item: T) => number\n): T | null\nexport function max<T>(\n  array: readonly T[],\n  getter?: (item: T) => number\n): T | null\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Min",
+          "fn": "min",
+          "line": 262,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Min\n\ninferred\n  from TypeScript\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/array.ts:min\n\nevidence\n  function signature min\n\ngoal\n  min (inferred from the min signature)\n\ninput\n  array: readonly [number\n  ...number[]]: Unknown\n\noutput\n  result: number\nexport function min(array: readonly number[]): number | null\nexport function min<T>(\n  array: readonly T[],\n  getter: (item: T) => number\n): T | null\nexport function min<T>(\n  array: readonly T[],\n  getter?: (item: T) => number\n): T | null\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Greatest",
+          "fn": "greatest",
+          "line": 85,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Greatest\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/array.ts:greatest\n\nevidence\n  function signature greatest\n\ngoal\n  greatest (inferred from the greatest signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Asc",
+          "fn": "asc",
+          "line": 141,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Asc\n\ninferred\n  from TypeScript\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/array.ts:asc\n\nevidence\n  function signature asc\n\ngoal\n  asc (inferred from the asc signature)\n\ninput\n  a: T\n  b: T\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Dsc",
+          "fn": "dsc",
+          "line": 142,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Dsc\n\ninferred\n  from TypeScript\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/array.ts:dsc\n\nevidence\n  function signature dsc\n\ngoal\n  dsc (inferred from the dsc signature)\n\ninput\n  a: T\n  b: T\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Guava Strings",
+      "language": "java",
+      "license": "Apache-2.0",
+      "what": "Google Guava's string utilities",
+      "source": "https://raw.githubusercontent.com/google/guava/master/guava/src/com/google/common/base/Strings.java",
+      "path": "com/google/common/base/Strings.java",
+      "publicFunctions": 10,
+      "missionCount": 10,
+      "missions": [
+        {
+          "mission": "NullToEmpty",
+          "fn": "nullToEmpty",
+          "line": 46,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission NullToEmpty\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:nullToEmpty\n\nevidence\n  function signature nullToEmpty\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  null to empty (inferred from the nullToEmpty signature)\n\ninput\n  string: String\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsNullOrEmpty",
+          "fn": "isNullOrEmpty",
+          "line": 71,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission IsNullOrEmpty\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:isNullOrEmpty\n\nevidence\n  function signature isNullOrEmpty\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  is null or empty (inferred from the isNullOrEmpty signature)\n\ninput\n  string: String\n\noutput\n  result: boolean\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PadStart",
+          "fn": "padStart",
+          "line": 93,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission PadStart\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:padStart\n\nevidence\n  function signature padStart\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  pad start (inferred from the padStart signature)\n\ninput\n  string: String\n  minLength: int\n  padChar: char\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PadEnd",
+          "fn": "padEnd",
+          "line": 124,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission PadEnd\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:padEnd\n\nevidence\n  function signature padEnd\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  pad end (inferred from the padEnd signature)\n\ninput\n  string: String\n  minLength: int\n  padChar: char\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Repeat",
+          "fn": "repeat",
+          "line": 151,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission Repeat\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:repeat\n\nevidence\n  function signature repeat\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  repeat (inferred from the repeat signature)\n\ninput\n  string: String\n  count: int\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CommonPrefix",
+          "fn": "commonPrefix",
+          "line": 184,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission CommonPrefix\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:commonPrefix\n\nevidence\n  function signature commonPrefix\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  common prefix (inferred from the commonPrefix signature)\n\ninput\n  a: CharSequence\n  b: CharSequence\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CommonSuffix",
+          "fn": "commonSuffix",
+          "line": 206,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission CommonSuffix\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:commonSuffix\n\nevidence\n  function signature commonSuffix\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  common suffix (inferred from the commonSuffix signature)\n\ninput\n  a: CharSequence\n  b: CharSequence\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ValidSurrogatePairAt",
+          "fn": "validSurrogatePairAt",
+          "line": 227,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission ValidSurrogatePairAt\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:validSurrogatePairAt\n\nevidence\n  function signature validSurrogatePairAt\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  valid surrogate pair at (inferred from the validSurrogatePairAt signature)\n\ninput\n  string: CharSequence\n  index: int\n\noutput\n  result: boolean\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "LenientFormat",
+          "fn": "lenientFormat",
+          "line": 265,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission LenientFormat\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:lenientFormat\n\nevidence\n  function signature lenientFormat\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  lenient format (inferred from the lenientFormat signature)\n\ninput\n  template: String\n  args: Object ...\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "LenientToString",
+          "fn": "lenientToString",
+          "line": 303,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Java. Draft, unverified, needs human review.\nmission LenientToString\n\ninferred\n  from Java\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function com/google/common/base/Strings.java:lenientToString\n\nevidence\n  function signature lenientToString\n  error ArrayIndexOutOfBoundsException\n\ngoal\n  lenient to string (inferred from the lenientToString signature)\n\ninput\n  o: Object\n\noutput\n  result: String\n\nnever\n  cause array index out of bounds exception\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Laravel Str",
+      "language": "php",
+      "license": "MIT",
+      "what": "Laravel's string helper",
+      "source": "https://raw.githubusercontent.com/laravel/framework/master/src/Illuminate/Support/Str.php",
+      "path": "src/Illuminate/Support/Str.php",
+      "publicFunctions": 110,
+      "missionCount": 40,
+      "missions": [
+        {
+          "mission": "Of",
+          "fn": "of",
+          "line": 82,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Of\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:of\n\nevidence\n  function signature of\n\ngoal\n  of (inferred from the of signature)\n\ninput\n  string: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "After",
+          "fn": "after",
+          "line": 94,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission After\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:after\n\nevidence\n  function signature after\n\ngoal\n  after (inferred from the after signature)\n\ninput\n  subject: Unknown\n  search: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "AfterLast",
+          "fn": "afterLast",
+          "line": 106,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission AfterLast\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:afterLast\n\nevidence\n  function signature afterLast\n\ngoal\n  after last (inferred from the afterLast signature)\n\ninput\n  subject: Unknown\n  search: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Ascii",
+          "fn": "ascii",
+          "line": 128,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Ascii\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:ascii\n\nevidence\n  function signature ascii\n\ngoal\n  ascii (inferred from the ascii signature)\n\ninput\n  value: Unknown\n  language: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Transliterate",
+          "fn": "transliterate",
+          "line": 141,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Transliterate\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:transliterate\n\nevidence\n  function signature transliterate\n\ngoal\n  transliterate (inferred from the transliterate signature)\n\ninput\n  string: Unknown\n  unknown: Unknown\n  strict: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Before",
+          "fn": "before",
+          "line": 153,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Before\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:before\n\nevidence\n  function signature before\n\ngoal\n  before (inferred from the before signature)\n\ninput\n  subject: Unknown\n  search: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "BeforeLast",
+          "fn": "beforeLast",
+          "line": 171,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission BeforeLast\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:beforeLast\n\nevidence\n  function signature beforeLast\n\ngoal\n  before last (inferred from the beforeLast signature)\n\ninput\n  subject: Unknown\n  search: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Between",
+          "fn": "between",
+          "line": 194,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Between\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:between\n\nevidence\n  function signature between\n\ngoal\n  between (inferred from the between signature)\n\ninput\n  subject: Unknown\n  from: Unknown\n  to: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "BetweenFirst",
+          "fn": "betweenFirst",
+          "line": 211,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission BetweenFirst\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:betweenFirst\n\nevidence\n  function signature betweenFirst\n\ngoal\n  between first (inferred from the betweenFirst signature)\n\ninput\n  subject: Unknown\n  from: Unknown\n  to: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Camel",
+          "fn": "camel",
+          "line": 226,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Camel\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:camel\n\nevidence\n  function signature camel\n\ngoal\n  camel (inferred from the camel signature)\n\ninput\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CharAt",
+          "fn": "charAt",
+          "line": 238,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission CharAt\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:charAt\n\nevidence\n  function signature charAt\n\ngoal\n  char at (inferred from the charAt signature)\n\ninput\n  subject: Unknown\n  index: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ChopStart",
+          "fn": "chopStart",
+          "line": 256,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission ChopStart\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:chopStart\n\nevidence\n  function signature chopStart\n\ngoal\n  chop start (inferred from the chopStart signature)\n\ninput\n  subject: Unknown\n  needle: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ChopEnd",
+          "fn": "chopEnd",
+          "line": 274,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission ChopEnd\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:chopEnd\n\nevidence\n  function signature chopEnd\n\ngoal\n  chop end (inferred from the chopEnd signature)\n\ninput\n  subject: Unknown\n  needle: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Contains",
+          "fn": "contains",
+          "line": 293,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Contains\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:contains\n\nevidence\n  function signature contains\n\ngoal\n  contains (inferred from the contains signature)\n\ninput\n  haystack: Unknown\n  needles: Unknown\n  ignoreCase: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ContainsAll",
+          "fn": "containsAll",
+          "line": 328,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission ContainsAll\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:containsAll\n\nevidence\n  function signature containsAll\n\ngoal\n  contains all (inferred from the containsAll signature)\n\ninput\n  haystack: Unknown\n  needles: Unknown\n  ignoreCase: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DoesntContain",
+          "fn": "doesntContain",
+          "line": 347,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission DoesntContain\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:doesntContain\n\nevidence\n  function signature doesntContain\n\ngoal\n  doesnt contain (inferred from the doesntContain signature)\n\ninput\n  haystack: Unknown\n  needles: Unknown\n  ignoreCase: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ConvertCase",
+          "fn": "convertCase",
+          "line": 360,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission ConvertCase\n\ninferred\n  from PHP\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:convertCase\n\nevidence\n  function signature convertCase\n\ngoal\n  convert case (inferred from the convertCase signature)\n\ninput\n  string: string\n  mode: int\n  encoding: string\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Deduplicate",
+          "fn": "deduplicate",
+          "line": 372,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Deduplicate\n\ninferred\n  from PHP\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:deduplicate\n\nevidence\n  function signature deduplicate\n\ngoal\n  deduplicate (inferred from the deduplicate signature)\n\ninput\n  string: string\n  characters: array|string\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "EndsWith",
+          "fn": "endsWith",
+          "line": 392,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission EndsWith\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:endsWith\n\nevidence\n  function signature endsWith\n\ngoal\n  ends with (inferred from the endsWith signature)\n\ninput\n  haystack: Unknown\n  needles: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DoesntEndWith",
+          "fn": "doesntEndWith",
+          "line": 418,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission DoesntEndWith\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:doesntEndWith\n\nevidence\n  function signature doesntEndWith\n\ngoal\n  doesnt end with (inferred from the doesntEndWith signature)\n\ninput\n  haystack: Unknown\n  needles: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Excerpt",
+          "fn": "excerpt",
+          "line": 431,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Excerpt\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:excerpt\n\nevidence\n  function signature excerpt\n\ngoal\n  excerpt (inferred from the excerpt signature)\n\ninput\n  text: Unknown\n  phrase: Unknown\n  options: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Finish",
+          "fn": "finish",
+          "line": 466,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Finish\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:finish\n\nevidence\n  function signature finish\n\ngoal\n  finish (inferred from the finish signature)\n\ninput\n  value: Unknown\n  cap: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Wrap",
+          "fn": "wrap",
+          "line": 481,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Wrap\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:wrap\n\nevidence\n  function signature wrap\n\ngoal\n  wrap (inferred from the wrap signature)\n\ninput\n  value: Unknown\n  before: Unknown\n  after: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Unwrap",
+          "fn": "unwrap",
+          "line": 494,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Unwrap\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:unwrap\n\nevidence\n  function signature unwrap\n\ngoal\n  unwrap (inferred from the unwrap signature)\n\ninput\n  value: Unknown\n  before: Unknown\n  after: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Is",
+          "fn": "is",
+          "line": 515,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Is\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:is\n\nevidence\n  function signature is\n\ngoal\n  is (inferred from the is signature)\n\ninput\n  pattern: Unknown\n  value: Unknown\n  ignoreCase: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsAscii",
+          "fn": "isAscii",
+          "line": 558,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission IsAscii\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:isAscii\n\nevidence\n  function signature isAscii\n\ngoal\n  is ascii (inferred from the isAscii signature)\n\ninput\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsJson",
+          "fn": "isJson",
+          "line": 571,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission IsJson\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:isJson\n\nevidence\n  function signature isJson\n\ngoal\n  is json (inferred from the isJson signature)\n\ninput\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsUrl",
+          "fn": "isUrl",
+          "line": 589,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission IsUrl\n\ninferred\n  from PHP\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:isUrl\n\nevidence\n  function signature isUrl\n\ngoal\n  is url (inferred from the isUrl signature)\n\ninput\n  value: Unknown\n  protocols: array\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsUuid",
+          "fn": "isUuid",
+          "line": 645,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission IsUuid\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:isUuid\n\nevidence\n  function signature isUuid\n\ngoal\n  is uuid (inferred from the isUuid signature)\n\ninput\n  value: Unknown\n  version: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsUlid",
+          "fn": "isUlid",
+          "line": 688,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission IsUlid\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:isUlid\n\nevidence\n  function signature isUlid\n\ngoal\n  is ulid (inferred from the isUlid signature)\n\ninput\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Kebab",
+          "fn": "kebab",
+          "line": 703,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Kebab\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:kebab\n\nevidence\n  function signature kebab\n\ngoal\n  kebab (inferred from the kebab signature)\n\ninput\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Length",
+          "fn": "length",
+          "line": 715,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Length\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:length\n\nevidence\n  function signature length\n\ngoal\n  length (inferred from the length signature)\n\ninput\n  value: Unknown\n  encoding: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Limit",
+          "fn": "limit",
+          "line": 729,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Limit\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:limit\n\nevidence\n  function signature limit\n\ngoal\n  limit (inferred from the limit signature)\n\ninput\n  value: Unknown\n  limit: Unknown\n  end: Unknown\n  preserveWords: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Lower",
+          "fn": "lower",
+          "line": 756,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Lower\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:lower\n\nevidence\n  function signature lower\n\ngoal\n  lower (inferred from the lower signature)\n\ninput\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Words",
+          "fn": "words",
+          "line": 769,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Words\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:words\n\nevidence\n  function signature words\n\ngoal\n  words (inferred from the words signature)\n\ninput\n  value: Unknown\n  words: Unknown\n  end: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Markdown",
+          "fn": "markdown",
+          "line": 788,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Markdown\n\ninferred\n  from PHP\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:markdown\n\nevidence\n  function signature markdown\n\ngoal\n  markdown (inferred from the markdown signature)\n\ninput\n  string: Unknown\n  options: array\n  extensions: array\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "InlineMarkdown",
+          "fn": "inlineMarkdown",
+          "line": 811,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission InlineMarkdown\n\ninferred\n  from PHP\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:inlineMarkdown\n\nevidence\n  function signature inlineMarkdown\n\ngoal\n  inline markdown (inferred from the inlineMarkdown signature)\n\ninput\n  string: Unknown\n  options: array\n  extensions: array\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Mask",
+          "fn": "mask",
+          "line": 839,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Mask\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:mask\n\nevidence\n  function signature mask\n\ngoal\n  mask (inferred from the mask signature)\n\ninput\n  string: Unknown\n  character: Unknown\n  index: Unknown\n  length: Unknown\n  encoding: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Match",
+          "fn": "match",
+          "line": 872,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission Match\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:match\n\nevidence\n  function signature match\n\ngoal\n  match (inferred from the match signature)\n\ninput\n  pattern: Unknown\n  subject: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsMatch",
+          "fn": "isMatch",
+          "line": 890,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from PHP. Draft, unverified, needs human review.\nmission IsMatch\n\ninferred\n  from PHP\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/Illuminate/Support/Str.php:isMatch\n\nevidence\n  function signature isMatch\n\ngoal\n  is match (inferred from the isMatch signature)\n\ninput\n  pattern: Unknown\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Rack::Utils",
+      "language": "ruby",
+      "license": "MIT",
+      "what": "Rack's HTTP utility methods",
+      "source": "https://raw.githubusercontent.com/rack/rack/main/lib/rack/utils.rb",
+      "path": "lib/rack/utils.rb",
+      "publicFunctions": 27,
+      "missionCount": 27,
+      "missions": [
+        {
+          "mission": "Escape",
+          "fn": "escape",
+          "line": 39,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission Escape\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:escape\n\nevidence\n  function signature escape\n  error ArgumentError\n\ngoal\n  escape (inferred from the escape signature)\n\ninput\n  s: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "EscapePath",
+          "fn": "escape_path",
+          "line": 45,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission EscapePath\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:escape_path\n\nevidence\n  function signature escape_path\n  error ArgumentError\n\ngoal\n  escape path (inferred from the escape_path signature)\n\ninput\n  s: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "UnescapePath",
+          "fn": "unescape_path",
+          "line": 51,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission UnescapePath\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:unescape_path\n\nevidence\n  function signature unescape_path\n  error ArgumentError\n\ngoal\n  unescape path (inferred from the unescape_path signature)\n\ninput\n  s: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Unescape",
+          "fn": "unescape",
+          "line": 57,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission Unescape\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:unescape\n\nevidence\n  function signature unescape\n  error ArgumentError\n\ngoal\n  unescape (inferred from the unescape signature)\n\ninput\n  s: Unknown\n  encoding: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ParamDepthLimit",
+          "fn": "param_depth_limit",
+          "line": 81,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ParamDepthLimit\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:param_depth_limit\n\nevidence\n  function signature param_depth_limit\n  error ArgumentError\n\ngoal\n  param depth limit (inferred from the param_depth_limit signature)\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ParamDepthLimit=",
+          "fn": "param_depth_limit=",
+          "line": 85,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ParamDepthLimit=\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:param_depth_limit=\n\nevidence\n  function signature param_depth_limit=\n  error ArgumentError\n\ngoal\n  param depth limit= (inferred from the param_depth_limit= signature)\n\ninput\n  v: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ParseQuery",
+          "fn": "parse_query",
+          "line": 101,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ParseQuery\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:parse_query\n\nevidence\n  function signature parse_query\n  error ArgumentError\n\ngoal\n  parse query (inferred from the parse_query signature)\n\ninput\n  qs: Unknown\n  d: Unknown\n  unescaper: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ParseNestedQuery",
+          "fn": "parse_nested_query",
+          "line": 105,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ParseNestedQuery\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:parse_nested_query\n\nevidence\n  function signature parse_nested_query\n  error ArgumentError\n\ngoal\n  parse nested query (inferred from the parse_nested_query signature)\n\ninput\n  qs: Unknown\n  d: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "BuildQuery",
+          "fn": "build_query",
+          "line": 109,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission BuildQuery\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:build_query\n\nevidence\n  function signature build_query\n  error ArgumentError\n\ngoal\n  build query (inferred from the build_query signature)\n\ninput\n  params: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "BuildNestedQuery",
+          "fn": "build_nested_query",
+          "line": 119,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission BuildNestedQuery\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:build_nested_query\n\nevidence\n  function signature build_nested_query\n  error ArgumentError\n\ngoal\n  build nested query (inferred from the build_nested_query signature)\n\ninput\n  value: Unknown\n  prefix: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "QValues",
+          "fn": "q_values",
+          "line": 137,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission QValues\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:q_values\n\nevidence\n  function signature q_values\n  error ArgumentError\n\ngoal\n  q values (inferred from the q_values signature)\n\ninput\n  q_value_header: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ForwardedValues",
+          "fn": "forwarded_values",
+          "line": 151,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ForwardedValues\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:forwarded_values\n\nevidence\n  function signature forwarded_values\n  error ArgumentError\n\ngoal\n  forwarded values (inferred from the forwarded_values signature)\n\ninput\n  forwarded_header: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "BestQMatch",
+          "fn": "best_q_match",
+          "line": 226,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission BestQMatch\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:best_q_match\n\nevidence\n  function signature best_q_match\n  error ArgumentError\n\ngoal\n  best q match (inferred from the best_q_match signature)\n\ninput\n  q_value_header: Unknown\n  available_mimes: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SelectBestEncoding",
+          "fn": "select_best_encoding",
+          "line": 273,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission SelectBestEncoding\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:select_best_encoding\n\nevidence\n  function signature select_best_encoding\n  error ArgumentError\n\ngoal\n  select best encoding (inferred from the select_best_encoding signature)\n\ninput\n  available_encodings: Unknown\n  accept_encoding: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ParseCookiesHeader",
+          "fn": "parse_cookies_header",
+          "line": 327,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ParseCookiesHeader\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:parse_cookies_header\n\nevidence\n  function signature parse_cookies_header\n  error ArgumentError\n\ngoal\n  parse cookies header (inferred from the parse_cookies_header signature)\n\ninput\n  value: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ParseCookies",
+          "fn": "parse_cookies",
+          "line": 346,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ParseCookies\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:parse_cookies\n\nevidence\n  function signature parse_cookies\n  error ArgumentError\n\ngoal\n  parse cookies (inferred from the parse_cookies signature)\n\ninput\n  env: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SetCookieHeader",
+          "fn": "set_cookie_header",
+          "line": 375,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission SetCookieHeader\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:set_cookie_header\n\nevidence\n  function signature set_cookie_header\n  error ArgumentError\n\ngoal\n  set cookie header (inferred from the set_cookie_header signature)\n\ninput\n  key: Unknown\n  value: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SetCookieHeader!",
+          "fn": "set_cookie_header!",
+          "line": 419,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission SetCookieHeader!\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:set_cookie_header!\n\nevidence\n  function signature set_cookie_header!\n  error ArgumentError\n\ngoal\n  set cookie header! (inferred from the set_cookie_header! signature)\n\ninput\n  headers: Unknown\n  key: Unknown\n  value: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DeleteSetCookieHeader",
+          "fn": "delete_set_cookie_header",
+          "line": 445,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission DeleteSetCookieHeader\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:delete_set_cookie_header\n\nevidence\n  function signature delete_set_cookie_header\n  error ArgumentError\n\ngoal\n  delete set cookie header (inferred from the delete_set_cookie_header signature)\n\ninput\n  key: Unknown\n  value: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DeleteCookieHeader!",
+          "fn": "delete_cookie_header!",
+          "line": 449,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission DeleteCookieHeader!\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:delete_cookie_header!\n\nevidence\n  function signature delete_cookie_header!\n  error ArgumentError\n\ngoal\n  delete cookie header! (inferred from the delete_cookie_header! signature)\n\ninput\n  headers: Unknown\n  key: Unknown\n  value: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DeleteSetCookieHeader!",
+          "fn": "delete_set_cookie_header!",
+          "line": 473,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission DeleteSetCookieHeader!\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:delete_set_cookie_header!\n\nevidence\n  function signature delete_set_cookie_header!\n  error ArgumentError\n\ngoal\n  delete set cookie header! (inferred from the delete_set_cookie_header! signature)\n\ninput\n  header: Unknown\n  key: Unknown\n  value: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Rfc2822",
+          "fn": "rfc2822",
+          "line": 484,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission Rfc2822\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:rfc2822\n\nevidence\n  function signature rfc2822\n  error ArgumentError\n\ngoal\n  rfc2822 (inferred from the rfc2822 signature)\n\ninput\n  time: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ByteRanges",
+          "fn": "byte_ranges",
+          "line": 491,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ByteRanges\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:byte_ranges\n\nevidence\n  function signature byte_ranges\n  error ArgumentError\n\ngoal\n  byte ranges (inferred from the byte_ranges signature)\n\ninput\n  env: Unknown\n  size: Unknown\n  max_ranges: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetByteRanges",
+          "fn": "get_byte_ranges",
+          "line": 495,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission GetByteRanges\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:get_byte_ranges\n\nevidence\n  function signature get_byte_ranges\n  error ArgumentError\n\ngoal\n  get byte ranges (inferred from the get_byte_ranges signature)\n\ninput\n  http_range: Unknown\n  size: Unknown\n  max_ranges: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "StatusCode",
+          "fn": "status_code",
+          "line": 673,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission StatusCode\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:status_code\n\nevidence\n  function signature status_code\n  error ArgumentError\n\ngoal\n  status code (inferred from the status_code signature)\n\ninput\n  status: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CleanPathInfo",
+          "fn": "clean_path_info",
+          "line": 691,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission CleanPathInfo\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:clean_path_info\n\nevidence\n  function signature clean_path_info\n  error ArgumentError\n\ngoal\n  clean path info (inferred from the clean_path_info signature)\n\ninput\n  path_info: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ValidPath?",
+          "fn": "valid_path?",
+          "line": 708,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Ruby. Draft, unverified, needs human review.\nmission ValidPath?\n\ninferred\n  from Ruby\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/rack/utils.rb:valid_path?\n\nevidence\n  function signature valid_path?\n  error ArgumentError\n\ngoal\n  valid path? (inferred from the valid_path? signature)\n\ninput\n  path: Unknown\n\nnever\n  cause argument error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "bitflags",
+      "language": "rust",
+      "license": "Apache-2.0",
+      "what": "a widely-used Rust bitflags crate",
+      "source": "https://raw.githubusercontent.com/bitflags/bitflags/main/src/lib.rs",
+      "path": "src/lib.rs",
+      "publicFunctions": 21,
+      "missionCount": 21,
+      "missions": [
+        {
+          "mission": "AsU64",
+          "fn": "as_u64",
+          "line": 127,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission AsU64\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:as_u64\n\nevidence\n  function signature as_u64\n\ngoal\n  as u64 (inferred from the as_u64 signature)\n\noutput\n  result: u64\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Empty",
+          "fn": "empty",
+          "line": 635,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Empty\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:empty\n\nevidence\n  function signature empty\n\ngoal\n  empty (inferred from the empty signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "All",
+          "fn": "all",
+          "line": 636,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission All\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:all\n\nevidence\n  function signature all\n\ngoal\n  all (inferred from the all signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Bits",
+          "fn": "bits",
+          "line": 637,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Bits\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:bits\n\nevidence\n  function signature bits\n\ngoal\n  bits (inferred from the bits signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FromBits",
+          "fn": "from_bits",
+          "line": 638,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission FromBits\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:from_bits\n\nevidence\n  function signature from_bits\n\ngoal\n  from bits (inferred from the from_bits signature)\n\ninput\n  bits: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FromBitsTruncate",
+          "fn": "from_bits_truncate",
+          "line": 639,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission FromBitsTruncate\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:from_bits_truncate\n\nevidence\n  function signature from_bits_truncate\n\ngoal\n  from bits truncate (inferred from the from_bits_truncate signature)\n\ninput\n  bits: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FromBitsRetain",
+          "fn": "from_bits_retain",
+          "line": 640,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission FromBitsRetain\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:from_bits_retain\n\nevidence\n  function signature from_bits_retain\n\ngoal\n  from bits retain (inferred from the from_bits_retain signature)\n\ninput\n  bits: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "FromName",
+          "fn": "from_name",
+          "line": 641,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission FromName\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:from_name\n\nevidence\n  function signature from_name\n\ngoal\n  from name (inferred from the from_name signature)\n\ninput\n  name: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsEmpty",
+          "fn": "is_empty",
+          "line": 642,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission IsEmpty\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:is_empty\n\nevidence\n  function signature is_empty\n\ngoal\n  is empty (inferred from the is_empty signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "IsAll",
+          "fn": "is_all",
+          "line": 643,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission IsAll\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:is_all\n\nevidence\n  function signature is_all\n\ngoal\n  is all (inferred from the is_all signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Intersects",
+          "fn": "intersects",
+          "line": 644,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Intersects\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:intersects\n\nevidence\n  function signature intersects\n\ngoal\n  intersects (inferred from the intersects signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Contains",
+          "fn": "contains",
+          "line": 645,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Contains\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:contains\n\nevidence\n  function signature contains\n\ngoal\n  contains (inferred from the contains signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Insert",
+          "fn": "insert",
+          "line": 646,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Insert\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:insert\n\nevidence\n  function signature insert\n\ngoal\n  insert (inferred from the insert signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Remove",
+          "fn": "remove",
+          "line": 647,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Remove\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:remove\n\nevidence\n  function signature remove\n\ngoal\n  remove (inferred from the remove signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Toggle",
+          "fn": "toggle",
+          "line": 648,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Toggle\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:toggle\n\nevidence\n  function signature toggle\n\ngoal\n  toggle (inferred from the toggle signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Set",
+          "fn": "set",
+          "line": 649,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Set\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:set\n\nevidence\n  function signature set\n\ngoal\n  set (inferred from the set signature)\n\ninput\n  other: Unknown\n  value: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Intersection",
+          "fn": "intersection",
+          "line": 650,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Intersection\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:intersection\n\nevidence\n  function signature intersection\n\ngoal\n  intersection (inferred from the intersection signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Union",
+          "fn": "union",
+          "line": 651,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Union\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:union\n\nevidence\n  function signature union\n\ngoal\n  union (inferred from the union signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Difference",
+          "fn": "difference",
+          "line": 652,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Difference\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:difference\n\nevidence\n  function signature difference\n\ngoal\n  difference (inferred from the difference signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SymmetricDifference",
+          "fn": "symmetric_difference",
+          "line": 653,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission SymmetricDifference\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:symmetric_difference\n\nevidence\n  function signature symmetric_difference\n\ngoal\n  symmetric difference (inferred from the symmetric_difference signature)\n\ninput\n  other: Unknown\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Complement",
+          "fn": "complement",
+          "line": 654,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Rust. Draft, unverified, needs human review.\nmission Complement\n\ninferred\n  from Rust\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/lib.rs:complement\n\nevidence\n  function signature complement\n\ngoal\n  complement (inferred from the complement signature)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
     }
   ],
   "totals": {
-    "projects": 5,
-    "missions": 99,
+    "projects": 10,
+    "missions": 202,
     "languages": [
       "go",
+      "java",
       "javascript",
-      "python"
+      "php",
+      "python",
+      "ruby",
+      "rust",
+      "typescript"
     ]
   }
 }

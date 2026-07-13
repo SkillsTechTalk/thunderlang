@@ -24,7 +24,15 @@ const CURATED = [
   { name: 'gorilla/mux', language: 'go', license: 'BSD-3-Clause', what: 'a popular Go HTTP router', url: 'https://raw.githubusercontent.com/gorilla/mux/main/mux.go', path: 'mux.go' },
   { name: 'Flask', language: 'python', license: 'BSD-3-Clause', what: 'the Python micro web framework , its helpers', url: 'https://raw.githubusercontent.com/pallets/flask/main/src/flask/helpers.py', path: 'src/flask/helpers.py' },
   { name: 'chi', language: 'go', license: 'MIT', what: 'a lightweight Go HTTP router', url: 'https://raw.githubusercontent.com/go-chi/chi/master/mux.go', path: 'mux.go' },
+  { name: 'radash', language: 'typescript', license: 'MIT', what: 'a modern TypeScript utility library , its array helpers', url: 'https://raw.githubusercontent.com/sodiray/radash/master/src/array.ts', path: 'src/array.ts' },
+  { name: 'Guava Strings', language: 'java', license: 'Apache-2.0', what: "Google Guava's string utilities", url: 'https://raw.githubusercontent.com/google/guava/master/guava/src/com/google/common/base/Strings.java', path: 'com/google/common/base/Strings.java' },
+  { name: 'Laravel Str', language: 'php', license: 'MIT', what: "Laravel's string helper", url: 'https://raw.githubusercontent.com/laravel/framework/master/src/Illuminate/Support/Str.php', path: 'src/Illuminate/Support/Str.php' },
+  { name: 'Rack::Utils', language: 'ruby', license: 'MIT', what: "Rack's HTTP utility methods", url: 'https://raw.githubusercontent.com/rack/rack/main/lib/rack/utils.rb', path: 'lib/rack/utils.rb' },
+  { name: 'bitflags', language: 'rust', license: 'Apache-2.0', what: 'a widely-used Rust bitflags crate', url: 'https://raw.githubusercontent.com/bitflags/bitflags/main/src/lib.rs', path: 'src/lib.rs' },
 ];
+
+// Keep the page + dataset usable: show a representative slice of very large APIs (honestly noted).
+const MAX_PER_PROJECT = 40;
 
 async function main() {
   const projects = [];
@@ -35,9 +43,10 @@ async function main() {
     const lifted = liftAll(source, { language: c.language, file: c.path });
     if (!lifted.ok || !lifted.count) { console.error(`skip ${c.name}: ${lifted.error || 'no functions lifted'}`); continue; }
     // Keep the lift honest + compact: name, source function, confidence, and the intent draft.
-    const missions = lifted.missions.map((m) => ({ mission: m.mission, fn: m.fn, line: m.line, confidence: m.confidence, intent: m.intentText }));
-    projects.push({ name: c.name, language: c.language, license: c.license, what: c.what, source: c.url, path: c.path, missionCount: missions.length, missions });
-    console.log(`ok ${c.name} (${c.language}): ${missions.length} mission(s)`);
+    const all = lifted.missions.map((m) => ({ mission: m.mission, fn: m.fn, line: m.line, confidence: m.confidence, intent: m.intentText }));
+    const missions = all.slice(0, MAX_PER_PROJECT);
+    projects.push({ name: c.name, language: c.language, license: c.license, what: c.what, source: c.url, path: c.path, publicFunctions: all.length, missionCount: missions.length, missions });
+    console.log(`ok ${c.name} (${c.language}): ${missions.length}${all.length > missions.length ? ` of ${all.length}` : ''} mission(s)`);
   }
   const atlas = {
     schema: 'intent-atlas-v1',

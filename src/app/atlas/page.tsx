@@ -14,7 +14,7 @@ export const metadata = pageMeta({
 type Mission = { mission: string; fn: string; line: number; confidence: string; intent: string };
 type Project = {
   name: string; language: string; license: string; what: string;
-  source: string; path: string; missionCount: number; missions: Mission[];
+  source: string; path: string; publicFunctions?: number; missionCount: number; missions: Mission[];
 };
 
 const LANG_LABEL: Record<string, string> = {
@@ -47,7 +47,11 @@ export default function AtlasPage() {
             <h2 className="text-xl font-semibold text-white">{p.name}</h2>
             <Pill>{LANG_LABEL[p.language] ?? p.language}</Pill>
             <Pill>{p.license}</Pill>
-            <span className="text-sm text-haze-400">{p.missionCount} missions</span>
+            <span className="text-sm text-haze-400">
+              {p.publicFunctions && p.publicFunctions > p.missionCount
+                ? `${p.missionCount} of ${p.publicFunctions} public functions`
+                : `${p.missionCount} missions`}
+            </span>
           </div>
           <p className="mb-4 text-sm text-haze-300">
             {p.what}. Lifted from{" "}
