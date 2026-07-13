@@ -35,6 +35,12 @@ warnings are valuable on their own. Example:
 > Mission CreateInvoice guarantees duplicate prevention but declares no
 > idempotency key, unique order reference, or lookup rule.
 
+It also runs deterministic security and type checks , the mistakes that slip past a
+prompt: a secret-typed field on an event payload (`IL-SEC-001`, secrets must not ride the
+event bus), a sensitive value returned from an API with no auth requirement (`IL-SEC-002`),
+and a field whose type is unrecognized and almost certainly a typo (`IL-TYPE-001`). See the
+full [diagnostics catalog](/docs/diagnostics).
+
 ### 3. Contract graph
 A graph of missions, requirements, guarantees, assumptions, risks, forbidden
 behavior, and verification rules. Foundation for OpenThunder drift detection.

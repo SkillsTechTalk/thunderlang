@@ -14,6 +14,7 @@ import { analyzeDecision } from './decision.mjs';
 import { analyzePrivacy } from './privacy.mjs';
 import { outcomeDiagnostics } from './outcome.mjs';
 import { styleDiagnostics } from './style.mjs';
+import { securityDiagnostics } from './security.mjs';
 
 // Notes metadata for proof / summaries. Notes explain meaning; they never verify.
 export function notesSummary(ast) {
@@ -440,6 +441,22 @@ export function semanticDiagnostics(ast) {
       severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? f.blocks : undefined,
       message: f.message, why: STYLE_WHY[f.ruleId],
       roles: { designer: f.message, product: f.message },
+    });
+  }
+
+  // ── Security + type , secrets on the bus, sensitive unauthenticated output, mistyped fields ──
+  const SECURITY_WHY = {
+    'IL-SEC-001': 'Event payloads fan out to every consumer and are often logged/persisted; a secret in one is a broad leak.',
+    'IL-SEC-002': 'Returning a secret with no auth requirement hands it to any caller; gate it behind an auth requirement.',
+    'IL-TYPE-001': 'An unrecognized lowercase type is almost always a typo, so the field silently loses its intended shape.',
+  };
+  for (const f of securityDiagnostics(ast)) {
+    const isBlocker = f.severity === 'blocker';
+    d.push({
+      level: f.severity === 'info' ? 'info' : 'warning', code: f.code,
+      severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['release'] : undefined,
+      message: f.message, why: SECURITY_WHY[f.code],
+      roles: { engineer: f.message, security: f.message },
     });
   }
 

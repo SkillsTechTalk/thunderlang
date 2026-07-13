@@ -9,7 +9,7 @@ the contract: editors, CI, and OpenThunder key off them, and they never change m
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
 same data as JSON with `intent rules --json`, or one rule with `intent explain <CODE>`.
 
-46 canonical diagnostics across 13 areas.
+49 canonical diagnostics across 15 areas.
 
 ## Conflict
 
@@ -106,6 +106,13 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `IL-PM-001` | warning | `release` | Metric has no measurement window. |
 | `IL-PM-003` | warning | — | Outcome has no metric. |
 
+## security
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `IL-SEC-001` | blocker | `release` | Secret-typed field travels over the event bus. |
+| `IL-SEC-002` | blocker | `release` | API returns a secret with no auth requirement. |
+
 ## Style intent
 
 | Code | Severity | Blocks | Meaning |
@@ -121,3 +128,9 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | Code | Severity | Blocks | Meaning |
 | --- | --- | --- | --- |
 | `IL-TEMP-001` | blocker | `verification` | Eventually with no time bound (cannot be verified). |
+
+## type
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `IL-TYPE-001` | info | — | Field uses an unrecognized (likely mistyped) type. |

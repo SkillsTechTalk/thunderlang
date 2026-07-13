@@ -292,6 +292,11 @@ export function exportIntent(ast: IntentAst, format: string): { format: string; 
 
 // Data-shape export: typed fields -> JSON Schema / OpenAPI
 export function typeToJsonSchema(type: string): Record<string, unknown>;
+export function isRecognizedType(type: string): boolean;
+export const SEMANTIC_TYPES: string[];
+export const PRIMITIVE_TYPES: string[];
+export const SECURITY_SCHEMA: string;
+export function securityDiagnostics(ast: IntentAst): Array<{ code: string; severity: string; message: string; where: string; line: number | null }>;
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 

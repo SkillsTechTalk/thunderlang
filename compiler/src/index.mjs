@@ -72,7 +72,7 @@ export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } fr
 // Export adapters , decisions/lifecycles/temporal -> DMN / BPMN / NuSMV (interop)
 export { toDMN, toBPMN, toSMV, toMermaid, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 // Data-shape export , typed fields -> JSON Schema / OpenAPI
-export { toJSONSchema, toOpenAPI, typeToJsonSchema } from './data-schema.mjs';
+export { toJSONSchema, toOpenAPI, typeToJsonSchema, isRecognizedType, SEMANTIC_TYPES, PRIMITIVE_TYPES } from './data-schema.mjs';
 // Import adapters , external DMN / BPMN -> IntentLang source (round-trip)
 export { fromDMN, fromBPMN, importIntent, importReport, detectFormat, IMPORT_FORMATS, IMPORT_SCHEMA } from './importers.mjs';
 // Graph -> source , regenerate .intent from an Intent Graph (native round-trip)
@@ -90,6 +90,8 @@ export { compileExpr, evalExpr, tokenize, ExprError } from './expr.mjs';
 export { runTests, TEST_SCHEMA } from './testing.mjs';
 // Outcome contracts , executable commitments (evaluate an outcome against its result)
 export { evaluateOutcomeContract, evaluateOutcomes, outcomeDiagnostics, parseValue, OUTCOME_SCHEMA } from './outcome.mjs';
+// Security + type semantic pass , secrets on the bus, unauthenticated sensitive output, typos
+export { securityDiagnostics, SECURITY_SCHEMA } from './security.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,

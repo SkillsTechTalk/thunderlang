@@ -3,6 +3,56 @@
 // consumable by API tooling (validators, codegen, mock servers) , the data-shape sibling of
 // the DMN/BPMN decision/lifecycle exporters. Deterministic and pure.
 
+// Known semantic types (with formats) and primitives, keyed lowercase. Module-level so the
+// security/type semantic pass (`isRecognizedType`) and the JSON-Schema mapping share ONE
+// source of truth , no drift between "what compiles" and "what the schema knows."
+const SEMANTIC = {
+  email: { type: 'string', format: 'email' },
+  url: { type: 'string', format: 'uri' },
+  uri: { type: 'string', format: 'uri' },
+  date: { type: 'string', format: 'date' },
+  datetime: { type: 'string', format: 'date-time' },
+  timestamp: { type: 'string', format: 'date-time' },
+  duration: { type: 'string', format: 'duration' },
+  uuid: { type: 'string', format: 'uuid' },
+  money: { type: 'number' },
+  currency: { type: 'string' },
+  percentage: { type: 'number', minimum: 0, maximum: 100 },
+  secret: { type: 'string', writeOnly: true },
+  token: { type: 'string' },
+  jwt: { type: 'string' },
+  password: { type: 'string', writeOnly: true },
+  version: { type: 'string' },
+  environmentname: { type: 'string' },
+  idempotencykey: { type: 'string' },
+};
+const PRIMITIVE = {
+  string: { type: 'string' }, text: { type: 'string' },
+  int: { type: 'integer' }, integer: { type: 'integer' }, number: { type: 'number' }, float: { type: 'number' }, decimal: { type: 'number' },
+  bool: { type: 'boolean' }, boolean: { type: 'boolean' },
+  object: { type: 'object' }, any: {},
+};
+
+export const SEMANTIC_TYPES = Object.keys(SEMANTIC);
+export const PRIMITIVE_TYPES = Object.keys(PRIMITIVE);
+
+/**
+ * Is `type` something the compiler recognizes , a known semantic type or primitive, an id
+ * type (`UserId`), a PascalCase entity (opaque object), or a List/Array of a recognized
+ * type? A lowercase word that is none of these is almost always a typo (`emial`, `moeny`).
+ */
+export function isRecognizedType(type) {
+  const t = String(type || '').trim();
+  if (!t) return true; // untyped field , not a type error here
+  const listMatch = t.match(/^(?:List|Array)<(.+)>$/i);
+  if (listMatch) return isRecognizedType(listMatch[1]);
+  const key = t.toLowerCase();
+  if (SEMANTIC[key] || PRIMITIVE[key]) return true;
+  if (/id$/i.test(t)) return true;      // UserId / AccountId ... -> string
+  if (/^[A-Z]/.test(t)) return true;    // PascalCase entity -> opaque object
+  return false;
+}
+
 // Map an IntentLang semantic type to a JSON Schema fragment. Handles List<X> recursively,
 // known semantic types (with formats), primitives, and opaque custom (PascalCase) types.
 export function typeToJsonSchema(type) {
@@ -10,32 +60,6 @@ export function typeToJsonSchema(type) {
   const listMatch = t.match(/^List<(.+)>$/i) || t.match(/^Array<(.+)>$/i);
   if (listMatch) return { type: 'array', items: typeToJsonSchema(listMatch[1]) };
 
-  const SEMANTIC = {
-    email: { type: 'string', format: 'email' },
-    url: { type: 'string', format: 'uri' },
-    uri: { type: 'string', format: 'uri' },
-    date: { type: 'string', format: 'date' },
-    datetime: { type: 'string', format: 'date-time' },
-    timestamp: { type: 'string', format: 'date-time' },
-    duration: { type: 'string', format: 'duration' },
-    uuid: { type: 'string', format: 'uuid' },
-    money: { type: 'number' },
-    currency: { type: 'string' },
-    percentage: { type: 'number', minimum: 0, maximum: 100 },
-    secret: { type: 'string', writeOnly: true },
-    token: { type: 'string' },
-    jwt: { type: 'string' },
-    password: { type: 'string', writeOnly: true },
-    version: { type: 'string' },
-    environmentname: { type: 'string' },
-    idempotencykey: { type: 'string' },
-  };
-  const PRIMITIVE = {
-    string: { type: 'string' }, text: { type: 'string' },
-    int: { type: 'integer' }, integer: { type: 'integer' }, number: { type: 'number' }, float: { type: 'number' }, decimal: { type: 'number' },
-    bool: { type: 'boolean' }, boolean: { type: 'boolean' },
-    object: { type: 'object' }, any: {},
-  };
   const key = t.toLowerCase();
   if (SEMANTIC[key]) return { ...SEMANTIC[key] };
   if (PRIMITIVE[key]) return { ...PRIMITIVE[key] };

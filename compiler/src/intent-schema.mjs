@@ -128,4 +128,7 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-STYLE-003', area: 'style', severity: 'info', blocks: [], summary: 'Style intent declares no accessibility target (a proposed claim).' },
   { ruleId: 'IL-STYLE-004', area: 'style', severity: 'warning', blocks: [], summary: 'Invalid mode token value.' },
   { ruleId: 'IL-STYLE-005', area: 'style', severity: 'info', blocks: [], summary: 'Style intent applies to an undeclared experience.' },
+  { ruleId: 'IL-SEC-001', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'Secret-typed field travels over the event bus.' },
+  { ruleId: 'IL-SEC-002', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'API returns a secret with no auth requirement.' },
+  { ruleId: 'IL-TYPE-001', area: 'type', severity: 'info', blocks: [], summary: 'Field uses an unrecognized (likely mistyped) type.' },
 ];

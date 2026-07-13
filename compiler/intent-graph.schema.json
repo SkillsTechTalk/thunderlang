@@ -432,6 +432,31 @@
       "severity": "info",
       "blocks": [],
       "summary": "Style intent applies to an undeclared experience."
+    },
+    {
+      "ruleId": "IL-SEC-001",
+      "area": "security",
+      "severity": "blocker",
+      "blocks": [
+        "release"
+      ],
+      "summary": "Secret-typed field travels over the event bus."
+    },
+    {
+      "ruleId": "IL-SEC-002",
+      "area": "security",
+      "severity": "blocker",
+      "blocks": [
+        "release"
+      ],
+      "summary": "API returns a secret with no auth requirement."
+    },
+    {
+      "ruleId": "IL-TYPE-001",
+      "area": "type",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Field uses an unrecognized (likely mistyped) type."
     }
   ],
   "jsonSchema": {

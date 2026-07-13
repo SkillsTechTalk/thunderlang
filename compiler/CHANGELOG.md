@@ -38,6 +38,10 @@ The executable + interoperable release. Everything is deterministic and requires
   `styleDiagnostics`, `intent style`, diagnostics `IL-STYLE-001..005`, canonical `StyleIntent`
   node with graph round-trip. Browser-safe via `/core`. Exports to **W3C Design Tokens
   (DTCG)** via `intent export --format tokens` / `toDesignTokens` (`intent-design-tokens-v1`).
+- **Security + type diagnostics.** Deterministic checks for the mistakes prompts ship:
+  `IL-SEC-001` (secret-typed field on an event payload), `IL-SEC-002` (API returns a secret
+  with no auth requirement), `IL-TYPE-001` (unrecognized, likely-mistyped field type).
+  `securityDiagnostics`, `isRecognizedType`, catalog now 49 rules.
 - **Canonical proof envelope (`intent-proof-v1`).** The `.intent-proof.json` shape is now a
   published, versioned contract: `intentProofJsonSchema()` (JSON Schema), `validateProof()`
   (dependency-free structural check), `intent proof --schema`, and a well-formedness gate in
