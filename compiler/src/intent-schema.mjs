@@ -132,3 +132,24 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-SEC-002', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'API returns a secret with no auth requirement.' },
   { ruleId: 'IL-TYPE-001', area: 'type', severity: 'info', blocks: [], summary: 'Field uses an unrecognized (likely mistyped) type.' },
 ];
+
+// Core check-surface diagnostics that predate the IL-* catalog. They keep their stable legacy
+// IDs (renaming would break consumers keyed on them), so they live here rather than in
+// DIAGNOSTIC_RULES (which is IL-* only). Documented + explainable all the same; consumers who
+// want the full set use ALL_DIAGNOSTICS below.
+export const CORE_DIAGNOSTICS = [
+  { ruleId: 'missing-goal', area: 'core', severity: 'warning', blocks: [], summary: 'Mission has no goal block.' },
+  { ruleId: 'duplicate-without-idempotency', area: 'core', severity: 'warning', blocks: [], summary: 'A duplicate-prevention guarantee declares no idempotency key or lookup rule.' },
+  { ruleId: 'guarantee-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Guarantee has no explicit verification.' },
+  { ruleId: 'never-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Never-rule has no explicit verification.' },
+  { ruleId: 'secret-without-never-log', area: 'core', severity: 'warning', blocks: [], summary: 'A secret field has no "never log/expose" guard.' },
+  { ruleId: 'error-name-not-pascalcase', area: 'core', severity: 'info', blocks: [], summary: 'Named error is not PascalCase.' },
+  { ruleId: 'unknown-block', area: 'core', severity: 'info', blocks: [], summary: 'Unrecognized top-level block.' },
+  { ruleId: 'INTENT-ARCH-001', area: 'architecture', severity: 'warning', blocks: [], summary: 'Architecture rule not understood.' },
+  { ruleId: 'INTENT-AI-010', area: 'ai', severity: 'warning', blocks: [], summary: 'Unsupported implementation scope.' },
+  { ruleId: 'INTENT_NOTE_UNKNOWN_LENS', area: 'note', severity: 'info', blocks: [], summary: 'IntentLens note uses an unknown lens.' },
+  { ruleId: 'INTENT_NOTE_EMPTY', area: 'note', severity: 'info', blocks: [], summary: 'IntentLens note is empty.' },
+];
+
+// The full set of check-surface diagnostics (canonical IL-* catalog + legacy core codes).
+export const ALL_DIAGNOSTICS = [...DIAGNOSTIC_RULES, ...CORE_DIAGNOSTICS];

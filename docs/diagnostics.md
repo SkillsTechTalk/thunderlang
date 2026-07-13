@@ -9,7 +9,19 @@ the contract: editors, CI, and OpenThunder key off them, and they never change m
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
 same data as JSON with `intent rules --json`, or one rule with `intent explain <CODE>`.
 
-49 canonical diagnostics across 15 areas.
+60 canonical diagnostics across 19 areas.
+
+## AI implementation
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `INTENT-AI-010` | warning | — | Unsupported implementation scope. |
+
+## Architecture
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `INTENT-ARCH-001` | warning | — | Architecture rule not understood. |
 
 ## Conflict
 
@@ -19,6 +31,18 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `IL-CONFLICT-010` | blocker | `implementation` | Scope includes and excludes the same item. |
 | `IL-CONFLICT-011` | info | — | Redundant constraint from multiple roles. |
 | `IL-CONFLICT-012` | blocker | `implementation` | Directly contradictory constraints. |
+
+## Core checks
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `missing-goal` | warning | — | Mission has no goal block. |
+| `duplicate-without-idempotency` | warning | — | A duplicate-prevention guarantee declares no idempotency key or lookup rule. |
+| `guarantee-without-verification` | warning | — | Guarantee has no explicit verification. |
+| `never-without-verification` | warning | — | Never-rule has no explicit verification. |
+| `secret-without-never-log` | warning | — | A secret field has no "never log/expose" guard. |
+| `error-name-not-pascalcase` | info | — | Named error is not PascalCase. |
+| `unknown-block` | info | — | Unrecognized top-level block. |
 
 ## Decisions
 
@@ -79,6 +103,13 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `IL-LIFE-003` | warning | — | Non-terminal dead-end state (no way out). |
 | `IL-LIFE-004` | warning | — | Lifecycle has no initial state. |
 
+## IntentLens notes
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `INTENT_NOTE_UNKNOWN_LENS` | info | — | IntentLens note uses an unknown lens. |
+| `INTENT_NOTE_EMPTY` | info | — | IntentLens note is empty. |
+
 ## Outcome contracts
 
 | Code | Severity | Blocks | Meaning |
@@ -106,7 +137,7 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `IL-PM-001` | warning | `release` | Metric has no measurement window. |
 | `IL-PM-003` | warning | — | Outcome has no metric. |
 
-## security
+## Security
 
 | Code | Severity | Blocks | Meaning |
 | --- | --- | --- | --- |
@@ -129,7 +160,7 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | --- | --- | --- | --- |
 | `IL-TEMP-001` | blocker | `verification` | Eventually with no time bound (cannot be verified). |
 
-## type
+## Types
 
 | Code | Severity | Blocks | Meaning |
 | --- | --- | --- | --- |

@@ -11,7 +11,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DIAGNOSTIC_RULES } from '../compiler/src/intent-schema.mjs';
+import { ALL_DIAGNOSTICS as DIAGNOSTIC_RULES } from '../compiler/src/intent-schema.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -22,6 +22,8 @@ const AREA_TITLES = {
   conflict: 'Conflict', governance: 'Governance', privacy: 'Data & privacy',
   outcome: 'Outcome contracts', decision: 'Decisions', distributed: 'Distributed & failure',
   lifecycle: 'Lifecycle', temporal: 'Temporal', style: 'Style intent',
+  security: 'Security', type: 'Types', core: 'Core checks', architecture: 'Architecture',
+  ai: 'AI implementation', note: 'IntentLens notes',
 };
 
 function generate() {

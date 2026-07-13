@@ -100,7 +100,7 @@ export {
 } from './style.mjs';
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
-  intentGraphJsonSchema, DIAGNOSTIC_RULES,
+  intentGraphJsonSchema, DIAGNOSTIC_RULES, CORE_DIAGNOSTICS, ALL_DIAGNOSTICS,
 } from './intent-schema.mjs';
 
 // Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest

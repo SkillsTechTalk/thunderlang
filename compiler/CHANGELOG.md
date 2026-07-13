@@ -43,6 +43,11 @@ The executable + interoperable release. Everything is deterministic and requires
   `IL-SEC-001` (secret-typed field on an event payload), `IL-SEC-002` (API returns a secret
   with no auth requirement), `IL-TYPE-001` (unrecognized, likely-mistyped field type).
   `securityDiagnostics`, `isRecognizedType`, catalog now 49 rules.
+- **Complete diagnostics reference.** Legacy core check codes (`missing-goal`,
+  `guarantee-without-verification`, ...) are now documented and explainable via
+  `CORE_DIAGNOSTICS` / `ALL_DIAGNOSTICS`, so `intent explain <any-code>`, `intent rules`, and
+  `docs/diagnostics.md` cover everything the check pass emits (60 codes). A guard test keeps it
+  complete. The canonical `DIAGNOSTIC_RULES` stays IL-* only.
 - **Canonical proof envelope (`intent-proof-v1`).** The `.intent-proof.json` shape is now a
   published, versioned contract: `intentProofJsonSchema()` (JSON Schema), `validateProof()`
   (dependency-free structural check), `intent proof --schema`, and a well-formedness gate in

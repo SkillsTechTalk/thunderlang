@@ -431,7 +431,10 @@ export const NODE_TYPES: string[];
 export const RELATIONSHIP_TYPES: string[];
 export const NODE_STATUSES: string[];
 export function intentGraphJsonSchema(): Record<string, unknown>;
-export const DIAGNOSTIC_RULES: Array<{ ruleId: string; area: string; severity: string; blocks: string[]; summary: string }>;
+export type DiagnosticRule = { ruleId: string; area: string; severity: string; blocks: string[]; summary: string };
+export const DIAGNOSTIC_RULES: DiagnosticRule[];
+export const CORE_DIAGNOSTICS: DiagnosticRule[];
+export const ALL_DIAGNOSTICS: DiagnosticRule[];
 
 // Deterministic candidate selection
 export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }

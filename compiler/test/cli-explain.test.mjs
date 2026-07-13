@@ -33,9 +33,10 @@ const rules = (...a) => spawnSync(process.execPath, [CLI, 'rules', ...a], { enco
 test('intent rules lists the whole catalog grouped by area', () => {
   const res = rules();
   assert.equal(res.status, 0, res.stderr);
-  assert.match(res.stdout, /canonical diagnostics/);
+  assert.match(res.stdout, /diagnostics in \d+ areas/);
   assert.match(res.stdout, /IL-STYLE-001/);
   assert.match(res.stdout, /IL-OC-001/);
+  assert.match(res.stdout, /missing-goal/);
 });
 
 test('intent rules --json returns the full DIAGNOSTIC_RULES array', () => {

@@ -40,7 +40,7 @@ import { analyzeStyle } from './style.mjs';
 import { intentProofJsonSchema, validateProof } from './proof-schema.mjs';
 import { graphToSource } from './graph-source.mjs';
 import { migrateGraph, validateGraph } from './migrate.mjs';
-import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, intentGraphJsonSchema } from './intent-schema.mjs';
+import { SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, DIAGNOSTIC_RULES, ALL_DIAGNOSTICS, intentGraphJsonSchema } from './intent-schema.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import {
   buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers,
@@ -249,9 +249,9 @@ function main() {
   if (cmd === 'explain') {
     const code = file;
     if (!code) { console.error('usage: intent explain <IL-CODE>'); process.exit(2); return; }
-    const rule = DIAGNOSTIC_RULES.find((r) => r.ruleId.toLowerCase() === code.toLowerCase());
+    const rule = ALL_DIAGNOSTICS.find((r) => r.ruleId.toLowerCase() === code.toLowerCase());
     if (args.json) { console.log(JSON.stringify(rule || { ruleId: code, found: false }, null, 2)); process.exit(rule ? 0 : 1); return; }
-    if (!rule) { console.error(`intent explain: "${code}" is not in the diagnostic catalog. Run "intent schema" for the full list.`); process.exit(1); return; }
+    if (!rule) { console.error(`intent explain: "${code}" is not in the diagnostic catalog. Run "intent rules" for the full list.`); process.exit(1); return; }
     console.log(`${rule.ruleId}  (area: ${rule.area})`);
     console.log(`  ${rule.summary}`);
     console.log(`  severity: ${rule.severity}${rule.blocks && rule.blocks.length ? `  |  blocks: ${rule.blocks.join(', ')}` : '  |  does not block a phase'}`);
@@ -260,10 +260,10 @@ function main() {
 
   // The whole canonical diagnostic catalog (IL owns it; editors/CI/OT consume it).
   if (cmd === 'rules') {
-    if (args.json) { console.log(JSON.stringify(DIAGNOSTIC_RULES, null, 2)); return; }
+    if (args.json) { console.log(JSON.stringify(ALL_DIAGNOSTICS, null, 2)); return; }
     const byArea = {};
-    for (const r of DIAGNOSTIC_RULES) (byArea[r.area] ||= []).push(r);
-    console.log(`intent rules: ${DIAGNOSTIC_RULES.length} canonical diagnostics in ${Object.keys(byArea).length} areas\n`);
+    for (const r of ALL_DIAGNOSTICS) (byArea[r.area] ||= []).push(r);
+    console.log(`intent rules: ${ALL_DIAGNOSTICS.length} diagnostics in ${Object.keys(byArea).length} areas\n`);
     for (const area of Object.keys(byArea).sort()) {
       console.log(`${area}`);
       for (const r of byArea[area]) {
