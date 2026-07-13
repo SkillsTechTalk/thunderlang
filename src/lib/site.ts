@@ -60,7 +60,15 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
       { href: "/roadmap", label: "Roadmap" },
       { href: "/blog", label: "Blog" },
       { href: "/community", label: "Community" },
-      { href: "/waitlist", label: "Join the Waitlist" },
+      { href: "/waitlist", label: "Join Early Access" },
+    ],
+  },
+  {
+    title: "Trust",
+    items: [
+      { href: "/license", label: "License and governance" },
+      { href: "/privacy", label: "Privacy" },
+      { href: "/security", label: "Security" },
     ],
   },
 ];
