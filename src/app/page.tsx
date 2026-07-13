@@ -164,6 +164,55 @@ export default function HomePage() {
       </Section>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Live proof: Define -> Scan -> Prove                                */}
+      {/* ------------------------------------------------------------------ */}
+      <Section id="proof">
+        <SectionHeading
+          eyebrow="Define. Scan. Prove."
+          title="One statement of intent, checked and proven , not just generated."
+          intro="Write what must be true, let the scanner find the risk, and get proof of what holds and what does not. Deterministic, no AI required."
+        />
+        <div className="mt-10 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-gold-300">1 , Define</div>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
+{`guarantee duplicate invoices
+  are never created
+
+never expose payment token`}
+            </pre>
+            <p className="mt-3 text-xs text-haze-400">State the guarantees and the prohibitions in durable, reviewable intent.</p>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-sky-300">2 , Scan</div>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
+{`Risk: the retry path has no
+idempotency verification
+
+Risk: guarantee has nothing
+proving it (drift hides here)`}
+            </pre>
+            <p className="mt-3 text-xs text-haze-400">The Intent Scanner surfaces explainable risks, grouped by theme. No AI, no key.</p>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-300">3 , Prove</div>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
+{`PASS   duplicate prevention
+PASS   audit trail
+BLOCK  payment token found
+       in event payload`}
+            </pre>
+            <p className="mt-3 text-xs text-haze-400">A proof artifact records the status of every claim , earned trust, not assumed.</p>
+          </div>
+        </div>
+        <p className="mt-6 text-sm text-haze-400">
+          <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">
+            Run it in the Playground →
+          </Link>
+        </p>
+      </Section>
+
+      {/* ------------------------------------------------------------------ */}
       {/* Why Intent                                                         */}
       {/* ------------------------------------------------------------------ */}
       <Section id="why">

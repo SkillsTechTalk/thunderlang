@@ -52,7 +52,7 @@ const phases: Phase[] = [
       "Package manager and examples repository",
       "RFC process for language changes",
       "Community forum",
-      "SkillsTech IDE integration and a certification path",
+      "Skills Tech Studio integration and a certification path",
     ],
   },
 ];

@@ -380,10 +380,10 @@ export const ecosystem: EcosystemItem[] = [
       "A path to demonstrate real, verifiable command of Intent-Oriented Programming and the intent behind a codebase.",
   },
   {
-    name: "SkillsTech IDE",
+    name: "Skills Tech Studio",
     role: "Build it",
     detail:
-      "The editor where you write, preview, compile, and verify intent, and connect it to real repo files.",
+      "The desktop environment where every role writes, previews, compiles, verifies, and traces intent, connected to real repo files.",
   },
 ];
 
