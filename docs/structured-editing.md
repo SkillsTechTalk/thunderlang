@@ -80,6 +80,9 @@ Supported operations:
 | `addField` | Add a typed field to `input` / `output` (creating the block if absent). |
 | `removeField` | Remove a field , and its indented modifiers, so no orphans are left. |
 | `setFieldType` | Change a field's type in place. |
+| `addMetric` / `removeMetric` | Add or remove a `metric` block (with optional baseline/target/window). |
+| `setMetricField` | Set a metric's `baseline` / `target` / `window` (inserting the line if absent). |
+| `addOutcome` / `removeOutcome` | Add or remove an `outcome` (with an optional description). |
 
 Nothing is applied blindly: an edit that matches nothing, has a bad section, or is missing
 arguments lands in `skipped` with a reason, and the rest still apply.

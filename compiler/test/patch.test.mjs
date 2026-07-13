@@ -138,6 +138,58 @@ test('field ops with a bad section are skipped with a reason', () => {
   assert.match(r.skipped[0].reason, /input\/output/);
 });
 
+const PRODUCT_SRC = `mission Growth
+use product
+
+# preserve me
+goal
+  grow conversion
+
+outcome FasterCheckout
+  "buyers finish in one step"
+
+metric conversion_rate
+  baseline 48%
+  target 60%
+`;
+
+test('metric ops: setMetricField updates or inserts, addMetric/removeMetric work', () => {
+  const r = applyEdits(PRODUCT_SRC, [
+    { op: 'setMetricField', name: 'conversion_rate', field: 'target', value: '70%' },
+    { op: 'setMetricField', name: 'conversion_rate', field: 'window', value: '30 days after release' },
+    { op: 'addMetric', name: 'checkout_time', baseline: '45s', target: '20s' },
+  ]);
+  assert.equal(r.applied.length, 3);
+  assert.match(r.source, /# preserve me/);
+  const ast = parseIntent(r.source);
+  const cr = ast.metrics.find((m) => m.name === 'conversion_rate');
+  assert.equal(cr.target, '70%');
+  assert.equal(cr.window, '30 days after release');
+  assert.ok(ast.metrics.some((m) => m.name === 'checkout_time' && m.baseline === '45s'));
+  assert.equal(isFormatted(r.source), true);
+});
+
+test('outcome ops: add + remove by name', () => {
+  const r = applyEdits(PRODUCT_SRC, [
+    { op: 'addOutcome', name: 'FewerErrors', description: 'checkout errors drop' },
+    { op: 'removeOutcome', name: 'FasterCheckout' },
+  ]);
+  const ast = parseIntent(r.source);
+  assert.ok(ast.outcomes.some((o) => o.name === 'FewerErrors'));
+  assert.ok(!ast.outcomes.some((o) => o.name === 'FasterCheckout'));
+});
+
+test('metric/outcome edits that do not match are skipped with a reason', () => {
+  const r = applyEdits(PRODUCT_SRC, [
+    { op: 'removeMetric', name: 'nope' },
+    { op: 'addMetric', name: 'conversion_rate' },
+    { op: 'setMetricField', name: 'conversion_rate', field: 'bogus', value: '1' },
+  ]);
+  assert.equal(r.applied.length, 0);
+  assert.equal(r.skipped.length, 3);
+  assert.match(r.skipped[1].reason, /already exists/);
+});
+
 test('applyEdits is browser-safe (exported from /core)', () => {
   assert.equal(typeof core.applyEdits, 'function');
 });

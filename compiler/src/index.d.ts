@@ -311,7 +311,12 @@ export type IntentEdit =
   | { op: "removeNever"; match: string }
   | { op: "addField"; section: "input" | "output"; name: string; type: string }
   | { op: "removeField"; section: "input" | "output"; name: string }
-  | { op: "setFieldType"; section: "input" | "output"; name: string; type: string };
+  | { op: "setFieldType"; section: "input" | "output"; name: string; type: string }
+  | { op: "addMetric"; name: string; baseline?: string; target?: string; window?: string }
+  | { op: "removeMetric"; name: string }
+  | { op: "setMetricField"; name: string; field: "baseline" | "target" | "window"; value: string }
+  | { op: "addOutcome"; name: string; description?: string }
+  | { op: "removeOutcome"; name: string };
 export function applyEdits(source: string, edits: IntentEdit[]): { schema: string; source: string; applied: IntentEdit[]; skipped: Array<{ edit: IntentEdit; reason: string }> };
 export const REPORT_SCHEMA: string;
 export function buildReport(files: Array<{ file: string; source: string }>): {

@@ -50,7 +50,8 @@ The executable + interoperable release. Everything is deterministic and requires
   fidelity gaps, and validation , never a silent rewrite. Browser-safe via `/core` (for Studio).
 - **Comment-preserving structural editing (`intent-patch-v1`).** `applyEdits(source, edits)`
   applies field-level edits (`setField`, `add/removeGuarantee`, `add/removeNever`,
-  `add/removeField`, `setFieldType` on inputs/outputs) directly to the `.intent` source, touching
+  `add/removeField`, `setFieldType` on inputs/outputs, `add/removeMetric`, `setMetricField`,
+  `add/removeOutcome`) directly to the `.intent` source, touching
   only the target lines so comments, formatting, and untouched blocks stay byte-identical. Closes
   the sync fidelity gap: a PM edits fields and IL keeps the comments. Field removal takes the
   field's indented modifiers with it (no orphans). Unmatched/unsupported edits are reported,

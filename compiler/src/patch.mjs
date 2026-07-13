@@ -14,6 +14,10 @@
 //     { op: 'addField', section: 'input'|'output', name, type }
 //     { op: 'removeField', section: 'input'|'output', name }
 //     { op: 'setFieldType', section: 'input'|'output', name, type }
+//     { op: 'addMetric', name, baseline?, target?, window? }
+//     { op: 'removeMetric', name }
+//     { op: 'setMetricField', name, field: 'baseline'|'target'|'window', value }
+//     { op: 'addOutcome', name, description? }   { op: 'removeOutcome', name }
 // Unsupported / not-found edits are returned in `skipped` with a reason , never applied blindly.
 
 export const PATCH_SCHEMA = 'intent-patch-v1';
@@ -153,6 +157,47 @@ function setFieldType(lines, section, name, type) {
   return { ok: true, lines: [...lines.slice(0, range.start), rebuilt, ...lines.slice(range.start + 1)] };
 }
 
+const findNamedBlock = (lines, keyword, name) => blocks(lines).find((b) => b.keyword === keyword && restOf(b.header) === name) || null;
+
+function removeNamedBlock(lines, keyword, name) {
+  const b = findNamedBlock(lines, keyword, name);
+  if (!b) return { ok: false, reason: `no ${keyword} "${name}" found` };
+  let s = b.start; let e = b.end;
+  while (e > s && lines[e].trim() === '') e -= 1;
+  const out = [...lines.slice(0, s), ...lines.slice(e + 1)];
+  if (s > 0 && out[s - 1] !== undefined && out[s - 1].trim() === '' && (out[s] === undefined || out[s].trim() === '')) out.splice(s - 1, 1);
+  return { ok: true, lines: out };
+}
+
+function addMetric(lines, { name, baseline, target, window: win }) {
+  if (findNamedBlock(lines, 'metric', name)) return { ok: false, reason: `metric "${name}" already exists` };
+  const body = [`metric ${name}`];
+  if (baseline) body.push(`  baseline ${baseline}`);
+  if (target) body.push(`  target ${target}`);
+  if (win) body.push(`  window ${win}`);
+  return insertAfterAnchor(lines, body, ['metric', 'outcome', 'why', 'goal', 'mission']);
+}
+
+// Set baseline/target/window inside a `metric <name>` block (insert the line if absent).
+function setMetricField(lines, name, field, value) {
+  const b = findNamedBlock(lines, 'metric', name);
+  if (!b) return { ok: false, reason: `no metric "${name}" found` };
+  for (let i = b.start + 1; i <= b.end; i++) {
+    if (lines[i].trim() && firstWord(lines[i]) === field) {
+      const ind = lines[i].slice(0, indentOf(lines[i]));
+      return { ok: true, lines: [...lines.slice(0, i), `${ind}${field} ${value}`, ...lines.slice(i + 1)] };
+    }
+  }
+  return { ok: true, lines: [...lines.slice(0, b.start + 1), `  ${field} ${value}`, ...lines.slice(b.start + 1)] };
+}
+
+function addOutcome(lines, { name, description }) {
+  if (findNamedBlock(lines, 'outcome', name)) return { ok: false, reason: `outcome "${name}" already exists` };
+  const body = [`outcome ${name}`];
+  if (description) body.push(`  "${description}"`);
+  return insertAfterAnchor(lines, body, ['outcome', 'why', 'goal', 'mission']);
+}
+
 function applyOne(lines, edit) {
   switch (edit && edit.op) {
     case 'setField':
@@ -183,6 +228,22 @@ function applyOne(lines, edit) {
       if (!['input', 'output'].includes(edit.section)) return { ok: false, reason: `setFieldType section must be input/output, not "${edit.section}"` };
       if (!edit.name || !edit.type) return { ok: false, reason: 'setFieldType needs name and type' };
       return setFieldType(lines, edit.section, edit.name, edit.type);
+    case 'addMetric':
+      if (!edit.name) return { ok: false, reason: 'addMetric needs a name' };
+      return addMetric(lines, edit);
+    case 'removeMetric':
+      if (!edit.name) return { ok: false, reason: 'removeMetric needs a name' };
+      return removeNamedBlock(lines, 'metric', edit.name);
+    case 'setMetricField':
+      if (!edit.name || !['baseline', 'target', 'window'].includes(edit.field)) return { ok: false, reason: 'setMetricField needs a name and field baseline/target/window' };
+      if (edit.value == null || edit.value === '') return { ok: false, reason: 'setMetricField needs a value' };
+      return setMetricField(lines, edit.name, edit.field, String(edit.value));
+    case 'addOutcome':
+      if (!edit.name) return { ok: false, reason: 'addOutcome needs a name' };
+      return addOutcome(lines, edit);
+    case 'removeOutcome':
+      if (!edit.name) return { ok: false, reason: 'removeOutcome needs a name' };
+      return removeNamedBlock(lines, 'outcome', edit.name);
     default:
       return { ok: false, reason: `unknown op "${edit && edit.op}"` };
   }
