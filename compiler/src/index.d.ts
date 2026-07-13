@@ -322,6 +322,12 @@ export type IntentEdit =
   | { op: "setRule"; decision: string; name: string; when?: string; return?: string }
   | { op: "setDefault"; decision: string; return: string };
 export function applyEdits(source: string, edits: IntentEdit[]): { schema: string; source: string; applied: IntentEdit[]; skipped: Array<{ edit: IntentEdit; reason: string }> };
+export const VERIFY_DIFF_SCHEMA: string;
+export function verifyDiff(intentText: string, change: { before?: string | null; after: string; language?: string }): {
+  schema: string; ok: boolean; verdict: "PASS" | "BLOCK";
+  findings: Array<{ level: string; code: string; message: string; line?: number; regression: boolean }>;
+  blocking: number; summary: { verdict: string; findings: number; blocking: number; regressions: number };
+};
 export const REPORT_SCHEMA: string;
 export function buildReport(files: Array<{ file: string; source: string }>): {
   schema: string; ok: boolean;

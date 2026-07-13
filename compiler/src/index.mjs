@@ -100,6 +100,8 @@ export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
 export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 // Repo-wide intent health report (aggregate diagnostics + coverage across many files)
 export { buildReport, REPORT_SCHEMA } from './report.mjs';
+// Verify a code change against its intent , the AI generate/verify loop gate
+export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,

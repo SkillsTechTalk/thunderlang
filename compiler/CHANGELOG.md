@@ -58,6 +58,13 @@ The executable + interoperable release. Everything is deterministic and requires
   field's indented modifiers with it (no orphans). Unmatched/unsupported edits are reported,
   never applied blindly. Browser-safe. Also a CLI: `intent edit <file> --edits <json|-> |
   --set-goal | --add-guarantee | ... [--write]`.
+- **Verify a code change against its intent (`intent-verify-diff-v1`).** `intent verify-diff
+  <intent> --after <code> [--before <code>]` / `verifyDiff()` proves, deterministically and with
+  no AI, which of the intent's guarantees/never-rules a change upholds or breaks, and returns a
+  gate verdict (PASS/BLOCK, non-zero exit on BLOCK). Blocks on regressions (a claim that held
+  before and broke after) and guardrail hits (an added line pushing a never-rule's protected
+  secret into a log/response). The keystone of the AI generate-verify loop; honest (catches
+  mechanical violations, does not claim to prove correctness).
 - **Repo-wide health report.** `intent report [dir]` / `buildReport(files)` aggregates every
   .intent file into an intent-health summary (`intent-report-v1`): diagnostics by severity +
   area, top codes, and coverage (guarantees verified, missions with tests, outcomes contracted).

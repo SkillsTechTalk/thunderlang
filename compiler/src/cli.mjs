@@ -26,6 +26,7 @@ import { startLspServer } from './lsp.mjs';
 import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
+import { verifyDiff } from './verify-diff.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -107,6 +108,8 @@ function parseArgs(argv) {
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
+    else if (a === '--after') args.after = argv[++i];
+    else if (a === '--before') args.before = argv[++i];
     else if (a === '--edits') args.edits = argv[++i];
     else if (a === '--set-goal') args.setGoal = argv[++i];
     else if (a === '--add-guarantee') (args.addGuarantee ||= []).push(argv[++i]);
@@ -195,6 +198,7 @@ Code <-> intent
   lift <file> [--from <lang>]   lift source code into inferred intent
   approve <file> --by <name>    approve intent (drift baseline)
   drift <file> --from <code>    check intent vs code drift
+  verify-diff <intent> --after <code> [--before <code>]  gate a code change against its intent
   handoff <file>                the OpenThunder drift handoff
 
 Common options: --out <dir>, --json, --no-ai. See https://intentlanguage.dev/docs`;
@@ -831,6 +835,26 @@ test Example
     }
     console.log(`  ${index.summary.declaredFull} declared-full, ${index.summary.declaredPartial} partial, ${index.summary.unverified} unverified, ${index.summary.highRisk} high-risk`);
     console.log('  note: verification is DECLARED, not proven. Test/drift status needs OpenThunder.');
+    return;
+  }
+
+  // `intent verify-diff <intent> --after <code> [--before <code>]` , the AI-loop gate: prove
+  // deterministically which of the intent's guarantees/never-rules a code change upholds or breaks.
+  if (cmd === 'verify-diff') {
+    const intentText = readFileSync(file, 'utf8');
+    if (!args.after) { console.error('usage: intent verify-diff <intent> --after <codeFile> [--before <codeFile>] [--from <lang>]'); process.exit(2); return; }
+    const after = readFileSync(args.after, 'utf8');
+    const before = args.before ? readFileSync(args.before, 'utf8') : null;
+    const language = args.from || languageForFile(args.after);
+    const r = verifyDiff(intentText, { before, after, language });
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); return; }
+    console.log(`intent verify-diff ${basename(file)} vs ${basename(args.after)}: ${r.verdict} (${r.blocking} blocking, ${r.summary.regressions} regression(s))`);
+    for (const f of r.findings) {
+      const tag = f.code === 'INTENT_VERIFY_NEVER_VIOLATED' ? 'VIOLATION' : f.regression ? 'REGRESSION' : f.level.toUpperCase();
+      console.log(`  [${tag}] ${f.message}${f.line ? `  (line ${f.line})` : ''}`);
+    }
+    if (r.ok) console.log('  ok the change upholds the declared contract (deterministic checks; tests + humans still own correctness).');
+    process.exit(r.ok ? 0 : 1);
     return;
   }
 
