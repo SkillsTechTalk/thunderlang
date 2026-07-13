@@ -88,6 +88,19 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Hardening: two runtime correctness bugs fixed + a focus performance fix.**
+  - *Divide/modulo by zero* leaked `Infinity`/`NaN` into comparisons, so a decision rule like
+    `when balance / count > threshold` would silently MATCH when `count == 0` (`Infinity > 1`
+    is true). Non-finite arithmetic is now neutralized to `null`.
+  - *Unknown-operand ordering* was inconsistent: `null < 1` was `true` (JS coerces `null` to 0)
+    while `null > 1` was `false`. Every ordering comparison against an unknown / neutralized
+    value (a missing input, a divide-by-zero) is now `false` , unknowns are un-orderable.
+  - *`buildFocusGraph` was O(n²)* (it scanned every relationship for every frontier node); an
+    adjacency index makes it O(n + e). A 20k-node focus dropped from ~2s to ~85ms.
+  - Adds `test/hardening-edge.test.mjs`: div/zero + null-ordering regressions, a "parser never
+    throws on disruptive input" sweep (empty / CRLF / tabs / unicode / malformed), a CRLF
+    value-corruption guard, malformed-`when` and no-default runtime robustness, round-trip
+    fidelity, and a performance guard against the O(n²) regression.
 - **One compiler for five consumers (universal `@skillstech/intentlang/core`).** The whole
   analysis layer is now Node-free, so OpenThunder (Node), the `intent` CLI (Node), SkillsTech
   Studio (browser), Repo Mastery (web), and SkillsTech Mobile (React Native) run the SAME

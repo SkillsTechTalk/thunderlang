@@ -73,15 +73,24 @@ export function buildFocusGraph(atlas, { seeds = [], depth = 2, scope = null } =
   const included = new Map(); // id -> { node, reason, depth }
   for (const s of seedSet) included.set(s, { node: nodesById.get(s), reason: 'selected', depth: 0 });
 
+  // Adjacency index (built once) so BFS is O(nodes + edges), not O(nodes * edges). Each entry
+  // records the neighbor id + the edge (with direction) that reaches it.
+  const adj = new Map();
+  const link = (from, neighborId, r, dir) => {
+    let list = adj.get(from);
+    if (!list) { list = []; adj.set(from, list); }
+    list.push({ neighborId, via: { type: r.type, from: r.from, to: r.to, dir } });
+  };
+  for (const r of rels) { link(r.from, r.to, r, 'out'); link(r.to, r.from, r, 'in'); }
+
   let frontier = [...seedSet];
   for (let d = 1; d <= depth && frontier.length; d += 1) {
     const next = [];
     for (const id of frontier) {
-      for (const r of rels) {
-        let neighborId = null; let via = null;
-        if (r.from === id) { neighborId = r.to; via = { ...r, dir: 'out' }; }
-        else if (r.to === id) { neighborId = r.from; via = { ...r, dir: 'in' }; }
-        if (!neighborId || included.has(neighborId)) continue;
+      const edges = adj.get(id);
+      if (!edges) continue;
+      for (const { neighborId, via } of edges) {
+        if (included.has(neighborId)) continue;
         const node = nodesById.get(neighborId) || { id: neighborId, type: 'Unknown', title: neighborId };
         included.set(neighborId, { node, reason: reasonFor(node, via, seedSet), depth: d });
         next.push(neighborId);

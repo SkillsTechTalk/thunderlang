@@ -152,10 +152,14 @@ function evalNode(n, inputs) {
     case 'or': return !!(evalNode(n.a, inputs) || evalNode(n.b, inputs));
     case 'and': return !!(evalNode(n.a, inputs) && evalNode(n.b, inputs));
     case 'not': return !evalNode(n.a, inputs);
-    case 'neg': return -Number(evalNode(n.a, inputs));
+    case 'neg': { const r = -Number(evalNode(n.a, inputs)); return Number.isFinite(r) ? r : null; }
     case 'arith': {
       const a = Number(evalNode(n.a, inputs)); const b = Number(evalNode(n.b, inputs));
-      return n.op === '+' ? a + b : n.op === '-' ? a - b : n.op === '*' ? a * b : n.op === '/' ? a / b : a % b;
+      const r = n.op === '+' ? a + b : n.op === '-' ? a - b : n.op === '*' ? a * b : n.op === '/' ? a / b : a % b;
+      // Non-finite results (divide/modulo by zero, NaN from non-numeric operands) are
+      // neutralized to null so they can never leak a surprising truthy comparison (e.g.
+      // Infinity > 1). A deterministic decision must not silently match on 10 / 0.
+      return Number.isFinite(r) ? r : null;
     }
     case 'in': {
       const a = evalNode(n.a, inputs);
@@ -165,6 +169,9 @@ function evalNode(n, inputs) {
       const a = evalNode(n.a, inputs); const b = evalNode(n.b, inputs);
       if (n.op === '==') return eq(a, b);
       if (n.op === '!=') return !eq(a, b);
+      // An unknown / neutralized operand (null: a missing value or a divide-by-zero) cannot be
+      // ordered; every ordering comparison against it is false, never JS's null->0 coercion.
+      if (a === null || b === null) return false;
       const na = asNum(a); const nb = asNum(b);
       const [x, y] = (na != null && nb != null) ? [na, nb] : [a, b];
       if (n.op === '>=') return x >= y;
