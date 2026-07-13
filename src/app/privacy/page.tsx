@@ -50,8 +50,8 @@ export default function PrivacyPage() {
         </div>
         <p className="mt-8 text-sm text-haze-400">
           Questions about your data? Email{" "}
-          <a href="mailto:privacy@intentlanguage.dev" className="text-gold-300 hover:text-gold-200">
-            privacy@intentlanguage.dev
+          <a href="mailto:support@skillstechtalk.com" className="text-gold-300 hover:text-gold-200">
+            support@skillstechtalk.com
           </a>
           . This is a pre-1.0 project; this page is a plain-language summary, not a substitute for
           a formal legal agreement, which we will publish as the hosted products mature.

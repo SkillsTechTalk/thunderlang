@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Security",
   description:
-    "IntentLang's security posture and responsible disclosure policy. The deterministic core runs offline with no AI; report vulnerabilities to security@intentlanguage.dev.",
+    "IntentLang's security posture and responsible disclosure policy. The deterministic core runs offline with no AI; report vulnerabilities to support@skillstechtalk.com.",
   path: "/security",
 });
 
@@ -32,8 +32,8 @@ export default function SecurityPage() {
             <p className="mt-2 text-sm leading-relaxed text-haze-300">
               If you find a security issue, please report it privately , do not open a public issue.
               Email{" "}
-              <a href="mailto:security@intentlanguage.dev" className="text-gold-300 hover:text-gold-200">
-                security@intentlanguage.dev
+              <a href="mailto:support@skillstechtalk.com" className="text-gold-300 hover:text-gold-200">
+                support@skillstechtalk.com
               </a>{" "}
               with steps to reproduce. We will acknowledge, work a fix, and credit you unless you
               prefer otherwise.
