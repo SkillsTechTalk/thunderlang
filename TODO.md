@@ -222,8 +222,10 @@ Next slices:
       grouped by lens, each with its target kind, target path, and source line; `--lens
       <lens>` filters to one audience; `--json` emits the `intent-notes-v1` report. Unknown
       lenses are flagged. Reuses the existing `ast.notes` (no new parser). +4 CLI tests.
-- [ ] `intent docs --lens <lens>` , render a whole file as docs for one audience (bigger:
-      needs a notes-aware doc generator, not just a listing)
+- [x] `intent docs --lens <lens>` , SHIPPED: `renderLensDoc(ast, lens)` (pure, browser-safe)
+      renders a mission as audience-specific Markdown, weaving that lens's notes inline next
+      to the input/output/guarantee/never they annotate, with an up-front "documentation, not
+      verification" disclaimer. `intent docs <file> [--lens <lens>] [--out <dir>]`. +4 tests.
 - [ ] Lens-aware reader VIEWS (PM/Beginner/QA/Security render the whole file per audience)
 - [ ] Notes-aware docs generation (include the lens's notes inline)
 - [ ] Diagnostics: INTENT_NOTE_RESTATES_TARGET, INTENT_TERM/RISK/PM/SECURITY_NOTE_RECOMMENDED
@@ -434,7 +436,11 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
       (require/prefer), `regionMetrics` (size/complexity/deps), `selectCandidate` (measurable ranking,
       require-checks filter, stable tiebreak). `intent ai select <dir> <id>`. An LLM never picks. Pure
       (browser-safe). 51/51 tests; verified a failed-checks candidate loses to a worse-but-passing one.
-- [ ] IL follow-ups (remaining): an events sink/log (last minor IL piece).
+- [x] IL follow-ups (SHIPPED): an events sink/log. `compiler/src/ai-events.mjs`
+      (intent-ai-events-v1): pure append-only log (recordEvent/parseEventLog/
+      serializeEventLog/timeline, rejects unknown types). `intent ai approve|reject` now
+      persist their event to `.intent/ai-events.jsonl`; `intent ai events [dir]
+      [--subject <id>]` reads the audit trail. Exported from the barrel. +6 tests.
 
 ## Operating checklist status (see docs/operating-checklist.md)
 

@@ -88,6 +88,17 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Per-audience docs (`intent docs --lens`).** `intent docs <file>` renders a mission as
+  Markdown; with `--lens <lens>` it produces an audience-specific doc that weaves that
+  lens's IntentLens notes inline next to the input, output, guarantee, or never they
+  annotate, and states up front that notes are documentation, not verification. `--out`
+  writes the file; otherwise it prints. `renderLensDoc` is pure and browser-safe.
+- **Intent AI event sink (`intent-ai-events-v1`).** `intent ai approve` / `reject` now
+  persist their integration event to an append-only JSON-Lines log at
+  `.intent/ai-events.jsonl`, so a project keeps a durable audit trail of every AI action.
+  `intent ai events [dir] [--subject <id>]` reads it back (who did what, and the status
+  move). Pure sink module (`recordEvent`, `parseEventLog`, `serializeEventLog`, `timeline`),
+  exported from the barrel; rejects unknown event types; append-only (never mutates).
 - **IntentLens notes CLI (`intent-notes-v1`).** `intent notes <file>` lists the compiled
   `note <lens>:` blocks grouped by lens, each with its target (mission / input / output /
   guarantee / never) and source line; `--lens <lens>` filters to one audience and `--json`

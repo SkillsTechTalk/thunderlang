@@ -27,6 +27,50 @@ export function renderMarkdown(ast) {
   return L.join('\n');
 }
 
+/**
+ * Render a mission as Markdown documentation for ONE audience, weaving that lens's
+ * IntentLens notes inline next to the mission element they annotate. Notes explain
+ * meaning; they are never verification, and the doc says so. Pure and browser-safe.
+ */
+export function renderLensDoc(ast, lens) {
+  const m = ast.mission || 'mission';
+  const prefix = `mission.${m}`;
+  const flat = (t) => String(t).replace(/\s+/g, ' ').trim();
+  const notesFor = (path) => (ast.notes || []).filter((n) => n.lens === lens && n.targetPath === path);
+  const L = [];
+  L.push(`# ${m} , for the ${lens} reader`, '');
+  L.push(`> IntentLens \`${lens}\` notes are woven in below. They explain meaning for this`,
+    `> audience; they are documentation, not verification.`, '');
+  for (const nt of notesFor(prefix)) L.push(`_${flat(nt.text)}_`, '');
+  if (ast.goal) L.push(`**Goal.** ${ast.goal}`, '');
+  if (ast.why) L.push(`**Why.** ${ast.why}`, '');
+  const fieldSection = (title, fields, kind) => {
+    if (!fields.length) return;
+    L.push(`## ${title}`, '');
+    for (const f of fields) {
+      L.push(`- \`${f.name}: ${f.type}\``);
+      for (const nt of notesFor(`${prefix}.${kind}.${f.name}`)) L.push(`  , ${flat(nt.text)}`);
+    }
+    L.push('');
+  };
+  fieldSection('Inputs', ast.inputs, 'input');
+  fieldSection('Outputs', ast.outputs, 'output');
+  const ruleSection = (title, rules, kind) => {
+    if (!rules.length) return;
+    L.push(`## ${title}`, '');
+    for (const r of rules) {
+      L.push(`- ${r.statement}${r.because ? ` (because ${r.because})` : ''}`);
+      for (const nt of notesFor(`${prefix}.${kind}.${r.id}`)) L.push(`  , ${flat(nt.text)}`);
+    }
+    L.push('');
+  };
+  ruleSection('Guarantees', ast.guarantees, 'guarantee');
+  ruleSection('Never', ast.neverRules, 'never');
+  const count = (ast.notes || []).filter((n) => n.lens === lens).length;
+  L.push('---', `${count} \`${lens}\` note${count === 1 ? '' : 's'} in this mission.`);
+  return L.join('\n');
+}
+
 export function renderMermaid(ast) {
   const L = ['graph TD'];
   const m = slug(ast.mission || 'mission');

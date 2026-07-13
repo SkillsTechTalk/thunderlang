@@ -28,7 +28,7 @@ export {
 } from './proof-schema.mjs';
 
 // Compile + render (docs, Mermaid, test plan)
-export { compileSource, renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
+export { compileSource, renderMarkdown, renderLensDoc, renderMermaid, renderTestplan } from './compile.mjs';
 
 // IntelliSense (completions / hover)
 export { getCompletions, getHover, SEMANTIC_TYPES } from './intellisense.mjs';
@@ -117,6 +117,11 @@ export {
   history, whyBuilt, approvalsFor, acceptedRisks, correctionsFor, staleLessons, explain,
   recordDecision as recordLedgerDecision,
 } from './ledger.mjs';
+// Intent AI event sink , the append-only audit log of intent-ai-v1 events
+export {
+  EVENT_LOG_SCHEMA, emptyEventLog, recordEvent, parseEventLog, serializeEventLog,
+  eventsFor, eventsOfType, timeline,
+} from './ai-events.mjs';
 // Verify a code change against its intent , the AI generate/verify loop gate
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 // MCP server , IntentLang as a native tool for AI coding agents

@@ -20,7 +20,7 @@ import {
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION,
 } from './emit.mjs';
 import { toSarif } from './sarif.mjs';
-import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
+import { renderMarkdown, renderLensDoc, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
 import { startMcpServer } from './mcp.mjs';
@@ -57,6 +57,7 @@ import {
   buildManifest, buildImplementationPrompt, resolveState, productionGate, adoptRegion, parseMarkers,
   contractHash, implementationHash, recordDecision, approvalFor, emptyApprovals, makeEvent,
 } from './ai.mjs';
+import { parseEventLog, serializeEventLog, recordEvent, timeline } from './ai-events.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
@@ -89,7 +90,7 @@ function parseArgs(argv) {
   const args = { _: [], out: '.intent', noAi: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--out') args.out = argv[++i];
+    if (a === '--out') { args.out = argv[++i]; args.outExplicit = true; }
     else if (a === '--no-ai') args.noAi = true;
     else if (a === '--position') args.position = argv[++i];
     else if (a === '--from') args.from = argv[++i];
@@ -144,6 +145,22 @@ const writeText = (dir, name, text) => {
   return join(dir, name);
 };
 
+// Persist an intent-ai-v1 event to the append-only sink at .intent/ai-events.jsonl.
+// The durable audit trail RM / OpenThunder / Studio can replay. Returns the file path.
+const AI_EVENT_LOG = 'ai-events.jsonl';
+const sinkEvent = (root, event) => {
+  const dir = join(root, '.intent');
+  const path = join(dir, AI_EVENT_LOG);
+  const log = existsSync(path) ? parseEventLog(readFileSync(path, 'utf8')) : undefined;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path, serializeEventLog(recordEvent(log, event)));
+  return path;
+};
+const readEventLog = (root) => {
+  const path = join(root, '.intent', AI_EVENT_LOG);
+  return existsSync(path) ? parseEventLog(readFileSync(path, 'utf8')) : parseEventLog('');
+};
+
 function load(file) {
   const source = readFileSync(file, 'utf8');
   const ast = parseIntent(source);
@@ -193,6 +210,7 @@ Author & check
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
   notes <file> [--lens <lens>] [--json]  IntentLens: the compiled note blocks by lens (not verification)
+  docs <file> [--lens <lens>] [--out <dir>]  render a mission as Markdown docs (per-audience with --lens)
 
 Execute (no AI, no generated code)
   run <file> --inputs '<json>'      evaluate the decision(s) against inputs
@@ -335,6 +353,22 @@ function main() {
         for (const line of String(n.text).split('\n')) console.log(`    ${line.trim()}`);
       }
     }
+    return;
+  }
+
+  // `intent docs <file> [--lens <lens>] [--out <dir>]` , render a mission as Markdown docs.
+  // With --lens, produce an audience-specific doc with that lens's notes woven inline.
+  if (cmd === 'docs') {
+    if (!file) { console.error('usage: intent docs <file> [--lens <lens>] [--out <dir>]'); process.exit(2); return; }
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const md = args.lens ? renderLensDoc(ast, args.lens) : renderMarkdown(ast);
+    if (args.outExplicit) {
+      const suffix = args.lens ? `.${args.lens}` : '';
+      const p = writeText(args.out, `${slug(ast.mission)}${suffix}.md`, md.endsWith('\n') ? md : md + '\n');
+      console.log(`wrote ${p.replace(process.cwd() + '/', '')}`);
+      return;
+    }
+    console.log(md);
     return;
   }
 
@@ -602,8 +636,24 @@ test Example
         timestamp: at, toolVersion: 'intentlang', actorType: 'human', actorId: args.by || null, previousStatus: state.status,
         newStatus: sub === 'approve' ? 'APPROVED' : 'REJECTED',
       });
+      const logPath = sinkEvent(root, event);
       console.log(`intent ai ${sub} ${id} by ${args.by || '(anonymous)'}${args.role ? ` [${args.role}]` : ''} -> ${sub === 'approve' ? 'APPROVED' : 'REJECTED'} (bound to current hashes)`);
+      console.log(`  logged ${event.type} to ${logPath.replace(process.cwd() + '/', '')}`);
       if (args.json) console.log(JSON.stringify(event, null, 2));
+      return;
+    }
+    // `intent ai events [dir] [--subject <implId>] [--json]` , read the append-only audit log.
+    if (sub === 'events') {
+      const root = args._[1] || '.';
+      const log = readEventLog(root);
+      const events = args.subject ? log.events.filter((e) => e.implementationId === args.subject) : log.events;
+      if (args.json) { console.log(JSON.stringify({ ...log, events }, null, 2)); return; }
+      console.log(`intent ai events ${root}: ${events.length} event${events.length === 1 ? '' : 's'}${args.subject ? ` for ${args.subject}` : ''}`);
+      for (const e of events) {
+        const who = e.actorId ? ` by ${e.actorId}` : '';
+        const move = e.previousStatus || e.newStatus ? `  (${e.previousStatus || '?'} -> ${e.newStatus || '?'})` : '';
+        console.log(`  ${e.timestamp || '(no time)'}  ${e.type}${who}${e.implementationId ? `  [${e.implementationId}]` : ''}${move}`);
+      }
       return;
     }
     if (sub === 'select') {
