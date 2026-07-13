@@ -89,8 +89,14 @@ Now run the compiler. This is real, not conceptual:
 intent check ResetPassword.intent
 ```
 
-It reports diagnostics: missing measurement windows, unresolved unknowns, weakened
-guarantees. `intent check` exits non-zero on errors, so it drops straight into CI.
+At this point only "token can only be used once" carries a `verify`, so the compiler
+warns that the other guarantees and both `never` rules are unverified
+(`guarantee-without-verification`, `never-without-verification`), because an unproven
+guarantee is exactly where drift hides. Attach a `verify` to each, the same attached
+form from step 7, and the warnings clear. `intent check` exits non-zero on errors, so it
+drops straight into CI. (The finished mission in
+[examples/ResetPassword.intent](/examples/resetpassword) verifies every guarantee and
+`never`, and checks clean.)
 
 ## 9. Make part of the intent executable
 
@@ -122,19 +128,23 @@ intent run ResetPassword.intent --inputs '{"tokenAgeMinutes":3,"attempts":1}'
   decision CanReset: Allowed  [rule: allowed]
       expired: when tokenAgeMinutes > 15
       tooManyAttempts: when attempts >= 5
-    x allowed: when attempts < 5
+    > allowed: when attempts < 5  (matched)
 ```
 
-The `x` marks the rule that fired (first match wins).
+The `>` marks every rule whose condition was true; the first one wins (FIRST-hit).
 
 ```
 intent run ResetPassword.intent --inputs '{"tokenAgeMinutes":20,"attempts":1}'
   decision CanReset: Denied  [rule: expired]
+    > expired: when tokenAgeMinutes > 15  (matched)
+      tooManyAttempts: when attempts >= 5
+    > allowed: when attempts < 5  (matched)
 ```
 
-The trace shows every rule that was tried and why the winner won. A stale token is
-denied; too many attempts is denied; a fresh token within the attempt limit is allowed.
-That is the security policy, running as written.
+The trace shows every rule that was tried and why the winner won. For the stale token,
+both `expired` and `allowed` have true conditions, but `expired` comes first, so it wins
+and the token is denied. Too many attempts is denied; a fresh token within the attempt
+limit is allowed. That is the security policy, running as written.
 
 ## 10. Test it, in the same file
 

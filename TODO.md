@@ -62,8 +62,8 @@ repo and implementation is approved.
 - [x] Add `examples/DuplicateInvoicePrevention.intent`
 
 ### P1 - Tutorial expansion
-- [ ] Grow `docs/tutorial.md` into a full walk-through (first mission → proof)
-- [ ] Worked example: build a secure password reset mission end to end
+- [x] Grow `docs/tutorial.md` into a full walk-through (first mission → proof)
+- [x] Worked example: build a secure password reset mission end to end
 
 ### P2 - Language specification
 - [ ] Add `docs/spec.md`: lexical rules, comments, indentation, identifiers,
