@@ -423,6 +423,7 @@ export function styleDiagnostics(ast: IntentAst): Array<{ ruleId: string; severi
 export function analyzeStyle(ast: IntentAst): { schema: string; styleIntents: StyleIntentView[]; diagnostics: ReturnType<typeof styleDiagnostics>; addressSpace: string[]; accessibilityTargets: string[] };
 export const DESIGN_TOKENS_SCHEMA: string;
 export function toDesignTokens(ast: IntentAst): Record<string, unknown>;
+export function toCss(ast: IntentAst): string;
 
 // Canonical schema (consumers generate bindings from this)
 export const SCHEMA_VERSION: string;

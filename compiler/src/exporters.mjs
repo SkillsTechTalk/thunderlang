@@ -9,11 +9,11 @@
 
 import { buildLifecycle } from './lifecycle.mjs';
 import { toJSONSchema, toOpenAPI } from './data-schema.mjs';
-import { toDesignTokens } from './style.mjs';
+import { toDesignTokens, toCss } from './style.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 
-export { toDesignTokens };
-export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid'];
+export { toDesignTokens, toCss };
+export const EXPORT_FORMATS = ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid', 'css'];
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 // A safe XML NCName / SMV identifier from arbitrary text (letters, digits, _; never leading digit).
@@ -187,6 +187,7 @@ export function exportIntent(ast, format) {
     case 'openapi': return { format, ext: 'openapi.json', content: JSON.stringify(toOpenAPI(ast), null, 2) + '\n' };
     case 'tokens': return { format, ext: 'tokens.json', content: JSON.stringify(toDesignTokens(ast), null, 2) + '\n' };
     case 'mermaid': return { format, ext: 'mmd', content: toMermaid(ast) };
+    case 'css': return { format, ext: 'css', content: toCss(ast) };
     default: return null;
   }
 }

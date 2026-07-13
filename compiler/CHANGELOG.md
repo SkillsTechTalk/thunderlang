@@ -37,7 +37,8 @@ The executable + interoperable release. Everything is deterministic and requires
   and `accessibility_target` is always a `proposed` claim (never IL-verified). `analyzeStyle`,
   `styleDiagnostics`, `intent style`, diagnostics `IL-STYLE-001..005`, canonical `StyleIntent`
   node with graph round-trip. Browser-safe via `/core`. Exports to **W3C Design Tokens
-  (DTCG)** via `intent export --format tokens` / `toDesignTokens` (`intent-design-tokens-v1`).
+  (DTCG)** via `intent export --format tokens` / `toDesignTokens` (`intent-design-tokens-v1`)
+  and to a ready-to-use **CSS** custom-property sheet via `--format css` / `toCss`.
 - **Security + type diagnostics.** Deterministic checks for the mistakes prompts ship:
   `IL-SEC-001` (secret-typed field on an event payload), `IL-SEC-002` (API returns a secret
   with no auth requirement), `IL-TYPE-001` (unrecognized, likely-mistyped field type).

@@ -4,7 +4,7 @@ import { parseIntent } from '../src/parse.mjs';
 import { buildIntentGraph } from '../src/intent-graph.mjs';
 import { semanticDiagnostics } from '../src/emit.mjs';
 import {
-  analyzeStyle, styleDiagnostics, toDesignTokens, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
+  analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
   TOKEN_PATHS, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, ACCESSIBILITY_CLASSIFICATION,
 } from '../src/style.mjs';
 import { exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
@@ -213,6 +213,45 @@ test('tokens is a registered export format wired through exportIntent', () => {
   assert.equal(r.ext, 'tokens.json');
   const parsed = JSON.parse(r.content);
   assert.equal(parsed.color.primary.$value, '#0B5FFF');
+});
+
+test('toCss renders :root custom properties with kebab-case names', () => {
+  const css = toCss(ast);
+  assert.match(css, /:root \{/);
+  assert.match(css, /--color-primary: #0B5FFF;/);
+  assert.match(css, /--typography-scale: 1\.25;/);
+  // mode both -> color-scheme
+  assert.match(css, /color-scheme: light dark;/);
+  // kebab-casing of camelCase segments is exercised by a nested-family token
+  const nested = parseIntent(`mission M
+use design
+style_intent Look
+  token typography.families.body Inter
+  token typography.headingWeight 700
+  accessibility_target WCAG_2_2_AA
+`);
+  const c2 = toCss(nested);
+  assert.match(c2, /--typography-families-body: Inter;/);
+  assert.match(c2, /--typography-heading-weight: 700;/);
+});
+
+test('toCss wraps brand.logo in url() and is a registered export format', () => {
+  const withLogo = parseIntent(`mission M
+use design
+style_intent Look
+  token brand.logo /brand/mark.svg
+  accessibility_target WCAG_2_2_AA
+`);
+  assert.match(toCss(withLogo), /--brand-logo: url\(\/brand\/mark\.svg\);/);
+  // accessibility appears only as a comment (proposed), never a declaration
+  assert.match(toCss(withLogo), /proposed, not verified/);
+  assert.ok(EXPORT_FORMATS.includes('css'));
+  assert.equal(exportIntent(withLogo, 'css').ext, 'css');
+});
+
+test('toCss on a file with no style intents is a valid empty :root', () => {
+  const css = toCss(parseIntent('mission M\nuse product\n'));
+  assert.match(css, /:root \{\s*\}/);
 });
 
 test('canonical token space is stable and non-empty', () => {

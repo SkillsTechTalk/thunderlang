@@ -129,6 +129,19 @@ intent export mission.intent --format tokens
 Accessibility targets ride along in `$extensions` as **proposed** claims, never as verified
 conformance, so a token pipeline never mistakes "aiming for AA" for "is AA."
 
+For the direct, no-external-tool path, `--format css` emits a ready-to-use stylesheet: every
+canonical address becomes a `--kebab-case` custom property on `:root`, a `mode` token drives
+`color-scheme`, and `brand.logo` becomes a `url(...)`. `intent export style.intent --format
+css > theme.css` is a usable theme with no build step.
+
+```css
+:root {
+  --color-primary: #0B5FFF;
+  --typography-families-body: Inter;
+  color-scheme: light dark;
+}
+```
+
 ## Mermaid (the whole graph as a diagram)
 
 `--format mermaid` renders the entire [Intent Graph](/docs/intent-graph) as a Mermaid
@@ -154,10 +167,11 @@ complete graph, so it is the fastest way to see an entire intent at a glance.
 
 ## Usage
 
-`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid>` prints to
+`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css>` prints to
 stdout, or writes a file when `--out <dir>` is given. From the library, `toDMN(ast)`,
 `toBPMN(ast)`, `toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, `toDesignTokens(ast)`,
-`toMermaid(ast)`, and `exportIntent(ast, format)` are exported from `@skillstech/intentlang`
-(`toDesignTokens` is also browser-safe via `/core`). The exports are byte-deterministic: the
+`toMermaid(ast)`, `toCss(ast)`, and `exportIntent(ast, format)` are exported from
+`@skillstech/intentlang` (`toDesignTokens` and `toCss` are also browser-safe via `/core`).
+The exports are byte-deterministic: the
 same intent always produces the same document, so they diff cleanly and belong in version
 control alongside the intent.

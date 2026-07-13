@@ -100,7 +100,8 @@ test('exportIntent dispatches by format and rejects unknown formats', () => {
   assert.equal(exportIntent(ast, 'smv').ext, 'smv');
   assert.equal(exportIntent(ast, 'yaml'), null);
   assert.equal(exportIntent(ast, 'mermaid').ext, 'mmd');
-  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid']);
+  assert.equal(exportIntent(ast, 'css').ext, 'css');
+  assert.deepEqual(EXPORT_FORMATS, ['dmn', 'bpmn', 'smv', 'jsonschema', 'openapi', 'tokens', 'mermaid', 'css']);
 });
 
 test('toMermaid renders the full graph with safe ids, shapes, and labeled edges', () => {

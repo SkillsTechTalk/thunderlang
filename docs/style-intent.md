@@ -109,7 +109,8 @@ const view = analyzeStyle(parseIntent(source));
 Tokens are only useful if they flow downstream. `intent export <file> --format tokens`
 renders the style intent as a [W3C Design Tokens (DTCG)](/docs/export-adapters) document ,
 the shape Style Dictionary, Figma Tokens, and CSS pipelines consume , so the same canonical
-addresses become real theme variables with no hand-translation.
+addresses become real theme variables with no hand-translation. Or skip the pipeline
+entirely: `--format css` emits a ready-to-use `:root` custom-property sheet.
 
 Style intent is `intent-style-v1`. Like the rest of the language it is pre-1.0 and versions
 independently.

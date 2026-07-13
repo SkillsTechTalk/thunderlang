@@ -43,6 +43,13 @@ export const ACCESSIBILITY_CLASSIFICATION = 'proposed';
 
 export const DESIGN_TOKENS_SCHEMA = 'intent-design-tokens-v1';
 
+// A canonical token address -> a CSS custom-property name: dots become hyphens and camelCase
+// segments are kebab-cased. `color.feedback.error` -> `--color-feedback-error`,
+// `typography.headingWeight` -> `--typography-heading-weight`.
+function cssVarName(path) {
+  return `--${String(path).split('.').map((seg) => seg.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()).join('-')}`;
+}
+
 const isKnownPath = (p) => STYLE_ADDRESS_SPACE.includes(p);
 
 // W3C Design Tokens (DTCG) `$type` for a canonical token address.
@@ -209,4 +216,35 @@ export function toDesignTokens(ast) {
       },
     },
   };
+}
+
+/**
+ * Render the style intents' tokens as a ready-to-use CSS custom-property sheet , the direct,
+ * no-external-tool last mile of the token pipeline. Every canonical address becomes a
+ * `--kebab-case` variable on `:root`; a `mode` token drives `color-scheme`; `brand.logo`
+ * becomes a `url(...)`. Accessibility targets appear only as comments (proposed, never a
+ * guarantee). Deterministic; empty-but-valid `:root {}` when nothing is declared.
+ */
+export function toCss(ast) {
+  const styles = ast.styleIntents || [];
+  const title = ast.title || ast.mission || 'intent';
+  const head = [`/* Design tokens for ${title} , generated from style_intent by @skillstech/intentlang. */`];
+  for (const si of styles) {
+    if (si.accessibilityTarget) head.push(`/* ${si.name || 'style'}: accessibility target ${si.accessibilityTarget} (proposed, not verified). */`);
+  }
+  const vars = new Map(); // path -> declaration value (last write wins, dedup, order-stable)
+  let colorScheme = null;
+  for (const si of styles) {
+    for (const t of si.tokens) {
+      if (t.path === 'mode') {
+        const m = String(t.value || '').toLowerCase();
+        colorScheme = m === 'light' ? 'light' : m === 'dark' ? 'dark' : (m === 'both' || m === 'auto') ? 'light dark' : null;
+      }
+      const value = t.path === 'brand.logo' && t.value ? `url(${t.value})` : (t.value ?? '');
+      vars.set(t.path, value);
+    }
+  }
+  const body = [...vars].map(([path, value]) => `  ${cssVarName(path)}: ${value};`);
+  if (colorScheme) body.push(`  color-scheme: ${colorScheme};`);
+  return `${head.join('\n')}\n:root {\n${body.join('\n')}${body.length ? '\n' : ''}}\n`;
 }

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { parseIntent } from '../src/parse.mjs';
 import { buildIntentGraph } from '../src/intent-graph.mjs';
 import { toDMN, toBPMN, toSMV, toMermaid, exportIntent, EXPORT_FORMATS } from '../src/exporters.mjs';
-import { analyzeStyle, styleDiagnostics, toDesignTokens } from '../src/style.mjs';
+import { analyzeStyle, styleDiagnostics, toDesignTokens, toCss } from '../src/style.mjs';
 import { toJSONSchema, toOpenAPI } from '../src/data-schema.mjs';
 import { fromDMN, fromBPMN, importReport } from '../src/importers.mjs';
 import { graphToSource } from '../src/graph-source.mjs';
@@ -78,7 +78,7 @@ test('all exporters never throw on fuzzed ASTs; JSON outputs parse (1500 cases)'
       }
     }
     // direct calls too, including the style + tokens + mermaid paths
-    for (const f of [toDMN, toBPMN, toSMV, toJSONSchema, toOpenAPI, toMermaid, toDesignTokens, analyzeStyle, styleDiagnostics]) {
+    for (const f of [toDMN, toBPMN, toSMV, toJSONSchema, toOpenAPI, toMermaid, toDesignTokens, toCss, analyzeStyle, styleDiagnostics]) {
       try { f(ast); } catch (e) { assert.fail(`${f.name} threw on #${i}: ${e.stack}`); }
     }
     // toDesignTokens is always a valid object carrying its provenance extension.

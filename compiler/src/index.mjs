@@ -94,7 +94,7 @@ export { evaluateOutcomeContract, evaluateOutcomes, outcomeDiagnostics, parseVal
 export { securityDiagnostics, SECURITY_SCHEMA } from './security.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
-  analyzeStyle, styleDiagnostics, toDesignTokens, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
+  analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
   TOKEN_PATHS, BRAND_PATHS, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, MODE_VALUES,
   ACCESSIBILITY_CLASSIFICATION,
 } from './style.mjs';

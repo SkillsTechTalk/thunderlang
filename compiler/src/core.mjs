@@ -29,7 +29,7 @@ export { compileExpr, evalExpr, ExprError } from './expr.mjs';
 // Style intent , canonical token address space + accessibility vocabulary (browser-safe).
 // Studio and renderers bind to these instead of forking their own design-token trees.
 export {
-  analyzeStyle, styleDiagnostics, toDesignTokens, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
+  analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
   TOKEN_PATHS, BRAND_PATHS, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS, MODE_VALUES,
   ACCESSIBILITY_CLASSIFICATION,
 } from './style.mjs';
