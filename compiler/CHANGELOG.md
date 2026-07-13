@@ -88,6 +88,13 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Code actions + autocorrect (`intent code-actions` / `apply-fix`).** `getCodeActions`
+  surfaces the available quick-fixes, safety-graded (`safe` autocorrects and `reviewable`
+  diagnostic fixes); `autocorrectSource` applies only meaning-preserving header fixes
+  (`goals` -> `goal`, `nevers` -> `never`, stray trailing colons), never a valid keyword
+  in another context (a decision's `inputs` sub-block is deliberately left alone).
+  `intent code-actions <file>` lists them; `intent apply-fix <file> [--write]` applies the
+  safe ones and reports the reviewable ones for a human. Both pure and browser-safe.
 - **Per-audience docs (`intent docs --lens`).** `intent docs <file>` renders a mission as
   Markdown; with `--lens <lens>` it produces an audience-specific doc that weaves that
   lens's IntentLens notes inline next to the input, output, guarantee, or never they

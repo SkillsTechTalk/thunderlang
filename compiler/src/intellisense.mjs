@@ -151,3 +151,60 @@ export function getHover(source, position = {}) {
   }
   return { hover: null };
 }
+
+// ── Autocorrect + code actions (deterministic, safety-graded) ────────────────
+// Provably-safe header normalizations only. Aliases are limited to words that are
+// NOT valid canonical keywords in any context (so, e.g., `inputs` is intentionally
+// absent: it is the canonical sub-block of a decision and must not be touched).
+const HEADER_ALIASES = { goals: 'goal', nevers: 'never' };
+const TOP_HEADERS = new Set([
+  'goal', 'why', 'requires', 'input', 'output', 'guarantees', 'never', 'constraints',
+  'assumptions', 'risks', 'target', 'style', 'verify', 'errors', 'examples',
+]);
+
+/**
+ * Apply only meaning-preserving textual fixes: rename a bare misspelled block header
+ * to its canonical form (`goals` -> `goal`, `nevers` -> `never`) and strip a stray
+ * trailing colon from a recognized top-level header (`goal:` -> `goal`). Operates on
+ * single-word header lines only, so attached forms and leaf values are never rewritten.
+ * Returns { fixed, changes }. Pure and browser-safe.
+ */
+export function autocorrectSource(source) {
+  const lines = String(source).split('\n');
+  const changes = [];
+  const out = lines.map((line, i) => {
+    const m = line.match(/^(\s*)([A-Za-z]+)(:?)\s*$/);
+    if (!m) return line;
+    const [, indent, word, colon] = m;
+    const alias = HEADER_ALIASES[word.toLowerCase()];
+    const target = alias || word;
+    const isHeader = TOP_HEADERS.has(target.toLowerCase());
+    const dropColon = Boolean(colon) && isHeader;
+    if (target === word && !dropColon) return line;
+    const rule = alias ? 'header-alias' : 'strip-colon';
+    const fixed = `${indent}${target}`;
+    changes.push({ line: i + 1, from: line.trim(), to: fixed.trim(), rule, safety: 'safe' });
+    return fixed;
+  });
+  return { fixed: out.join('\n'), changes };
+}
+
+/**
+ * The code actions available for a source: the safe autocorrects, plus the quick-fixes
+ * the semantic diagnostics already carry (graded `reviewable` because they insert
+ * placeholder content a human should confirm). Diagnostics are passed in so this module
+ * stays browser-safe (no crypto import). Each action carries a safety level:
+ * safe | reviewable | meaning_change | blocked.
+ */
+export function getCodeActions(source, diagnostics = []) {
+  const actions = [];
+  for (const c of autocorrectSource(source).changes) {
+    actions.push({ title: `Normalize "${c.from}" to "${c.to}"`, kind: 'autocorrect', safety: 'safe', line: c.line, rule: c.rule });
+  }
+  for (const d of diagnostics) {
+    for (const f of d.fix || []) {
+      actions.push({ title: f.label, kind: 'quickfix', safety: 'reviewable', code: d.code, line: d.line ?? null, insert: f.insert, block: f.block });
+    }
+  }
+  return actions;
+}

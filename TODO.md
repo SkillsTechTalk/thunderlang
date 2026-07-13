@@ -244,8 +244,18 @@ Next slices (compiler core first):
 - [x] Completion provider (compiler core): block keywords, note lenses, semantic types,
       context-aware; `intent completions --position --json`; consumed via /api/assist
 - [x] Hover provider (compiler core): semantic types + note lenses; `intent hover --position --json`
-- [ ] Code-action provider with safety levels + text edits; `intent code-actions`, `intent apply-fix`
-- [ ] Autocorrect (safe): `goals:`->`goal:`, `guarantee:`->`guarantees:`, indentation, casing
+- [x] Code-action provider with safety levels + text edits; `intent code-actions`, `intent apply-fix`
+      SHIPPED: `getCodeActions(source, diagnostics)` returns safety-graded actions (safe
+      autocorrects + reviewable diagnostic quick-fixes). `intent code-actions <file>` lists
+      them; `intent apply-fix <file> [--write]` applies the safe ones, leaves reviewable
+      ones. +6 tests. (intellisense stays browser-safe: diagnostics are passed in.)
+- [x] Autocorrect (safe): header aliases + stray colons
+      SHIPPED conservative + provably safe: `goals`->`goal`, `nevers`->`never`, and stray
+      trailing colons on recognized top-level headers, on single-word header lines ONLY, so
+      attached forms and leaf values (and a decision's `inputs` sub-block) are never touched.
+      Idempotent; the fixed file compiles. NOTE: the roadmap's colon-target examples
+      (`goals:`->`goal:`) predate the shipped no-colon grammar; autocorrect targets the real
+      grammar. General indentation/casing normalization deferred (needs parent-context).
 - [ ] `intent format`; later `intent lsp` (LSP) for VS Code
 - [x] Playground Assist panel: compiler hover + click-to-insert completions (textarea)
 - [x] Monaco editor with intent language, dark theme, and inline compiler completions + hover

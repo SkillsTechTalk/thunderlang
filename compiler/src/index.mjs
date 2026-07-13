@@ -31,7 +31,7 @@ export {
 export { compileSource, renderMarkdown, renderLensDoc, renderMermaid, renderTestplan } from './compile.mjs';
 
 // IntelliSense (completions / hover)
-export { getCompletions, getHover, SEMANTIC_TYPES } from './intellisense.mjs';
+export { getCompletions, getHover, getCodeActions, autocorrectSource, SEMANTIC_TYPES } from './intellisense.mjs';
 
 // IntentLift (code -> inferred intent)
 export {

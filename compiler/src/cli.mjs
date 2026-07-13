@@ -21,7 +21,7 @@ import {
 } from './emit.mjs';
 import { toSarif } from './sarif.mjs';
 import { renderMarkdown, renderLensDoc, renderMermaid, renderTestplan } from './compile.mjs';
-import { getCompletions, getHover } from './intellisense.mjs';
+import { getCompletions, getHover, getCodeActions, autocorrectSource } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
 import { startMcpServer } from './mcp.mjs';
 import { formatSource } from './format.mjs';
@@ -211,6 +211,8 @@ Author & check
   rules [--json]            list the whole canonical diagnostic catalog
   notes <file> [--lens <lens>] [--json]  IntentLens: the compiled note blocks by lens (not verification)
   docs <file> [--lens <lens>] [--out <dir>]  render a mission as Markdown docs (per-audience with --lens)
+  code-actions <file> [--json]  available quick-fixes, safety-graded (safe | reviewable)
+  apply-fix <file> [--write]    apply the SAFE autocorrects (header aliases, stray colons)
 
 Execute (no AI, no generated code)
   run <file> --inputs '<json>'      evaluate the decision(s) against inputs
@@ -369,6 +371,35 @@ function main() {
       return;
     }
     console.log(md);
+    return;
+  }
+
+  // `intent code-actions <file> [--json]` , the available quick-fixes, each safety-graded
+  // (safe autocorrects + reviewable diagnostic fixes). The IDE lightbulb's data source.
+  if (cmd === 'code-actions') {
+    if (!file) { console.error('usage: intent code-actions <file> [--json]'); process.exit(2); return; }
+    const source = readFileSync(file, 'utf8');
+    const actions = getCodeActions(source, semanticDiagnostics(parseIntent(source)));
+    if (args.json) { console.log(JSON.stringify({ schema: 'intent-code-actions-v1', count: actions.length, actions }, null, 2)); return; }
+    console.log(`intent code-actions ${basename(file)}: ${actions.length} action${actions.length === 1 ? '' : 's'}`);
+    for (const a of actions) console.log(`  [${a.safety}] ${a.kind}${a.line ? ` (line ${a.line})` : ''}  ${a.title}`);
+    return;
+  }
+
+  // `intent apply-fix <file> [--write]` , apply the SAFE autocorrects only (header aliases,
+  // stray colons). Reviewable quick-fixes are reported, never applied blindly.
+  if (cmd === 'apply-fix') {
+    if (!file) { console.error('usage: intent apply-fix <file> [--write]'); process.exit(2); return; }
+    const source = readFileSync(file, 'utf8');
+    const { fixed, changes } = autocorrectSource(source);
+    const reviewable = getCodeActions(source, semanticDiagnostics(parseIntent(source))).filter((a) => a.safety !== 'safe');
+    if (args.json) { console.log(JSON.stringify({ applied: changes, reviewableRemaining: reviewable.length, changed: fixed !== source }, null, 2)); }
+    else {
+      console.log(`intent apply-fix ${basename(file)}: ${changes.length} safe fix${changes.length === 1 ? '' : 'es'}${args.write ? ' applied' : ' (dry run; pass --write)'}`);
+      for (const c of changes) console.log(`  line ${c.line}: "${c.from}" -> "${c.to}"  [${c.rule}]`);
+      if (reviewable.length) console.log(`  ${reviewable.length} reviewable quick-fix(es) left for a human (run: intent code-actions ${basename(file)})`);
+    }
+    if (args.write && fixed !== source) { writeFileSync(file, fixed); if (!args.json) console.log(`  wrote ${basename(file)}`); }
     return;
   }
 
