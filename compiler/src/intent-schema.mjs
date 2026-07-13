@@ -109,6 +109,8 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-OC-002', area: 'outcome', severity: 'warning', blocks: [], summary: 'Outcome contract names no metric.' },
   { ruleId: 'IL-OC-003', area: 'outcome', severity: 'blocker', blocks: ['release'], summary: 'Outcome contract has no measurement window.' },
   { ruleId: 'IL-OC-004', area: 'outcome', severity: 'warning', blocks: [], summary: 'Outcome contract target is not better than its baseline.' },
+  { ruleId: 'IL-OC-005', area: 'outcome', severity: 'warning', blocks: [], summary: 'Outcome contract has a target but no guardrails (the target is gameable).' },
+  { ruleId: 'IL-OC-006', area: 'outcome', severity: 'info', blocks: [], summary: 'Outcome contract has no attribution (correlation is not causation).' },
   { ruleId: 'IL-DEC-001', area: 'decision', severity: 'blocker', blocks: ['implementation'], summary: 'Decision has no default (undefined when no rule matches).' },
   { ruleId: 'IL-DEC-002', area: 'decision', severity: 'blocker', blocks: ['implementation'], summary: 'Two rules fire on the same condition with different results.' },
   { ruleId: 'IL-DEC-003', area: 'decision', severity: 'info', blocks: [], summary: 'Redundant rule, identical to another (dead).' },

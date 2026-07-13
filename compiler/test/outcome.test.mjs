@@ -114,3 +114,32 @@ test('OutcomeContract node + targets/measured_by edges are canonical (anti-fork)
   for (const n of g.nodes) assert.ok(NODE_TYPES.includes(n.type));
   for (const r of g.relationships) assert.ok(RELATIONSHIP_TYPES.includes(r.type));
 });
+
+// Outcome Truth , guardrails + attribution honesty (IL-OC-005/006).
+test('outcome contract parses guardrails + attribution', () => {
+  const c = parseIntent(`mission M
+outcome_contract C
+  outcome O
+  metric m
+  target 60%
+  window 30 days
+  guardrails
+    takeover must not increase
+    cost must remain under 0.05
+  attribution experiment
+`).outcomeContracts[0];
+  assert.deepEqual(c.guardrails, ['takeover must not increase', 'cost must remain under 0.05']);
+  assert.equal(c.attribution, 'experiment');
+});
+
+test('a target with no guardrail is flagged gameable (IL-OC-005); with guardrails it is not', () => {
+  const gameable = parseIntent('mission M\noutcome_contract C\n  outcome O\n  metric m\n  target 90%\n  window 30 days\n');
+  const codes = outcomeDiagnostics(gameable).map((d) => d.code);
+  assert.ok(codes.includes('IL-OC-005'));
+  assert.ok(codes.includes('IL-OC-006')); // no attribution either
+
+  const guarded = parseIntent('mission M\noutcome_contract C\n  outcome O\n  metric m\n  target 90%\n  window 30 days\n  guardrails\n    x must not increase\n  attribution experiment\n');
+  const codes2 = outcomeDiagnostics(guarded).map((d) => d.code);
+  assert.ok(!codes2.includes('IL-OC-005'));
+  assert.ok(!codes2.includes('IL-OC-006'));
+});

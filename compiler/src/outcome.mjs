@@ -82,6 +82,12 @@ export function outcomeDiagnostics(ast) {
       if (!better) out.push({ code: 'IL-OC-004', contract: c.name, severity: 'warning',
         message: `Outcome contract "${c.name}" target (${t.raw}) is not better than its baseline (${b.raw}) for a "${c.direction}" goal.` });
     }
+    // A target with no guardrail can be "achieved" by regressing something else (Goodhart's law).
+    if (c.target && !(c.guardrails || []).length) out.push({ code: 'IL-OC-005', contract: c.name, severity: 'warning',
+      message: `Outcome contract "${c.name}" has a target but no guardrails, so the target could be met by regressing something else.` });
+    // Never let a metric move read as causation , the attribution must be stated honestly.
+    if (c.target && (!c.attribution || c.attribution === 'unknown')) out.push({ code: 'IL-OC-006', contract: c.name, severity: 'info',
+      message: `Outcome contract "${c.name}" has no attribution , a metric moving after release is correlation, not proof this feature caused it.` });
   }
   return out;
 }

@@ -9,7 +9,7 @@ the contract: editors, CI, and OpenThunder key off them, and they never change m
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
 same data as JSON with `intent rules --json`, or one rule with `intent explain <CODE>`.
 
-61 canonical diagnostics across 19 areas.
+63 canonical diagnostics across 19 areas.
 
 ## AI implementation
 
@@ -119,6 +119,8 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `IL-OC-002` | warning | — | Outcome contract names no metric. |
 | `IL-OC-003` | blocker | `release` | Outcome contract has no measurement window. |
 | `IL-OC-004` | warning | — | Outcome contract target is not better than its baseline. |
+| `IL-OC-005` | warning | — | Outcome contract has a target but no guardrails (the target is gameable). |
+| `IL-OC-006` | info | — | Outcome contract has no attribution (correlation is not causation). |
 
 ## Data & privacy
 

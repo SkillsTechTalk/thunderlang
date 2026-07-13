@@ -288,6 +288,20 @@
       "summary": "Outcome contract target is not better than its baseline."
     },
     {
+      "ruleId": "IL-OC-005",
+      "area": "outcome",
+      "severity": "warning",
+      "blocks": [],
+      "summary": "Outcome contract has a target but no guardrails (the target is gameable)."
+    },
+    {
+      "ruleId": "IL-OC-006",
+      "area": "outcome",
+      "severity": "info",
+      "blocks": [],
+      "summary": "Outcome contract has no attribution (correlation is not causation)."
+    },
+    {
       "ruleId": "IL-DEC-001",
       "area": "decision",
       "severity": "blocker",

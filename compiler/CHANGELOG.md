@@ -128,6 +128,13 @@ The executable + interoperable release. Everything is deterministic and requires
   UTF-8 encoder instead of the `TextEncoder` global, so it runs on Hermes / React Native (the
   conformance test now fails CI if any `/core` module references `TextEncoder`, `Buffer`, or
   another non-guaranteed global, and asserts hashing works with `TextEncoder` deleted).
+- **Outcome Truth , guardrails + attribution honesty on outcome contracts.** An `outcome_contract`
+  now takes a `guardrails` block (what must NOT regress while the target improves) and an
+  `attribution` (directly-measured / correlated / experiment / human / ai / unknown). Two new Fable
+  rules: `IL-OC-005` (a target with no guardrail is gameable , Goodhart's law) and `IL-OC-006` (no
+  attribution , a metric moving after release is correlation, not proof this feature caused it).
+  This closes the "technical success is mistaken for outcome success" gap: an outcome is only
+  trustworthy with a guardrail and honest attribution.
 - **Change Lens , what a branch/PR changed by meaning (`intent changes`).** `intent changes
   <base>..<head>` git-diffs the `.intent` files, semantic-diffs each (reusing `diffGraphs`), and
   reports the behavior-level changes: guarantees / never-rules / invariants / decisions added or

@@ -493,6 +493,10 @@ export function parseIntent(source) {
           target: kv.target ? stripQuotes(kv.target) : null,
           direction: /lower/i.test(kv.direction || '') ? 'lower' : 'higher',
           window: kv.window || null,
+          // Guardrails: what must NOT regress while the outcome improves (else the target is gameable).
+          guardrails: (childBlock(node, 'guardrails') && leafItems(childBlock(node, 'guardrails'))) || [],
+          // Attribution honesty: how the outcome is evidenced. Never assume causation from a metric move.
+          attribution: (kv.attribution || 'unknown').toLowerCase(),
           owner: kv.owner || null,
           line: node.line,
         });
