@@ -22,6 +22,8 @@
 //     { op: 'setRule', decision, name, when?, return? }   { op: 'setDefault', decision, return }
 // Unsupported / not-found edits are returned in `skipped` with a reason , never applied blindly.
 
+import { formatSource } from './format.mjs';
+
 export const PATCH_SCHEMA = 'intent-patch-v1';
 
 const isTopLevel = (line) => line.length > 0 && line[0] !== ' ' && line[0] !== '\t' && line.trim() !== '' && !line.trim().startsWith('#');
@@ -340,14 +342,23 @@ function applyOne(lines, edit) {
   }
 }
 
-/** Apply structural edits to IntentLang source, preserving comments and untouched blocks. */
+/**
+ * Apply structural edits to IntentLang source, preserving comments and untouched blocks.
+ * When any edit applies, the result is normalized through the formatter , comments and content
+ * are preserved (whitespace-only), so block insertions never leave a stray blank line and the
+ * output is always canonically formatted. An empty/all-skipped edit list returns the input
+ * unchanged (byte-for-byte, apart from line-ending normalization).
+ */
 export function applyEdits(source, edits) {
-  let lines = String(source ?? '').split('\n');
+  const input = String(source ?? '');
+  let lines = input.split('\n');
   const applied = []; const skipped = [];
   for (const edit of edits || []) {
     const r = applyOne(lines, edit);
     if (r && r.ok) { lines = r.lines; applied.push(edit); }
     else skipped.push({ edit, reason: (r && r.reason) || 'not applied' });
   }
-  return { schema: PATCH_SCHEMA, source: lines.join('\n'), applied, skipped };
+  const joined = lines.join('\n');
+  const out = applied.length ? formatSource(joined) : joined;
+  return { schema: PATCH_SCHEMA, source: out, applied, skipped };
 }
