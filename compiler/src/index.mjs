@@ -119,6 +119,12 @@ export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES, CORE_DIAGNOSTICS, ALL_DIAGNOSTICS,
 } from './intent-schema.mjs';
+// Intent IR (intent-ir-v1) , the shared ecosystem semantic representation (superset of the graph)
+export {
+  IR_SCHEMA, IR_EMBEDS, IR_NODE_TYPES, IR_RELATIONSHIP_TYPES, PROVENANCE, FACTUAL_PROVENANCE,
+  isFactualProvenance, IR_CONFIDENCE, IR_CONFIDENCE_MEANING, confidenceFromClassification, SENSITIVITY,
+  RETENTION, REVIEW_STATUS, APPROVAL_STATUS, NODE_FIELDS, validateIR, graphToIR,
+} from './intent-ir.mjs';
 
 // Intent AI implementations (intent-ai-v1): state model, marker parser, hashing, manifest
 export {

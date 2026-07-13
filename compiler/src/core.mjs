@@ -27,6 +27,13 @@ export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
 // Structural source editing (browser-safe) , comment-preserving field edits for Studio.
 export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 
+// Intent IR (intent-ir-v1) , the shared ecosystem semantic representation (browser-safe).
+export {
+  IR_SCHEMA, IR_EMBEDS, IR_NODE_TYPES, IR_RELATIONSHIP_TYPES, PROVENANCE, isFactualProvenance,
+  IR_CONFIDENCE, IR_CONFIDENCE_MEANING, confidenceFromClassification, SENSITIVITY, RETENTION,
+  NODE_FIELDS, validateIR, graphToIR,
+} from './intent-ir.mjs';
+
 // The Intent Runtime , executable intent (evaluate decisions, simulate lifecycles). Pure.
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
 // Runtime enforcement (browser-safe) , a guard that blocks forbidden actions + redacts secrets.
