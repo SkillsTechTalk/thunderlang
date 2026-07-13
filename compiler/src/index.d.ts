@@ -313,6 +313,16 @@ export type IntentEdit =
   | { op: "removeField"; section: "input" | "output"; name: string }
   | { op: "setFieldType"; section: "input" | "output"; name: string; type: string };
 export function applyEdits(source: string, edits: IntentEdit[]): { schema: string; source: string; applied: IntentEdit[]; skipped: Array<{ edit: IntentEdit; reason: string }> };
+export const REPORT_SCHEMA: string;
+export function buildReport(files: Array<{ file: string; source: string }>): {
+  schema: string; ok: boolean;
+  totals: { files: number; missions: number; diagnostics: number };
+  bySeverity: Record<string, number>;
+  byArea: Record<string, number>;
+  topCodes: Array<{ code: string; count: number; area: string }>;
+  coverage: Record<string, number | null>;
+  files: Array<{ file: string; mission: string | null; blocker: number; error: number; warning: number; info: number; ok: boolean }>;
+};
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 

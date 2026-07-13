@@ -198,6 +198,11 @@ jobs:
         with: { sarif_file: intent.sarif }
 ```
 
+For a triage view rather than a pass/fail gate, `intent report [dir]` aggregates every
+`.intent` file into an intent-health summary: diagnostics by severity and area, the most common
+codes, and coverage signals (are guarantees verified, do missions have tests, are outcomes
+contracted). Pass `--json` for a machine-readable `intent-report-v1` a dashboard can consume.
+
 `intent check` accepts a directory and recurses it, so gating a whole repo is one
 command , `intent check .` , with no wrapper script. Any project can add the gate in
 three lines with the published GitHub Action:

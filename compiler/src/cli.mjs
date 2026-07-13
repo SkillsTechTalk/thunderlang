@@ -25,6 +25,7 @@ import { getCompletions, getHover } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
 import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
+import { buildReport } from './report.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -157,6 +158,7 @@ usage: intent <command> <file> [options]
 Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
+  report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
   lsp                      start the Language Server (LSP over stdio, for editors)
@@ -829,6 +831,32 @@ test Example
     }
     console.log(`  ${index.summary.declaredFull} declared-full, ${index.summary.declaredPartial} partial, ${index.summary.unverified} unverified, ${index.summary.highRisk} high-risk`);
     console.log('  note: verification is DECLARED, not proven. Test/drift status needs OpenThunder.');
+    return;
+  }
+
+  // `intent report [dir]` , a repo-wide intent health summary (aggregates every .intent file).
+  // Distinct from `check` (pass/fail gate): counts by severity + area, top codes, and coverage.
+  if (cmd === 'report') {
+    const root = file || '.';
+    const targets = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : [root];
+    const rep = buildReport(targets.map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') })));
+    if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(0); return; }
+    const c = rep.coverage;
+    console.log(`intent report ${root}: ${rep.totals.missions} mission(s) in ${rep.totals.files} file(s), ${rep.totals.diagnostics} diagnostic(s)`);
+    console.log(`  severity   ${rep.bySeverity.blocker} blocker, ${rep.bySeverity.error} error, ${rep.bySeverity.warning} warning, ${rep.bySeverity.info} info`);
+    console.log('  coverage   '
+      + `guarantees verified ${c.guaranteesVerified}/${c.guarantees}${c.guaranteeVerifyRate != null ? ` (${c.guaranteeVerifyRate}%)` : ''}, `
+      + `missions with tests ${c.missionsWithTests}/${rep.totals.missions}${c.testCoverageRate != null ? ` (${c.testCoverageRate}%)` : ''}, `
+      + `outcomes contracted ${c.outcomeContracts}/${c.outcomes}${c.outcomeContractRate != null ? ` (${c.outcomeContractRate}%)` : ''}`);
+    if (rep.topCodes.length) {
+      console.log('  top codes  ' + rep.topCodes.slice(0, 5).map((t) => `${t.code} (${t.count})`).join(', '));
+    }
+    const worst = rep.files.filter((f) => f.error > 0 || f.warning > 0).slice(0, 8);
+    if (worst.length) {
+      console.log('  files needing attention:');
+      for (const f of worst) console.log(`    ${f.error ? 'ERR' : 'warn'}  ${f.file}  , ${f.error} error(s), ${f.warning} warning(s)`);
+    }
+    process.exit(0);
     return;
   }
 

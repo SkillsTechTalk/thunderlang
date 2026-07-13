@@ -56,6 +56,9 @@ The executable + interoperable release. Everything is deterministic and requires
   field's indented modifiers with it (no orphans). Unmatched/unsupported edits are reported,
   never applied blindly. Browser-safe. Also a CLI: `intent edit <file> --edits <json|-> |
   --set-goal | --add-guarantee | ... [--write]`.
+- **Repo-wide health report.** `intent report [dir]` / `buildReport(files)` aggregates every
+  .intent file into an intent-health summary (`intent-report-v1`): diagnostics by severity +
+  area, top codes, and coverage (guarantees verified, missions with tests, outcomes contracted).
 - **SARIF code scanning.** `intent check <path> --format sarif` emits a SARIF 2.1.0 log
   (`toSarif`), so diagnostics appear natively in GitHub/GitLab code scanning and SARIF-aware
   IDEs , with rule metadata, level mapping, and precise line regions where known.
