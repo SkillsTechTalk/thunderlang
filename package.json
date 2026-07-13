@@ -2,7 +2,7 @@
   "name": "intent-language-site",
   "version": "0.1.0",
   "private": true,
-  "description": "Official website for Intent — the Intent-Oriented Programming language by SkillsTech.",
+  "description": "Official website for Intent \u2014 the Intent-Oriented Programming language by SkillsTech.",
   "scripts": {
     "dev": "next dev -p 5187",
     "build": "next build",
@@ -17,7 +17,8 @@
     "schema:check": "node scripts/schema-check.mjs",
     "diagnostics:emit": "node scripts/diagnostics-doc.mjs --write",
     "diagnostics:check": "node scripts/diagnostics-doc.mjs --check",
-    "fmt:check": "node compiler/src/cli.mjs fmt . --check"
+    "fmt:check": "node compiler/src/cli.mjs fmt . --check",
+    "atlas:build": "node scripts/build-atlas.mjs"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

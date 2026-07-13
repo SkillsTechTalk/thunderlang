@@ -1,0 +1,763 @@
+{
+  "schema": "intent-atlas-v1",
+  "note": "Inferred intent drafts lifted deterministically from public open-source code by @skillstech/intentlang. Humble and unverified , a lens on each project, not its authors' committed intent.",
+  "projects": [
+    {
+      "name": "Requests",
+      "language": "python",
+      "license": "Apache-2.0",
+      "what": "the Python HTTP library , its public verb API",
+      "source": "https://raw.githubusercontent.com/psf/requests/main/src/requests/api.py",
+      "path": "src/requests/api.py",
+      "missionCount": 8,
+      "missions": [
+        {
+          "mission": "Request",
+          "fn": "request",
+          "line": 24,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Request\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:request\n\nevidence\n  function signature request\n\ngoal\n  request (inferred from the request signature)\n\ninput\n  method: str\n  url: _t.UriType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Get",
+          "fn": "get",
+          "line": 74,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Get\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:get\n\nevidence\n  function signature get\n\ngoal\n  get (inferred from the get signature)\n\ninput\n  url: _t.UriType\n  params: _t.ParamsType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Options",
+          "fn": "options",
+          "line": 90,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Options\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:options\n\nevidence\n  function signature options\n\ngoal\n  options (inferred from the options signature)\n\ninput\n  url: _t.UriType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Head",
+          "fn": "head",
+          "line": 102,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Head\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:head\n\nevidence\n  function signature head\n\ngoal\n  head (inferred from the head signature)\n\ninput\n  url: _t.UriType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Post",
+          "fn": "post",
+          "line": 117,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Post\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:post\n\nevidence\n  function signature post\n\ngoal\n  post (inferred from the post signature)\n\ninput\n  url: _t.UriType\n  data: _t.DataType\n  json: _t.JsonType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Put",
+          "fn": "put",
+          "line": 137,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Put\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:put\n\nevidence\n  function signature put\n\ngoal\n  put (inferred from the put signature)\n\ninput\n  url: _t.UriType\n  data: _t.DataType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Patch",
+          "fn": "patch",
+          "line": 154,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Patch\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:patch\n\nevidence\n  function signature patch\n\ngoal\n  patch (inferred from the patch signature)\n\ninput\n  url: _t.UriType\n  data: _t.DataType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Delete",
+          "fn": "delete",
+          "line": 171,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Delete\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/requests/api.py:delete\n\nevidence\n  function signature delete\n\ngoal\n  delete (inferred from the delete signature)\n\ninput\n  url: _t.UriType\n\noutput\n  result: Response\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Express",
+      "language": "javascript",
+      "license": "MIT",
+      "what": "the Node web framework , its application methods",
+      "source": "https://raw.githubusercontent.com/expressjs/express/master/lib/application.js",
+      "path": "lib/application.js",
+      "missionCount": 20,
+      "missions": [
+        {
+          "mission": "Getrouter",
+          "fn": "getrouter",
+          "line": 72,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Getrouter\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:getrouter\n\nevidence\n  function signature getrouter\n  error TypeError\n\ngoal\n  getrouter (inferred from the getrouter signature)\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "DefaultConfiguration",
+          "fn": "defaultConfiguration",
+          "line": 90,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission DefaultConfiguration\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:defaultConfiguration\n\nevidence\n  function signature defaultConfiguration\n  error TypeError\n\ngoal\n  default configuration (inferred from the defaultConfiguration signature)\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Onmount",
+          "fn": "onmount",
+          "line": 109,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Onmount\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:onmount\n\nevidence\n  function signature onmount\n  error TypeError\n\ngoal\n  onmount (inferred from the onmount signature)\n\ninput\n  parent: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Handle",
+          "fn": "handle",
+          "line": 152,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Handle\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:handle\n\nevidence\n  function signature handle\n  error TypeError\n\ngoal\n  handle (inferred from the handle signature)\n\ninput\n  req: Unknown\n  res: Unknown\n  callback: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Use",
+          "fn": "use",
+          "line": 190,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Use\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:use\n\nevidence\n  function signature use\n  error TypeError\n\ngoal\n  use (inferred from the use signature)\n\ninput\n  fn: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MountedApp",
+          "fn": "mounted_app",
+          "line": 230,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission MountedApp\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:mounted_app\n\nevidence\n  function signature mounted_app\n  error TypeError\n\ngoal\n  mounted app (inferred from the mounted_app signature)\n\ninput\n  req: Unknown\n  res: Unknown\n  next: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Route",
+          "fn": "route",
+          "line": 256,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Route\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:route\n\nevidence\n  function signature route\n  error TypeError\n\ngoal\n  route (inferred from the route signature)\n\ninput\n  path: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Engine",
+          "fn": "engine",
+          "line": 294,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Engine\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:engine\n\nevidence\n  function signature engine\n  error TypeError\n\ngoal\n  engine (inferred from the engine signature)\n\ninput\n  ext: Unknown\n  fn: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Param",
+          "fn": "param",
+          "line": 322,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Param\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:param\n\nevidence\n  function signature param\n  error TypeError\n\ngoal\n  param (inferred from the param signature)\n\ninput\n  name: Unknown\n  fn: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Set",
+          "fn": "set",
+          "line": 351,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Set\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:set\n\nevidence\n  function signature set\n  error TypeError\n\ngoal\n  set (inferred from the set signature)\n\ninput\n  setting: Unknown\n  val: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Path",
+          "fn": "path",
+          "line": 399,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Path\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:path\n\nevidence\n  function signature path\n  error TypeError\n\ngoal\n  path (inferred from the path signature)\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Enabled",
+          "fn": "enabled",
+          "line": 420,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Enabled\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:enabled\n\nevidence\n  function signature enabled\n  error TypeError\n\ngoal\n  enabled (inferred from the enabled signature)\n\ninput\n  setting: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Disabled",
+          "fn": "disabled",
+          "line": 439,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Disabled\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:disabled\n\nevidence\n  function signature disabled\n  error TypeError\n\ngoal\n  disabled (inferred from the disabled signature)\n\ninput\n  setting: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Enable",
+          "fn": "enable",
+          "line": 451,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Enable\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:enable\n\nevidence\n  function signature enable\n  error TypeError\n\ngoal\n  enable (inferred from the enable signature)\n\ninput\n  setting: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Disable",
+          "fn": "disable",
+          "line": 463,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Disable\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:disable\n\nevidence\n  function signature disable\n  error TypeError\n\ngoal\n  disable (inferred from the disable signature)\n\ninput\n  setting: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "All",
+          "fn": "all",
+          "line": 494,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission All\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:all\n\nevidence\n  function signature all\n  error TypeError\n\ngoal\n  all (inferred from the all signature)\n\ninput\n  path: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Render",
+          "fn": "render",
+          "line": 522,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Render\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:render\n\nevidence\n  function signature render\n  error TypeError\n\ngoal\n  render (inferred from the render signature)\n\ninput\n  name: Unknown\n  options: Unknown\n  callback: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Listen",
+          "fn": "listen",
+          "line": 598,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Listen\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:listen\n\nevidence\n  function signature listen\n  error TypeError\n\ngoal\n  listen (inferred from the listen signature)\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Logerror",
+          "fn": "logerror",
+          "line": 615,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission Logerror\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:logerror\n\nevidence\n  function signature logerror\n  error TypeError\n\ngoal\n  logerror (inferred from the logerror signature)\n\ninput\n  err: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "TryRender",
+          "fn": "tryRender",
+          "line": 625,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from TypeScript. Draft, unverified, needs human review.\nmission TryRender\n\ninferred\n  from TypeScript\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function lib/application.js:tryRender\n\nevidence\n  function signature tryRender\n  error TypeError\n\ngoal\n  try render (inferred from the tryRender signature)\n\ninput\n  view: Unknown\n  options: Unknown\n  callback: Unknown\n\nnever\n  cause type error\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "gorilla/mux",
+      "language": "go",
+      "license": "BSD-3-Clause",
+      "what": "a popular Go HTTP router",
+      "source": "https://raw.githubusercontent.com/gorilla/mux/main/mux.go",
+      "path": "mux.go",
+      "missionCount": 27,
+      "missions": [
+        {
+          "mission": "NewRouter",
+          "fn": "NewRouter",
+          "line": 32,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission NewRouter\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:NewRouter\n\nevidence\n  function signature NewRouter\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  new router (inferred from the NewRouter signature)\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Match",
+          "fn": "Match",
+          "line": 151,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Match\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Match\n\nevidence\n  function signature Match\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  match (inferred from the Match signature)\n\ninput\n  req: http.Request\n  match: RouteMatch\n\noutput\n  result: bool\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ServeHttp",
+          "fn": "ServeHTTP",
+          "line": 188,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission ServeHttp\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:ServeHTTP\n\nevidence\n  function signature ServeHTTP\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  serve http (inferred from the ServeHTTP signature)\n\ninput\n  w: http.ResponseWriter\n  req: http.Request\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Get",
+          "fn": "Get",
+          "line": 232,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Get\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Get\n\nevidence\n  function signature Get\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  get (inferred from the Get signature)\n\ninput\n  name: string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetRoute",
+          "fn": "GetRoute",
+          "line": 238,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission GetRoute\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:GetRoute\n\nevidence\n  function signature GetRoute\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  get route (inferred from the GetRoute signature)\n\ninput\n  name: string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "StrictSlash",
+          "fn": "StrictSlash",
+          "line": 261,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission StrictSlash\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:StrictSlash\n\nevidence\n  function signature StrictSlash\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  strict slash (inferred from the StrictSlash signature)\n\ninput\n  value: bool\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SkipClean",
+          "fn": "SkipClean",
+          "line": 274,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission SkipClean\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:SkipClean\n\nevidence\n  function signature SkipClean\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  skip clean (inferred from the SkipClean signature)\n\ninput\n  value: bool\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "OmitRouteFromContext",
+          "fn": "OmitRouteFromContext",
+          "line": 284,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission OmitRouteFromContext\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:OmitRouteFromContext\n\nevidence\n  function signature OmitRouteFromContext\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  omit route from context (inferred from the OmitRouteFromContext signature)\n\ninput\n  value: bool\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "OmitRouterFromContext",
+          "fn": "OmitRouterFromContext",
+          "line": 293,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission OmitRouterFromContext\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:OmitRouterFromContext\n\nevidence\n  function signature OmitRouterFromContext\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  omit router from context (inferred from the OmitRouterFromContext signature)\n\ninput\n  value: bool\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "UseEncodedPath",
+          "fn": "UseEncodedPath",
+          "line": 304,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission UseEncodedPath\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:UseEncodedPath\n\nevidence\n  function signature UseEncodedPath\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  use encoded path (inferred from the UseEncodedPath signature)\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "NewRoute",
+          "fn": "NewRoute",
+          "line": 314,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission NewRoute\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:NewRoute\n\nevidence\n  function signature NewRoute\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  new route (inferred from the NewRoute signature)\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Name",
+          "fn": "Name",
+          "line": 323,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Name\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Name\n\nevidence\n  function signature Name\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  name (inferred from the Name signature)\n\ninput\n  name: string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Handle",
+          "fn": "Handle",
+          "line": 329,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Handle\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Handle\n\nevidence\n  function signature Handle\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  handle (inferred from the Handle signature)\n\ninput\n  path: string\n  handler: http.Handler\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "HandleFunc",
+          "fn": "HandleFunc",
+          "line": 335,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission HandleFunc\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:HandleFunc\n\nevidence\n  function signature HandleFunc\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  handle func (inferred from the HandleFunc signature)\n\ninput\n  path: string\n  f: func(http.ResponseWriter, *http.Request\n\noutput\n  result: ) *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Headers",
+          "fn": "Headers",
+          "line": 342,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Headers\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Headers\n\nevidence\n  function signature Headers\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  headers (inferred from the Headers signature)\n\ninput\n  pairs: ...string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Host",
+          "fn": "Host",
+          "line": 348,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Host\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Host\n\nevidence\n  function signature Host\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  host (inferred from the Host signature)\n\ninput\n  tpl: string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MatcherFunc",
+          "fn": "MatcherFunc",
+          "line": 354,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission MatcherFunc\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:MatcherFunc\n\nevidence\n  function signature MatcherFunc\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  matcher func (inferred from the MatcherFunc signature)\n\ninput\n  f: MatcherFunc\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Methods",
+          "fn": "Methods",
+          "line": 360,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Methods\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Methods\n\nevidence\n  function signature Methods\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  methods (inferred from the Methods signature)\n\ninput\n  methods: ...string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Path",
+          "fn": "Path",
+          "line": 366,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Path\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Path\n\nevidence\n  function signature Path\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  path (inferred from the Path signature)\n\ninput\n  tpl: string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "PathPrefix",
+          "fn": "PathPrefix",
+          "line": 372,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission PathPrefix\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:PathPrefix\n\nevidence\n  function signature PathPrefix\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  path prefix (inferred from the PathPrefix signature)\n\ninput\n  tpl: string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Queries",
+          "fn": "Queries",
+          "line": 378,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Queries\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Queries\n\nevidence\n  function signature Queries\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  queries (inferred from the Queries signature)\n\ninput\n  pairs: ...string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Schemes",
+          "fn": "Schemes",
+          "line": 384,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Schemes\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Schemes\n\nevidence\n  function signature Schemes\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  schemes (inferred from the Schemes signature)\n\ninput\n  schemes: ...string\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "BuildVarsFunc",
+          "fn": "BuildVarsFunc",
+          "line": 390,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission BuildVarsFunc\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:BuildVarsFunc\n\nevidence\n  function signature BuildVarsFunc\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  build vars func (inferred from the BuildVarsFunc signature)\n\ninput\n  f: BuildVarsFunc\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Walk",
+          "fn": "Walk",
+          "line": 397,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Walk\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Walk\n\nevidence\n  function signature Walk\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  walk (inferred from the Walk signature)\n\ninput\n  walkFn: WalkFunc\n\noutput\n  result: error\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Vars",
+          "fn": "Vars",
+          "line": 466,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Vars\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Vars\n\nevidence\n  function signature Vars\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  vars (inferred from the Vars signature)\n\ninput\n  r: http.Request\n\noutput\n  result: map[string]string\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CurrentRoute",
+          "fn": "CurrentRoute",
+          "line": 477,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission CurrentRoute\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:CurrentRoute\n\nevidence\n  function signature CurrentRoute\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  current route (inferred from the CurrentRoute signature)\n\ninput\n  r: http.Request\n\noutput\n  result: *Route\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "CurrentRouter",
+          "fn": "CurrentRouter",
+          "line": 484,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission CurrentRouter\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:CurrentRouter\n\nevidence\n  function signature CurrentRouter\n  error method is not allowed\n  error no matching route was found\n  error key not found in metadata\n  error skip this router\n  error mux: duplicated route variable %q\n\ngoal\n  current router (inferred from the CurrentRouter signature)\n\ninput\n  r: http.Request\n\noutput\n  result: *Router\n\nnever\n  cause method is not allowed\n  cause no matching route was found\n  cause key not found in metadata\n  cause skip this router\n  cause mux: duplicated route variable %q\n  cause mux: number of parameters must be multiple of 2, got %v\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "Flask",
+      "language": "python",
+      "license": "BSD-3-Clause",
+      "what": "the Python micro web framework , its helpers",
+      "source": "https://raw.githubusercontent.com/pallets/flask/main/src/flask/helpers.py",
+      "path": "src/flask/helpers.py",
+      "missionCount": 15,
+      "missions": [
+        {
+          "mission": "GetDebugFlag",
+          "fn": "get_debug_flag",
+          "line": 28,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission GetDebugFlag\n\ninferred\n  from Python\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:get_debug_flag\n\nevidence\n  function signature get_debug_flag\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  get debug flag (inferred from the get_debug_flag signature)\n\noutput\n  result: bool\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetLoadDotenv",
+          "fn": "get_load_dotenv",
+          "line": 36,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission GetLoadDotenv\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:get_load_dotenv\n\nevidence\n  function signature get_load_dotenv\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  get load dotenv (inferred from the get_load_dotenv signature)\n\ninput\n  default: bool\n\noutput\n  result: bool\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "StreamWithContext",
+          "fn": "stream_with_context",
+          "line": 52,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission StreamWithContext\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:stream_with_context\n\nevidence\n  function signature stream_with_context\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  stream with context (inferred from the stream_with_context signature)\n\ninput\n  generator_or_function: t.Iterator[t.AnyStr]\n\noutput\n  result: t.Iterator[t.AnyStr]\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Generator",
+          "fn": "generator",
+          "line": 126,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Generator\n\ninferred\n  from Python\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:generator\n\nevidence\n  function signature generator\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  generator (inferred from the generator signature)\n\noutput\n  result: t.Iterator[t.AnyStr]\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MakeResponse",
+          "fn": "make_response",
+          "line": 151,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission MakeResponse\n\ninferred\n  from Python\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:make_response\n\nevidence\n  function signature make_response\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  make response (inferred from the make_response signature)\n\noutput\n  result: Response\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "UrlFor",
+          "fn": "url_for",
+          "line": 200,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission UrlFor\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:url_for\n\nevidence\n  function signature url_for\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  url for (inferred from the url_for signature)\n\ninput\n  endpoint: str\n  _anchor: str | None\n  _method: str | None\n  _scheme: str | None\n  _external: bool | None\n\noutput\n  result: str\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Redirect",
+          "fn": "redirect",
+          "line": 254,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Redirect\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:redirect\n\nevidence\n  function signature redirect\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  redirect (inferred from the redirect signature)\n\ninput\n  location: str\n  code: int\n  Response: type[BaseResponse] | None\n\noutput\n  result: BaseResponse\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Abort",
+          "fn": "abort",
+          "line": 281,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Abort\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:abort\n\nevidence\n  function signature abort\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  abort (inferred from the abort signature)\n\ninput\n  code: int | BaseResponse\n\noutput\n  result: t.NoReturn\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetTemplateAttribute",
+          "fn": "get_template_attribute",
+          "line": 304,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission GetTemplateAttribute\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:get_template_attribute\n\nevidence\n  function signature get_template_attribute\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  get template attribute (inferred from the get_template_attribute signature)\n\ninput\n  template_name: str\n  attribute: str\n\noutput\n  result: t.Any\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Flash",
+          "fn": "flash",
+          "line": 326,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission Flash\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:flash\n\nevidence\n  function signature flash\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  flash (inferred from the flash signature)\n\ninput\n  message: str\n  category: str\n\noutput\n  result: None\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetFlashedMessages",
+          "fn": "get_flashed_messages",
+          "line": 360,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission GetFlashedMessages\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:get_flashed_messages\n\nevidence\n  function signature get_flashed_messages\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  get flashed messages (inferred from the get_flashed_messages signature)\n\ninput\n  with_categories: bool\n  category_filter: t.Iterable[str]\n\noutput\n  result: list[str] | list[tuple[str, str]]\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SendFile",
+          "fn": "send_file",
+          "line": 417,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission SendFile\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:send_file\n\nevidence\n  function signature send_file\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  send file (inferred from the send_file signature)\n\ninput\n  path_or_file: os.PathLike[t.AnyStr] | str | t.IO[bytes]\n  mimetype: str | None\n  as_attachment: bool\n  download_name: str | None\n  conditional: bool\n  etag: bool | str\n  last_modified: datetime | int | float | None\n  max_age: None | (int | t.Callable[[str | None], int | None])\n\noutput\n  result: Response\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "SendFromDirectory",
+          "fn": "send_from_directory",
+          "line": 543,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission SendFromDirectory\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:send_from_directory\n\nevidence\n  function signature send_from_directory\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  send from directory (inferred from the send_from_directory signature)\n\ninput\n  directory: os.PathLike[str] | str\n  path: os.PathLike[str] | str\n\noutput\n  result: Response\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "GetRootPath",
+          "fn": "get_root_path",
+          "line": 587,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission GetRootPath\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:get_root_path\n\nevidence\n  function signature get_root_path\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  get root path (inferred from the get_root_path signature)\n\ninput\n  import_name: str\n\noutput\n  result: str\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "RaiseAny",
+          "fn": "raise_any",
+          "line": 676,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Python. Draft, unverified, needs human review.\nmission RaiseAny\n\ninferred\n  from Python\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function src/flask/helpers.py:raise_any\n\nevidence\n  function signature raise_any\n  error RuntimeError\n  error BaseExceptionGroup\n\ngoal\n  raise any (inferred from the raise_any signature)\n\ninput\n  message: str\n\noutput\n  result: None\n\nnever\n  cause runtime error\n  cause base exception group\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    },
+    {
+      "name": "chi",
+      "language": "go",
+      "license": "MIT",
+      "what": "a lightweight Go HTTP router",
+      "source": "https://raw.githubusercontent.com/go-chi/chi/master/mux.go",
+      "path": "mux.go",
+      "missionCount": 29,
+      "missions": [
+        {
+          "mission": "NewMux",
+          "fn": "NewMux",
+          "line": 52,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission NewMux\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:NewMux\n\nevidence\n  function signature NewMux\n\ngoal\n  new mux (inferred from the NewMux signature)\n\noutput\n  result: *Mux\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "ServeHttp",
+          "fn": "ServeHTTP",
+          "line": 63,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission ServeHttp\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:ServeHTTP\n\nevidence\n  function signature ServeHTTP\n\ngoal\n  serve http (inferred from the ServeHTTP signature)\n\ninput\n  w: http.ResponseWriter\n  r: http.Request\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Use",
+          "fn": "Use",
+          "line": 100,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Use\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Use\n\nevidence\n  function signature Use\n\ngoal\n  use (inferred from the Use signature)\n\ninput\n  middlewares: ...func(http.Handler\n\noutput\n  result: http.Handler)\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Handle",
+          "fn": "Handle",
+          "line": 109,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Handle\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Handle\n\nevidence\n  function signature Handle\n\ngoal\n  handle (inferred from the Handle signature)\n\ninput\n  pattern: string\n  handler: http.Handler\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "HandleFunc",
+          "fn": "HandleFunc",
+          "line": 121,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission HandleFunc\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:HandleFunc\n\nevidence\n  function signature HandleFunc\n\ngoal\n  handle func (inferred from the HandleFunc signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Method",
+          "fn": "Method",
+          "line": 127,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Method\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Method\n\nevidence\n  function signature Method\n\ngoal\n  method (inferred from the Method signature)\n\ninput\n  method: Unknown\n  pattern: string\n  handler: http.Handler\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MethodFunc",
+          "fn": "MethodFunc",
+          "line": 137,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission MethodFunc\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:MethodFunc\n\nevidence\n  function signature MethodFunc\n\ngoal\n  method func (inferred from the MethodFunc signature)\n\ninput\n  method: Unknown\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Connect",
+          "fn": "Connect",
+          "line": 143,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Connect\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Connect\n\nevidence\n  function signature Connect\n\ngoal\n  connect (inferred from the Connect signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Delete",
+          "fn": "Delete",
+          "line": 149,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Delete\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Delete\n\nevidence\n  function signature Delete\n\ngoal\n  delete (inferred from the Delete signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Get",
+          "fn": "Get",
+          "line": 155,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Get\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Get\n\nevidence\n  function signature Get\n\ngoal\n  get (inferred from the Get signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Head",
+          "fn": "Head",
+          "line": 161,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Head\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Head\n\nevidence\n  function signature Head\n\ngoal\n  head (inferred from the Head signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Options",
+          "fn": "Options",
+          "line": 167,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Options\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Options\n\nevidence\n  function signature Options\n\ngoal\n  options (inferred from the Options signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Patch",
+          "fn": "Patch",
+          "line": 173,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Patch\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Patch\n\nevidence\n  function signature Patch\n\ngoal\n  patch (inferred from the Patch signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Post",
+          "fn": "Post",
+          "line": 179,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Post\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Post\n\nevidence\n  function signature Post\n\ngoal\n  post (inferred from the Post signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Put",
+          "fn": "Put",
+          "line": 185,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Put\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Put\n\nevidence\n  function signature Put\n\ngoal\n  put (inferred from the Put signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Query",
+          "fn": "Query",
+          "line": 191,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Query\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Query\n\nevidence\n  function signature Query\n\ngoal\n  query (inferred from the Query signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Trace",
+          "fn": "Trace",
+          "line": 197,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Trace\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Trace\n\nevidence\n  function signature Trace\n\ngoal\n  trace (inferred from the Trace signature)\n\ninput\n  pattern: string\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "NotFound",
+          "fn": "NotFound",
+          "line": 203,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission NotFound\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:NotFound\n\nevidence\n  function signature NotFound\n\ngoal\n  not found (inferred from the NotFound signature)\n\ninput\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MethodNotAllowed",
+          "fn": "MethodNotAllowed",
+          "line": 223,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission MethodNotAllowed\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:MethodNotAllowed\n\nevidence\n  function signature MethodNotAllowed\n\ngoal\n  method not allowed (inferred from the MethodNotAllowed signature)\n\ninput\n  handlerFn: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "With",
+          "fn": "With",
+          "line": 242,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission With\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:With\n\nevidence\n  function signature With\n\ngoal\n  with (inferred from the With signature)\n\ninput\n  middlewares: ...func(http.Handler\n\noutput\n  result: http.Handler) Router\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Group",
+          "fn": "Group",
+          "line": 268,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Group\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Group\n\nevidence\n  function signature Group\n\ngoal\n  group (inferred from the Group signature)\n\ninput\n  fn: func(r Router\n\noutput\n  result: ) Router\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Route",
+          "fn": "Route",
+          "line": 278,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Route\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Route\n\nevidence\n  function signature Route\n\ngoal\n  route (inferred from the Route signature)\n\ninput\n  pattern: string\n  fn: func(r Router\n\noutput\n  result: ) Router\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Mount",
+          "fn": "Mount",
+          "line": 295,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Mount\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Mount\n\nevidence\n  function signature Mount\n\ngoal\n  mount (inferred from the Mount signature)\n\ninput\n  pattern: string\n  handler: http.Handler\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Routes",
+          "fn": "Routes",
+          "line": 350,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Routes\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Routes\n\nevidence\n  function signature Routes\n\ngoal\n  routes (inferred from the Routes signature)\n\noutput\n  result: []Route\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Middlewares",
+          "fn": "Middlewares",
+          "line": 355,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Middlewares\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Middlewares\n\nevidence\n  function signature Middlewares\n\ngoal\n  middlewares (inferred from the Middlewares signature)\n\noutput\n  result: Middlewares\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Match",
+          "fn": "Match",
+          "line": 365,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Match\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Match\n\nevidence\n  function signature Match\n\ngoal\n  match (inferred from the Match signature)\n\ninput\n  rctx: Context\n  method: Unknown\n  path: string\n\noutput\n  result: bool\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "Find",
+          "fn": "Find",
+          "line": 374,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission Find\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:Find\n\nevidence\n  function signature Find\n\ngoal\n  find (inferred from the Find signature)\n\ninput\n  rctx: Context\n  method: Unknown\n  path: string\n\noutput\n  result: string\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "NotFoundHandler",
+          "fn": "NotFoundHandler",
+          "line": 404,
+          "confidence": "low",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission NotFoundHandler\n\ninferred\n  from Go\n  confidence low\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:NotFoundHandler\n\nevidence\n  function signature NotFoundHandler\n\ngoal\n  not found handler (inferred from the NotFoundHandler signature)\n\noutput\n  result: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        },
+        {
+          "mission": "MethodNotAllowedHandler",
+          "fn": "MethodNotAllowedHandler",
+          "line": 413,
+          "confidence": "medium",
+          "intent": "# Inferred by IntentLift from Go. Draft, unverified, needs human review.\nmission MethodNotAllowedHandler\n\ninferred\n  from Go\n  confidence medium\n  reviewed false\n  generated_by SkillsTech Compiler 0.1.0\n\nmaps_to\n  function mux.go:MethodNotAllowedHandler\n\nevidence\n  function signature MethodNotAllowedHandler\n\ngoal\n  method not allowed handler (inferred from the MethodNotAllowedHandler signature)\n\ninput\n  methodsAllowed: ...methodTyp\n\noutput\n  result: http.HandlerFunc\n\nunknown\n  why\n  owner\n  customer impact\n  PM notes\n  security never rules\n\nneeds_review\n  goal wording\n  why\n  never rules\n  verification evidence\n\n"
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "projects": 5,
+    "missions": 99,
+    "languages": [
+      "go",
+      "javascript",
+      "python"
+    ]
+  }
+}

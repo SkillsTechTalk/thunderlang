@@ -65,6 +65,11 @@ The executable + interoperable release. Everything is deterministic and requires
   before and broke after) and guardrail hits (an added line pushing a never-rule's protected
   secret into a log/response). The keystone of the AI generate-verify loop; honest (catches
   mechanical violations, does not claim to prove correctness).
+- **Intent Atlas + lift-all.** `liftAll(source)` / `intent lift <file> --all` lifts EVERY public
+  function in a file into its own inferred mission (not just the first), filtering internal
+  helpers (Go: exported-only; Python/Ruby: top-level, non-underscore) , so a whole module reads
+  as intent. Powers the Intent Atlas: `scripts/build-atlas.mjs` lifts well-known OSS projects
+  (Requests, Express, Flask, gorilla/mux, chi) into a browsable /atlas of ~99 inferred missions.
 - **Prompt -> intent (`intent-draft-v1`).** `draftIntent(brief)` / `intent draft --brief <json|->`
   turns a structured brief into a rigorous, canonically-formatted intent draft PLUS a review
   checklist of what a human must still fill in (unverified guarantee, decision with no default,

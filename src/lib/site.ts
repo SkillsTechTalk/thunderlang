@@ -37,6 +37,7 @@ export const mainNav: NavItem[] = [
   { href: "/vision", label: "Vision" },
   { href: "/docs", label: "Docs" },
   { href: "/examples", label: "Examples" },
+  { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/blog", label: "Blog" },

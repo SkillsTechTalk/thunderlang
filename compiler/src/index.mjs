@@ -36,6 +36,7 @@ export { getCompletions, getHover, SEMANTIC_TYPES } from './intellisense.mjs';
 // IntentLift (code -> inferred intent)
 export {
   liftSource,
+  liftAll,
   liftRepo,
   languageForFile,
   inferIntent,

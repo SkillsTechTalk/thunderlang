@@ -30,7 +30,7 @@ import { buildReport } from './report.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
-import { liftSource, liftRepo, languageForFile } from './lift.mjs';
+import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
@@ -111,6 +111,7 @@ function parseArgs(argv) {
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
+    else if (a === '--all') args.all = true;
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -389,6 +390,17 @@ test Example
         console.log(`intent lift repo ${root}: ${res.missionsGenerated} mission(s)`);
         for (const m of res.missions) console.log(`  ${m.mission} (${m.summary.confidence}) <- ${m.sourceFile}`);
       }
+      return;
+    }
+
+    // --all: lift EVERY function into its own mission (the Intent Atlas view of a file).
+    if (args.all) {
+      const src = readFileSync(file, 'utf8');
+      const res = liftAll(src, { language: args.from || languageForFile(file), file: basename(file) });
+      if (!res.ok) { console.error(res.error); process.exit(1); }
+      if (args.json) { console.log(JSON.stringify(res, null, 2)); return; }
+      console.log(`intent lift --all ${basename(file)}: ${res.count} mission(s) inferred`);
+      for (const m of res.missions) console.log(`  ${m.mission}  (${m.fn}, confidence ${m.confidence})`);
       return;
     }
 

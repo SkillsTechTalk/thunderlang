@@ -1,0 +1,38 @@
+# Inferred by IntentLift from Python. Draft, unverified, needs human review.
+mission Request
+
+inferred
+  from Python
+  confidence medium
+  reviewed false
+  generated_by SkillsTech Compiler 0.1.0
+
+maps_to
+  function requests-api.py:request
+
+evidence
+  function signature request
+
+goal
+  request (inferred from the request signature)
+
+input
+  method: str
+  url: _t.UriType
+
+output
+  result: Response
+
+unknown
+  why
+  owner
+  customer impact
+  PM notes
+  security never rules
+
+needs_review
+  goal wording
+  why
+  never rules
+  verification evidence
+

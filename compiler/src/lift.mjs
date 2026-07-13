@@ -210,7 +210,7 @@ export function extractFactsPython(source, file = 'input.py') {
     if (seen.has(name)) continue; seen.add(name);
     const params = splitTopLevel(m[2] || '', ',').map((p) => p.trim()).filter((p) => p && !/^(self|cls)$/.test(p) && !p.startsWith('*'))
       .map((p) => { const nd = p.split('=')[0].trim(); const mm = nd.match(/^(\w+)\s*:\s*(.+)$/); return mm ? { name: mm[1], type: mm[2].trim() } : { name: nd, type: null }; });
-    functions.push({ name, file, line: lineOf(source, m.index), parameters: params, returnType: m[3] ? m[3].trim() : null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
+    functions.push({ name, file, line: lineOf(source, m.index), indent: (m[0].match(/^[ \t]*/) || [''])[0].length, parameters: params, returnType: m[3] ? m[3].trim() : null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
   }
   const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
   const classErr = /class\s+(\w*(?:Error|Exception))\s*[(:]/g; while ((m = classErr.exec(source))) addErr(m[1], m.index);
@@ -317,7 +317,7 @@ export function extractFactsRuby(source, file = 'input.rb') {
     if (/^test_/.test(name)) { tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
     if (seen.has(name)) continue; seen.add(name);
     const parameters = splitTopLevel(m[2] || '', ',').map((p) => p.trim()).filter(Boolean).map((p) => ({ name: p.split(/[:=]/)[0].trim().replace(/^[*&]+/, ''), type: null }));
-    functions.push({ name, file, line: lineOf(source, m.index), parameters, returnType: null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
+    functions.push({ name, file, line: lineOf(source, m.index), indent: (m[0].match(/^[ \t]*/) || [''])[0].length, parameters, returnType: null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
   }
   const seenT = new Set(); const addTest = (n, idx) => { const k = String(n).toLowerCase(); if (n && !seenT.has(k)) { seenT.add(k); tests.push({ name: n, file, line: lineOf(source, idx) }); } };
   const itRe = /\b(?:it|test|describe|context|specify)\s+["']([^"']+)["']/g; while ((m = itRe.exec(source))) addTest(m[1], m.index);
@@ -481,6 +481,45 @@ export function languageForFile(file) {
   if (/\.rb$/i.test(file)) return 'ruby';
   if (/\.(mjs|cjs|jsx?)$/i.test(file)) return 'javascript';
   return 'typescript';
+}
+
+/**
+ * Lift EVERY function in a source file into its own inferred mission (not just the primary).
+ * This is the Intent Atlas view of a file , each operation becomes an intent you can read, so a
+ * whole module's behavior is legible as intent. Deterministic, humble (each draft is unverified).
+ */
+// Is a function part of a project's PUBLIC surface? Cuts internal-helper noise from the Atlas.
+//  - Go: exported names are Capitalized; `main`/`init` are not public API.
+//  - Python/Ruby: top-level (or one-level) names that are not underscore-private, and not deep
+//    nested closures (indent > 4).
+//  - Otherwise keep everything but drop underscore-private names.
+function isPublicFn(fn, language) {
+  const name = fn.name || '';
+  if (language === 'go' || language === 'golang') return /^[A-Z]/.test(name) && name !== 'Test';
+  if (language === 'python' || language === 'ruby') return !name.startsWith('_') && (fn.indent == null || fn.indent <= 4);
+  return !name.startsWith('_') && name !== 'init' && name !== 'constructor';
+}
+
+export function liftAll(source, { language = 'typescript', file = '', publicOnly = true } = {}) {
+  const key = String(language).toLowerCase();
+  const adapter = ADAPTERS[key];
+  if (!adapter) return { ok: false, error: `Unsupported language "${language}". Supported: ${SUPPORTED_LANGUAGES.join(', ')}.` };
+  const resolvedFile = file || `input.${LANG_EXT[key] || 'txt'}`;
+  const codeFacts = adapter(source, resolvedFile);
+  let fns = codeFacts.functions;
+  if (publicOnly) { const pub = fns.filter((f) => isPublicFn(f, key)); if (pub.length) fns = pub; }
+  if (!fns.length) return { ok: false, error: 'No functions found to infer intent from.', codeFacts };
+  const missions = [];
+  const seen = new Map();
+  for (const fn of fns) {
+    const lifted = inferIntent({ ...codeFacts, functions: [fn] });
+    if (!lifted) continue;
+    const base = slug(lifted.mission);
+    const n = (seen.get(base) || 0) + 1;
+    seen.set(base, n);
+    missions.push({ mission: lifted.mission, fn: fn.name, line: fn.line, confidence: lifted.confidence, intentText: renderLiftedIntent(lifted) });
+  }
+  return { ok: true, schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: codeFacts.sourceLanguage, count: missions.length, missions };
 }
 
 export function liftRepo(files, { language } = {}) {

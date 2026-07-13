@@ -107,3 +107,39 @@ test('SUPPORTED_LANGUAGES advertises the top languages (>= 10)', () => {
     assert.ok(SUPPORTED_LANGUAGES.includes(l), `missing ${l}`);
   }
 });
+
+import { liftAll } from '../src/lift.mjs';
+
+test('liftAll lifts every function into its own mission (the Atlas view)', () => {
+  const py = `def request(method, url): ...
+def get(url): ...
+def post(url, data): ...
+def _internal_helper(x): ...
+`;
+  const r = liftAll(py, { language: 'python', file: 'api.py' });
+  assert.equal(r.ok, true);
+  const names = r.missions.map((m) => m.fn);
+  assert.ok(names.includes('request') && names.includes('get') && names.includes('post'));
+  assert.ok(!names.includes('_internal_helper'), 'publicOnly drops underscore-private');
+});
+
+test('liftAll publicOnly keeps exported Go names, drops main/init/unexported', () => {
+  const go = `func NewRouter() *Router { return nil }
+func main() {}
+func init() {}
+func (r *Router) Match(req *Request) bool { return true }
+func copyConf(c conf) conf { return c }
+`;
+  const names = liftAll(go, { language: 'go', file: 'mux.go' }).missions.map((m) => m.fn);
+  assert.ok(names.includes('NewRouter') && names.includes('Match'));
+  assert.ok(!names.includes('main') && !names.includes('init') && !names.includes('copyConf'));
+});
+
+test('liftAll publicOnly:false keeps everything', () => {
+  const go = `func main() {}\nfunc Exported() {}\n`;
+  assert.equal(liftAll(go, { language: 'go', publicOnly: false }).count, 2);
+});
+
+test('liftAll on no functions is a clear failure', () => {
+  assert.equal(liftAll('x = 1\n', { language: 'python' }).ok, false);
+});
