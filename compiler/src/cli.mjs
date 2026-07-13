@@ -29,6 +29,7 @@ import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
 import { scanProject } from './scan.mjs';
 import { guardianReport } from './guardian.mjs';
+import { simulateChange } from './simulate.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -173,6 +174,7 @@ Author & check
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
   scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
+  impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
   guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
@@ -916,6 +918,26 @@ test Example
     console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
     if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
     console.log('  use: import { compileGuard } from "@skillstech/intentlang/core"');
+    return;
+  }
+
+  // `intent impact <base> <proposed>` , the Simulator: estimate a change's impact BEFORE building it
+  // , the deterministic blast radius, the risk it would introduce, contradictions, release risk.
+  if (cmd === 'impact') {
+    const baseArg = args._[0]; const propArg = args._[1];
+    if (!baseArg || !propArg) { console.error('usage: intent impact <base.intent|dir> <proposed.intent|dir> [--json]'); process.exit(2); return; }
+    const collect = (p) => (existsSync(p) && statSync(p).isDirectory() ? collectIntents(p) : [p]).map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') }));
+    const r = simulateChange(collect(baseArg), collect(propArg));
+    if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.summary.safe ? 0 : 1); return; }
+    console.log(`intent impact: ${r.summary.safe ? 'SAFE' : 'REVIEW'}  (${baseArg} -> ${propArg})`);
+    console.log(`  change touches ${r.changedNodes} node(s); ripples to ${r.deterministicImpact.total} dependent(s)`);
+    const bt = Object.entries(r.deterministicImpact.byType);
+    if (bt.length) console.log('  deterministic impact by type:  ' + bt.map(([t, ns]) => `${ns.length} ${t}`).join(', '));
+    if (r.ruleDerivedRisk.length) { console.log(`  risk it would introduce (${r.ruleDerivedRisk.length}):`); for (const f of r.ruleDerivedRisk.slice(0, 6)) console.log(`    [${f.severity}] ${f.ruleId} , ${f.detected}`); }
+    if (r.contradictions.length) console.log(`  contradictions: ${r.contradictions.length}`);
+    if (r.releaseRisks.length) console.log(`  release risk: ${r.releaseRisks.length} blocking finding(s)`);
+    if (r.unknownImpact.length) console.log(`  unknown impact: ${r.unknownImpact.length} node(s) where the ripple can't be traced deterministically`);
+    process.exit(r.summary.safe ? 0 : 1);
     return;
   }
 

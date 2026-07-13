@@ -107,6 +107,8 @@ export { FABLE_SCHEMA, RISK_CATEGORIES, fableRuleFor, universalPack, toFinding }
 export { scanIntent, scanProject, SCAN_SCHEMA } from './scan.mjs';
 // Intent Guardian , continuous drift detection (what changed, what risk, what to reverify, stale learning)
 export { guardianReport, GUARDIAN_SCHEMA } from './guardian.mjs';
+// Intent Simulator , estimate a change's impact BEFORE implementation (blast radius + risk)
+export { simulateChange, SIMULATE_SCHEMA } from './simulate.mjs';
 // Verify a code change against its intent , the AI generate/verify loop gate
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 // MCP server , IntentLang as a native tool for AI coding agents

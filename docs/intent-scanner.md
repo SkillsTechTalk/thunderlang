@@ -94,3 +94,37 @@ decisions) that changed *must be reverified*; and the missions whose intent chan
 that are now stale. `needs-attention` fires only when a change introduces *blocking* risk , an
 improvement that merely adds a test is `review`, not an alarm. `--json` for the machine report;
 exit is non-zero on `needs-attention`, so it gates a pull request.
+
+## Look forward , Intent Simulator
+
+Guardian looks back at a change that happened. **Intent Simulator** looks forward at one that has
+not: `intent impact <base> <proposed>` estimates what a proposed change would touch *before* you
+build it.
+
+```bash
+intent impact current/ proposed/
+```
+
+```
+intent impact: REVIEW  (base -> proposed)
+  change touches 2 node(s); ripples to 3 dependent(s)
+  deterministic impact by type:  1 Mission, 1 Outcome, 1 Metric
+  risk it would introduce (2):
+    [warning] guarantee-without-verification , ...
+    [blocker] IL-SEC-001 , Event "Charged" payload field "token" is a Secret; ...
+  release risk: 1 blocking finding(s)
+```
+
+The Simulator computes a **blast radius** , the transitive reach of the change over the intent
+graph , so you see which missions, outcomes, requirements, components, and tests a change would
+ripple into. Crucially, it keeps the four kinds of impact the directive requires **separate and
+honest**:
+
+- **deterministic dependency impact** , the blast radius, traced over real relationships;
+- **rule-derived risk** , the findings the proposed state would introduce;
+- **AI-predicted impact** , explicitly `null` in deterministic mode (never fabricated);
+- **unknown impact** , changed nodes whose ripple cannot be traced deterministically (non-factual
+  classification, or no relationships), surfaced rather than hidden.
+
+A change that introduces a release blocker or a contradiction is `REVIEW` (exit non-zero); a purely
+additive, safe change is `SAFE`. Run it in a pull request to see the impact before the merge.

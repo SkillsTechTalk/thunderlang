@@ -88,6 +88,11 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Intent Simulator (`intent-simulate-v1`).** `intent impact <base> <proposed>` / `simulateChange`
+  estimates a change's impact BEFORE implementation: the deterministic BLAST RADIUS (transitive
+  reach over the intent graph, by node type), the risk it would introduce, contradictions, and
+  release risk , keeping deterministic dependency impact, rule-derived risk, AI-predicted (null in
+  deterministic mode), and unknown impact SEPARATE and honest. Browser-safe.
 - **Intent Guardian (`intent-guardian-v1`).** `intent guardian <before> <after>` / `guardianReport`
   detects drift a change introduced: what changed (semantic diff by mission identity, rename-safe),
   what intent it affects, the risk it INTRODUCED (findings new in after), what must be reverified
