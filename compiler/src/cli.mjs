@@ -27,6 +27,7 @@ import { startMcpServer } from './mcp.mjs';
 import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
+import { scanProject } from './scan.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -112,6 +113,7 @@ function parseArgs(argv) {
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
     else if (a === '--all') args.all = true;
+    else if (a === '--ir') args.ir = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -168,6 +170,7 @@ Author & check
   draft --brief <json|->   scaffold a rigorous intent draft + gap checklist from a brief
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
+  scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
   guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
@@ -911,6 +914,29 @@ test Example
     console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
     if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
     console.log('  use: import { compileGuard } from "@skillstech/intentlang/core"');
+    return;
+  }
+
+  // `intent scan [dir]` , the Scanner spine: intent -> Intent IR -> explainable Fable findings ->
+  // risk themes. Deterministic, no AI. --json for the machine report; --ir writes the merged IR.
+  if (cmd === 'scan') {
+    const root = file || '.';
+    const targets = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : [root];
+    const result = scanProject(targets.map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') })));
+    if (args.ir) { writeFileSync(args.ir, JSON.stringify(result.ir, null, 2)); console.error(`intent scan: wrote Intent IR (${result.ir.nodes.length} nodes) to ${args.ir}`); }
+    if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(result.ok ? 0 : 1); return; }
+    const s = result.bySeverity;
+    console.log(`intent scan ${root}: ${result.totals.findings} finding(s) across ${result.totals.missions} mission(s) in ${result.totals.files} file(s)`);
+    console.log(`  severity   ${s.blocker} blocker, ${s.error} error, ${s.warning} warning, ${s.info} info  ,  Intent IR: ${result.ir.nodes.length} nodes`);
+    if (result.risks.length) {
+      console.log('  risk themes:');
+      for (const r of result.risks) console.log(`    ${String(r.count).padStart(3)}  ${r.category}${r.blocker ? `  (${r.blocker} blocker)` : ''}`);
+    }
+    if (result.remediationSequence.length) {
+      console.log('  highest-impact remediation first:');
+      for (const r of result.remediationSequence.slice(0, 5)) console.log(`    [${r.severity}] ${r.ruleId} (${r.count}x) , ${r.remediation}`);
+    }
+    process.exit(result.ok ? 0 : 1);
     return;
   }
 

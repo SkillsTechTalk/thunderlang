@@ -88,6 +88,13 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Intent Scanner + Fable (`intent-scan-v1` / `intent-fable-v1`).** `intent scan [dir]` runs the
+  deterministic pipeline , parse -> Intent IR -> Fable findings -> risk themes , and prints an
+  executive/risk summary + a highest-impact remediation sequence; `--json` for the machine report,
+  `--ir <path>` to emit the shared Intent IR. Fable is the rule authority OVER the diagnostics
+  catalog (risk category + detection strategy + remediation + suppression policy); every finding is
+  fully explained (never "AI detected a possible issue"). `scanProject`, `universalPack`,
+  `fableRuleFor`, `toFinding` exported. Browser-safe.
 - **Repo-wide health report.** `intent report [dir]` / `buildReport(files)` aggregates every
   .intent file into an intent-health summary (`intent-report-v1`): diagnostics by severity +
   area, top codes, and coverage (guarantees verified, missions with tests, outcomes contracted).
