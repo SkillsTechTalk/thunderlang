@@ -77,7 +77,7 @@ export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, i
 // Comprehension Contract: the C0..C7 understanding level (browser-safe; every product reads it).
 export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
 // Code generation: deterministic scaffolds from intent (browser-safe, so the playground renders it).
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript } from './codegen.mjs';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './codegen.mjs';
 // Change Lens: what a branch/PR changed by meaning (pure; the CLI supplies the git-diffed graphs).
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { subjectName } from './parse.mjs';

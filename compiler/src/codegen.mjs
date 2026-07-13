@@ -7,7 +7,7 @@
 // Pure and browser-safe so the playground can render it. TypeScript first; the same adapter
 // shape (a type map + a body walk) extends to C# / Java.
 
-import { exprToJs } from './expr.mjs';
+import { exprToJs, exprToCSharp, exprToJava } from './expr.mjs';
 import { subjectName } from './parse.mjs';
 
 export const CODEGEN_SCHEMA = 'intent-codegen-v1';
@@ -96,4 +96,119 @@ export function toTypeScript(ast) {
   return L.join('\n');
 }
 
-export const GENERATORS = { typescript: toTypeScript, ts: toTypeScript };
+// ── C# ───────────────────────────────────────────────────────────────────────
+const CS_TYPES = {
+  Email: 'string', Url: 'string', UserId: 'string', AccountId: 'string', OrderId: 'string',
+  InvoiceId: 'string', CustomerId: 'string', Secret: 'string', Token: 'string', Jwt: 'string',
+  IdempotencyKey: 'string', Currency: 'string', Date: 'DateTime', DateTime: 'DateTime',
+  Money: 'decimal', Percentage: 'decimal', Count: 'int', Duration: 'int', Flag: 'bool',
+};
+function csType(type, domain) {
+  if (!type) return 'object';
+  const list = /^List<(.+)>$/.exec(type);
+  if (list) return `List<${csType(list[1], domain)}>`;
+  const base = type.replace(/\(.*\)/, '');
+  if (CS_TYPES[base]) return CS_TYPES[base];
+  domain.add(base); return base;
+}
+
+/** Generate a deterministic C# scaffold from an intent AST. */
+export function toCSharp(ast) {
+  const subject = pascal(subjectName(ast) || 'Intent');
+  const domain = new Set();
+  const L = [
+    `// ${subject} , generated from IntentLang (intent-codegen-v1). Deterministic, no AI.`,
+    '// The record contract and the decision logic are fully determined by the intent;',
+    '// business logic marked TODO is yours, bound by the guarantees and never-rules below.',
+    '',
+    'using System;',
+    'using System.Collections.Generic;',
+    'using System.Linq;',
+    '',
+  ];
+  const rec = (name, fields) => fields.length
+    ? [`public record ${name}(${fields.map((f) => `${csType(f.type, domain)} ${pascal(f.name)}`).join(', ')});`, '']
+    : [];
+  if ((ast.inputs || []).length) L.push(...rec(`${subject}Input`, ast.inputs));
+  if ((ast.outputs || []).length) L.push(...rec(`${subject}Output`, ast.outputs));
+  L.push(`public static class ${subject}`, '{');
+  for (const d of ast.decisions || []) {
+    const inputs = d.inputs || [];
+    L.push(`  // decision ${d.name} , first matching rule wins.`);
+    L.push(`  public static string ${pascal(d.name)}(${inputs.map((i) => `dynamic ${i}`).join(', ')})`);
+    L.push('  {');
+    for (const r of d.rules || []) {
+      let cond; try { cond = exprToCSharp(r.when, { inputs }); } catch { cond = `false /* TODO: "${r.when}" */`; }
+      L.push(`    if (${cond}) return ${JSON.stringify(r.result)}; // rule ${r.name}`);
+    }
+    L.push(`    return ${JSON.stringify(d.default ?? 'Undecided')}; // default`, '  }');
+  }
+  const inName = (ast.inputs || []).length ? `${subject}Input` : null;
+  const outName = (ast.outputs || []).length ? `${subject}Output` : 'void';
+  L.push(`  public static ${outName} Run(${inName ? `${inName} input` : ''})`, '  {');
+  for (const n of ast.neverRules || []) L.push(`    // NEVER: ${n.statement}`);
+  for (const g of ast.guarantees || []) L.push(`    // GUARANTEE: ${g.statement}`);
+  L.push('    throw new NotImplementedException("TODO: implement , the intent above defines what this must do.");', '  }');
+  L.push('}', '');
+  return L.join('\n');
+}
+
+// ── Java ─────────────────────────────────────────────────────────────────────
+const JAVA_TYPES = {
+  Email: 'String', Url: 'String', UserId: 'String', AccountId: 'String', OrderId: 'String',
+  InvoiceId: 'String', CustomerId: 'String', Secret: 'String', Token: 'String', Jwt: 'String',
+  IdempotencyKey: 'String', Currency: 'String', Date: 'java.time.LocalDate', DateTime: 'java.time.Instant',
+  Money: 'java.math.BigDecimal', Percentage: 'double', Count: 'int', Duration: 'long', Flag: 'boolean',
+};
+function javaType(type, domain) {
+  if (!type) return 'Object';
+  const list = /^List<(.+)>$/.exec(type);
+  if (list) return `java.util.List<${javaType(list[1], domain)}>`;
+  const base = type.replace(/\(.*\)/, '');
+  if (JAVA_TYPES[base]) return JAVA_TYPES[base];
+  domain.add(base); return base;
+}
+
+/** Generate a deterministic Java scaffold from an intent AST. */
+export function toJava(ast) {
+  const subject = pascal(subjectName(ast) || 'Intent');
+  const domain = new Set();
+  const L = [
+    `// ${subject} , generated from IntentLang (intent-codegen-v1). Deterministic, no AI.`,
+    '// The record contract and the decision logic are fully determined by the intent;',
+    '// business logic marked TODO is yours, bound by the guarantees and never-rules below.',
+    '',
+    `public final class ${subject} {`,
+    `  private ${subject}() {}`,
+    '',
+  ];
+  const rec = (name, fields) => fields.length
+    ? [`  public record ${name}(${fields.map((f) => `${javaType(f.type, domain)} ${f.name}`).join(', ')}) {}`, '']
+    : [];
+  if ((ast.inputs || []).length) L.push(...rec(`${subject}Input`, ast.inputs));
+  if ((ast.outputs || []).length) L.push(...rec(`${subject}Output`, ast.outputs));
+  for (const d of ast.decisions || []) {
+    const inputs = d.inputs || [];
+    L.push(`  // decision ${d.name} , first matching rule wins.`);
+    L.push(`  public static String ${lower(pascal(d.name))}(${inputs.map((i) => `Object ${i}`).join(', ')}) {`);
+    for (const r of d.rules || []) {
+      let cond; try { cond = exprToJava(r.when, { inputs }); } catch { cond = `false /* TODO: "${r.when}" */`; }
+      L.push(`    if (${cond}) return ${JSON.stringify(r.result)}; // rule ${r.name}`);
+    }
+    L.push(`    return ${JSON.stringify(d.default ?? 'Undecided')}; // default`, '  }');
+  }
+  const inName = (ast.inputs || []).length ? `${subject}Input` : null;
+  const outName = (ast.outputs || []).length ? `${subject}Output` : 'void';
+  L.push(`  public static ${outName} run(${inName ? `${inName} input` : ''}) {`);
+  for (const n of ast.neverRules || []) L.push(`    // NEVER: ${n.statement}`);
+  for (const g of ast.guarantees || []) L.push(`    // GUARANTEE: ${g.statement}`);
+  L.push('    throw new UnsupportedOperationException("TODO: implement , the intent above defines what this must do.");', '  }');
+  L.push('}', '');
+  return L.join('\n');
+}
+
+export const GENERATORS = {
+  typescript: toTypeScript, ts: toTypeScript,
+  csharp: toCSharp, cs: toCSharp,
+  java: toJava,
+};

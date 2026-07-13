@@ -209,7 +209,7 @@ Author & check
   risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
   focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
   comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
-  gen <file> [--target typescript] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
+  gen <file> [--target typescript|csharp|java] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
   changes [<base>..<head> | <base>] [--json]  Change Lens: what a branch/PR changed by meaning
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
@@ -480,7 +480,7 @@ function main() {
     return;
   }
 
-  // `intent gen <file> [--target typescript] [--out <dir>]` , deterministic code scaffold from
+  // `intent gen <file> [--target typescript|csharp|java] [--out <dir>]` , deterministic code scaffold from
   // intent. Generates the typed contract + the decision logic (already executable) and leaves
   // honest TODO markers for business logic. No AI. Prints, or writes with --out.
   if (cmd === 'gen') {

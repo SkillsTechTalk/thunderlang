@@ -111,10 +111,10 @@ export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, i
 // Comprehension Contract , the C0..C7 understanding level (intent-comprehension-v1)
 export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
 // Code generation , deterministic scaffolds from intent (intent-codegen-v1)
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript } from './codegen.mjs';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './codegen.mjs';
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
-export { exprToJs } from './expr.mjs';
+export { exprToJs, exprToCSharp, exprToJava, exprToCode } from './expr.mjs';
 export { subjectName } from './parse.mjs';
 // Focused scanner query views (Part 3): risks / gaps / unverified / coverage / unknowns / contradictions
 export {

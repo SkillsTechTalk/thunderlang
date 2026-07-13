@@ -665,6 +665,8 @@ export function comprehensionReport(asts: IntentAst[], opts?: { observed?: boole
 // Code generation , deterministic scaffolds from intent (intent-codegen-v1)
 export const CODEGEN_SCHEMA: string;
 export function toTypeScript(ast: IntentAst): string;
+export function toCSharp(ast: IntentAst): string;
+export function toJava(ast: IntentAst): string;
 export const GENERATORS: Record<string, (ast: IntentAst) => string>;
 export function exprToJs(src: string, opts?: { inputs?: string[] }): string;
 export function subjectName(ast: IntentAst): string | null;

@@ -201,27 +201,45 @@ export function evalExpr(src, inputs = {}) {
   return compileExpr(src)(inputs);
 }
 
-/**
- * Render a `when` condition as an equivalent JavaScript/TypeScript expression, for code
- * generation. Input names (passed in) render as identifiers; any other bare token is an enum
- * literal and renders as a string. Reuses the parser, so precedence is exact.
- */
-export function exprToJs(src, { inputs = [] } = {}) {
+// Per-language rendering of the `when` grammar. `eq`/`neq` build an equality expression (JS uses
+// ===, C# ==, Java Objects.equals for correct string value equality); `inList` builds membership.
+const DIALECTS = {
+  js: { eq: (a, b) => `${a} === ${b}`, neq: (a, b) => `${a} !== ${b}`, inList: (list, x) => `[${list.join(', ')}].includes(${x})`, nil: 'undefined' },
+  csharp: { eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `new[]{${list.join(', ')}}.Contains(${x})`, nil: 'null' },
+  java: { eq: (a, b) => `java.util.Objects.equals(${a}, ${b})`, neq: (a, b) => `!java.util.Objects.equals(${a}, ${b})`, inList: (list, x) => `java.util.List.of(${list.join(', ')}).contains(${x})`, nil: 'null' },
+};
+
+function renderExpr(src, inputs, D) {
   const known = new Set(inputs);
-  const render = (n) => {
+  const r = (n) => {
     switch (n.k) {
-      case 'or': return `(${render(n.a)} || ${render(n.b)})`;
-      case 'and': return `(${render(n.a)} && ${render(n.b)})`;
-      case 'not': return `!${render(n.a)}`;
-      case 'neg': return `-${render(n.a)}`;
-      case 'arith': return `(${render(n.a)} ${n.op} ${render(n.b)})`;
-      case 'cmp': { const op = n.op === '==' ? '===' : n.op === '!=' ? '!==' : n.op; return `(${render(n.a)} ${op} ${render(n.b)})`; }
-      case 'in': return `[${n.list.map(render).join(', ')}].includes(${render(n.a)})`;
-      case 'list': return `[${n.items.map(render).join(', ')}]`;
+      case 'or': return `(${r(n.a)} || ${r(n.b)})`;
+      case 'and': return `(${r(n.a)} && ${r(n.b)})`;
+      case 'not': return `!${r(n.a)}`;
+      case 'neg': return `-${r(n.a)}`;
+      case 'arith': return `(${r(n.a)} ${n.op} ${r(n.b)})`;
+      case 'cmp':
+        if (n.op === '==') return `(${D.eq(r(n.a), r(n.b))})`;
+        if (n.op === '!=') return `(${D.neq(r(n.a), r(n.b))})`;
+        return `(${r(n.a)} ${n.op} ${r(n.b)})`;
+      case 'in': return D.inList(n.list.map(r), r(n.a));
+      case 'list': return `[${n.items.map(r).join(', ')}]`;
       case 'lit': return typeof n.v === 'string' ? JSON.stringify(n.v) : String(n.v);
       case 'ref': return (known.has(n.path) || known.has(n.path.split('.')[0])) ? n.path : JSON.stringify(n.path);
-      default: return 'undefined';
+      default: return D.nil;
     }
   };
-  return render(parse(tokenize(src)));
+  return r(parse(tokenize(src)));
 }
+
+/**
+ * Render a `when` condition as an equivalent expression in a target language, for code generation.
+ * Input names render as identifiers; any other bare token is an enum literal (a string). Reuses
+ * the parser, so precedence is exact. `dialect` is js (default) | csharp | java.
+ */
+export function exprToCode(src, { inputs = [], dialect = 'js' } = {}) {
+  return renderExpr(src, inputs, DIALECTS[dialect] || DIALECTS.js);
+}
+export const exprToJs = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'js' });
+export const exprToCSharp = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'csharp' });
+export const exprToJava = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'java' });

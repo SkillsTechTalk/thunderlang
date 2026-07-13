@@ -88,3 +88,34 @@ test('barrel + CLI expose codegen', () => {
   assert.equal(res.status, 0, res.stderr);
   assert.match(res.stdout, /export function canReset/);
 });
+
+// C# + Java targets (same adapter shape as TypeScript).
+import { toCSharp, toJava } from '../src/codegen.mjs';
+import { exprToCSharp, exprToJava } from '../src/expr.mjs';
+
+test('C# target: records + decision logic with C# value equality', () => {
+  const cs = toCSharp(parseIntent('mission Charge\ninput\n  amount: Money\noutput\n  ok: Flag\n' + DECISION.split('\n').slice(1).join('\n')));
+  assert.match(cs, /generated from IntentLang/);
+  assert.match(cs, /public record ChargeInput\(decimal Amount\)/);
+  assert.match(cs, /public static string CanReset/);
+  assert.match(cs, /return "Denied"; \/\/ rule expired/);
+  // C# string equality is ==, membership is .Contains
+  assert.equal(exprToCSharp('s == active', { inputs: ['s'] }), '(s == "active")');
+  assert.equal(exprToCSharp('t in [1,2]', { inputs: ['t'] }), 'new[]{1, 2}.Contains(t)');
+});
+
+test('Java target: records + Objects.equals for correct string equality (not ==)', () => {
+  const j = toJava(parseIntent(DECISION));
+  assert.match(j, /public final class CanReset/);
+  assert.match(j, /public static String canReset/);
+  assert.match(j, /return "Allowed"; \/\/ rule allowed/);
+  // Java must NOT use == for value equality (that compares references for strings)
+  assert.equal(exprToJava('s == active', { inputs: ['s'] }), '(java.util.Objects.equals(s, "active"))');
+  assert.doesNotMatch(exprToJava('s == active', { inputs: ['s'] }), /s === |s == "/);
+});
+
+test('GENERATORS + CLI expose csharp and java targets', async () => {
+  const { GENERATORS } = await import('../src/codegen.mjs');
+  assert.equal(typeof GENERATORS.csharp, 'function');
+  assert.equal(typeof GENERATORS.java, 'function');
+});

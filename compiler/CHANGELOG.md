@@ -158,7 +158,10 @@ The executable + interoperable release. Everything is deterministic and requires
   evaluator (proven by a property test over the input space) , and leaves honest `TODO` markers
   for business logic, annotated with the guarantees and never-rules the code must uphold. Powered
   by a new `exprToJs` that translates the `when` grammar to correct JS (input-aware, so a bare
-  token becomes a string literal). `intent gen <file> [--target typescript] [--out <dir>]`. Pure
+  token becomes a string literal). **Now also generates C# and Java** (`--target csharp|java`):
+  typed records + the same first-hit decision logic, translated per language (C# `==` + `.Contains`;
+  Java `Objects.equals`, so string equality is value-correct, not reference `==`) via a
+  dialect-aware `exprToCode`. `intent gen <file> [--target typescript|csharp|java] [--out <dir>]`. Pure
   / browser-safe and exported from `/core`, so the **playground now has a "Code" tab** , change
   the intent, watch the code change. Completes the round-trip with `intent lift` (code -> intent).
 - **Fix: non-mission root files no longer render as `# null`.** A standalone `event` / `api` /
