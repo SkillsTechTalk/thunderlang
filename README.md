@@ -37,8 +37,9 @@ contract is judged against a result, all deterministically. See
 
 - `compiler/` , the deterministic compiler, CLI, and Language Server (published as
   `@skillstech/intentlang`). Executable runtime, first-class tests, outcome contracts,
-  five-profile language, DMN/BPMN/JSON-Schema/OpenAPI interop, schema migrations. 280+
-  tests.
+  five-profile language, style intent, security/type checks, nine export adapters
+  (DMN/BPMN/NuSMV/JSON-Schema/OpenAPI/Design-Tokens/CSS/Mermaid/Playwright), schema
+  migrations, a canonical proof envelope, and SARIF code scanning. 340+ tests.
 - `editors/vscode/` , a VS Code extension (grammar + language client).
 - `src/`, `docs/`, `examples/` , the website (intentlanguage.dev), the concept docs, and
   worked example missions.
@@ -147,7 +148,7 @@ is reproduced as inline SVG in `src/components/StarMark.tsx` for crisp scaling.
 
 ## Status
 
-Pre-1.0 and honest. The compiler is real, deterministic, and tested (280+ tests, fuzz +
+Pre-1.0 and honest. The compiler is real, deterministic, and tested (340+ tests, fuzz +
 property + composition, with CI guards for checks, docs, schema sync, and formatting).
 The language and its `intent-graph-v1` schema version independently and can still change
 before 1.0. IntentLang sits above paradigms; it does not replace Rust, Go, Python, Java,
