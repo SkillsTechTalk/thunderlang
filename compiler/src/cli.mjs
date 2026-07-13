@@ -42,6 +42,7 @@ import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
+import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
@@ -125,6 +126,9 @@ function parseArgs(argv) {
     else if (a === '--nodes') args.nodes = argv[++i];
     else if (a === '--depth') args.depth = argv[++i];
     else if (a === '--dir') args.dir = argv[++i];
+    else if (a === '--observed') args.observed = true;
+    else if (a === '--learning') args.learning = true;
+    else if (a === '--governed') args.governed = true;
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -200,6 +204,7 @@ Author & check
   scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
   risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
   focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
+  comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
   ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
@@ -441,6 +446,31 @@ function main() {
     if (brief.risks) console.log(`  risks in scope: ${brief.risks}`);
     if (brief.unknowns.length) console.log(`  unknowns: ${brief.unknowns.join('; ')}`);
     if (brief.needsReview) console.log('  note: scope includes low-confidence inferred intent , review before trusting.');
+    return;
+  }
+
+  // `intent comprehension <file|dir> [--observed] [--learning] [--governed] [--json]` , the C0..C7
+  // understanding level of each mission (Comprehension Contract). IL scores the intent side (C1..C4);
+  // --observed (OpenThunder/runtime), --learning (Skills Tech Talk), --governed (Guardian) lift the
+  // joint level to C5/C6/C7 when a sibling attaches its evidence.
+  if (cmd === 'comprehension') {
+    const root = file || '.';
+    const files = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : (existsSync(root) ? [root] : []);
+    if (!files.length) { console.error(`intent comprehension: no .intent files under ${root}`); process.exit(2); return; }
+    const opts = { observed: !!args.observed, learningPath: !!args.learning, governed: !!args.governed };
+    const asts = files.map((f) => parseIntent(readFileSync(f, 'utf8')));
+    const report = comprehensionReport(asts, opts);
+    if (args.json) { console.log(JSON.stringify(report, null, 2)); return; }
+    console.log(`intent comprehension ${root}: ${report.count} mission(s)`);
+    console.log(`  distribution: ${COMPREHENSION_LEVELS.map((l) => `${l.level}:${report.byLevel[l.level]}`).join('  ')}`);
+    for (const m of report.missions) {
+      console.log(`\n  ${m.mission || '(unnamed)'}  ,  ${m.level} ${m.levelName}`);
+      console.log(`    ${m.means}`);
+      if (m.missing.length) {
+        const next = m.missing[0];
+        console.log(`    next: reach ${next.level} ${next.name} , ${next.need}  [${next.owner}]`);
+      }
+    }
     return;
   }
 

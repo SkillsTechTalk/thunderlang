@@ -648,3 +648,16 @@ export interface IntentBrief {
   risks: number; verification: number; unknowns: string[]; confidence: string | null; needsReview: boolean;
 }
 export function intentBrief(focus: FocusGraph): IntentBrief;
+
+// Comprehension Contract , the C0..C7 understanding level (intent-comprehension-v1)
+export const COMPREHENSION_SCHEMA: string;
+export const COMPREHENSION_LEVELS: Array<{ level: string; name: string; means: string }>;
+export interface ComprehensionSignal { met: boolean; evidence: string[]; owner: string }
+export interface ComprehensionResult {
+  schema: string; mission: string | null; level: string; levelName: string; means: string;
+  signals: Record<string, ComprehensionSignal>;
+  missing: Array<{ level: string; name: string; need: string; owner: string }>;
+  contract: Record<string, boolean>;
+}
+export function comprehensionLevel(ast: IntentAst, opts?: { observed?: boolean; learningPath?: boolean; governed?: boolean }): ComprehensionResult;
+export function comprehensionReport(asts: IntentAst[], opts?: { observed?: boolean; learningPath?: boolean; governed?: boolean }): { schema: string; count: number; byLevel: Record<string, number>; missions: ComprehensionResult[] };

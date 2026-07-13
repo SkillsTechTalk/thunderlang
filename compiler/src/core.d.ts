@@ -37,6 +37,12 @@ export {
   makeScope, buildFocusGraph, intentBrief,
 } from './index';
 
+// Comprehension Contract , the C0..C7 understanding level.
+export {
+  COMPREHENSION_SCHEMA, COMPREHENSION_LEVELS, ComprehensionResult, ComprehensionSignal,
+  comprehensionLevel, comprehensionReport,
+} from './index';
+
 // Change Lens , semantic diff + 3-way merge + graph->source round-trip.
 export {
   IntentDiff, IntentMerge, diffGraphs, mergeGraphs,

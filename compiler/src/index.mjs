@@ -108,6 +108,8 @@ export { FABLE_SCHEMA, RISK_CATEGORIES, fableRuleFor, universalPack, toFinding }
 export { scanIntent, scanProject, SCAN_SCHEMA } from './scan.mjs';
 // Intent Lens , Intent Scope + Focus Graph + Intent Brief (a focused subgraph of the Atlas)
 export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, intentBrief } from './focus.mjs';
+// Comprehension Contract , the C0..C7 understanding level (intent-comprehension-v1)
+export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
 // Focused scanner query views (Part 3): risks / gaps / unverified / coverage / unknowns / contradictions
 export {
   VIEW_SCHEMA, VIEWS, risksView, gapsView, unverifiedView, coverageView, unknownsView, contradictionsView,

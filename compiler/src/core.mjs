@@ -74,6 +74,8 @@ export { VIEW_SCHEMA, VIEWS, coverageView, unverifiedView, gapsView, risksView, 
 export { buildAtlas, atlasNode, expandNode, searchAtlas, ATLAS_SCHEMA } from './intent-atlas.mjs';
 // Intent Lens: Intent Scope + Focus Graph + Intent Brief (a focused subgraph of the Atlas).
 export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, intentBrief } from './focus.mjs';
+// Comprehension Contract: the C0..C7 understanding level (browser-safe; every product reads it).
+export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
 // Semantic diff + 3-way merge (Change Lens: diff by meaning).
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.

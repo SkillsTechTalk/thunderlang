@@ -128,6 +128,15 @@ The executable + interoperable release. Everything is deterministic and requires
   UTF-8 encoder instead of the `TextEncoder` global, so it runs on Hermes / React Native (the
   conformance test now fails CI if any `/core` module references `TextEncoder`, `Buffer`, or
   another non-guaranteed global, and asserts hashing works with `TextEncoder` deleted).
+- **Comprehension Contract , the C0..C7 understanding level (`intent comprehension`).** The
+  measurable backbone of the Software Understanding System: `comprehensionLevel(ast)` scores how
+  well-understood a mission is, deterministically, from C0 (Unknown) through C4 (Verified) which
+  IL determines on its own, up to C5 (Observed), C6 (Teachable), and C7 (Governed) which a sibling
+  lifts by attaching evidence (`--observed` = OpenThunder/runtime, `--learning` = Skills Tech Talk,
+  `--governed` = Guardian + Workspace/Ledger). The ladder is cumulative (a gap caps the level) and
+  honest (a level is never claimed on evidence IL does not have; each missing rung names its owner).
+  `intent comprehension <file|dir>` reports the level + the next rung; `intent-comprehension-v1` is
+  the shared contract every product reads. Pure / browser-safe, exported from `/core`, typed.
 - **Intent Lens , Intent Scope + Focus Graph (`intent focus`).** A Focus Graph is a
   deterministic subgraph of the Intent Atlas around a selected scope (a mission, a feature
   query, or `--nodes a,b`), with every node tagged by WHY it is in focus (selected / governing
