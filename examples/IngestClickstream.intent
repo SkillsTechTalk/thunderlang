@@ -1,0 +1,89 @@
+# IngestClickstream.intent
+# Domain: data pipeline. Ingest raw events, validate schema, drop duplicates, and
+# route bad or sensitive records instead of loading them blindly. Exactly-once into
+# the warehouse; PII never lands in the clear. The routing rule runs deterministically.
+
+mission IngestClickstream
+use product
+
+title "Ingest, validate, dedupe, and route clickstream events"
+for DataPlatformTeam
+
+goal
+  Turn a raw event stream into clean, deduplicated, schema-valid rows in the
+  warehouse, quarantining what does not qualify.
+
+why
+  Silent bad data is worse than missing data: it corrupts every metric downstream
+  and is expensive to unwind once dashboards depend on it.
+
+requires
+  EventSchema
+  Warehouse
+
+input
+  eventId: EventId
+  schemaValid: Flag
+  alreadyLoaded: Flag
+  containsRawPii: Flag
+
+output
+  disposition: RecordDisposition
+
+guarantee each event is loaded at most once
+  because at-least-once delivery replays events, and double-counting skews metrics
+  verify exactly once load test
+
+guarantee schema-invalid records are quarantined, never loaded
+  because one malformed row can break every query that reads the table
+  verify schema validation test
+
+never
+  load a record that fails schema validation
+  write raw personal data to the warehouse in the clear
+
+never load a record that fails schema validation
+  because unvalidated data poisons every downstream consumer at once
+  verify schema validation test
+
+never write raw personal data to the warehouse in the clear
+  because unmasked PII in analytics storage is a compliance and breach risk
+  verify pii masking test
+
+# One deterministic routing decision per record. `intent run` / `intent test`.
+decision RouteRecord
+  inputs
+    schemaValid
+    alreadyLoaded
+    containsRawPii
+  rule duplicate
+    when alreadyLoaded == true
+    return Drop
+  rule invalid
+    when schemaValid == false
+    return Quarantine
+  rule sensitive
+    when containsRawPii == true
+    return Mask
+  default
+    return Load
+
+target
+  Tests
+
+test RouteRecord
+  case clean new record loads
+    given schemaValid true, alreadyLoaded false, containsRawPii false
+    expect Load
+  case duplicate is dropped
+    given schemaValid true, alreadyLoaded true, containsRawPii false
+    expect Drop
+  case invalid record is quarantined
+    given schemaValid false, alreadyLoaded false, containsRawPii false
+    expect Quarantine
+  case pii record is masked before load
+    given schemaValid true, alreadyLoaded false, containsRawPii true
+    expect Mask
+  case duplicate wins even when invalid
+    given schemaValid false, alreadyLoaded true, containsRawPii false
+    expect Drop

@@ -93,8 +93,15 @@ repo and implementation is approved.
       website and the compiler home.
 
 ### P4 - Examples library (multi-domain)
-- [ ] auth, billing, notifications, ecommerce, AI agent workflow, RAG pipeline,
+- [x] auth, billing, notifications, ecommerce, AI agent workflow, RAG pipeline,
       API gateway, event-driven service, data pipeline, infrastructure policy
+      All ten domains now have a worked, clean-compiling example:
+      auth=ResetPassword (+VerifyEmail); billing=CreateInvoice/BillingService/
+      SubscriptionUpgrade/DuplicateInvoicePrevention; notifications=AlertRouting;
+      ecommerce=PlaceOrder; AI agent workflow=ResearchAgentRun; RAG=GroundedAnswer;
+      API gateway=ApiGateway; event-driven service=BillingService+InvoiceCreated;
+      data pipeline=IngestClickstream; infrastructure policy=NetworkEgressPolicy.
+      The five new ones each check clean (0 warnings) and run their decision tests green.
 
 ### P5 - Website content (this repo)
 - [x] Shift site prose and metadata to the **IntentLang** brand

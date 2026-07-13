@@ -1,0 +1,99 @@
+# PlaceOrder.intent
+# Domain: ecommerce checkout. Turning a cart into an order is where money, stock,
+# and trust all meet. One order per submission, never oversell, never charge before
+# stock is reserved. The checkout gate runs as a decision.
+
+mission PlaceOrder
+use product
+
+title "Place an order from a cart safely and exactly once"
+for StorefrontTeam
+
+note pm:
+  A double-click at checkout must never become two orders or two charges.
+
+goal
+  Convert a valid cart into exactly one order, with stock reserved before payment
+  is captured.
+
+why
+  Overselling, double charges, and duplicate orders each turn a sale into a refund,
+  a support ticket, and lost trust.
+
+requires
+  Cart
+  PaymentMethod
+
+input
+  cart: Cart
+  idempotencyKey: IdempotencyKey
+  inStock: Flag
+  paymentValid: Flag
+
+output
+  order: Order
+
+guarantee a resubmitted checkout with the same key returns the first order
+  because customers double-submit, and each retry must not create a new order
+  verify idempotent checkout test
+
+guarantee stock is reserved before the customer is charged
+  because charging for stock you cannot ship is the worst checkout failure
+  verify reserve before charge test
+
+never
+  create a second order for the same idempotency key
+  sell more units than are in stock
+  capture payment before stock is reserved
+
+never create a second order for the same idempotency key
+  because that is a duplicate order and a duplicate charge
+  verify idempotent checkout test
+
+never sell more units than are in stock
+  because overselling forces cancellations and breaks delivery promises
+  verify oversell prevention test
+
+never capture payment before stock is reserved
+  because a charge without reserved stock guarantees a refund
+  verify reserve before charge test
+
+# The checkout gate as a decision. `intent run` / `intent test`.
+decision CanPlaceOrder
+  inputs
+    keySeen
+    inStock
+    paymentValid
+  rule replay
+    when keySeen == true
+    return ReturnExisting
+  rule outOfStock
+    when inStock == false
+    return RejectOutOfStock
+  rule badPayment
+    when paymentValid == false
+    return RejectPayment
+  default
+    return CreateOrder
+
+target
+  TypeScript
+  OpenAPI
+  Tests
+
+test CanPlaceOrder
+  case first valid checkout creates the order
+    given keySeen false, inStock true, paymentValid true
+    expect CreateOrder
+  case retry returns the existing order
+    given keySeen true, inStock true, paymentValid true
+    expect ReturnExisting
+  case out of stock is rejected
+    given keySeen false, inStock false, paymentValid true
+    expect RejectOutOfStock
+  case invalid payment is rejected
+    given keySeen false, inStock true, paymentValid false
+    expect RejectPayment
+  case a seen key wins over stock and payment checks
+    given keySeen true, inStock false, paymentValid false
+    expect ReturnExisting
