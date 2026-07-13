@@ -328,6 +328,19 @@ export function verifyDiff(intentText: string, change: { before?: string | null;
   findings: Array<{ level: string; code: string; message: string; line?: number; regression: boolean }>;
   blocking: number; summary: { verdict: string; findings: number; blocking: number; regressions: number };
 };
+export const GUARD_SCHEMA: string;
+export interface IntentGuard {
+  schema: string;
+  secretFields: string[];
+  decisions: string[];
+  neverRules: string[];
+  redact<T>(value: T): T;
+  decide(name: string, inputs: Record<string, unknown>): { result: unknown; matched?: string; trace?: unknown[]; allowed: boolean };
+  assertAllowed(name: string, inputs: Record<string, unknown>): { result: unknown; allowed: boolean };
+}
+export function buildGuard(ast: IntentAst, opts?: { denyResults?: string[]; mask?: string }): IntentGuard;
+export function compileGuard(intentText: string, opts?: { denyResults?: string[]; mask?: string }): IntentGuard;
+export function guardSummary(ast: IntentAst): { schema: string; redactsFields: string[]; enforcesDecisions: string[]; neverRules: string[] };
 export const REPORT_SCHEMA: string;
 export function buildReport(files: Array<{ file: string; source: string }>): {
   schema: string; ok: boolean;

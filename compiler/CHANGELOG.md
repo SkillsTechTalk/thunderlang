@@ -65,6 +65,13 @@ The executable + interoperable release. Everything is deterministic and requires
   before and broke after) and guardrail hits (an added line pushing a never-rule's protected
   secret into a log/response). The keystone of the AI generate-verify loop; honest (catches
   mechanical violations, does not claim to prove correctness).
+- **Runtime enforcement (`intent-guard-v1`).** `compileGuard(intentSource)` / `buildGuard(ast)`
+  turns intent into a guard that runs IN the application: `redact(obj)` masks every field the
+  intent declares secret (Secret/Password/Token type, pii/sensitive data, or a secret-looking
+  name), deeply , so wrapping a logger enforces "never expose the token"; `assertAllowed(name,
+  inputs)` runs a declared decision and THROWS `INTENT_GUARD_DENIED` when the intent denies the
+  action , the intent's rules become a hard production gate. `intent guard <file>` previews it.
+  Browser-safe.
 - **MCP server for AI agents.** `intent mcp` / `startMcpServer` speaks the Model Context
   Protocol over stdio, exposing IntentLang as native tools for coding agents (Claude Code,
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,

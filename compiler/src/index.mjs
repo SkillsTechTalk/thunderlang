@@ -104,6 +104,8 @@ export { buildReport, REPORT_SCHEMA } from './report.mjs';
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 // MCP server , IntentLang as a native tool for AI coding agents
 export { startMcpServer, MCP_TOOLS } from './mcp.mjs';
+// Runtime enforcement , compile intent into a guard that blocks forbidden actions + redacts secrets
+export { buildGuard, compileGuard, guardSummary, GUARD_SCHEMA } from './guard.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,

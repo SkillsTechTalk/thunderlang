@@ -29,6 +29,8 @@ export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
 
 // The Intent Runtime , executable intent (evaluate decisions, simulate lifecycles). Pure.
 export { evaluateDecision, simulateLifecycle, checkDecisionCases, RUNTIME_SCHEMA } from './runtime.mjs';
+// Runtime enforcement (browser-safe) , a guard that blocks forbidden actions + redacts secrets.
+export { buildGuard, compileGuard, guardSummary, GUARD_SCHEMA } from './guard.mjs';
 export { compileExpr, evalExpr, ExprError } from './expr.mjs';
 
 // Style intent , canonical token address space + accessibility vocabulary (browser-safe).

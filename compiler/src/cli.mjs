@@ -28,6 +28,7 @@ import { formatSource } from './format.mjs';
 import { applyEdits } from './patch.mjs';
 import { buildReport } from './report.mjs';
 import { verifyDiff } from './verify-diff.mjs';
+import { guardSummary } from './guard.mjs';
 import { liftSource, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
@@ -163,6 +164,7 @@ Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
+  guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
   lsp                      start the Language Server (LSP over stdio, for editors)
@@ -864,6 +866,20 @@ test Example
     }
     if (r.ok) console.log('  ok the change upholds the declared contract (deterministic checks; tests + humans still own correctness).');
     process.exit(r.ok ? 0 : 1);
+    return;
+  }
+
+  // `intent guard <file>` , preview what a runtime guard compiled from this intent enforces:
+  // which fields it redacts (secrets/PII) and which decisions it can gate at runtime.
+  if (cmd === 'guard') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const g = guardSummary(ast);
+    if (args.json) { console.log(JSON.stringify(g, null, 2)); return; }
+    console.log(`intent guard ${basename(file)}:`);
+    console.log(`  redacts fields   ${g.redactsFields.length ? g.redactsFields.join(', ') : '(none declared secret/PII)'}`);
+    console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
+    if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
+    console.log('  use: import { compileGuard } from "@skillstech/intentlang/core"');
     return;
   }
 
