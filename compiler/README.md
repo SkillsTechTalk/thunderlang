@@ -112,9 +112,26 @@ const graph = buildIntentGraph(ast);                 // canonical intent-graph-v
 const run = evaluateDecision(ast.decisions[0], { age: 20 });
 ```
 
-The browser-safe subset (zero Node deps) is `@skillstech/intentlang/core`: the schema
-constants, classification helpers, the pure runtime, the style/token API (`analyzeStyle`,
-`toDesignTokens`), and the proof-envelope validator (`validateProof`).
+### One compiler, five consumers
+
+`@skillstech/intentlang/core` is the **universal** entry point , the whole compiler with zero
+Node.js dependencies, so the *same code* runs in Node (this CLI, OpenThunder), the browser
+(SkillsTech Studio, Repo Mastery web), and React Native (SkillsTech Mobile). No fork, no
+re-implementation.
+
+```js
+import {
+  parseIntent, buildIntentGraph, compileSource, scanProject,
+  buildAtlas, searchAtlas, buildFocusGraph, intentBrief,   // navigate + focus (Intent Lens)
+  diffGraphs, graphToSource, coverageView, sha256,          // the shared join-key hash
+} from '@skillstech/intentlang/core';
+```
+
+It ships TypeScript types (`core.d.ts`), and a conformance test guarantees the surface never
+gains a Node-only or engine-specific dependency (`node:` builtin, `TextEncoder`, `Buffer`, …),
+so it keeps bundling everywhere. The `.` entry is this same surface plus the Node-only helpers
+(the CLI, LSP, filesystem lift/drift). See
+[One compiler, five consumers](https://intentlanguage.dev/docs/single-compiler).
 
 ## The Intent Graph (`intent-graph-v1`)
 
