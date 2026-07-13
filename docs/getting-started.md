@@ -87,6 +87,8 @@ plus syntax highlighting via the shipped grammar.
 - **The whole language**: the [syntax overview](/docs/syntax-overview) and the
   [specification](/docs/spec).
 - **The model everyone builds on**: [Intent for every role](/docs/intent-graph).
+- **Already have a codebase?** [Adopt IntentLang on it](/docs/adopting-intentlang): lift,
+  review, check, gate, and keep in sync , one mission at a time.
 
 The whole loop, author, run, test, format, gate, in one deterministic toolchain. That is
 what beyond prompt engineering looks like in practice.

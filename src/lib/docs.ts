@@ -15,6 +15,7 @@ const EXAMPLES_DIR = path.join(process.cwd(), "examples");
 const DOC_ORDER = [
   "manifesto",
   "getting-started",
+  "adopting-intentlang",
   "syntax-overview",
   "spec",
   "tutorial",
@@ -52,6 +53,7 @@ const DOC_ORDER = [
 const DOC_LABELS: Record<string, string> = {
   manifesto: "Manifesto",
   "getting-started": "Getting started",
+  "adopting-intentlang": "Adopting on an existing codebase",
   "syntax-overview": "Syntax overview",
   spec: "Language specification",
   tutorial: "Tutorial",
@@ -89,6 +91,7 @@ const DOC_LABELS: Record<string, string> = {
 const DOC_BLURBS: Record<string, string> = {
   manifesto: "Why IntentLang exists, and prompt vs durable intent.",
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",
+  "adopting-intentlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
   "syntax-overview": "The keywords, three layers, types, and blocks.",
   spec: "Draft language specification: lexical rules and constructs.",
   tutorial: "Write your first mission, step by step.",
