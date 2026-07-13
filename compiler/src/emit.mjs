@@ -439,7 +439,7 @@ export function semanticDiagnostics(ast) {
     d.push({
       level: f.severity === 'info' ? 'info' : 'warning', code: f.ruleId,
       severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? f.blocks : undefined,
-      message: f.message, why: STYLE_WHY[f.ruleId],
+      message: f.message, why: STYLE_WHY[f.ruleId], line: f.line ?? undefined,
       roles: { designer: f.message, product: f.message },
     });
   }
@@ -455,7 +455,7 @@ export function semanticDiagnostics(ast) {
     d.push({
       level: f.severity === 'info' ? 'info' : 'warning', code: f.code,
       severity: isBlocker ? 'blocker' : undefined, blocks: isBlocker ? ['release'] : undefined,
-      message: f.message, why: SECURITY_WHY[f.code],
+      message: f.message, why: SECURITY_WHY[f.code], line: f.line ?? undefined,
       roles: { engineer: f.message, security: f.message },
     });
   }

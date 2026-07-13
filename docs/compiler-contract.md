@@ -172,6 +172,32 @@ error, so it drops straight into CI to keep a broken intent from merging. Pass
 full diagnostics with codes, severities, and any waivers) that editors, CI, and
 OpenThunder can consume directly.
 
+### Code scanning (SARIF)
+
+`intent check <path> --format sarif` emits a **SARIF 2.1.0** log, so IntentLang diagnostics
+show up natively where teams already look: GitHub / GitLab code scanning (inline PR
+annotations and the Security tab) and any SARIF-aware IDE. Each diagnostic becomes a SARIF
+result with its stable rule id, a level (`blocker`/error → `error`, `warning` → `warning`,
+`info` → `note`), a file location, and a precise line when known; every rule carries its
+catalog description and a link to the [diagnostics catalog](/docs/diagnostics). SARIF output
+is a *report* (exit 0) , keep a plain `intent check .` step as the gate.
+
+```yaml
+name: Intent code scan
+on: [push, pull_request]
+jobs:
+  intent-scan:
+    runs-on: ubuntu-latest
+    permissions: { security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npx @skillstech/intentlang check . --format sarif > intent.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with: { sarif_file: intent.sarif }
+```
+
 `intent check` accepts a directory and recurses it, so gating a whole repo is one
 command , `intent check .` , with no wrapper script. Any project can add the gate in
 three lines with the published GitHub Action:

@@ -298,6 +298,9 @@ export const SEMANTIC_TYPES: string[];
 export const PRIMITIVE_TYPES: string[];
 export const SECURITY_SCHEMA: string;
 export function securityDiagnostics(ast: IntentAst): Array<{ code: string; severity: string; message: string; where: string; line: number | null }>;
+export const SARIF_SCHEMA: string;
+export function sarifLevel(diag: { level?: string; severity?: string }): "error" | "warning" | "note";
+export function toSarif(reports: Array<{ file: string; diagnostics: Array<Record<string, unknown>> }>, opts?: { version?: string; toolName?: string }): Record<string, unknown>;
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 

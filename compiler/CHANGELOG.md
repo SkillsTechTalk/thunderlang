@@ -44,6 +44,9 @@ The executable + interoperable release. Everything is deterministic and requires
   `IL-SEC-001` (secret-typed field on an event payload), `IL-SEC-002` (API returns a secret
   with no auth requirement), `IL-TYPE-001` (unrecognized, likely-mistyped field type).
   `securityDiagnostics`, `isRecognizedType`, catalog now 49 rules.
+- **SARIF code scanning.** `intent check <path> --format sarif` emits a SARIF 2.1.0 log
+  (`toSarif`), so diagnostics appear natively in GitHub/GitLab code scanning and SARIF-aware
+  IDEs , with rule metadata, level mapping, and precise line regions where known.
 - **Complete diagnostics reference.** Legacy core check codes (`missing-goal`,
   `guarantee-without-verification`, ...) are now documented and explainable via
   `CORE_DIAGNOSTICS` / `ALL_DIAGNOSTICS`, so `intent explain <any-code>`, `intent rules`, and

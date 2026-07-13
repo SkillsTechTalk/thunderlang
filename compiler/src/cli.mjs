@@ -17,8 +17,9 @@ import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
-  semanticDiagnostics, buildProof, sha256,
+  semanticDiagnostics, buildProof, sha256, COMPILER_VERSION,
 } from './emit.mjs';
+import { toSarif } from './sarif.mjs';
 import { renderMarkdown, renderMermaid, renderTestplan } from './compile.mjs';
 import { getCompletions, getHover } from './intellisense.mjs';
 import { startLspServer } from './lsp.mjs';
@@ -148,7 +149,7 @@ usage: intent <command> <file> [options]
 
 Author & check
   init [Name]              scaffold a runnable starter mission (Name.intent)
-  check <file|dir> [--json]  diagnostics for one file, or gate every .intent in a dir
+  check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   lsp                      start the Language Server (LSP over stdio, for editors)
   build <file>              docs, contract graph, test plan, and .intent-proof.json
@@ -820,6 +821,24 @@ test Example
     }
     console.log(`  ${index.summary.declaredFull} declared-full, ${index.summary.declaredPartial} partial, ${index.summary.unverified} unverified, ${index.summary.highRisk} high-risk`);
     console.log('  note: verification is DECLARED, not proven. Test/drift status needs OpenThunder.');
+    return;
+  }
+
+  // `intent check <file|dir> --format sarif` emits a SARIF 2.1.0 log so IntentLang
+  // diagnostics show up natively in GitHub/GitLab code scanning and SARIF-aware IDEs.
+  // This is a REPORT (exit 0); gate the build with a plain `intent check .` step.
+  if (cmd === 'check' && args.format === 'sarif') {
+    const targets = existsSync(file) && statSync(file).isDirectory() ? collectIntents(file) : [file];
+    const reports = targets.map((f) => {
+      const a = parseIntent(readFileSync(f, 'utf8'));
+      let diags = semanticDiagnostics(a);
+      if (a.waivers && a.waivers.length) {
+        const now = args.now || null;
+        diags = [...applyWaivers(diags, a.waivers, { now }).diagnostics, ...governanceDiagnostics(a.waivers, diags, { now })];
+      }
+      return { file: relative(process.cwd(), f) || f, diagnostics: diags.filter((d) => !d.waived) };
+    });
+    console.log(JSON.stringify(toSarif(reports, { version: COMPILER_VERSION }), null, 2));
     return;
   }
 

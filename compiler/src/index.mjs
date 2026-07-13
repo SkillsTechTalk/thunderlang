@@ -92,6 +92,8 @@ export { runTests, TEST_SCHEMA } from './testing.mjs';
 export { evaluateOutcomeContract, evaluateOutcomes, outcomeDiagnostics, parseValue, OUTCOME_SCHEMA } from './outcome.mjs';
 // Security + type semantic pass , secrets on the bus, unauthenticated sensitive output, typos
 export { securityDiagnostics, SECURITY_SCHEMA } from './security.mjs';
+// SARIF 2.1.0 output , IntentLang diagnostics in GitHub/GitLab code scanning + IDEs
+export { toSarif, sarifLevel, SARIF_SCHEMA } from './sarif.mjs';
 // Style intent , brand/visual language as a governed Experience-profile extension
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
