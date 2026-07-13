@@ -88,6 +88,13 @@ The executable + interoperable release. Everything is deterministic and requires
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
+- **Intent Ledger (`intent-ledger-v1`).** `intent ledger <file.json>` / `verifyLedger`, `record*`,
+  `explain` keep the append-only, hash-chained (tamper-evident) record of a project's MEANING and
+  history: why a mission was built, who approved it, what was assumed, which inferred intent a human
+  corrected, which risks were accepted, what was verified, which lessons went stale. Each entry hashes
+  over the previous, so history cannot be quietly rewritten , `verifyLedger` locates any break to the
+  entry. Deterministic (caller supplies timestamps). `intent ledger <file> --subject <id>` explains
+  one mission's provenance; exit non-zero on a broken chain. Browser-safe.
 - **Intent Simulator (`intent-simulate-v1`).** `intent impact <base> <proposed>` / `simulateChange`
   estimates a change's impact BEFORE implementation: the deterministic BLAST RADIUS (transitive
   reach over the intent graph, by node type), the risk it would introduce, contradictions, and

@@ -30,6 +30,7 @@ import { buildReport } from './report.mjs';
 import { scanProject } from './scan.mjs';
 import { guardianReport } from './guardian.mjs';
 import { simulateChange } from './simulate.mjs';
+import { verifyLedger, explain as ledgerExplain } from './ledger.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -116,6 +117,7 @@ function parseArgs(argv) {
     else if (a === '--schema') args.schema = true;
     else if (a === '--all') args.all = true;
     else if (a === '--ir') args.ir = argv[++i];
+    else if (a === '--subject') args.subject = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -175,6 +177,7 @@ Author & check
   scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
+  ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
   guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
   fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
@@ -918,6 +921,34 @@ test Example
     console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
     if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
     console.log('  use: import { compileGuard } from "@skillstech/intentlang/core"');
+    return;
+  }
+
+  // `intent ledger <file.json>` , verify the tamper-evident chain, and explain a subject's history
+  // (why it was built, who approved it, what was assumed/corrected/verified, which risks accepted).
+  if (cmd === 'ledger') {
+    if (!file) { console.error('usage: intent ledger <ledger.json> [--subject <id>] [--json]'); process.exit(2); return; }
+    let ledger;
+    try { ledger = JSON.parse(readFileSync(file, 'utf8')); } catch { console.error('intent ledger: not valid JSON'); process.exit(2); return; }
+    const chain = verifyLedger(ledger);
+    if (args.subject) {
+      const ex = ledgerExplain(ledger, args.subject);
+      if (args.json) { console.log(JSON.stringify({ chain, ...ex }, null, 2)); process.exit(chain.valid ? 0 : 1); return; }
+      console.log(`intent ledger ${basename(file)} , ${args.subject}  (chain ${chain.valid ? 'VALID' : 'BROKEN'})`);
+      if (ex.why.length) { console.log('  why built:'); for (const w of ex.why) console.log(`    - ${w}`); }
+      if (ex.approvedBy.length) console.log(`  approved by: ${ex.approvedBy.join(', ')}`);
+      if (ex.assumptions.length) console.log(`  assumptions: ${ex.assumptions.length}`);
+      if (ex.corrections.length) console.log(`  corrections (inferred intent fixed): ${ex.corrections.length}`);
+      if (ex.acceptedRisks.length) console.log(`  accepted risks: ${ex.acceptedRisks.length}`);
+      if (ex.verifications.length) console.log(`  verifications: ${ex.verifications.length}`);
+      console.log(`  change history: ${ex.changeCount} entries`);
+      process.exit(chain.valid ? 0 : 1);
+      return;
+    }
+    if (args.json) { console.log(JSON.stringify(chain, null, 2)); process.exit(chain.valid ? 0 : 1); return; }
+    const n = (ledger.entries || []).length;
+    console.log(`intent ledger ${basename(file)}: ${n} entr${n === 1 ? 'y' : 'ies'}, chain ${chain.valid ? 'VALID (tamper-evident)' : `BROKEN at #${chain.brokenAt} , ${chain.reason}`}`);
+    process.exit(chain.valid ? 0 : 1);
     return;
   }
 

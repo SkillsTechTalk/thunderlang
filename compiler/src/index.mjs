@@ -109,6 +109,14 @@ export { scanIntent, scanProject, SCAN_SCHEMA } from './scan.mjs';
 export { guardianReport, GUARDIAN_SCHEMA } from './guardian.mjs';
 // Intent Simulator , estimate a change's impact BEFORE implementation (blast radius + risk)
 export { simulateChange, SIMULATE_SCHEMA } from './simulate.mjs';
+// Intent Ledger , tamper-evident, append-only record of provenance, decisions, approvals, history
+export {
+  LEDGER_SCHEMA, ENTRY_TYPES, emptyLedger, record, recordAll, verifyLedger,
+  recordIntentVersion, recordAssumption, recordApproval, recordRejection,
+  recordCorrection, recordRiskAcceptance, recordVerification, recordFinding, recordLessonVersion,
+  history, whyBuilt, approvalsFor, acceptedRisks, correctionsFor, staleLessons, explain,
+  recordDecision as recordLedgerDecision,
+} from './ledger.mjs';
 // Verify a code change against its intent , the AI generate/verify loop gate
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
 // MCP server , IntentLang as a native tool for AI coding agents

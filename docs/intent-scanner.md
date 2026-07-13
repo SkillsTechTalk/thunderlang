@@ -128,3 +128,40 @@ honest**:
 
 A change that introduces a release blocker or a contradiction is `REVIEW` (exit non-zero); a purely
 additive, safe change is `SAFE`. Run it in a pull request to see the impact before the merge.
+
+## Remember why , Intent Ledger
+
+Scanner, Guardian, and Simulator all reason about intent at a point in time. **Intent Ledger** keeps
+the part a project loses as it moves *through* time: the memory of *why*. It is an append-only,
+hash-chained record of a project's meaning and decisions , provenance, assumptions, approvals,
+rejections, corrections, accepted risks, verifications, and stale lessons.
+
+```bash
+intent ledger project.ledger.json --subject CreateInvoice
+```
+
+```
+intent ledger project.ledger.json , CreateInvoice  (chain VALID)
+  why built:
+    - chose an idempotency key to prevent duplicate charges
+  approved by: pm
+  corrections (inferred intent fixed): 1
+  accepted risks: 1
+  verifications: 2
+  change history: 6 entries
+```
+
+Every entry hashes over the previous one, so the ledger is **tamper-evident**: you cannot quietly
+rewrite history. `intent ledger <file>` verifies the whole chain and, if it was altered, locates the
+break to the exact entry:
+
+```
+intent ledger project.ledger.json: 6 entries, chain BROKEN at #1 , entry 1 hash does not match its content (tampered)
+```
+
+It answers the questions a project forgets over time , *why was this built, who approved it, what
+did we assume, which inferred intent did a human correct, which risks did we accept, what proved it,
+which lessons went stale.* The Ledger is deterministic (the caller supplies timestamps, so the record
+is reproducible and testable) and append-only , `record` returns a new ledger rather than mutating
+the old one. `--json` emits the machine-readable `intent-ledger-v1` report; exit is non-zero when the
+chain does not verify, so a broken audit trail fails CI.
