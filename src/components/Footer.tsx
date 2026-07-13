@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
 import { footerNav, siteConfig } from "@/lib/site";
-import { getDocList } from "@/lib/docs";
+// A short, curated set of entry-point guides for the footer , not the whole catalog
+// (the full, categorized list lives on /docs and in each doc page's sidebar).
+const FOOTER_GUIDES = [
+  { slug: "getting-started", label: "Getting started" },
+  { slug: "tutorial", label: "Tutorial" },
+  { slug: "syntax-overview", label: "Syntax overview" },
+  { slug: "intent-scanner", label: "Intent Scanner" },
+  { slug: "spec", label: "Language specification" },
+];
 
 export function Footer() {
-  const guides = getDocList();
   return (
     <footer className="mt-24 border-t border-white/8 bg-ink-900/50">
       <div className="container-x grid gap-10 py-14 md:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
@@ -42,13 +49,18 @@ export function Footer() {
             Guides
           </h3>
           <ul className="mt-4 space-y-2.5">
-            {guides.map((g) => (
+            {FOOTER_GUIDES.map((g) => (
               <li key={g.slug}>
                 <Link href={`/docs/${g.slug}`} className="text-sm link-muted">
                   {g.label}
                 </Link>
               </li>
             ))}
+            <li>
+              <Link href="/docs" className="text-sm font-medium text-gold-300 hover:text-gold-200">
+                Browse all docs →
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

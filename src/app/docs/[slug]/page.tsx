@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { Section, DraftNote } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
-import { getDoc, getDocSlugs, getDocList } from "@/lib/docs";
+import { getDoc, getDocSlugs, getDocList, getDocCategories } from "@/lib/docs";
 
 export function generateStaticParams() {
   return getDocSlugs().map((slug) => ({ slug }));
@@ -40,22 +40,28 @@ export default function DocPage({ params }: { params: { slug: string } }) {
           <Link href="/docs" className="text-sm link-muted">
             ← Docs overview
           </Link>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-haze-400">
-            Guides
-          </p>
-          <nav className="mt-4 space-y-1.5">
-            {all.map((d) => (
-              <Link
-                key={d.slug}
-                href={`/docs/${d.slug}`}
-                className={`block rounded-md px-2 py-1 text-sm ${
-                  d.slug === params.slug
-                    ? "bg-white/[0.06] text-white"
-                    : "text-haze-300 hover:text-haze-100"
-                }`}
-              >
-                {d.label}
-              </Link>
+          <nav className="mt-6 space-y-5">
+            {getDocCategories().map((cat) => (
+              <div key={cat.title}>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-haze-500">
+                  {cat.title}
+                </p>
+                <div className="mt-2 space-y-1">
+                  {cat.docs.map((d) => (
+                    <Link
+                      key={d.slug}
+                      href={`/docs/${d.slug}`}
+                      className={`block rounded-md px-2 py-1 text-sm ${
+                        d.slug === params.slug
+                          ? "bg-white/[0.06] text-white"
+                          : "text-haze-300 hover:text-haze-100"
+                      }`}
+                    >
+                      {d.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </aside>
