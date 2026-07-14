@@ -207,10 +207,12 @@ IL side of the moat (this repo):
   - [ ] Intent ↔ Skills Tech Talk `DefenseEvidence` (defense questions grounded in the intent).
   - [ ] Intent ↔ Workspace `ProofBundle` (`intent_references` so every proof shows which
         intent/requirement its evidence supports).
-- [ ] **`intent_references` on the shared evidence event.** Align with the Workspace
-      `EvidenceEvent` schema (`docs/moat/evidence-event-schema.md` when it lands) so
-      `verification.completed` / `mastery.generated` / `defense.completed` /
-      `proof.issued` events can carry a stable intent id. IL owns the intent-id shape.
+- [x] **`intentReferences` on the shared evidence event , DONE.** STW pinned
+      `evidence-event-v1` + `proof-bundle-v1` (2026-07-14) with `intentReferences: string[]`
+      on both. IL owns the id shape and shipped `intentRefId()`: `intent:<mission-slug>`
+      (subject-level) / `intent:<slug>@<sha8>` (version-pinned to the proof `sourceHash`).
+      `compileSource` returns `intentRef` + `intentRefPinned`, exported via `/core` + root, so
+      OT/RM/STT/Certified drop the SAME id into `intentReferences[]`. Ships next release (0.1.3).
 - [ ] **Skills + required-understanding in the Intent model.** Represent "what skills are
       required" and "what understanding must be demonstrated" on an intent, so the
       Ownership Graph can link a skill to a real intent/change.
