@@ -82,7 +82,7 @@ export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLeve
 export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './codegen.mjs';
 // Change Lens: what a branch/PR changed by meaning (pure; the CLI supplies the git-diffed graphs).
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
-export { subjectName, intentRefId } from './parse.mjs';
+export { subjectName, intentRefId, skillRefId } from './parse.mjs';
 // Semantic diff + 3-way merge (Change Lens: diff by meaning).
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.

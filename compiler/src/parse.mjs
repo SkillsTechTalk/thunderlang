@@ -46,6 +46,19 @@ export function intentRefId(astOrName, { sourceHash } = {}) {
   return short ? `${base}@${short}` : base;
 }
 
+/**
+ * The canonical shared skill id. IL owns the `skill:` NAMESPACE (the id SHAPE, this function);
+ * SkillsTech Certified owns the CONTENT (which skills exist, aliases, cert->skill maps) , a
+ * founder decision (2026-07-14). Deterministic + browser-safe, so OT/RM/STT/Certified emit the
+ * SAME skill id for the same skill in evidence-event-v1 `skillIds[]`.
+ *   skillRefId('TypeScript')          -> 'skill:typescript'
+ *   skillRefId('Distributed Systems') -> 'skill:distributed-systems'
+ * This is the id primitive only; the curated taxonomy list is STCE's and lands post-loop.
+ */
+export function skillRefId(name) {
+  return `skill:${slug(name || 'unknown')}`;
+}
+
 // Strip comments (ignored), drop blank lines, keep indentation and 1-based line.
 // A `#` comment is IGNORED by the compiler; `note <lens>:` blocks are compiled.
 function toRows(source) {

@@ -213,9 +213,15 @@ IL side of the moat (this repo):
       (subject-level) / `intent:<slug>@<sha8>` (version-pinned to the proof `sourceHash`).
       `compileSource` returns `intentRef` + `intentRefPinned`, exported via `/core` + root, so
       OT/RM/STT/Certified drop the SAME id into `intentReferences[]`. Ships next release (0.1.3).
-- [ ] **Skills + required-understanding in the Intent model.** Represent "what skills are
-      required" and "what understanding must be demonstrated" on an intent, so the
-      Ownership Graph can link a skill to a real intent/change.
+- [x] **Skill namespace , IL owns the id SHAPE (founder decision 2026-07-14).** IL owns the
+      `skill:` namespace; SkillsTech Certified (STCE) owns the CONTENT (which skills exist,
+      aliases, cert->skill maps). Shipped `skillRefId(name) -> skill:<slug>` (deterministic,
+      browser-safe) so OT/RM/STT/Certified emit the SAME skill id in evidence-event-v1
+      `skillIds[]`. The curated taxonomy LIST is STCE's and deferred past the 30-day loop
+      (Days 31-60). v1 = free `skillIds` strings until then. Committed; ships next release (0.1.4).
+- [ ] **Required-understanding in the Intent model.** Represent "what understanding must be
+      demonstrated" on an intent (beyond Comprehension C0-C7), so the Ownership Graph can link
+      a skill to a real intent/change. (Skills-required binding uses `skillRefId` above.)
 - [ ] Contribute IL's semantic vocabulary to `docs/moat/ownership-graph.md` (the Intent,
       Requirement, Change, and VerificationRun entities) , cross-repo doc owned by the moat architect.
 

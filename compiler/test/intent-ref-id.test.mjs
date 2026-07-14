@@ -2,7 +2,7 @@
 // in evidence-event-v1 / proof-bundle-v1 `intentReferences[]`. Stable, deterministic, browser-safe.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { intentRefId, parseIntent } from '../src/parse.mjs';
+import { intentRefId, skillRefId, parseIntent } from '../src/parse.mjs';
 import { compileSource } from '../src/compile.mjs';
 import { sha256 } from '../src/hash.mjs';
 
@@ -28,6 +28,14 @@ test('empty/unknown falls back to intent:mission', () => {
   assert.equal(intentRefId(''), 'intent:mission');
   assert.equal(intentRefId({}), 'intent:mission');
   assert.equal(intentRefId(null), 'intent:mission');
+});
+
+test('skillRefId: IL owns the skill: namespace (id shape), deterministic + slugged', () => {
+  assert.equal(skillRefId('TypeScript'), 'skill:typescript');
+  assert.equal(skillRefId('Distributed Systems'), 'skill:distributed-systems');
+  assert.equal(skillRefId('TypeScript'), skillRefId('TypeScript'));
+  assert.equal(skillRefId(''), 'skill:unknown');
+  assert.equal(skillRefId(null), 'skill:unknown');
 });
 
 test('compileSource surfaces both ids for producers to emit', () => {
