@@ -3,6 +3,18 @@
 All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.4
+
+The shared-skill-namespace release. Additive; no breaking changes to 0.1.3.
+
+### Added
+
+- **Canonical skill id (`skillRefId`).** IL owns the `skill:` id namespace (founder decision
+  2026-07-14); SkillsTech Certified owns the curated content (which skills exist, cert->skill maps).
+  `skillRefId('TypeScript') -> 'skill:typescript'` , deterministic, browser-safe, so every product
+  emits the SAME skill id in Workspace `evidence-event-v1` `skillIds[]`. The id primitive only; the
+  curated taxonomy list lands separately (STCE, post-loop). Exported from `/core` and the root.
+
 ## 0.1.3
 
 The Ownership-Loop seam release. Additive; no breaking changes to 0.1.2.
