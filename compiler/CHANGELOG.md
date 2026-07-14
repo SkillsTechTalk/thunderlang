@@ -15,6 +15,12 @@ The shared-skill-namespace release. Additive; no breaking changes to 0.1.3.
   emits the SAME skill id in Workspace `evidence-event-v1` `skillIds[]`. The id primitive only; the
   curated taxonomy list lands separately (STCE, post-loop). Exported from `/core` and the root.
 
+### Fixed
+
+- **`compileSource` type now includes `origin`.** The `.d.ts` opts omitted `origin?: string` even
+  though the runtime has honored it since 0.1.1 (OpenThunder confirmed `origin: 'recovered'`
+  round-trips). Typed consumers can now pass it without a cast. Runtime behavior unchanged.
+
 ## 0.1.3
 
 The Ownership-Loop seam release. Additive; no breaking changes to 0.1.2.

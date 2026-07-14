@@ -135,7 +135,7 @@ export function intentProofJsonSchema(): Record<string, unknown>;
 export function validateProof(proof: unknown): { valid: boolean; errors: Array<{ path: string; message: string }> };
 
 // Compile + render
-export function compileSource(source: string, opts?: { sourceFile?: string; generatedAt?: string }): Record<string, unknown>;
+export function compileSource(source: string, opts?: { sourceFile?: string; generatedAt?: string; origin?: string }): Record<string, unknown>;
 export function renderMarkdown(ast: IntentAst): string;
 export function renderMermaid(ast: IntentAst): string;
 export function renderTestplan(ast: IntentAst): string;
