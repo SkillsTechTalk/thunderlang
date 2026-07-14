@@ -683,6 +683,7 @@ export function toJava(ast: IntentAst): string;
 export const GENERATORS: Record<string, (ast: IntentAst) => string>;
 export function exprToJs(src: string, opts?: { inputs?: string[] }): string;
 export function subjectName(ast: IntentAst): string | null;
+export function intentRefId(astOrName: IntentAst | string, opts?: { sourceHash?: string }): string;
 
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export const CHANGES_SCHEMA: string;

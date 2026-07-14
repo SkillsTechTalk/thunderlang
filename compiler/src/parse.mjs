@@ -28,6 +28,24 @@ export function subjectName(ast) {
     || ast?.lifecycles?.[0]?.name || null;
 }
 
+/**
+ * The canonical cross-ecosystem intent reference id , the stable string every SkillsTech
+ * product puts in evidence-event-v1 / proof-bundle-v1 `intentReferences[]` so an evidence
+ * record or Ownership Proof cites the EXACT intent it supports. IL owns this id shape.
+ *
+ * - Subject-level (which intent):     `intent:<mission-slug>`         (stable across versions)
+ * - Version-pinned (which compile):   `intent:<mission-slug>@<sha8>`  (pass the proof `sourceHash`)
+ *
+ * Deterministic + browser-safe. Accepts an AST or a plain name string.
+ */
+export function intentRefId(astOrName, { sourceHash } = {}) {
+  const name = typeof astOrName === 'string' ? astOrName : subjectName(astOrName);
+  const base = `intent:${slug(name || 'mission')}`;
+  if (!sourceHash) return base;
+  const short = String(sourceHash).replace(/^sha256:/, '').slice(0, 8);
+  return short ? `${base}@${short}` : base;
+}
+
 // Strip comments (ignored), drop blank lines, keep indentation and 1-based line.
 // A `#` comment is IGNORED by the compiler; `note <lens>:` blocks are compiled.
 function toRows(source) {

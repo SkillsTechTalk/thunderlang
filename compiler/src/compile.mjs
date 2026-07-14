@@ -2,7 +2,7 @@
 // web playground (returns artifacts as strings). No filesystem, no AI.
 // Deterministic given a fixed `generatedAt`.
 
-import { parseIntent, slug, subjectName } from './parse.mjs';
+import { parseIntent, slug, subjectName, intentRefId } from './parse.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256,
@@ -121,6 +121,10 @@ export function compileSource(source, { sourceFile = 'playground.intent', genera
   return {
     mission,
     origin,
+    // Canonical cross-ecosystem intent reference ids , producers (OT/RM/STT/Certified) put these
+    // in evidence-event-v1 / proof-bundle-v1 `intentReferences[]` so evidence cites this exact intent.
+    intentRef: intentRefId(ast),                          // subject-level: intent:<slug>
+    intentRefPinned: intentRefId(ast, { sourceHash }),    // version-pinned: intent:<slug>@<sha8>
     diagnostics,
     notes: ast.notes || [],
     artifacts: {

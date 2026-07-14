@@ -117,7 +117,7 @@ export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './co
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { exprToJs, exprToCSharp, exprToJava, exprToCode } from './expr.mjs';
-export { subjectName } from './parse.mjs';
+export { subjectName, intentRefId } from './parse.mjs';
 // Focused scanner query views (Part 3): risks / gaps / unverified / coverage / unknowns / contradictions
 export {
   VIEW_SCHEMA, VIEWS, risksView, gapsView, unverifiedView, coverageView, unknownsView, contradictionsView,
