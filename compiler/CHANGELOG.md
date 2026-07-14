@@ -3,6 +3,21 @@
 All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.3
+
+The Ownership-Loop seam release. Additive; no breaking changes to 0.1.2.
+
+### Added
+
+- **Canonical intent reference id (`intentRefId`).** The stable string every SkillsTech product
+  puts in Workspace `evidence-event-v1` / `proof-bundle-v1` `intentReferences[]` so an evidence
+  record or Ownership Proof cites the exact intent it supports:
+  `intent:<mission-slug>` (subject-level) and `intent:<mission-slug>@<sha8>` (version-pinned to the
+  proof `sourceHash`). Deterministic, browser-safe, exported from `/core` and the root.
+- **`compileSource` returns `intentRef` + `intentRefPinned`,** so a producer that already compiled
+  a mission gets both ids for free (no need to recompute). This closes the `IntentLang -> evidence
+  model` seam of the Skills Ownership Loop.
+
 ## 0.1.2
 
 The ecosystem-consumption release. Additive; no breaking changes to 0.1.1.

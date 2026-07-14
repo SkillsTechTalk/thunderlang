@@ -1,6 +1,6 @@
 {
   "name": "@skillstech/intentlang",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Deterministic IntentLang compiler, CLI, and Language Server. No AI required. Turns .intent files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
   "type": "module",
   "main": "./src/index.mjs",
