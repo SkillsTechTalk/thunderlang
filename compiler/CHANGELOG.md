@@ -3,6 +3,24 @@
 All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.2
+
+The ecosystem-consumption release. Additive; no breaking changes to 0.1.1.
+
+### Added
+
+- **Dual CommonJS + ESM build.** The package now ships a `require`-able CommonJS build
+  (`dist/index.cjs`, `dist/core.cjs`) alongside the ESM sources, via conditional exports.
+  CommonJS consumers (OpenThunder, the SkillsTech backend) can now
+  `const { NODE_TYPES } = require('@skillstech/intentlang/core')` synchronously , no async
+  bootstrap, no ESM migration. The runtime stays zero-dependency (esbuild is dev-only).
+- **Seeded lift.** `liftSource(source, { seeds })` accepts OpenThunder's `intent-ir-v1` nodes
+  (`IntentSeed`: `nodeId` + `evidenceRef` with `signals`, `sourceLocations`, optional
+  `ledgerRef` , see `SEED_SCHEMA`). The lifted draft then references OT's exact node ids in
+  `maps_to` (no divergent second reading of the repo) and returns the linkage structurally via
+  `result.seeds` / `summary.seeds`. Additive: with no `seeds`, output is byte-identical to 0.1.1.
+  Exports `SEED_SCHEMA` and `normalizeSeeds` from `/core` and the root.
+
 ## 0.1.1
 
 The executable + interoperable release. Everything is deterministic and requires no AI.
