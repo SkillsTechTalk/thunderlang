@@ -172,6 +172,51 @@ products own their own internals and are NOT built here. Status is IL's side of 
 - [ ] SkillsTech Workspace: store signed proof artifacts and adoption metrics ,
       SIBLING-OWNED (IL emits the proof envelope with join keys; storage is theirs).
 
+## SkillsTech moat , IntentLang obligations
+
+Full strategy: `docs/moat/skills-ownership-strategy.md`. The company is becoming the
+**Skills Ownership and Proof Platform** ("From AI-generated work to human-owned,
+verifiable outcomes"). The 30-day objective is ONE complete **Skills Ownership Loop**
+(OpenThunder verifies → Repo Mastery teaches → Skills Tech Talk defends → Workspace
+issues an Ownership Proof), monetized by Certified + GetSkillsTech.
+
+**IntentLang is Tier 3: integrate lightly, internal schema only.** IL is the **Protocol**
+layer (moat layer 7) + the semantic Intent and Proof model. The 30-day target for the
+`IntentLang → evidence model` seam is **Internal Level 3** (produce/consume evidence).
+Rules: do NOT try to finish a general-purpose language this window; do NOT require
+customers to rewrite software in IntentLang; do NOT compete with the Tier-1 release for
+attention. The decisive gate: only ship what **creates evidence, consumes evidence,
+improves proof, strengthens trust, or increases repeated use of the Ownership Loop.**
+
+IL side of the moat (this repo):
+
+- [x] **Semantic Intent model exists** , `intent-ir-v1` is the shared representation
+      (what should happen / never happen / constraints / verification). This IS the
+      Protocol-layer asset the moat names.
+- [x] **Human-understanding model exists** , Comprehension Contract C0–C7
+      (`intent-comprehension-v1`) already represents "what human understanding must be
+      demonstrated"; Skills Tech Talk / Repo Mastery consume it.
+- [x] **Proof envelope exists** , `intent-proof-v1` with join keys + `origin` provenance;
+      Workspace stores it (storage sibling-owned).
+- [ ] **Intent → evidence adapters (the moat deliverable).** Ship deterministic
+      mappings/examples so an Intent record connects to the four evidence types the loop
+      produces, without coupling internal DBs:
+  - [ ] Intent ↔ OpenThunder `VerificationEvidence` (extend the `il-to-ot-drift-v1`
+        handoff so a verification result cites the intent it verifies).
+  - [ ] Intent ↔ Repo Mastery mastery content (which intent/mission a Change Mastery Pack teaches).
+  - [ ] Intent ↔ Skills Tech Talk `DefenseEvidence` (defense questions grounded in the intent).
+  - [ ] Intent ↔ Workspace `ProofBundle` (`intent_references` so every proof shows which
+        intent/requirement its evidence supports).
+- [ ] **`intent_references` on the shared evidence event.** Align with the Workspace
+      `EvidenceEvent` schema (`docs/moat/evidence-event-schema.md` when it lands) so
+      `verification.completed` / `mastery.generated` / `defense.completed` /
+      `proof.issued` events can carry a stable intent id. IL owns the intent-id shape.
+- [ ] **Skills + required-understanding in the Intent model.** Represent "what skills are
+      required" and "what understanding must be demonstrated" on an intent, so the
+      Ownership Graph can link a skill to a real intent/change.
+- [ ] Contribute IL's semantic vocabulary to `docs/moat/ownership-graph.md` (the Intent,
+      Requirement, Change, and VerificationRun entities) , cross-repo doc owned by the moat architect.
+
 ## Acceptance criteria (for the foundation slice)
 - [x] Repository has a clear roadmap
 - [x] README explains IntentLang clearly
