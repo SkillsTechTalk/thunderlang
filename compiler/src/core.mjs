@@ -60,7 +60,7 @@ export { sha256, sha256hex } from './hash.mjs';
 // Parser: `.intent` source -> Intent AST (+ slug for stable ids, KNOWN_LENSES).
 export { parseIntent, slug, KNOWN_LENSES } from './parse.mjs';
 // IntentLift: code -> inferred candidate intent (in-process, keyless; OT seeds + orchestrates this).
-export { liftSource, liftAll, liftRepo, languageForFile, inferIntent, renderLiftedIntent, SUPPORTED_LANGUAGES } from './lift.mjs';
+export { liftSource, liftAll, liftRepo, languageForFile, inferIntent, renderLiftedIntent, SUPPORTED_LANGUAGES, SEED_SCHEMA, normalizeSeeds } from './lift.mjs';
 // Intent Graph builder (intent-graph-v1): AST -> canonical graph.
 export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
 // In-memory compile: AST/source -> every artifact (docs, graphs, plan, proof), no filesystem.

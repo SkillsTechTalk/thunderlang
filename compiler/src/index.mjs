@@ -43,6 +43,8 @@ export {
   inferIntent,
   renderLiftedIntent,
   SUPPORTED_LANGUAGES,
+  SEED_SCHEMA,
+  normalizeSeeds,
 } from './lift.mjs';
 
 // Approve + drift round-trip (il-to-ot-drift-v1 handoff)

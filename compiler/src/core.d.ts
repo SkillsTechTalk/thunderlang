@@ -18,6 +18,7 @@ export {
 // IntentLift: code -> inferred candidate intent (OT orchestrates this in-process).
 export {
   liftSource, liftAll, liftRepo, languageForFile, inferIntent, renderLiftedIntent, SUPPORTED_LANGUAGES,
+  IntentSeed, SEED_SCHEMA, normalizeSeeds,
 } from './index';
 
 // Intent Scanner + Fable.

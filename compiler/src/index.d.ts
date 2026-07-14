@@ -146,12 +146,25 @@ export function getHover(source: string, position: { line: number; column: numbe
 export const SEMANTIC_TYPES: string[];
 
 // IntentLift
-export function liftSource(source: string, opts?: { language?: string; file?: string }): Record<string, unknown>;
+export interface IntentSeed {
+  nodeId: string;
+  nodeType?: string;
+  title?: string;
+  confidence?: string;
+  evidenceRef: {
+    signals: string[];
+    sourceLocations?: Array<{ file: string; line?: number }>;
+    ledgerRef?: { seq: number; hash: string };
+  };
+}
+export function liftSource(source: string, opts?: { language?: string; file?: string; seeds?: IntentSeed[] }): Record<string, unknown>;
 export function liftRepo(files: Array<{ file: string; source: string }>, opts?: { language?: string }): Record<string, unknown>;
 export function languageForFile(file: string): string;
 export function inferIntent(facts: unknown, opts?: unknown): Record<string, unknown>;
 export function renderLiftedIntent(lifted: unknown): string;
 export const SUPPORTED_LANGUAGES: string[];
+export const SEED_SCHEMA: Record<string, unknown>;
+export function normalizeSeeds(seeds: unknown): IntentSeed[];
 
 // Approve + drift
 export function approveIntent(text: string, opts?: { approvedBy?: string; approvedAt?: string }): Record<string, unknown>;
