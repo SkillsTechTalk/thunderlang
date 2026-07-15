@@ -3,6 +3,20 @@
 All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.5
+
+The rule-catalog namespace release. Additive; no breaking changes to 0.1.4.
+
+### Added
+
+- **Verify-time rule namespace.** The canonical rule catalog is now one id space across two phases:
+  author-time (IntentLang) and verify-time (OpenThunder). Every rule row self-describes `owner`
+  (`IL` | `OT`) and `phase` (`author` | `verify`); `RULE_NAMESPACES` declares prefix ownership
+  (`IL-*` author, `OT-*` verify); `VERIFICATION_RULES` reserves the OpenThunder verify namespace
+  (`OT-REQ-*`, `reserved: true` until OT defines them); `ruleNamespace(ruleId)` resolves owner+phase
+  for any id. `ALL_DIAGNOSTICS` now spans both phases. Existing consumers keying on `ruleId` are
+  unaffected (owner/phase are additive fields). Exported from `/core` and the root.
+
 ## 0.1.4
 
 The shared-skill-namespace release. Additive; no breaking changes to 0.1.3.
