@@ -161,6 +161,10 @@ products own their own internals and are NOT built here. Status is IL's side of 
       `intent handoff` emits `il-to-ot-drift-v1`; the `@openthunder/intent` consumer +
       `can-i-ship --intent-pack` round-trip is verified end to end (see IntentLift section).
       OT's own drift engine is sibling-owned.
+      - [x] **Verify-time rule namespace , SHIPPED.** The canonical catalog is now ONE id space
+        across author-time (IL) + verify-time (OT): rows carry `owner`/`phase`, `RULE_NAMESPACES`
+        declares prefix ownership, `VERIFICATION_RULES` reserves the `OT-*` namespace (OT PRs the
+        rows), and `ruleNamespace(id)` resolves owner+phase. Exported from `/core`. Ships next cut.
 - [~] **Repo Mastery** proves the human understands the mission , IL SIDE READY: missions,
       IntentLens notes/lenses, and the `@skillstech/intentlang/core` browser subpath are
       published for RM to consume. RM's learning product is sibling-owned.
