@@ -81,7 +81,7 @@ export function intentGraphJsonSchema() {
 }
 
 // Canonical diagnostic-rule catalog , stable IDs so every product uses the same ones.
-export const DIAGNOSTIC_RULES = [
+const IL_AUTHOR_RULE_ROWS = [
   { ruleId: 'IL-PM-001', area: 'product', severity: 'warning', blocks: ['release'], summary: 'Metric has no measurement window.' },
   { ruleId: 'IL-PM-003', area: 'product', severity: 'warning', blocks: [], summary: 'Outcome has no metric.' },
   { ruleId: 'IL-EV-001', area: 'evidence', severity: 'info', blocks: [], summary: 'Evidence has no classification.' },
@@ -139,7 +139,7 @@ export const DIAGNOSTIC_RULES = [
 // IDs (renaming would break consumers keyed on them), so they live here rather than in
 // DIAGNOSTIC_RULES (which is IL-* only). Documented + explainable all the same; consumers who
 // want the full set use ALL_DIAGNOSTICS below.
-export const CORE_DIAGNOSTICS = [
+const IL_CORE_RULE_ROWS = [
   { ruleId: 'missing-goal', area: 'core', severity: 'warning', blocks: [], summary: 'Mission has no goal block.' },
   { ruleId: 'duplicate-without-idempotency', area: 'core', severity: 'warning', blocks: [], summary: 'A duplicate-prevention guarantee declares no idempotency key or lookup rule.' },
   { ruleId: 'guarantee-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Guarantee has no explicit verification.' },
@@ -154,5 +154,47 @@ export const CORE_DIAGNOSTICS = [
   { ruleId: 'INTENT_NOTE_EMPTY', area: 'note', severity: 'info', blocks: [], summary: 'IntentLens note is empty.' },
 ];
 
-// The full set of check-surface diagnostics (canonical IL-* catalog + legacy core codes).
-export const ALL_DIAGNOSTICS = [...DIAGNOSTIC_RULES, ...CORE_DIAGNOSTICS];
+// ── Rule namespaces: ONE id space across two PHASES ──────────────────────────
+// The canonical catalog spans author-time (IL) and verify-time (OpenThunder). Every rule row
+// self-describes with `owner` ('IL' | 'OT') and `phase` ('author' | 'verify'), and prefix
+// ownership is declared in RULE_NAMESPACES, so a reader (or a coverage/diff lens) sees a single,
+// unambiguous rule catalog instead of two forks. IL owns author-time rules (checked when the
+// .intent is authored/compiled); OT owns verify-time rules (checked against the actual repo).
+// Additive: existing rows gain owner/phase; existing consumers keying on ruleId are unaffected.
+export const RULE_PHASES = ['author', 'verify'];
+export const RULE_OWNERS = ['IL', 'OT'];
+export const RULE_NAMESPACES = [
+  { prefix: 'IL-', owner: 'IL', phase: 'author', description: 'IntentLang author-time catalog (compile-time).' },
+  { prefix: 'OT-', owner: 'OT', phase: 'verify', description: 'OpenThunder verify-time rules (repo vs intent). OT-owned; OT PRs the rows.' },
+];
+
+const stamp = (owner, phase) => (r) => ({ owner, phase, ...r });
+
+// IL author-time catalog (IL-* canonical + legacy core ids), stamped IL/author.
+export const DIAGNOSTIC_RULES = IL_AUTHOR_RULE_ROWS.map(stamp('IL', 'author'));
+export const CORE_DIAGNOSTICS = IL_CORE_RULE_ROWS.map(stamp('IL', 'author'));
+
+// OpenThunder verify-time namespace , RESERVED here so the id space is single-source; OT PRs the
+// row definitions. `reserved: true` marks a slot that OT owns and has not yet defined, so a
+// coverage/diff lens can see the id today without IL fabricating OT's rule semantics.
+export const VERIFICATION_RULES = [
+  'OT-REQ-001', 'OT-REQ-002', 'OT-REQ-003', 'OT-REQ-004', 'OT-REQ-005', 'OT-REQ-006',
+].map((ruleId) => ({
+  ruleId, area: 'verification', severity: 'error', blocks: ['<verify-time>'],
+  summary: 'Reserved for an OpenThunder verify-time rule; OT owns the definition.',
+  owner: 'OT', phase: 'verify', reserved: true,
+}));
+
+// The full set of documented rules: IL author-time catalog + legacy core codes + the reserved
+// OT verify-time namespace , one id space across both phases.
+export const ALL_DIAGNOSTICS = [...DIAGNOSTIC_RULES, ...CORE_DIAGNOSTICS, ...VERIFICATION_RULES];
+
+// Resolve which namespace (owner + phase) a rule id belongs to. Prefix-based for IL-/OT-, with the
+// legacy core ids (no IL-/OT- prefix) explicitly classified IL/author. Unknown ids return null.
+const IL_CORE_IDS = new Set(IL_CORE_RULE_ROWS.map((r) => r.ruleId));
+export function ruleNamespace(ruleId) {
+  const id = String(ruleId || '');
+  for (const ns of RULE_NAMESPACES) if (id.startsWith(ns.prefix)) return { owner: ns.owner, phase: ns.phase };
+  if (IL_CORE_IDS.has(id)) return { owner: 'IL', phase: 'author' };
+  return null;
+}

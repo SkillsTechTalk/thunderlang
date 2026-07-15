@@ -156,6 +156,7 @@ export {
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES, CORE_DIAGNOSTICS, ALL_DIAGNOSTICS,
+  RULE_PHASES, RULE_OWNERS, RULE_NAMESPACES, VERIFICATION_RULES, ruleNamespace,
 } from './intent-schema.mjs';
 // Intent IR (intent-ir-v1) , the shared ecosystem semantic representation (superset of the graph)
 export {

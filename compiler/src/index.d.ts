@@ -504,10 +504,17 @@ export const NODE_TYPES: string[];
 export const RELATIONSHIP_TYPES: string[];
 export const NODE_STATUSES: string[];
 export function intentGraphJsonSchema(): Record<string, unknown>;
-export type DiagnosticRule = { ruleId: string; area: string; severity: string; blocks: string[]; summary: string };
+export type RulePhase = 'author' | 'verify';
+export type RuleOwner = 'IL' | 'OT';
+export type DiagnosticRule = { ruleId: string; area: string; severity: string; blocks: string[]; summary: string; owner?: RuleOwner; phase?: RulePhase; reserved?: boolean };
 export const DIAGNOSTIC_RULES: DiagnosticRule[];
 export const CORE_DIAGNOSTICS: DiagnosticRule[];
+export const VERIFICATION_RULES: DiagnosticRule[];
 export const ALL_DIAGNOSTICS: DiagnosticRule[];
+export const RULE_PHASES: RulePhase[];
+export const RULE_OWNERS: RuleOwner[];
+export const RULE_NAMESPACES: Array<{ prefix: string; owner: RuleOwner; phase: RulePhase; description: string }>;
+export function ruleNamespace(ruleId: string): { owner: RuleOwner; phase: RulePhase } | null;
 
 // Deterministic candidate selection
 export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }
