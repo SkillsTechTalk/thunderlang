@@ -3,6 +3,28 @@
 All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.6
+
+The skills-on-intents release. Additive; no breaking changes to 0.1.5.
+
+### Added
+
+- **Skills + required-understanding on intents (the Ownership Graph skill↔intent join).** A mission
+  can declare the skills it requires and what a human must be able to explain to own it:
+  ```
+  requires_skill Distributed Systems, Idempotency
+  demonstrates understands the idempotency-key guarantee
+  ```
+  - `requires_skill` (inline comma list or a block) normalizes each skill to the shared
+    `skill:<slug>` id (`skillRefId`); `demonstrates` captures the understanding a human must show.
+  - New `Skill` node type (`NODE_TYPES` 41 → 42) + `requires_skill` relationship (20 → 21) in
+    `intent-graph-v1`; the mission `requires_skill` each Skill node. Additive for consumers that
+    subset the vocabulary.
+  - The proof envelope and `compileSource` now carry `skillsRequired` (the `skill:` ids) and
+    `demonstrates` (prose), so producers drop `skillsRequired` straight into
+    `evidence-event-v1` `skillIds[]`, and `demonstrates` feeds Skills Tech Talk defense.
+  - `requires_skill` round-trips through `graphToSource`.
+
 ## 0.1.5
 
 The rule-catalog namespace release. Additive; no breaking changes to 0.1.4.
