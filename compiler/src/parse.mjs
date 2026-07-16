@@ -671,8 +671,12 @@ export function parseIntent(source) {
         break;
       }
       // IntentLift inferred-draft metadata blocks: recognized, kept as metadata, not errors.
-      case 'inferred': case 'maps_to': case 'evidence': case 'unknown':
-      case 'needs_review': case 'assumption': case 'source': case 'confidence':
+      // `evidence`, `unknown`, and `assumption` are intentionally NOT listed here: each is a real
+      // top-level block handled by an earlier case in this switch (which wins), so listing them
+      // again was dead duplicate `case` labels. A lifted draft's evidence/unknown lines already
+      // parse via those earlier cases; behavior is unchanged.
+      case 'inferred': case 'maps_to':
+      case 'needs_review': case 'source': case 'confidence':
         (ast.lift ||= {})[kw] = leafItems(node);
         break;
       case 'approval': {
