@@ -5,9 +5,20 @@ All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
 
 ## 0.1.6
 
-The skills-on-intents release. Additive; no breaking changes to 0.1.5.
+The agent-conformance release (skills on intents + 12-factor scoring). Additive; no breaking
+changes to 0.1.5.
 
 ### Added
+
+- **12-Factor Agents conformance lens (`twelve-factor-v1`).** Deterministically scores an intent
+  against the 13 principles of [humanlayer/12-factor-agents](https://github.com/humanlayer/12-factor-agents),
+  which map onto structure IL already models (decisions, lifecycles, typed I/O, approvals,
+  errors/handlers, events, a pure runtime). `twelveFactorReport(ast)` returns a per-factor verdict
+  (`satisfied` | `partial` | `absent`) with evidence + a fix and a 0–100 score; `twelveFactorSummary`
+  is the compact form. `compileSource` and the proof envelope now carry a `twelveFactor` summary, so
+  "12-factor compliant" is a claim the proof asserts. CLI: `intent twelve-factor <file> [--json]`.
+  Findings catalogued as `IL-12F-01..13`. Exported from `/core` and the root. See
+  `docs/twelve-factor-agents.md` and `examples/TwelveFactorAgent.intent` (scores 100/100).
 
 - **Skills + required-understanding on intents (the Ownership Graph skill↔intent join).** A mission
   can declare the skills it requires and what a human must be able to explain to own it:

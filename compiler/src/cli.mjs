@@ -43,6 +43,7 @@ import { buildIntentGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
+import { twelveFactorReport } from './twelve-factor.mjs';
 import { GENERATORS } from './codegen.mjs';
 import { changeReport } from './changes.mjs';
 import { execSync } from 'node:child_process';
@@ -209,6 +210,7 @@ Author & check
   risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
   focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
   comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
+  twelve-factor <file> [--json]  score an intent against the 13 humanlayer/12-factor-agents principles
   gen <file> [--target typescript|csharp|java] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
   changes [<base>..<head> | <base>] [--json]  Change Lens: what a branch/PR changed by meaning
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
@@ -476,6 +478,24 @@ function main() {
         const next = m.missing[0];
         console.log(`    next: reach ${next.level} ${next.name} , ${next.need}  [${next.owner}]`);
       }
+    }
+    return;
+  }
+
+  // `intent twelve-factor <file> [--json]` , score an intent against the 13 principles of
+  // humanlayer/12-factor-agents (deterministic conformance lens). Per-factor verdict + score.
+  if (cmd === 'twelve-factor' || cmd === '12factor') {
+    if (!file) { console.error('usage: intent twelve-factor <file> [--json]'); process.exit(2); return; }
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    const report = twelveFactorReport(ast);
+    if (args.json) { console.log(JSON.stringify(report, null, 2)); return; }
+    const mark = { satisfied: 'ok  ', partial: '~   ', absent: 'MISS' };
+    console.log(`12-factor conformance: ${report.subject || '(unnamed)'}  ,  ${report.score}/100 (${report.grade})`);
+    console.log(`  ${report.counts.satisfied} satisfied · ${report.counts.partial} partial · ${report.counts.absent} absent\n`);
+    for (const f of report.factors) {
+      console.log(`  [${mark[f.verdict]}] F${String(f.factor).padStart(2)} ${f.name}`);
+      console.log(`         ${f.evidence}`);
+      if (f.fix) console.log(`         fix: ${f.fix}`);
     }
     return;
   }

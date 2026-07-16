@@ -133,6 +133,21 @@ const IL_AUTHOR_RULE_ROWS = [
   { ruleId: 'IL-SEC-001', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'Secret-typed field travels over the event bus.' },
   { ruleId: 'IL-SEC-002', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'API returns a secret with no auth requirement.' },
   { ruleId: 'IL-TYPE-001', area: 'type', severity: 'info', blocks: [], summary: 'Field uses an unrecognized (likely mistyped) type.' },
+  // 12-Factor Agents conformance (twelve-factor-v1). Advisory: an intent's alignment with the
+  // humanlayer/12-factor-agents principles. `intent twelve-factor` scores these.
+  { ruleId: 'IL-12F-01', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F1 Natural language to tool calls: model dispatch as a decision/command.' },
+  { ruleId: 'IL-12F-02', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F2 Own your prompts: behavior is an owned, guaranteed contract, not a black box.' },
+  { ruleId: 'IL-12F-03', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F3 Own your context window: declare a scope boundary.' },
+  { ruleId: 'IL-12F-04', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F4 Tools are structured outputs: typed I/O + discriminated results.' },
+  { ruleId: 'IL-12F-05', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F5 Unify execution + business state: one lifecycle/state model.' },
+  { ruleId: 'IL-12F-06', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F6 Launch/pause/resume: a resumable lifecycle with waiting + terminal states.' },
+  { ruleId: 'IL-12F-07', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F7 Contact humans with tool calls: a structured approval/human-input gate.' },
+  { ruleId: 'IL-12F-08', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F8 Own your control flow: decisions with an explicit default (total control flow).' },
+  { ruleId: 'IL-12F-09', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F9 Compact errors into context: named errors + handlers (bounded retry).' },
+  { ruleId: 'IL-12F-10', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F10 Small, focused agents: keep operations within ~10 steps (20 max).' },
+  { ruleId: 'IL-12F-11', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F11 Trigger from anywhere: declare event triggers.' },
+  { ruleId: 'IL-12F-12', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F12 Stateless reducer: pure, replayable decision/lifecycle logic.' },
+  { ruleId: 'IL-12F-13', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F13 Pre-fetch context: declare inputs so known data is fetched up front.' },
 ];
 
 // Core check-surface diagnostics that predate the IL-* catalog. They keep their stable legacy

@@ -5,6 +5,7 @@
 
 import { sha256, sha256hex } from './hash.mjs';
 import { slug, KNOWN_LENSES } from './parse.mjs';
+import { twelveFactorSummary } from './twelve-factor.mjs';
 import { parseArchitectureRules } from './arch.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import { detectConflicts } from './conflict.mjs';
@@ -505,6 +506,8 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
     // understanding a human must be able to demonstrate to own it (feeds Skills Tech Talk defense).
     skillsRequired: (ast.skills || []).map((s) => s.id).filter(Boolean),
     demonstrates: (ast.demonstrates || []).map((d) => d.statement),
+    // 12-Factor Agents conformance summary , makes "12-factor compliant" a claim the proof carries.
+    twelveFactor: twelveFactorSummary(ast),
     verification: { syntaxPassed: true, semanticPassed: passedSemantic, targetsGenerated: targetsGenerated.length > 0 },
     // Notes are understanding metadata only; they never mark a guarantee verified.
     notes: notesSummary(ast),

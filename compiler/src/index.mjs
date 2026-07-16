@@ -118,6 +118,8 @@ export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './co
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { exprToJs, exprToCSharp, exprToJava, exprToCode } from './expr.mjs';
 export { subjectName, intentRefId, skillRefId } from './parse.mjs';
+// 12-Factor Agents conformance lens (twelve-factor-v1)
+export { TWELVE_FACTOR_SCHEMA, twelveFactorReport, twelveFactorSummary } from './twelve-factor.mjs';
 // Focused scanner query views (Part 3): risks / gaps / unverified / coverage / unknowns / contradictions
 export {
   VIEW_SCHEMA, VIEWS, risksView, gapsView, unverifiedView, coverageView, unknownsView, contradictionsView,

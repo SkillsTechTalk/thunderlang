@@ -233,6 +233,12 @@ IL side of the moat (this repo):
       This is the skill<->intent join of the Ownership Graph from the authoritative (intent) side.
 - [ ] Contribute IL's semantic vocabulary to `docs/moat/ownership-graph.md` (the Intent,
       Requirement, Change, and VerificationRun entities) , cross-repo doc owned by the moat architect.
+- [x] **12-Factor Agents conformance lens , SHIPPED (0.1.6).** Deterministic `twelveFactorReport`
+      scores an intent against the 13 humanlayer/12-factor-agents principles (map onto decisions/
+      lifecycles/typed-IO/approvals/errors/events/pure-runtime IL already models). Per-factor
+      verdict + score + fix; `IL-12F-01..13` findings; `intent twelve-factor` CLI; `twelveFactor`
+      summary folded into compileSource + the proof. Turns "12-factor compliant" into a verifiable
+      claim (feeds the moat as evidence). Doc `docs/twelve-factor-agents.md`, exemplar scores 100/100.
 
 ## Acceptance criteria (for the foundation slice)
 - [x] Repository has a clear roadmap

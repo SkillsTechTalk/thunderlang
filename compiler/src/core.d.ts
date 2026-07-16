@@ -52,6 +52,9 @@ export {
 // Code generation , deterministic scaffolds from intent.
 export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, subjectName, intentRefId, skillRefId } from './index';
 
+// 12-Factor Agents conformance lens (twelve-factor-v1).
+export { TWELVE_FACTOR_SCHEMA, TwelveFactorResult, twelveFactorReport, twelveFactorSummary } from './index';
+
 // Change Lens , what a branch/PR changed by meaning.
 export { CHANGES_SCHEMA, ChangeReport, changeReport } from './index';
 

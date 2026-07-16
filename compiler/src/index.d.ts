@@ -695,6 +695,20 @@ export const GENERATORS: Record<string, (ast: IntentAst) => string>;
 export function exprToJs(src: string, opts?: { inputs?: string[] }): string;
 export function subjectName(ast: IntentAst): string | null;
 export function intentRefId(astOrName: IntentAst | string, opts?: { sourceHash?: string }): string;
+
+// 12-Factor Agents conformance lens (twelve-factor-v1)
+export const TWELVE_FACTOR_SCHEMA: string;
+export interface TwelveFactorResult {
+  schemaVersion: string;
+  subject: string | null;
+  score: number;
+  grade: 'strong' | 'partial' | 'weak';
+  counts: { satisfied: number; partial: number; absent: number };
+  factors: Array<{ id: string; factor: number; name: string; verdict: 'satisfied' | 'partial' | 'absent'; evidence: string; fix?: string }>;
+  diagnostics: Diagnostic[];
+}
+export function twelveFactorReport(ast: IntentAst): TwelveFactorResult;
+export function twelveFactorSummary(ast: IntentAst): { schemaVersion: string; score: number; grade: string; counts: { satisfied: number; partial: number; absent: number } };
 export function skillRefId(name: string): string;
 
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)

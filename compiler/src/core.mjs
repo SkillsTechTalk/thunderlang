@@ -84,6 +84,8 @@ export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './co
 // Change Lens: what a branch/PR changed by meaning (pure; the CLI supplies the git-diffed graphs).
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { subjectName, intentRefId, skillRefId } from './parse.mjs';
+// 12-Factor Agents conformance lens (twelve-factor-v1): score an intent against the 13 principles.
+export { TWELVE_FACTOR_SCHEMA, twelveFactorReport, twelveFactorSummary } from './twelve-factor.mjs';
 // Semantic diff + 3-way merge (Change Lens: diff by meaning).
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.
