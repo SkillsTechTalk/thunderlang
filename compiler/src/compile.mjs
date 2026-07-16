@@ -125,6 +125,10 @@ export function compileSource(source, { sourceFile = 'playground.intent', genera
     // in evidence-event-v1 / proof-bundle-v1 `intentReferences[]` so evidence cites this exact intent.
     intentRef: intentRefId(ast),                          // subject-level: intent:<slug>
     intentRefPinned: intentRefId(ast, { sourceHash }),    // version-pinned: intent:<slug>@<sha8>
+    // Ownership Graph seam: skills this intent requires (shared skill: ids) + required-understanding.
+    // Producers drop `skillsRequired` straight into evidence-event-v1 `skillIds[]`.
+    skillsRequired: (ast.skills || []).map((s) => s.id).filter(Boolean),
+    demonstrates: (ast.demonstrates || []).map((d) => d.statement),
     diagnostics,
     notes: ast.notes || [],
     artifacts: {

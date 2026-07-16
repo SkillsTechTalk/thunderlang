@@ -17,7 +17,7 @@ export const NODE_TYPES = [
   'StyleIntent', 'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
   'VerificationResult', 'Approval', 'Release', 'OutcomeContract', 'OutcomeResult', 'LearningArtifact',
   'Unknown', 'Assumption', 'Question', 'Lifecycle', 'LifecycleState', 'Temporal',
-  'Command', 'Event', 'FailureHandler', 'Decision', 'Rule',
+  'Command', 'Event', 'FailureHandler', 'Decision', 'Rule', 'Skill',
 ];
 
 // Canonical relationship types.
@@ -25,7 +25,7 @@ export const RELATIONSHIP_TYPES = [
   'supported_by', 'derived_from', 'addresses', 'targets', 'measured_by', 'requires',
   'constrained_by', 'implemented_by', 'represented_by', 'verified_by', 'approved_by',
   'released_in', 'resulted_in', 'contradicts', 'supersedes', 'depends_on', 'blocks',
-  'teaches', 'generated_from', 'transitions_to',
+  'teaches', 'generated_from', 'transitions_to', 'requires_skill',
 ];
 
 export const NODE_STATUSES = [

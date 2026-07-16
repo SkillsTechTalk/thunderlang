@@ -109,6 +109,12 @@ export function graphToSource(graph) {
     for (const v of out(iv.id, 'verified_by')) push(`  verify ${title(v)}`);
   }
 
+  // Skills the mission requires , regenerate a `requires_skill` block so they round-trip to Skill
+  // nodes. (Required-understanding `demonstrates` is prose in the proof/AST, not a structural graph
+  // node, so it is intentionally not regenerated here.)
+  const skillNodes = byType('Skill');
+  if (skillNodes.length) { push('requires_skill'); for (const s of skillNodes) push(`  ${title(s)}`); }
+
   for (const u of byType('Unknown')) {
     push(`unknown ${title(u)}`);
     if (u.owner) push(`  owner ${u.owner}`);

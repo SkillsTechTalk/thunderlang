@@ -3,7 +3,7 @@
 // Unknown, Assumption, Question, Approval, ...) + typed relationships. Deterministic;
 // pure (no Node deps): browser-safe. OT/RM/ST read this; they do not re-parse .intent.
 
-import { slug, subjectName } from './parse.mjs';
+import { slug, subjectName, skillRefId } from './parse.mjs';
 import { detectConflicts } from './conflict.mjs';
 import { buildLifecycle } from './lifecycle.mjs';
 import { analyzeDistributed } from './distributed.mjs';
@@ -106,6 +106,15 @@ export function buildIntentGraph(ast) {
       if (!emittedVerifs.has(vid)) { nodes.push(node(vid, 'VerificationRule', v, { status: 'verify-declared' })); emittedVerifs.add(vid); }
       relationships.push(rel(id, 'verified_by', vid));
     }
+  }
+  // Skills the mission requires , the Ownership Graph's skill<->intent join. Each Skill node id is
+  // the shared `skill:<slug>` namespace (IL owns the id shape; STCE the content), so every product
+  // references the same skill by the same id. The mission `requires_skill` each.
+  const emittedSkills = new Set();
+  for (const sk of ast.skills || []) {
+    const id = sk.id || skillRefId(sk.name);
+    if (!emittedSkills.has(id)) { nodes.push(node(id, 'Skill', sk.name, { status: 'required' })); emittedSkills.add(id); }
+    relationships.push(rel(mId, 'requires_skill', id));
   }
   for (const u of ast.unknowns || []) {
     const id = `unknown.${slug(u.name || 'unknown')}`;

@@ -223,9 +223,14 @@ IL side of the moat (this repo):
       browser-safe) so OT/RM/STT/Certified emit the SAME skill id in evidence-event-v1
       `skillIds[]`. The curated taxonomy LIST is STCE's and deferred past the 30-day loop
       (Days 31-60). v1 = free `skillIds` strings until then. Committed; ships next release (0.1.4).
-- [ ] **Required-understanding in the Intent model.** Represent "what understanding must be
-      demonstrated" on an intent (beyond Comprehension C0-C7), so the Ownership Graph can link
-      a skill to a real intent/change. (Skills-required binding uses `skillRefId` above.)
+- [x] **Skills + required-understanding on intents , SHIPPED (0.1.6).** A mission declares the
+      skills it requires and what a human must be able to explain to own it:
+      `requires_skill A, B` (normalized to the shared `skill:<slug>` ids) and
+      `demonstrates <statement>` (prose, feeds Skills Tech Talk defense + ties to Comprehension
+      C0-C7). Flows into the graph (`Skill` node + `requires_skill` edge, intent-graph-v1
+      NODE_TYPES 41->42), the proof envelope (`skillsRequired` + `demonstrates`), and
+      `compileSource` (same, so producers drop `skillsRequired` into evidence `skillIds[]`).
+      This is the skill<->intent join of the Ownership Graph from the authoritative (intent) side.
 - [ ] Contribute IL's semantic vocabulary to `docs/moat/ownership-graph.md` (the Intent,
       Requirement, Change, and VerificationRun entities) , cross-repo doc owned by the moat architect.
 

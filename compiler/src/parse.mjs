@@ -342,6 +342,8 @@ export function parseIntent(source) {
     releases: [], results: [], learnings: [],
     // Outcome contracts , executable commitments binding an outcome to a target
     outcomeContracts: [],
+    // Skills the mission requires + the understanding a human must demonstrate (Ownership Graph seam)
+    skills: [], demonstrates: [],
     // Tests , first-class cases that make a .intent file self-verifying
     tests: [],
     notes: [], diagnostics: [],
@@ -363,6 +365,19 @@ export function parseIntent(source) {
       case 'goal': ast.goal = leafItems(node).join(' '); break;
       case 'why': ast.why = leafItems(node).join(' '); break;
       case 'requires': ast.requires.push(...leafItems(node)); break;
+      // Skills the mission requires (Ownership Graph seam). Inline "requires_skill A, B" or a block.
+      // Each is normalized to the shared `skill:<slug>` namespace (IL owns the id; STCE the content).
+      case 'requires_skill': case 'requires_skills': {
+        const names = (arg ? arg.split(',') : leafItems(node)).map((s) => s.trim()).filter(Boolean);
+        for (const name of names) ast.skills.push({ name, id: skillRefId(name), line: node.line });
+        break;
+      }
+      // What a human must be able to explain to own this mission (ties to Comprehension C0..C7).
+      case 'demonstrates': {
+        const stmts = (arg ? [arg] : leafItems(node)).map((s) => String(s).trim()).filter(Boolean);
+        for (const statement of stmts) ast.demonstrates.push({ statement, line: node.line });
+        break;
+      }
       case 'input': ast.inputs.push(...parseFields(node)); break;
       case 'output': ast.outputs.push(...parseFields(node)); break;
       case 'guarantees': for (const c of items(node)) upsertRule(ast.guarantees, c.text, c.line); break;

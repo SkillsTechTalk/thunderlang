@@ -501,6 +501,10 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
     })),
     errors: (ast.errors || []).map((e) => ({ name: e.name })),
     examples: (ast.examples || []).map((ex) => ({ given: ex.given, expect: ex.expect })),
+    // Ownership Graph seam: the skills this intent requires (shared `skill:<slug>` ids) and the
+    // understanding a human must be able to demonstrate to own it (feeds Skills Tech Talk defense).
+    skillsRequired: (ast.skills || []).map((s) => s.id).filter(Boolean),
+    demonstrates: (ast.demonstrates || []).map((d) => d.statement),
     verification: { syntaxPassed: true, semanticPassed: passedSemantic, targetsGenerated: targetsGenerated.length > 0 },
     // Notes are understanding metadata only; they never mark a guarantee verified.
     notes: notesSummary(ast),

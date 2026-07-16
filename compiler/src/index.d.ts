@@ -62,6 +62,10 @@ export interface IntentAst {
   apis: unknown[];
   events: unknown[];
   databases: unknown[];
+  // Skills the mission requires (normalized to the shared `skill:<slug>` id) + the understanding
+  // a human must demonstrate to own it (Ownership Graph seam).
+  skills: Array<{ name: string; id: string; line: number }>;
+  demonstrates: Array<{ statement: string; line: number }>;
   notes: unknown[];
   diagnostics: Diagnostic[];
   approval?: { reviewed: boolean; [k: string]: unknown };
