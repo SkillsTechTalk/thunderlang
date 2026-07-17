@@ -25,8 +25,34 @@ test('thunder test --contracts derives one obligation per guarantee and never', 
   const out = JSON.parse(run(write('a.thunder', SRC), ['--json']).stdout);
   assert.equal(out.schema, 'thunder-contracts-v1');
   assert.equal(out.total, 2);
-  assert.equal(out.verified, 1);   // the guarantee with a verify
+  // The guarantee names a verification but there is no runnable in-file test -> DECLARED, not verified.
+  assert.equal(out.declared, 1);
+  assert.equal(out.verified, 0);
   assert.equal(out.unverified, 1); // the never-rule with nothing verifying it
+});
+
+test('a guarantee whose verify names a passing test is PASS, proven by that test', () => {
+  const file = write('proven.thunder', `mission Enroll
+decision CanEnroll
+  inputs
+    age
+  rule adult
+    when age >= 18
+    return Eligible
+  default
+    return NotEligible
+test CanEnroll
+  case adult
+    given age 20
+    expect Eligible
+guarantee eligibility is correct
+  verify CanEnroll
+`);
+  const out = JSON.parse(run(file, ['--json']).stdout);
+  const g = out.obligations.find((o) => o.kind === 'guarantee');
+  assert.equal(g.status, 'verified');
+  assert.equal(g.provenBy, 'CanEnroll', 'links the guarantee to the specific test that proves it');
+  assert.equal(out.verified, 1);
 });
 
 test('an unverified claim is UNVERIFIED, never silently PASS', () => {

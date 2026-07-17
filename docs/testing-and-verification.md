@@ -19,7 +19,7 @@ The deterministic compiler already ships a real, tested slice of this. All of th
 | Command | What it does |
 |---|---|
 | `thunder test <file>` | Runs example and decision tests (`test` / `case` / `given` / `expect`) through the deterministic interpreter, before any target code exists. `--json` for machine output. |
-| `thunder test <file> --contracts` | Derives one obligation from every `guarantee` and `never`, and resolves each honestly: **PASS** when a verification is declared and the file's checks are green, **UNVERIFIED** when nothing verifies it, **FAIL** when a check fails. Add `--strict` to fail the run on any UNVERIFIED obligation (CI gate: nothing left unproven). |
+| `thunder test <file> --contracts` | Derives one obligation from every `guarantee` and `never`, mapped to the *specific* test that verifies it: **PASS** (proven by a named passing test), **FAIL** (its test fails), **DECLARED** (a verification is named or classified but runs in target mode, not in-file), **UNVERIFIED** (nothing verifies it). Add `--strict` to fail the run on any UNVERIFIED obligation (CI gate: nothing left unproven). |
 | `thunder coverage <file>` | Reports how many declared claims carry a verification. |
 | `thunder prove <file>` | Runs the tests, evaluates every `guarantee` and `never` as an obligation, and emits a durable `intent-proof-v1` artifact. Unverified claims are reported as **UNVERIFIED**, never as passed. `--json` for the raw proof. |
 | `thunder verify <proof.json> <source>` | Re-checks a proof against its source (hash + claims) to detect tampering or drift. |

@@ -967,12 +967,35 @@ test Example
     // `--strict` also fails the run on any UNVERIFIED obligation (CI: nothing left unproven).
     if (args.contracts) {
       const t = runTests(ast);
-      const testsFailed = t.total > 0 && !t.ok;
+      // Aggregate in-file test results by test name (a test passes only if every case passes).
+      const testPass = new Map();
+      for (const res of (t.results || [])) {
+        const cur = testPass.get(res.target);
+        testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
+      }
+      const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+      // Map a verify reference to a specific in-file test, so status is per-claim, not file-wide.
+      const matchTest = (verifyText) => {
+        const v = norm(verifyText);
+        if (!v) return null;
+        for (const [name, pass] of testPass) {
+          const n = norm(name);
+          if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass };
+        }
+        return null;
+      };
       const build = (kind, o) => {
-        const hasVerify = (o.verify || []).length > 0;
-        const status = !hasVerify ? 'unverified' : testsFailed ? 'failed' : 'verified';
+        const verify = o.verify || [];
         const kinds = [...new Set((o.verifications || []).map((v) => v.kind).filter((k) => k && k !== 'unclassified'))];
-        return { kind, id: o.id, text: o.statement, status, verify: o.verify || [], kinds, declaredOnly: hasVerify && t.total === 0 };
+        let status, provenBy = null;
+        if (!verify.length) status = 'unverified';
+        else {
+          let matched = null;
+          for (const vt of verify) { const m = matchTest(vt); if (m) { matched = m; if (!m.pass) break; } }
+          if (matched) { status = matched.pass ? 'verified' : 'failed'; provenBy = matched.name; }
+          else status = 'declared'; // verification named/classified, but no runnable in-file test
+        }
+        return { kind, id: o.id, text: o.statement, status, verify, kinds, provenBy };
       };
       const obligations = [
         ...ast.guarantees.map((g) => build('guarantee', g)),
@@ -980,18 +1003,19 @@ test Example
       ];
       const count = (s) => obligations.filter((o) => o.status === s).length;
       const rep = { schema: 'thunder-contracts-v1', mission: ast.mission, file: basename(file),
-        total: obligations.length, verified: count('verified'), unverified: count('unverified'),
-        failed: count('failed'), obligations };
+        total: obligations.length, verified: count('verified'), declared: count('declared'),
+        unverified: count('unverified'), failed: count('failed'), obligations };
       const bad = rep.failed > 0 || (args.strict && rep.unverified > 0);
       if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
       if (!rep.total) { console.log(`thunder test ${basename(file)} --contracts: no guarantees or prohibitions declared.`); return; }
-      console.log(`thunder test ${basename(file)} --contracts: ${rep.total} obligation(s), ${rep.verified} verified, ${rep.unverified} unverified${rep.failed ? `, ${rep.failed} failed` : ''}`);
+      console.log(`thunder test ${basename(file)} --contracts: ${rep.total} obligation(s), ${rep.verified} verified, ${rep.declared} declared, ${rep.unverified} unverified${rep.failed ? `, ${rep.failed} failed` : ''}`);
+      const LABEL = { verified: 'PASS', failed: 'FAIL', declared: 'DECLARED', unverified: 'UNVERIFIED' };
       for (const o of obligations) {
-        const label = o.status === 'verified' ? 'PASS' : o.status === 'failed' ? 'FAIL' : 'UNVERIFIED';
-        const via = o.verify.length ? `  via ${o.verify.join(', ')}` : '  (nothing verifies this)';
         const by = o.kinds.length ? `  by ${o.kinds.join('+')}` : '';
-        const note = o.declaredOnly ? '  [declared, runs in target mode]' : '';
-        console.log(`  ${label.padEnd(10)} ${o.kind} ${o.id}: ${o.text}${by}${via}${note}`);
+        const detail = o.provenBy ? `  proven by test ${o.provenBy}`
+          : o.status === 'declared' ? '  (declared, runs in target mode)'
+          : o.status === 'unverified' ? '  (nothing verifies this)' : '';
+        console.log(`  ${LABEL[o.status].padEnd(10)} ${o.kind} ${o.id}: ${o.text}${by}${detail}`);
       }
       if (args.strict && rep.unverified) console.log(`\n  strict: ${rep.unverified} unverified obligation(s) , run fails until every claim carries a verification.`);
       process.exit(bad ? 1 : 0);
