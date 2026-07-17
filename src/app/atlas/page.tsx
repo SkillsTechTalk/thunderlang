@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageHero, Section, SectionHeading, DraftNote, Pill } from "@/components/ui";
 import { IntentCode } from "@/components/IntentCode";
 import { AtlasMap } from "@/components/AtlasMap";
+import { ProofAtlas } from "@/components/ProofAtlas";
 import { pageMeta } from "@/lib/seo";
 import atlas from "@/data/atlas.json";
 
@@ -42,11 +43,27 @@ export default function AtlasPage() {
         </DraftNote>
       </PageHero>
 
+      <Section className="border-b border-white/8">
+        <SectionHeading
+          eyebrow="Define it. Prove it."
+          title="See the whole system, and which parts you can actually trust."
+          intro="A product you define in ThunderLang, rendered from its Intent Graph. Every guarantee, prohibition, and check is painted with its proof status. Green is proven, amber is partial, and red is drifting, a claim with nothing verifying it, exactly where intent and reality silently disagree. Click any node to see what proves it."
+        />
+        <div className="mt-8">
+          <ProofAtlas />
+        </div>
+        <p className="mt-4 text-sm text-haze-400">
+          This proof layer is what a verification platform like{" "}
+          <Link href="/manifesto#openthunder" className="text-gold-300 hover:text-gold-200">OpenThunder</Link>{" "}
+          supplies: ThunderLang defines what the software should do, and the atlas shows whether it does.
+        </p>
+      </Section>
+
       <Section>
         <SectionHeading
-          eyebrow="The whole map"
-          title="See every project as a navigable tree of intent."
-          intro="One map of all missions, generated from the Intent Graph. Expand a project to read what its functions do, and click any mission to open its lifted intent. Color marks inference confidence, not proof, these are unverified drafts."
+          eyebrow="Lifted intent"
+          title="Or point it at code you did not write."
+          intro="The same map, over 13 well-known open-source projects. ThunderLang lifts each project's functions into inferred intent, deterministically and with no AI. Color here marks inference confidence, not proof, these are unverified drafts. Expand a project and click any mission to read what it does."
         />
         <div className="mt-8">
           <AtlasMap projects={projects} totals={totals} />
