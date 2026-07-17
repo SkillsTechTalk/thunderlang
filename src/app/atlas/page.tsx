@@ -47,7 +47,7 @@ export default function AtlasPage() {
         <SectionHeading
           eyebrow="Define it. Prove it."
           title="See the whole system, and which parts you can actually trust."
-          intro="A product you define in ThunderLang, rendered from its Intent Graph. Every guarantee, prohibition, and check is painted with its proof status. Green is proven, amber is partial, and red is drifting, a claim with nothing verifying it, exactly where intent and reality silently disagree. Click any node to see what proves it."
+          intro="A product you define in ThunderLang, rendered from its Intent Graph. Every guarantee, prohibition, and check is painted with its proof status. Green is proven, amber is partial, and red is drifting, a claim with nothing verifying it, exactly where intent and reality silently disagree. Click a guarantee to trace a live edge to the check that proves it, or open a red node to see the gap."
         />
         <div className="mt-8">
           <ProofAtlas />

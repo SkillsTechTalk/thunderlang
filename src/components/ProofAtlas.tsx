@@ -16,6 +16,7 @@ type PNode = {
   status: Status;
   intent?: string;
   provenBy?: string[];
+  provesRef?: string; // id of the verify node that proves this claim (traceability edge)
   children?: PNode[];
   _x?: number; _y?: number; _w?: number; _display?: string;
 };
@@ -35,8 +36,8 @@ const C = {
 const stColor = (s: Status) => C[s];
 const ST_NAME: Record<Status, string> = { proven: "Proven", partial: "Partial", drift: "Drifting", planned: "Planned", info: "Declared" };
 
-const G = (label: string, status: Status, intent: string, provenBy: string[] = []): PNode =>
-  ({ id: label.replace(/\W+/g, "-").toLowerCase(), kind: "guarantee", label, status, intent, provenBy });
+const G = (label: string, status: Status, intent: string, provenBy: string[] = [], provesRef?: string): PNode =>
+  ({ id: label.replace(/\W+/g, "-").toLowerCase(), kind: "guarantee", label, status, intent, provenBy, provesRef });
 
 const MODEL: PNode = {
   id: "root", kind: "product", label: "Skyline Billing", status: "info",
@@ -54,12 +55,12 @@ const MODEL: PNode = {
           { id: "ci-out", kind: "output", label: "invoice: Invoice", status: "info", intent: "Typed output." },
         ] },
         { id: "ci-guar", kind: "group", label: "Guarantees", status: "partial", children: [
-          G("duplicate invoices are not created", "proven", "Even if checkout retries, one placed order becomes one invoice.", ["duplicate-prevention test", "idempotency-key contract"]),
+          G("duplicate invoices are not created", "proven", "Even if checkout retries, one placed order becomes one invoice.", ["duplicate-prevention test", "idempotency-key contract"], "v1"),
           G("invoice.total is never negative", "proven", "A structural property of every generated invoice.", ["property test: total >= 0"]),
-          G("every invoice is auditable", "partial", "An audit record exists for each invoice.", ["audit-trail test (passes)", "runtime evidence: pending"]),
+          G("every invoice is auditable", "partial", "An audit record exists for each invoice.", ["audit-trail test (passes)", "runtime evidence: pending"], "v2"),
         ] },
         { id: "ci-never", kind: "group", label: "Prohibitions", status: "drift", children: [
-          { id: "p1", kind: "prohibition", label: "never expose payment token in logs", status: "proven", intent: "Payment tokens must not appear in logs, events, debug output, or proof.", provenBy: ["security scan (0 findings)"] },
+          { id: "p1", kind: "prohibition", label: "never expose payment token in logs", status: "proven", intent: "Payment tokens must not appear in logs, events, debug output, or proof.", provenBy: ["security scan (0 findings)"], provesRef: "v3" },
           { id: "p2", kind: "prohibition", label: "never invoice an unapproved order", status: "drift", intent: "An order must be approved before it can be invoiced.", provenBy: [] },
         ] },
         { id: "ci-events", kind: "group", label: "Events", status: "partial", children: [
@@ -117,6 +118,13 @@ const MODEL: PNode = {
     },
   ],
 };
+
+// Traceability: claim id -> verify id, and the reverse.
+const TRACE: Record<string, string> = {};
+(function collect(n: PNode) { if (n.provesRef) TRACE[n.id] = n.provesRef; (n.children || []).forEach(collect); })(MODEL);
+const RTRACE: Record<string, string[]> = {};
+Object.entries(TRACE).forEach(([c, v]) => { (RTRACE[v] = RTRACE[v] || []).push(c); });
+function labelOf(id: string) { return findById(MODEL, id)?.label ?? id; }
 
 const NODE_H = 32, XGAP = 234, YGAP = 44, PAD_L = 12, STRIPE = 4, MAXW = 200, MINW = 100;
 const LABEL_FONT = '520 12.5px ui-sans-serif, system-ui, sans-serif';
@@ -188,8 +196,22 @@ export function ProofAtlas() {
   const sel = selected ? findById(MODEL, selected) : null;
   const seg = (n: number) => `${(n / cover.total) * 100}%`;
 
+  // traceability edges for the selected node (claim <-> the check that proves it)
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+  const traceEdges: { a: PNode; b: PNode }[] = [];
+  if (sel) {
+    const partners: string[] = [];
+    if (sel.provesRef) partners.push(sel.provesRef);
+    (RTRACE[sel.id] || []).forEach((id) => partners.push(id));
+    for (const pid of partners) { const pn = nodeById.get(pid); if (pn && pn !== sel) traceEdges.push({ a: sel, b: pn }); }
+  }
+  const partnerIds = new Set(traceEdges.map((e) => e.b.id));
+
+  const jumpTo = (id: string) => setSelected(id);
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-ink-950/60">
+      <style>{`.tl-trace{animation:tl-dash 1s linear infinite}@keyframes tl-dash{to{stroke-dashoffset:-18}}@media (prefers-reduced-motion:reduce){.tl-trace{animation:none}}`}</style>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-white/8 bg-ink-900/50 px-4 py-3">
         <div className="mr-auto flex items-baseline gap-3">
           <span className="font-mono text-[13px] font-semibold text-white">skyline-billing.thunder</span>
@@ -237,14 +259,15 @@ export function ProofAtlas() {
               const kindTxt = KIND_LABEL[n.kind] || "";
               const roll = n.kind === "system" ? rollup(n) : null;
               const isSel = n.id === selected;
+              const isPartner = partnerIds.has(n.id);
               const tx = x + STRIPE + PAD_L;
               return (
                 <g key={n.id} tabIndex={0} role="button" aria-label={`${n.label}, ${ST_NAME[n.status]}`} style={{ cursor: "pointer", outline: "none" }}
                    onClick={() => setSelected(n.id)}
                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(n.id); } else if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && hasKids) toggle(n.id); }}>
                   <rect x={x} y={y} width={w} height={NODE_H} rx={9}
-                    fill={isRoot ? "rgba(139,108,242,0.16)" : C.fill}
-                    stroke={isSel ? C.accent : isRoot ? "rgba(139,108,242,0.55)" : C.stroke} strokeWidth={isSel ? 1.9 : 1.2} />
+                    fill={isRoot ? "rgba(139,108,242,0.16)" : isPartner ? "rgba(139,108,242,0.10)" : C.fill}
+                    stroke={isSel || isPartner ? C.accent : isRoot ? "rgba(139,108,242,0.55)" : C.stroke} strokeWidth={isSel || isPartner ? 1.9 : 1.2} />
                   <rect x={x + 4} y={y + 7} width={STRIPE} height={NODE_H - 14} rx={2} fill={stColor(n.status)} />
                   {kindTxt ? <text x={tx} y={y + 12} fontFamily="ui-monospace, monospace" fontSize={8.5} letterSpacing="0.11em" fill={C.ink3}>{kindTxt.toUpperCase()}</text> : null}
                   <text x={tx} y={kindTxt ? y + 24 : y + NODE_H / 2 + 4} fontFamily="ui-sans-serif, system-ui, sans-serif" fontSize={isRoot ? 13.5 : 12.5} fontWeight={isRoot ? 680 : 520} fill={C.ink}>{n._display}</text>
@@ -268,6 +291,21 @@ export function ProofAtlas() {
                       </g>
                     );
                   })() : null}
+                </g>
+              );
+            })}
+
+            {/* traceability edges: selected claim <-> the check that proves it */}
+            {traceEdges.map(({ a, b }, i) => {
+              const ax = a._x! + a._w!, ay = a._y! + NODE_H / 2 + 8;
+              const bx = b._x! + b._w!, by = b._y! + NODE_H / 2 + 8;
+              const cx = Math.max(ax, bx) + 58 + Math.abs(ay - by) * 0.12;
+              return (
+                <g key={`trace-${i}`}>
+                  <path d={`M${ax} ${ay} C ${cx} ${ay}, ${cx} ${by}, ${bx} ${by}`} fill="none"
+                    stroke={C.accent} strokeWidth={2} strokeDasharray="5 4" className="tl-trace" opacity={0.9} />
+                  <circle cx={ax} cy={ay} r={3.5} fill={C.accent} />
+                  <circle cx={bx} cy={by} r={3.5} fill={C.accent} />
                 </g>
               );
             })}
@@ -321,6 +359,21 @@ export function ProofAtlas() {
                   <div className="mb-5">
                     <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-haze-500">Gap</div>
                     <div className="flex items-start gap-2 text-[13px]" style={{ color: C.drift }}><span className="font-mono font-bold">!</span><span>Nothing proves this claim. This is where intent and reality can silently disagree, and where drift lives.</span></div>
+                  </div>
+                )}
+                {(sel.provesRef || (RTRACE[sel.id] || []).length > 0) && (
+                  <div className="mb-5">
+                    <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-haze-500">Traceability</div>
+                    {sel.provesRef && (
+                      <button onClick={() => jumpTo(sel.provesRef!)} className="flex w-full items-center gap-2 rounded-md border border-white/10 bg-ink-800 px-3 py-2 text-left text-[13px] text-haze-200 transition hover:border-gold-300/60 hover:text-white">
+                        <span className="font-mono text-[11px] text-gold-300">check →</span>{labelOf(sel.provesRef)}
+                      </button>
+                    )}
+                    {(RTRACE[sel.id] || []).map((cid) => (
+                      <button key={cid} onClick={() => jumpTo(cid)} className="mt-2 flex w-full items-center gap-2 rounded-md border border-white/10 bg-ink-800 px-3 py-2 text-left text-[13px] text-haze-200 transition hover:border-gold-300/60 hover:text-white">
+                        <span className="font-mono text-[11px] text-gold-300">proves →</span>{labelOf(cid)}
+                      </button>
+                    ))}
                   </div>
                 )}
                 {sel.kind === "system" && (() => {
