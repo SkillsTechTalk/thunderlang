@@ -52,6 +52,7 @@ import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { runProperties } from './property.mjs';
+import { runMutations } from './mutate.mjs';
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
@@ -206,6 +207,7 @@ function parseArgs(argv) {
     else if (a === '--changed') args.changed = true;
     else if (a === '--properties') args.properties = true;
     else if (a === '--scenarios') args.scenarios = true;
+    else if (a === '--mutate') args.mutate = true;
     else if (a === '--cases') args.cases = argv[++i];
     else if (a === '--seed') args.seed = argv[++i];
     else if (a === '--ir') args.ir = argv[++i];
@@ -1153,6 +1155,20 @@ test Example
         else console.log(`  DECLARED  ${r.scenario}  (${r.given} given, ${r.then} then, ${r.never} never) , needs runtime evidence`);
       }
       process.exit(failed ? 1 : 0);
+      return;
+    }
+
+    // Mutation testing: inject faults into decisions and check the tests catch them.
+    // A survived mutant is a weak spot. `thunder test <file> --mutate [--strict]`.
+    if (args.mutate) {
+      const rep = runMutations(ast);
+      const bad = args.strict && rep.survived > 0;
+      if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
+      if (rep.total === 0) { console.log(`thunder test ${basename(file)} --mutate: ${rep.note}`); return; }
+      console.log(`thunder test ${basename(file)} --mutate: mutation score ${rep.score}%  (${rep.killed} killed, ${rep.survived} survived of ${rep.total})`);
+      const survivors = rep.results.filter((r) => !r.killed);
+      if (survivors.length) { console.log('  survived , the tests did not catch these (weak spots):'); for (const s of survivors) console.log(`    - ${s.describe}`); }
+      process.exit(bad ? 1 : 0);
       return;
     }
 

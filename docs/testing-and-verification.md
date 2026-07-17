@@ -204,7 +204,20 @@ Future selection will also follow the call graph, data dependencies, and histori
 
 **Build first (toward 1.0):** stable IDs; deterministic decision execution *(done)*; example tests *(done)*; automatic guarantee/`never` obligations *(partial, surfaced by `prove`)*; fixtures; PASS/FAIL/UNVERIFIED/STALE states *(partial)*; JSON evidence output *(done for `prove`/`test`)*; TypeScript target adapter; intent coverage *(partial)*; OpenThunder Change Ledger integration; proof invalidation on change; a reference conformance suite.
 
-**Build next:** scenario tests; state/event assertions; property-based testing; Python and C# adapters; mutation testing; change-impact selection via the Intent Graph; security and privacy policies; AI evaluations.
+**Build next:** state/event assertions; Python and C# adapters; security and privacy policies; AI evaluations. *(Scenario tests, property-based testing, change-impact selection, and mutation testing already ship , see below.)*
+
+### Mutation testing
+
+`thunder test <file> --mutate [--strict]` injects small faults into a decision's rules (flip a comparison, `and`->`or`, return the default, remove a rule) and re-runs the tests. A mutant no test detects **survives** and is reported as a weak spot; the mutation score is `killed / total`. This catches tests that pass but do not actually protect the system, the classic failure mode of AI-authored tests. `--strict` fails the run when any mutant survives.
+
+```text
+$ thunder test grade.thunder --mutate
+thunder test grade.thunder --mutate: mutation score 50%  (3 killed, 3 survived of 6)
+  survived , the tests did not catch these (weak spots):
+    - flip >= in b of Grade
+    - b returns the default instead of B
+    - remove b from Grade
+```
 
 **Defer:** full formal theorem proving; every implementation target; distributed model checking; production runtime enforcement; a hosted test cloud; enterprise approval workflows.
 
