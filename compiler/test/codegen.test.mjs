@@ -42,7 +42,7 @@ test('exprToJs translates the when-grammar to correct JS (input-aware literals)'
 
 test('generated TypeScript has the provenance header, typed interfaces, and honest TODOs', () => {
   const ts = toTypeScript(parseIntent('mission CreateInvoice\ninput\n  email: Email\n  amount: Money\noutput\n  invoice: Invoice\nguarantee it holds\n  verify t\nnever leak a secret\n'));
-  assert.match(ts, /generated from IntentLang/);
+  assert.match(ts, /generated from ThunderLang/);
   assert.match(ts, /Deterministic, no AI/);
   assert.match(ts, /export interface CreateInvoiceInput \{[\s\S]*email: string;[\s\S]*amount: number;/);
   assert.match(ts, /GUARANTEE: it holds/);
@@ -75,7 +75,7 @@ test('a rule with an untranslatable condition degrades to a marked TODO, never a
 
 test('non-mission roots (event/api/service) generate under their real name, never "null"', () => {
   const ts = toTypeScript(parseIntent('event InvoiceCreated\npayload\n  invoiceId: InvoiceId\n'));
-  assert.match(ts, /InvoiceCreated , generated from IntentLang/);
+  assert.match(ts, /InvoiceCreated , generated from ThunderLang/);
   assert.doesNotMatch(ts, /\bnull\b/);
 });
 
@@ -95,7 +95,7 @@ import { exprToCSharp, exprToJava } from '../src/expr.mjs';
 
 test('C# target: records + decision logic with C# value equality', () => {
   const cs = toCSharp(parseIntent('mission Charge\ninput\n  amount: Money\noutput\n  ok: Flag\n' + DECISION.split('\n').slice(1).join('\n')));
-  assert.match(cs, /generated from IntentLang/);
+  assert.match(cs, /generated from ThunderLang/);
   assert.match(cs, /public record ChargeInput\(decimal Amount\)/);
   assert.match(cs, /public static string CanReset/);
   assert.match(cs, /return "Denied"; \/\/ rule expired/);

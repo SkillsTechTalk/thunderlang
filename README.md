@@ -1,16 +1,20 @@
-# IntentLang, intentlanguage.dev
+# ThunderLang, thunderlang.dev
 
-**IntentLang is the intent language for AI-era software.** It lets engineers
+**ThunderLang is the intent-oriented language for AI-era software.** It lets engineers
 define what software should do, why it matters, what must never happen, and how
 the result must be verified before code is generated, changed, or shipped. Built
 by **SkillsTech**. Category: **Intent-Oriented Programming**.
+
+> **ThunderLang was previously introduced as IntentLang** — the same language and
+> vision under a stronger, more distinctive brand. The `.intent` file format and the
+> `intent` CLI are unchanged.
 
 > Prompt → Intent → Contract → Plan → Implementation → Verification → Proof
 >
 > Prompt is how the conversation starts. Intent is what the team commits to.
 > Code is how the system fulfills it. Proof is how trust is earned.
 
-IntentLang sits above programming paradigms. It can target object-oriented,
+ThunderLang sits above programming paradigms. It can target object-oriented,
 functional, service-oriented, event-driven, API-first, infrastructure, and
 documentation artifacts depending on the adapter. It does not replace TypeScript,
 Python, Java, .NET, Rust, or Go, and it is not magic AI code generation.
@@ -18,17 +22,17 @@ Python, Java, .NET, Rust, or Go, and it is not magic AI code generation.
 ## Try it
 
 There is a real, deterministic compiler and CLI, published as
-[`@skillstech/intentlang`](https://www.npmjs.com/package/@skillstech/intentlang). No AI.
+[`@skillstech/thunderlang`](https://www.npmjs.com/package/@skillstech/thunderlang). No AI.
 
 ```bash
-npm install -g @skillstech/intentlang
+npm install -g @skillstech/thunderlang
 intent init Eligibility                              # scaffold a runnable starter
 intent run Eligibility.intent --inputs '{"age":20}'  # a decision decides, with a trace
 intent test Eligibility.intent                       # in-file tests prove it (2/2 passed)
 intent check .                                       # gate every .intent in the repo
 ```
 
-That is the point of IntentLang: some intent does not need code generated, it **runs**.
+That is the point of ThunderLang: some intent does not need code generated, it **runs**.
 A decision evaluates against inputs, a lifecycle simulates against events, an outcome
 contract is judged against a result, all deterministically. See
 [Getting started](./docs/getting-started.md).
@@ -36,12 +40,12 @@ contract is judged against a result, all deterministically. See
 ### This repository (a monorepo)
 
 - `compiler/` , the deterministic compiler, CLI, and Language Server (published as
-  `@skillstech/intentlang`). Executable runtime, first-class tests, outcome contracts,
+  `@skillstech/thunderlang`). Executable runtime, first-class tests, outcome contracts,
   five-profile language, style intent, security/type checks, nine export adapters
   (DMN/BPMN/NuSMV/JSON-Schema/OpenAPI/Design-Tokens/CSS/Mermaid/Playwright), schema
   migrations, a canonical proof envelope, and SARIF code scanning. 340+ tests.
 - `editors/vscode/` , a VS Code extension (grammar + language client).
-- `src/`, `docs/`, `examples/` , the website (intentlanguage.dev), the concept docs, and
+- `src/`, `docs/`, `examples/` , the website (thunderlang.dev), the concept docs, and
   worked example missions.
 - Roadmap: [`TODO.md`](./TODO.md) · Manifesto: [`docs/manifesto.md`](./docs/manifesto.md)
   · Spec: [`docs/spec.md`](./docs/spec.md) · Editor support:
@@ -55,7 +59,7 @@ human-approved.
 - [Next.js 14](https://nextjs.org) (App Router)
 - TypeScript
 - Tailwind CSS
-- Deployed on [Vercel](https://vercel.com) → `intentlanguage.dev`
+- Deployed on [Vercel](https://vercel.com) → `thunderlang.dev`
 
 ## Website development
 
@@ -102,7 +106,7 @@ See [`.env.example`](./.env.example).
 
 | Variable                | Required | Description                                                                 |
 | ----------------------- | -------- | --------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`  | No       | Public base URL. Defaults to `https://intentlanguage.dev`.                  |
+| `NEXT_PUBLIC_SITE_URL`  | No       | Public base URL. Defaults to `https://thunderlang.dev`.                  |
 | `WAITLIST_WEBHOOK_URL`  | No       | Endpoint that receives `POST { email, source }` for waitlist signups.       |
 
 ## Waitlist behavior
@@ -126,11 +130,11 @@ data.
 
 ## Deployment
 
-Deployed to Vercel and served at `intentlanguage.dev`.
+Deployed to Vercel and served at `thunderlang.dev`.
 
 1. Import the repo into Vercel (framework auto-detected as Next.js).
 2. Set env vars in Project Settings → Environment Variables.
-3. Add the domain `intentlanguage.dev` (and `www`) under Project → Domains.
+3. Add the domain `thunderlang.dev` (and `www`) under Project → Domains.
 
 DNS (registrar: GoDaddy):
 
@@ -151,5 +155,5 @@ is reproduced as inline SVG in `src/components/StarMark.tsx` for crisp scaling.
 Pre-1.0 and honest. The compiler is real, deterministic, and tested (340+ tests, fuzz +
 property + composition, with CI guards for checks, docs, schema sync, and formatting).
 The language and its `intent-graph-v1` schema version independently and can still change
-before 1.0. IntentLang sits above paradigms; it does not replace Rust, Go, Python, Java,
+before 1.0. ThunderLang sits above paradigms; it does not replace Rust, Go, Python, Java,
 TypeScript, or .NET.

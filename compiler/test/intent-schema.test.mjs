@@ -62,7 +62,7 @@ test('the diagnostic catalog covers every code the semantic pass can emit (compl
   ]) assert.ok(cataloged.has(code), `catalog is missing ${code}`);
   // every rule is well-formed
   for (const r of DIAGNOSTIC_RULES) {
-    assert.match(r.ruleId, /^IL-[A-Z]+-\d+$/);
+    assert.match(r.ruleId, /^IL-[A-Z0-9]+-\d+$/); // family may be alphanumeric (e.g. 12F)
     assert.ok(r.area && r.severity && Array.isArray(r.blocks) && r.summary);
   }
 });

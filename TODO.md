@@ -1,10 +1,10 @@
-# IntentLang Roadmap
+# ThunderLang Roadmap
 
-> IntentLang is the intent language for AI-era software. It lets engineers define
+> ThunderLang is the intent-oriented language for AI-era software. It lets engineers define
 > what software should do, why it matters, what must never happen, and how the
 > result must be verified before code is generated, changed, or shipped.
 
-**Product name:** IntentLang · **Website:** intentlanguage.dev · **By:** SkillsTech
+**Product name:** ThunderLang · **Website:** thunderlang.dev · **By:** SkillsTech
 **Category:** Intent-Oriented Programming
 
 **Core philosophy:** Prompt → Intent → Contract → Plan → Implementation → Verification → Proof
@@ -16,13 +16,13 @@
 
 ## Positioning guardrails
 
-- Do **not** position IntentLang as just a prompt format.
+- Do **not** position ThunderLang as just a prompt format.
 - Do **not** position it as magic AI code generation.
 - Do **not** claim it replaces TypeScript, Python, Java, .NET, Rust, or Go.
 - **Do** position it as a durable intent, contract, architecture, verification,
   and proof layer that can guide, generate, verify, or interoperate with
   implementation languages.
-- IntentLang sits above programming paradigms: object-oriented, functional,
+- ThunderLang sits above programming paradigms: object-oriented, functional,
   service-oriented, event-driven, API-first, infrastructure, and documentation
   targets, chosen by adapter.
 - The deterministic compiler must work without AI (`--no-ai`). AI is optional
@@ -30,7 +30,7 @@
 
 ## Repo boundary
 
-This repository (`intent-language-site`) is the **website** for intentlanguage.dev.
+This repository (`thunderlang-site`) is the **website** for thunderlang.dev.
 Language docs and example `.intent` files live here under `docs/` and `examples/`
 and can be surfaced on the site. The **compiler is a separate concern** and must
 not be built in this repo unless this repo is explicitly designated the compiler
@@ -104,7 +104,7 @@ repo and implementation is approved.
       The five new ones each check clean (0 warnings) and run their decision tests green.
 
 ### P5 - Website content (this repo)
-- [x] Shift site prose and metadata to the **IntentLang** brand
+- [x] Shift site prose and metadata to the **ThunderLang** brand
 - [x] Add **Prompt** to the homepage philosophy (7 stages)
 - [x] New homepage line/pill: "The intent language for AI-era software."
 - [x] "Prompt is temporary. Intent is durable." section on the homepage
@@ -135,7 +135,7 @@ repo and implementation is approved.
 ### P7 - Certification track (future)
 - [x] Document "SkillsTech Certified Intent-Oriented Programming Associate"
       SHIPPED: `docs/certification.md` , the concept, what the credential proves (the
-      fourth proof-chain link: the method), what an Associate can do, how IntentLang's
+      fourth proof-chain link: the method), what an Associate can do, how ThunderLang's
       deterministic check/test/proof back an objective assessment, and planned higher
       tiers. Keeps the repo boundary explicit: the concept + shared vocabulary live here;
       the certification product is built by SkillsTech Certified (a sibling). Registered
@@ -151,7 +151,7 @@ repo and implementation is approved.
 ## Ecosystem integrations (later)
 
 The through-line is **proof**. Each product proves a different thing about the
-same mission. IntentLang (this repo) owns the shared artifacts + seams; the SIBLING
+same mission. ThunderLang (this repo) owns the shared artifacts + seams; the SIBLING
 products own their own internals and are NOT built here. Status is IL's side of each seam:
 
 - [x] **SkillsTech Compiler** proves the language can produce artifacts , SHIPPED: the
@@ -161,8 +161,12 @@ products own their own internals and are NOT built here. Status is IL's side of 
       `intent handoff` emits `il-to-ot-drift-v1`; the `@openthunder/intent` consumer +
       `can-i-ship --intent-pack` round-trip is verified end to end (see IntentLift section).
       OT's own drift engine is sibling-owned.
+      - [x] **Verify-time rule namespace , SHIPPED.** The canonical catalog is now ONE id space
+        across author-time (IL) + verify-time (OT): rows carry `owner`/`phase`, `RULE_NAMESPACES`
+        declares prefix ownership, `VERIFICATION_RULES` reserves the `OT-*` namespace (OT PRs the
+        rows), and `ruleNamespace(id)` resolves owner+phase. Exported from `/core`. Ships next cut.
 - [~] **Repo Mastery** proves the human understands the mission , IL SIDE READY: missions,
-      IntentLens notes/lenses, and the `@skillstech/intentlang/core` browser subpath are
+      IntentLens notes/lenses, and the `@skillstech/thunderlang/core` browser subpath are
       published for RM to consume. RM's learning product is sibling-owned.
 - [x] **SkillsTech Certified** proves the learner understands the method , CONCEPT
       DOCUMENTED here in `docs/certification.md` (P7). The certification product is
@@ -172,9 +176,73 @@ products own their own internals and are NOT built here. Status is IL's side of 
 - [ ] SkillsTech Workspace: store signed proof artifacts and adoption metrics ,
       SIBLING-OWNED (IL emits the proof envelope with join keys; storage is theirs).
 
+## SkillsTech moat , ThunderLang obligations
+
+Full strategy: `docs/moat/skills-ownership-strategy.md`. The company is becoming the
+**Skills Ownership and Proof Platform** ("From AI-generated work to human-owned,
+verifiable outcomes"). The 30-day objective is ONE complete **Skills Ownership Loop**
+(OpenThunder verifies → Repo Mastery teaches → Skills Tech Talk defends → Workspace
+issues an Ownership Proof), monetized by Certified + GetSkillsTech.
+
+**ThunderLang is Tier 3: integrate lightly, internal schema only.** IL is the **Protocol**
+layer (moat layer 7) + the semantic Intent and Proof model. The 30-day target for the
+`ThunderLang → evidence model` seam is **Internal Level 3** (produce/consume evidence).
+Rules: do NOT try to finish a general-purpose language this window; do NOT require
+customers to rewrite software in ThunderLang; do NOT compete with the Tier-1 release for
+attention. The decisive gate: only ship what **creates evidence, consumes evidence,
+improves proof, strengthens trust, or increases repeated use of the Ownership Loop.**
+
+IL side of the moat (this repo):
+
+- [x] **Semantic Intent model exists** , `intent-ir-v1` is the shared representation
+      (what should happen / never happen / constraints / verification). This IS the
+      Protocol-layer asset the moat names.
+- [x] **Human-understanding model exists** , Comprehension Contract C0–C7
+      (`intent-comprehension-v1`) already represents "what human understanding must be
+      demonstrated"; Skills Tech Talk / Repo Mastery consume it.
+- [x] **Proof envelope exists** , `intent-proof-v1` with join keys + `origin` provenance;
+      Workspace stores it (storage sibling-owned).
+- [ ] **Intent → evidence adapters (the moat deliverable).** Ship deterministic
+      mappings/examples so an Intent record connects to the four evidence types the loop
+      produces, without coupling internal DBs:
+  - [ ] Intent ↔ OpenThunder `VerificationEvidence` (extend the `il-to-ot-drift-v1`
+        handoff so a verification result cites the intent it verifies).
+  - [ ] Intent ↔ Repo Mastery mastery content (which intent/mission a Change Mastery Pack teaches).
+  - [ ] Intent ↔ Skills Tech Talk `DefenseEvidence` (defense questions grounded in the intent).
+  - [ ] Intent ↔ Workspace `ProofBundle` (`intent_references` so every proof shows which
+        intent/requirement its evidence supports).
+- [x] **`intentReferences` on the shared evidence event , DONE.** STW pinned
+      `evidence-event-v1` + `proof-bundle-v1` (2026-07-14) with `intentReferences: string[]`
+      on both. IL owns the id shape and shipped `intentRefId()`: `intent:<mission-slug>`
+      (subject-level) / `intent:<slug>@<sha8>` (version-pinned to the proof `sourceHash`).
+      `compileSource` returns `intentRef` + `intentRefPinned`, exported via `/core` + root, so
+      OT/RM/STT/Certified drop the SAME id into `intentReferences[]`. Ships next release (0.1.3).
+- [x] **Skill namespace , IL owns the id SHAPE (founder decision 2026-07-14).** IL owns the
+      `skill:` namespace; SkillsTech Certified (STCE) owns the CONTENT (which skills exist,
+      aliases, cert->skill maps). Shipped `skillRefId(name) -> skill:<slug>` (deterministic,
+      browser-safe) so OT/RM/STT/Certified emit the SAME skill id in evidence-event-v1
+      `skillIds[]`. The curated taxonomy LIST is STCE's and deferred past the 30-day loop
+      (Days 31-60). v1 = free `skillIds` strings until then. Committed; ships next release (0.1.4).
+- [x] **Skills + required-understanding on intents , SHIPPED (0.1.6).** A mission declares the
+      skills it requires and what a human must be able to explain to own it:
+      `requires_skill A, B` (normalized to the shared `skill:<slug>` ids) and
+      `demonstrates <statement>` (prose, feeds Skills Tech Talk defense + ties to Comprehension
+      C0-C7). Flows into the graph (`Skill` node + `requires_skill` edge, intent-graph-v1
+      NODE_TYPES 41->42), the proof envelope (`skillsRequired` + `demonstrates`), and
+      `compileSource` (same, so producers drop `skillsRequired` into evidence `skillIds[]`).
+      This is the skill<->intent join of the Ownership Graph from the authoritative (intent) side.
+- [ ] Contribute IL's semantic vocabulary to `docs/moat/ownership-graph.md` (the Intent,
+      Requirement, Change, and VerificationRun entities) , cross-repo doc owned by the moat architect.
+- [x] **12-Factor Agents conformance lens , SHIPPED (0.1.6).** Deterministic `twelveFactorReport`
+      scores an intent against the 13 humanlayer/12-factor-agents principles (map onto decisions/
+      lifecycles/typed-IO/approvals/errors/events/pure-runtime IL already models). Per-factor
+      verdict + score + fix; `IL-12F-01..13` findings; `intent twelve-factor` CLI; `twelveFactor`
+      summary folded into compileSource + the proof. Turns "12-factor compliant" into a verifiable
+      claim (feeds the moat as evidence). Doc `docs/twelve-factor-agents.md`, exemplar scores 100/100.
+
 ## Acceptance criteria (for the foundation slice)
 - [x] Repository has a clear roadmap
-- [x] README explains IntentLang clearly
+- [x] README explains ThunderLang clearly
 - [x] Docs include tutorial and syntax
 - [x] Examples are conceptually consistent (no compiler required here)
 - [x] No overclaim of production-readiness
@@ -185,7 +253,7 @@ products own their own internals and are NOT built here. Status is IL's side of 
 
 ## Compiler emit stage (MVP) , SHIPPED 2026-07-09
 
-Deterministic `@intentlang/compiler` in `compiler/` (no AI). `intent check|graph|proof|build`.
+Deterministic `@thunderlang/compiler` in `compiler/` (no AI). `intent check|graph|proof|build`.
 Emits `.intent/<mission>/{contract-graph.json, architecture-graph.json, implementation-plan.json, .intent-proof.json}`
 + Markdown/Mermaid/testplan. Shapes match OpenThunder's consumer contract (`il-to-ot-intent-v1`); stable slug IDs
 for drift keying. Semantic pass catches the signature "duplicate-prevention without idempotency" diagnostic.
@@ -283,13 +351,13 @@ Next slices (compiler core first):
       load locally instead of from jsdelivr, plus wire `MonacoEnvironment` workers for the
       Next build. The failure mode (web-worker resolution) only surfaces at runtime in a
       browser against a production build, and this is the LIVE playground on
-      intentlanguage.dev , so it needs a `next build` + browser smoke test before shipping.
+      thunderlang.dev , so it needs a `next build` + browser smoke test before shipping.
       Left for a session that can run that verification rather than shipped blind.
 - [ ] Do NOT hardcode completions in the playground; do NOT duplicate the parser
 
 ## IntentLift (Code-to-Intent)
 
-Lift implementation code into an INFERRED IntentLang draft. Useful but humble:
+Lift implementation code into an INFERRED ThunderLang draft. Useful but humble:
 evidence, confidence, unknowns, needs_review, source-mapped, reviewed:false, proof
 draft. Never claims inferred intent is verified. Backbone: compiler core does the
 lifting; playground/IDE render it. Pipeline: source -> Language Adapter ->
@@ -336,7 +404,7 @@ Next slices:
       + scanRepoEvidence added to @openthunder/intent; +1 vitest. Verified end to end.
 - [x] Documented the drift round-trip + `--intent-pack` gate in docs/ecosystem-brief.md
       (approve -> handoff -> `openthunder intent drift` / `can-i-ship`); live on
-      intentlanguage.dev/docs/ecosystem-brief.
+      thunderlang.dev/docs/ecosystem-brief.
 - [ ] Assisted mode via SkillsTech Runtime (AI optional, labeled, human-approved)
 
 ## Mission Atlas , scaling beyond one .intent file
@@ -389,7 +457,7 @@ Slice 3 (this slice , first real aggregation command):
       commands stay honestly planned (evidence-dependent).
 
 Slice 3 follow-ups (planned):
-- [ ] Republish `@skillstech/intentlang` (bump) so npm users get `intent index`.
+- [ ] Republish `@skillstech/thunderlang` (bump) so npm users get `intent index`.
 - [ ] `intent chains` (needs a chain-declaration convention or reliable type-linkage detection).
 - [ ] `intent summarize` / `diff` / `release` (need git history + test/drift evidence).
 
@@ -404,7 +472,7 @@ Ecosystem contract alignment (downstream tools consume these artifacts):
 Sibling-requested (committed on the coordination bus 2026-07-10; all additive):
 - [x] Add `sourceProduct: "skillstech-compiler"` to `.intent-proof.json` (asked by STCE, for cert-proof keying).
       Additive envelope field (after schemaVersion); sourceHash/join keys unchanged; +assertion. 23/23 tests.
-- [x] Add an ESM library entry to `@skillstech/intentlang` (asked by ST, #134500): `src/index.mjs` curated
+- [x] Add an ESM library entry to `@skillstech/thunderlang` (asked by ST, #134500): `src/index.mjs` curated
       barrel + `main`/`types`/`exports` in package.json + hand-written `src/index.d.ts`. Consumer
       `import { parseIntent, buildMissionIndex, compileSource, ... }` verified via pack->install->import;
       CLI bin still coexists; .d.ts typechecks. Rides the pending 0.1.1 publish.
@@ -413,7 +481,7 @@ Sibling-requested (committed on the coordination bus 2026-07-10; all additive):
 - [x] Parse an `examples:` block (`given -> expect`) (ST #140500): parser + AST + proof `examples[]` +
       testplan rows. Both additive; 25/25 tests; demoed on CreateInvoice; index golden fixture regenerated.
 - [ ] Build `intent compile --target openthunder` (native `.openthunder/missions/<id>/contract.yaml`,
-      `source:'intentlang'`) ONLY IF OT/STCE confirm they still need the deep path (OT already consumes the JSON +
+      `source:'thunderlang'`) ONLY IF OT/STCE confirm they still need the deep path (OT already consumes the JSON +
       drift seam). Question posted; awaiting their answer.
 - Note: nested `verify:` per guarantee/never is ALREADY shipped (ratified to ST, no work needed).
 
@@ -463,7 +531,7 @@ Deferred (other products' instances, coordinated via the intent-ai-v1 contract ,
       reusable forbidden-edge check OT calls, INTENT-ARCH-307). In the contract graph + contract hash;
       malformed lines -> INTENT-ARCH-001 warning. Exported from the library. 45/45 tests.
 - [x] intent-ai-v1 reconcile (from OT #216 + RM redline): extracted pure helpers to `ai-core.mjs`
-      (zero Node deps) + published `@skillstech/intentlang/core` subpath so RM's browser bundle can import
+      (zero Node deps) + published `@skillstech/thunderlang/core` subpath so RM's browser bundle can import
       states/blocksProduction/makeEvent; locked `PROOF_CHECK_KEYS` (9 keys, `contracts` plural); pinned the
       canonical contractHash clause set + proof shape + SARIF rule catalog in contracts/intent-ai-v1.md.
 - [x] Deterministic candidate selection (SHIPPED): `compiler/src/select.mjs` , `selection` block
@@ -490,9 +558,9 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 **Near-term (small, high-leverage)**
 - [x] SECURITY + TYPE DIAGNOSTICS SHIPPED (#29,#43): security.mjs , IL-SEC-001 (secret-typed field Secret/Password/Jwt on an event payload = secret over the bus, blocker/release), IL-SEC-002 (API returns a secret with no `requires` auth gate, blocker/release), IL-TYPE-001 (unrecognized/mistyped field type, info). isRecognizedType + SEMANTIC_TYPES/PRIMITIVE_TYPES hoisted from data-schema.mjs (one source of truth). Wired into semanticDiagnostics (gate-safe). Catalog 49 rules; diagnostics.md + schema regenerated. Fuzz-covered (event/api/payload keywords + secret/typo frags). Exported + typed. 323 tests. docs/compiler-contract.md + diagnostics.md. schema intent-security-v1.
 - [ ] OpenAPI generation when an `api` block exists (#37)
-- [x] `bin` wiring + npm publish (#40,#94): published `@skillstech/intentlang@0.1.0`
-      (public, MIT). `npm i -g @skillstech/intentlang` -> `intent`; `npx @skillstech/intentlang`.
-      Verified via real registry install. (Scope: @intentlang org doesn't exist; used the
+- [x] `bin` wiring + npm publish (#40,#94): published `@skillstech/thunderlang@0.1.0`
+      (public, MIT). `npm i -g @skillstech/thunderlang` -> `intent`; `npx @skillstech/thunderlang`.
+      Verified via real registry install. (Scope: @thunderlang org doesn't exist; used the
       owned @skillstech scope, consistent with @skillstech/openthunder.)
 - [x] `intent check` in a GitHub Actions workflow (#95): scripts/intent-check.mjs
       batch-runs the real CLI over every authored .intent (skips the .intent/ output
@@ -501,7 +569,7 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
       service/event/api/database intents are valid subjects (was erroring the examples).
 - [x] Wire the web playground to the real compiler (/api/compile, deterministic, no AI) (#89)
 - [ ] Six more examples toward the target ten: RAG pipeline, webhook handler, event-driven billing, auth API, file upload, AI agent task, data pipeline, deployment policy (#91)
-- [ ] `intentlang-starter` template repo (#93)
+- [ ] `thunderlang-starter` template repo (#93)
 - [ ] Proof status vocabulary: draft/verified/partial/stale/failed/approved (#50)
 
 **Later**
@@ -592,9 +660,9 @@ Deferred (IL next slices , from the ecosystem gap-closure program):
 - [x] DATA-SHAPE EXPORT (JSON Schema + OpenAPI) SHIPPED: data-schema.mjs typeToJsonSchema (semantic types -> JSON Schema: Email/DateTime/Url formats, Money/Percentage number, Secret writeOnly, List<X> recursive arrays, ids -> string, custom PascalCase -> opaque object) + toJSONSchema(ast,{which:input|output|both}) draft-2020-12 with required (optional modifier drops) + toOpenAPI(ast) 3.1 operation (input->requestBody, output->200, errors->named responses w/ inferred status 400/403/404/409/422, path/method from api block or POST/<mission>). Wired into export adapters (`intent export --format jsonschema|openapi`). Exported + typed. 225 tests. docs/export-adapters.md.
 - [ ] Remaining interop adapters (Figma refs , largely covered by artifact.ref).
 - [x] PLAYWRIGHT EXPORT SHIPPED: `intent export --format playwright` / `toPlaywright(ast)` , experiences -> Playwright E2E test scaffold (test.describe per experience, test+test.step per journey/step, reachability test per state, recovery-path test for failure states, a11y target as a proposed comment). SKELETON (TODOs for selectors/assertions), the test-plan target for the experience profile. 9th export format; JS-string-escaped, deterministic, fuzz-covered. 331 tests. docs/export-adapters.md.
-- [x] SARIF CODE SCANNING SHIPPED: `intent check <path> --format sarif` / toSarif(reports) emits a SARIF 2.1.0 log so IntentLang diagnostics land natively in GitHub/GitLab code scanning (inline PR annotations + Security tab) and SARIF-aware IDEs. Rule metadata from ALL_DIAGNOSTICS + helpUri to /docs/diagnostics; level map (blocker/error->error, warning->warning, info->note); precise line regions where known (threaded line through security/style diagnostics). Report mode (exit 0); plain `intent check .` stays the gate. sarif.mjs (pure), exported + typed. 338 tests. docs/compiler-contract.md (GitHub workflow example).
+- [x] SARIF CODE SCANNING SHIPPED: `intent check <path> --format sarif` / toSarif(reports) emits a SARIF 2.1.0 log so ThunderLang diagnostics land natively in GitHub/GitLab code scanning (inline PR annotations + Security tab) and SARIF-aware IDEs. Rule metadata from ALL_DIAGNOSTICS + helpUri to /docs/diagnostics; level map (blocker/error->error, warning->warning, info->note); precise line regions where known (threaded line through security/style diagnostics). Report mode (exit 0); plain `intent check .` stays the gate. sarif.mjs (pure), exported + typed. 338 tests. docs/compiler-contract.md (GitHub workflow example).
 - [x] MERMAID EXPORT SHIPPED: `intent export --format mermaid` / `toMermaid(ast)` renders the WHOLE Intent Graph as a Mermaid `graph TD` (node shape by category: rounded states/lifecycles, hexagon guarantees/never/constraints, rhombus decisions/rules, rect rest; typed edges labeled; mermaid-safe ids; labels sanitized of quotes/brackets/pipes). Paste-anywhere (GitHub/Markdown/Notion). 7th export format. 305 tests. docs/export-adapters.md.
-- [x] DIAGNOSTICS CATALOG SHIPPED: `intent rules [--json]` lists the whole canonical DIAGNOSTIC_RULES catalog (46 rules, grouped by area / JSON for editors+CI+OT). docs/diagnostics.md GENERATED from the catalog via scripts/diagnostics-doc.mjs (--write/--check) + `npm run diagnostics:emit|check`, CI-guarded (workflow step) so the reference can never drift. Registered in docs.ts. 307 tests. Single authoritative answer to "what does IntentLang check?".
+- [x] DIAGNOSTICS CATALOG SHIPPED: `intent rules [--json]` lists the whole canonical DIAGNOSTIC_RULES catalog (46 rules, grouped by area / JSON for editors+CI+OT). docs/diagnostics.md GENERATED from the catalog via scripts/diagnostics-doc.mjs (--write/--check) + `npm run diagnostics:emit|check`, CI-guarded (workflow step) so the reference can never drift. Registered in docs.ts. 307 tests. Single authoritative answer to "what does ThunderLang check?".
 - [x] MERMAID EXPORT SHIPPED: `intent export --format mermaid` / `toMermaid(ast)` renders the WHOLE Intent Graph as a Mermaid `graph TD` (shape by category; typed edges; mermaid-safe ids; labels sanitized of quotes/brackets/pipes). Paste-anywhere. 7th export format. docs/export-adapters.md. Hardened in the fuzz suite (712/1500 cases exercise style_intent; mermaid label-safety asserted over 1500 graphs).
 - [x] PROOF ENVELOPE SHIPPED (answers STW's "shared envelope -> IL canonical" deferral): `.intent-proof.json` formalized as versioned contract `intent-proof-v1`. proof-schema.mjs (pure, browser-safe /core): intentProofJsonSchema() draft-07 + validateProof(proof)->{valid,errors} (deterministic, zero-dep structural check) + PROOF_SCHEMA/CLAIM_STATUSES(planned|needs_verification|verified|failed)/PROOF_STATUSES(draft|approved|rejected). CLI `intent proof --schema`; `intent verify` gains a well-formedness gate before hash/claims. ADDITIVE (buildProof bytes unchanged). Exported + typed. 315 tests. docs/compiler-contract.md. IL owns the envelope; STW owns signing on top. Announced to STW/RM/OT.
 - [x] DESIGN TOKENS EXPORT SHIPPED: `intent export --format tokens` / `toDesignTokens(ast)` (in style.mjs, browser-safe /core) renders style_intent tokens as W3C Design Tokens (DTCG) , dotted addresses -> nested groups, $type inferred per canonical address (color/number/fontFamily/dimension/asset), numeric coercion; off-namespace tokens still export flagged non-canonical; accessibility target in $extensions as proposed/verified:false. 6th export format. schema intent-design-tokens-v1. 302 tests. docs/export-adapters.md. Announced to STW/ST. Closes the style loop (declare -> export -> Style Dictionary/Figma/CSS).
@@ -609,4 +677,4 @@ Other products (build to intent-graph-v1 in their own repos , NOT built here):
 - [ ] RM: Product/Requirements/Journey/Experience/Implementation/Verification/Outcome mastery
       tracks + role onboarding packs; classification-preserving (no assumptions-as-fact).
 - [ ] ST: role modes, Intent Canvas, Mission/Experience/Journey builders, Review Mode, approvals,
-      the intentlanguage.dev Playground.
+      the thunderlang.dev Playground.

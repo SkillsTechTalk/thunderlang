@@ -182,7 +182,7 @@ test('toDesignTokens renders canonical W3C (DTCG) tokens', () => {
   // (sample has color.primary, typography.scale, mode)
   assert.equal(dt.mode.$type, 'other');
   // provenance rides in $extensions, accessibility as a proposed claim never verified
-  const meta = dt.$extensions['dev.intentlanguage'];
+  const meta = dt.$extensions['dev.thunderlang'];
   assert.equal(meta.schema, DESIGN_TOKENS_SCHEMA);
   assert.equal(meta.styleIntents[0].accessibility.classification, 'proposed');
   assert.equal(meta.styleIntents[0].accessibility.verified, false);
@@ -197,14 +197,14 @@ style_intent Look
 `);
   const dt = toDesignTokens(bad);
   assert.equal(dt.color.tertiary.$value, '#999');
-  assert.equal(dt.color.tertiary.$extensions['dev.intentlanguage'].canonical, false);
+  assert.equal(dt.color.tertiary.$extensions['dev.thunderlang'].canonical, false);
 });
 
 test('a file with no style intents yields an empty-but-valid tokens doc', () => {
   const none = parseIntent('mission M\nuse product\n');
   const dt = toDesignTokens(none);
   assert.ok(dt.$description);
-  assert.deepEqual(dt.$extensions['dev.intentlanguage'].styleIntents, []);
+  assert.deepEqual(dt.$extensions['dev.thunderlang'].styleIntents, []);
 });
 
 test('tokens is a registered export format wired through exportIntent', () => {

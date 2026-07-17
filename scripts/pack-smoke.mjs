@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Pre-publish tarball smoke test. Packs @skillstech/intentlang, installs the tarball into a
+// Pre-publish tarball smoke test. Packs @skillstech/thunderlang, installs the tarball into a
 // throwaway temp dir, and exercises the ACTUAL installed package , the main entry, the
 // browser-safe /core subpath, and the `intent` CLI bin. This catches the class of bug that
 // never shows in-repo: a file missing from the `files` allowlist, a broken `exports` map, an
@@ -31,12 +31,12 @@ try {
   writeFileSync(join(tmp, 'package.json'), JSON.stringify({ name: 'il-packsmoke', version: '1.0.0', private: true, type: 'module' }));
   const inst = run('npm', ['install', `./${tgz}`, '--no-audit', '--no-fund'], tmp);
   if (inst.status !== 0) die('npm install of the tarball failed', inst.stderr);
-  if (!existsSync(join(tmp, 'node_modules', '@skillstech', 'intentlang'))) die('package did not install into node_modules');
+  if (!existsSync(join(tmp, 'node_modules', '@skillstech', 'thunderlang'))) die('package did not install into node_modules');
 
   // 3. smoke the MAIN entry + the /core subpath from the installed package
   const smoke = `
-    import { parseIntent, buildIntentGraph, evaluateDecision, toOpenAPI, migrateGraph, graphToSource, importReport } from '@skillstech/intentlang';
-    import { NODE_TYPES, classify, evalExpr, buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/intentlang/core';
+    import { parseIntent, buildIntentGraph, evaluateDecision, toOpenAPI, migrateGraph, graphToSource, importReport } from '@skillstech/thunderlang';
+    import { NODE_TYPES, classify, evalExpr, buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/thunderlang/core';
     const ast = parseIntent('mission M\\ndecision D\\n  inputs\\n    age\\n  rule a\\n    when age >= 18\\n    return Y\\n  default\\n    return N\\n');
     const asrt = (c, m) => { if (!c) { console.error('assert failed: ' + m); process.exit(3); } };
     asrt(ast.mission === 'M', 'parseIntent');
@@ -67,9 +67,9 @@ try {
       files: ['consumer.ts'],
     }));
     writeFileSync(join(tmp, 'consumer.ts'), `
-      import { parseIntent, buildIntentGraph } from '@skillstech/intentlang';
-      import { buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/intentlang/core';
-      import type { FocusGraph, IntentBrief, IntentScope, ScanResult, IntentAtlas } from '@skillstech/intentlang/core';
+      import { parseIntent, buildIntentGraph } from '@skillstech/thunderlang';
+      import { buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/thunderlang/core';
+      import type { FocusGraph, IntentBrief, IntentScope, ScanResult, IntentAtlas } from '@skillstech/thunderlang/core';
       const ast = parseIntent('mission M\\ngoal\\n  x\\n');
       const atlas: IntentAtlas = buildAtlas([buildIntentGraph(ast)]);
       const focus: FocusGraph = buildFocusGraph(atlas, { seeds: [atlas.missions[0].id], depth: 2 });
@@ -87,7 +87,7 @@ try {
   }
 
   // 4. smoke the CLI bin from the installed package
-  const bin = join(tmp, 'node_modules', '@skillstech', 'intentlang', 'src', 'cli.mjs');
+  const bin = join(tmp, 'node_modules', '@skillstech', 'thunderlang', 'src', 'cli.mjs');
   writeFileSync(join(tmp, 'smoke.intent'), 'mission S\ndecision D\n  inputs\n    age\n  rule ok\n    when age >= 18\n    return Yes\n  default\n    return No\ntest D\n  case adult\n    given age 20\n    expect Yes\n');
   const runRes = run(process.execPath, [bin, 'run', join(tmp, 'smoke.intent'), '--inputs', '{"age":20}'], tmp);
   if (runRes.status !== 0 || !runRes.stdout.includes('Yes')) die('CLI `intent run` failed', (runRes.stdout || '') + (runRes.stderr || ''));

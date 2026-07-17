@@ -41,7 +41,7 @@ test('a compiler-emitted proof validates against intent-proof-v1', () => {
 
 test('the JSON Schema is well-formed and names the canonical id', () => {
   const s = intentProofJsonSchema();
-  assert.equal(s.$id, `https://intentlanguage.dev/schema/${PROOF_SCHEMA}.json`);
+  assert.equal(s.$id, `https://thunderlang.dev/schema/${PROOF_SCHEMA}.json`);
   assert.equal(PROOF_SCHEMA, 'intent-proof-v1');
   assert.ok(s.required.includes('sourceHash'));
   assert.ok(s.required.includes('proofStatus'));

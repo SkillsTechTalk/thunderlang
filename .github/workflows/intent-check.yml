@@ -50,7 +50,7 @@ jobs:
       - name: package smoke test
         run: npm run pack:smoke
 
-  # Dogfood: scan this repo's own .intent files with IntentLang and publish the results to
+  # Dogfood: scan this repo's own .intent files with ThunderLang and publish the results to
   # GitHub code scanning, so diagnostics show up as annotations in the Security tab.
   intent-code-scan:
     runs-on: ubuntu-latest

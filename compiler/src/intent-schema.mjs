@@ -17,7 +17,7 @@ export const NODE_TYPES = [
   'StyleIntent', 'Capability', 'SystemContract', 'ImplementationMapping', 'VerificationRule',
   'VerificationResult', 'Approval', 'Release', 'OutcomeContract', 'OutcomeResult', 'LearningArtifact',
   'Unknown', 'Assumption', 'Question', 'Lifecycle', 'LifecycleState', 'Temporal',
-  'Command', 'Event', 'FailureHandler', 'Decision', 'Rule',
+  'Command', 'Event', 'FailureHandler', 'Decision', 'Rule', 'Skill',
 ];
 
 // Canonical relationship types.
@@ -25,7 +25,7 @@ export const RELATIONSHIP_TYPES = [
   'supported_by', 'derived_from', 'addresses', 'targets', 'measured_by', 'requires',
   'constrained_by', 'implemented_by', 'represented_by', 'verified_by', 'approved_by',
   'released_in', 'resulted_in', 'contradicts', 'supersedes', 'depends_on', 'blocks',
-  'teaches', 'generated_from', 'transitions_to',
+  'teaches', 'generated_from', 'transitions_to', 'requires_skill',
 ];
 
 export const NODE_STATUSES = [
@@ -37,7 +37,7 @@ export const NODE_STATUSES = [
 export function intentGraphJsonSchema() {
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    $id: `https://intentlanguage.dev/schema/${SCHEMA_VERSION}.json`,
+    $id: `https://thunderlang.dev/schema/${SCHEMA_VERSION}.json`,
     title: 'Intent Graph',
     type: 'object',
     required: ['schema', 'missionId', 'nodes', 'relationships'],
@@ -81,7 +81,7 @@ export function intentGraphJsonSchema() {
 }
 
 // Canonical diagnostic-rule catalog , stable IDs so every product uses the same ones.
-export const DIAGNOSTIC_RULES = [
+const IL_AUTHOR_RULE_ROWS = [
   { ruleId: 'IL-PM-001', area: 'product', severity: 'warning', blocks: ['release'], summary: 'Metric has no measurement window.' },
   { ruleId: 'IL-PM-003', area: 'product', severity: 'warning', blocks: [], summary: 'Outcome has no metric.' },
   { ruleId: 'IL-EV-001', area: 'evidence', severity: 'info', blocks: [], summary: 'Evidence has no classification.' },
@@ -133,13 +133,28 @@ export const DIAGNOSTIC_RULES = [
   { ruleId: 'IL-SEC-001', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'Secret-typed field travels over the event bus.' },
   { ruleId: 'IL-SEC-002', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'API returns a secret with no auth requirement.' },
   { ruleId: 'IL-TYPE-001', area: 'type', severity: 'info', blocks: [], summary: 'Field uses an unrecognized (likely mistyped) type.' },
+  // 12-Factor Agents conformance (twelve-factor-v1). Advisory: an intent's alignment with the
+  // humanlayer/12-factor-agents principles. `intent twelve-factor` scores these.
+  { ruleId: 'IL-12F-01', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F1 Natural language to tool calls: model dispatch as a decision/command.' },
+  { ruleId: 'IL-12F-02', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F2 Own your prompts: behavior is an owned, guaranteed contract, not a black box.' },
+  { ruleId: 'IL-12F-03', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F3 Own your context window: declare a scope boundary.' },
+  { ruleId: 'IL-12F-04', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F4 Tools are structured outputs: typed I/O + discriminated results.' },
+  { ruleId: 'IL-12F-05', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F5 Unify execution + business state: one lifecycle/state model.' },
+  { ruleId: 'IL-12F-06', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F6 Launch/pause/resume: a resumable lifecycle with waiting + terminal states.' },
+  { ruleId: 'IL-12F-07', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F7 Contact humans with tool calls: a structured approval/human-input gate.' },
+  { ruleId: 'IL-12F-08', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F8 Own your control flow: decisions with an explicit default (total control flow).' },
+  { ruleId: 'IL-12F-09', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F9 Compact errors into context: named errors + handlers (bounded retry).' },
+  { ruleId: 'IL-12F-10', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F10 Small, focused agents: keep operations within ~10 steps (20 max).' },
+  { ruleId: 'IL-12F-11', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F11 Trigger from anywhere: declare event triggers.' },
+  { ruleId: 'IL-12F-12', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F12 Stateless reducer: pure, replayable decision/lifecycle logic.' },
+  { ruleId: 'IL-12F-13', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F13 Pre-fetch context: declare inputs so known data is fetched up front.' },
 ];
 
 // Core check-surface diagnostics that predate the IL-* catalog. They keep their stable legacy
 // IDs (renaming would break consumers keyed on them), so they live here rather than in
 // DIAGNOSTIC_RULES (which is IL-* only). Documented + explainable all the same; consumers who
 // want the full set use ALL_DIAGNOSTICS below.
-export const CORE_DIAGNOSTICS = [
+const IL_CORE_RULE_ROWS = [
   { ruleId: 'missing-goal', area: 'core', severity: 'warning', blocks: [], summary: 'Mission has no goal block.' },
   { ruleId: 'duplicate-without-idempotency', area: 'core', severity: 'warning', blocks: [], summary: 'A duplicate-prevention guarantee declares no idempotency key or lookup rule.' },
   { ruleId: 'guarantee-without-verification', area: 'core', severity: 'warning', blocks: [], summary: 'Guarantee has no explicit verification.' },
@@ -154,5 +169,47 @@ export const CORE_DIAGNOSTICS = [
   { ruleId: 'INTENT_NOTE_EMPTY', area: 'note', severity: 'info', blocks: [], summary: 'IntentLens note is empty.' },
 ];
 
-// The full set of check-surface diagnostics (canonical IL-* catalog + legacy core codes).
-export const ALL_DIAGNOSTICS = [...DIAGNOSTIC_RULES, ...CORE_DIAGNOSTICS];
+// ── Rule namespaces: ONE id space across two PHASES ──────────────────────────
+// The canonical catalog spans author-time (IL) and verify-time (OpenThunder). Every rule row
+// self-describes with `owner` ('IL' | 'OT') and `phase` ('author' | 'verify'), and prefix
+// ownership is declared in RULE_NAMESPACES, so a reader (or a coverage/diff lens) sees a single,
+// unambiguous rule catalog instead of two forks. IL owns author-time rules (checked when the
+// .intent is authored/compiled); OT owns verify-time rules (checked against the actual repo).
+// Additive: existing rows gain owner/phase; existing consumers keying on ruleId are unaffected.
+export const RULE_PHASES = ['author', 'verify'];
+export const RULE_OWNERS = ['IL', 'OT'];
+export const RULE_NAMESPACES = [
+  { prefix: 'IL-', owner: 'IL', phase: 'author', description: 'ThunderLang author-time catalog (compile-time).' },
+  { prefix: 'OT-', owner: 'OT', phase: 'verify', description: 'OpenThunder verify-time rules (repo vs intent). OT-owned; OT PRs the rows.' },
+];
+
+const stamp = (owner, phase) => (r) => ({ owner, phase, ...r });
+
+// IL author-time catalog (IL-* canonical + legacy core ids), stamped IL/author.
+export const DIAGNOSTIC_RULES = IL_AUTHOR_RULE_ROWS.map(stamp('IL', 'author'));
+export const CORE_DIAGNOSTICS = IL_CORE_RULE_ROWS.map(stamp('IL', 'author'));
+
+// OpenThunder verify-time namespace , RESERVED here so the id space is single-source; OT PRs the
+// row definitions. `reserved: true` marks a slot that OT owns and has not yet defined, so a
+// coverage/diff lens can see the id today without IL fabricating OT's rule semantics.
+export const VERIFICATION_RULES = [
+  'OT-REQ-001', 'OT-REQ-002', 'OT-REQ-003', 'OT-REQ-004', 'OT-REQ-005', 'OT-REQ-006',
+].map((ruleId) => ({
+  ruleId, area: 'verification', severity: 'error', blocks: ['<verify-time>'],
+  summary: 'Reserved for an OpenThunder verify-time rule; OT owns the definition.',
+  owner: 'OT', phase: 'verify', reserved: true,
+}));
+
+// The full set of documented rules: IL author-time catalog + legacy core codes + the reserved
+// OT verify-time namespace , one id space across both phases.
+export const ALL_DIAGNOSTICS = [...DIAGNOSTIC_RULES, ...CORE_DIAGNOSTICS, ...VERIFICATION_RULES];
+
+// Resolve which namespace (owner + phase) a rule id belongs to. Prefix-based for IL-/OT-, with the
+// legacy core ids (no IL-/OT- prefix) explicitly classified IL/author. Unknown ids return null.
+const IL_CORE_IDS = new Set(IL_CORE_RULE_ROWS.map((r) => r.ruleId));
+export function ruleNamespace(ruleId) {
+  const id = String(ruleId || '');
+  for (const ns of RULE_NAMESPACES) if (id.startsWith(ns.prefix)) return { owner: ns.owner, phase: ns.phase };
+  if (IL_CORE_IDS.has(id)) return { owner: 'IL', phase: 'author' };
+  return null;
+}

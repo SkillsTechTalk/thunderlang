@@ -1,6 +1,6 @@
-// A minimal Language Server for IntentLang (LSP over stdio). Wraps the compiler's existing
+// A minimal Language Server for ThunderLang (LSP over stdio). Wraps the compiler's existing
 // diagnostics + IntelliSense so ANY LSP-capable editor (VS Code, Neovim, Helix, ...) gets
-// live IntentLang intelligence: diagnostics on open/change, keyword/type completions, and
+// live ThunderLang intelligence: diagnostics on open/change, keyword/type completions, and
 // hover docs for semantic types and note lenses. Deterministic; no AI. `intent lsp` starts it.
 
 import { parseIntent } from './parse.mjs';
@@ -29,7 +29,7 @@ function toLspDiagnostic(d, lines) {
     range: { start: { line, character: 0 }, end: { line, character: Math.max(1, text.length) } },
     severity: SEVERITY[d.level] || 3,
     code: d.code,
-    source: 'intentlang',
+    source: 'thunderlang',
     message: d.message + (d.why ? `\n\n${d.why}` : ''),
   };
 }
@@ -86,7 +86,7 @@ export function startLspServer({ readable = process.stdin, writable = process.st
             completionProvider: { triggerCharacters: [' '] },
             hoverProvider: true,
           },
-          serverInfo: { name: 'intentlang-lsp', version: COMPILER_VERSION },
+          serverInfo: { name: 'thunderlang-lsp', version: COMPILER_VERSION },
         });
         break;
       case 'initialized':

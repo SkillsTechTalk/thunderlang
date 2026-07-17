@@ -1,4 +1,4 @@
-// IntentLang parser (deterministic, no AI). Turns .intent source into an Intent AST.
+// ThunderLang parser (deterministic, no AI). Turns .intent source into an Intent AST.
 // This is the MVP emit-stage parser: it covers the core constructs (mission, goal, why,
 // requires, input, output, guarantees, never, constraints, assumptions, risks, target,
 // style, verify) plus architecture blocks (service, api, event, database). Detail blocks
@@ -26,6 +26,37 @@ export function subjectName(ast) {
     || ast?.services?.[0]?.name || ast?.apis?.[0]?.name || ast?.events?.[0]?.name
     || ast?.capabilities?.[0]?.name || ast?.commands?.[0]?.name || ast?.decisions?.[0]?.name
     || ast?.lifecycles?.[0]?.name || null;
+}
+
+/**
+ * The canonical cross-ecosystem intent reference id , the stable string every SkillsTech
+ * product puts in evidence-event-v1 / proof-bundle-v1 `intentReferences[]` so an evidence
+ * record or Ownership Proof cites the EXACT intent it supports. IL owns this id shape.
+ *
+ * - Subject-level (which intent):     `intent:<mission-slug>`         (stable across versions)
+ * - Version-pinned (which compile):   `intent:<mission-slug>@<sha8>`  (pass the proof `sourceHash`)
+ *
+ * Deterministic + browser-safe. Accepts an AST or a plain name string.
+ */
+export function intentRefId(astOrName, { sourceHash } = {}) {
+  const name = typeof astOrName === 'string' ? astOrName : subjectName(astOrName);
+  const base = `intent:${slug(name || 'mission')}`;
+  if (!sourceHash) return base;
+  const short = String(sourceHash).replace(/^sha256:/, '').slice(0, 8);
+  return short ? `${base}@${short}` : base;
+}
+
+/**
+ * The canonical shared skill id. IL owns the `skill:` NAMESPACE (the id SHAPE, this function);
+ * SkillsTech Certified owns the CONTENT (which skills exist, aliases, cert->skill maps) , a
+ * founder decision (2026-07-14). Deterministic + browser-safe, so OT/RM/STT/Certified emit the
+ * SAME skill id for the same skill in evidence-event-v1 `skillIds[]`.
+ *   skillRefId('TypeScript')          -> 'skill:typescript'
+ *   skillRefId('Distributed Systems') -> 'skill:distributed-systems'
+ * This is the id primitive only; the curated taxonomy list is STCE's and lands post-loop.
+ */
+export function skillRefId(name) {
+  return `skill:${slug(name || 'unknown')}`;
 }
 
 // Strip comments (ignored), drop blank lines, keep indentation and 1-based line.
@@ -311,6 +342,8 @@ export function parseIntent(source) {
     releases: [], results: [], learnings: [],
     // Outcome contracts , executable commitments binding an outcome to a target
     outcomeContracts: [],
+    // Skills the mission requires + the understanding a human must demonstrate (Ownership Graph seam)
+    skills: [], demonstrates: [],
     // Tests , first-class cases that make a .intent file self-verifying
     tests: [],
     notes: [], diagnostics: [],
@@ -332,6 +365,19 @@ export function parseIntent(source) {
       case 'goal': ast.goal = leafItems(node).join(' '); break;
       case 'why': ast.why = leafItems(node).join(' '); break;
       case 'requires': ast.requires.push(...leafItems(node)); break;
+      // Skills the mission requires (Ownership Graph seam). Inline "requires_skill A, B" or a block.
+      // Each is normalized to the shared `skill:<slug>` namespace (IL owns the id; STCE the content).
+      case 'requires_skill': case 'requires_skills': {
+        const names = (arg ? arg.split(',') : leafItems(node)).map((s) => s.trim()).filter(Boolean);
+        for (const name of names) ast.skills.push({ name, id: skillRefId(name), line: node.line });
+        break;
+      }
+      // What a human must be able to explain to own this mission (ties to Comprehension C0..C7).
+      case 'demonstrates': {
+        const stmts = (arg ? [arg] : leafItems(node)).map((s) => String(s).trim()).filter(Boolean);
+        for (const statement of stmts) ast.demonstrates.push({ statement, line: node.line });
+        break;
+      }
       case 'input': ast.inputs.push(...parseFields(node)); break;
       case 'output': ast.outputs.push(...parseFields(node)); break;
       case 'guarantees': for (const c of items(node)) upsertRule(ast.guarantees, c.text, c.line); break;
@@ -640,8 +686,12 @@ export function parseIntent(source) {
         break;
       }
       // IntentLift inferred-draft metadata blocks: recognized, kept as metadata, not errors.
-      case 'inferred': case 'maps_to': case 'evidence': case 'unknown':
-      case 'needs_review': case 'assumption': case 'source': case 'confidence':
+      // `evidence`, `unknown`, and `assumption` are intentionally NOT listed here: each is a real
+      // top-level block handled by an earlier case in this switch (which wins), so listing them
+      // again was dead duplicate `case` labels. A lifted draft's evidence/unknown lines already
+      // parse via those earlier cases; behavior is unchanged.
+      case 'inferred': case 'maps_to':
+      case 'needs_review': case 'source': case 'confidence':
         (ast.lift ||= {})[kw] = leafItems(node);
         break;
       case 'approval': {

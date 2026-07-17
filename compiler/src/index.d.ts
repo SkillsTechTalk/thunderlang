@@ -1,4 +1,4 @@
-// Type declarations for @skillstech/intentlang.
+// Type declarations for @skillstech/thunderlang.
 // Hand-written: the compiler core is ESM JavaScript. Shapes that are large or
 // internal are typed loosely (Record/unknown); the primary entry points are typed.
 
@@ -62,6 +62,10 @@ export interface IntentAst {
   apis: unknown[];
   events: unknown[];
   databases: unknown[];
+  // Skills the mission requires (normalized to the shared `skill:<slug>` id) + the understanding
+  // a human must demonstrate to own it (Ownership Graph seam).
+  skills: Array<{ name: string; id: string; line: number }>;
+  demonstrates: Array<{ statement: string; line: number }>;
   notes: unknown[];
   diagnostics: Diagnostic[];
   approval?: { reviewed: boolean; [k: string]: unknown };
@@ -135,7 +139,7 @@ export function intentProofJsonSchema(): Record<string, unknown>;
 export function validateProof(proof: unknown): { valid: boolean; errors: Array<{ path: string; message: string }> };
 
 // Compile + render
-export function compileSource(source: string, opts?: { sourceFile?: string; generatedAt?: string }): Record<string, unknown>;
+export function compileSource(source: string, opts?: { sourceFile?: string; generatedAt?: string; origin?: string }): Record<string, unknown>;
 export function renderMarkdown(ast: IntentAst): string;
 export function renderMermaid(ast: IntentAst): string;
 export function renderTestplan(ast: IntentAst): string;
@@ -146,12 +150,25 @@ export function getHover(source: string, position: { line: number; column: numbe
 export const SEMANTIC_TYPES: string[];
 
 // IntentLift
-export function liftSource(source: string, opts?: { language?: string; file?: string }): Record<string, unknown>;
+export interface IntentSeed {
+  nodeId: string;
+  nodeType?: string;
+  title?: string;
+  confidence?: string;
+  evidenceRef: {
+    signals: string[];
+    sourceLocations?: Array<{ file: string; line?: number }>;
+    ledgerRef?: { seq: number; hash: string };
+  };
+}
+export function liftSource(source: string, opts?: { language?: string; file?: string; seeds?: IntentSeed[] }): Record<string, unknown>;
 export function liftRepo(files: Array<{ file: string; source: string }>, opts?: { language?: string }): Record<string, unknown>;
 export function languageForFile(file: string): string;
 export function inferIntent(facts: unknown, opts?: unknown): Record<string, unknown>;
 export function renderLiftedIntent(lifted: unknown): string;
 export const SUPPORTED_LANGUAGES: string[];
+export const SEED_SCHEMA: Record<string, unknown>;
+export function normalizeSeeds(seeds: unknown): IntentSeed[];
 
 // Approve + drift
 export function approveIntent(text: string, opts?: { approvedBy?: string; approvedAt?: string }): Record<string, unknown>;
@@ -360,7 +377,7 @@ export function buildReport(files: Array<{ file: string; source: string }>): {
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 
-// Import adapters (round-trip): external DMN / BPMN -> IntentLang source
+// Import adapters (round-trip): external DMN / BPMN -> ThunderLang source
 export const IMPORT_FORMATS: string[];
 export const IMPORT_SCHEMA: string;
 export function fromDMN(xml: string): string;
@@ -491,10 +508,17 @@ export const NODE_TYPES: string[];
 export const RELATIONSHIP_TYPES: string[];
 export const NODE_STATUSES: string[];
 export function intentGraphJsonSchema(): Record<string, unknown>;
-export type DiagnosticRule = { ruleId: string; area: string; severity: string; blocks: string[]; summary: string };
+export type RulePhase = 'author' | 'verify';
+export type RuleOwner = 'IL' | 'OT';
+export type DiagnosticRule = { ruleId: string; area: string; severity: string; blocks: string[]; summary: string; owner?: RuleOwner; phase?: RulePhase; reserved?: boolean };
 export const DIAGNOSTIC_RULES: DiagnosticRule[];
 export const CORE_DIAGNOSTICS: DiagnosticRule[];
+export const VERIFICATION_RULES: DiagnosticRule[];
 export const ALL_DIAGNOSTICS: DiagnosticRule[];
+export const RULE_PHASES: RulePhase[];
+export const RULE_OWNERS: RuleOwner[];
+export const RULE_NAMESPACES: Array<{ prefix: string; owner: RuleOwner; phase: RulePhase; description: string }>;
+export function ruleNamespace(ruleId: string): { owner: RuleOwner; phase: RulePhase } | null;
 
 // Deterministic candidate selection
 export interface SelectionPolicy { require: string[]; prefer: Array<{ metric: string; direction: 'min' | 'max' }>; requireAllChecks: boolean; }
@@ -670,6 +694,22 @@ export function toJava(ast: IntentAst): string;
 export const GENERATORS: Record<string, (ast: IntentAst) => string>;
 export function exprToJs(src: string, opts?: { inputs?: string[] }): string;
 export function subjectName(ast: IntentAst): string | null;
+export function intentRefId(astOrName: IntentAst | string, opts?: { sourceHash?: string }): string;
+
+// 12-Factor Agents conformance lens (twelve-factor-v1)
+export const TWELVE_FACTOR_SCHEMA: string;
+export interface TwelveFactorResult {
+  schemaVersion: string;
+  subject: string | null;
+  score: number;
+  grade: 'strong' | 'partial' | 'weak';
+  counts: { satisfied: number; partial: number; absent: number };
+  factors: Array<{ id: string; factor: number; name: string; verdict: 'satisfied' | 'partial' | 'absent'; evidence: string; fix?: string }>;
+  diagnostics: Diagnostic[];
+}
+export function twelveFactorReport(ast: IntentAst): TwelveFactorResult;
+export function twelveFactorSummary(ast: IntentAst): { schemaVersion: string; score: number; grade: string; counts: { satisfied: number; partial: number; absent: number } };
+export function skillRefId(name: string): string;
 
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export const CHANGES_SCHEMA: string;

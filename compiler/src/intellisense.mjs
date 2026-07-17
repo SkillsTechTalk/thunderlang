@@ -1,4 +1,4 @@
-// IntentLang IntelliSense providers (deterministic, no AI). Pure functions the
+// ThunderLang IntelliSense providers (deterministic, no AI). Pure functions the
 // CLI, the playground API, and a future LSP all share. The playground must NOT
 // reimplement these; it renders what the compiler returns.
 

@@ -1,26 +1,31 @@
 {
-  "name": "@skillstech/intentlang",
-  "version": "0.1.1",
-  "description": "Deterministic IntentLang compiler, CLI, and Language Server. No AI required. Turns .intent files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
+  "name": "@skillstech/thunderlang",
+  "version": "0.1.6",
+  "description": "Deterministic ThunderLang compiler, CLI, and Language Server. No AI required. Turns .intent files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
   "type": "module",
   "main": "./src/index.mjs",
   "types": "./src/index.d.ts",
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
-      "import": "./src/index.mjs"
+      "import": "./src/index.mjs",
+      "require": "./dist/index.cjs"
     },
     "./core": {
       "types": "./src/core.d.ts",
-      "import": "./src/core.mjs"
+      "import": "./src/core.mjs",
+      "require": "./dist/core.cjs"
     },
     "./package.json": "./package.json"
   },
   "bin": {
-    "intent": "src/cli.mjs"
+    "intent": "src/cli.mjs",
+    "thunderlang": "src/cli.mjs",
+    "tl": "src/cli.mjs"
   },
   "files": [
     "src",
+    "dist",
     "intent-graph.schema.json",
     "syntaxes",
     "CHANGELOG.md",
@@ -32,12 +37,18 @@
   },
   "scripts": {
     "test": "node --test",
+    "build:cjs": "node scripts/build-cjs.mjs",
+    "prepack": "node scripts/build-cjs.mjs",
+    "prepublishOnly": "node scripts/build-cjs.mjs && node --test",
     "check:example": "node src/cli.mjs check ../examples/CreateInvoice.intent",
     "build:example": "node src/cli.mjs build ../examples/CreateInvoice.intent"
   },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  },
   "keywords": [
     "intent",
-    "intentlang",
+    "thunderlang",
     "intent-oriented-programming",
     "compiler",
     "cli",
@@ -56,14 +67,14 @@
     "intent-graph",
     "ai"
   ],
-  "homepage": "https://intentlanguage.dev",
+  "homepage": "https://thunderlang.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
+    "url": "git+https://github.com/SkillsTechTalk/thunderlang.git",
     "directory": "compiler"
   },
   "bugs": {
-    "url": "https://github.com/SkillsTechTalk/intent-language/issues"
+    "url": "https://github.com/SkillsTechTalk/thunderlang/issues"
   },
   "author": "SkillsTech",
   "license": "MIT",

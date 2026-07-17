@@ -1,5 +1,5 @@
 // IntentLift: Code-to-Intent (deterministic, no AI). Lifts source code into an
-// INFERRED IntentLang draft. Generated intent is useful but humble: it carries
+// INFERRED ThunderLang draft. Generated intent is useful but humble: it carries
 // evidence, confidence, unknowns, and needs_review, and is never marked verified.
 //
 // Pipeline: source -> Language Adapter -> CodeFactsIR -> Inference -> LiftedIntent -> .intent text
@@ -18,6 +18,72 @@ const SEMANTIC_TYPES = new Set([
 const SENSITIVE = /password|token|jwt|secret|payment|credential|ssn|pii|email/i;
 
 const lineOf = (source, index) => source.slice(0, index).split('\n').length;
+
+// ── Seeded lift (OT's intent-ir-v1 grounding) ────────────────────────────────
+// OT passes { seeds } so the lifted .intent references OT's EXACT node ids instead
+// of lift's own function refs , no divergent second reading of the repo. The
+// load-bearing pair is { nodeId, evidenceRef.sourceLocations }; the rest is
+// enrichment. Additive: with no seeds, liftSource output is byte-identical to before.
+// The machine-readable contract OT keys on.
+export const SEED_SCHEMA = {
+  $id: 'intent-seed-v1',
+  title: 'IntentSeed',
+  description: 'An OT intent-ir-v1 node handed to liftSource so the lifted draft references it.',
+  type: 'object',
+  required: ['nodeId', 'evidenceRef'],
+  properties: {
+    nodeId: { type: 'string', description: 'OT stable intent-ir-v1 node id, e.g. "cap:auth"' },
+    nodeType: { type: 'string', description: 'intent-ir-v1 node type (Capability | SystemContract | ...)' },
+    title: { type: 'string', description: "OT's deterministic title (ground truth)" },
+    confidence: { type: 'string', description: 'observed|derived|inferred|speculative|conflicted|confirmed' },
+    evidenceRef: {
+      type: 'object',
+      required: ['signals'],
+      properties: {
+        signals: { type: 'array', items: { type: 'string' } },
+        sourceLocations: {
+          type: 'array',
+          items: { type: 'object', required: ['file'], properties: { file: { type: 'string' }, line: { type: 'integer' } } },
+        },
+        ledgerRef: { type: 'object', required: ['seq', 'hash'], properties: { seq: { type: 'integer' }, hash: { type: 'string' } } },
+      },
+    },
+  },
+};
+
+// Defensively normalize OT's seeds: drop malformed entries, keep input order (deterministic),
+// and coerce evidenceRef to a stable shape. A seed with no string nodeId is dropped (it is
+// the one load-bearing field). Never throws , a bad seed is skipped, not fatal.
+export function normalizeSeeds(seeds) {
+  if (!Array.isArray(seeds)) return [];
+  const out = [];
+  for (const s of seeds) {
+    if (!s || typeof s !== 'object') continue;
+    const nodeId = typeof s.nodeId === 'string' ? s.nodeId.trim() : '';
+    if (!nodeId) continue;
+    const ev = s.evidenceRef && typeof s.evidenceRef === 'object' ? s.evidenceRef : {};
+    const signals = Array.isArray(ev.signals)
+      ? ev.signals.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim()) : [];
+    const sourceLocations = Array.isArray(ev.sourceLocations)
+      ? ev.sourceLocations
+          .filter((l) => l && typeof l === 'object' && typeof l.file === 'string' && l.file.trim())
+          .map((l) => ({ file: l.file.trim(), ...(Number.isInteger(l.line) ? { line: l.line } : {}) }))
+      : [];
+    let ledgerRef;
+    if (ev.ledgerRef && typeof ev.ledgerRef === 'object'
+        && Number.isInteger(ev.ledgerRef.seq) && typeof ev.ledgerRef.hash === 'string') {
+      ledgerRef = { seq: ev.ledgerRef.seq, hash: ev.ledgerRef.hash };
+    }
+    out.push({
+      nodeId,
+      nodeType: typeof s.nodeType === 'string' ? s.nodeType : null,
+      title: typeof s.title === 'string' ? s.title : null,
+      confidence: typeof s.confidence === 'string' ? s.confidence : null,
+      evidenceRef: { signals, sourceLocations, ...(ledgerRef ? { ledgerRef } : {}) },
+    });
+  }
+  return out;
+}
 
 // Turn create_invoice / createInvoice -> "create invoice"; -> PascalCase for a mission name.
 function words(name) {
@@ -427,6 +493,19 @@ export function renderLiftedIntent(lift) {
   L.push(`mission ${lift.mission}`, '');
   L.push('inferred', `  from ${lift.from}`, `  confidence ${lift.confidence}`, `  reviewed false`, `  generated_by SkillsTech Compiler ${COMPILER_VERSION}`, '');
   L.push('maps_to', ...lift.mapsTo.map((m) => `  ${m}`), '');
+  if (lift.seeds && lift.seeds.length) {
+    // OT intent-ir-v1 grounding. Comments (never verification), so the draft still parses.
+    L.push('# Seeded by OT intent-ir-v1 nodes , grounding, not verification:');
+    for (const s of lift.seeds) {
+      const t = s.nodeType ? ` ${s.nodeType}` : '';
+      const c = s.confidence ? ` confidence:${s.confidence}` : '';
+      L.push(`#   ${s.nodeId}${t}${c}${s.title ? ` , ${s.title}` : ''}`);
+      for (const loc of s.evidenceRef.sourceLocations) L.push(`#     at ${loc.file}${loc.line ? `:${loc.line}` : ''}`);
+      for (const sig of s.evidenceRef.signals.slice(0, 5)) L.push(`#     signal: ${sig}`);
+      if (s.evidenceRef.ledgerRef) L.push(`#     ledger: seq ${s.evidenceRef.ledgerRef.seq} ${s.evidenceRef.ledgerRef.hash}`);
+    }
+    L.push('');
+  }
   L.push('evidence', ...lift.evidence.map((e) => `  ${e}`), '');
   L.push('goal', `  ${lift.goal}`, '');
   if (lift.inputs.length) {
@@ -464,7 +543,7 @@ function liftDiagnostics(lift, facts) {
 }
 
 /**
- * Lift a set of source files (a repo) into inferred IntentLang drafts, one per
+ * Lift a set of source files (a repo) into inferred ThunderLang drafts, one per
  * file that yields a mission. `files` is [{ file, source }] (the CLI reads the
  * filesystem; this core function stays pure). Returns per-mission drafts + a
  * repo-level summary matching the `intent lift --from repo --json` contract.
@@ -566,8 +645,13 @@ const LANG_EXT = {
   go: 'go', rust: 'rs', cpp: 'cpp', php: 'php', ruby: 'rb', perl: 'pl',
 };
 
-/** Lift source into an inferred IntentLang draft. Deterministic, no AI. */
-export function liftSource(source, { language = 'typescript', file = '' } = {}) {
+/**
+ * Lift source into an inferred ThunderLang draft. Deterministic, no AI.
+ * `seeds` (optional, OT's intent-ir-v1 nodes , see SEED_SCHEMA) make the draft reference OT's
+ * EXACT node ids instead of lift's own function refs, so there is no divergent second reading.
+ * Additive: with no seeds the output is byte-identical to before.
+ */
+export function liftSource(source, { language = 'typescript', file = '', seeds } = {}) {
   const key = String(language).toLowerCase();
   const adapter = ADAPTERS[key];
   if (!adapter) {
@@ -578,6 +662,18 @@ export function liftSource(source, { language = 'typescript', file = '' } = {}) 
   const lifted = inferIntent(codeFacts);
   if (!lifted) {
     return { ok: false, error: 'No functions found to infer intent from.', codeFacts };
+  }
+  const normSeeds = normalizeSeeds(seeds);
+  if (normSeeds.length) {
+    lifted.seeds = normSeeds;
+    // Reference OT's exact node ids in maps_to (parseable), so downstream reads OT's ids, not a fork.
+    lifted.mapsTo = [
+      ...normSeeds.map((s) => `node ${s.nodeId}${s.nodeType ? ` (${s.nodeType})` : ''}`),
+      ...lifted.mapsTo,
+    ];
+    // Fold OT's evidence signals into the draft's evidence (bounded, deterministic order).
+    const seedSignals = normSeeds.flatMap((s) => s.evidenceRef.signals.map((sig) => `seed ${s.nodeId}: ${sig}`));
+    lifted.evidence = [...lifted.evidence, ...seedSignals.slice(0, 8)];
   }
   const intentText = renderLiftedIntent(lifted);
   const diagnostics = liftDiagnostics(lifted, codeFacts);
@@ -591,6 +687,7 @@ export function liftSource(source, { language = 'typescript', file = '' } = {}) 
     unknowns: lifted.unknown,
     functions: codeFacts.functions.length,
     tests: codeFacts.tests.length,
+    seeds: normSeeds.map((s) => s.nodeId),
   };
-  return { ok: true, codeFacts, lifted, intentText, diagnostics, summary };
+  return { ok: true, codeFacts, lifted, intentText, diagnostics, summary, seeds: normSeeds };
 }

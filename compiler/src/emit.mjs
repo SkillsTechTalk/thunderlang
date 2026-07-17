@@ -1,10 +1,11 @@
-// IntentLang emit stage (deterministic, no AI). Turns an Intent AST into the artifacts the
+// ThunderLang emit stage (deterministic, no AI). Turns an Intent AST into the artifacts the
 // rest of the Skills Tech ecosystem consumes. Shapes match OpenThunder's confirmed consumer
 // contract (contract-graph.json, architecture-graph.json) and the canonical .intent-proof.json.
 // Stable IDs (slugs) let OpenThunder key Intent Drift precisely instead of fuzzy string-matching.
 
 import { sha256, sha256hex } from './hash.mjs';
 import { slug, KNOWN_LENSES } from './parse.mjs';
+import { twelveFactorSummary } from './twelve-factor.mjs';
 import { parseArchitectureRules } from './arch.mjs';
 import { CLASSIFICATIONS } from './classification.mjs';
 import { detectConflicts } from './conflict.mjs';
@@ -139,7 +140,7 @@ export function semanticDiagnostics(ast) {
     if (/duplicate/.test(g.statement.toLowerCase()) && !/idempotenc|unique|order ?reference|lookup/.test(idempotencySignals + ' ' + g.statement.toLowerCase())) {
       warn('duplicate-without-idempotency',
         `Guarantee "${g.statement}" declares no idempotency key, unique reference, or lookup rule to enforce it.`,
-        'Duplicate billing is a high-trust finance failure. IntentLang expects a prevention strategy, not just a promise.',
+        'Duplicate billing is a high-trust finance failure. ThunderLang expects a prevention strategy, not just a promise.',
         [
           { label: 'Add idempotencyKey: IdempotencyKey to the input', insert: 'idempotencyKey: IdempotencyKey', block: 'input' },
           { label: 'Add a duplicate prevention test under verify', insert: 'duplicate prevention test', block: 'verify' },
@@ -179,7 +180,7 @@ export function semanticDiagnostics(ast) {
     if (!(neverText.includes('log') && (neverText.includes(f.name.toLowerCase()) || /secret|token|password/.test(neverText)))) {
       warn('secret-without-never-log',
         `Sensitive field "${f.name}" has no matching never-log / never-return rule.`,
-        'Secrets leak through logs, traces, and responses. IntentLang expects an explicit rule that forbids it, near the field.',
+        'Secrets leak through logs, traces, and responses. ThunderLang expects an explicit rule that forbids it, near the field.',
         [
           { label: `Add never log ${f.name}`, insert: `log ${f.name}`, block: 'never' },
           { label: `Add never return ${f.name} to client`, insert: `return ${f.name} to client`, block: 'never' },
@@ -472,12 +473,16 @@ export function semanticDiagnostics(ast) {
 }
 
 // ── .intent-proof.json ───────────────────────────────────────────────────────
-export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targetsGenerated, diagnostics, generatedAt }) {
+export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targetsGenerated, diagnostics, generatedAt, origin = 'authored' }) {
   const passedSemantic = !diagnostics.some((x) => x.level === 'error');
   const verifiedText = ast.verify.join(' ').toLowerCase();
   return {
     schemaVersion: PROOF_SCHEMA_VERSION,
     sourceProduct: SOURCE_PRODUCT,
+    // Provenance envelope: whether the intent was human-authored or recovered from code (lifted).
+    // A recovered artifact must never read as authored truth , OpenThunder stamps this so the
+    // proof carries "recovered" through the compile. Additive; defaults to authored.
+    origin,
     missionName: ast.mission,
     sourceFile,
     sourceHash,
@@ -497,6 +502,12 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
     })),
     errors: (ast.errors || []).map((e) => ({ name: e.name })),
     examples: (ast.examples || []).map((ex) => ({ given: ex.given, expect: ex.expect })),
+    // Ownership Graph seam: the skills this intent requires (shared `skill:<slug>` ids) and the
+    // understanding a human must be able to demonstrate to own it (feeds Skills Tech Talk defense).
+    skillsRequired: (ast.skills || []).map((s) => s.id).filter(Boolean),
+    demonstrates: (ast.demonstrates || []).map((d) => d.statement),
+    // 12-Factor Agents conformance summary , makes "12-factor compliant" a claim the proof carries.
+    twelveFactor: twelveFactorSummary(ast),
     verification: { syntaxPassed: true, semanticPassed: passedSemantic, targetsGenerated: targetsGenerated.length > 0 },
     // Notes are understanding metadata only; they never mark a guarantee verified.
     notes: notesSummary(ast),

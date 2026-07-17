@@ -1,4 +1,4 @@
-// Graph -> source: regenerate editable IntentLang from an Intent Graph , the inverse of
+// Graph -> source: regenerate editable ThunderLang from an Intent Graph , the inverse of
 // buildIntentGraph. This closes the native round-trip: a tool (SkillsTech Studio, or
 // OpenThunder's discovery) can hold a graph, edit it, and emit `.intent` source that
 // re-parses to an equivalent graph. Deterministic and pure.
@@ -108,6 +108,12 @@ export function graphToSource(graph) {
     push(`  statement ${title(iv)}`);
     for (const v of out(iv.id, 'verified_by')) push(`  verify ${title(v)}`);
   }
+
+  // Skills the mission requires , regenerate a `requires_skill` block so they round-trip to Skill
+  // nodes. (Required-understanding `demonstrates` is prose in the proof/AST, not a structural graph
+  // node, so it is intentionally not regenerated here.)
+  const skillNodes = byType('Skill');
+  if (skillNodes.length) { push('requires_skill'); for (const s of skillNodes) push(`  ${title(s)}`); }
 
   for (const u of byType('Unknown')) {
     push(`unknown ${title(u)}`);

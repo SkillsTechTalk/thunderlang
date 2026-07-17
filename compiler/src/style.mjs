@@ -199,15 +199,15 @@ export function toDesignTokens(ast) {
     });
     for (const t of si.tokens) {
       const leaf = { $value: coerceValue(t.value), $type: tokenType(t.path) };
-      if (!isKnownPath(t.path)) leaf.$extensions = { 'dev.intentlanguage': { canonical: false } };
+      if (!isKnownPath(t.path)) leaf.$extensions = { 'dev.thunderlang': { canonical: false } };
       setPath(root, t.path, leaf);
     }
   }
   return {
-    $description: `Design tokens for ${ast.title || ast.mission || 'intent'} (generated from style_intent by @skillstech/intentlang)`,
+    $description: `Design tokens for ${ast.title || ast.mission || 'intent'} (generated from style_intent by @skillstech/thunderlang)`,
     ...root,
     $extensions: {
-      'dev.intentlanguage': {
+      'dev.thunderlang': {
         schema: DESIGN_TOKENS_SCHEMA,
         format: 'W3C Design Tokens (DTCG)',
         source: ast.mission || null,
@@ -228,7 +228,7 @@ export function toDesignTokens(ast) {
 export function toCss(ast) {
   const styles = ast.styleIntents || [];
   const title = ast.title || ast.mission || 'intent';
-  const head = [`/* Design tokens for ${title} , generated from style_intent by @skillstech/intentlang. */`];
+  const head = [`/* Design tokens for ${title} , generated from style_intent by @skillstech/thunderlang. */`];
   for (const si of styles) {
     if (si.accessibilityTarget) head.push(`/* ${si.name || 'style'}: accessibility target ${si.accessibilityTarget} (proposed, not verified). */`);
   }

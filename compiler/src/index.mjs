@@ -1,7 +1,7 @@
-// Public library entry for @skillstech/intentlang.
+// Public library entry for @skillstech/thunderlang.
 //
 // This is the importable API for consumers (e.g. SkillsTech Studio, Repo Mastery):
-//   import { parseIntent, compileSource, buildMissionIndex } from '@skillstech/intentlang';
+//   import { parseIntent, compileSource, buildMissionIndex } from '@skillstech/thunderlang';
 // The `intent` CLI (src/cli.mjs) is the other entry point; both use these same functions,
 // so there is no duplicated compiler logic. Curated on purpose: only the stable public
 // surface is re-exported here.
@@ -43,6 +43,8 @@ export {
   inferIntent,
   renderLiftedIntent,
   SUPPORTED_LANGUAGES,
+  SEED_SCHEMA,
+  normalizeSeeds,
 } from './lift.mjs';
 
 // Approve + drift round-trip (il-to-ot-drift-v1 handoff)
@@ -75,7 +77,7 @@ export { analyzePrivacy, PRIVACY_SCHEMA, DATA_CLASSIFICATIONS, LAWFUL_BASES } fr
 export { toDMN, toBPMN, toSMV, toMermaid, toPlaywright, exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 // Data-shape export , typed fields -> JSON Schema / OpenAPI
 export { toJSONSchema, toOpenAPI, typeToJsonSchema, isRecognizedType } from './data-schema.mjs';
-// Import adapters , external DMN / BPMN -> IntentLang source (round-trip)
+// Import adapters , external DMN / BPMN -> ThunderLang source (round-trip)
 export { fromDMN, fromBPMN, importIntent, importReport, detectFormat, IMPORT_FORMATS, IMPORT_SCHEMA } from './importers.mjs';
 // Graph -> source , regenerate .intent from an Intent Graph (native round-trip)
 export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
@@ -94,9 +96,9 @@ export { runTests, TEST_SCHEMA } from './testing.mjs';
 export { evaluateOutcomeContract, evaluateOutcomes, outcomeDiagnostics, parseValue, OUTCOME_SCHEMA } from './outcome.mjs';
 // Security + type semantic pass , secrets on the bus, unauthenticated sensitive output, typos
 export { securityDiagnostics, SECURITY_SCHEMA } from './security.mjs';
-// SARIF 2.1.0 output , IntentLang diagnostics in GitHub/GitLab code scanning + IDEs
+// SARIF 2.1.0 output , ThunderLang diagnostics in GitHub/GitLab code scanning + IDEs
 export { toSarif, sarifLevel, SARIF_SCHEMA } from './sarif.mjs';
-// Human <-> Structured <-> IntentLang sync , Studio edits structured, IL stays source of truth
+// Human <-> Structured <-> ThunderLang sync , Studio edits structured, IL stays source of truth
 export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
 // Structural source editing , apply field edits in place, preserving comments + formatting
 export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
@@ -115,7 +117,9 @@ export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './co
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { exprToJs, exprToCSharp, exprToJava, exprToCode } from './expr.mjs';
-export { subjectName } from './parse.mjs';
+export { subjectName, intentRefId, skillRefId } from './parse.mjs';
+// 12-Factor Agents conformance lens (twelve-factor-v1)
+export { TWELVE_FACTOR_SCHEMA, twelveFactorReport, twelveFactorSummary } from './twelve-factor.mjs';
 // Focused scanner query views (Part 3): risks / gaps / unverified / coverage / unknowns / contradictions
 export {
   VIEW_SCHEMA, VIEWS, risksView, gapsView, unverifiedView, coverageView, unknownsView, contradictionsView,
@@ -139,7 +143,7 @@ export {
 } from './ai-events.mjs';
 // Verify a code change against its intent , the AI generate/verify loop gate
 export { verifyDiff, VERIFY_DIFF_SCHEMA } from './verify-diff.mjs';
-// MCP server , IntentLang as a native tool for AI coding agents
+// MCP server , ThunderLang as a native tool for AI coding agents
 export { startMcpServer, MCP_TOOLS } from './mcp.mjs';
 // Runtime enforcement , compile intent into a guard that blocks forbidden actions + redacts secrets
 export { buildGuard, compileGuard, guardSummary, GUARD_SCHEMA } from './guard.mjs';
@@ -154,6 +158,7 @@ export {
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES, CORE_DIAGNOSTICS, ALL_DIAGNOSTICS,
+  RULE_PHASES, RULE_OWNERS, RULE_NAMESPACES, VERIFICATION_RULES, ruleNamespace,
 } from './intent-schema.mjs';
 // Intent IR (intent-ir-v1) , the shared ecosystem semantic representation (superset of the graph)
 export {

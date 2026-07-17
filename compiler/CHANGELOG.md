@@ -1,7 +1,105 @@
 # Changelog
 
-All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
+All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
+
+## 0.1.6
+
+The agent-conformance release (skills on intents + 12-factor scoring). Additive; no breaking
+changes to 0.1.5.
+
+### Added
+
+- **12-Factor Agents conformance lens (`twelve-factor-v1`).** Deterministically scores an intent
+  against the 13 principles of [humanlayer/12-factor-agents](https://github.com/humanlayer/12-factor-agents),
+  which map onto structure IL already models (decisions, lifecycles, typed I/O, approvals,
+  errors/handlers, events, a pure runtime). `twelveFactorReport(ast)` returns a per-factor verdict
+  (`satisfied` | `partial` | `absent`) with evidence + a fix and a 0–100 score; `twelveFactorSummary`
+  is the compact form. `compileSource` and the proof envelope now carry a `twelveFactor` summary, so
+  "12-factor compliant" is a claim the proof asserts. CLI: `intent twelve-factor <file> [--json]`.
+  Findings catalogued as `IL-12F-01..13`. Exported from `/core` and the root. See
+  `docs/twelve-factor-agents.md` and `examples/TwelveFactorAgent.intent` (scores 100/100).
+
+- **Skills + required-understanding on intents (the Ownership Graph skill↔intent join).** A mission
+  can declare the skills it requires and what a human must be able to explain to own it:
+  ```
+  requires_skill Distributed Systems, Idempotency
+  demonstrates understands the idempotency-key guarantee
+  ```
+  - `requires_skill` (inline comma list or a block) normalizes each skill to the shared
+    `skill:<slug>` id (`skillRefId`); `demonstrates` captures the understanding a human must show.
+  - New `Skill` node type (`NODE_TYPES` 41 → 42) + `requires_skill` relationship (20 → 21) in
+    `intent-graph-v1`; the mission `requires_skill` each Skill node. Additive for consumers that
+    subset the vocabulary.
+  - The proof envelope and `compileSource` now carry `skillsRequired` (the `skill:` ids) and
+    `demonstrates` (prose), so producers drop `skillsRequired` straight into
+    `evidence-event-v1` `skillIds[]`, and `demonstrates` feeds Skills Tech Talk defense.
+  - `requires_skill` round-trips through `graphToSource`.
+
+## 0.1.5
+
+The rule-catalog namespace release. Additive; no breaking changes to 0.1.4.
+
+### Added
+
+- **Verify-time rule namespace.** The canonical rule catalog is now one id space across two phases:
+  author-time (ThunderLang) and verify-time (OpenThunder). Every rule row self-describes `owner`
+  (`IL` | `OT`) and `phase` (`author` | `verify`); `RULE_NAMESPACES` declares prefix ownership
+  (`IL-*` author, `OT-*` verify); `VERIFICATION_RULES` reserves the OpenThunder verify namespace
+  (`OT-REQ-*`, `reserved: true` until OT defines them); `ruleNamespace(ruleId)` resolves owner+phase
+  for any id. `ALL_DIAGNOSTICS` now spans both phases. Existing consumers keying on `ruleId` are
+  unaffected (owner/phase are additive fields). Exported from `/core` and the root.
+
+## 0.1.4
+
+The shared-skill-namespace release. Additive; no breaking changes to 0.1.3.
+
+### Added
+
+- **Canonical skill id (`skillRefId`).** IL owns the `skill:` id namespace (founder decision
+  2026-07-14); SkillsTech Certified owns the curated content (which skills exist, cert->skill maps).
+  `skillRefId('TypeScript') -> 'skill:typescript'` , deterministic, browser-safe, so every product
+  emits the SAME skill id in Workspace `evidence-event-v1` `skillIds[]`. The id primitive only; the
+  curated taxonomy list lands separately (STCE, post-loop). Exported from `/core` and the root.
+
+### Fixed
+
+- **`compileSource` type now includes `origin`.** The `.d.ts` opts omitted `origin?: string` even
+  though the runtime has honored it since 0.1.1 (OpenThunder confirmed `origin: 'recovered'`
+  round-trips). Typed consumers can now pass it without a cast. Runtime behavior unchanged.
+
+## 0.1.3
+
+The Ownership-Loop seam release. Additive; no breaking changes to 0.1.2.
+
+### Added
+
+- **Canonical intent reference id (`intentRefId`).** The stable string every SkillsTech product
+  puts in Workspace `evidence-event-v1` / `proof-bundle-v1` `intentReferences[]` so an evidence
+  record or Ownership Proof cites the exact intent it supports:
+  `intent:<mission-slug>` (subject-level) and `intent:<mission-slug>@<sha8>` (version-pinned to the
+  proof `sourceHash`). Deterministic, browser-safe, exported from `/core` and the root.
+- **`compileSource` returns `intentRef` + `intentRefPinned`,** so a producer that already compiled
+  a mission gets both ids for free (no need to recompute). This closes the `ThunderLang -> evidence
+  model` seam of the Skills Ownership Loop.
+
+## 0.1.2
+
+The ecosystem-consumption release. Additive; no breaking changes to 0.1.1.
+
+### Added
+
+- **Dual CommonJS + ESM build.** The package now ships a `require`-able CommonJS build
+  (`dist/index.cjs`, `dist/core.cjs`) alongside the ESM sources, via conditional exports.
+  CommonJS consumers (OpenThunder, the SkillsTech backend) can now
+  `const { NODE_TYPES } = require('@skillstech/thunderlang/core')` synchronously , no async
+  bootstrap, no ESM migration. The runtime stays zero-dependency (esbuild is dev-only).
+- **Seeded lift.** `liftSource(source, { seeds })` accepts OpenThunder's `intent-ir-v1` nodes
+  (`IntentSeed`: `nodeId` + `evidenceRef` with `signals`, `sourceLocations`, optional
+  `ledgerRef` , see `SEED_SCHEMA`). The lifted draft then references OT's exact node ids in
+  `maps_to` (no divergent second reading of the repo) and returns the linkage structurally via
+  `result.seeds` / `summary.seeds`. Additive: with no `seeds`, output is byte-identical to 0.1.1.
+  Exports `SEED_SCHEMA` and `normalizeSeeds` from `/core` and the root.
 
 ## 0.1.1
 
@@ -44,9 +142,9 @@ The executable + interoperable release. Everything is deterministic and requires
   `IL-SEC-001` (secret-typed field on an event payload), `IL-SEC-002` (API returns a secret
   with no auth requirement), `IL-TYPE-001` (unrecognized, likely-mistyped field type).
   `securityDiagnostics`, `isRecognizedType`, catalog now 49 rules.
-- **Human <-> Structured <-> IntentLang sync (`intent-sync-v1`).** `parseToStructured(source)`
+- **Human <-> Structured <-> ThunderLang sync (`intent-sync-v1`).** `parseToStructured(source)`
   returns the canonical graph + flat PM fields; `proposeIntent(structured, { base })` regenerates
-  IntentLang source with a reviewable diff, surfaced ambiguities (non-factual nodes), round-trip
+  ThunderLang source with a reviewable diff, surfaced ambiguities (non-factual nodes), round-trip
   fidelity gaps, and validation , never a silent rewrite. Browser-safe via `/core` (for Studio).
 - **Comment-preserving structural editing (`intent-patch-v1`).** `applyEdits(source, edits)`
   applies field-level edits (`setField`, `add/removeGuarantee`, `add/removeNever`,
@@ -84,7 +182,7 @@ The executable + interoperable release. Everything is deterministic and requires
   action , the intent's rules become a hard production gate. `intent guard <file>` previews it.
   Browser-safe.
 - **MCP server for AI agents.** `intent mcp` / `startMcpServer` speaks the Model Context
-  Protocol over stdio, exposing IntentLang as native tools for coding agents (Claude Code,
+  Protocol over stdio, exposing ThunderLang as native tools for coding agents (Claude Code,
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
@@ -108,7 +206,7 @@ The executable + interoperable release. Everything is deterministic and requires
     throws on disruptive input" sweep (empty / CRLF / tabs / unicode / malformed), a CRLF
     value-corruption guard, malformed-`when` and no-default runtime robustness, round-trip
     fidelity, and a performance guard against the O(n²) regression.
-- **One compiler for five consumers (universal `@skillstech/intentlang/core`).** The whole
+- **One compiler for five consumers (universal `@skillstech/thunderlang/core`).** The whole
   analysis layer is now Node-free, so OpenThunder (Node), the `intent` CLI (Node), SkillsTech
   Studio (browser), Repo Mastery (web), and SkillsTech Mobile (React Native) run the SAME
   code, not a fork. The one blocker , `emit.mjs` importing `node:crypto` for SHA-256 , is

@@ -4,7 +4,7 @@
 // no new analysis, no AI. They exist so a person can ask one focused question ("what is
 // unverified?", "what contradicts?") instead of reading the whole scan report.
 //
-// IntentLang owns this because it owns the Scanner spine + Intent IR. It deliberately does
+// ThunderLang owns this because it owns the Scanner spine + Intent IR. It deliberately does
 // NOT own learning/mastery (RepoMastery) or code verification (OpenThunder); those consume
 // these same artifacts.
 

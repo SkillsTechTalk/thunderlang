@@ -29,7 +29,7 @@ export function intentProofJsonSchema() {
   };
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    $id: `https://intentlanguage.dev/schema/${PROOF_SCHEMA}.json`,
+    $id: `https://thunderlang.dev/schema/${PROOF_SCHEMA}.json`,
     title: 'Intent Proof',
     type: 'object',
     required: [

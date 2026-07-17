@@ -1,4 +1,4 @@
-// Types for `@skillstech/intentlang/core` , the universal (Node + browser + React Native)
+// Types for `@skillstech/thunderlang/core` , the universal (Node + browser + React Native)
 // surface. This re-exports exactly the symbols core.mjs exports, using the declarations in
 // index.d.ts as the single source of truth. It intentionally does NOT re-export the Node-only
 // surface (CLI, LSP, filesystem lift/drift), so a consumer cannot type-import something that
@@ -13,6 +13,12 @@ export {
   INTENT_GRAPH_SCHEMA, IntentGraph, IntentGraphNode, buildIntentGraph,
   compileSource, renderMarkdown, renderMermaid, renderTestplan,
   semanticDiagnostics, buildContractGraph, buildArchitectureGraph, buildImplementationPlan, buildProof,
+} from './index';
+
+// IntentLift: code -> inferred candidate intent (OT orchestrates this in-process).
+export {
+  liftSource, liftAll, liftRepo, languageForFile, inferIntent, renderLiftedIntent, SUPPORTED_LANGUAGES,
+  IntentSeed, SEED_SCHEMA, normalizeSeeds,
 } from './index';
 
 // Intent Scanner + Fable.
@@ -44,7 +50,10 @@ export {
 } from './index';
 
 // Code generation , deterministic scaffolds from intent.
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, subjectName } from './index';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, subjectName, intentRefId, skillRefId } from './index';
+
+// 12-Factor Agents conformance lens (twelve-factor-v1).
+export { TWELVE_FACTOR_SCHEMA, TwelveFactorResult, twelveFactorReport, twelveFactorSummary } from './index';
 
 // Change Lens , what a branch/PR changed by meaning.
 export { CHANGES_SCHEMA, ChangeReport, changeReport } from './index';
@@ -68,6 +77,7 @@ export {
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, intentGraphJsonSchema,
   DIAGNOSTIC_RULES, CORE_DIAGNOSTICS, ALL_DIAGNOSTICS,
+  RULE_PHASES, RULE_OWNERS, RULE_NAMESPACES, VERIFICATION_RULES, ruleNamespace,
   PROOF_SCHEMA, CLAIM_STATUSES, PROOF_STATUSES, intentProofJsonSchema, validateProof,
 } from './index';
 
@@ -78,7 +88,7 @@ export {
   draftIntent, DRAFT_SCHEMA,
 } from './index';
 
-// Human <-> Structured <-> IntentLang sync + comment-preserving structural editing.
+// Human <-> Structured <-> ThunderLang sync + comment-preserving structural editing.
 export {
   parseToStructured, proposeIntent, SYNC_SCHEMA, applyEdits, PATCH_SCHEMA,
 } from './index';

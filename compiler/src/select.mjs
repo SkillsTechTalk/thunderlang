@@ -1,4 +1,4 @@
-// Deterministic candidate selection , the AI generates N candidates; IntentLang and
+// Deterministic candidate selection , the AI generates N candidates; ThunderLang and
 // OpenThunder pick the winner by MEASURABLE rules. An LLM never decides which
 // candidate is best. Pure (no Node deps): browser-safe.
 //

@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "IntentLang",
+  "name": "ThunderLang",
   "scopeName": "source.intent",
   "fileTypes": ["intent"],
   "patterns": [
@@ -47,7 +47,7 @@
       "name": "constant.numeric.intent"
     },
     "type": {
-      "comment": "PascalCase identifiers are entities/types in IntentLang.",
+      "comment": "PascalCase identifiers are entities/types in ThunderLang.",
       "match": "\\b([A-Z][A-Za-z0-9]*)(?:<[^>]+>)?\\b",
       "name": "entity.name.type.intent"
     }

@@ -1,7 +1,7 @@
-// @skillstech/intentlang/core , the BROWSER-SAFE barrel. Every symbol here is pure ESM with
+// @skillstech/thunderlang/core , the BROWSER-SAFE barrel. Every symbol here is pure ESM with
 // ZERO Node.js dependencies (no fs/path/url), so it bundles cleanly into a browser app
 // (SkillsTech Studio's Vite build, Repo Mastery's projections). It is a strict superset of
-// the original AI-core helpers, so existing `@skillstech/intentlang/core` imports keep
+// the original AI-core helpers, so existing `@skillstech/thunderlang/core` imports keep
 // working, plus the canonical schema/classification helpers and the pure Intent Runtime.
 
 // AI-implementation helpers (unchanged , keeps existing /core consumers working).
@@ -14,6 +14,7 @@ export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_
 export {
   SCHEMA_VERSION, NODE_TYPES, RELATIONSHIP_TYPES, NODE_STATUSES,
   intentGraphJsonSchema, DIAGNOSTIC_RULES, CORE_DIAGNOSTICS, ALL_DIAGNOSTICS,
+  RULE_PHASES, RULE_OWNERS, RULE_NAMESPACES, VERIFICATION_RULES, ruleNamespace,
 } from './intent-schema.mjs';
 
 // Canonical proof envelope schema (intent-proof-v1) , browser-safe so a signing service or
@@ -22,7 +23,7 @@ export {
   PROOF_SCHEMA, CLAIM_STATUSES, PROOF_STATUSES, intentProofJsonSchema, validateProof,
 } from './proof-schema.mjs';
 
-// Human <-> Structured <-> IntentLang sync (browser-safe) , Studio's proposeIntent/parseToStructured.
+// Human <-> Structured <-> ThunderLang sync (browser-safe) , Studio's proposeIntent/parseToStructured.
 export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
 // Structural source editing (browser-safe) , comment-preserving field edits for Studio.
 export { applyEdits, PATCH_SCHEMA } from './patch.mjs';
@@ -59,6 +60,8 @@ export {
 export { sha256, sha256hex } from './hash.mjs';
 // Parser: `.intent` source -> Intent AST (+ slug for stable ids, KNOWN_LENSES).
 export { parseIntent, slug, KNOWN_LENSES } from './parse.mjs';
+// IntentLift: code -> inferred candidate intent (in-process, keyless; OT seeds + orchestrates this).
+export { liftSource, liftAll, liftRepo, languageForFile, inferIntent, renderLiftedIntent, SUPPORTED_LANGUAGES, SEED_SCHEMA, normalizeSeeds } from './lift.mjs';
 // Intent Graph builder (intent-graph-v1): AST -> canonical graph.
 export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
 // In-memory compile: AST/source -> every artifact (docs, graphs, plan, proof), no filesystem.
@@ -80,7 +83,9 @@ export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLeve
 export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava } from './codegen.mjs';
 // Change Lens: what a branch/PR changed by meaning (pure; the CLI supplies the git-diffed graphs).
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
-export { subjectName } from './parse.mjs';
+export { subjectName, intentRefId, skillRefId } from './parse.mjs';
+// 12-Factor Agents conformance lens (twelve-factor-v1): score an intent against the 13 principles.
+export { TWELVE_FACTOR_SCHEMA, twelveFactorReport, twelveFactorSummary } from './twelve-factor.mjs';
 // Semantic diff + 3-way merge (Change Lens: diff by meaning).
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.

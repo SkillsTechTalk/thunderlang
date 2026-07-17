@@ -43,7 +43,7 @@ export function comprehensionLevel(ast, { observed = false, learningPath = false
       // (goal/why/title/problem are strings on the AST, not lists.)
       met: Boolean(ast?.goal) || Boolean(ast?.why) || Boolean(ast?.title) || Boolean(ast?.problem),
       evidence: [ast?.goal && 'goal', ast?.why && 'why', ast?.title && 'title', ast?.problem && 'problem'].filter(Boolean),
-      owner: 'IntentLang',
+      owner: 'ThunderLang',
     },
     structure: {
       met: nonEmpty(guarantees) || nonEmpty(nevers) || nonEmpty(ast?.decisions)
@@ -53,7 +53,7 @@ export function comprehensionLevel(ast, { observed = false, learningPath = false
         nonEmpty(ast?.lifecycles) && 'lifecycles', nonEmpty(ast?.errors) && 'errors', nonEmpty(ast?.constraints) && 'constraints',
         nonEmpty(ast?.invariants) && 'invariants',
       ].filter(Boolean),
-      owner: 'IntentLang',
+      owner: 'ThunderLang',
     },
     mapping: {
       met: nonEmpty(ast?.targets) || nonEmpty(ast?.components) || nonEmpty(ast?.apis)
@@ -62,12 +62,12 @@ export function comprehensionLevel(ast, { observed = false, learningPath = false
         nonEmpty(ast?.targets) && 'target', nonEmpty(ast?.components) && 'components', nonEmpty(ast?.apis) && 'apis',
         nonEmpty(ast?.services) && 'services', ast?.implementation && 'implementation', nonEmpty(ast?.architecture) && 'architecture',
       ].filter(Boolean),
-      owner: 'IntentLang',
+      owner: 'ThunderLang',
     },
     verification: {
       met: allVerified,
       evidence: allVerified ? [`${claims.length}/${claims.length} claims verified`] : (claims.length ? [`${claims.filter((c) => nonEmpty(c.verify)).length}/${claims.length} claims verified`] : []),
-      owner: 'IntentLang + OpenThunder',
+      owner: 'ThunderLang + OpenThunder',
     },
     observation: {
       met: Boolean(observed),
@@ -77,7 +77,7 @@ export function comprehensionLevel(ast, { observed = false, learningPath = false
     teachability: {
       met: Boolean(learningPath) || nonEmpty(ast?.notes) || nonEmpty(ast?.examples),
       evidence: [learningPath && 'learning path', nonEmpty(ast?.notes) && 'notes', nonEmpty(ast?.examples) && 'examples'].filter(Boolean),
-      owner: 'Skills Tech Talk (learning) + IntentLang (notes/examples)',
+      owner: 'Skills Tech Talk (learning) + ThunderLang (notes/examples)',
     },
     governance: {
       // Understanding that stays true as the software changes: drift monitored (Guardian) AND

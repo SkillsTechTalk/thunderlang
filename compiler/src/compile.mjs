@@ -2,7 +2,8 @@
 // web playground (returns artifacts as strings). No filesystem, no AI.
 // Deterministic given a fixed `generatedAt`.
 
-import { parseIntent, slug, subjectName } from './parse.mjs';
+import { parseIntent, slug, subjectName, intentRefId } from './parse.mjs';
+import { twelveFactorSummary } from './twelve-factor.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256,
@@ -92,10 +93,10 @@ export function renderTestplan(ast) {
 }
 
 /**
- * Compile IntentLang source in memory and return every artifact `intent build`
+ * Compile ThunderLang source in memory and return every artifact `intent build`
  * would emit, without touching the filesystem.
  */
-export function compileSource(source, { sourceFile = 'playground.intent', generatedAt } = {}) {
+export function compileSource(source, { sourceFile = 'playground.intent', generatedAt, origin = 'authored' } = {}) {
   const ast = parseIntent(source);
   const at = generatedAt || new Date().toISOString();
   const sourceHash = sha256(source);
@@ -114,12 +115,23 @@ export function compileSource(source, { sourceFile = 'playground.intent', genera
     `${slug(mission)}.md`, `${slug(mission)}.mmd`, `${slug(mission)}.testplan.md`,
   ];
   const proof = buildProof(ast, {
-    sourceFile, sourceHash, generatedAt: at,
+    sourceFile, sourceHash, generatedAt: at, origin,
     targetsRequested: ast.targets, targetsGenerated, diagnostics,
   });
 
   return {
     mission,
+    origin,
+    // Canonical cross-ecosystem intent reference ids , producers (OT/RM/STT/Certified) put these
+    // in evidence-event-v1 / proof-bundle-v1 `intentReferences[]` so evidence cites this exact intent.
+    intentRef: intentRefId(ast),                          // subject-level: intent:<slug>
+    intentRefPinned: intentRefId(ast, { sourceHash }),    // version-pinned: intent:<slug>@<sha8>
+    // Ownership Graph seam: skills this intent requires (shared skill: ids) + required-understanding.
+    // Producers drop `skillsRequired` straight into evidence-event-v1 `skillIds[]`.
+    skillsRequired: (ast.skills || []).map((s) => s.id).filter(Boolean),
+    demonstrates: (ast.demonstrates || []).map((d) => d.statement),
+    // 12-Factor Agents conformance summary (score/grade/counts). Full per-factor report via twelveFactorReport.
+    twelveFactor: twelveFactorSummary(ast),
     diagnostics,
     notes: ast.notes || [],
     artifacts: {

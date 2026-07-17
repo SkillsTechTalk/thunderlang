@@ -3,7 +3,7 @@
 // with each included node tagged by WHY it is in focus. This is the shared foundation the
 // vision's Intent Lens is built on: Studio renders it, OpenThunder verifies its scope,
 // RepoMastery/SkillsTech Talk teach it, but the deterministic scope + subgraph live here
-// because IntentLang owns the Intent IR/Atlas. Pure and browser-safe (no Node, no AI).
+// because ThunderLang owns the Intent IR/Atlas. Pure and browser-safe (no Node, no AI).
 //
 // "Intent Atlas shows the complete system. Intent Lens helps you understand one part of it."
 

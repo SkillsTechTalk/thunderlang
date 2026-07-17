@@ -6,13 +6,13 @@
 //   - the contract hash and implementation hash (with normalization)
 //   - the .intent/ai-implementations.json manifest shape
 //
-// IntentLang OWNS this. OpenThunder verifies against it; Repo Mastery teaches it;
+// ThunderLang OWNS this. OpenThunder verifies against it; Repo Mastery teaches it;
 // SkillsTech orchestrates it. Deterministic, no AI required.
 
 import { sha256 } from './emit.mjs';
 import { slug } from './parse.mjs';
 // Pure, browser-safe helpers live in ai-core.mjs (no Node deps). Re-exported here so
-// the main API is unchanged; browser consumers can import '@skillstech/intentlang/core'.
+// the main API is unchanged; browser consumers can import '@skillstech/thunderlang/core'.
 import { COMMENT_PREFIX, HIGH_RISK, blocksProduction } from './ai-core.mjs';
 export {
   IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,
@@ -313,7 +313,7 @@ export function buildManifest(files, opts = {}) {
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     projectId: opts.projectId || null,
-    generatedBy: 'intentlang',
+    generatedBy: 'thunderlang',
     implementations,
     summary: {
       total: implementations.length,

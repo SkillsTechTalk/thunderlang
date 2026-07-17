@@ -1,18 +1,21 @@
-# @skillstech/intentlang
+# @skillstech/thunderlang
 
-Deterministic IntentLang compiler and CLI. **No AI required.** Turns a `.intent` file into
+Deterministic ThunderLang compiler and CLI. **No AI required.** Turns a `.intent` file into
 the canonical **Intent Graph** plus diagnostics, docs, a test plan, and a proof artifact,
 and, for decisions, lifecycles, and outcomes, **executes the intent directly** (no code
 generated). Every output is pure and deterministic: the same source always yields the same
 result, so intent can be diffed, merged, tested, and trusted.
 
-Part of [IntentLang](https://intentlanguage.dev), the intent language for AI-era software.
+Part of [ThunderLang](https://thunderlang.dev), the intent-oriented language for AI-era software.
+
+> Previously published as `@skillstech/intentlang`. The package was renamed to
+> `@skillstech/thunderlang`; the old name remains as a deprecated alias.
 
 ## Install
 
 ```bash
-npm install -g @skillstech/intentlang     # then: intent check path/to/Mission.intent
-npx @skillstech/intentlang help           # or run without installing
+npm install -g @skillstech/thunderlang     # then: intent check path/to/Mission.intent
+npx @skillstech/thunderlang help           # or run without installing
 ```
 
 ## Commands
@@ -91,7 +94,7 @@ Export the tokens to **W3C Design Tokens**, a drop-in **CSS** sheet, the whole g
 
 The compiler also catches the mistakes prompts ship: a secret-typed field on an event payload
 (`IL-SEC-001`), a sensitive API output with no auth (`IL-SEC-002`), a mistyped field
-(`IL-TYPE-001`), and more , the full catalog is `intent rules` / [docs](https://intentlanguage.dev/docs/diagnostics).
+(`IL-TYPE-001`), and more , the full catalog is `intent rules` / [docs](https://thunderlang.dev/docs/diagnostics).
 
 ## Use as a library
 
@@ -105,7 +108,7 @@ import {
   fromDMN, fromBPMN, importReport, graphToSource, migrateGraph, validateGraph,
   diffGraphs, mergeGraphs, securityDiagnostics, analyzeStyle,
   validateProof, intentProofJsonSchema, toSarif,
-} from '@skillstech/intentlang';
+} from '@skillstech/thunderlang';
 
 const ast = parseIntent(source);
 const graph = buildIntentGraph(ast);                 // canonical intent-graph-v1
@@ -114,7 +117,7 @@ const run = evaluateDecision(ast.decisions[0], { age: 20 });
 
 ### One compiler, five consumers
 
-`@skillstech/intentlang/core` is the **universal** entry point , the whole compiler with zero
+`@skillstech/thunderlang/core` is the **universal** entry point , the whole compiler with zero
 Node.js dependencies, so the *same code* runs in Node (this CLI, OpenThunder), the browser
 (SkillsTech Studio, Repo Mastery web), and React Native (SkillsTech Mobile). No fork, no
 re-implementation.
@@ -124,14 +127,14 @@ import {
   parseIntent, buildIntentGraph, compileSource, scanProject,
   buildAtlas, searchAtlas, buildFocusGraph, intentBrief,   // navigate + focus (Intent Lens)
   diffGraphs, graphToSource, coverageView, sha256,          // the shared join-key hash
-} from '@skillstech/intentlang/core';
+} from '@skillstech/thunderlang/core';
 ```
 
 It ships TypeScript types (`core.d.ts`), and a conformance test guarantees the surface never
 gains a Node-only or engine-specific dependency (`node:` builtin, `TextEncoder`, `Buffer`, …),
 so it keeps bundling everywhere. The `.` entry is this same surface plus the Node-only helpers
 (the CLI, LSP, filesystem lift/drift). See
-[One compiler, five consumers](https://intentlanguage.dev/docs/single-compiler).
+[One compiler, five consumers](https://thunderlang.dev/docs/single-compiler).
 
 ## The Intent Graph (`intent-graph-v1`)
 
@@ -159,4 +162,4 @@ governance/privacy, and security/type checks; nine export adapters
 native graph<->source round-trip, schema migrations, a canonical proof envelope
 (`intent-proof-v1`), and SARIF code-scanning output. Draft (pre-1.0): the language and
 `intent-graph-v1` schema version independently and may still change. See the
-[docs](https://intentlanguage.dev/docs) and the [spec](https://intentlanguage.dev/docs/spec).
+[docs](https://thunderlang.dev/docs) and the [spec](https://thunderlang.dev/docs/spec).

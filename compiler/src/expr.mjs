@@ -1,6 +1,6 @@
 // A tiny, safe, DETERMINISTIC expression evaluator for decision conditions. No eval, no
 // host access , it evaluates a `when` string against a plain inputs object and returns a
-// value. This is what makes IntentLang decisions EXECUTABLE: the same condition + inputs
+// value. This is what makes ThunderLang decisions EXECUTABLE: the same condition + inputs
 // always yields the same result, with zero AI and zero code generation.
 //
 // Grammar (lowest -> highest precedence):
