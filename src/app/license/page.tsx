@@ -4,14 +4,14 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "License and governance",
   description:
-    "How IntentLang is licensed and governed: the compiler is MIT-licensed, the specification and examples are public, and the project is founder-led while pre-1.0.",
+    "How IntentLang is licensed and governed: the compiler is Apache-2.0 licensed, the specification and examples are public, and the project is founder-led while pre-1.0.",
   path: "/license",
 });
 
 const rows: [string, string][] = [
-  ["Compiler + CLI (@skillstech/intentlang)", "MIT License. Use, modify, and ship it, including commercially."],
+  ["Compiler + CLI (@skillstech/intentlang)", "Apache 2.0 License. Use, modify, and ship it, including commercially."],
   ["Language specification", "Public. The grammar and the diagnostics catalog are documented and versioned."],
-  ["Examples", "Public. Every .intent example in the docs is MIT alongside the compiler."],
+  ["Examples", "Public. Every .intent example in the docs is Apache-2.0 alongside the compiler."],
   ["Intent Graph schema (intent-graph-v1)", "Public and versioned, so any tool can bind to it."],
   ["Governance", "Founder-led while pre-1.0. Breaking changes are versioned; nothing that already parses is broken silently."],
 ];
@@ -42,7 +42,7 @@ export default function LicensePage() {
           <p className="mt-2 text-sm leading-relaxed text-haze-300">
             The deterministic compiler requires no AI and no account to run. You can verify every
             claim on this site with the CLI: <span className="font-mono text-haze-200">npm i @skillstech/intentlang</span>.
-            The MIT license text ships in the package. Trademark and brand assets (the IntentLang
+            The Apache 2.0 license text ships in the package. Trademark and brand assets (the IntentLang
             name and marks) remain SkillsTech&apos;s.
           </p>
         </Card>

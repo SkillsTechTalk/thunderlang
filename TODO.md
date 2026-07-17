@@ -559,7 +559,7 @@ The full Top-100 lives in `docs/operating-checklist.md`. Mapping to current stat
 - [x] SECURITY + TYPE DIAGNOSTICS SHIPPED (#29,#43): security.mjs , IL-SEC-001 (secret-typed field Secret/Password/Jwt on an event payload = secret over the bus, blocker/release), IL-SEC-002 (API returns a secret with no `requires` auth gate, blocker/release), IL-TYPE-001 (unrecognized/mistyped field type, info). isRecognizedType + SEMANTIC_TYPES/PRIMITIVE_TYPES hoisted from data-schema.mjs (one source of truth). Wired into semanticDiagnostics (gate-safe). Catalog 49 rules; diagnostics.md + schema regenerated. Fuzz-covered (event/api/payload keywords + secret/typo frags). Exported + typed. 323 tests. docs/compiler-contract.md + diagnostics.md. schema intent-security-v1.
 - [ ] OpenAPI generation when an `api` block exists (#37)
 - [x] `bin` wiring + npm publish (#40,#94): published `@skillstech/thunderlang@0.1.0`
-      (public, MIT). `npm i -g @skillstech/thunderlang` -> `intent`; `npx @skillstech/thunderlang`.
+      (public, Apache-2.0). `npm i -g @skillstech/thunderlang` -> `intent`; `npx @skillstech/thunderlang`.
       Verified via real registry install. (Scope: @thunderlang org doesn't exist; used the
       owned @skillstech scope, consistent with @skillstech/openthunder.)
 - [x] `intent check` in a GitHub Actions workflow (#95): scripts/intent-check.mjs

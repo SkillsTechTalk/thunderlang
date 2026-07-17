@@ -651,7 +651,7 @@ const LANG_EXT = {
  * EXACT node ids instead of lift's own function refs, so there is no divergent second reading.
  * Additive: with no seeds the output is byte-identical to before.
  */
-export function liftSource(source, { language = 'typescript', file = '', seeds } = {}) {
+export function liftSource(source, { language = 'typescript', file = '', seeds = [] } = {}) {
   const key = String(language).toLowerCase();
   const adapter = ADAPTERS[key];
   if (!adapter) {
