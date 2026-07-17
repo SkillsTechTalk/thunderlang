@@ -31,8 +31,9 @@ function boundsFor(where, varName) {
     else if (m[1] === '<') max = Math.min(max, n - 1);
     else if (m[1] === '==') { min = n; max = n; }
   }
-  if (min > max) max = min;
-  return { min, max };
+  const unsat = min > max; // e.g. `where x >= 100 and x <= 0` , no integer satisfies it
+  if (unsat) max = min;
+  return { min, max, unsat };
 }
 
 const isBool = (t) => /bool/i.test(t || '');
@@ -85,7 +86,9 @@ export function runProperties(ast, { cases = 100, seed = 424242 } = {}) {
   const results = [];
   for (const prop of ast.properties || []) {
     const dec = decisions.get(prop.decide);
-    if (!dec) { results.push({ property: prop.name, ok: false, cases: 0, seed, error: `no decision named "${prop.decide}"` }); continue; }
+    if (!dec) { results.push({ property: prop.name, ok: false, cases: 0, seed, error: prop.decide ? `no decision named "${prop.decide}"` : 'property has no `decide <Decision>`' }); continue; }
+    const badVar = prop.vars.find((v) => !isBool(v.type) && boundsFor(v.where, v.name).unsat);
+    if (badVar) { results.push({ property: prop.name, ok: false, cases: 0, seed, error: `unsatisfiable constraint for "${badVar.name}": ${badVar.where}` }); continue; }
     const rnd = mulberry32(seed);
     let failure = null;
     for (let i = 0; i < cases && !failure; i++) {

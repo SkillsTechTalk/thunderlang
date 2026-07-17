@@ -93,7 +93,13 @@ Generation is seeded (reproducible), and failures binary-shrink each input towar
 
 ### 4. Scenario tests
 
-Workflows across components (`given` / `when` / `then` / `never`), the ThunderLang equivalent of acceptance and behavior testing, but connected to the canonical Intent Graph.
+Workflows across components (`given` / `when` / `then` / `never`), the ThunderLang equivalent of acceptance and behavior testing, connected to the canonical Intent Graph. `thunder test <file> --scenarios` checks each scenario deterministically for self-contradiction (an outcome listed under both `then` and `never` **FAILS**); otherwise it is **DECLARED**, structurally valid but needing runtime evidence (which OpenThunder supplies).
+
+```text
+$ thunder test checkout.thunder --scenarios
+  DECLARED  CustomerCompletesPurchase  (2 given, 2 then, 1 never)
+  FAIL      BrokenSpec , contradiction: "charge customer twice" both expected and prohibited
+```
 
 ---
 

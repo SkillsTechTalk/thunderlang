@@ -201,6 +201,22 @@ function parseProperty(name, node) {
   return prop;
 }
 
+// Scenario: a workflow-level test , given / when / then / never (+ eventually within <t>).
+// Deterministically checkable for self-contradiction (a `then` also listed under `never`).
+function parseScenario(name, node) {
+  const sc = { name, given: [], when: [], then: [], never: [], eventually: [], line: node.line };
+  const clausesOf = (c) => { const items = leafItems(c); return items.length ? items : (rest(c.text) ? [rest(c.text)] : []); };
+  for (const c of node.children.filter((x) => !isNote(x))) {
+    const k = firstWord(c.text);
+    if (k === 'given') sc.given.push(...clausesOf(c));
+    else if (k === 'when') sc.when.push(...clausesOf(c));
+    else if (k === 'then') sc.then.push(...clausesOf(c));
+    else if (k === 'never') sc.never.push(...clausesOf(c));
+    else if (k === 'eventually') { const within = (rest(c.text).match(/within\s+(.+)/) || [])[1] || null; sc.eventually.push({ within, clauses: leafItems(c) }); }
+  }
+  return sc;
+}
+
 // Lifecycle state machine (intent-graph-v1 Gap 2).
 function parseLifecycle(name, node) {
   const lc = { name, states: [], transitions: [], terminals: [], line: node.line };
@@ -372,7 +388,7 @@ export function parseIntent(source) {
     // Distributed + failure semantics (Gap 3)
     commands: [], handlers: [],
     // Decisions, rules, process (Gap 4)
-    decisions: [], properties: [],
+    decisions: [], properties: [], scenarios: [],
     // Governance: waivers , governed exceptions to blocking diagnostics (Gap 5)
     waivers: [],
     // Data purpose + privacy , governed data elements (Gap 6)
@@ -525,6 +541,7 @@ export function parseIntent(source) {
       }
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
       case 'property': ast.properties.push(parseProperty(arg, node)); break;
+      case 'scenario': ast.scenarios.push(parseScenario(arg, node)); break;
       // ── System profile ──
       case 'capability': {
         const cap = { name: arg, description: null, implements: [], line: node.line };

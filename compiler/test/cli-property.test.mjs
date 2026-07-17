@@ -61,3 +61,30 @@ test('results are deterministic for a fixed seed', () => {
   const b = props(write('p5.thunder', SRC), ['--json', '--seed', '7']).stdout;
   assert.equal(JSON.parse(a).passed, JSON.parse(b).passed);
 });
+
+test('an unsatisfiable forAll constraint errors instead of hanging or false-passing', () => {
+  const file = write('unsat.thunder', `mission E
+decision D
+  inputs
+    age
+  rule a
+    when age >= 18
+    return Yes
+  default
+    return No
+property Bad
+  forAll
+    age: Integer where age >= 100 and age <= 0
+  decide D
+  expect
+    result == Yes
+`);
+  const out = JSON.parse(props(file, ['--json']).stdout);
+  assert.equal(out.results[0].ok, false);
+  assert.match(out.results[0].error, /unsatisfiable constraint/);
+});
+
+test('a non-numeric --cases falls back to the default (never 0 cases = false pass)', () => {
+  const out = JSON.parse(props(write('p6.thunder', SRC), ['--json', '--cases', 'abc']).stdout);
+  assert.equal(out.results[0].cases, 100);
+});

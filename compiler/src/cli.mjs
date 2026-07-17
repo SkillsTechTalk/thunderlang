@@ -205,6 +205,7 @@ function parseArgs(argv) {
     else if (a === '--strict') args.strict = true;
     else if (a === '--changed') args.changed = true;
     else if (a === '--properties') args.properties = true;
+    else if (a === '--scenarios') args.scenarios = true;
     else if (a === '--cases') args.cases = argv[++i];
     else if (a === '--seed') args.seed = argv[++i];
     else if (a === '--ir') args.ir = argv[++i];
@@ -1112,7 +1113,9 @@ test Example
     // Property-based testing: generate many cases for each `property`, evaluate the decision,
     // assert the `expect` clauses, and shrink failures. `thunder test <file> --properties`.
     if (args.properties) {
-      const rep = runProperties(ast, { cases: args.cases ? parseInt(args.cases, 10) : 100, seed: args.seed ? parseInt(args.seed, 10) : 424242 });
+      const cases = Number.isFinite(Number(args.cases)) && Number(args.cases) > 0 ? Math.min(Math.floor(Number(args.cases)), 100000) : 100;
+      const seed = Number.isFinite(Number(args.seed)) ? Math.floor(Number(args.seed)) : 424242;
+      const rep = runProperties(ast, { cases, seed });
       const bad = rep.passed !== rep.total;
       if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
       if (!rep.total) { console.log(`thunder test ${basename(file)} --properties: no property blocks found.`); return; }
@@ -1126,6 +1129,30 @@ test Example
         console.log(`        smallest failure: ${inputs}  ->  ${f.expect} (got ${f.actual})`);
       }
       process.exit(bad ? 1 : 0);
+      return;
+    }
+
+    // Scenario tests: workflow-level given/when/then/never. Deterministically flags a scenario
+    // that both expects and prohibits the same outcome; otherwise DECLARED (needs runtime evidence).
+    if (args.scenarios) {
+      const scenarios = ast.scenarios || [];
+      const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const results = scenarios.map((sc) => {
+        const neverSet = new Set(sc.never.map(norm));
+        const positives = [...sc.then, ...sc.eventually.flatMap((e) => e.clauses)];
+        const contradictions = positives.filter((p) => neverSet.has(norm(p)));
+        return { scenario: sc.name, status: contradictions.length ? 'failed' : 'declared', given: sc.given.length, then: positives.length, never: sc.never.length, contradictions };
+      });
+      const failed = results.filter((r) => r.status === 'failed').length;
+      const rep = { schema: 'thunder-scenarios-v1', mission: ast.mission, file: basename(file), total: results.length, failed, results };
+      if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(failed ? 1 : 0); return; }
+      if (!rep.total) { console.log(`thunder test ${basename(file)} --scenarios: no scenario blocks found.`); return; }
+      console.log(`thunder test ${basename(file)} --scenarios: ${rep.total} scenario(s), ${rep.total - failed} consistent${failed ? `, ${failed} contradictory` : ''}`);
+      for (const r of results) {
+        if (r.status === 'failed') console.log(`  FAIL      ${r.scenario} , contradiction: ${r.contradictions.map((c) => `"${c}"`).join(', ')} both expected and prohibited`);
+        else console.log(`  DECLARED  ${r.scenario}  (${r.given} given, ${r.then} then, ${r.never} never) , needs runtime evidence`);
+      }
+      process.exit(failed ? 1 : 0);
       return;
     }
 
