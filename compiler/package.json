@@ -77,7 +77,7 @@
     "url": "https://github.com/SkillsTechTalk/thunderlang/issues"
   },
   "author": "SkillsTech",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   }
