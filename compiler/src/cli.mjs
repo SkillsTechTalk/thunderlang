@@ -39,7 +39,7 @@ import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
 import { approveIntent, checkDrift, buildDriftHandoff } from './drift.mjs';
 import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
-import { buildIntentGraph } from './intent-graph.mjs';
+import { buildIntentGraph, safeGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
@@ -208,6 +208,7 @@ function parseArgs(argv) {
     else if (a === '--properties') args.properties = true;
     else if (a === '--scenarios') args.scenarios = true;
     else if (a === '--mutate') args.mutate = true;
+    else if (a === '--safe') args.safe = true;
     else if (a === '--cases') args.cases = argv[++i];
     else if (a === '--seed') args.seed = argv[++i];
     else if (a === '--ir') args.ir = argv[++i];
@@ -320,7 +321,7 @@ Author & check
   lsp                      start the Language Server (LSP over stdio, for editors)
   mcp                      start the MCP server (for AI coding agents; stdio)
   build <file>              docs, contract graph, test plan, and .thunder-proof.json
-  graph <file>              the canonical Intent Graph (intent-graph-v1)
+  graph <file> [--safe]     the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
   proof <file>              the .thunder-proof.json artifact
   proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
@@ -1869,6 +1870,13 @@ test Example
   }
 
   const generated = [];
+  // `thunder graph <file> --safe` , a display-safe intent-graph on stdout, for external viewers
+  // (e.g. STT rendering the Intent Atlas). Strips owner/source provenance and redacts sensitive
+  // classifications; carries no source code.
+  if (cmd === 'graph' && args.safe) {
+    console.log(JSON.stringify(safeGraph(buildIntentGraph(ast)), null, 2));
+    return;
+  }
   if (cmd === 'graph' || cmd === 'build') {
     generated.push(writeJson(outDir, 'contract-graph.json', buildContractGraph(ast, generatedAt)));
     generated.push(writeJson(outDir, 'architecture-graph.json', buildArchitectureGraph(ast, generatedAt)));

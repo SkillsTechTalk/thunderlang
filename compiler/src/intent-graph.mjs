@@ -344,3 +344,32 @@ export function buildIntentGraph(ast) {
     },
   };
 }
+
+// Data classifications that must never be shown in an external / display context.
+export const SENSITIVE_CLASSIFICATIONS = new Set([
+  'confidential', 'pii', 'sensitive', 'phi', 'restricted', 'personal', 'secret',
+]);
+
+// A display-safe projection of an intent graph for external rendering (e.g. STT's viewer).
+// Keeps the structural intent (ids, types, titles, statuses, relationships, classification LABEL)
+// but drops owner/source provenance and redacts free text on any node with a sensitive
+// classification. The intent graph carries no source code; data elements are governed separately
+// and are not emitted as graph nodes, so they cannot leak through this projection.
+export function safeGraph(graph) {
+  let redactedNodes = 0;
+  const nodes = (graph.nodes || []).map((n) => {
+    const sensitive = SENSITIVE_CLASSIFICATIONS.has(String(n.classification || '').toLowerCase());
+    const out = {
+      id: n.id, type: n.type, title: n.title ?? null, status: n.status ?? null,
+      classification: n.classification ?? null, tags: n.tags ?? [],
+      description: sensitive ? null : (n.description ?? null),
+    };
+    if (sensitive) { out.redacted = true; redactedNodes++; }
+    return out; // owner + source intentionally omitted
+  });
+  return {
+    schema: graph.schema, missionId: graph.missionId,
+    safe: true, redactedNodes,
+    nodes, relationships: graph.relationships || [], summary: graph.summary,
+  };
+}
