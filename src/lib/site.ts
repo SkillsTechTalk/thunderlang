@@ -35,6 +35,7 @@ export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
   { href: "/vision", label: "Vision" },
+  { href: "/architecture", label: "Architecture" },
   { href: "/docs", label: "Docs" },
   { href: "/examples", label: "Examples" },
   { href: "/atlas", label: "Intent Atlas" },
