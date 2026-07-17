@@ -46,7 +46,7 @@ import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS
 import { twelveFactorReport } from './twelve-factor.mjs';
 import { GENERATORS } from './codegen.mjs';
 import { changeReport } from './changes.mjs';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
@@ -705,9 +705,55 @@ test Example
     return;
   }
 
-  if (!file && cmd !== 'draft' && !(cmd === 'test' && args.changed)) {
+  if (!file && cmd !== 'draft' && cmd !== 'mission' && !(cmd === 'test' && args.changed)) {
     console.error(`thunder ${cmd}: missing a file argument. Run "intent help" for usage.`);
     process.exit(2);
+  }
+
+  // `thunder mission <Name> [<verb> ...]` , noun-first ergonomics: resolve a mission by name
+  // anywhere in the project, then run any verb on it without typing a path.
+  // `thunder mission list` lists every mission. `thunder mission <Name>` prints a summary.
+  if (cmd === 'mission') {
+    const scanRoot = process.cwd();
+    const parsed = collectIntents(scanRoot)
+      .map((f) => { try { return { file: f, ast: parseIntent(readFileSync(f, 'utf8')) }; } catch { return null; } })
+      .filter((x) => x && x.ast && x.ast.mission);
+    const raw = process.argv.slice(3); // [Name|list, verb?, ...passthrough]
+    const nameArg = raw[0];
+
+    if (!nameArg || nameArg === 'list') {
+      if (!parsed.length) { console.log('thunder mission list: no missions found under the current directory.'); return; }
+      console.log(`thunder mission list: ${parsed.length} mission(s)`);
+      for (const { file: f, ast } of parsed.sort((a, b) => (a.ast.mission || '').localeCompare(b.ast.mission || ''))) {
+        const g = (ast.guarantees || []).length, n = (ast.neverRules || []).length, t = (ast.tests || []).length;
+        console.log(`  ${(ast.mission || '(unnamed)').padEnd(26)} ${relative(scanRoot, f)}  (${g} guarantee(s), ${n} never, ${t} test(s))`);
+      }
+      return;
+    }
+
+    const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matches = parsed.filter((x) => x.ast.mission === nameArg);
+    const hit = matches[0] || parsed.find((x) => norm(x.ast.mission) === norm(nameArg));
+    if (!hit) { console.error(`thunder mission: no mission named "${nameArg}". Try: thunder mission list`); process.exit(2); return; }
+    if (matches.length > 1) console.error(`thunder mission: ${matches.length} missions named "${nameArg}"; using ${relative(scanRoot, hit.file)}`);
+
+    const verb = raw[1];
+    if (!verb) {
+      const a = hit.ast;
+      console.log(`mission ${a.mission}   (${relative(scanRoot, hit.file)})`);
+      if (a.goal) console.log(`  goal: ${a.goal}`);
+      if ((a.guarantees || []).length) { console.log('  guarantees:'); for (const g of a.guarantees) console.log(`    - ${g.statement}`); }
+      if ((a.neverRules || []).length) { console.log('  never:'); for (const nr of a.neverRules) console.log(`    - ${nr.statement}`); }
+      if ((a.targets || []).length) console.log(`  targets: ${a.targets.join(', ')}`);
+      if ((a.tests || []).length) console.log(`  tests: ${a.tests.length}`);
+      console.log(`  try: thunder mission ${a.mission} check | run | test | prove | build`);
+      return;
+    }
+
+    // Delegate to `thunder <verb> <file> <passthrough>` in a child so every flag is honored exactly.
+    const res = spawnSync(process.execPath, [process.argv[1], verb, hit.file, ...raw.slice(2)], { stdio: 'inherit' });
+    process.exit(res.status == null ? 0 : res.status);
+    return;
   }
   // IntentLift: lift source CODE into inferred .intent drafts (not intent parsing).
   if (cmd === 'lift') {
