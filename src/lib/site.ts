@@ -38,11 +38,9 @@ export const mainNav: NavItem[] = [
   { href: "/architecture", label: "Architecture" },
   { href: "/docs", label: "Docs" },
   { href: "/examples", label: "Examples" },
-  { href: "/atlas", label: "Intent Atlas" },
+  { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
   { href: "/roadmap", label: "Roadmap" },
-  { href: "/blog", label: "Blog" },
-  { href: "/community", label: "Community" },
 ];
 
 export const footerNav: { title: string; items: NavItem[] }[] = [
@@ -50,6 +48,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Language",
     items: [
       { href: "/vision", label: "Vision" },
+      { href: "/architecture", label: "Architecture" },
       { href: "/docs", label: "Documentation" },
       { href: "/examples", label: "Examples" },
       { href: "/playground", label: "Playground" },
