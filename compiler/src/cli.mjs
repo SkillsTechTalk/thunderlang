@@ -135,6 +135,40 @@ function resolveObligations(ast) {
   return { obligations, tests: t, verified: count('verified'), declared: count('declared'), unverified: count('unverified'), failed: count('failed') };
 }
 
+// Proof freshness: a proof is valid only for a specific (intent, implementation, dependencies,
+// compiler, environment) tuple. These helpers capture that tuple so `verify` can mark a proof STALE.
+const gitCmd = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null; } catch { return null; } };
+const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock', 'Cargo.lock', 'go.sum', 'Gemfile.lock', 'composer.lock'];
+function findLockfile(startDir) {
+  let dir = startDir || '.';
+  for (let i = 0; i < 6; i++) {
+    for (const lf of LOCKFILES) { const p = join(dir, lf); if (existsSync(p)) return p; }
+    const parent = dirname(dir); if (parent === dir) break; dir = parent;
+  }
+  return null;
+}
+function freshnessFor(file, proof, envName) {
+  const dir = dirname(file) || '.';
+  const lock = findLockfile(dir);
+  return {
+    intentHash: proof.sourceHash,
+    compilerVersion: proof.compilerVersion,
+    implementation: gitCmd('rev-parse HEAD'),
+    dependencies: lock ? { file: basename(lock), hash: sha256(readFileSync(lock, 'utf8')) } : null,
+    environment: envName || null,
+    generatedAt: proof.generatedAt,
+  };
+}
+// Given a proof's recorded freshness, recompute the current tuple and list what has drifted.
+function stalenessReasons(freshness, srcDir) {
+  const reasons = [];
+  if (!freshness) return reasons;
+  if (freshness.implementation) { const now = gitCmd('rev-parse HEAD'); if (now && now !== freshness.implementation) reasons.push(`implementation moved: proof at ${freshness.implementation.slice(0, 7)}, now ${now.slice(0, 7)}`); }
+  if (freshness.dependencies) { const lock = findLockfile(srcDir); const now = lock ? sha256(readFileSync(lock, 'utf8')) : null; if (now && now !== freshness.dependencies.hash) reasons.push(`dependency lockfile changed (${freshness.dependencies.file})`); }
+  if (freshness.compilerVersion && freshness.compilerVersion !== COMPILER_VERSION) reasons.push(`compiler upgraded: proof ${freshness.compilerVersion}, now ${COMPILER_VERSION}`);
+  return reasons;
+}
+
 function parseArgs(argv) {
   const args = { _: [], out: '.intent', noAi: false };
   for (let i = 0; i < argv.length; i++) {
@@ -178,6 +212,7 @@ function parseArgs(argv) {
     else if (a === '--learning') args.learning = true;
     else if (a === '--governed') args.governed = true;
     else if (a === '--target') args.target = argv[++i];
+    else if (a === '--env') args.env = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
     else if (a === '--before') args.before = argv[++i];
@@ -351,16 +386,22 @@ function main() {
     // Structural gate: the envelope must be a well-formed intent-proof-v1 document first.
     const structure = validateProof(proof);
     const valid = structure.valid && hashMatch && semanticMatch && guaranteesMatch && neverMatch;
-    const result = { schema: 'intent-verify-v1', proof: proofPath, source: srcPath, valid, checks: { wellFormed: structure.valid, hashMatch, semanticMatch, guaranteesMatch, neverMatch }, structureErrors: structure.errors };
-    if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(valid ? 0 : 1); return; }
-    console.log(`thunder verify ${basename(proofPath)}: ${valid ? 'VALID' : 'FAILED'} (source ${basename(srcPath)})`);
+    // Freshness: even if the intent still matches, the proof is STALE if the implementation,
+    // dependencies, or compiler moved since it was generated. A stale proof must not read green.
+    const staleReasons = valid ? stalenessReasons(proof.freshness, dirname(srcPath) || '.') : [];
+    const stale = staleReasons.length > 0;
+    const status = !valid ? 'FAILED' : stale ? 'STALE' : 'VALID';
+    const result = { schema: 'intent-verify-v1', proof: proofPath, source: srcPath, valid, stale, status, staleReasons, checks: { wellFormed: structure.valid, hashMatch, semanticMatch, guaranteesMatch, neverMatch }, structureErrors: structure.errors };
+    if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(valid && !stale ? 0 : 1); return; }
+    console.log(`thunder verify ${basename(proofPath)}: ${status} (source ${basename(srcPath)})`);
     if (!structure.valid) { console.log(`  X proof is not a well-formed intent-proof-v1 document:`); for (const e of structure.errors) console.log(`      ${e.path || '(root)'}: ${e.message}`); }
     if (!hashMatch) console.log('  X source hash does not match , the source has changed since the proof was generated (drift or tampering).');
     if (!semanticMatch) console.log('  X the proof claims a different semantic result than the source produces now.');
     if (!guaranteesMatch) console.log('  X guarantee count differs from the proof.');
     if (!neverMatch) console.log('  X never-rule count differs from the proof.');
-    if (valid) console.log(`  ok proof matches source (hash + ${(proof.guarantees || []).length} guarantee(s), ${(proof.neverRules || []).length} never-rule(s)).`);
-    process.exit(valid ? 0 : 1);
+    if (stale) { console.log('  ! proof is STALE , the intent still matches, but the world moved since it was generated:'); for (const r of staleReasons) console.log(`      ${r}`); console.log('    regenerate: thunder prove ' + basename(srcPath)); }
+    if (valid && !stale) console.log(`  ok proof matches source and is fresh (hash + ${(proof.guarantees || []).length} guarantee(s), ${(proof.neverRules || []).length} never-rule(s)).`);
+    process.exit(valid && !stale ? 0 : 1);
     return;
   }
 
@@ -1063,6 +1104,8 @@ test Example
     const applyStatus = (claim) => { const o = byId.get(claim.id); return o ? { ...claim, status: CLAIM_MAP[o.status], provenBy: o.provenBy || null } : claim; };
     proof.guarantees = proof.guarantees.map(applyStatus);
     proof.neverRules = proof.neverRules.map(applyStatus);
+    // Freshness tuple: what `thunder verify` recomputes to mark this proof STALE later.
+    proof.freshness = freshnessFor(file, proof, args.env);
     const proofId = `proof-${proof.sourceHash.replace('sha256:', '').slice(0, 6)}`;
     const fail = !proof.verification.semanticPassed || !tests.ok || resolved.failed > 0;
 
@@ -1083,6 +1126,8 @@ test Example
     console.log(`  Tests:         ${tests.total ? `${tests.passed}/${tests.total} passed` : 'none'}`);
     console.log(`  Claims:        ${resolved.verified} verified, ${resolved.declared} declared, ${resolved.unverified} UNVERIFIED${resolved.failed ? `, ${resolved.failed} FAILED` : ''}  (of ${resolved.obligations.length})`);
     console.log(`  Proof status:  ${String(proof.proofStatus).toUpperCase()}${(resolved.unverified || resolved.failed) ? '  (not fully proven)' : ''}`);
+    const fr = proof.freshness;
+    console.log(`  Bound to:      commit ${fr.implementation ? fr.implementation.slice(0, 7) : 'n/a'}${fr.dependencies ? ` · deps ${fr.dependencies.hash.replace('sha256:', '').slice(0, 7)} (${fr.dependencies.file})` : ''}${fr.environment ? ` · env ${fr.environment}` : ''}`);
     const problems = resolved.obligations.filter((o) => o.status === 'unverified' || o.status === 'failed');
     if (problems.length) {
       console.log('');

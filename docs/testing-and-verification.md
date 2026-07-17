@@ -130,6 +130,16 @@ never expose payment token in logs
 
 A proof is valid only for a specific combination of intent, implementation, dependencies, and environment. When any of those change, the proof becomes `STALE` and must never keep displaying an old green status.
 
+This is supported today. `thunder prove` records a freshness tuple (intent hash, compiler version, git commit, dependency-lockfile hash, environment), and `thunder verify` recomputes it: if the intent still matches but the implementation, dependencies, or compiler moved, the proof reads **STALE** (exit 1) with the reason, rather than a false green.
+
+```text
+$ thunder verify CreateInvoice.thunder-proof.json CreateInvoice.thunder
+thunder verify CreateInvoice.thunder-proof.json: STALE (source CreateInvoice.thunder)
+  ! proof is STALE , the intent still matches, but the world moved since it was generated:
+      implementation moved: proof at 0000000, now 3f08713
+    regenerate: thunder prove CreateInvoice.thunder
+```
+
 ## Independent verification
 
 The same agent must not write the feature, write the tests, claim they passed, approve the result, and generate the proof.
