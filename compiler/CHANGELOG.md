@@ -3,6 +3,24 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.8
+
+The testing and verification release. Additive; no breaking changes.
+
+- **Rename to ThunderLang.** Package is `@skillstech/thunderlang`; the CLI binary is `thunder`
+  (with `intent` kept as a legacy alias). `.thunder` is the canonical source extension; `.tl` and
+  `.intent` are accepted. The Intent Graph and Intent-Oriented Programming vocabulary are retained.
+- **`thunder prove`** emits an `intent-proof-v1` artifact with honest per-claim verdicts
+  (verified / failed / declared / needs_verification, with `provenBy`). An unverified claim never
+  reads as proven.
+- **`thunder test --contracts [--strict]`** derives an obligation from every `guarantee` and
+  `never`, resolved against the specific test that verifies it. `--strict` fails CI on any unverified.
+- **Verification classification**: `verify by assertion|static|runtime|evidence|tool|approval|formal`.
+- **Stable IDs**: explicit `id INV-G-001` on guarantees / never-rules (slug fallback).
+- **Proof freshness**: the proof records intent hash, compiler, git commit, dependency-lockfile hash,
+  and environment; `thunder verify` marks a proof STALE when the implementation, dependencies, or
+  compiler move since it was generated.
+
 ## 0.1.6
 
 The agent-conformance release (skills on intents + 12-factor scoring). Additive; no breaking
