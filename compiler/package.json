@@ -1,6 +1,6 @@
 {
   "name": "@skillstech/thunderlang",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Deterministic ThunderLang compiler, CLI, and Language Server. No AI required. Turns .intent files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
   "type": "module",
   "main": "./src/index.mjs",
