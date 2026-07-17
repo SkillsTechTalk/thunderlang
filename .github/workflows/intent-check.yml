@@ -45,6 +45,11 @@ jobs:
       - name: format check
         run: npm run fmt:check
 
+      # The CJS build (used by the package's `require` exports) needs esbuild, the compiler's
+      # only devDependency; install it deterministically before packing.
+      - name: install compiler build deps
+        run: npm --prefix compiler ci
+
       # The published tarball installs clean and its main API, /core subpath, and CLI all
       # work from the installed package (catches broken exports maps / files lists / barrels).
       - name: package smoke test
