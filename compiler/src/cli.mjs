@@ -972,6 +972,65 @@ test Example
     return;
   }
 
+  // PROVE: run the tests, evaluate guarantee / prohibition obligations, and emit a durable
+  // intent-proof-v1 artifact with honest statuses. Unverified claims never read as passed.
+  // `thunder prove <file> [--out <dir>] [--json]`.
+  if (cmd === 'prove') {
+    if (!file || !existsSync(file)) { console.error('usage: thunder prove <file> [--out <dir>] [--json]'); process.exit(2); return; }
+    const source = readFileSync(file, 'utf8');
+    const ast = parseIntent(source);
+    const diagnostics = semanticDiagnostics(ast);
+    const tests = runTests(ast);
+    const proof = buildProof(ast, {
+      sourceFile: basename(file),
+      sourceHash: sha256(source),
+      targetsRequested: ast.targets || [],
+      targetsGenerated: [],
+      diagnostics,
+      generatedAt: new Date().toISOString(),
+    });
+    const proofId = `proof-${proof.sourceHash.replace('sha256:', '').slice(0, 6)}`;
+
+    if (args.json) {
+      console.log(JSON.stringify({ proofId, ...proof, tests }, null, 2));
+      process.exit(proof.verification.semanticPassed && tests.ok ? 0 : 1);
+      return;
+    }
+
+    const gTotal = proof.guarantees.length;
+    const gUnver = proof.guarantees.filter((g) => g.status === 'needs_verification').length;
+    const nTotal = proof.neverRules.length;
+    const nUnver = proof.neverRules.filter((n) => n.status === 'needs_verification').length;
+    const fail = !proof.verification.semanticPassed || !tests.ok;
+
+    console.log(`Proof created: ${proofId}`);
+    console.log('');
+    console.log(`  Intent:        ${proof.missionName || stripSourceExt(basename(file))}`);
+    console.log(`  Intent hash:   ${proof.sourceHash}`);
+    console.log(`  Compiler:      ThunderLang ${proof.compilerVersion}`);
+    console.log(`  Generated:     ${proof.generatedAt}`);
+    console.log(`  Syntax:        ${proof.verification.syntaxPassed ? 'PASS' : 'FAIL'}`);
+    console.log(`  Semantics:     ${proof.verification.semanticPassed ? 'PASS' : 'FAIL'}`);
+    console.log(`  Tests:         ${tests.total ? `${tests.passed}/${tests.total} passed` : 'none'}`);
+    console.log(`  Guarantees:    ${gTotal - gUnver}/${gTotal} carry a verification${gUnver ? `  (${gUnver} UNVERIFIED)` : ''}`);
+    console.log(`  Prohibitions:  ${nTotal - nUnver}/${nTotal} carry a verification${nUnver ? `  (${nUnver} UNVERIFIED)` : ''}`);
+    console.log(`  Proof status:  ${String(proof.proofStatus).toUpperCase()}${(gUnver || nUnver) ? '  (has unverified claims)' : ''}`);
+    if (gUnver || nUnver) {
+      console.log('');
+      console.log('  UNVERIFIED (this is where drift hides , an unverified claim never counts as proven):');
+      for (const g of proof.guarantees.filter((x) => x.status === 'needs_verification')) console.log(`    - guarantee ${g.id}: ${g.text}`);
+      for (const n of proof.neverRules.filter((x) => x.status === 'needs_verification')) console.log(`    - never ${n.id}: ${n.text}`);
+    }
+    const outName = `${slug(ast.mission || stripSourceExt(basename(file)))}.thunder-proof.json`;
+    const outDir = args.out && args.out !== '.intent' ? args.out : dirname(file);
+    const outPath = join(outDir, outName);
+    writeFileSync(outPath, JSON.stringify(proof, null, 2));
+    console.log('');
+    console.log(`  wrote ${relative(process.cwd(), outPath)}`);
+    process.exit(fail ? 1 : 0);
+    return;
+  }
+
   // Intent Runtime: SIMULATE a lifecycle against a sequence of events.
   if (cmd === 'simulate') {
     const ast = parseIntent(readFileSync(file, 'utf8'));
