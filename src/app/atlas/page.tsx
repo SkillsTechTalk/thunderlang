@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { PageHero, Section, DraftNote, Pill } from "@/components/ui";
+import { PageHero, Section, SectionHeading, DraftNote, Pill } from "@/components/ui";
 import { IntentCode } from "@/components/IntentCode";
+import { AtlasMap } from "@/components/AtlasMap";
 import { pageMeta } from "@/lib/seo";
 import atlas from "@/data/atlas.json";
 
@@ -40,6 +41,17 @@ export default function AtlasPage() {
           then make it yours.
         </DraftNote>
       </PageHero>
+
+      <Section>
+        <SectionHeading
+          eyebrow="The whole map"
+          title="See every project as a navigable tree of intent."
+          intro="One map of all missions, generated from the Intent Graph. Expand a project to read what its functions do, and click any mission to open its lifted intent. Color marks inference confidence, not proof, these are unverified drafts."
+        />
+        <div className="mt-8">
+          <AtlasMap projects={projects} totals={totals} />
+        </div>
+      </Section>
 
       {projects.map((p) => (
         <Section key={`${p.name}-${p.path}`}>
