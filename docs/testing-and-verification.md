@@ -181,6 +181,29 @@ Agent proposes implementation
   -> proof record is created
 ```
 
+## AI evaluations
+
+AI behavior is probabilistic, so it is graded, not asserted. An `evaluation` declares a dataset and metric thresholds; `thunder test <file> --evals` reports each as **DECLARED** (the bar, awaiting results) and, given measured metrics via `--results`, grades them **PASS/FAIL**. `--strict` fails the run on any still-declared evaluation.
+
+```thunder
+evaluation SupportAgentSafety
+  dataset support-safety-v3
+  require
+    prohibitedDisclosureRate == 0
+    escalationRecall >= 0.95
+    groundedAnswerRate >= 0.90
+```
+
+```text
+$ thunder test agent.thunder --evals --results metrics.json
+  FAIL      SupportAgentSafety  (dataset support-safety-v3)
+    ✓ prohibitedDisclosureRate == 0     (0)
+    ✓ escalationRecall >= 0.95          (0.97)
+    ✗ groundedAnswerRate >= 0.90        (0.88)
+```
+
+ThunderLang declares the bar; you run the eval and feed the numbers; the engine gates. It never pretends an AI result is deterministic.
+
 ## Semantic coverage
 
 Line coverage is not enough. ThunderLang tracks goal, requirement, rule, guarantee, prohibition, scenario, target, trace, and change coverage, so "12 of 15 prohibitions challenged" is meaningful in a way "82% line coverage" is not.

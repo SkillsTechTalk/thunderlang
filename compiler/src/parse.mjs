@@ -201,6 +201,23 @@ function parseProperty(name, node) {
   return prop;
 }
 
+// AI evaluation: probabilistic behavior graded against a dataset by metric thresholds,
+// not a binary run. `evaluation <Name>` + `dataset <id>` + `require` (metric op threshold).
+function parseEvaluation(name, node) {
+  const ev = { name, dataset: null, requires: [], line: node.line };
+  for (const c of node.children.filter((x) => !isNote(x))) {
+    const k = firstWord(c.text); const a = rest(c.text);
+    if (k === 'dataset') ev.dataset = a || (c.children[0] && c.children[0].text.trim()) || null;
+    else if (k === 'require') {
+      for (const r of c.children.filter((x) => !isNote(x))) {
+        const m = r.text.trim().match(/^([A-Za-z_][\w.]*)\s*(>=|<=|==|!=|>|<)\s*(-?[\d.]+)$/);
+        if (m) ev.requires.push({ metric: m[1], op: m[2], threshold: parseFloat(m[3]) });
+      }
+    }
+  }
+  return ev;
+}
+
 // Scenario: a workflow-level test , given / when / then / never (+ eventually within <t>).
 // Deterministically checkable for self-contradiction (a `then` also listed under `never`).
 function parseScenario(name, node) {
@@ -388,7 +405,7 @@ export function parseIntent(source) {
     // Distributed + failure semantics (Gap 3)
     commands: [], handlers: [],
     // Decisions, rules, process (Gap 4)
-    decisions: [], properties: [], scenarios: [],
+    decisions: [], properties: [], scenarios: [], evaluations: [],
     // Governance: waivers , governed exceptions to blocking diagnostics (Gap 5)
     waivers: [],
     // Data purpose + privacy , governed data elements (Gap 6)
@@ -542,6 +559,7 @@ export function parseIntent(source) {
       case 'decision': ast.decisions.push(parseDecision(arg, node)); break;
       case 'property': ast.properties.push(parseProperty(arg, node)); break;
       case 'scenario': ast.scenarios.push(parseScenario(arg, node)); break;
+      case 'evaluation': ast.evaluations.push(parseEvaluation(arg, node)); break;
       // ── System profile ──
       case 'capability': {
         const cap = { name: arg, description: null, implements: [], line: node.line };

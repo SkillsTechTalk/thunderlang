@@ -209,6 +209,8 @@ function parseArgs(argv) {
     else if (a === '--scenarios') args.scenarios = true;
     else if (a === '--mutate') args.mutate = true;
     else if (a === '--safe') args.safe = true;
+    else if (a === '--evals') args.evals = true;
+    else if (a === '--results') args.results = argv[++i];
     else if (a === '--cases') args.cases = argv[++i];
     else if (a === '--seed') args.seed = argv[++i];
     else if (a === '--ir') args.ir = argv[++i];
@@ -1213,6 +1215,45 @@ test Example
         else console.log(`  DECLARED  ${r.scenario}  (${r.given} given, ${r.then} then, ${r.never} never) , needs runtime evidence`);
       }
       process.exit(failed ? 1 : 0);
+      return;
+    }
+
+    // AI evaluations: probabilistic behavior graded against a dataset by metric thresholds.
+    // Declare the bar in ThunderLang; feed measured metrics via --results to gate on them.
+    // `thunder test <file> --evals [--results <json|path>] [--strict]`.
+    if (args.evals) {
+      let results = null;
+      if (args.results) {
+        try { results = existsSync(args.results) ? JSON.parse(readFileSync(args.results, 'utf8')) : JSON.parse(args.results); }
+        catch { console.error('thunder test --evals: --results must be a JSON file path or inline JSON of {metric: value}'); process.exit(2); return; }
+      }
+      const cmp = { '>=': (a, b) => a >= b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '<': (a, b) => a < b, '==': (a, b) => a === b, '!=': (a, b) => a !== b };
+      const evals = (ast.evaluations || []).map((ev) => {
+        if (!results) return { name: ev.name, dataset: ev.dataset, status: 'declared', requires: ev.requires };
+        const checks = ev.requires.map((r) => {
+          const have = results[r.metric];
+          if (have === undefined) return { ...r, actual: null, pass: false, missing: true };
+          return { ...r, actual: Number(have), pass: cmp[r.op](Number(have), r.threshold) };
+        });
+        return { name: ev.name, dataset: ev.dataset, status: checks.every((c) => c.pass) ? 'passed' : 'failed', checks };
+      });
+      const failed = evals.filter((e) => e.status === 'failed').length;
+      const declared = evals.filter((e) => e.status === 'declared').length;
+      const bad = failed > 0 || (args.strict && declared > 0);
+      const rep = { schema: 'thunder-evals-v1', mission: ast.mission, file: basename(file), total: evals.length, passed: evals.filter((e) => e.status === 'passed').length, declared, failed, results: evals };
+      if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
+      if (!rep.total) { console.log(`thunder test ${basename(file)} --evals: no evaluation blocks found.`); return; }
+      console.log(`thunder test ${basename(file)} --evals: ${rep.total} evaluation(s)${results ? `, ${rep.passed} passed${failed ? `, ${failed} failed` : ''}` : ' (declared , provide --results to grade)'}`);
+      for (const e of evals) {
+        const label = e.status === 'passed' ? 'PASS' : e.status === 'failed' ? 'FAIL' : 'DECLARED';
+        console.log(`  ${label.padEnd(9)} ${e.name}${e.dataset ? `  (dataset ${e.dataset})` : ''}`);
+        for (const r of (e.checks || e.requires)) {
+          const mark = e.checks ? (r.pass ? '✓' : '✗') : '·';
+          const actual = e.checks ? (r.missing ? '  (metric not in results)' : `  (${r.actual})`) : '';
+          console.log(`    ${mark} ${r.metric} ${r.op} ${r.threshold}${actual}`);
+        }
+      }
+      process.exit(bad ? 1 : 0);
       return;
     }
 
