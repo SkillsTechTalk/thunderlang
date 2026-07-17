@@ -87,7 +87,7 @@ Workflows across components (`given` / `when` / `then` / `never`), the ThunderLa
 
 ## Verification is not one thing
 
-Not every guarantee is a simple assertion. ThunderLang classifies how a claim is verified:
+Not every guarantee is a simple assertion. ThunderLang classifies how a claim is verified. The classified `verify by <kind>` form is supported today, and the kind flows through to `thunder prove` and `thunder test --contracts`:
 
 | Type | Used for |
 |---|---|

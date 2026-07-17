@@ -494,11 +494,13 @@ export function buildProof(ast, { sourceFile, sourceHash, targetsRequested, targ
       id: g.id, text: g.statement,
       status: g.verify.length > 0 || verifiedText ? 'planned' : 'needs_verification',
       evidence: g.verify,
+      verifications: g.verifications || [],
     })),
     neverRules: ast.neverRules.map((n) => ({
       id: n.id, text: n.statement,
       status: n.verify.length > 0 ? 'planned' : 'needs_verification',
       evidence: n.verify,
+      verifications: n.verifications || [],
     })),
     errors: (ast.errors || []).map((e) => ({ name: e.name })),
     examples: (ast.examples || []).map((ex) => ({ given: ex.given, expect: ex.expect })),

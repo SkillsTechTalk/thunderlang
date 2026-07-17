@@ -971,7 +971,8 @@ test Example
       const build = (kind, o) => {
         const hasVerify = (o.verify || []).length > 0;
         const status = !hasVerify ? 'unverified' : testsFailed ? 'failed' : 'verified';
-        return { kind, id: o.id, text: o.statement, status, verify: o.verify || [], declaredOnly: hasVerify && t.total === 0 };
+        const kinds = [...new Set((o.verifications || []).map((v) => v.kind).filter((k) => k && k !== 'unclassified'))];
+        return { kind, id: o.id, text: o.statement, status, verify: o.verify || [], kinds, declaredOnly: hasVerify && t.total === 0 };
       };
       const obligations = [
         ...ast.guarantees.map((g) => build('guarantee', g)),
@@ -988,8 +989,9 @@ test Example
       for (const o of obligations) {
         const label = o.status === 'verified' ? 'PASS' : o.status === 'failed' ? 'FAIL' : 'UNVERIFIED';
         const via = o.verify.length ? `  via ${o.verify.join(', ')}` : '  (nothing verifies this)';
+        const by = o.kinds.length ? `  by ${o.kinds.join('+')}` : '';
         const note = o.declaredOnly ? '  [declared, runs in target mode]' : '';
-        console.log(`  ${label.padEnd(10)} ${o.kind} ${o.id}: ${o.text}${via}${note}`);
+        console.log(`  ${label.padEnd(10)} ${o.kind} ${o.id}: ${o.text}${by}${via}${note}`);
       }
       if (args.strict && rep.unverified) console.log(`\n  strict: ${rep.unverified} unverified obligation(s) , run fails until every claim carries a verification.`);
       process.exit(bad ? 1 : 0);

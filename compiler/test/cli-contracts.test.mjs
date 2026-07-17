@@ -39,3 +39,20 @@ test('--strict fails the run when any obligation is unverified', () => {
   const res = run(write('c.thunder', SRC), ['--strict']);
   assert.equal(res.status, 1, 'strict mode fails on unverified obligations');
 });
+
+test('verify by <kind> classifies how a claim is verified', () => {
+  const file = write('classified.thunder', `mission Billing
+guarantee total is nonnegative
+  verify by assertion
+    total >= 0
+never expose token
+  verify by tool
+    securityScan below Critical
+`);
+  const out = JSON.parse(run(file, ['--json']).stdout);
+  const g = out.obligations.find((o) => o.kind === 'guarantee');
+  const n = out.obligations.find((o) => o.kind === 'prohibition');
+  assert.deepEqual(g.kinds, ['assertion']);
+  assert.deepEqual(n.kinds, ['tool']);
+  assert.equal(out.unverified, 0, 'a classified verification counts as a declared verification');
+});

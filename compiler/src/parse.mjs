@@ -289,10 +289,15 @@ function parseHandler(trigger, node) {
   };
 }
 
+// How a claim is verified (the six kinds of verification). Assertion = executable check;
+// static = types/deps/architecture; runtime = logs/events/traces; evidence = recorded proof;
+// tool = external scanner/CI; approval = human judgment; formal = mathematical proof.
+export const VERIFY_KINDS = new Set(['assertion', 'static', 'runtime', 'evidence', 'tool', 'approval', 'formal']);
+
 function upsertRule(list, statement, line) {
   const id = slug(statement);
   let r = list.find((x) => x.id === id);
-  if (!r) { r = { id, statement, because: null, verify: [], notes: [], line }; list.push(r); }
+  if (!r) { r = { id, statement, because: null, verify: [], verifications: [], notes: [], line }; list.push(r); }
   return r;
 }
 
@@ -300,7 +305,21 @@ function applyDetail(rule, node) {
   for (const c of node.children) {
     const kw = firstWord(c.text);
     if (kw === 'because') rule.because = rest(c.text) || (c.children[0] && c.children[0].text) || null;
-    else if (kw === 'verify') rule.verify.push(rest(c.text) || (c.children[0] && c.children[0].text) || '');
+    else if (kw === 'verify') {
+      const a = rest(c.text);
+      const m = a && a.match(/^by\s+(\w+)/i);
+      if (m) {
+        // Classified: `verify by <kind>` with the details as child lines.
+        const kind = m[1].toLowerCase();
+        const details = (c.children || []).filter((x) => !isNote(x)).map((x) => x.text.trim()).filter(Boolean);
+        rule.verifications.push({ kind: VERIFY_KINDS.has(kind) ? kind : 'unknown', declared: kind, details });
+        rule.verify.push(details.length ? `${kind}: ${details.join('; ')}` : `by ${kind}`);
+      } else {
+        // Legacy: `verify <text>` , an unclassified reference to a check.
+        const v = a || (c.children[0] && c.children[0].text) || '';
+        if (v) { rule.verify.push(v); rule.verifications.push({ kind: 'unclassified', declared: null, details: [v] }); }
+      }
+    }
     // Explicit stable id (e.g. `id INV-G-001`): survives renames and moved files so semantic
     // diffs, traceability, and durable proof stay stable. Falls back to the slug when absent.
     else if (kw === 'id') { const v = rest(c.text) || (c.children[0] && c.children[0].text); if (v) { rule.id = v; rule.stableId = v; } }
