@@ -7,7 +7,7 @@
 //
 //   thunder check   <file>                      parse + semantic diagnostics (exit 1 on error)
 //   thunder graph   <file> [--out .intent]      contract-graph.json + architecture-graph.json
-//   intent proof   <file> [--out .intent]      .intent-proof.json
+//   intent proof   <file> [--out .intent]      .thunder-proof.json
 //   intent build   <file> [--out .intent] [--no-ai]   all artifacts + docs + mermaid + testplan
 //
 // --no-ai is the default and only mode today; the flag is accepted for forward-compatibility.
@@ -284,12 +284,23 @@ function printDiagnostics(diags) {
   return errors;
 }
 
-const HELP = `thunder , the deterministic ThunderLang compiler (no AI required)
+const HELP = `thunder , the ThunderLang compiler + engine (deterministic, no AI required)
 
-usage: intent <command> <file> [options]
+usage: thunder <command> <file> [options]
+       thunder mission <Name> <command>     run any command on a mission by name
+
+Everyday
+  new [Name]               scaffold a runnable starter mission (Name.thunder)   [alias: init]
+  mission <Name> [cmd]     resolve a mission by name and run a command on it (list | <Name> | <Name> <cmd>)
+  check <file|dir>         parse + lint + explainable diagnostics
+  run <file> --inputs '<json>'         execute the decision(s) deterministically
+  test <file> [--contracts | --properties | --scenarios | --mutate | --changed | --coverage] [--strict]
+  prove <file>             emit an intent-proof-v1 artifact (honest verdicts + freshness)
+  verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
+  build <file>             generate docs, contract graph, test plan, targets
 
 Author & check
-  init [Name]              scaffold a runnable starter mission (Name.intent)
+  init [Name]              scaffold a runnable starter mission (Name.thunder)
   draft --brief <json|->   scaffold a rigorous intent draft + gap checklist from a brief
   check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
   report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
@@ -308,9 +319,9 @@ Author & check
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
   lsp                      start the Language Server (LSP over stdio, for editors)
   mcp                      start the MCP server (for AI coding agents; stdio)
-  build <file>              docs, contract graph, test plan, and .intent-proof.json
+  build <file>              docs, contract graph, test plan, and .thunder-proof.json
   graph <file>              the canonical Intent Graph (intent-graph-v1)
-  proof <file>              the .intent-proof.json artifact
+  proof <file>              the .thunder-proof.json artifact
   proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
   schema                    emit the canonical graph schema + diagnostic catalog
@@ -331,7 +342,7 @@ Execute (no AI, no generated code)
 Interop
   export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css|playwright>   render to a standard format
   import <file> [--format dmn|bpmn] [--json]                 lift DMN/BPMN into intent
-  source <file|graph.json>                                   regenerate .intent from a graph
+  source <file|graph.json>                                   regenerate .thunder from a graph
   migrate <graph.json> [--to <version>]                      upgrade a persisted graph
   validate <graph.json> [--json]                             check a graph is canonical (anti-fork)
 
@@ -374,7 +385,7 @@ function main() {
     console.log(JSON.stringify(intentProofJsonSchema(), null, 2));
     return;
   }
-  // Verify a .intent-proof.json against its source: the source hash still matches (no
+  // Verify a .thunder-proof.json against its source: the source hash still matches (no
   // drift / tampering) and the proof's claims re-derive from the source.
   if (cmd === 'verify') {
     const proofPath = args._[0];
@@ -659,7 +670,7 @@ function main() {
   }
 
   // Scaffold a runnable starter mission (deterministic, no AI). `thunder init [Name]`.
-  if (cmd === 'init') {
+  if (cmd === 'init' || cmd === 'new') {
     const name = stripSourceExt(file || 'Mission');
     const target = join(args.out && args.out !== '.intent' ? args.out : '.', `${name}.thunder`);
     if (existsSync(target) && !args.force) {
@@ -700,7 +711,7 @@ test Example
 `;
     if (target.includes('/')) mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, starter);
-    console.log(`thunder init: wrote ${target}`);
+    console.log(`thunder ${cmd}: wrote ${target}`);
     console.log(`  next: thunder check ${target}  |  thunder run ${target} --inputs '{"age":20}'  |  thunder test ${target}`);
     return;
   }
@@ -1876,7 +1887,7 @@ test Example
       targetsGenerated: generated.map((p) => p.replace(process.cwd() + '/', '')),
       diagnostics,
     });
-    generated.push(writeJson(outDir, '.intent-proof.json', proof));
+    generated.push(writeJson(outDir, '.thunder-proof.json', proof));
   }
   if (!['graph', 'proof', 'build'].includes(cmd)) {
     console.error(`unknown command: ${cmd}`);
