@@ -3,6 +3,24 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.7
+
+The rename + relicense release. **IntentLang is now ThunderLang.** No breaking API changes.
+
+### Changed
+
+- **Package renamed `@skillstech/intentlang` → `@skillstech/thunderlang`.** The old name remains
+  installable so existing consumers do not break; migrate at your convenience.
+- **Relicensed MIT → Apache-2.0** (adds an explicit patent grant + trademark clause).
+- **CLI:** added `thunderlang` and `tl` command aliases. The `intent` command is unchanged.
+
+### Unchanged (only the language *name* changed)
+
+- The `.intent` file format, the `Intent Graph` (`intent-graph-v1`), Intent-Oriented Programming,
+  and all `intent-*-v1` schema ids.
+- The `./core` universal entry point and the `IntentSeed` shape (embedders bind against these).
+- `liftSource` now defaults its optional `seeds` param (behavior-identical).
+
 ## 0.1.6
 
 The agent-conformance release (skills on intents + 12-factor scoring). Additive; no breaking
