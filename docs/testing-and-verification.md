@@ -162,6 +162,19 @@ Line coverage is not enough. ThunderLang tracks goal, requirement, rule, guarant
 
 ---
 
+## Change-impact selection
+
+`thunder test --changed [<range>]` is supported today. It does not merely inspect modified files: it uses the Intent Graph to select the changed intents plus any intent that shares an event, service, or API symbol with a changed one, then runs their tests. A change to a producer selects its consumers, even though their files were untouched.
+
+```text
+$ thunder test --changed
+thunder test --changed HEAD..working-tree: 1 changed, 2 intent(s) selected
+  PASS   CreateInvoice.thunder         [changed]
+  PASS   portal/CreateInvoice.thunder  [impacted via system CreateInvoice]
+```
+
+Future selection will also follow the call graph, data dependencies, and historical failure patterns.
+
 ## Build order
 
 **Build first (toward 1.0):** stable IDs; deterministic decision execution *(done)*; example tests *(done)*; automatic guarantee/`never` obligations *(partial, surfaced by `prove`)*; fixtures; PASS/FAIL/UNVERIFIED/STALE states *(partial)*; JSON evidence output *(done for `prove`/`test`)*; TypeScript target adapter; intent coverage *(partial)*; OpenThunder Change Ledger integration; proof invalidation on change; a reference conformance suite.

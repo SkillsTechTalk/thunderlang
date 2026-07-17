@@ -202,6 +202,7 @@ function parseArgs(argv) {
     else if (a === '--all') args.all = true;
     else if (a === '--contracts') args.contracts = true;
     else if (a === '--strict') args.strict = true;
+    else if (a === '--changed') args.changed = true;
     else if (a === '--ir') args.ir = argv[++i];
     else if (a === '--subject') args.subject = argv[++i];
     else if (a === '--lens') args.lens = argv[++i];
@@ -697,7 +698,7 @@ test Example
     return;
   }
 
-  if (!file && cmd !== 'draft') {
+  if (!file && cmd !== 'draft' && !(cmd === 'test' && args.changed)) {
     console.error(`thunder ${cmd}: missing a file argument. Run "intent help" for usage.`);
     process.exit(2);
   }
@@ -1037,6 +1038,71 @@ test Example
 
   // Self-verifying intent: run the `test` blocks in a .intent file (decisions + lifecycles).
   if (cmd === 'test') {
+    // Change-impact selection: run the tests for what a diff actually affects, using the Intent
+    // Graph (not just the modified files). Selects changed intents plus any intent that shares an
+    // event / service / api symbol with a changed one. `thunder test --changed [<range>]`.
+    if (args.changed) {
+      const gitc = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }); } catch { return null; } };
+      const top = gitc('rev-parse --show-toplevel');
+      if (top === null) { console.error('thunder test --changed: not a git repository'); process.exit(2); return; }
+      const root = top.trim();
+      const range = file || '';
+      let base, head;
+      if (range.includes('..')) { [base, head] = range.split('..'); head = head || 'HEAD'; }
+      else if (range) { base = range; head = null; }
+      else { base = 'HEAD'; head = null; }
+      const diffSpec = head ? `${base} ${head}` : base;
+      const changed = (gitc(`diff --name-only ${diffSpec} -- "*.thunder" "*.tl" "*.intent"`) || '').split('\n').map((s) => s.trim()).filter(Boolean);
+      const label = range || `${base}..working-tree`;
+      if (!changed.length) { console.log(`thunder test --changed ${label}: no source files changed`); return; }
+
+      const symbolsOf = (ast) => {
+        const s = new Set();
+        if (!ast) return s;
+        if (ast.mission) s.add(`system:${ast.mission}`);
+        for (const e of ast.events || []) s.add(`event:${e.name}`);
+        for (const sv of ast.services || []) { s.add(`service:${sv.name}`); (sv.publishes || []).forEach((p) => s.add(`event:${p}`)); (sv.consumes || []).forEach((p) => s.add(`event:${p}`)); }
+        for (const ap of ast.apis || []) s.add(`api:${ap.name}`);
+        return s;
+      };
+      const rel = (p) => relative(root, p);
+      const astAt = (relpath) => { const abs = join(root, relpath); if (!existsSync(abs)) return null; try { return parseIntent(readFileSync(abs, 'utf8')); } catch { return null; } };
+
+      // Seed symbols from the changed intents, then find every repo intent that shares one.
+      const changedAsts = new Map(changed.map((p) => [p, astAt(p)]));
+      const seed = new Set();
+      for (const ast of changedAsts.values()) for (const sym of symbolsOf(ast)) seed.add(sym);
+      const selected = new Map();
+      for (const p of changed) selected.set(p, 'changed');
+      for (const abs of collectIntents(root)) {
+        const p = rel(abs);
+        if (selected.has(p)) continue;
+        const shared = [...symbolsOf(parseIntent(readFileSync(abs, 'utf8')))].filter((x) => seed.has(x));
+        if (shared.length) selected.set(p, `impacted via ${shared[0].replace(':', ' ')}`);
+      }
+
+      let anyFail = false;
+      const results = [];
+      for (const [p, reason] of selected) {
+        const ast = changedAsts.get(p) || astAt(p);
+        if (!ast) { results.push({ file: p, reason, deleted: true }); continue; }
+        const r = runTests(ast);
+        const res = resolveObligations(ast);
+        const testsOk = r.total === 0 || r.ok;
+        if (!testsOk || res.failed > 0) anyFail = true;
+        results.push({ file: p, reason, tests: { passed: r.passed, total: r.total, ok: testsOk }, unverified: res.unverified, failedClaims: res.failed });
+      }
+      if (args.json) { console.log(JSON.stringify({ schema: 'thunder-changed-v1', range: label, changed, selected: results }, null, 2)); process.exit(anyFail ? 1 : 0); return; }
+      console.log(`thunder test --changed ${label}: ${changed.length} changed, ${selected.size} intent(s) selected`);
+      for (const r of results) {
+        if (r.deleted) { console.log(`  , ${r.file}  [${r.reason}, deleted]`); continue; }
+        const mark = r.tests.ok && !r.failedClaims ? 'PASS' : 'FAIL';
+        console.log(`  ${mark.padEnd(6)} ${r.file}  [${r.reason}]  tests ${r.tests.passed}/${r.tests.total}${r.unverified ? `, ${r.unverified} unverified` : ''}`);
+      }
+      process.exit(anyFail ? 1 : 0);
+      return;
+    }
+
     const ast = parseIntent(readFileSync(file, 'utf8'));
 
     // Contract-test derivation: every `guarantee` and `never` is a test obligation.
