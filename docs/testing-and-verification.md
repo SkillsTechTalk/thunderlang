@@ -70,7 +70,26 @@ Every `guarantee` and `never` is a test obligation. Developers should not rewrit
 
 ### 3. Property tests
 
-Example tests cover known cases; property tests explore many generated cases and shrink to the smallest reproducible failure.
+Example tests cover known cases; property tests explore many generated cases and shrink to the smallest reproducible failure. Supported today for decisions via `thunder test <file> --properties [--cases N] [--seed S]`:
+
+```thunder
+property AdultsWithHighScoreAreEligible
+  forAll
+    age: Integer where age >= 18 and age <= 60
+    score: Integer where score >= 70 and score <= 100
+  decide CanEnroll
+  expect
+    result == Eligible
+```
+
+```text
+$ thunder test enroll.thunder --properties
+  PASS  AdultsWithHighScoreAreEligible  (100 cases, seed 424242)
+  FAIL  EveryoneEligible  (seed 424242)
+        smallest failure: age=0, score=0  ->  result == Eligible (got NotEligible)
+```
+
+Generation is seeded (reproducible), and failures binary-shrink each input toward its bound.
 
 ### 4. Scenario tests
 

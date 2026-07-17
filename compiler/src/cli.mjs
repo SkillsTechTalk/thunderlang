@@ -51,6 +51,7 @@ import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
+import { runProperties } from './property.mjs';
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
@@ -203,6 +204,9 @@ function parseArgs(argv) {
     else if (a === '--contracts') args.contracts = true;
     else if (a === '--strict') args.strict = true;
     else if (a === '--changed') args.changed = true;
+    else if (a === '--properties') args.properties = true;
+    else if (a === '--cases') args.cases = argv[++i];
+    else if (a === '--seed') args.seed = argv[++i];
     else if (a === '--ir') args.ir = argv[++i];
     else if (a === '--subject') args.subject = argv[++i];
     else if (a === '--lens') args.lens = argv[++i];
@@ -1104,6 +1108,26 @@ test Example
     }
 
     const ast = parseIntent(readFileSync(file, 'utf8'));
+
+    // Property-based testing: generate many cases for each `property`, evaluate the decision,
+    // assert the `expect` clauses, and shrink failures. `thunder test <file> --properties`.
+    if (args.properties) {
+      const rep = runProperties(ast, { cases: args.cases ? parseInt(args.cases, 10) : 100, seed: args.seed ? parseInt(args.seed, 10) : 424242 });
+      const bad = rep.passed !== rep.total;
+      if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
+      if (!rep.total) { console.log(`thunder test ${basename(file)} --properties: no property blocks found.`); return; }
+      console.log(`thunder test ${basename(file)} --properties: ${rep.total} propert${rep.total === 1 ? 'y' : 'ies'}, ${rep.passed} passed`);
+      for (const r of rep.results) {
+        if (r.error) { console.log(`  FAIL  ${r.property} , ${r.error}`); continue; }
+        if (r.ok) { console.log(`  PASS  ${r.property}  (${r.cases} cases, seed ${r.seed})`); continue; }
+        const f = r.failure;
+        const inputs = Object.entries(f.inputs).map(([k, v]) => `${k}=${v}`).join(', ');
+        console.log(`  FAIL  ${r.property}  (seed ${r.seed})`);
+        console.log(`        smallest failure: ${inputs}  ->  ${f.expect} (got ${f.actual})`);
+      }
+      process.exit(bad ? 1 : 0);
+      return;
+    }
 
     // Contract-test derivation: every `guarantee` and `never` is a test obligation.
     // Honest resolution: no verification -> UNVERIFIED (never silently PASS); a declared
