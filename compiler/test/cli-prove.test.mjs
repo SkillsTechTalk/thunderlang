@@ -37,7 +37,7 @@ test('thunder prove reports UNVERIFIED claims honestly (never silently passes)',
   assert.equal(res.status, 0, res.stderr);
   // the never-rule has no verify -> must be surfaced as UNVERIFIED, not counted as proven
   assert.match(res.stdout, /UNVERIFIED/);
-  assert.match(res.stdout, /never .*expose payment token/);
+  assert.match(res.stdout, /prohibition .*expose payment token/);
 });
 
 test('thunder prove writes a .thunder-proof.json next to the source', () => {

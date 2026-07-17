@@ -98,6 +98,43 @@ function collectIntents(root, acc = []) {
   return acc;
 }
 
+// Resolve every guarantee/never obligation against the SPECIFIC test that verifies it.
+// Shared by `thunder test --contracts` and `thunder prove` so both agree per-claim.
+// States: verified (proven by a passing named test), failed (its test fails), declared
+// (a verification is named/classified but not runnable in-file), unverified (nothing).
+function resolveObligations(ast) {
+  const t = runTests(ast);
+  const testPass = new Map();
+  for (const res of (t.results || [])) {
+    const cur = testPass.get(res.target);
+    testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
+  }
+  const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const matchTest = (verifyText) => {
+    const v = norm(verifyText); if (!v) return null;
+    for (const [name, pass] of testPass) { const n = norm(name); if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass }; }
+    return null;
+  };
+  const build = (kind, o) => {
+    const verify = o.verify || [];
+    const kinds = [...new Set((o.verifications || []).map((v) => v.kind).filter((k) => k && k !== 'unclassified'))];
+    let status, provenBy = null;
+    if (!verify.length) status = 'unverified';
+    else {
+      let m = null;
+      for (const vt of verify) { const x = matchTest(vt); if (x) { m = x; if (!x.pass) break; } }
+      if (m) { status = m.pass ? 'verified' : 'failed'; provenBy = m.name; } else status = 'declared';
+    }
+    return { kind, id: o.id, text: o.statement, status, verify, kinds, provenBy };
+  };
+  const obligations = [
+    ...ast.guarantees.map((g) => build('guarantee', g)),
+    ...ast.neverRules.map((n) => build('prohibition', n)),
+  ];
+  const count = (s) => obligations.filter((o) => o.status === s).length;
+  return { obligations, tests: t, verified: count('verified'), declared: count('declared'), unverified: count('unverified'), failed: count('failed') };
+}
+
 function parseArgs(argv) {
   const args = { _: [], out: '.intent', noAi: false };
   for (let i = 0; i < argv.length; i++) {
@@ -966,45 +1003,11 @@ test Example
     // verification with the file's checks green -> PASS; a failing in-file check -> FAIL.
     // `--strict` also fails the run on any UNVERIFIED obligation (CI: nothing left unproven).
     if (args.contracts) {
-      const t = runTests(ast);
-      // Aggregate in-file test results by test name (a test passes only if every case passes).
-      const testPass = new Map();
-      for (const res of (t.results || [])) {
-        const cur = testPass.get(res.target);
-        testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
-      }
-      const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-      // Map a verify reference to a specific in-file test, so status is per-claim, not file-wide.
-      const matchTest = (verifyText) => {
-        const v = norm(verifyText);
-        if (!v) return null;
-        for (const [name, pass] of testPass) {
-          const n = norm(name);
-          if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass };
-        }
-        return null;
-      };
-      const build = (kind, o) => {
-        const verify = o.verify || [];
-        const kinds = [...new Set((o.verifications || []).map((v) => v.kind).filter((k) => k && k !== 'unclassified'))];
-        let status, provenBy = null;
-        if (!verify.length) status = 'unverified';
-        else {
-          let matched = null;
-          for (const vt of verify) { const m = matchTest(vt); if (m) { matched = m; if (!m.pass) break; } }
-          if (matched) { status = matched.pass ? 'verified' : 'failed'; provenBy = matched.name; }
-          else status = 'declared'; // verification named/classified, but no runnable in-file test
-        }
-        return { kind, id: o.id, text: o.statement, status, verify, kinds, provenBy };
-      };
-      const obligations = [
-        ...ast.guarantees.map((g) => build('guarantee', g)),
-        ...ast.neverRules.map((n) => build('prohibition', n)),
-      ];
-      const count = (s) => obligations.filter((o) => o.status === s).length;
+      const res = resolveObligations(ast);
+      const obligations = res.obligations;
       const rep = { schema: 'thunder-contracts-v1', mission: ast.mission, file: basename(file),
-        total: obligations.length, verified: count('verified'), declared: count('declared'),
-        unverified: count('unverified'), failed: count('failed'), obligations };
+        total: obligations.length, verified: res.verified, declared: res.declared,
+        unverified: res.unverified, failed: res.failed, obligations };
       const bad = rep.failed > 0 || (args.strict && rep.unverified > 0);
       if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
       if (!rep.total) { console.log(`thunder test ${basename(file)} --contracts: no guarantees or prohibitions declared.`); return; }
@@ -1044,7 +1047,8 @@ test Example
     const source = readFileSync(file, 'utf8');
     const ast = parseIntent(source);
     const diagnostics = semanticDiagnostics(ast);
-    const tests = runTests(ast);
+    const resolved = resolveObligations(ast);
+    const tests = resolved.tests;
     const proof = buildProof(ast, {
       sourceFile: basename(file),
       sourceHash: sha256(source),
@@ -1053,19 +1057,20 @@ test Example
       diagnostics,
       generatedAt: new Date().toISOString(),
     });
+    // Fold per-claim verdicts into the proof so it records real status, not just planned/needs_verification.
+    const CLAIM_MAP = { verified: 'verified', failed: 'failed', declared: 'planned', unverified: 'needs_verification' };
+    const byId = new Map(resolved.obligations.map((o) => [o.id, o]));
+    const applyStatus = (claim) => { const o = byId.get(claim.id); return o ? { ...claim, status: CLAIM_MAP[o.status], provenBy: o.provenBy || null } : claim; };
+    proof.guarantees = proof.guarantees.map(applyStatus);
+    proof.neverRules = proof.neverRules.map(applyStatus);
     const proofId = `proof-${proof.sourceHash.replace('sha256:', '').slice(0, 6)}`;
+    const fail = !proof.verification.semanticPassed || !tests.ok || resolved.failed > 0;
 
     if (args.json) {
       console.log(JSON.stringify({ proofId, ...proof, tests }, null, 2));
-      process.exit(proof.verification.semanticPassed && tests.ok ? 0 : 1);
+      process.exit(fail ? 1 : 0);
       return;
     }
-
-    const gTotal = proof.guarantees.length;
-    const gUnver = proof.guarantees.filter((g) => g.status === 'needs_verification').length;
-    const nTotal = proof.neverRules.length;
-    const nUnver = proof.neverRules.filter((n) => n.status === 'needs_verification').length;
-    const fail = !proof.verification.semanticPassed || !tests.ok;
 
     console.log(`Proof created: ${proofId}`);
     console.log('');
@@ -1076,14 +1081,13 @@ test Example
     console.log(`  Syntax:        ${proof.verification.syntaxPassed ? 'PASS' : 'FAIL'}`);
     console.log(`  Semantics:     ${proof.verification.semanticPassed ? 'PASS' : 'FAIL'}`);
     console.log(`  Tests:         ${tests.total ? `${tests.passed}/${tests.total} passed` : 'none'}`);
-    console.log(`  Guarantees:    ${gTotal - gUnver}/${gTotal} carry a verification${gUnver ? `  (${gUnver} UNVERIFIED)` : ''}`);
-    console.log(`  Prohibitions:  ${nTotal - nUnver}/${nTotal} carry a verification${nUnver ? `  (${nUnver} UNVERIFIED)` : ''}`);
-    console.log(`  Proof status:  ${String(proof.proofStatus).toUpperCase()}${(gUnver || nUnver) ? '  (has unverified claims)' : ''}`);
-    if (gUnver || nUnver) {
+    console.log(`  Claims:        ${resolved.verified} verified, ${resolved.declared} declared, ${resolved.unverified} UNVERIFIED${resolved.failed ? `, ${resolved.failed} FAILED` : ''}  (of ${resolved.obligations.length})`);
+    console.log(`  Proof status:  ${String(proof.proofStatus).toUpperCase()}${(resolved.unverified || resolved.failed) ? '  (not fully proven)' : ''}`);
+    const problems = resolved.obligations.filter((o) => o.status === 'unverified' || o.status === 'failed');
+    if (problems.length) {
       console.log('');
-      console.log('  UNVERIFIED (this is where drift hides , an unverified claim never counts as proven):');
-      for (const g of proof.guarantees.filter((x) => x.status === 'needs_verification')) console.log(`    - guarantee ${g.id}: ${g.text}`);
-      for (const n of proof.neverRules.filter((x) => x.status === 'needs_verification')) console.log(`    - never ${n.id}: ${n.text}`);
+      console.log('  Not proven (this is where drift hides , a claim like this never counts as proven):');
+      for (const o of problems) console.log(`    - ${o.status === 'failed' ? 'FAILED    ' : 'UNVERIFIED'} ${o.kind} ${o.id}: ${o.text}`);
     }
     const outName = `${slug(ast.mission || stripSourceExt(basename(file)))}.thunder-proof.json`;
     const outDir = args.out && args.out !== '.intent' ? args.out : dirname(file);
