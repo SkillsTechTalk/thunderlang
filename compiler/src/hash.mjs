@@ -4,8 +4,8 @@
 // in React Native (SkillsTech Mobile). Output is byte-identical to node:crypto's
 // createHash('sha256'), so every existing proof hash, ledger hash, and test stays valid.
 //
-// This is the keystone of "one compiler, five consumers": with it, `@skillstech/intentlang`
-// and `@skillstech/intentlang/core` are the same source of truth everywhere.
+// This is the keystone of "one compiler, five consumers": with it, `@skillstech/thunderlang`
+// and `@skillstech/thunderlang/core` are the same source of truth everywhere.
 
 const K = new Uint32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,

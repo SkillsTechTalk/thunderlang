@@ -37,7 +37,7 @@ export const NODE_STATUSES = [
 export function intentGraphJsonSchema() {
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    $id: `https://intentlanguage.dev/schema/${SCHEMA_VERSION}.json`,
+    $id: `https://thunderlang.dev/schema/${SCHEMA_VERSION}.json`,
     title: 'Intent Graph',
     type: 'object',
     required: ['schema', 'missionId', 'nodes', 'relationships'],
@@ -179,7 +179,7 @@ const IL_CORE_RULE_ROWS = [
 export const RULE_PHASES = ['author', 'verify'];
 export const RULE_OWNERS = ['IL', 'OT'];
 export const RULE_NAMESPACES = [
-  { prefix: 'IL-', owner: 'IL', phase: 'author', description: 'IntentLang author-time catalog (compile-time).' },
+  { prefix: 'IL-', owner: 'IL', phase: 'author', description: 'ThunderLang author-time catalog (compile-time).' },
   { prefix: 'OT-', owner: 'OT', phase: 'verify', description: 'OpenThunder verify-time rules (repo vs intent). OT-owned; OT PRs the rows.' },
 ];
 

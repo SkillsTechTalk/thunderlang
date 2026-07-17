@@ -1,4 +1,4 @@
-// IntentLang MCP server , makes IntentLang a first-class tool for AI coding agents (Claude
+// ThunderLang MCP server , makes ThunderLang a first-class tool for AI coding agents (Claude
 // Code, Cursor, ...). It speaks the Model Context Protocol over stdio (newline-delimited
 // JSON-RPC 2.0) and exposes the deterministic capabilities an agent needs to author intent,
 // check its own output, and , the keystone , verify a proposed code change against the intent
@@ -23,7 +23,7 @@ const str = { type: 'string' };
 const TOOLS = [
   {
     name: 'intent_check',
-    description: 'Run IntentLang semantic diagnostics on .intent source. Returns the diagnostics (codes, severity, messages) , the deterministic checks that catch missing verification, secrets on the bus, contradictions, and more.',
+    description: 'Run ThunderLang semantic diagnostics on .intent source. Returns the diagnostics (codes, severity, messages) , the deterministic checks that catch missing verification, secrets on the bus, contradictions, and more.',
     inputSchema: { type: 'object', required: ['source'], properties: { source: { ...str, description: 'the .intent source' } } },
     run: ({ source }) => {
       const diagnostics = semanticDiagnostics(parseIntent(String(source)));
@@ -46,7 +46,7 @@ const TOOLS = [
   },
   {
     name: 'intent_draft',
-    description: 'Turn a STRUCTURED brief into a rigorous, canonically-formatted IntentLang draft plus a review checklist of what a human must still fill in (unverified guarantees, unguarded secrets, missing goal). Use this after distilling a user request into structured fields; the draft is a proposal for human approval, never verified.',
+    description: 'Turn a STRUCTURED brief into a rigorous, canonically-formatted ThunderLang draft plus a review checklist of what a human must still fill in (unverified guarantees, unguarded secrets, missing goal). Use this after distilling a user request into structured fields; the draft is a proposal for human approval, never verified.',
     inputSchema: {
       type: 'object', required: ['brief'],
       properties: { brief: { type: 'object', description: 'fields: mission, goal, actor, problem, guarantees[], neverRules[], inputs[{name,type}], outputs[], decisions[]' } },
@@ -55,7 +55,7 @@ const TOOLS = [
   },
   {
     name: 'intent_lift',
-    description: 'Lift source code into an inferred, humble IntentLang draft (never claims verified). Covers the top languages. Use it to bootstrap intent from code you already have.',
+    description: 'Lift source code into an inferred, humble ThunderLang draft (never claims verified). Covers the top languages. Use it to bootstrap intent from code you already have.',
     inputSchema: {
       type: 'object', required: ['source'],
       properties: { source: { ...str, description: 'the source code' }, language: { ...str, description: `source language (default typescript). One of: ${SUPPORTED_LANGUAGES.join(', ')}` } },
@@ -101,7 +101,7 @@ const TOOLS = [
 
 export const MCP_TOOLS = TOOLS.map((t) => t.name);
 
-/** Start the IntentLang MCP server over the given streams (default: process stdio). */
+/** Start the ThunderLang MCP server over the given streams (default: process stdio). */
 export function startMcpServer({ readable = process.stdin, writable = process.stdout } = {}) {
   const send = (msg) => writable.write(`${JSON.stringify(msg)}\n`);
   const respond = (id, result) => send({ jsonrpc: '2.0', id, result });
@@ -111,7 +111,7 @@ export function startMcpServer({ readable = process.stdin, writable = process.st
     const { id, method, params } = msg || {};
     switch (method) {
       case 'initialize':
-        respond(id, { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: { name: 'intentlang', version: COMPILER_VERSION } });
+        respond(id, { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: { name: 'thunderlang', version: COMPILER_VERSION } });
         break;
       case 'notifications/initialized':
       case 'initialized':

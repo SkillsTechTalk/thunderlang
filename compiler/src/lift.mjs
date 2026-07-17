@@ -1,5 +1,5 @@
 // IntentLift: Code-to-Intent (deterministic, no AI). Lifts source code into an
-// INFERRED IntentLang draft. Generated intent is useful but humble: it carries
+// INFERRED ThunderLang draft. Generated intent is useful but humble: it carries
 // evidence, confidence, unknowns, and needs_review, and is never marked verified.
 //
 // Pipeline: source -> Language Adapter -> CodeFactsIR -> Inference -> LiftedIntent -> .intent text
@@ -543,7 +543,7 @@ function liftDiagnostics(lift, facts) {
 }
 
 /**
- * Lift a set of source files (a repo) into inferred IntentLang drafts, one per
+ * Lift a set of source files (a repo) into inferred ThunderLang drafts, one per
  * file that yields a mission. `files` is [{ file, source }] (the CLI reads the
  * filesystem; this core function stays pure). Returns per-mission drafts + a
  * repo-level summary matching the `intent lift --from repo --json` contract.
@@ -646,7 +646,7 @@ const LANG_EXT = {
 };
 
 /**
- * Lift source into an inferred IntentLang draft. Deterministic, no AI.
+ * Lift source into an inferred ThunderLang draft. Deterministic, no AI.
  * `seeds` (optional, OT's intent-ir-v1 nodes , see SEED_SCHEMA) make the draft reference OT's
  * EXACT node ids instead of lift's own function refs, so there is no divergent second reading.
  * Additive: with no seeds the output is byte-identical to before.

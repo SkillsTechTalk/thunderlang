@@ -1,14 +1,14 @@
 {
-  "name": "intentlang-vscode",
-  "displayName": "IntentLang",
-  "description": "Syntax highlighting and language intelligence (diagnostics, completion, hover) for IntentLang .intent files.",
+  "name": "thunderlang-vscode",
+  "displayName": "ThunderLang",
+  "description": "Syntax highlighting and language intelligence (diagnostics, completion, hover) for ThunderLang .intent files.",
   "version": "0.1.1",
   "publisher": "skillstech",
   "license": "MIT",
-  "homepage": "https://intentlanguage.dev",
+  "homepage": "https://thunderlang.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
+    "url": "git+https://github.com/SkillsTechTalk/thunderlang.git",
     "directory": "editors/vscode"
   },
   "engines": {
@@ -26,7 +26,7 @@
     "languages": [
       {
         "id": "intent",
-        "aliases": ["IntentLang", "intent"],
+        "aliases": ["ThunderLang", "intent"],
         "extensions": [".intent"],
         "configuration": "./language-configuration.json"
       }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// IntentLang CLI (MVP, deterministic). Commands: check | graph | proof | build.
+// ThunderLang CLI (MVP, deterministic). Commands: check | graph | proof | build.
 //
 // The emit stage writes the artifacts the ecosystem consumes to `.intent/<mission>/` by DEFAULT,
 // NOT `dist/` , OpenThunder's scanner excludes dist/node_modules, so proof artifacts must live in a
@@ -197,7 +197,7 @@ function printDiagnostics(diags) {
   return errors;
 }
 
-const HELP = `intent , the deterministic IntentLang compiler (no AI required)
+const HELP = `intent , the deterministic ThunderLang compiler (no AI required)
 
 usage: intent <command> <file> [options]
 
@@ -261,7 +261,7 @@ Code <-> intent
   verify-diff <intent> --after <code> [--before <code>]  gate a code change against its intent
   handoff <file>                the OpenThunder drift handoff
 
-Common options: --out <dir>, --json, --no-ai. See https://intentlanguage.dev/docs`;
+Common options: --out <dir>, --json, --no-ai. See https://thunderlang.dev/docs`;
 
 function main() {
   const [cmd, ...restArgv] = process.argv.slice(2);
@@ -558,7 +558,7 @@ function main() {
     return; // keep the process alive on stdin
   }
 
-  // MCP server (Model Context Protocol over stdio) , makes IntentLang a native tool for AI
+  // MCP server (Model Context Protocol over stdio) , makes ThunderLang a native tool for AI
   // coding agents. Long-running; no file argument. Point an MCP client at `intent mcp`.
   if (cmd === 'mcp') {
     startMcpServer();
@@ -813,7 +813,7 @@ test Example
       writeJson(join(root, '.intent'), 'ai-approvals.json', next);
       const event = makeEvent(sub === 'approve' ? 'IntentAiImplementationApproved' : 'IntentAiImplementationRejected', {
         implementationId: id, missionId: ast.mission, contractHash: contractHash(ast), implementationHash: implementationHash(region.code),
-        timestamp: at, toolVersion: 'intentlang', actorType: 'human', actorId: args.by || null, previousStatus: state.status,
+        timestamp: at, toolVersion: 'thunderlang', actorType: 'human', actorId: args.by || null, previousStatus: state.status,
         newStatus: sub === 'approve' ? 'APPROVED' : 'REJECTED',
       });
       const logPath = sinkEvent(root, event);
@@ -1039,7 +1039,7 @@ test Example
     return;
   }
 
-  // Import adapters: lift an external DMN / BPMN document back into IntentLang source.
+  // Import adapters: lift an external DMN / BPMN document back into ThunderLang source.
   if (cmd === 'import') {
     const xml = readFileSync(file, 'utf8');
     const fmt = args.format || detectFormat(xml);
@@ -1180,7 +1180,7 @@ test Example
     console.log(`  redacts fields   ${g.redactsFields.length ? g.redactsFields.join(', ') : '(none declared secret/PII)'}`);
     console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
     if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
-    console.log('  use: import { compileGuard } from "@skillstech/intentlang/core"');
+    console.log('  use: import { compileGuard } from "@skillstech/thunderlang/core"');
     return;
   }
 
@@ -1334,7 +1334,7 @@ test Example
     return;
   }
 
-  // `intent check <file|dir> --format sarif` emits a SARIF 2.1.0 log so IntentLang
+  // `intent check <file|dir> --format sarif` emits a SARIF 2.1.0 log so ThunderLang
   // diagnostics show up natively in GitHub/GitLab code scanning and SARIF-aware IDEs.
   // This is a REPORT (exit 0); gate the build with a plain `intent check .` step.
   if (cmd === 'check' && args.format === 'sarif') {

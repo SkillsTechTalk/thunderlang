@@ -1,4 +1,4 @@
-// SARIF 2.1.0 output for `intent check` , so IntentLang diagnostics show up natively in the
+// SARIF 2.1.0 output for `intent check` , so ThunderLang diagnostics show up natively in the
 // surfaces teams already use: GitHub / GitLab code scanning (inline PR annotations + the
 // Security tab) and any SARIF-aware IDE. Pure: reports in, one SARIF log object out.
 //
@@ -27,7 +27,7 @@ export function sarifLevel(diag) {
  */
 export function toSarif(reports, opts = {}) {
   const version = opts.version || '0.0.0';
-  const toolName = opts.toolName || 'IntentLang';
+  const toolName = opts.toolName || 'ThunderLang';
 
   // Rules referenced by results, in first-seen order, with catalog metadata when available.
   const ruleIndex = new Map();
@@ -43,7 +43,7 @@ export function toSarif(reports, opts = {}) {
       defaultConfiguration: { level: meta ? (meta.severity === 'blocker' ? 'error' : meta.severity === 'error' ? 'error' : meta.severity === 'warning' ? 'warning' : 'note') : 'warning' },
       properties: meta ? { area: meta.area, severity: meta.severity, blocks: meta.blocks } : {},
       ...(code.startsWith('IL-') || META.has(code)
-        ? { helpUri: `https://intentlanguage.dev/docs/diagnostics#${code.toLowerCase()}` }
+        ? { helpUri: `https://thunderlang.dev/docs/diagnostics#${code.toLowerCase()}` }
         : {}),
     });
     ruleIndex.set(code, idx);
@@ -77,7 +77,7 @@ export function toSarif(reports, opts = {}) {
       tool: {
         driver: {
           name: toolName,
-          informationUri: 'https://intentlanguage.dev',
+          informationUri: 'https://thunderlang.dev',
           version,
           rules,
         },

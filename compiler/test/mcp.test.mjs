@@ -1,5 +1,5 @@
 // The MCP server must speak the protocol correctly (initialize -> tools/list -> tools/call) so
-// AI coding agents can use IntentLang natively. Driven in-process over mock streams.
+// AI coding agents can use ThunderLang natively. Driven in-process over mock streams.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
@@ -40,11 +40,11 @@ test('initialize returns the protocol version and server info', async () => {
   const s = server();
   const r = await s.request(1, 'initialize', {});
   assert.equal(r.result.protocolVersion, '2024-11-05');
-  assert.equal(r.result.serverInfo.name, 'intentlang');
+  assert.equal(r.result.serverInfo.name, 'thunderlang');
   assert.ok(r.result.capabilities.tools);
 });
 
-test('tools/list exposes the IntentLang tools with input schemas', async () => {
+test('tools/list exposes the ThunderLang tools with input schemas', async () => {
   const s = server();
   const r = await s.request(2, 'tools/list', {});
   const names = r.result.tools.map((t) => t.name);

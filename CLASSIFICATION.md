@@ -1,6 +1,6 @@
 # Classification and Publication Gate
 
-IntentLang is developed **open-core**. The language itself is open so it can become an
+ThunderLang is developed **open-core**. The language itself is open so it can become an
 industry standard; the commercial moat lives in a separate proprietary layer. This file
 records what is open, what is not, and the checkpoint that keeps proprietary work from
 being published by accident.
@@ -38,7 +38,7 @@ Before adding or publishing new material, confirm:
 2. **Dependency rule.** Does any open module import a proprietary one? It must not.
 3. **Confidential leakage.** Does it embed anything from the vault (keys, IP dossiers,
    internal strategy)? If so, stop.
-4. **Brand usage.** Use "IntentLang" per the trademark-usage policy. Do not claim a
+4. **Brand usage.** Use "ThunderLang" per the trademark-usage policy. Do not claim a
    registered mark (®) unless registration is confirmed.
 
 New mechanisms whose commercial value depends on secrecy should be assessed by IP
@@ -47,6 +47,6 @@ and any patent filing are counsel-owned and are tracked outside this repo.
 
 ## Trademark
 
-"IntentLang" and the IntentLang marks are held by Skills Tech Talk, LLC. Use of the
+"ThunderLang" and the ThunderLang marks are held by Skills Tech Talk, LLC. Use of the
 name to refer to the language is welcome; use that implies endorsement, official
 status, or a compatible/"certified" claim is not permitted without written permission.

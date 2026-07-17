@@ -1,5 +1,5 @@
 // Data-shape export: turn a mission's typed input/output fields into a JSON Schema, and the
-// mission itself into an OpenAPI operation. This makes IntentLang's typed data directly
+// mission itself into an OpenAPI operation. This makes ThunderLang's typed data directly
 // consumable by API tooling (validators, codegen, mock servers) , the data-shape sibling of
 // the DMN/BPMN decision/lifecycle exporters. Deterministic and pure.
 
@@ -53,7 +53,7 @@ export function isRecognizedType(type) {
   return false;
 }
 
-// Map an IntentLang semantic type to a JSON Schema fragment. Handles List<X> recursively,
+// Map an ThunderLang semantic type to a JSON Schema fragment. Handles List<X> recursively,
 // known semantic types (with formats), primitives, and opaque custom (PascalCase) types.
 export function typeToJsonSchema(type) {
   const t = String(type || '').trim();

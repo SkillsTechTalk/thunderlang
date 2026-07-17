@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@skillstech/intentlang`. Pre-1.0: the language and the
+All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
 ## 0.1.6
@@ -43,7 +43,7 @@ The rule-catalog namespace release. Additive; no breaking changes to 0.1.4.
 ### Added
 
 - **Verify-time rule namespace.** The canonical rule catalog is now one id space across two phases:
-  author-time (IntentLang) and verify-time (OpenThunder). Every rule row self-describes `owner`
+  author-time (ThunderLang) and verify-time (OpenThunder). Every rule row self-describes `owner`
   (`IL` | `OT`) and `phase` (`author` | `verify`); `RULE_NAMESPACES` declares prefix ownership
   (`IL-*` author, `OT-*` verify); `VERIFICATION_RULES` reserves the OpenThunder verify namespace
   (`OT-REQ-*`, `reserved: true` until OT defines them); `ruleNamespace(ruleId)` resolves owner+phase
@@ -80,7 +80,7 @@ The Ownership-Loop seam release. Additive; no breaking changes to 0.1.2.
   `intent:<mission-slug>` (subject-level) and `intent:<mission-slug>@<sha8>` (version-pinned to the
   proof `sourceHash`). Deterministic, browser-safe, exported from `/core` and the root.
 - **`compileSource` returns `intentRef` + `intentRefPinned`,** so a producer that already compiled
-  a mission gets both ids for free (no need to recompute). This closes the `IntentLang -> evidence
+  a mission gets both ids for free (no need to recompute). This closes the `ThunderLang -> evidence
   model` seam of the Skills Ownership Loop.
 
 ## 0.1.2
@@ -92,7 +92,7 @@ The ecosystem-consumption release. Additive; no breaking changes to 0.1.1.
 - **Dual CommonJS + ESM build.** The package now ships a `require`-able CommonJS build
   (`dist/index.cjs`, `dist/core.cjs`) alongside the ESM sources, via conditional exports.
   CommonJS consumers (OpenThunder, the SkillsTech backend) can now
-  `const { NODE_TYPES } = require('@skillstech/intentlang/core')` synchronously , no async
+  `const { NODE_TYPES } = require('@skillstech/thunderlang/core')` synchronously , no async
   bootstrap, no ESM migration. The runtime stays zero-dependency (esbuild is dev-only).
 - **Seeded lift.** `liftSource(source, { seeds })` accepts OpenThunder's `intent-ir-v1` nodes
   (`IntentSeed`: `nodeId` + `evidenceRef` with `signals`, `sourceLocations`, optional
@@ -142,9 +142,9 @@ The executable + interoperable release. Everything is deterministic and requires
   `IL-SEC-001` (secret-typed field on an event payload), `IL-SEC-002` (API returns a secret
   with no auth requirement), `IL-TYPE-001` (unrecognized, likely-mistyped field type).
   `securityDiagnostics`, `isRecognizedType`, catalog now 49 rules.
-- **Human <-> Structured <-> IntentLang sync (`intent-sync-v1`).** `parseToStructured(source)`
+- **Human <-> Structured <-> ThunderLang sync (`intent-sync-v1`).** `parseToStructured(source)`
   returns the canonical graph + flat PM fields; `proposeIntent(structured, { base })` regenerates
-  IntentLang source with a reviewable diff, surfaced ambiguities (non-factual nodes), round-trip
+  ThunderLang source with a reviewable diff, surfaced ambiguities (non-factual nodes), round-trip
   fidelity gaps, and validation , never a silent rewrite. Browser-safe via `/core` (for Studio).
 - **Comment-preserving structural editing (`intent-patch-v1`).** `applyEdits(source, edits)`
   applies field-level edits (`setField`, `add/removeGuarantee`, `add/removeNever`,
@@ -182,7 +182,7 @@ The executable + interoperable release. Everything is deterministic and requires
   action , the intent's rules become a hard production gate. `intent guard <file>` previews it.
   Browser-safe.
 - **MCP server for AI agents.** `intent mcp` / `startMcpServer` speaks the Model Context
-  Protocol over stdio, exposing IntentLang as native tools for coding agents (Claude Code,
+  Protocol over stdio, exposing ThunderLang as native tools for coding agents (Claude Code,
   Cursor, ...): `intent_verify_diff` (the gate), `intent_check`, `intent_lift`, `intent_run`,
   `intent_test`, `intent_graph`, `intent_explain`. The agent checks its own output against the
   intent before shipping.
@@ -206,7 +206,7 @@ The executable + interoperable release. Everything is deterministic and requires
     throws on disruptive input" sweep (empty / CRLF / tabs / unicode / malformed), a CRLF
     value-corruption guard, malformed-`when` and no-default runtime robustness, round-trip
     fidelity, and a performance guard against the O(n²) regression.
-- **One compiler for five consumers (universal `@skillstech/intentlang/core`).** The whole
+- **One compiler for five consumers (universal `@skillstech/thunderlang/core`).** The whole
   analysis layer is now Node-free, so OpenThunder (Node), the `intent` CLI (Node), SkillsTech
   Studio (browser), Repo Mastery (web), and SkillsTech Mobile (React Native) run the SAME
   code, not a fork. The one blocker , `emit.mjs` importing `node:crypto` for SHA-256 , is

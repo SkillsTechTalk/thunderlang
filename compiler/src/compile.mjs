@@ -93,7 +93,7 @@ export function renderTestplan(ast) {
 }
 
 /**
- * Compile IntentLang source in memory and return every artifact `intent build`
+ * Compile ThunderLang source in memory and return every artifact `intent build`
  * would emit, without touching the filesystem.
  */
 export function compileSource(source, { sourceFile = 'playground.intent', generatedAt, origin = 'authored' } = {}) {

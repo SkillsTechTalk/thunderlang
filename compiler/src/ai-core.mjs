@@ -1,6 +1,6 @@
 // Pure, dependency-free core of intent-ai-v1 , NO Node built-ins (no crypto/fs/path),
 // so it is safe to import in a browser bundle (e.g. Repo Mastery's Vite app).
-// Published as the subpath `@skillstech/intentlang/core`.
+// Published as the subpath `@skillstech/thunderlang/core`.
 //
 // The rest of ai.mjs (hashing, markers, manifest) needs Node crypto; these helpers
 // do not. Everything here is re-exported from ai.mjs so the main API is unchanged.

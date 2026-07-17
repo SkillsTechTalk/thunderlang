@@ -1,8 +1,8 @@
 // Fable (intent-fable-v1) , the versioned, explainable rule authority the Intent Scanner runs.
-// Anti-fork: Fable is NOT a new rule engine. It is a rule-metadata layer OVER IntentLang's shipped
+// Anti-fork: Fable is NOT a new rule engine. It is a rule-metadata layer OVER ThunderLang's shipped
 // DIAGNOSTIC_RULES catalog (which already carries id/severity/blocks/area), adding what a Scanner
 // finding needs: a risk category, detection strategy, remediation, required evidence, suggested
-// IntentLang, and suppression/risk-acceptance policy. Every finding is explainable , never
+// ThunderLang, and suppression/risk-acceptance policy. Every finding is explainable , never
 // "AI detected a possible issue." Pure ESM, browser-safe.
 
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';

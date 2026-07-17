@@ -1,9 +1,9 @@
-# IntentLang for VS Code
+# ThunderLang for VS Code
 
-Syntax highlighting and language intelligence for IntentLang `.intent` files:
+Syntax highlighting and language intelligence for ThunderLang `.intent` files:
 
 - **Highlighting** via the TextMate grammar (`source.intent`).
-- **Diagnostics, completion, and hover** via the IntentLang Language Server (`intent lsp`),
+- **Diagnostics, completion, and hover** via the ThunderLang Language Server (`intent lsp`),
   the same deterministic compiler the CLI uses. No AI.
 
 ## Requirements
@@ -11,10 +11,10 @@ Syntax highlighting and language intelligence for IntentLang `.intent` files:
 The `intent` CLI must be available. Install it globally:
 
 ```bash
-npm install -g @skillstech/intentlang
+npm install -g @skillstech/thunderlang
 ```
 
-Or set `intentlang.serverCommand` to an absolute path / `npx` invocation if `intent` is
+Or set `thunderlang.serverCommand` to an absolute path / `npx` invocation if `intent` is
 not on your PATH.
 
 ## Build / package locally
@@ -26,7 +26,7 @@ truth.
 cd editors/vscode
 npm install
 npm run compile        # syncs the grammar + type-checks + emits out/extension.js
-npx @vscode/vsce package   # produces intentlang-vscode-<version>.vsix
+npx @vscode/vsce package   # produces thunderlang-vscode-<version>.vsix
 ```
 
 Install the `.vsix` in VS Code: Extensions view -> "..." -> Install from VSIX.

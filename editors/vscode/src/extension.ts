@@ -9,10 +9,10 @@ import {
 
 let client: LanguageClient | undefined;
 
-// Start the IntentLang language server (`intent lsp`) and wire it to .intent files.
-// The `intent` CLI (@skillstech/intentlang) must be on PATH, or set intentlang.serverCommand.
+// Start the ThunderLang language server (`intent lsp`) and wire it to .intent files.
+// The `intent` CLI (@skillstech/thunderlang) must be on PATH, or set thunderlang.serverCommand.
 export function activate(_context: ExtensionContext): void {
-  const command = workspace.getConfiguration("intentlang").get<string>("serverCommand") || "intent";
+  const command = workspace.getConfiguration("thunderlang").get<string>("serverCommand") || "intent";
   const server: Executable = { command, args: ["lsp"], transport: TransportKind.stdio };
 
   const serverOptions: ServerOptions = { run: server, debug: server };
@@ -21,7 +21,7 @@ export function activate(_context: ExtensionContext): void {
     synchronize: { fileEvents: workspace.createFileSystemWatcher("**/*.intent") },
   };
 
-  client = new LanguageClient("intentlang", "IntentLang", serverOptions, clientOptions);
+  client = new LanguageClient("thunderlang", "ThunderLang", serverOptions, clientOptions);
   void client.start();
 }
 

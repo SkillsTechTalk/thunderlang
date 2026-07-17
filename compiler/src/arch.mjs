@@ -1,6 +1,6 @@
 // Architecture rules , the language semantics of the `architecture` block.
 //
-// IntentLang OWNS parsing architecture constraints into a structured, versioned form.
+// ThunderLang OWNS parsing architecture constraints into a structured, versioned form.
 // OpenThunder's Architecture Lens checks the actual dependency graph against them
 // (INTENT-ARCH-307). This module is the shared, deterministic rule model both use.
 //

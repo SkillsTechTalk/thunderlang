@@ -1,4 +1,4 @@
-// Guard: the public barrel (`@skillstech/intentlang`, src/index.mjs) must LOAD and expose its
+// Guard: the public barrel (`@skillstech/thunderlang`, src/index.mjs) must LOAD and expose its
 // documented surface. A duplicate re-export (two modules exporting the same name) makes the
 // whole module a SyntaxError at import time , which no other test catches, because they import
 // individual modules, not the barrel. This test is that safety net.

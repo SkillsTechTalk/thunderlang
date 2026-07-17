@@ -76,7 +76,7 @@ for (const [lang, src] of Object.entries(SAMPLES)) {
     assert.equal(r.ok, true, r.error);
     assert.match(r.intentText, /mission CreateInvoice/, `${lang} should name the mission from the function`);
     assert.match(r.intentText, /input/, `${lang} should infer inputs`);
-    // the draft is valid IntentLang
+    // the draft is valid ThunderLang
     const ast = parseIntent(r.intentText);
     assert.equal(ast.mission, 'CreateInvoice');
     const errors = semanticDiagnostics(ast).filter((d) => d.level === 'error');

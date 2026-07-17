@@ -1,7 +1,7 @@
-// @skillstech/intentlang/core , the BROWSER-SAFE barrel. Every symbol here is pure ESM with
+// @skillstech/thunderlang/core , the BROWSER-SAFE barrel. Every symbol here is pure ESM with
 // ZERO Node.js dependencies (no fs/path/url), so it bundles cleanly into a browser app
 // (SkillsTech Studio's Vite build, Repo Mastery's projections). It is a strict superset of
-// the original AI-core helpers, so existing `@skillstech/intentlang/core` imports keep
+// the original AI-core helpers, so existing `@skillstech/thunderlang/core` imports keep
 // working, plus the canonical schema/classification helpers and the pure Intent Runtime.
 
 // AI-implementation helpers (unchanged , keeps existing /core consumers working).
@@ -23,7 +23,7 @@ export {
   PROOF_SCHEMA, CLAIM_STATUSES, PROOF_STATUSES, intentProofJsonSchema, validateProof,
 } from './proof-schema.mjs';
 
-// Human <-> Structured <-> IntentLang sync (browser-safe) , Studio's proposeIntent/parseToStructured.
+// Human <-> Structured <-> ThunderLang sync (browser-safe) , Studio's proposeIntent/parseToStructured.
 export { parseToStructured, proposeIntent, SYNC_SCHEMA } from './sync.mjs';
 // Structural source editing (browser-safe) , comment-preserving field edits for Studio.
 export { applyEdits, PATCH_SCHEMA } from './patch.mjs';

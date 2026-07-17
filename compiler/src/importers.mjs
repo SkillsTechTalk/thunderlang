@@ -1,5 +1,5 @@
 // Round-trip IMPORT adapters , the inverse of exporters.mjs. Lift an external DMN decision
-// table or BPMN process back into IntentLang source, so intent can come FROM the tools teams
+// table or BPMN process back into ThunderLang source, so intent can come FROM the tools teams
 // already use, not only go to them. Deterministic and pure. The design contract is
 // round-trip fidelity: fromDMN(toDMN(ast)) and fromBPMN(toBPMN(ast)) reconstruct source that
 // BEHAVES identically (same decisions, same lifecycle walks), even if cosmetic names differ.
@@ -14,7 +14,7 @@ const NOOP_WARN = () => {};
 
 const textOf = (node) => (node ? (find(node, 'text')?.text ?? node.text ?? '').trim() : '');
 const stripQuotes = (s) => String(s ?? '').trim().replace(/^["'](.*)["']$/s, '$1');
-// A safe IntentLang identifier from arbitrary text.
+// A safe ThunderLang identifier from arbitrary text.
 const idish = (s, fb = 'x') => {
   const v = String(s ?? '').trim();
   return v || fb;
@@ -66,7 +66,7 @@ function dmnToIntent(xml, warn = NOOP_WARN) {
 
     const hitPolicy = (table.attrs.hitPolicy || 'UNIQUE').toUpperCase();
     if (!['FIRST', 'UNIQUE', 'ANY', ''].includes(hitPolicy)) {
-      warn('IL-IMP-DMN-002', `Decision "${dname}" uses hit policy ${hitPolicy}; IntentLang evaluates first-match, so semantics may differ.`, dname);
+      warn('IL-IMP-DMN-002', `Decision "${dname}" uses hit policy ${hitPolicy}; ThunderLang evaluates first-match, so semantics may differ.`, dname);
     }
 
     const inputEls = childrenNamed(table, 'input');
@@ -134,7 +134,7 @@ function bpmnToIntent(xml, warn = NOOP_WARN) {
     for (const flow of childrenNamed(proc, 'sequenceFlow')) {
       const src = flow.attrs.sourceRef;
       const tgt = flow.attrs.targetRef;
-      if (find(flow, 'conditionExpression')) warn('IL-IMP-BPMN-002', `A sequence flow in "${pname}" carries a condition; IntentLang transitions have no guards, so the condition is dropped.`, pname);
+      if (find(flow, 'conditionExpression')) warn('IL-IMP-BPMN-002', `A sequence flow in "${pname}" carries a condition; ThunderLang transitions have no guards, so the condition is dropped.`, pname);
       if (startIds.has(src)) continue; // start -> initial (IL infers initial from no inbound)
       if (endIds.has(tgt)) { if (nameById[src]) terminals.add(nameById[src]); continue; }
       if (nameById[src] && nameById[tgt]) {
@@ -158,17 +158,17 @@ function bpmnToIntent(xml, warn = NOOP_WARN) {
   return { source: lines.join('\n'), stats: { processes, states: statesTotal, transitions: transitionsTotal } };
 }
 
-/** Import a DMN 1.3 document into IntentLang source (one `decision` block per DMN decision). */
+/** Import a DMN 1.3 document into ThunderLang source (one `decision` block per DMN decision). */
 export function fromDMN(xml) {
   return dmnToIntent(xml).source;
 }
 
-/** Import a BPMN 2.0 document into IntentLang source (one `lifecycle` block per process). */
+/** Import a BPMN 2.0 document into ThunderLang source (one `lifecycle` block per process). */
 export function fromBPMN(xml) {
   return bpmnToIntent(xml).source;
 }
 
-/** Dispatch by format (or auto-detect when format is omitted). Returns IntentLang source, or null. */
+/** Dispatch by format (or auto-detect when format is omitted). Returns ThunderLang source, or null. */
 export function importIntent(xml, format) {
   const fmt = format || detectFormat(xml);
   if (fmt === 'dmn') return fromDMN(xml);
@@ -178,7 +178,7 @@ export function importIntent(xml, format) {
 
 /**
  * Import WITH a fidelity report , the same source, plus the warnings for everything the
- * source format expressed that IntentLang could not faithfully represent, plus stats.
+ * source format expressed that ThunderLang could not faithfully represent, plus stats.
  * This is what Studio surfaces so a user knows exactly what an import dropped.
  * @returns {{schema, format, source, warnings, stats, ok} | null}
  */

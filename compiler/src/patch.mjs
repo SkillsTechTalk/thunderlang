@@ -1,4 +1,4 @@
-// Structural source editing (intent-patch-v1) , apply field-level edits to EXISTING IntentLang
+// Structural source editing (intent-patch-v1) , apply field-level edits to EXISTING ThunderLang
 // source, touching only the target lines so comments, formatting, ids, and untouched blocks stay
 // byte-identical. This is the comment-preserving half of the Human <-> Structured sync: a PM
 // changes a field and IL patches the source in place rather than regenerating it from the graph
@@ -343,7 +343,7 @@ function applyOne(lines, edit) {
 }
 
 /**
- * Apply structural edits to IntentLang source, preserving comments and untouched blocks.
+ * Apply structural edits to ThunderLang source, preserving comments and untouched blocks.
  * When any edit applies, the result is normalized through the formatter , comments and content
  * are preserved (whitespace-only), so block insertions never leave a stray blank line and the
  * output is always canonically formatted. An empty/all-skipped edit list returns the input

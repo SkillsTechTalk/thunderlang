@@ -2,7 +2,7 @@
 //
 // Scores an intent against the 13 principles from humanlayer/12-factor-agents
 // (https://github.com/humanlayer/12-factor-agents). Their thesis , "production agents are
-// mostly deterministic code with LLM steps sprinkled in" , is IntentLang's thesis, so most
+// mostly deterministic code with LLM steps sprinkled in" , is ThunderLang's thesis, so most
 // factors map to structure IL already models (decisions, lifecycles, typed I/O, approvals,
 // errors/handlers, events, a pure runtime). This turns "12-factor compliant" into a
 // human-owned, verifiable claim instead of a marketing checkbox.

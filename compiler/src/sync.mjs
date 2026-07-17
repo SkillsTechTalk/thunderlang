@@ -1,5 +1,5 @@
-// Human <-> Structured <-> IntentLang synchronization (intent-sync-v1). IL owns the boundary
-// between a plain-language / structured editor (SkillsTech Studio) and canonical IntentLang,
+// Human <-> Structured <-> ThunderLang synchronization (intent-sync-v1). IL owns the boundary
+// between a plain-language / structured editor (SkillsTech Studio) and canonical ThunderLang,
 // so a non-developer edits structured fields and IL stays the source of truth , never a silent
 // rewrite. Pure ESM, ZERO Node deps: browser-safe for Studio's Vite build.
 //
@@ -20,7 +20,7 @@ export const SYNC_SCHEMA = 'intent-sync-v1';
 const hasComments = (src) => typeof src === 'string' && /(^|\s)#/.test(src);
 
 /**
- * The canonical structured view of IntentLang source: the intent graph a projector (Studio's
+ * The canonical structured view of ThunderLang source: the intent graph a projector (Studio's
  * ProjectNode/ProjectEdge) builds from, plus a flat, PM-friendly field summary. IL stays the
  * source of truth; this is a projection of it.
  */
@@ -56,9 +56,9 @@ function collectAmbiguities(graph) {
 }
 
 /**
- * Propose IntentLang source from a structured graph, with a REVIEWABLE diff against the base.
+ * Propose ThunderLang source from a structured graph, with a REVIEWABLE diff against the base.
  * Accepts a graph, `{ graph }`, or the object `parseToStructured` returns. `base` may be the
- * prior IntentLang source (string) or its graph. Returns a proposal , it is never applied.
+ * prior ThunderLang source (string) or its graph. Returns a proposal , it is never applied.
  *
  * Fidelity is honest: regenerating source from a graph does NOT preserve free-text comments;
  * when the base carried comments, that is surfaced as a warning so the caller keeps the base

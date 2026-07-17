@@ -1,4 +1,4 @@
-// IntentLang emit stage (deterministic, no AI). Turns an Intent AST into the artifacts the
+// ThunderLang emit stage (deterministic, no AI). Turns an Intent AST into the artifacts the
 // rest of the Skills Tech ecosystem consumes. Shapes match OpenThunder's confirmed consumer
 // contract (contract-graph.json, architecture-graph.json) and the canonical .intent-proof.json.
 // Stable IDs (slugs) let OpenThunder key Intent Drift precisely instead of fuzzy string-matching.
@@ -140,7 +140,7 @@ export function semanticDiagnostics(ast) {
     if (/duplicate/.test(g.statement.toLowerCase()) && !/idempotenc|unique|order ?reference|lookup/.test(idempotencySignals + ' ' + g.statement.toLowerCase())) {
       warn('duplicate-without-idempotency',
         `Guarantee "${g.statement}" declares no idempotency key, unique reference, or lookup rule to enforce it.`,
-        'Duplicate billing is a high-trust finance failure. IntentLang expects a prevention strategy, not just a promise.',
+        'Duplicate billing is a high-trust finance failure. ThunderLang expects a prevention strategy, not just a promise.',
         [
           { label: 'Add idempotencyKey: IdempotencyKey to the input', insert: 'idempotencyKey: IdempotencyKey', block: 'input' },
           { label: 'Add a duplicate prevention test under verify', insert: 'duplicate prevention test', block: 'verify' },
@@ -180,7 +180,7 @@ export function semanticDiagnostics(ast) {
     if (!(neverText.includes('log') && (neverText.includes(f.name.toLowerCase()) || /secret|token|password/.test(neverText)))) {
       warn('secret-without-never-log',
         `Sensitive field "${f.name}" has no matching never-log / never-return rule.`,
-        'Secrets leak through logs, traces, and responses. IntentLang expects an explicit rule that forbids it, near the field.',
+        'Secrets leak through logs, traces, and responses. ThunderLang expects an explicit rule that forbids it, near the field.',
         [
           { label: `Add never log ${f.name}`, insert: `log ${f.name}`, block: 'never' },
           { label: `Add never return ${f.name} to client`, insert: `return ${f.name} to client`, block: 'never' },

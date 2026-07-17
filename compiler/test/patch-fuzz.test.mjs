@@ -56,7 +56,7 @@ test('applyEdits never throws and always yields re-parseable source (corpus x fu
       try { out = applyEdits(base, edits); } catch (e) { assert.fail(`applyEdits threw: ${e.stack}\nedits=${JSON.stringify(edits)}`); }
       assert.equal(typeof out.source, 'string');
       assert.equal(out.applied.length + out.skipped.length, edits.length, 'every edit is either applied or skipped');
-      // the result must still be valid IntentLang, no matter what applied
+      // the result must still be valid ThunderLang, no matter what applied
       let ast;
       try { ast = parseIntent(out.source); } catch (e) { assert.fail(`patched source failed to parse: ${e.message}\nedits=${JSON.stringify(edits)}\n---\n${out.source}`); }
       try { buildIntentGraph(ast); } catch (e) { assert.fail(`patched source failed to build a graph: ${e.message}`); }

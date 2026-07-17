@@ -1,6 +1,6 @@
 // Export adapters (founder roadmap, IL-owned interop). The Intent Graph is the source of
 // truth; these render slices of it into industry-standard formats so intent can be checked
-// by existing tooling without leaving IntentLang:
+// by existing tooling without leaving ThunderLang:
 //   - toDMN(ast)  , decisions -> DMN 1.3 decision tables (OMG DMN)
 //   - toBPMN(ast) , lifecycles -> BPMN 2.0 processes (OMG BPMN)
 //   - toSMV(ast)  , lifecycles + temporal -> NuSMV/nuXmv finite-state model + specs
@@ -189,7 +189,7 @@ const jsStr = (s) => `'${String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\
 export function toPlaywright(ast) {
   const exps = ast.experiences || [];
   const L = [];
-  L.push('// Playwright test scaffold generated from experience intent by @skillstech/intentlang.');
+  L.push('// Playwright test scaffold generated from experience intent by @skillstech/thunderlang.');
   L.push('// SKELETON: fill in selectors and assertions. It is not a passing test until you do.');
   L.push("import { test, expect } from '@playwright/test';");
   L.push('');

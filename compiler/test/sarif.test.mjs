@@ -32,7 +32,7 @@ test('toSarif produces a valid 2.1.0 log shape', () => {
   assert.equal(log.$schema, SARIF_SCHEMA);
   assert.equal(log.runs.length, 1);
   const driver = log.runs[0].tool.driver;
-  assert.equal(driver.name, 'IntentLang');
+  assert.equal(driver.name, 'ThunderLang');
   assert.equal(driver.version, '0.1.1');
   assert.ok(Array.isArray(driver.rules) && driver.rules.length > 0);
   assert.ok(Array.isArray(log.runs[0].results) && log.runs[0].results.length > 0);
@@ -72,7 +72,7 @@ test('rules carry catalog metadata + a help link for cataloged codes', () => {
   const rule = log.runs[0].tool.driver.rules.find((r) => r.id === 'IL-SEC-001');
   assert.equal(rule.shortDescription.text.length > 0, true);
   assert.equal(rule.defaultConfiguration.level, 'error');
-  assert.match(rule.helpUri, /intentlanguage\.dev\/docs\/diagnostics#il-sec-001/);
+  assert.match(rule.helpUri, /thunderlang\.dev\/docs\/diagnostics#il-sec-001/);
 });
 
 test('empty input yields a valid, empty-results SARIF log', () => {

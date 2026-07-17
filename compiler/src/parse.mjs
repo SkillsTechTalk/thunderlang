@@ -1,4 +1,4 @@
-// IntentLang parser (deterministic, no AI). Turns .intent source into an Intent AST.
+// ThunderLang parser (deterministic, no AI). Turns .intent source into an Intent AST.
 // This is the MVP emit-stage parser: it covers the core constructs (mission, goal, why,
 // requires, input, output, guarantees, never, constraints, assumptions, risks, target,
 // style, verify) plus architecture blocks (service, api, event, database). Detail blocks

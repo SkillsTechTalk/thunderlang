@@ -1,5 +1,5 @@
-name: 'IntentLang Check'
-description: 'Gate .intent files with the deterministic IntentLang compiler. No AI. Fails the build if any intent has errors.'
+name: 'ThunderLang Check'
+description: 'Gate .intent files with the deterministic ThunderLang compiler. No AI. Fails the build if any intent has errors.'
 author: 'SkillsTech'
 branding:
   icon: 'check-circle'
@@ -11,7 +11,7 @@ inputs:
     required: false
     default: '.'
   version:
-    description: 'npm version or tag of @skillstech/intentlang. Directory checking needs >= 0.1.1. Default: latest.'
+    description: 'npm version or tag of @skillstech/thunderlang. Directory checking needs >= 0.1.1. Default: latest.'
     required: false
     default: 'latest'
 
@@ -20,4 +20,4 @@ runs:
   steps:
     - name: intent check
       shell: bash
-      run: npx --yes "@skillstech/intentlang@${{ inputs.version }}" check "${{ inputs.paths }}"
+      run: npx --yes "@skillstech/thunderlang@${{ inputs.version }}" check "${{ inputs.paths }}"

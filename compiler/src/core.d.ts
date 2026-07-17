@@ -1,4 +1,4 @@
-// Types for `@skillstech/intentlang/core` , the universal (Node + browser + React Native)
+// Types for `@skillstech/thunderlang/core` , the universal (Node + browser + React Native)
 // surface. This re-exports exactly the symbols core.mjs exports, using the declarations in
 // index.d.ts as the single source of truth. It intentionally does NOT re-export the Node-only
 // surface (CLI, LSP, filesystem lift/drift), so a consumer cannot type-import something that
@@ -88,7 +88,7 @@ export {
   draftIntent, DRAFT_SCHEMA,
 } from './index';
 
-// Human <-> Structured <-> IntentLang sync + comment-preserving structural editing.
+// Human <-> Structured <-> ThunderLang sync + comment-preserving structural editing.
 export {
   parseToStructured, proposeIntent, SYNC_SCHEMA, applyEdits, PATCH_SCHEMA,
 } from './index';

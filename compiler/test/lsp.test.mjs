@@ -29,7 +29,7 @@ test('initialize returns server capabilities', async () => {
   s.frame({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
   await tick();
   const init = s.messages().find((m) => m.id === 1);
-  assert.equal(init.result.serverInfo.name, 'intentlang-lsp');
+  assert.equal(init.result.serverInfo.name, 'thunderlang-lsp');
   assert.ok(init.result.capabilities.hoverProvider);
   assert.ok(init.result.capabilities.completionProvider);
   assert.equal(init.result.capabilities.textDocumentSync, 1);
@@ -43,7 +43,7 @@ test('didOpen publishes diagnostics anchored to the offending line', async () =>
   assert.equal(pub.params.uri, 'file:///m.intent');
   assert.ok(pub.params.diagnostics.length >= 1);
   const d = pub.params.diagnostics[0];
-  assert.ok(d.code && d.source === 'intentlang' && typeof d.range.start.line === 'number');
+  assert.ok(d.code && d.source === 'thunderlang' && typeof d.range.start.line === 'number');
   assert.ok([1, 2, 3].includes(d.severity));
 });
 
@@ -97,7 +97,7 @@ test('the `intent lsp` CLI command starts a working server over real stdio', asy
   await new Promise((r) => setTimeout(r, 300));
   const out = Buffer.concat(chunks).toString('utf8');
   assert.match(out, /"serverInfo"/);
-  assert.match(out, /intentlang-lsp/);
+  assert.match(out, /thunderlang-lsp/);
   frame({ jsonrpc: '2.0', id: 2, method: 'shutdown', params: {} });
   frame({ jsonrpc: '2.0', method: 'exit', params: {} });
   await new Promise((r) => { proc.on('exit', r); setTimeout(r, 500); });

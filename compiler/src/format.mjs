@@ -1,4 +1,4 @@
-// A deterministic formatter for .intent source , the gofmt/prettier of IntentLang. It
+// A deterministic formatter for .intent source , the gofmt/prettier of ThunderLang. It
 // re-indents each line to its structural depth (two spaces per level), trims trailing
 // whitespace, collapses runs of blank lines to one, and ensures a single trailing newline,
 // while PRESERVING content and comments (only whitespace changes). Idempotent and
@@ -7,7 +7,7 @@
 export const FORMAT_INDENT = '  ';
 
 /**
- * Format IntentLang source. Depth is taken from the source's own relative indentation
+ * Format ThunderLang source. Depth is taken from the source's own relative indentation
  * (the same stack algorithm the parser's indent tree uses), so a file with mixed 2/4-space
  * or tab indentation is normalized to consistent two-space steps.
  */

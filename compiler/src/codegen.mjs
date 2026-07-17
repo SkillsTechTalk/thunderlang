@@ -47,7 +47,7 @@ export function toTypeScript(ast) {
   const L = [];
 
   L.push(
-    `// ${subject} , generated from IntentLang (intent-codegen-v1). Deterministic, no AI.`,
+    `// ${subject} , generated from ThunderLang (intent-codegen-v1). Deterministic, no AI.`,
     '// The typed contract and the decision logic below are fully determined by the intent.',
     '// Business logic marked TODO is yours to complete; the guarantees and never-rules state',
     '// what your implementation must uphold. Regenerate any time; edits to TODO bodies are lost.',
@@ -117,7 +117,7 @@ export function toCSharp(ast) {
   const subject = pascal(subjectName(ast) || 'Intent');
   const domain = new Set();
   const L = [
-    `// ${subject} , generated from IntentLang (intent-codegen-v1). Deterministic, no AI.`,
+    `// ${subject} , generated from ThunderLang (intent-codegen-v1). Deterministic, no AI.`,
     '// The record contract and the decision logic are fully determined by the intent;',
     '// business logic marked TODO is yours, bound by the guarantees and never-rules below.',
     '',
@@ -174,7 +174,7 @@ export function toJava(ast) {
   const subject = pascal(subjectName(ast) || 'Intent');
   const domain = new Set();
   const L = [
-    `// ${subject} , generated from IntentLang (intent-codegen-v1). Deterministic, no AI.`,
+    `// ${subject} , generated from ThunderLang (intent-codegen-v1). Deterministic, no AI.`,
     '// The record contract and the decision logic are fully determined by the intent;',
     '// business logic marked TODO is yours, bound by the guarantees and never-rules below.',
     '',

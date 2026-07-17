@@ -1,4 +1,4 @@
-// Type declarations for @skillstech/intentlang.
+// Type declarations for @skillstech/thunderlang.
 // Hand-written: the compiler core is ESM JavaScript. Shapes that are large or
 // internal are typed loosely (Record/unknown); the primary entry points are typed.
 
@@ -377,7 +377,7 @@ export function buildReport(files: Array<{ file: string; source: string }>): {
 export function toJSONSchema(ast: IntentAst, opts?: { which?: "input" | "output" | "both" }): Record<string, unknown>;
 export function toOpenAPI(ast: IntentAst): Record<string, unknown>;
 
-// Import adapters (round-trip): external DMN / BPMN -> IntentLang source
+// Import adapters (round-trip): external DMN / BPMN -> ThunderLang source
 export const IMPORT_FORMATS: string[];
 export const IMPORT_SCHEMA: string;
 export function fromDMN(xml: string): string;
