@@ -1,13 +1,13 @@
 # Structured Editing and Sync
 
-Not everyone who owns intent writes IntentLang by hand. A product manager thinks in fields:
+Not everyone who owns intent writes ThunderLang by hand. A product manager thinks in fields:
 the goal, the guarantees, the inputs, what must never happen. A structured editor (like
-SkillsTech Studio) lets them edit those fields, but the `.intent` file must stay the source of
+SkillsTech Studio) lets them edit those fields, but the `.thunder` file must stay the source of
 truth , and a human's comments must survive the round trip. That is the job of the sync and
 patch API.
 
 It has three pieces, all deterministic (no AI) and browser-safe via
-`@skillstech/intentlang/core`, so a web editor uses them with no Node build:
+`@skillstech/thunderlang/core`, so a web editor uses them with no Node build:
 
 - `parseToStructured(source)` , the canonical structured view a UI renders from.
 - `proposeIntent(structured, { base })` , a reviewable proposal from an edited graph.
@@ -22,7 +22,7 @@ a proposal, never marked verified. (An agent can produce the brief from a free-t
 the [`intent_draft` MCP tool](/docs/verifying-ai-changes) , and a human approves the result.)
 
 ```js
-import { draftIntent } from "@skillstech/intentlang/core";
+import { draftIntent } from "@skillstech/thunderlang/core";
 
 const { source, review } = draftIntent({
   mission: "create invoice",
@@ -30,12 +30,12 @@ const { source, review } = draftIntent({
   guarantees: [{ statement: "no duplicate invoice", verify: "idempotency test" }, "totals are never negative"],
   inputs: [{ name: "paymentToken", type: "Secret" }],
 });
-// source -> canonical IntentLang
+// source -> canonical ThunderLang
 // review -> [ "Guarantee 'totals are never negative' has no verification ...",
 //             "Input 'paymentToken' is a secret , add a never-expose rule ..." ]
 ```
 
-From the shell: `intent draft --brief brief.json` (or `--brief -` for stdin), `--write out.intent`
+From the shell: `thunder draft --brief brief.json` (or `--brief -` for stdin), `--write out.thunder`
 to save. The gaps print so you know what to fill in before the draft becomes a commitment.
 
 ## Read: source to structured
@@ -44,7 +44,7 @@ to save. The gaps print so you know what to fill in before the draft becomes a c
 maps to its own nodes and edges) plus a flat, PM-friendly field summary:
 
 ```js
-import { parseToStructured } from "@skillstech/intentlang/core";
+import { parseToStructured } from "@skillstech/thunderlang/core";
 
 const structured = parseToStructured(source);
 // -> { schema: "intent-sync-v1", mission, graph, fields: {
@@ -56,11 +56,11 @@ IL stays the source of truth: the structured view is a *projection*, not a fork.
 
 ## Propose: structured to source, with a reviewable diff
 
-When the user edits the structured graph, `proposeIntent` regenerates IntentLang source and,
+When the user edits the structured graph, `proposeIntent` regenerates ThunderLang source and,
 against a base, a **reviewable diff** , it never applies a silent rewrite:
 
 ```js
-import { proposeIntent } from "@skillstech/intentlang/core";
+import { proposeIntent } from "@skillstech/thunderlang/core";
 
 const p = proposeIntent(editedStructured, { base: source });
 // -> { ok, source, diff, ambiguities, lostNodes, validation, warnings, applied: false }
@@ -78,12 +78,12 @@ comments, `warnings` says so and points you to `applyEdits` , the comment-preser
 
 ## Edit: patch the source in place, comments intact
 
-`applyEdits` applies field-level edits directly to the `.intent` **source**, touching only the
+`applyEdits` applies field-level edits directly to the `.thunder` **source**, touching only the
 target lines. Comments, formatting, stable ids, and every untouched block stay byte-identical,
-and the result comes out already `intent fmt`-clean:
+and the result comes out already `thunder fmt`-clean:
 
 ```js
-import { applyEdits } from "@skillstech/intentlang/core";
+import { applyEdits } from "@skillstech/thunderlang/core";
 
 const result = applyEdits(source, [
   { op: "setField", field: "goal", value: "Create an approved invoice, exactly once." },
@@ -120,12 +120,12 @@ arguments lands in `skipped` with a reason, and the rest still apply.
 The same patcher is a CLI command, so scripts and CI can edit intent without the library:
 
 ```bash
-intent edit mission.intent --set-goal "Create an approved invoice, once." \
+intent edit mission.thunder --set-goal "Create an approved invoice, once." \
   --add-guarantee "an order is invoiced at most once" --write
 
 # or drive it with the full JSON edit list (from a file or stdin)
 echo '[{"op":"addField","section":"input","name":"age","type":"int"}]' \
-  | intent edit mission.intent --edits -
+  | intent edit mission.thunder --edits -
 ```
 
 Without `--write` it prints the edited source to stdout; with `--write` it applies in place and
@@ -133,7 +133,7 @@ reports how many edits applied and were skipped.
 
 ## The loop
 
-Together the three close the Human ↔ Structured ↔ IntentLang loop with IL as the source of
+Together the three close the Human ↔ Structured ↔ ThunderLang loop with IL as the source of
 truth: read with `parseToStructured`, propose graph-level changes with `proposeIntent` (diffed,
 never silent), and apply field edits with `applyEdits` (lossless, comments kept). The sync
 contract is `intent-sync-v1`; the patch contract is `intent-patch-v1`. Both are pre-1.0 and

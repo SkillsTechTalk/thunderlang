@@ -38,18 +38,18 @@ waiver IL-PM-001
 
 ## What it does
 
-Run `intent check` on a governed mission and the matching blocker is downgraded to a
+Run `thunder check` on a governed mission and the matching blocker is downgraded to a
 waived, on-the-record exception:
 
 ```
-intent check governed.intent --now 2026-07-11
+intent check governed.thunder --now 2026-07-11
   [warning] (WAIVED) IL-PM-001: Metric "conversion rate" has no measurement window.
       waived by: Head of Product , measurement window deferred to v2, tracked in JIRA-123
   0 error(s), 1 warning(s), 1 waived
 ```
 
 Pass `--now <date>` to evaluate expiry deterministically (in CI, that is the build
-date). Without `--now`, expiry is not enforced, so a plain `intent check` is
+date). Without `--now`, expiry is not enforced, so a plain `thunder check` is
 reproducible regardless of the wall clock.
 
 ## Guardrails on the waivers themselves
@@ -73,7 +73,7 @@ pre-approves the next time that same condition reappears.
 
 `applyWaivers(diagnostics, waivers, { now })` and
 `governanceDiagnostics(waivers, diagnostics, { now })` are exported from
-`@skillstech/intentlang` (schema `intent-governance-v1`). Both are deterministic and
+`@skillstech/thunderlang` (schema `intent-governance-v1`). Both are deterministic and
 pure. OpenThunder's Can-I-Ship consumes the same waiver records so a governed
 exception in intent is the same governed exception at release , one audit trail, no
 second bar.

@@ -1,6 +1,6 @@
-# The IntentLang Manifesto
+# The ThunderLang Manifesto
 
-IntentLang is the intent language for AI-era software. It lets engineers define
+ThunderLang is the intent language for AI-era software. It lets engineers define
 what software should do, why it matters, what must never happen, and how the
 result must be verified before code is generated, changed, or shipped.
 
@@ -14,7 +14,7 @@ A prompt is a conversation. Consider:
 That is useful, but it is not durable. It is not a contract. It is not cleanly
 version-controlled. It is not automatically verifiable.
 
-The prompt should become a `.intent` file: reviewable, versionable, testable,
+The prompt should become a `.thunder` file: reviewable, versionable, testable,
 explainable, compilable, verifiable, and portable across target languages. That
 is far more valuable than the prompt, because the intent is what the team
 actually commits to.
@@ -31,7 +31,7 @@ actually commits to.
 Expanded, the pipeline is:
 
     Human prompt / requirement / architecture discussion
-      → IntentLang .intent file
+      → ThunderLang .thunder file
       → Contract graph
       → Architecture graph
       → Implementation plan
@@ -56,13 +56,13 @@ Implementation is the output, not the point. Target artifacts can include:
 
 So object-oriented code is one possible target, not the whole story.
 
-> IntentLang sits above programming paradigms. It can target object-oriented,
+> ThunderLang sits above programming paradigms. It can target object-oriented,
 > functional, service-oriented, event-driven, API-first, or infrastructure code
 > depending on the adapter.
 
 Intent becomes target-specific implementation using the idioms of each ecosystem.
 
-## What IntentLang is not
+## What ThunderLang is not
 
 - Not just a prompt format.
 - Not magic AI code generation.
@@ -72,7 +72,7 @@ Intent becomes target-specific implementation using the idioms of each ecosystem
 
 The right framing:
 
-> IntentLang turns software purpose into explicit contracts, architecture,
+> ThunderLang turns software purpose into explicit contracts, architecture,
 > verification, and proof, then uses compilers and optional AI to help produce
 > target implementations people can trust.
 
@@ -91,7 +91,7 @@ example: a guarantee exists but no test verifies it, a `never` rule is violated,
 a service publishes an event not declared in intent, a public API changes but the
 intent was not updated, or a field marked `Secret` is logged.
 
-Detecting and closing drift, later via OpenThunder, is a core reason IntentLang
+Detecting and closing drift, later via OpenThunder, is a core reason ThunderLang
 exists. Generating code is cheap; keeping code faithful to intent is the hard,
 valuable part.
 

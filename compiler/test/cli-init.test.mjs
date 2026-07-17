@@ -17,12 +17,12 @@ const cli = (...args) => spawnSync(process.execPath, [CLI, ...args], { encoding:
 test('intent init scaffolds a Name.intent file', () => {
   const res = cli('init', 'Checkout', '--out', tmp);
   assert.equal(res.status, 0, res.stderr);
-  assert.ok(existsSync(join(tmp, 'Checkout.intent')));
-  assert.match(res.stdout, /next: intent check/);
+  assert.ok(existsSync(join(tmp, 'Checkout.thunder')));
+  assert.match(res.stdout, /next: thunder check/);
 });
 
 test('the scaffold is valid, runnable, and its tests pass (instant success)', () => {
-  const src = readFileSync(join(tmp, 'Checkout.intent'), 'utf8');
+  const src = readFileSync(join(tmp, 'Checkout.thunder'), 'utf8');
   const ast = parseIntent(src);
   assert.equal(ast.mission, 'Checkout');
   // no error-level diagnostics
@@ -39,7 +39,7 @@ test('intent init refuses to overwrite without --force, allows with it', () => {
 
 test('intent init defaults the name to Mission', () => {
   cli('init', '--out', tmp);
-  assert.ok(existsSync(join(tmp, 'Mission.intent')));
+  assert.ok(existsSync(join(tmp, 'Mission.thunder')));
 });
 
 test.after(() => rmSync(tmp, { recursive: true, force: true }));

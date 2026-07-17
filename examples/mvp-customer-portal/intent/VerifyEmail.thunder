@@ -1,0 +1,34 @@
+# VerifyEmail.thunder , MVP Customer Portal / Onboarding
+
+mission VerifyEmail
+
+goal
+  Confirm a customer owns the email they registered with.
+
+why
+  Unverified emails let attackers register addresses they do not control and
+  poison downstream invites and billing.
+
+input
+  email: Email
+  token: VerificationToken
+
+output
+  result: VerificationResult
+
+constraints
+  token.ttl <= 24 hours
+
+guarantees
+  verification token can only be used once
+
+guarantee verification token can only be used once
+  because a reusable token can re-verify a hijacked address
+  verify test one time use
+
+never
+  return token
+
+verify
+  test one time use
+  test expired token rejected

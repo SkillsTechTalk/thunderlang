@@ -1,7 +1,7 @@
-# IntentLang Compiler Contract
+# ThunderLang Compiler Contract
 
 > Status: this describes the contract the reference compiler upholds. It is implemented
-> in this repository (`compiler/`, published as `@skillstech/intentlang`) and is
+> in this repository (`compiler/`, published as `@skillstech/thunderlang`) and is
 > deterministic, no AI required. Pre-1.0, so the contract can still change.
 
 The compiler does not merely convert syntax into code. It converts intent into
@@ -10,7 +10,7 @@ below runs without AI when invoked with `--no-ai`.
 
 ## Pipeline
 
-    .intent source
+    .thunder source
       → parse            (syntax → Intent AST)
       → semantic analysis (types, missing requirements, impossible guarantees)
       → contract graph   (missions, guarantees, never, assumptions, risks)
@@ -18,12 +18,12 @@ below runs without AI when invoked with `--no-ai`.
       → implementation plan (deterministic, before code generation)
       → target generation (adapter-driven artifacts)
       → verification     (checks that guarantees hold)
-      → proof artifact   (.intent-proof.json)
+      → proof artifact   (.thunder-proof.json)
 
 ## Stages
 
 ### 1. Parse
-Input: `.intent` files. Output: a typed Intent AST. Parsing runs in three
+Input: `.thunder` files. Output: a typed Intent AST. Parsing runs in three
 deterministic sub-stages, no lookahead grammar and no AI:
 
 1. **Lex into rows.** The source is split into significant lines, each carrying its
@@ -109,13 +109,13 @@ Runs type checks, tests, lint, security checks, architecture boundary checks,
 contract checks, and generated-test validation.
 
 ### 8. Proof artifact
-Emits `.intent-proof.json`. Shape:
+Emits `.thunder-proof.json`. Shape:
 
 ```json
 {
   "schemaVersion": "0.1.0",
   "missionName": "CreateInvoice",
-  "sourceFile": "CreateInvoice.intent",
+  "sourceFile": "CreateInvoice.thunder",
   "sourceHash": "sha256:...",
   "compilerVersion": "0.1.0",
   "generatedAt": "2026-07-09T00:00:00Z",
@@ -153,18 +153,18 @@ Emits `.intent-proof.json`. Shape:
 Guarantee and never-rule `status` values: `planned`, `needs_verification`,
 `verified`, or `failed`. `proofStatus` is `draft` until a human approves.
 
-A proof can be **verified** against its source: `intent verify <proof.json> [source]`
+A proof can be **verified** against its source: `thunder verify <proof.json> [source]`
 first checks the envelope is a well-formed `intent-proof-v1` document, then re-hashes the
 source and re-derives the proof's claims, confirming the source has not drifted or been
 tampered with since the proof was generated (exit non-zero on a mismatch). Commit a
-`.intent-proof.json` next to its source and verify it in CI to keep the proof honest.
+`.thunder-proof.json` next to its source and verify it in CI to keep the proof honest.
 
 ### The proof is a canonical, signable envelope
 
 The proof shape is published as a versioned contract, `intent-proof-v1`, so other products
 sign it and re-verify it against one schema instead of each re-describing the proof. Emit the
-JSON Schema with `intent proof --schema`, and validate any envelope with `validateProof(proof)`
-(exported from `@skillstech/intentlang`, and browser-safe via `/core` so a signing service or
+JSON Schema with `thunder proof --schema`, and validate any envelope with `validateProof(proof)`
+(exported from `@skillstech/thunderlang`, and browser-safe via `/core` so a signing service or
 cert renderer needs no Node build). `validateProof` returns `{ valid, errors }` , a
 deterministic structural check with no dependencies. Claim statuses are `planned`,
 `needs_verification`, `verified`, `failed`; the proof as a whole is `draft` until a human
@@ -175,19 +175,19 @@ scope are the signer's concern layered on top.
 
 The following must succeed with `--no-ai`:
 
-    intent check   CreateInvoice.intent
-    intent graph   CreateInvoice.intent
-    intent build   CreateInvoice.intent   # docs, test plan, proof
-    intent proof   CreateInvoice.intent
+    intent check   CreateInvoice.thunder
+    intent graph   CreateInvoice.thunder
+    intent build   CreateInvoice.thunder   # docs, test plan, proof
+    intent proof   CreateInvoice.thunder
 
-Optional AI-assisted commands (`intent plan`, `intent generate`, `intent explain`,
-`intent translate`, and prompt-to-intent drafting) must record provider, model,
+Optional AI-assisted commands (`thunder plan`, `thunder generate`, `thunder explain`,
+`thunder translate`, and prompt-to-intent drafting) must record provider, model,
 prompt hash, input hashes, output hashes, verification result, and human approval
 status. AI assists; humans approve, verify, and own the result.
 
 ## The CLI
 
-Shipped and deterministic (run `intent help` for the full reference):
+Shipped and deterministic (run `thunder help` for the full reference):
 
     intent check · build · graph · proof · schema · rules # author & check
     intent run · simulate · test · outcomes              # execute (no AI)
@@ -201,7 +201,7 @@ Proposed (AI-assisted; humans approve, verify, and own the result):
 
 ## Continuous integration
 
-`intent check` is deterministic, dependency-free, and exits non-zero on any
+`thunder check` is deterministic, dependency-free, and exits non-zero on any
 error, so it drops straight into CI to keep a broken intent from merging. Pass
 `--json` for a machine-readable `intent-check-v1` report (`ok`, a summary, and the
 full diagnostics with codes, severities, and any waivers) that editors, CI, and
@@ -209,13 +209,13 @@ OpenThunder can consume directly.
 
 ### Code scanning (SARIF)
 
-`intent check <path> --format sarif` emits a **SARIF 2.1.0** log, so IntentLang diagnostics
+`thunder check <path> --format sarif` emits a **SARIF 2.1.0** log, so ThunderLang diagnostics
 show up natively where teams already look: GitHub / GitLab code scanning (inline PR
 annotations and the Security tab) and any SARIF-aware IDE. Each diagnostic becomes a SARIF
 result with its stable rule id, a level (`blocker`/error → `error`, `warning` → `warning`,
 `info` → `note`), a file location, and a precise line when known; every rule carries its
 catalog description and a link to the [diagnostics catalog](/docs/diagnostics). SARIF output
-is a *report* (exit 0) , keep a plain `intent check .` step as the gate.
+is a *report* (exit 0) , keep a plain `thunder check .` step as the gate.
 
 ```yaml
 name: Intent code scan
@@ -228,18 +228,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: npx @skillstech/intentlang check . --format sarif > intent.sarif
+      - run: npx @skillstech/thunderlang check . --format sarif > intent.sarif
       - uses: github/codeql-action/upload-sarif@v3
         with: { sarif_file: intent.sarif }
 ```
 
-For a triage view rather than a pass/fail gate, `intent report [dir]` aggregates every
-`.intent` file into an intent-health summary: diagnostics by severity and area, the most common
+For a triage view rather than a pass/fail gate, `thunder report [dir]` aggregates every
+`.thunder` file into an intent-health summary: diagnostics by severity and area, the most common
 codes, and coverage signals (are guarantees verified, do missions have tests, are outcomes
 contracted). Pass `--json` for a machine-readable `intent-report-v1` a dashboard can consume.
 
-`intent check` accepts a directory and recurses it, so gating a whole repo is one
-command , `intent check .` , with no wrapper script. Any project can add the gate in
+`thunder check` accepts a directory and recurses it, so gating a whole repo is one
+command , `thunder check .` , with no wrapper script. Any project can add the gate in
 three lines with the published GitHub Action:
 
 ```yaml

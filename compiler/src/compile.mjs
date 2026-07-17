@@ -30,7 +30,7 @@ export function renderMarkdown(ast) {
 
 /**
  * Render a mission as Markdown documentation for ONE audience, weaving that lens's
- * IntentLens notes inline next to the mission element they annotate. Notes explain
+ * ThunderLens notes inline next to the mission element they annotate. Notes explain
  * meaning; they are never verification, and the doc says so. Pure and browser-safe.
  */
 export function renderLensDoc(ast, lens) {
@@ -40,7 +40,7 @@ export function renderLensDoc(ast, lens) {
   const notesFor = (path) => (ast.notes || []).filter((n) => n.lens === lens && n.targetPath === path);
   const L = [];
   L.push(`# ${m} , for the ${lens} reader`, '');
-  L.push(`> IntentLens \`${lens}\` notes are woven in below. They explain meaning for this`,
+  L.push(`> ThunderLens \`${lens}\` notes are woven in below. They explain meaning for this`,
     `> audience; they are documentation, not verification.`, '');
   for (const nt of notesFor(prefix)) L.push(`_${flat(nt.text)}_`, '');
   if (ast.goal) L.push(`**Goal.** ${ast.goal}`, '');
@@ -93,7 +93,7 @@ export function renderTestplan(ast) {
 }
 
 /**
- * Compile ThunderLang source in memory and return every artifact `intent build`
+ * Compile ThunderLang source in memory and return every artifact `thunder build`
  * would emit, without touching the filesystem.
  */
 export function compileSource(source, { sourceFile = 'playground.intent', generatedAt, origin = 'authored' } = {}) {

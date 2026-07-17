@@ -18,7 +18,7 @@ export function generateMetadata({
   if (!doc) return pageMeta({ title: "Docs", description: "", path: "/docs" });
   return pageMeta({
     title: doc.label,
-    description: `${doc.label}: IntentLang documentation.`,
+    description: `${doc.label}: ThunderLang documentation.`,
     path: `/docs/${params.slug}`,
   });
 }

@@ -1,0 +1,31 @@
+# ErrorMonitoring.thunder , MVP Customer Portal / Deployment Readiness
+
+mission ErrorMonitoring
+
+goal
+  Capture and report application errors for operators.
+
+why
+  Unmonitored errors mean outages are discovered by customers, not the team. But
+  error payloads are a common place secrets and PII leak.
+
+input
+  error: ApplicationError
+
+output
+  report: ErrorReport
+
+guarantees
+  errors are captured and reported
+  error reports are scrubbed of secrets and PII
+
+guarantee error reports are scrubbed of secrets and PII
+  because stack traces and payloads routinely carry tokens and personal data
+  verify test secrets are scrubbed from reports
+
+never
+  log(secret)
+  include PII in an error report
+
+verify
+  test secrets are scrubbed from reports

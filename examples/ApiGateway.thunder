@@ -1,0 +1,94 @@
+# ApiGateway.thunder
+# Domain: API gateway. Every request is authenticated, rate-limited, and routed by
+# one admission policy. Deny by default; never forward an unauthenticated call to a
+# protected route. The admission rule runs deterministically.
+
+mission AdmitRequest
+use product
+
+title "Authenticate, rate-limit, and route an inbound API request"
+for PlatformTeam
+
+goal
+  Admit a request only when it is authenticated, within its rate limit, and bound
+  for an allowed route.
+
+why
+  The gateway is the front door. A weak admission policy leaks protected routes,
+  lets one caller starve the rest, and forwards traffic nothing checked.
+
+requires
+  Route
+  RateLimitPolicy
+
+input
+  authenticated: Flag
+  routeAllowed: Flag
+  remainingQuota: Count
+  routeIsPublic: Flag
+
+output
+  decision: AdmissionResult
+
+guarantee an authenticated caller within quota reaches an allowed route
+  because the gateway must not block legitimate traffic it was built to serve
+  verify happy path routing test
+
+guarantee a caller over its rate limit is throttled, not served
+  because one caller must never exhaust capacity for everyone else
+  verify rate limit test
+
+never
+  forward an unauthenticated request to a protected route
+  route to a path outside the allowlist
+
+never forward an unauthenticated request to a protected route
+  because that is the exact bypass an API gateway exists to prevent
+  verify auth enforcement test
+
+never route to a path outside the allowlist
+  because an unlisted path is unowned surface with no contract behind it
+  verify route allowlist test
+
+# Admission is deny-by-default: only an explicit Allow forwards. `thunder run` / `thunder test`.
+decision AdmitRequest
+  inputs
+    authenticated
+    routeIsPublic
+    routeAllowed
+    remainingQuota
+  rule unknownRoute
+    when routeAllowed == false
+    return Reject
+  rule needsAuth
+    when routeIsPublic == false and authenticated == false
+    return Reject
+  rule overLimit
+    when remainingQuota <= 0
+    return Throttle
+  rule admit
+    when routeAllowed == true
+    return Forward
+  default
+    return Reject
+
+target
+  OpenAPI
+  Tests
+
+test AdmitRequest
+  case authenticated within quota is forwarded
+    given authenticated true, routeIsPublic false, routeAllowed true, remainingQuota 10
+    expect Forward
+  case unauthenticated to protected route is rejected
+    given authenticated false, routeIsPublic false, routeAllowed true, remainingQuota 10
+    expect Reject
+  case public route needs no auth
+    given authenticated false, routeIsPublic true, routeAllowed true, remainingQuota 10
+    expect Forward
+  case over rate limit is throttled
+    given authenticated true, routeIsPublic false, routeAllowed true, remainingQuota 0
+    expect Throttle
+  case unknown route is rejected
+    given authenticated true, routeIsPublic false, routeAllowed false, remainingQuota 10
+    expect Reject

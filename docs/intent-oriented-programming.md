@@ -3,7 +3,7 @@
 Intent-oriented programming (IOP) is a way of building software where the durable
 artifact is the declared intent, what the software must do, why it matters, what
 must never happen, and how the result is proven, and implementation is a target
-generated, verified, or checked against that intent. It is the practice IntentLang
+generated, verified, or checked against that intent. It is the practice ThunderLang
 is built for.
 
 ## A new altitude, not a new syntax
@@ -42,7 +42,7 @@ Intent-oriented programming runs a loop, not a one-way pipeline:
                 ↑                                                          │
                 └──────────────── drift detected ──────────────────────────┘
 
-1. **Declare.** Turn a prompt or requirement into a `.intent` mission, reviewed
+1. **Declare.** Turn a prompt or requirement into a `.thunder` mission, reviewed
    and version-controlled like any other source.
 2. **Contract.** The compiler turns intent into a contract graph, an architecture
    graph, and an implementation plan, deterministically.

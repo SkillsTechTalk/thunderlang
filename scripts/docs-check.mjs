@@ -35,7 +35,7 @@ for (const f of readdirSync(compilerSrc).filter((x) => x.endsWith('.mjs'))) {
   for (const m of txt.matchAll(/IL-[A-Z]+(?:-[A-Z]+)?-\d+/g)) emittableCodes.add(m[0]);
 }
 
-// Intent-source top-level keywords, to identify which fenced blocks are `.intent`.
+// Intent-source top-level keywords, to identify which fenced blocks are `.thunder`.
 const KW = new Set(['mission', 'use', 'goal', 'why', 'requires', 'input', 'output', 'guarantees', 'guarantee', 'never', 'metric', 'outcome', 'decision', 'lifecycle', 'command', 'on', 'capability', 'interface', 'release', 'result', 'learning', 'component', 'artifact', 'outcome_contract', 'test', 'data', 'waiver', 'evidence', 'experience', 'pattern', 'style_intent', 'conflict', 'persona', 'customer', 'problem', 'title', 'for', 'assumption', 'unknown', 'question', 'constraints', 'scope', 'non_goal', 'always', 'eventually', 'service', 'api', 'event']);
 
 let blocksChecked = 0;

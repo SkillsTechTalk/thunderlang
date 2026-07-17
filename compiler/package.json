@@ -1,7 +1,7 @@
 {
   "name": "@skillstech/thunderlang",
   "version": "0.1.7",
-  "description": "Deterministic ThunderLang compiler, CLI, and Language Server. No AI required. Turns .intent files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
+  "description": "Deterministic ThunderLang compiler, CLI, and Language Server. No AI required. Turns .thunder files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
   "type": "module",
   "main": "./src/index.mjs",
   "types": "./src/index.d.ts",
@@ -19,9 +19,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "intent": "src/cli.mjs",
-    "thunderlang": "src/cli.mjs",
-    "tl": "src/cli.mjs"
+    "thunder": "src/cli.mjs",
+    "intent": "src/cli.mjs"
   },
   "files": [
     "src",
@@ -30,7 +29,8 @@
     "syntaxes",
     "CHANGELOG.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "engines": {
     "node": ">=18"
@@ -40,8 +40,8 @@
     "build:cjs": "node scripts/build-cjs.mjs",
     "prepack": "node scripts/build-cjs.mjs",
     "prepublishOnly": "node scripts/build-cjs.mjs && node --test",
-    "check:example": "node src/cli.mjs check ../examples/CreateInvoice.intent",
-    "build:example": "node src/cli.mjs build ../examples/CreateInvoice.intent"
+    "check:example": "node src/cli.mjs check ../examples/CreateInvoice.thunder",
+    "build:example": "node src/cli.mjs build ../examples/CreateInvoice.thunder"
   },
   "devDependencies": {
     "esbuild": "^0.28.1"
@@ -70,13 +70,13 @@
   "homepage": "https://thunderlang.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SkillsTechTalk/thunderlang.git",
+    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
     "directory": "compiler"
   },
   "bugs": {
-    "url": "https://github.com/SkillsTechTalk/thunderlang/issues"
+    "url": "https://github.com/SkillsTechTalk/intent-language/issues"
   },
-  "author": "SkillsTech",
+  "author": "Skills Tech Talk, LLC",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"

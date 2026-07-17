@@ -1,6 +1,6 @@
 # Certification track
 
-> This page documents the *concept* of the certification and how it uses IntentLang.
+> This page documents the *concept* of the certification and how it uses ThunderLang.
 > The certification product itself (enrollment, exams, credentials) is built by
 > **SkillsTech Certified**, a sibling in the ecosystem, not in this repository.
 
@@ -26,11 +26,11 @@ outlives any one codebase or model.
 
 A holder of the credential can, without AI doing the thinking for them:
 
-- **Write a rigorous mission.** Turn a prompt or requirement into a `.intent` file with a
+- **Write a rigorous mission.** Turn a prompt or requirement into a `.thunder` file with a
   clear goal, typed inputs and outputs, guarantees, and, first, the prohibitions
   (`never` rules) that matter most.
 - **Prove it.** Attach a `verify` to every guarantee and never rule, and use
-  `intent check`, `intent run`, and `intent test` to make the mission self-verifying.
+  `thunder check`, `thunder run`, and `thunder test` to make the mission self-verifying.
 - **Read the diagnostics.** Explain what `guarantee-without-verification`,
   `secret-without-never-log`, or `IL-SEC-001` mean and why they block, and fix them.
 - **Reason about drift.** Explain how an implementation drifts from its intent and how the
@@ -40,16 +40,16 @@ A holder of the credential can, without AI doing the thinking for them:
 - **Defend the mission.** Explain, to a colleague or a reviewer, *why* the software is
   built this way, which is the skill [Repo Mastery](/docs/ecosystem-brief) drills.
 
-## How IntentLang backs the assessment
+## How ThunderLang backs the assessment
 
 Because intent is executable and checkable, the assessment can be objective rather than a
 quiz about opinions:
 
-- A candidate's mission is run through the real, deterministic compiler. `intent check`
-  and `intent test` give a pass/fail that no grader has to argue about.
+- A candidate's mission is run through the real, deterministic compiler. `thunder check`
+  and `thunder test` give a pass/fail that no grader has to argue about.
 - The [diagnostics catalog](/docs/diagnostics) is a fixed, published rubric: every finding
   names its rule, severity, and fix.
-- A candidate's `.intent-proof.json` is evidence the work was done and verified, the same
+- A candidate's `.thunder-proof.json` is evidence the work was done and verified, the same
   proof artifact the rest of the ecosystem consumes.
 
 So the credential is itself proof-backed: it is earned by producing intent that the
@@ -60,7 +60,7 @@ compiler can verify, not by self-report.
 The Associate credential is the foundation. Higher tiers, defined by SkillsTech Certified,
 would layer on architecture intent, distributed and failure semantics, governance and data
 privacy, and leading intent-oriented review on a team. Those are the certifying product's
-to specify; this page fixes only the shared vocabulary and the IntentLang skills each tier
+to specify; this page fixes only the shared vocabulary and the ThunderLang skills each tier
 rests on.
 
 ---

@@ -1,4 +1,4 @@
-// SARIF 2.1.0 output for `intent check` , so ThunderLang diagnostics show up natively in the
+// SARIF 2.1.0 output for `thunder check` , so ThunderLang diagnostics show up natively in the
 // surfaces teams already use: GitHub / GitLab code scanning (inline PR annotations + the
 // Security tab) and any SARIF-aware IDE. Pure: reports in, one SARIF log object out.
 //

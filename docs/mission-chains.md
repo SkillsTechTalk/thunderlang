@@ -55,12 +55,12 @@ The [customer portal example](/examples) declares three chains
 | Subscription Billing | CreateCheckoutSession to CancelSubscription (4) | blocked | CreateCheckoutSession |
 | Operate and Recover | HealthCheck to RollbackPlan (4) | at_risk | RollbackPlan |
 
-Every mission in Subscription Billing passes `intent check`, yet the chain is
+Every mission in Subscription Billing passes `thunder check`, yet the chain is
 blocked, because `CreateCheckoutSession` is drifting and `ActivateSubscription` has
 no passing test. That gap is invisible if you review missions one file at a time.
 
 ## Where chains come from (planned)
 
 Chains are detected from mission inputs, outputs, and references. The command
-`intent chains ./intent` is **planned** and owned by the SkillsTech Compiler; this
+`thunder chains ./intent` is **planned** and owned by the SkillsTech Compiler; this
 repo teaches the concept and ships the example fixture that shows its output shape.

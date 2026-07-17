@@ -7,7 +7,7 @@ import atlas from "@/data/atlas.json";
 export const metadata = pageMeta({
   title: "Intent Atlas",
   description:
-    "Understand well-known open-source projects through their intent. IntentLang lifts each project's public functions into inferred intent drafts, deterministically and with no AI, so a whole module reads as what it does.",
+    "Understand well-known open-source projects through their intent. ThunderLang lifts each project's public functions into inferred intent drafts, deterministically and with no AI, so a whole module reads as what it does.",
   path: "/atlas",
 });
 
@@ -30,13 +30,13 @@ export default function AtlasPage() {
       <PageHero
         eyebrow="Intent Atlas"
         title="Understand a project through its intent."
-        intro={`IntentLang lifts each project's public functions into inferred intent , deterministically, no AI , so a whole module reads as what it does. ${totals.missions} missions across ${totals.projects} well-known projects and ${totals.languages.length} languages.`}
+        intro={`ThunderLang lifts each project's public functions into inferred intent , deterministically, no AI , so a whole module reads as what it does. ${totals.missions} missions across ${totals.projects} well-known projects and ${totals.languages.length} languages.`}
       >
         <DraftNote>
           These are <strong>inferred, humble drafts</strong> , a lens on each project, not its
           authors&rsquo; committed intent. Every draft is unverified and needs review; only the
           lifted intent is shown, with attribution and license. This is exactly what{" "}
-          <Link href="/docs/adopting-intentlang">adopting IntentLang</Link> looks like: lift first,
+          <Link href="/docs/adopting-thunderlang">adopting ThunderLang</Link> looks like: lift first,
           then make it yours.
         </DraftNote>
       </PageHero>
@@ -70,7 +70,7 @@ export default function AtlasPage() {
                   </span>
                 </summary>
                 <div className="border-t border-white/8 p-3">
-                  <IntentCode code={m.intent} filename={`${m.mission}.intent`} />
+                  <IntentCode code={m.intent} filename={`${m.mission}.thunder`} />
                 </div>
               </details>
             ))}

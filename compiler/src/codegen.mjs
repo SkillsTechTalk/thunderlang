@@ -2,7 +2,7 @@
 // intent always produces the same code. It generates what the intent fully determines (typed
 // interfaces, and the decision logic, which is already executable) and leaves honest TODO
 // markers where a human must supply the business logic , never a fake implementation. This is
-// the "see how it works, then change it" surface for the playground and `intent gen`.
+// the "see how it works, then change it" surface for the playground and `thunder gen`.
 //
 // Pure and browser-safe so the playground can render it. TypeScript first; the same adapter
 // shape (a type map + a body walk) extends to C# / Java.

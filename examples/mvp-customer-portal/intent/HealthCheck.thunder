@@ -1,0 +1,19 @@
+# HealthCheck.thunder , MVP Customer Portal / Deployment Readiness
+
+mission HealthCheck
+
+goal
+  Report whether the service and its dependencies are healthy.
+
+why
+  Deployment automation and load balancers rely on an honest health signal. A
+  health check that lies keeps broken instances in rotation.
+
+output
+  status: HealthStatus
+
+guarantees
+  health reflects real dependency status
+
+verify
+  test unhealthy dependency is reported

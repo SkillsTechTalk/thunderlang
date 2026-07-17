@@ -1,5 +1,5 @@
 {
-  "_note": "Teaching fixture. Shape `intent proof matrix ./intent` is PLANNED to emit. Hand-authored to illustrate the Proof Matrix.",
+  "_note": "Teaching fixture. Shape `thunder proof matrix ./intent` is PLANNED to emit. Hand-authored to illustrate the Proof Matrix.",
   "_plannedCommand": "intent proof matrix ./intent",
   "schemaVersion": "0.1.0-draft",
   "product": "MVP Customer Portal",

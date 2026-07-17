@@ -171,8 +171,8 @@ test('parsing + building is deterministic under fuzz (500 cases)', () => {
 // ── mutation fuzz over the real example corpus ──
 test('mutating real example missions never crashes the compiler', () => {
   const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.intent')) : [];
-  assert.ok(files.length > 0, 'expected example .intent files');
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.thunder')) : [];
+  assert.ok(files.length > 0, 'expected example .thunder files');
   const r = rng(0xEEEE);
   for (const f of files) {
     const base = fs.readFileSync(path.join(dir, f), 'utf8');

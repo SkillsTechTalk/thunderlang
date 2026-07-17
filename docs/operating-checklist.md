@@ -1,14 +1,14 @@
-# IntentLang + SkillsTech Compiler Operating Checklist
+# ThunderLang + SkillsTech Compiler Operating Checklist
 
-> The biggest truth: **IntentLang only wins if developers stop seeing it as
+> The biggest truth: **ThunderLang only wins if developers stop seeing it as
 > "prompt engineering" and start seeing it as the durable contract layer for
 > AI-era software.**
 >
-> The first wedge stays: **write a `.intent` file, run `intent build`, and get
+> The first wedge stays: **write a `.thunder` file, run `thunder build`, and get
 > docs, diagrams, test plans, semantic warnings, and proof without AI.**
 
-The winning strategy is not "IntentLang generates apps from prompts." It is:
-**IntentLang becomes the standard way AI-era engineers define, verify, explain,
+The winning strategy is not "ThunderLang generates apps from prompts." It is:
+**ThunderLang becomes the standard way AI-era engineers define, verify, explain,
 and prove what software is supposed to do.**
 
 ## The top 20 that matter most
@@ -16,7 +16,7 @@ and prove what software is supposed to do.**
 1. Do not be "just prompts."
 2. Compiler must work without AI.
 3. First demo must be docs, diagrams, tests, proof.
-4. `.intent` files must be readable.
+4. `.thunder` files must be readable.
 5. Diagnostics must be excellent.
 6. Verification must be central.
 7. Proof must be first-class.
@@ -40,11 +40,11 @@ and prove what software is supposed to do.**
 1. Own the category: Intent-Oriented Programming.
 2. Avoid the prompt-wrapper trap.
 3. Keep the philosophy simple: Prompt to Intent to Contract to Plan to Implementation to Verification to Proof.
-4. Make the first demo obvious (CreateInvoice.intent to `intent build` to artifacts).
+4. Make the first demo obvious (CreateInvoice.thunder to `thunder build` to artifacts).
 5. Start above existing languages, not against them.
 6. Promise trust, not magic.
-7. Strong one-liner: "IntentLang is the intent language for AI-era software."
-8. Developer-friendly identity: `IntentLang`, `.intent`, `intent check/build/proof`.
+7. Strong one-liner: "ThunderLang is the intent language for AI-era software."
+8. Developer-friendly identity: `ThunderLang`, `.thunder`, `thunder check/build/proof`.
 9. Create a cultural identity around ownership and verification.
 10. Make it usable before it is ambitious (useful without code generation).
 
@@ -126,7 +126,7 @@ and prove what software is supposed to do.**
 77. Repo Mastery creates Intent Reality Checks.
 78. SkillsTech Talk creates Intent defense drills.
 79. SkillsTech Certified creates an Intent-Oriented Programming track.
-80. SkillsTech IDE provides first-class `.intent` editing.
+80. SkillsTech IDE provides first-class `.thunder` editing.
 81. Workspace stores signed proof.
 82. SkillsTech Social shares safe milestones.
 83. Runtime supports Prompt-to-Intent via task contracts.
@@ -134,16 +134,16 @@ and prove what software is supposed to do.**
 85. Every sibling knows its boundary.
 
 ### Distribution, community, flywheel (86-100)
-86. A beautiful, serious website at intentlanguage.dev.
+86. A beautiful, serious website at thunderlang.dev.
 87. A strong manifesto.
 88. A 20-minute tutorial that ends with docs, graph, test plan, and proof.
 89. A playground that shows generated artifacts instantly.
 90. A VS Code extension (highlight, diagnostics, run, preview).
 91. Ten excellent examples (reset password, create invoice, RAG pipeline, webhook handler, event-driven billing, auth API, file upload, AI agent task, data pipeline, deployment policy).
 92. Comparison pages (vs prompts, BDD, OpenAPI, Mermaid, ADRs, UML, Terraform, TypeScript, Python).
-93. A GitHub template repo: intentlang-starter.
-94. An install path: `npm install -g intentlang` or equivalent.
-95. CI usage: `intent check` in GitHub Actions.
+93. A GitHub template repo: thunderlang-starter.
+94. An install path: `npm install -g thunderlang` or equivalent.
+95. CI usage: `thunder check` in GitHub Actions.
 96. Intent Drift demos (OpenThunder catching drift after code changes).
 97. Weekly content (ownership, verification, prompt-to-intent, drift).
 98. Build in public.

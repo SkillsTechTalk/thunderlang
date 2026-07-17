@@ -55,7 +55,7 @@ test('intent docs without a lens prints the plain mission doc', () => {
   const res = docs(fixtureFile());
   assert.equal(res.status, 0, res.stderr);
   assert.match(res.stdout, /^# ChargeCard/m);
-  assert.doesNotMatch(res.stdout, /IntentLens/);
+  assert.doesNotMatch(res.stdout, /ThunderLens/);
 });
 
 test('intent docs reports usage without a file', () => {

@@ -20,7 +20,7 @@ export function generateMetadata({
     return pageMeta({ title: "Examples", description: "", path: "/examples" });
   return pageMeta({
     title: ex.title,
-    description: `${ex.filename}: a draft IntentLang example.`,
+    description: `${ex.filename}: a draft ThunderLang example.`,
     path: `/examples/${params.slug}`,
   });
 }

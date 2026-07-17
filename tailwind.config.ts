@@ -1,11 +1,16 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * ThunderLang re-skin. The palette KEY `gold` is retained so the many existing
+ * `gold-*` utility classes across the site render the new electric-violet "bolt"
+ * accent without touching every file. `rose` carries the cyan gradient tail.
+ */
 const config: Config = {
   content: ["./src/**/*.{ts,tsx,mdx}"],
   theme: {
     extend: {
       colors: {
-        // Deep navy canvas from the brand mockups
+        // Deep navy canvas.
         ink: {
           950: "#05070E",
           900: "#080B14",
@@ -14,19 +19,19 @@ const config: Config = {
           700: "#141B2E",
           600: "#1B2438",
         },
-        // Amber / gold star accent
+        // Electric-violet "bolt" accent (retains the `gold` key for compatibility).
         gold: {
-          100: "#FCEFD6",
-          200: "#F8DDA9",
-          300: "#F5C97A",
-          400: "#EEB25A",
-          500: "#E09A45",
-          600: "#C77F30",
+          100: "#EDE9FE",
+          200: "#D6CCFF",
+          300: "#B49BFF",
+          400: "#9A7CF7",
+          500: "#7C5CF0",
+          600: "#6538D9",
         },
-        // Rose-gold used in the "Lang" wordmark gradient
+        // Cyan spark used for the wordmark gradient tail.
         rose: {
-          200: "#F0CBB0",
-          300: "#E8B48C",
+          200: "#A5F3FC",
+          300: "#67E8F9",
         },
         haze: {
           100: "#EAF0FA",
@@ -49,7 +54,7 @@ const config: Config = {
         prose: "760px",
       },
       boxShadow: {
-        glow: "0 0 80px -20px rgba(238, 178, 90, 0.35)",
+        glow: "0 0 80px -20px rgba(124, 92, 240, 0.45)",
         panel: "0 24px 60px -30px rgba(0, 0, 0, 0.9)",
       },
       backgroundImage: {
@@ -62,13 +67,14 @@ const config: Config = {
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         twinkle: {
-          "0%, 100%": { opacity: "0.6", transform: "scale(1)" },
-          "50%": { opacity: "1", transform: "scale(1.08)" },
+          "0%, 100%": { opacity: "0.65", transform: "scale(1)" },
+          "45%": { opacity: "1", transform: "scale(1.08)" },
+          "55%": { opacity: "0.85", transform: "scale(1.02)" },
         },
       },
       animation: {
         "fade-up": "fade-up 0.6s ease-out both",
-        twinkle: "twinkle 4s ease-in-out infinite",
+        twinkle: "twinkle 4.5s ease-in-out infinite",
       },
     },
   },

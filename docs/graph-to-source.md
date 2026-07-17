@@ -1,8 +1,8 @@
 # Graph to Source (native round-trip)
 
-IntentLang compiles `.intent` source into the canonical [Intent Graph](/docs/intent-graph).
+ThunderLang compiles `.thunder` source into the canonical [Intent Graph](/docs/intent-graph).
 `graphToSource` runs it the other way: given an Intent Graph, it regenerates editable
-`.intent` source. That closes the native round-trip and makes the graph a first-class,
+`.thunder` source. That closes the native round-trip and makes the graph a first-class,
 editable representation, not a one-way export.
 
 ```
@@ -15,7 +15,7 @@ source  ──buildIntentGraph──▶  Intent Graph  ──graphToSource──
   canvas, and emit source that a human reads and version-controls, no hand-written text
   required.
 - **Discovered intent becomes editable.** OpenThunder discovers an Intent Graph from an
-  existing codebase; `graphToSource` turns that graph into a `.intent` file a team can
+  existing codebase; `graphToSource` turns that graph into a `.thunder` file a team can
   read, correct, and own.
 - **Normalization.** Running `source → graph → source` reformats a file into a canonical
   shape, the same way a code formatter does.
@@ -45,19 +45,19 @@ contract):
 intent source <file>
 ```
 
-- Given an `.intent` file, it parses, builds the graph, and regenerates source (a
+- Given an `.thunder` file, it parses, builds the graph, and regenerates source (a
   normalizing round-trip).
 - Given a `.json` Intent Graph, it regenerates source directly.
-- Writes to stdout, or to a `.intent` file with `--out <dir>`.
+- Writes to stdout, or to a `.thunder` file with `--out <dir>`.
 
-From the library (`@skillstech/intentlang`, schema `intent-graph-source-v1`):
+From the library (`@skillstech/thunderlang`, schema `intent-graph-source-v1`):
 
 ```js
-import { parseIntent, buildIntentGraph, graphToSource } from '@skillstech/intentlang';
+import { parseIntent, buildIntentGraph, graphToSource } from '@skillstech/thunderlang';
 const graph = buildIntentGraph(parseIntent(src));
 const regenerated = graphToSource(graph);   // deterministic, pure
 ```
 
-Together with the [DMN/BPMN import adapters](/docs/import-adapters), IntentLang now has a
+Together with the [DMN/BPMN import adapters](/docs/import-adapters), ThunderLang now has a
 complete round-trip in both directions: to and from external formats, and to and from its
 own graph.

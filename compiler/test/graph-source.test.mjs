@@ -151,7 +151,7 @@ test('graphToSource is deterministic', () => {
 
 test('the whole example corpus (titled missions) round-trips with no node loss', () => {
   const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.intent'));
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.thunder'));
   let scoped = 0;
   for (const f of files) {
     const ga = buildIntentGraph(parseIntent(fs.readFileSync(path.join(dir, f), 'utf8')));

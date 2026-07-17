@@ -85,7 +85,7 @@ function setPath(root, path, leaf) {
 /**
  * Deterministic diagnostics for every `style_intent` block. Returns an array of
  * { ruleId, severity, blocks, message, styleIntent, line } , the same shape the rest of
- * the compiler emits, so it composes into `intent check` with no special-casing.
+ * the compiler emits, so it composes into `thunder check` with no special-casing.
  */
 export function styleDiagnostics(ast) {
   const out = [];
@@ -199,7 +199,7 @@ export function toDesignTokens(ast) {
     });
     for (const t of si.tokens) {
       const leaf = { $value: coerceValue(t.value), $type: tokenType(t.path) };
-      if (!isKnownPath(t.path)) leaf.$extensions = { 'dev.thunderlang': { canonical: false } };
+      if (!isKnownPath(t.path)) leaf.$extensions = { 'dev.intentlanguage': { canonical: false } };
       setPath(root, t.path, leaf);
     }
   }
@@ -207,7 +207,7 @@ export function toDesignTokens(ast) {
     $description: `Design tokens for ${ast.title || ast.mission || 'intent'} (generated from style_intent by @skillstech/thunderlang)`,
     ...root,
     $extensions: {
-      'dev.thunderlang': {
+      'dev.intentlanguage': {
         schema: DESIGN_TOKENS_SCHEMA,
         format: 'W3C Design Tokens (DTCG)',
         source: ast.mission || null,

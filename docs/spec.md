@@ -1,12 +1,12 @@
-# IntentLang Language Specification (draft v0.2)
+# ThunderLang Language Specification (draft v0.2)
 
 > Status: draft, but no longer hypothetical. A deterministic reference compiler
-> (`@skillstech/intentlang`) implements everything in this document, with an extensive
+> (`@skillstech/thunderlang`) implements everything in this document, with an extensive
 > test suite. The language and its `intent-graph-v1` schema are versioned independently;
 > both are pre-1.0, so constructs may still change. This spec is descriptive of the
 > shipped compiler; where the two disagree, the compiler is the source of truth.
 
-IntentLang is an intent-oriented language: you declare *what* a system must be true of,
+ThunderLang is an intent-oriented language: you declare *what* a system must be true of,
 in a form that is human-readable, deterministically compilable (no AI required), and,
 for decisions, lifecycles, and outcomes, directly executable. A mission compiles to the
 canonical **Intent Graph** (`intent-graph-v1`) plus role-aware diagnostics, docs, a
@@ -14,7 +14,7 @@ contract graph, a test plan, and a proof artifact.
 
 ## 1. Files
 
-- Source files use the `.intent` extension and are UTF-8 text.
+- Source files use the `.thunder` extension and are UTF-8 text.
 - A file contains one or more top-level declarations (section 4).
 - Compilation is deterministic and pure: the same source always yields the same graph,
   diagnostics, and artifacts, with no network, filesystem, clock, or AI dependency.
@@ -29,7 +29,7 @@ mission CreateInvoice   # trailing comment
 ```
 
 ### 2.2 Indentation
-IntentLang is indentation-structured. A block keyword sits at one indentation level; its
+ThunderLang is indentation-structured. A block keyword sits at one indentation level; its
 contents are indented further (two spaces is canonical). Indentation defines block
 membership. Use spaces; tabs are discouraged.
 
@@ -104,7 +104,7 @@ verify, ...). `use` is advisory metadata; the compiler parses any construct rega
 - `assumptions`, `risks` , declared context.
 - `verify` , the checks that establish the guarantees.
 - `target`, `style`, `implementation` , generation hints.
-- `owner`, `title`, `for` (actor), `note` (an IntentLens annotation).
+- `owner`, `title`, `for` (actor), `note` (an ThunderLens annotation).
 
 ### 5.1 Attached guarantee / never
 `guarantee` and `never` items may carry `because` and `verify`:
@@ -463,7 +463,7 @@ draft-07 JSON Schema pinned to these enums.
 Diagnostics carry a `level` (`error`, `warning`, `info`), a stable `code`, a `message`, a
 `why`, optional `fix`, and role metadata. Two orthogonal ideas:
 
-- **Validity** , `error` means an invalid program; `intent check` fails on any error.
+- **Validity** , `error` means an invalid program; `thunder check` fails on any error.
 - **Phase gating** , `severity: 'blocker'` + `blocks: [phase]` mean a *valid* program is
   not yet ready to proceed to that phase (e.g. `release`). These surface as warnings so
   the file still compiles.
@@ -477,7 +477,7 @@ outcome, and the lifecycle/distributed/decision families. The full catalog is
 The `intent` CLI: `check`, `build`, `graph`, `proof`, `atlas`, `diff`, `merge`,
 `export` (dmn|bpmn|smv), `import` (dmn|bpmn), `run`, `simulate`, `test`, `outcomes`,
 `lift`, `approve`, `drift`, `index`, `schema`. The library
-(`@skillstech/intentlang`, and the browser-safe `@skillstech/intentlang/core` subset)
+(`@skillstech/thunderlang`, and the browser-safe `@skillstech/thunderlang/core` subset)
 exposes the same functions.
 
 ## 24. Versioning and determinism

@@ -1,6 +1,6 @@
 # Optional AI assist
 
-IntentLang is deterministic first. The compiler produces the same contract, plan, and
+ThunderLang is deterministic first. The compiler produces the same contract, plan, and
 proof from the same source every time, with `--no-ai` and no network. AI is an optional
 assist that only ever *proposes*; it never decides, and nothing it produces is trusted
 until a human approves it. This page describes where AI can help and, just as important,
@@ -23,8 +23,8 @@ where the deterministic compiler already does the work with no model at all.
 Turning a prompt into a rigorous mission is split into a deterministic half and an
 optional AI half.
 
-- **Deterministic:** `intent draft --brief <json|->` (`draftIntent`) takes a structured
-  brief and produces a canonically-formatted `.intent` draft **plus a review checklist**
+- **Deterministic:** `thunder draft --brief <json|->` (`draftIntent`) takes a structured
+  brief and produces a canonically-formatted `.thunder` draft **plus a review checklist**
   of what a human must still decide, an unverified guarantee, a decision with no default,
   an unguarded secret, a missing goal. The draft is labeled a proposal, never verified.
 
@@ -49,14 +49,14 @@ optional AI half.
 
 - **Optional AI:** an agent can produce that brief from a free-form prompt. It does so
   through the MCP tool `intent_draft` (see [editor support](/docs/editor-support) and the
-  MCP server), so the model writes the brief and IntentLang makes it rigorous. The human
+  MCP server), so the model writes the brief and ThunderLang makes it rigorous. The human
   clears the checklist before the mission is real.
 
 ## 2. Intent review
 
-Review is deterministic. `intent check` runs the whole [diagnostics catalog](/docs/diagnostics)
+Review is deterministic. `thunder check` runs the whole [diagnostics catalog](/docs/diagnostics)
 over a mission and explains every finding, its rule, the source it fired on, why it
-matters, and how to fix it, with no model involved. `intent explain <IL-CODE>` expands any
+matters, and how to fix it, with no model involved. `thunder explain <IL-CODE>` expands any
 code:
 
 ```
@@ -82,13 +82,13 @@ deterministic and always correct about *what* is missing:
   no auth requirement.
 - `IL-DEC-001`, a decision with no default branch.
 
-These are surfaced by `intent check`, so the "you forgot a test / a guardrail / a risk"
+These are surfaced by `thunder check`, so the "you forgot a test / a guardrail / a risk"
 prompt is answered without AI. An AI can *propose the wording* of a new guarantee or test
 case; the diagnostic decides whether one is required.
 
 ## 4. Target planning
 
-The [implementation plan](/docs/compiler-contract) is deterministic. `intent build` emits
+The [implementation plan](/docs/compiler-contract) is deterministic. `thunder build` emits
 `implementation-plan.json` in a fixed category order (preconditions, guarantees, never
 rules, events, verifications), each step traceable to the AST element that required it. No
 AI is needed to sequence the work; an AI can annotate a step with a suggested approach, but
@@ -98,8 +98,8 @@ the plan itself is reproducible.
 
 Two deterministic surfaces already generate explanation:
 
-- `intent explain <CODE>` for diagnostics.
-- [IntentLens notes](/docs/intent-graph) (`note pm:`, `note beginner:`, `note security:`,
+- `thunder explain <CODE>` for diagnostics.
+- [ThunderLens notes](/docs/intent-graph) (`note pm:`, `note beginner:`, `note security:`,
   ...), authored comments that compile into audience-specific understanding with source
   spans, and are never mistaken for verification.
 
@@ -113,12 +113,12 @@ rewrite. An `implement with ai { ... }` block declares a region; the compiler bu
 provider-neutral prompt (`buildImplementationPrompt`), tracks the result through a
 nine-state lifecycle, and refuses to ship it until it is verified and approved:
 
-- `intent ai list` / `intent ai generate` , inspect regions and produce the handoff prompt.
-- `intent ai gate` and `intent build --mode production` , block production on any region
+- `thunder ai list` / `thunder ai generate` , inspect regions and produce the handoff prompt.
+- `thunder ai gate` and `thunder build --mode production` , block production on any region
   that is pending, modified, or unverified.
-- `intent ai approve` / `intent ai reject` , bind a decision to the reviewed hashes; the
+- `thunder ai approve` / `thunder ai reject` , bind a decision to the reviewed hashes; the
   approval goes stale the moment the code or contract changes.
-- `intent ai select` , pick among candidates by *measurable* criteria, never by asking a
+- `thunder ai select` , pick among candidates by *measurable* criteria, never by asking a
   model which it prefers.
 
 The full model, states, proof shape, and selection rules are in

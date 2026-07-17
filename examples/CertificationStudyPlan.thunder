@@ -1,0 +1,62 @@
+# CertificationStudyPlan.thunder , Product Mission (intent-graph-v1).
+# The same intent, readable by Product, UX, QA, and Engineering. See docs/intent-graph.md.
+
+use product
+
+mission CertificationStudyPlan
+
+title "Turn certification notes into a study plan"
+
+for Learner
+
+problem
+  "Learners have study material but do not know how to organize it into an
+   effective certification plan."
+
+evidence SupportTickets
+  classification observed
+  confidence medium
+  source "support/tickets-2026-q2"
+
+evidence UserInterviews
+  classification observed
+  confidence high
+
+outcome FasterStudyPlanCreation
+  "Learners receive a useful study plan within five minutes."
+
+metric PlanCreatedWithinFiveMinutes
+  baseline 42 percent
+  target at_least 70 percent
+  window 30 days after release
+
+scope
+  include PDFUpload
+  include TextPaste
+  include StudyPlanGeneration
+  exclude VideoUpload
+
+assumption MostUsersUploadPDF
+  confidence low
+  validate with Analytics
+
+unknown MaximumUploadSize
+  owner Product
+  resolve before Implementation
+
+question ShouldProcessingBeCancellable
+  asked_of UX
+  blocks ExperienceApproval
+
+never
+  alter OriginalMaterial silently
+  expose PrivateStudyMaterial
+  present UnsupportedStatements as fact
+
+owner ProductTeam
+
+approval required from
+  Product
+  UX
+  Engineering
+  Security

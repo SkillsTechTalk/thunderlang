@@ -6,10 +6,7 @@ and, for decisions, lifecycles, and outcomes, **executes the intent directly** (
 generated). Every output is pure and deterministic: the same source always yields the same
 result, so intent can be diffed, merged, tested, and trusted.
 
-Part of [ThunderLang](https://thunderlang.dev), the intent-oriented language for AI-era software.
-
-> Previously published as `@skillstech/intentlang`. The package was renamed to
-> `@skillstech/thunderlang`; the old name remains as a deprecated alias.
+Part of [ThunderLang](https://thunderlang.dev), the intent language for AI-era software.
 
 ## Install
 
@@ -54,7 +51,7 @@ intent diff <before> <after>      intent merge <base> <ours> <theirs>
 intent lift <file>   intent approve <file>   intent drift <file>
 ```
 
-Run `intent help` for the full reference.
+Run `thunder help` for the full reference.
 
 ## Executable intent
 
@@ -94,7 +91,7 @@ Export the tokens to **W3C Design Tokens**, a drop-in **CSS** sheet, the whole g
 
 The compiler also catches the mistakes prompts ship: a secret-typed field on an event payload
 (`IL-SEC-001`), a sensitive API output with no auth (`IL-SEC-002`), a mistyped field
-(`IL-TYPE-001`), and more , the full catalog is `intent rules` / [docs](https://thunderlang.dev/docs/diagnostics).
+(`IL-TYPE-001`), and more , the full catalog is `thunder rules` / [docs](https://thunderlang.dev/docs/diagnostics).
 
 ## Use as a library
 
@@ -141,10 +138,10 @@ so it keeps bundling everywhere. The `.` entry is this same surface plus the Nod
 Compilation produces a canonical graph of 40 typed node kinds and 20 directed
 relationship types, across five profiles (product, experience, system, delivery, design).
 The vocabulary is closed and enforced (an anti-fork test guarantees the compiler only
-emits canonical types); `intent schema` emits its draft-07 JSON Schema, also shipped as
+emits canonical types); `thunder schema` emits its draft-07 JSON Schema, also shipped as
 the static `intent-graph.schema.json` in this package (CI-guaranteed in sync with the
 code). Consumers (OpenThunder, Repo Mastery, SkillsTech Studio) build to this graph, and
-`intent validate <graph.json>` self-checks a graph against the canonical vocabulary.
+`thunder validate <graph.json>` self-checks a graph against the canonical vocabulary.
 
 ## Output location
 

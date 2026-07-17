@@ -72,8 +72,8 @@ produce. A style intent that omits the target gets an informational `IL-STYLE-00
 "accessible" left implicit is "accessible" left unchecked.
 
 ```
-intent style storefront.intent
-  intent style storefront.intent: 1 style intent(s)
+intent style storefront.thunder
+  intent style storefront.thunder: 1 style intent(s)
     CheckoutLook  , a11y WCAG_2_2_AA (proposed, verified=false), 3 token(s), applies_to CheckoutFlow
 ```
 
@@ -87,17 +87,17 @@ intent style storefront.intent
 | `IL-STYLE-004` | warning | Invalid `mode` token value. |
 | `IL-STYLE-005` | info | `applies_to` names an experience not declared in this file. |
 
-These compose into `intent check` like every other diagnostic, so a broken theme fails the
+These compose into `thunder check` like every other diagnostic, so a broken theme fails the
 same gate as a broken decision.
 
 ## Consuming it
 
-The style API is browser-safe (`@skillstech/intentlang/core`), so a design tool can resolve
+The style API is browser-safe (`@skillstech/thunderlang/core`), so a design tool can resolve
 tokens without a Node build:
 
 ```js
-import { analyzeStyle, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS } from '@skillstech/intentlang/core';
-import { parseIntent } from '@skillstech/intentlang';
+import { analyzeStyle, STYLE_ADDRESS_SPACE, ACCESSIBILITY_TARGETS } from '@skillstech/thunderlang/core';
+import { parseIntent } from '@skillstech/thunderlang';
 
 const view = analyzeStyle(parseIntent(source));
 // view.styleIntents[0].tokens -> [{ path, value, canonical }]
@@ -106,7 +106,7 @@ const view = analyzeStyle(parseIntent(source));
 
 ## Export to standard design tokens
 
-Tokens are only useful if they flow downstream. `intent export <file> --format tokens`
+Tokens are only useful if they flow downstream. `thunder export <file> --format tokens`
 renders the style intent as a [W3C Design Tokens (DTCG)](/docs/export-adapters) document ,
 the shape Style Dictionary, Figma Tokens, and CSS pipelines consume , so the same canonical
 addresses become real theme variables with no hand-translation. Or skip the pipeline

@@ -17,7 +17,7 @@ import {
 export const metadata = pageMeta({
   title: "Examples",
   description:
-    "IntentLang examples: missions, three syntax layers, and architecture, API, event, and test intent showing how IntentLang describes what software should do.",
+    "ThunderLang examples: missions, three syntax layers, and architecture, API, event, and test intent showing how ThunderLang describes what software should do.",
   path: "/examples",
 });
 
@@ -28,7 +28,7 @@ const missionExamples = [
     summary:
       "The canonical CreateInvoice mission: a goal, its inputs and outputs, the guarantees that must always hold, forbidden behavior, targets, and how it is verified.",
     code: heroExample,
-    filename: "CreateInvoice.intent",
+    filename: "CreateInvoice.thunder",
   },
 ];
 
@@ -64,9 +64,9 @@ const systemExamples = [
     id: "architecture",
     title: "Architecture as code",
     summary:
-      "IntentLang understands services: what they own, consume, and publish, their data store, and who owns them.",
+      "ThunderLang understands services: what they own, consume, and publish, their data store, and who owns them.",
     code: architectureExample,
-    filename: "Billing.intent",
+    filename: "Billing.thunder",
   },
   {
     id: "api",
@@ -74,7 +74,7 @@ const systemExamples = [
     summary:
       "Method, path, required permissions, inputs, outputs, and the errors an endpoint can return.",
     code: apiExample,
-    filename: "CreateInvoiceApi.intent",
+    filename: "CreateInvoiceApi.thunder",
   },
   {
     id: "event",
@@ -82,7 +82,7 @@ const systemExamples = [
     summary:
       "Who publishes an event, who consumes it, its payload, and the guarantees it must uphold.",
     code: eventExample,
-    filename: "InvoiceCreated.intent",
+    filename: "InvoiceCreated.thunder",
   },
   {
     id: "test",
@@ -90,7 +90,7 @@ const systemExamples = [
     summary:
       "Given, When, Then. Tests describe behavior in the same language as the intent they verify.",
     code: testExample,
-    filename: "DuplicateInvoicePrevention.intent",
+    filename: "DuplicateInvoicePrevention.thunder",
   },
 ];
 
@@ -105,17 +105,17 @@ export default function ExamplesPage() {
       >
         <DraftNote>
           The executable parts run for real via{" "}
-          <strong>@skillstech/intentlang</strong> , no AI, no generated code. Try one in the{" "}
+          <strong>@skillstech/thunderlang</strong> , no AI, no generated code. Try one in the{" "}
           <Link href="/playground">playground</Link>. The language is pre-1.0 and can still change.
         </DraftNote>
       </PageHero>
 
-      {/* Browse the raw .intent files */}
+      {/* Browse the raw .thunder files */}
       <Section>
         <div className="mb-4">
           <p className="eyebrow">Example files</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-            Browse the <span className="font-mono text-gold-200">.intent</span>{" "}
+            Browse the <span className="font-mono text-gold-200">.thunder</span>{" "}
             files.
           </h2>
           <p className="mt-2 text-sm text-haze-400">
@@ -197,7 +197,7 @@ export default function ExamplesPage() {
               <p className="mb-4 text-sm leading-relaxed text-haze-300">
                 {l.summary}
               </p>
-              <IntentCode code={l.code} filename="ResetPassword.intent" />
+              <IntentCode code={l.code} filename="ResetPassword.thunder" />
             </div>
           ))}
         </div>
@@ -208,10 +208,10 @@ export default function ExamplesPage() {
         <div className="max-w-2xl">
           <p className="eyebrow">Beyond a single function</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-            IntentLang for whole systems.
+            ThunderLang for whole systems.
           </h2>
           <p className="mt-4 text-lg leading-relaxed text-haze-300">
-            IntentLang is architecture aware. Services, APIs, events, and tests are
+            ThunderLang is architecture aware. Services, APIs, events, and tests are
             all first-class, so the meaning of a system lives in one place.
           </p>
         </div>

@@ -2,19 +2,19 @@
 
 The [export adapters](/docs/export-adapters) send intent out to industry formats. Import
 adapters bring it back. If a team already has decision logic in a DMN table or a process
-in a BPMN diagram, they do not have to retype it: lift it straight into IntentLang and
+in a BPMN diagram, they do not have to retype it: lift it straight into ThunderLang and
 it becomes runnable, checkable intent.
 
-Two importers ship, both deterministic and pure, with no dependencies (IntentLang
+Two importers ship, both deterministic and pure, with no dependencies (ThunderLang
 carries its own small XML reader):
 
 | From | To | Command |
 |---|---|---|
-| DMN 1.3 decision table | a `decision` block | `intent import table.dmn` |
-| BPMN 2.0 process | a `lifecycle` block | `intent import flow.bpmn` |
+| DMN 1.3 decision table | a `decision` block | `thunder import table.dmn` |
+| BPMN 2.0 process | a `lifecycle` block | `thunder import flow.bpmn` |
 
 The format is auto-detected; pass `--format dmn\|bpmn` to force it. Output goes to
-stdout, or to a `.intent` file with `--out <dir>`.
+stdout, or to a `.thunder` file with `--out <dir>`.
 
 ## The round-trip contract
 
@@ -33,7 +33,7 @@ intent and asserting equal results.
 
 ## It reads foreign files too
 
-Import is not limited to files IntentLang produced. A DMN table authored in Camunda or
+Import is not limited to files ThunderLang produced. A DMN table authored in Camunda or
 Drools with proper unary tests imports correctly: an `age` column with the entry
 `>= 18` and a `region` column with `US` becomes `when age >= 18 and region == US`. A
 BPMN process from any modeler imports its tasks as states, its sequence flows as
@@ -56,7 +56,7 @@ decision Approve
     return Deny
 ```
 
-That decision is immediately executable with `intent run`, so a table that used to live
+That decision is immediately executable with `thunder run`, so a table that used to live
 only inside a decision engine is now runnable, diffable, versionable intent.
 
 ## Fidelity report: what an import could not represent
@@ -73,12 +73,12 @@ intent import ticket.bpmn
     state Open
     state Closed
   intent import: [IL-IMP-BPMN-001] Process "Ticket" has 1 gateway(s); branching is flattened into direct transitions.
-  intent import: [IL-IMP-BPMN-002] A sequence flow carries a condition; IntentLang transitions have no guards, so the condition is dropped.
+  intent import: [IL-IMP-BPMN-002] A sequence flow carries a condition; ThunderLang transitions have no guards, so the condition is dropped.
 ```
 
 The source prints to stdout (clean for piping); the warnings print to stderr. Pass
 `--json` for the full report , `{ source, warnings, stats, ok }`. A clean round-trip (a
-file IntentLang itself produced) reports zero warnings. Warning families:
+file ThunderLang itself produced) reports zero warnings. Warning families:
 
 - **DMN**: `IL-IMP-DMN-001` decision with no table (skipped), `-002` non-first hit policy
   (semantics may differ), `-003` a rule with a condition but no result, `-004` multiple
@@ -94,14 +94,14 @@ adopting the imported intent.
 
 Import closes the loop. Intent can now come *from* the tools teams already use, not
 only go to them. A decision table becomes a tested specification. A process diagram
-becomes a simulatable lifecycle. And because export and import are inverses, IntentLang
+becomes a simulatable lifecycle. And because export and import are inverses, ThunderLang
 can sit in the middle of an existing toolchain without asking anyone to abandon it,
 which is how a standard earns adoption.
 
 ## The surface
 
-- CLI: `intent import <file> [--format dmn|bpmn] [--out <dir>] [--json]`.
-- Library (`@skillstech/intentlang`): `fromDMN(xml)`, `fromBPMN(xml)`,
+- CLI: `thunder import <file> [--format dmn|bpmn] [--out <dir>] [--json]`.
+- Library (`@skillstech/thunderlang`): `fromDMN(xml)`, `fromBPMN(xml)`,
   `importIntent(xml, format?)`, `importReport(xml, format?)` (schema
   `intent-import-v1`), `detectFormat(xml)`, and the small XML reader (`parseXml`,
   `find`, `findAll`, `localName`).

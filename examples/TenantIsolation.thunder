@@ -1,0 +1,48 @@
+# TenantIsolation.thunder
+# Global invariants , system-wide laws that must hold across every feature and service,
+# not just one mission. A locally-valid change can still violate a global invariant.
+
+mission MultiTenantPlatform
+use product
+
+title "Keep every tenant's data and money strictly isolated and consistent"
+for PlatformSecurity
+
+goal
+  Serve many tenants from one system without any cross-tenant leak or inconsistency.
+
+why
+  A single cross-tenant leak or a lost ledger entry is catastrophic and unrecoverable trust damage.
+
+owner PlatformSecurity
+
+invariant TenantIsolation
+  statement one tenant's data is never visible to another tenant
+  scope global
+  applies_to
+    apis
+    events
+    databases
+    caches
+    logs
+    search
+  severity critical
+  because the entire multi-tenant promise rests on this one law
+  verify tenant isolation property test
+
+invariant CompletedPaymentHasLedgerEntry
+  statement every completed payment has exactly one ledger entry
+  scope global
+  applies_to
+    databases
+    events
+  severity critical
+  because a payment with zero or two ledger entries is a financial correctness break
+  verify ledger reconciliation test
+
+invariant EveryMutationIsAuthorized
+  statement no state-changing request runs without an authorization decision
+  scope global
+  severity critical
+  because an unauthorized mutation is the root of most breaches
+  verify authorization coverage test

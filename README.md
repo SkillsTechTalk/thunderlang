@@ -1,13 +1,9 @@
 # ThunderLang, thunderlang.dev
 
-**ThunderLang is the intent-oriented language for AI-era software.** It lets engineers
+**ThunderLang is the intent language for AI-era software.** It lets engineers
 define what software should do, why it matters, what must never happen, and how
 the result must be verified before code is generated, changed, or shipped. Built
 by **SkillsTech**. Category: **Intent-Oriented Programming**.
-
-> **ThunderLang was previously introduced as IntentLang** — the same language and
-> vision under a stronger, more distinctive brand. The `.intent` file format and the
-> `intent` CLI are unchanged.
 
 > Prompt → Intent → Contract → Plan → Implementation → Verification → Proof
 >
@@ -27,9 +23,9 @@ There is a real, deterministic compiler and CLI, published as
 ```bash
 npm install -g @skillstech/thunderlang
 intent init Eligibility                              # scaffold a runnable starter
-intent run Eligibility.intent --inputs '{"age":20}'  # a decision decides, with a trace
-intent test Eligibility.intent                       # in-file tests prove it (2/2 passed)
-intent check .                                       # gate every .intent in the repo
+intent run Eligibility.thunder --inputs '{"age":20}'  # a decision decides, with a trace
+intent test Eligibility.thunder                       # in-file tests prove it (2/2 passed)
+intent check .                                       # gate every .thunder in the repo
 ```
 
 That is the point of ThunderLang: some intent does not need code generated, it **runs**.

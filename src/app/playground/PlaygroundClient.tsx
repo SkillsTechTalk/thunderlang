@@ -66,7 +66,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "proof", label: "Proof" },
 ];
 
-// Reader lenses for IntentLens notes (compiler is the source of truth for the notes).
+// Reader lenses for ThunderLens notes (compiler is the source of truth for the notes).
 const LENSES = ["all", "pm", "beginner", "qa", "risk", "security", "reviewer"];
 
 const SEMANTIC_TYPES =
@@ -209,7 +209,7 @@ function buildDebug(result: CompileResult): DebugView {
   };
 }
 
-const LIFT_SAMPLE = `// Paste TypeScript. IntentLift infers a humble .intent draft from it.
+const LIFT_SAMPLE = `// Paste TypeScript. IntentLift infers a humble .thunder draft from it.
 export class DuplicateInvoice extends Error {}
 
 export async function createInvoice(
@@ -477,7 +477,7 @@ export function PlaygroundClient() {
               <div>
                 {!liftResult && (
                   <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-white/12 text-center text-xs text-haze-500">
-                    The inferred .intent draft appears here.
+                    The inferred .thunder draft appears here.
                   </div>
                 )}
                 {liftResult?.error && (
@@ -525,13 +525,13 @@ export function PlaygroundClient() {
                         type="button"
                         onClick={() =>
                           download(
-                            `${liftResult.summary.mission}.intent`,
+                            `${liftResult.summary.mission}.thunder`,
                             liftResult.intentText,
                           )
                         }
                         className="text-xs text-gold-300 hover:text-gold-200"
                       >
-                        Download .intent
+                        Download .thunder
                       </button>
                     </div>
 
@@ -651,10 +651,10 @@ export function PlaygroundClient() {
           </span>
           <button
             type="button"
-            onClick={() => download("playground.intent", code)}
+            onClick={() => download("playground.thunder", code)}
             className="text-xs text-haze-400 hover:text-haze-200"
           >
-            Download .intent
+            Download .thunder
           </button>
         </div>
 
@@ -960,7 +960,7 @@ export function PlaygroundClient() {
                   ))}
                 </div>
                 <p className="mb-3 text-xs text-haze-500">
-                  IntentLens notes are compiled explanation for a specific reader.
+                  ThunderLens notes are compiled explanation for a specific reader.
                   They improve understanding; they do not prove behavior.
                 </p>
                 {(() => {
@@ -1122,7 +1122,7 @@ export function PlaygroundClient() {
                 <DownloadRow
                   onClick={() =>
                     download(
-                      ".intent-proof.json",
+                      ".thunder-proof.json",
                       JSON.stringify(proof, null, 2),
                       "application/json",
                     )

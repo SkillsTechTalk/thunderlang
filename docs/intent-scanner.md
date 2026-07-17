@@ -1,7 +1,7 @@
 # Intent Scanner and Fable
 
 Software is generated and changed faster than humans can understand it. The Intent Scanner closes
-that gap for a project's intent: it turns a repository's `.intent` files into one shared semantic
+that gap for a project's intent: it turns a repository's `.thunder` files into one shared semantic
 representation , [Intent IR](/docs/intent-graph) , and a set of **explainable findings** grouped
 by risk. Deterministic, no AI, no key required; the whole pipeline runs locally.
 
@@ -22,7 +22,7 @@ intent scan .: 6 finding(s) across 1 mission(s) in 1 file(s)
 
 ## The pipeline
 
-`intent scan` is a staged pipeline: **discover → parse → normalize into Intent IR → run
+`thunder scan` is a staged pipeline: **discover → parse → normalize into Intent IR → run
 deterministic Fable rules → produce findings → group into risk themes → report.** Pass `--json`
 for the machine-readable `intent-scan-v1` report, or `--ir <path>` to write the Intent IR the rest
 of the ecosystem (Atlas, Repo Mastery, OpenThunder) consumes.
@@ -30,7 +30,7 @@ of the ecosystem (Atlas, Repo Mastery, OpenThunder) consumes.
 ## Fable , the rule authority
 
 Findings come from **Fable**, the versioned, explainable rule authority. Fable is not a new rule
-engine; it is a rule-metadata layer over IntentLang's shipped [diagnostics catalog](/docs/diagnostics),
+engine; it is a rule-metadata layer over ThunderLang's shipped [diagnostics catalog](/docs/diagnostics),
 adding what a finding needs: a **risk category**, a detection strategy (deterministic vs inferred),
 required evidence, remediation, and suppression / risk-acceptance policy. The universal pack covers
 every catalog rule; technology, domain, and organization packs extend it.
@@ -64,7 +64,7 @@ Scanner is the deterministic spine; inferred rules and role-aware explanations l
 ## Continuous drift , Intent Guardian
 
 The Scanner tells you the risk in a project *now*. **Intent Guardian** tells you what a *change*
-did to it. Given a before and after state, `intent guardian <before> <after>` answers the one
+did to it. Given a before and after state, `thunder guardian <before> <after>` answers the one
 question drift monitoring exists for:
 
 > what changed, what intent it affects, what risk it introduced, what must be reverified, and
@@ -75,7 +75,7 @@ intent guardian old/ new/
 ```
 
 ```
-intent guardian: NEEDS-ATTENTION  (before.intent -> after.intent)
+intent guardian: NEEDS-ATTENTION  (before.thunder -> after.thunder)
   changed    +0 / -1 / ~1 nodes
   affected   CreateInvoice
   introduced risk (2):
@@ -98,7 +98,7 @@ exit is non-zero on `needs-attention`, so it gates a pull request.
 ## Look forward , Intent Simulator
 
 Guardian looks back at a change that happened. **Intent Simulator** looks forward at one that has
-not: `intent impact <base> <proposed>` estimates what a proposed change would touch *before* you
+not: `thunder impact <base> <proposed>` estimates what a proposed change would touch *before* you
 build it.
 
 ```bash
@@ -152,7 +152,7 @@ intent ledger project.ledger.json , CreateInvoice  (chain VALID)
 ```
 
 Every entry hashes over the previous one, so the ledger is **tamper-evident**: you cannot quietly
-rewrite history. `intent ledger <file>` verifies the whole chain and, if it was altered, locates the
+rewrite history. `thunder ledger <file>` verifies the whole chain and, if it was altered, locates the
 break to the exact entry:
 
 ```

@@ -53,7 +53,7 @@ async function main() {
   }
   const atlas = {
     schema: 'intent-atlas-v1',
-    note: 'Inferred intent drafts lifted deterministically from public open-source code by @skillstech/intentlang. Humble and unverified , a lens on each project, not its authors\' committed intent.',
+    note: 'Inferred intent drafts lifted deterministically from public open-source code by @skillstech/thunderlang. Humble and unverified , a lens on each project, not its authors\' committed intent.',
     projects,
     totals: { projects: projects.length, missions: projects.reduce((n, p) => n + p.missionCount, 0), languages: [...new Set(projects.map((p) => p.language))].sort() },
   };

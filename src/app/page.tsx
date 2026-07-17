@@ -41,8 +41,8 @@ const whyPoints = [
     body: "Most languages ask you to commit to implementation first. The original intent is scattered across code, tickets, and memory.",
   },
   {
-    title: "IntentLang starts with the what and why",
-    body: "IntentLang focuses on what the software should do, why it exists, which constraints matter, and how it should be verified.",
+    title: "ThunderLang starts with the what and why",
+    body: "ThunderLang focuses on what the software should do, why it exists, which constraints matter, and how it should be verified.",
   },
   {
     title: "Engineers stay in control",
@@ -86,6 +86,9 @@ export default function HomePage() {
               <StarMark className="h-6 w-6 animate-twinkle" />
               <Pill>The human control layer for AI-written software</Pill>
             </div>
+            <p className="mt-4 text-xs text-haze-500">
+              ThunderLang was previously introduced as IntentLang.
+            </p>
 
             <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.2rem]">
               Understand what your software is supposed to do,{" "}
@@ -105,7 +108,7 @@ export default function HomePage() {
             <div className="mt-8">
               <CTAButtons
                 primary={{ href: "/playground", label: "Try the Playground" }}
-                secondary={{ href: "/docs/getting-started", label: "Install the CLI" }}
+                secondary={{ href: "/docs/getting-started", label: "Read the Docs" }}
               />
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
                 <Link href="/atlas" className="font-medium text-gold-300 hover:text-gold-200">
@@ -126,9 +129,9 @@ export default function HomePage() {
           </div>
 
           <div className="animate-fade-up [animation-delay:120ms]">
-            <IntentCode code={heroExample} filename="CreateInvoice.intent" />
+            <IntentCode code={heroExample} filename="CreateInvoice.thunder" />
             <p className="mt-3 text-center text-xs text-haze-500">
-              Pre-1.0 syntax , and it compiles with the intent CLI today.
+              Pre-1.0 syntax , and it compiles with the thunder CLI today.
             </p>
           </div>
         </div>
@@ -163,7 +166,7 @@ export default function HomePage() {
           </Link>
         </p>
 
-        {/* Inspectable evidence, not hype , the IntentLang way. */}
+        {/* Inspectable evidence, not hype , the ThunderLang way. */}
         <div className="mt-10 grid grid-cols-2 gap-4 rounded-2xl border border-white/8 bg-ink-850/40 p-6 sm:grid-cols-3 lg:grid-cols-6">
           {PROJECT_FACTS.map((f) => (
             <div key={f.label} className="text-center">
@@ -175,6 +178,11 @@ export default function HomePage() {
         <p className="mt-3 text-center text-xs text-haze-500">
           Install today:{" "}
           <span className="font-mono text-haze-300">npm i {NPM_PACKAGE}</span>
+          {" "}, or run it in the{" "}
+          <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">
+            Playground
+          </Link>
+          .
         </p>
       </Section>
 
@@ -234,7 +242,7 @@ BLOCK  payment token found
         <SectionHeading
           eyebrow="Intent Truth"
           title="Four truths about the same software , and where they disagree is where risk lives."
-          intro="A feature can pass every test and still fail its purpose. IntentLang keeps these four truths separate so you can compare them honestly, rather than assuming technical success means success."
+          intro="A feature can pass every test and still fail its purpose. ThunderLang keeps these four truths separate so you can compare them honestly, rather than assuming technical success means success."
         />
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -264,7 +272,7 @@ BLOCK  payment token found
       {/* ------------------------------------------------------------------ */}
       <Section id="why">
         <SectionHeading
-          eyebrow="Why IntentLang"
+          eyebrow="Why ThunderLang"
           title="Software is being written faster than it can be understood."
           intro="Intent-Oriented Programming puts the meaning of software first, so engineers and AI can move quickly without losing the thread of what the code is supposed to do."
         />
@@ -289,7 +297,7 @@ BLOCK  payment token found
             <SectionHeading
               eyebrow="Prompt is temporary. Intent is durable."
               title="A prompt is a conversation. Intent is a commitment."
-              intro="A prompt is useful, but it is not a contract, it is not cleanly versioned, and it is not automatically verifiable. IntentLang turns it into a reviewable, versionable, testable .intent file."
+              intro="A prompt is useful, but it is not a contract, it is not cleanly versioned, and it is not automatically verifiable. ThunderLang turns it into a reviewable, versionable, testable .thunder file."
             />
             <figure className="mt-6 rounded-2xl border border-white/10 bg-ink-850/50 p-5">
               <figcaption className="text-xs font-medium uppercase tracking-[0.18em] text-haze-400">
@@ -309,7 +317,7 @@ BLOCK  payment token found
             <div className="mb-2 text-center text-xs font-medium uppercase tracking-[0.18em] text-gold-300">
               The intent
             </div>
-            <IntentCode code={heroExample} filename="CreateInvoice.intent" />
+            <IntentCode code={heroExample} filename="CreateInvoice.thunder" />
           </div>
         </div>
       </Section>
@@ -350,16 +358,16 @@ BLOCK  payment token found
           intro="A decision is not a description of behavior, it is the behavior. Give it inputs and it decides, first matching rule wins, deterministically, before any implementation exists. Tests live in the same file and prove it."
         />
         <div className="mt-10 grid gap-6 lg:grid-cols-2 lg:items-start">
-          <IntentCode code={runnable} filename="eligibility.intent" />
+          <IntentCode code={runnable} filename="eligibility.thunder" />
           <div className="rounded-2xl border border-white/10 bg-ink-950/70 p-5 font-mono text-[12.5px] leading-relaxed text-haze-200">
             <div className="text-haze-500">
-              {"$ intent run eligibility.intent --inputs '{\"age\":20,\"score\":90}'"}
+              {"$ thunder run eligibility.thunder --inputs '{\"age\":20,\"score\":90}'"}
             </div>
             <div className="mt-1">
               <span className="text-emerald-300">decision CanEnroll: Eligible</span>{" "}
               <span className="text-haze-500">[rule: adult]</span>
             </div>
-            <div className="mt-5 text-haze-500">$ intent test eligibility.intent</div>
+            <div className="mt-5 text-haze-500">$ thunder test eligibility.thunder</div>
             <div className="mt-1">
               <span className="text-emerald-300">PASS</span>&nbsp;&nbsp;CanEnroll / adult
             </div>
@@ -408,7 +416,7 @@ BLOCK  payment token found
               />
             </div>
           </div>
-          <IntentCode code={heroExample} filename="CreateInvoice.intent" />
+          <IntentCode code={heroExample} filename="CreateInvoice.thunder" />
         </div>
       </Section>
 
@@ -438,9 +446,9 @@ BLOCK  payment token found
       {/* ------------------------------------------------------------------ */}
       <Section id="not">
         <SectionHeading
-          eyebrow="What IntentLang is not"
+          eyebrow="What ThunderLang is not"
           title="Clear about what we are not claiming."
-          intro="Being honest about the boundaries is part of being a serious language project. IntentLang sits above paradigms and targets your languages; it does not replace them."
+          intro="Being honest about the boundaries is part of being a serious language project. ThunderLang sits above paradigms and targets your languages; it does not replace them."
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {whatIntentIsNot.map((n) => (
@@ -480,14 +488,14 @@ BLOCK  payment token found
       <Section id="ecosystem" className="border-y border-white/8 bg-ink-900/40">
         <SectionHeading
           eyebrow="SkillsTech ecosystem"
-          title="IntentLang is the center of a larger system."
-          intro="Proof is the through-line. IntentLang defines what software should do, and each product proves a different thing about the same mission."
+          title="ThunderLang is the center of a larger system."
+          intro="Proof is the through-line. ThunderLang defines what software should do, and each product proves a different thing about the same mission."
         />
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {ecosystem.map((item) => (
             <Card key={item.name}>
               <div className="flex items-center gap-2.5">
-                {item.name === "IntentLang" && <StarMark className="h-5 w-5" />}
+                {item.name === "ThunderLang" && <StarMark className="h-5 w-5" />}
                 <h3 className="text-base font-semibold text-white">
                   {item.name}
                 </h3>

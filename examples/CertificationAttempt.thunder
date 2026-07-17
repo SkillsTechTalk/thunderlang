@@ -1,0 +1,49 @@
+# CertificationAttempt.thunder , Temporal + lifecycle semantics (Gap 2).
+# A formal state machine + temporal guarantees. ThunderLang checks the DECLARED model is
+# well-formed (reachable, no dead ends, terminals correct); OpenThunder verifies the
+# implemented reality against this same model. See docs/intent-graph.md.
+
+mission CertificationAttempt
+
+title "Take and score a certification attempt"
+
+lifecycle CertificationAttempt
+
+  state NotStarted
+  state InProgress
+  state Submitted
+  state Scored
+  state Expired
+
+  transition Start
+    from NotStarted
+    to InProgress
+
+  transition Submit
+    from InProgress
+    to Submitted
+
+  transition Score
+    from Submitted
+    to Scored
+    within 30 seconds
+
+  transition Expire
+    from InProgress
+    to Expired
+
+  terminal Scored, Expired
+
+always
+  Attempt.score is between 0 and 100
+
+eventually
+  Submitted becomes Scored
+  within 30 seconds
+
+never
+  Scored before Submitted
+
+until
+  Payment is confirmed
+  restrict Attempt from Start

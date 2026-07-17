@@ -1,11 +1,11 @@
-# IntentLang Syntax Overview
+# ThunderLang Syntax Overview
 
-> A tour of the language. IntentLang has a deterministic reference compiler
-> (`@skillstech/intentlang`, the `intent` CLI) that implements everything here, with no
+> A tour of the language. ThunderLang has a deterministic reference compiler
+> (`@skillstech/thunderlang`, the `intent` CLI) that implements everything here, with no
 > AI required. For the exhaustive grammar and every keyword, see the
 > [language specification](/docs/spec); this page is the friendly overview.
 
-IntentLang files use the `.intent` extension and are UTF-8 text.
+ThunderLang files use the `.thunder` extension and are UTF-8 text.
 
 ## Style
 
@@ -136,7 +136,7 @@ decision CanEnroll
     return NotEligible
 ```
 
-`intent run mission.intent --inputs '{"age":20,"score":90}'` evaluates it and prints the
+`thunder run mission.thunder --inputs '{"age":20,"score":90}'` evaluates it and prints the
 result plus a per-rule trace, no AI, no generated code.
 
 ## Lifecycles, commands, and failures
@@ -158,7 +158,7 @@ on ChargeFailed
   compensate refund
 ```
 
-`intent simulate mission.intent --events submit,approve` walks the lifecycle and rejects
+`thunder simulate mission.thunder --events submit,approve` walks the lifecycle and rejects
 any illegal transition.
 
 ## Outcome contracts
@@ -177,7 +177,7 @@ outcome_contract FasterCheckout
 ## Tests (first-class)
 
 Tests live in the file, next to the intent they verify, and run through the same
-deterministic runtime with `intent test`:
+deterministic runtime with `thunder test`:
 
 ```
 test CanEnroll                 # a decision
@@ -217,8 +217,8 @@ and lawful basis. See [Governance](/docs/governance) and
 
 ## The CLI
 
-`intent check` (diagnostics), `build` (docs, graph, test plan, proof), `run` /
+`thunder check` (diagnostics), `build` (docs, graph, test plan, proof), `run` /
 `simulate` / `test` / `outcomes` (execute), `export` / `import` (DMN/BPMN), `graph` /
 `source` / `migrate` (the Intent Graph), `atlas` / `diff` / `merge`, `lift` (code ->
-intent), `drift` (intent vs code). Start with `intent check` and the
+intent), `drift` (intent vs code). Start with `thunder check` and the
 [tutorial](/docs/tutorial).

@@ -1,13 +1,13 @@
 # Working with large changes
 
-IntentLang is useful for one mission. It becomes essential when there are many.
+ThunderLang is useful for one mission. It becomes essential when there are many.
 
-A single day of Claude Code or Codex can generate dozens of `.intent` files. A
+A single day of Claude Code or Codex can generate dozens of `.thunder` files. A
 release can touch hundreds. Reviewing them one file at a time does not scale, and it
 hides the questions that actually matter: what changed, what is risky, what is
 verified, and what blocks deployment.
 
-This is the hub for the concepts IntentLang uses to answer those questions across
+This is the hub for the concepts ThunderLang uses to answer those questions across
 many missions. Start with the [Mission Atlas](/docs/mission-atlas), which maps what
 exists; each concept below has its own page, and the
 [tutorial](/docs/release-story-tutorial) walks all of them end to end on one example.
@@ -61,7 +61,7 @@ Full page: [MVP Readiness](/docs/mvp-readiness).
 
 ### AI-generated missions
 
-The review model for volume: how IntentLang keeps dozens of agent-authored missions
+The review model for volume: how ThunderLang keeps dozens of agent-authored missions
 reviewable through provenance, risk, and proof.
 Full page: [AI-generated missions](/docs/ai-generated-missions).
 
@@ -74,7 +74,7 @@ and it states plainly what is unverified. It is the output you can hand to a
 stakeholder.
 
 See a worked example at `examples/mvp-customer-portal/release-story.md`, produced (in
-the planned model) by `intent release ./intent --mvp` alongside the
+the planned model) by `thunder release ./intent --mvp` alongside the
 [MVP Readiness](/docs/mvp-readiness) report.
 
 ## Tutorial
@@ -86,24 +86,24 @@ radar, semantic diff, readiness, and the release story.
 ## Command status
 
 This repo teaches the concepts and ships the [example fixtures](/examples). The first
-aggregation command, `intent index`, is **shipped**; the rest are owned by the
+aggregation command, `thunder index`, is **shipped**; the rest are owned by the
 **SkillsTech Compiler** and documented here as **planned** until they ship. The
-single-mission commands that already exist (`intent check`, `graph`, `proof`,
+single-mission commands that already exist (`thunder check`, `graph`, `proof`,
 `build`, `lift`, `approve`, `drift`, `handoff`) are covered in the
 [compiler contract](/docs/compiler-contract).
 
 | Command | Status | Produces |
 | --- | --- | --- |
-| `intent index ./intent [--json]` | shipped | mission inventory (`mission-index.json`) |
-| `intent atlas ./intent [--search \| --expand]` | shipped | navigable/searchable whole-system Atlas |
-| `intent diff <before> <after>` | shipped | Semantic Diff (by meaning + invalidated approvals) |
-| `intent merge <base> <ours> <theirs>` | shipped | deterministic 3-way semantic merge |
-| `intent diff ./intent --since HEAD~1` | planned | Semantic Diff over a git range |
-| `intent graph ./intent --view atlas` | planned | rendered visual Atlas view |
-| `intent chains ./intent` | planned | mission chains (`mission-chain-map.json`) |
-| `intent summarize ./intent --since today` | planned | Build Session Digest |
-| `intent proof matrix ./intent` | planned | Proof Matrix (`mission-proof-matrix.json`) |
-| `intent release ./intent --mvp` | planned | MVP Readiness Report + Release Story |
+| `thunder index ./intent [--json]` | shipped | mission inventory (`mission-index.json`) |
+| `thunder atlas ./intent [--search \| --expand]` | shipped | navigable/searchable whole-system Atlas |
+| `thunder diff <before> <after>` | shipped | Semantic Diff (by meaning + invalidated approvals) |
+| `thunder merge <base> <ours> <theirs>` | shipped | deterministic 3-way semantic merge |
+| `thunder diff ./intent --since HEAD~1` | planned | Semantic Diff over a git range |
+| `thunder graph ./intent --view atlas` | planned | rendered visual Atlas view |
+| `thunder chains ./intent` | planned | mission chains (`mission-chain-map.json`) |
+| `thunder summarize ./intent --since today` | planned | Build Session Digest |
+| `thunder proof matrix ./intent` | planned | Proof Matrix (`mission-proof-matrix.json`) |
+| `thunder release ./intent --mvp` | planned | MVP Readiness Report + Release Story |
 
 Nothing here claims production readiness. These views report what the repo can prove
 and what it cannot. Verifying the running code against the missions is

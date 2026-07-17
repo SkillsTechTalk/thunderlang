@@ -4,7 +4,7 @@ The Intent Graph is the source of truth, but it does not have to be the only pla
 intent is checked. Decisions and lifecycles are exactly the structures that mature,
 standardized tooling already reasons about: decision-table engines, process modelers,
 and model checkers. Export adapters render those slices of the graph into the industry
-formats so intent can be validated by existing tools without leaving IntentLang.
+formats so intent can be validated by existing tools without leaving ThunderLang.
 
 Nine adapters ship, all deterministic and pure (string in, string out):
 
@@ -32,7 +32,7 @@ rule. The `when` expression is preserved verbatim (XML-escaped) so nothing about
 condition is lost in translation.
 
 ```
-intent export eligibility.intent --format dmn
+intent export eligibility.thunder --format dmn
 ```
 
 ## BPMN , lifecycles become processes
@@ -43,7 +43,7 @@ and terminal states flow to an end event. Open it in any BPMN modeler to see the
 declared flow as a diagram.
 
 ```
-intent export enrollment.intent --format bpmn
+intent export enrollment.thunder --format bpmn
 ```
 
 ## NuSMV , lifecycles become checkable models
@@ -58,7 +58,7 @@ adapter emits the specs it can derive with certainty:
   atomic proposition for a human to bind, rather than guessing.
 
 ```
-intent export enrollment.intent --format smv
+intent export enrollment.thunder --format smv
 ```
 
 ```
@@ -88,7 +88,7 @@ opaque object), and marks every declared field required unless it carries an `op
 modifier.
 
 ```
-intent export mission.intent --format jsonschema
+intent export mission.thunder --format jsonschema
 ```
 
 The OpenAPI adapter goes one step further and renders the whole mission as an operation:
@@ -98,7 +98,7 @@ and declared `errors` become named error responses with inferred status codes
 declared `api` block when present, else default to `POST /<mission>`.
 
 ```
-intent export mission.intent --format openapi
+intent export mission.thunder --format openapi
 ```
 
 So a mission with typed inputs and outputs is, for free, a validatable JSON Schema and a
@@ -114,7 +114,7 @@ groups, and each token carries the inferred `$type` (`color.primary → color`,
 dimension`).
 
 ```
-intent export mission.intent --format tokens
+intent export mission.thunder --format tokens
 ```
 
 ```json
@@ -135,7 +135,7 @@ conformance, so a token pipeline never mistakes "aiming for AA" for "is AA."
 
 For the direct, no-external-tool path, `--format css` emits a ready-to-use stylesheet: every
 canonical address becomes a `--kebab-case` custom property on `:root`, a `mode` token drives
-`color-scheme`, and `brand.logo` becomes a `url(...)`. `intent export style.intent --format
+`color-scheme`, and `brand.logo` becomes a `url(...)`. `thunder export style.thunder --format
 css > theme.css` is a usable theme with no build step.
 
 ```css
@@ -155,7 +155,7 @@ rest) and every relationship as a labeled edge. Node ids are made Mermaid-safe a
 sanitized, so the output pastes straight into GitHub, Markdown, or Notion as a live diagram.
 
 ```
-intent export mission.intent --format mermaid
+intent export mission.thunder --format mermaid
 ```
 
 ```
@@ -179,7 +179,7 @@ test). It is a **scaffold** , the structure of the test that proves the experien
 along as a comment (a proposed goal, never assumed met).
 
 ```
-intent export mission.intent --format playwright
+intent export mission.thunder --format playwright
 ```
 
 This is the test-plan target for the experience profile: it turns "what the UI must do" into
@@ -187,11 +187,11 @@ the shape of the test that proves it, deterministically.
 
 ## Usage
 
-`intent export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css|playwright>` prints to
+`thunder export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css|playwright>` prints to
 stdout, or writes a file when `--out <dir>` is given. From the library, `toDMN(ast)`,
 `toBPMN(ast)`, `toSMV(ast)`, `toJSONSchema(ast)`, `toOpenAPI(ast)`, `toDesignTokens(ast)`,
 `toMermaid(ast)`, `toCss(ast)`, `toPlaywright(ast)`, and `exportIntent(ast, format)` are exported from
-`@skillstech/intentlang` (`toDesignTokens` and `toCss` are also browser-safe via `/core`).
+`@skillstech/thunderlang` (`toDesignTokens` and `toCss` are also browser-safe via `/core`).
 The exports are byte-deterministic: the
 same intent always produces the same document, so they diff cleanly and belong in version
 control alongside the intent.

@@ -1,0 +1,67 @@
+# UploadStudyMaterial.thunder , Experience Contract (intent-graph-v1).
+# UX behavior as a first-class contract: journeys, states, recovery, accessibility.
+
+use experience
+
+experience UploadStudyMaterial
+
+  actor Learner
+
+  goal
+    "Turn my existing notes into a structured study plan."
+
+  enter when
+    Learner is signed_in
+    Learner has_selected Certification
+
+  journey HappyPath
+    start at MaterialUpload
+    when Learner selects SupportedDocument
+    show UploadProgress immediately
+    when Upload completes
+    show ProcessingStatus
+    preserve OriginalDocument
+    when StudyPlan is ready
+    show StudyPlan
+    offer ReviewAndEdit
+
+  state Empty
+    explain SupportedFormats
+    offer PasteText
+    offer SelectFile
+
+  state UploadFailure
+    explain RecoverableProblem
+    preserve SelectedDocument
+    offer Retry
+
+  state ProcessingFailure
+    preserve UploadedMaterial
+    offer RetryProcessing
+    offer ContactSupport
+
+  responsive
+    support Mobile
+    support Tablet
+    support Desktop
+
+  accessible
+    target WCAG_2_2_AA
+    keyboard complete
+    screen_reader announce UploadProgress
+    focus move_to ErrorSummary when validation_fails
+
+  follows RecoverableUpload
+
+pattern RecoverableUpload
+
+  requires
+    progress visible
+    selected_file preserved_on_failure
+    error actionable
+    retry available
+
+  accessible
+    progress announced
+    keyboard complete
+    focus managed

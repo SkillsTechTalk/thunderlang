@@ -40,12 +40,12 @@ result Q3Conversion
 ```
 
 ```
-intent outcomes checkout.intent
-  intent outcomes checkout.intent: 1 met, 0 missed, 0 pending
+intent outcomes checkout.thunder
+  intent outcomes checkout.thunder: 1 met, 0 missed, 0 pending
     MET     FasterCheckout  , actual 62% vs target 60% (higher), +14 vs baseline
 ```
 
-`intent outcomes` matches each contract to the result that measures its outcome, then
+`thunder outcomes` matches each contract to the result that measures its outcome, then
 reports **met**, **missed**, or **pending** (no result yet). It exits non-zero if any
 contract was missed, so a release can be gated on outcomes actually landing, not just on
 code shipping. The evaluation is deterministic: the same contract and result always
@@ -75,8 +75,8 @@ whether we hit it."
 
 ## The surface
 
-- CLI: `intent outcomes <file>` (add `--json`). Exit code `1` if any contract was
+- CLI: `thunder outcomes <file>` (add `--json`). Exit code `1` if any contract was
   missed.
-- Library (`@skillstech/intentlang`, schema `intent-outcome-v1`):
+- Library (`@skillstech/thunderlang`, schema `intent-outcome-v1`):
   `evaluateOutcomeContract(contract, actual)`, `evaluateOutcomes(ast)`,
   `outcomeDiagnostics(ast)`, and `parseValue`.

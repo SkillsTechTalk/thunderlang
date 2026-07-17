@@ -1,23 +1,23 @@
-# Adopting IntentLang on an Existing Codebase
+# Adopting ThunderLang on an Existing Codebase
 
 You do not start with intent. You start with a codebase , thousands of lines that already do
 something, whose original intent lives in people's heads, commit messages, and tickets. The way
-to adopt IntentLang is not to stop and write intent for everything. It is to **lift what you
+to adopt ThunderLang is not to stop and write intent for everything. It is to **lift what you
 have, review it honestly, and gate the parts that matter** , one mission at a time.
 
 Everything here is deterministic (no AI) and works from source today; the published package is
-[`@skillstech/intentlang`](https://www.npmjs.com/package/@skillstech/intentlang).
+[`@skillstech/thunderlang`](https://www.npmjs.com/package/@skillstech/thunderlang).
 
 ## 1. Lift code into an inferred draft
 
 Point IntentLift at a file. It reads the functions, tests, and error types and writes a
-**humble** `.intent` draft , source-mapped, with evidence and confidence, and marked as needing
+**humble** `.thunder` draft , source-mapped, with evidence and confidence, and marked as needing
 review. It covers the top languages (TypeScript, JavaScript, Python, Java, C#, Go, Rust, C++,
 PHP, Ruby, Perl):
 
 ```bash
 intent lift src/billing/invoice.ts
-# -> writes .intent/createinvoice.intent
+# -> writes .thunder/createinvoice.thunder
 #    [warning] INTENT_LIFT_NEEDS_HUMAN_REVIEW: a human must review goal, never rules, verification
 #    [warning] INTENT_LIFT_NO_TEST_EVIDENCE: no tests found to ground guarantees
 ```
@@ -58,25 +58,25 @@ never expose the payment token in logs
   verify a secret-scan of log output
 ```
 
-IntentLang keeps you honest about the difference between "inferred" and "decided" , the
+ThunderLang keeps you honest about the difference between "inferred" and "decided" , the
 [classification model](/docs/intent-graph) means an assumption is never silently treated as a
 fact.
 
 ## 3. Check it
 
-`intent check` runs the deterministic [diagnostics](/docs/diagnostics) , the mistakes that slip
+`thunder check` runs the deterministic [diagnostics](/docs/diagnostics) , the mistakes that slip
 past code review: a guarantee with no verification, a secret on an event payload, a
 duplicate-prevention promise with no idempotency key, a contradiction between constraints.
 
 ```bash
-intent check intent/CreateInvoice.intent
+intent check intent/CreateInvoice.thunder
 ```
 
 Errors fail; warnings inform. Fix what matters, waive what you have governed, move on.
 
 ## 4. See the whole picture
 
-Once you have lifted a handful of missions, `intent report` gives the health of your intent as a
+Once you have lifted a handful of missions, `thunder report` gives the health of your intent as a
 whole , not pass/fail, but a dashboard for triage:
 
 ```bash
@@ -92,7 +92,7 @@ verification and tests. Pass `--json` to feed it to a dashboard.
 
 ## 5. Gate it in CI
 
-`intent check` is dependency-free and exits non-zero on any error, so it drops straight into CI
+`thunder check` is dependency-free and exits non-zero on any error, so it drops straight into CI
 to keep a broken intent from merging , and `--format sarif` puts the diagnostics in GitHub /
 GitLab code scanning as inline annotations:
 
@@ -106,11 +106,11 @@ The published [GitHub Action](/docs/compiler-contract) makes it three lines.
 ## 6. Keep code and intent in sync
 
 Intent is only worth having if it stays true. Approve a mission to set a baseline, then let
-`intent drift` tell you when the code and the intent have diverged:
+`thunder drift` tell you when the code and the intent have diverged:
 
 ```bash
-intent approve intent/CreateInvoice.intent --by you@team.com
-intent drift src/billing/invoice.ts --intent intent/CreateInvoice.intent
+intent approve intent/CreateInvoice.thunder --by you@team.com
+intent drift src/billing/invoice.ts --intent intent/CreateInvoice.thunder
 # -> IN_SYNC, or the specific guarantees/inputs that no longer match
 ```
 
@@ -119,7 +119,7 @@ the intent or the code.
 
 ## The shape of adoption
 
-You do not need a big-bang rewrite. Adopt IntentLang the way it is meant to be adopted:
+You do not need a big-bang rewrite. Adopt ThunderLang the way it is meant to be adopted:
 
 1. **Lift** the mission you care about most from the code you already have.
 2. **Review** it into a real commitment , goal, guarantees, never rules, verification.

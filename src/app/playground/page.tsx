@@ -6,7 +6,7 @@ import { RuntimeClient } from "./RuntimeClient";
 export const metadata = pageMeta({
   title: "Playground",
   description:
-    "Run and compile IntentLang in the browser. Execute a decision against inputs, simulate a lifecycle, then compile the mission, all with the deterministic compiler (no AI).",
+    "Run and compile ThunderLang in the browser. Execute a decision against inputs, simulate a lifecycle, then compile the mission, all with the deterministic compiler (no AI).",
   path: "/playground",
 });
 
@@ -30,7 +30,7 @@ export default function PlaygroundPage() {
         <SectionHeading
           eyebrow="Compile it"
           title="From intent to proof"
-          intro="Load a mission and run the deterministic compiler. You get diagnostics, generated docs, a contract graph, a test plan, and a .intent-proof.json, the same artifacts the CLI emits."
+          intro="Load a mission and run the deterministic compiler. You get diagnostics, generated docs, a contract graph, a test plan, and a .thunder-proof.json, the same artifacts the CLI emits."
         />
         <PlaygroundClient />
       </Section>

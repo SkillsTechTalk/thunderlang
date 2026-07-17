@@ -1,5 +1,5 @@
 {
-  "_note": "Teaching fixture. Shape `intent chains ./intent` is PLANNED to emit. Hand-authored to illustrate Mission Chains.",
+  "_note": "Teaching fixture. Shape `thunder chains ./intent` is PLANNED to emit. Hand-authored to illustrate Mission Chains.",
   "_plannedCommand": "intent chains ./intent",
   "schemaVersion": "0.1.0-draft",
   "product": "MVP Customer Portal",

@@ -1,0 +1,26 @@
+# CreateStudyPlan.thunder , Distributed + failure semantics (Gap 3).
+# Partial failure is modeled explicitly: idempotency, timeout, retry, delivery, dedup,
+# and compensation. ThunderLang checks the DECLARED failure policy is safe; OpenThunder
+# verifies the implementation honors it. See docs/intent-graph.md.
+
+mission CreateStudyPlan
+
+title "Create a study plan from uploaded material"
+
+command CreateStudyPlan
+  idempotency_key Request.id
+  timeout 30 seconds
+  retry at_most 2
+    with exponential_backoff
+
+event StudyPlanCreated
+  delivery at_least_once
+  ordered_by Learner.id
+
+on duplicate StudyPlanCreated
+  ignore when Event.id was_processed
+
+on permanent_failure
+  compensate RemovePartialStudyPlan
+  notify Learner
+  preserve UploadedMaterial

@@ -18,7 +18,7 @@ import { CLASSIFICATIONS } from '../compiler/src/classification.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FILE = join(HERE, '..', 'compiler', 'intent-graph.schema.json');
 
-// Must match the shape the `intent schema` CLI command emits.
+// Must match the shape the `thunder schema` CLI command emits.
 const current = JSON.stringify({
   schemaVersion: SCHEMA_VERSION,
   nodeTypes: NODE_TYPES,

@@ -70,7 +70,7 @@ export async function POST(request: Request) {
       const res = await fetch(webhook, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email, source: "intentlanguage.dev/waitlist" }),
+        body: JSON.stringify({ email, source: "thunderlang.dev/waitlist" }),
       });
       if (!res.ok) {
         return NextResponse.json(

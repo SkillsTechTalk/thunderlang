@@ -126,7 +126,7 @@ These products create the core moat.
 | -------------- | -------------------------------- | -------------------------------- |
 | Communities    | Reputation and network effects   | Proof profile and waitlist       |
 | SkillsTech IDE | Local interaction surface        | Launcher and integrated workflow |
-| IntentLang     | Semantic foundation and protocol | Internal schema only             |
+| ThunderLang     | Semantic foundation and protocol | Internal schema only             |
 
 ## Tier 4: Design now, build later
 
@@ -520,7 +520,7 @@ Owned by GetSkillsTech and founder-led sales.
 
 ## Track E: Future moat
 
-Owned by Communities, IntentLang, IDE, Mobile, and Runtime.
+Owned by Communities, ThunderLang, IDE, Mobile, and Runtime.
 
 During the first 30 days, these instances may prepare contracts, prototypes, and integrations, but they must not compete with the core release for attention.
 
@@ -549,7 +549,7 @@ The four 50-hour sprints should be:
 3. Repo Mastery and Skills Tech Talk Ownership Loop
 4. Certified and GetSkillsTech commercial launch
 
-Communities, IDE, Mobile, IntentLang, Cloud, and Runtime should not each receive 50 hours during this period.
+Communities, IDE, Mobile, ThunderLang, Cloud, and Runtime should not each receive 50 hours during this period.
 
 ---
 
@@ -647,7 +647,7 @@ This creates the strongest moat.
 | Workspace to all products        | Level 2 and Level 3 |
 | Mobile to mastery system         |             Level 2 |
 | Communities to proof system      |             Level 2 |
-| IntentLang to evidence model     |    Internal Level 3 |
+| ThunderLang to evidence model     |    Internal Level 3 |
 | Runtime to proof system          |         Design only |
 
 Level 4 becomes the focus after the initial release.
@@ -752,7 +752,7 @@ Focus on platform defensibility:
 * Certification partner packs
 * Advanced mastery personalization
 * Organization ownership-risk scoring
-* IntentLang developer preview
+* ThunderLang developer preview
 
 ## Months 7 through 12
 
@@ -779,7 +779,7 @@ Focus on infrastructure:
 - SkillsTech Mobile owns mobile practice, retention, notifications, and proof access.
 - SkillsTech IDE owns the integrated local development surface.
 - SkillsTech Cloud owns hosted collaboration, team policies, synchronization, and organization processing.
-- IntentLang owns the semantic Intent and Proof model.
+- ThunderLang owns the semantic Intent and Proof model.
 - SkillsTech Runtime owns runtime enforcement and production evidence.
 - GetSkillsTech owns umbrella positioning, product discovery, onboarding, and distribution.
 
@@ -835,7 +835,7 @@ For the next 30 days, the order should be:
 8. **Communities proof profile**
 9. **Mobile practice and proof wallet**
 10. **IDE integration shell**
-11. **IntentLang internal protocol**
+11. **ThunderLang internal protocol**
 12. **Runtime architecture**
 
 The decisive rule is:
@@ -844,25 +844,25 @@ The decisive rule is:
 
 ---
 
-# IntentLang's role in the moat (this repo)
+# ThunderLang's role in the moat (this repo)
 
-IntentLang is **Tier 3: integrate lightly, internal schema only**. It is the Protocol
+ThunderLang is **Tier 3: integrate lightly, internal schema only**. It is the Protocol
 layer of the moat (layer 7) and the semantic Intent and Proof model. During the first
-30 days IntentLang does **not** try to finish a general-purpose language, and it does
+30 days ThunderLang does **not** try to finish a general-purpose language, and it does
 **not** compete with the core Tier-1 release for attention.
 
-IntentLang's moat obligations:
+ThunderLang's moat obligations:
 
 - **Protocol / layer 7.** Own the semantic Intent and Proof model that other products
   can produce or consume: what should happen, what must never happen, what constraints
   apply, what evidence verifies the intent, what skills are required, what human
   understanding must be demonstrated.
-- **IntentLang to evidence model = Internal Level 3.** Provide adapters/examples showing
+- **ThunderLang to evidence model = Internal Level 3.** Provide adapters/examples showing
   how an Intent record connects to OpenThunder `VerificationEvidence`, Repo Mastery
   content, Skills Tech Talk defense questions, and the Workspace `ProofBundle`, without
-  requiring customers to rewrite software in IntentLang.
+  requiring customers to rewrite software in ThunderLang.
 - **Every proof shows its intent.** The Ownership Loop must be able to reference a stable
   Intent model, so every proof can show which intent or requirement the evidence supports.
 - Prioritize interoperability, stable identity, source mapping, and deterministic
   verification. Do not require rewrites. See the actionable checklist in `TODO.md`
-  (section: "SkillsTech moat , IntentLang obligations").
+  (section: "SkillsTech moat , ThunderLang obligations").

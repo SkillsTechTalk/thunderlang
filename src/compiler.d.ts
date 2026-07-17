@@ -70,7 +70,7 @@ declare module "*/compiler/src/intellisense.mjs" {
   ): { hover: HoverInfo | null };
 }
 
-// Types for the plain-ESM IntentLang compiler imported by the /api/compile route.
+// Types for the plain-ESM ThunderLang compiler imported by the /api/compile route.
 declare module "*/compiler/src/compile.mjs" {
   export interface Fix {
     label: string;

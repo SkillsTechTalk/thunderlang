@@ -1,0 +1,121 @@
+mission GroundedAnswer
+use product
+use delivery
+
+title "Answer a support question, grounded in retrieved documents, or escalate"
+for SupportSeeker
+
+goal
+  Answer only what the retrieved documents support, and escalate the rest to a human.
+
+# The heart of an AI feature stated as intent: the model assists, but grounding, authorization,
+# and escalation are DETERMINISTIC guardrails , not left to a prompt.
+guarantee every answer is grounded in at least one retrieved document
+  because an ungrounded answer is a confident guess, and confident guesses erode trust
+  verify grounding test on retrievedCount
+
+guarantee a low-confidence question is escalated, never answered by guess
+  because a wrong answer costs more than a slower one
+  verify escalation-on-low-confidence test
+
+never present generated text as a cited fact when retrieval did not support it
+  verify citation-grounding test
+never return a document the requester is not authorized to see
+  verify authorization test
+
+outcome SelfServeDeflection
+  "more questions are answered well without a human, without lowering answer quality"
+
+metric deflection_rate
+  baseline 41%
+  target 65%
+  window 30 days after release
+
+# What the system does with a drafted answer. The AI drafts; this decides.
+#   intent run GroundedAnswer.thunder
+#     --inputs '{"retrievedCount":3,"confidence":88,"authorized":true}'
+decision AnswerAction
+  inputs
+    retrievedCount
+    confidence
+    authorized
+  rule noRetrieval
+    when retrievedCount == 0
+    return Refuse
+  rule unauthorized
+    when authorized == false
+    return Refuse
+  rule lowConfidence
+    when confidence < 70
+    return Escalate
+  default
+    return Answer
+
+# The life of a question. Walk it: intent simulate GroundedAnswer.thunder
+#   --events retrieve,draft,ground,answer
+lifecycle AnswerFlow
+  state Received
+  state Retrieved
+  state Drafted
+  state Grounded
+  state Answered
+  state Escalated
+  transition retrieve
+    from Received
+    to Retrieved
+  transition draft
+    from Retrieved
+    to Drafted
+  transition ground
+    from Drafted
+    to Grounded
+  transition answer
+    from Grounded
+    to Answered
+  transition escalate
+    from Drafted
+    to Escalated
+  terminal Answered, Escalated
+
+# The commitment + the delivery result: intent outcomes GroundedAnswer.thunder
+outcome_contract AnswerDeflection
+  outcome SelfServeDeflection
+  metric deflection_rate
+  baseline 41%
+  target 65%
+  window 30 days after release
+  owner SupportLead
+
+result Q3Deflection
+  measures SelfServeDeflection
+  metric deflection_rate
+  value 67%
+  baseline 41%
+
+# The spec proves itself: intent test GroundedAnswer.thunder
+test AnswerAction
+  case grounded and confident is answered
+    given retrievedCount 3, confidence 88, authorized true
+    expect Answer
+  case no retrieval refuses
+    given retrievedCount 0, confidence 90, authorized true
+    expect Refuse
+  case unauthorized refuses
+    given retrievedCount 3, confidence 90, authorized false
+    expect Refuse
+  case low confidence escalates
+    given retrievedCount 3, confidence 55, authorized true
+    expect Escalate
+
+test AnswerFlow
+  scenario grounded answer
+    events retrieve, draft, ground, answer
+    expect Answered
+    valid
+  scenario escalated from draft
+    events retrieve, draft, escalate
+    expect Escalated
+    valid
+  scenario cannot answer before grounding
+    events retrieve, draft, answer
+    invalid

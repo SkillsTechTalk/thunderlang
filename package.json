@@ -1,8 +1,9 @@
 {
-  "name": "intent-language-site",
+  "name": "thunderlang-site",
   "version": "0.1.0",
   "private": true,
-  "description": "Official website for Intent \u2014 the Intent-Oriented Programming language by SkillsTech.",
+  "license": "Apache-2.0",
+  "description": "Official website for ThunderLang, an intent-oriented programming language for the age of AI, by Skills Tech Talk, LLC.",
   "scripts": {
     "dev": "next dev -p 5187",
     "build": "next build",

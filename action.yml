@@ -1,5 +1,5 @@
 name: 'ThunderLang Check'
-description: 'Gate .intent files with the deterministic ThunderLang compiler. No AI. Fails the build if any intent has errors.'
+description: 'Gate .thunder files with the deterministic ThunderLang compiler. No AI. Fails the build if any intent has errors.'
 author: 'SkillsTech'
 branding:
   icon: 'check-circle'
@@ -7,11 +7,11 @@ branding:
 
 inputs:
   paths:
-    description: 'File or directory to check. A directory is recursed; every .intent under it is gated. Default: the whole repo.'
+    description: 'File or directory to check. A directory is recursed; every .thunder under it is gated. Default: the whole repo.'
     required: false
     default: '.'
   version:
-    description: 'npm version or tag of @skillstech/thunderlang. Directory checking needs >= 0.1.1. Default: latest.'
+    description: 'npm version or tag of @skillstechtalk/thunderlang. Directory checking needs >= 0.1.1. Default: latest.'
     required: false
     default: 'latest'
 
@@ -20,4 +20,4 @@ runs:
   steps:
     - name: intent check
       shell: bash
-      run: npx --yes "@skillstech/thunderlang@${{ inputs.version }}" check "${{ inputs.paths }}"
+      run: npx --yes "@skillstechtalk/thunderlang@${{ inputs.version }}" check "${{ inputs.paths }}"

@@ -40,7 +40,7 @@ function payloadOf(seq, entry, prev) {
 
 /** Append an entry to the ledger, hash-chained over the previous head. Returns a NEW ledger. */
 export function record(ledger, entry) {
-  if (!entry || !ENTRY_TYPES.includes(entry.type)) throw new Error(`intent ledger: unknown entry type "${entry?.type}"`);
+  if (!entry || !ENTRY_TYPES.includes(entry.type)) throw new Error(`thunder ledger: unknown entry type "${entry?.type}"`);
   const base = ledger && Array.isArray(ledger.entries) ? ledger : emptyLedger();
   const payload = payloadOf(base.entries.length, entry, base.head);
   const hash = sha256(JSON.stringify(payload));

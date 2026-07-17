@@ -188,7 +188,7 @@ export function semanticDiagnostics(ast) {
     }
   }
 
-  // ── IntentLens note checks (understanding, never verification) ──
+  // ── ThunderLens note checks (understanding, never verification) ──
   for (const note of ast.notes || []) {
     if (!KNOWN_LENSES.includes(note.lens)) {
       warn('INTENT_NOTE_UNKNOWN_LENS',
@@ -245,7 +245,7 @@ export function semanticDiagnostics(ast) {
   }
 
   // ── Product / intent-graph diagnostics (intent-graph-v1) ──
-  // Role-aware. Kept at warning/info so `intent check` stays valid; `severity` +
+  // Role-aware. Kept at warning/info so `thunder check` stays valid; `severity` +
   // `blocks` drive phase gates (a valid spec can still be not-ready-to-proceed).
   for (const m of ast.metrics || []) {
     if (!m.window) d.push({

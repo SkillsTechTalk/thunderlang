@@ -1,0 +1,37 @@
+# RegisterUser.thunder , MVP Customer Portal / Identity and Access
+# Illustrative teaching example for the Mission Atlas docs.
+
+mission RegisterUser
+
+goal
+  Create a new customer account from an email and password.
+
+why
+  Registration is the front door. A weak sign-up is a direct path to fake or
+  compromised accounts.
+
+input
+  email: Email
+  password: Secret
+
+output
+  result: RegistrationResult
+
+constraints
+  password.minLength >= 12
+
+guarantees
+  email is unique
+  password is never logged
+
+guarantee password is never logged
+  because a leaked password at sign-up compromises the account immediately
+  verify test raw password not logged
+
+never
+  log(password)
+  store password in plain text
+
+verify
+  test duplicate email rejected
+  test password stored as hash

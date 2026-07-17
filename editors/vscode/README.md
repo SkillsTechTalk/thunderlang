@@ -1,9 +1,9 @@
 # ThunderLang for VS Code
 
-Syntax highlighting and language intelligence for ThunderLang `.intent` files:
+Syntax highlighting and language intelligence for ThunderLang `.thunder` files:
 
-- **Highlighting** via the TextMate grammar (`source.intent`).
-- **Diagnostics, completion, and hover** via the ThunderLang Language Server (`intent lsp`),
+- **Highlighting** via the TextMate grammar (`source.thunder`).
+- **Diagnostics, completion, and hover** via the ThunderLang Language Server (`thunder lsp`),
   the same deterministic compiler the CLI uses. No AI.
 
 ## Requirements
@@ -11,7 +11,7 @@ Syntax highlighting and language intelligence for ThunderLang `.intent` files:
 The `intent` CLI must be available. Install it globally:
 
 ```bash
-npm install -g @skillstech/thunderlang
+npm install -g @skillstechtalk/thunderlang
 ```
 
 Or set `thunderlang.serverCommand` to an absolute path / `npx` invocation if `intent` is
@@ -33,7 +33,7 @@ Install the `.vsix` in VS Code: Extensions view -> "..." -> Install from VSIX.
 
 ## What it does
 
-On opening a `.intent` file the extension starts `intent lsp` and connects over stdio.
+On opening a `.thunder` file the extension starts `thunder lsp` and connects over stdio.
 You get live diagnostics as you type, keyword/type completions, and hover docs for
-semantic types. It contributes the `intent` language id for the `.intent` extension and
-the `source.intent` grammar.
+semantic types. It contributes the `intent` language id for the `.thunder` extension and
+the `source.thunder` grammar.

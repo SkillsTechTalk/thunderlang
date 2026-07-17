@@ -1,5 +1,5 @@
 // Scanner query views (intent-scan-view-v1) , the deterministic answers behind the Part 3
-// CLI verbs: `intent risks | gaps | unverified | coverage | unknowns | contradictions`.
+// CLI verbs: `thunder risks | gaps | unverified | coverage | unknowns | contradictions`.
 // These are pure derivations over a scanProject() result (its Intent IR + Fable findings) ,
 // no new analysis, no AI. They exist so a person can ask one focused question ("what is
 // unverified?", "what contradicts?") instead of reading the whole scan report.

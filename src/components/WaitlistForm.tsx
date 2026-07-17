@@ -9,7 +9,7 @@ type State =
   | { kind: "unconfigured" }
   | { kind: "error"; message: string };
 
-const CONTACT_EMAIL = "hello@intentlanguage.dev";
+const CONTACT_EMAIL = "hello@thunderlang.dev";
 
 export function WaitlistForm() {
   const [email, setEmail] = useState("");

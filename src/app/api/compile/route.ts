@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-// The deterministic IntentLang compiler is a plain-ESM sibling package.
+// The deterministic ThunderLang compiler is a plain-ESM sibling package.
 // It runs server-side with no AI. See src/compiler.d.ts for the type shape.
 import { compileSource } from "../../../../compiler/src/compile.mjs";
 import { parseIntent } from "../../../../compiler/src/parse.mjs";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     // Deterministic, no AI. Fixed timestamp so repeat compiles are identical.
     const result = compileSource(source, {
-      sourceFile: "playground.intent",
+      sourceFile: "playground.thunder",
       generatedAt: "1970-01-01T00:00:00.000Z",
     });
     // Deterministic code generation (no AI): the typed contract + decision logic, TODO stubs.

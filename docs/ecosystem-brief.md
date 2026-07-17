@@ -1,12 +1,12 @@
-# IntentLang Ecosystem Brief
+# ThunderLang Ecosystem Brief
 
 > The shared reference every SkillsTech sibling product should understand.
-> IntentLang is the intent language for AI-era software. Proof is the
+> ThunderLang is the intent language for AI-era software. Proof is the
 > through-line: each product proves a different thing about the same mission.
 
 ## One sentence per sibling
 
-- **IntentLang** defines what software should do.
+- **ThunderLang** defines what software should do.
 - **SkillsTech Compiler** turns intent into deterministic artifacts.
 - **OpenThunder** verifies whether implementation matches intent.
 - **Repo Mastery** teaches humans to understand the intent.
@@ -34,10 +34,10 @@
 Every sibling should recognize these artifact types.
 
 **Intent source**
-- `*.intent`
+- `*.thunder`
 
 **Compiler outputs**
-- `.intent-proof.json`
+- `.thunder-proof.json`
 - `contract-graph.json`
 - `architecture-graph.json`
 - `implementation-plan.json`
@@ -47,7 +47,7 @@ Every sibling should recognize these artifact types.
 - `openapi/*.yaml`
 
 **Compiler -> OpenThunder handoff**
-- `il-to-ot-drift-v1`, emitted by `intent handoff <approved.intent>`. Names the
+- `il-to-ot-drift-v1`, emitted by `thunder handoff <approved.thunder>`. Names the
   mission, approval + source hash, `mapsTo`, and `expectations[]` (per guarantee /
   never / input / api) with the `check` OpenThunder must run against real repo
   evidence. The compiler does not verify repo-wide; OpenThunder does.
@@ -63,10 +63,10 @@ Every sibling should recognize these artifact types.
 The compiler emits the handoff; OpenThunder consumes it against real repo evidence.
 
 ```bash
-# IntentLang side: approve the intent in place (adds the approval + source hash),
+# ThunderLang side: approve the intent in place (adds the approval + source hash),
 # then emit the handoff pack to a file.
-intent approve CreateInvoice.intent --by "you"
-intent handoff CreateInvoice.intent > intent-handoff.json
+intent approve CreateInvoice.thunder --by "you"
+intent handoff CreateInvoice.thunder > intent-handoff.json
 
 # OpenThunder side: check the repo against the pack.
 openthunder intent drift --pack intent-handoff.json --repo .
@@ -114,16 +114,16 @@ intent gate is strictly opt-in.
 
 ## The canonical example
 
-All siblings use `examples/CreateInvoice.intent` as the shared example. It is
+All siblings use `examples/CreateInvoice.thunder` as the shared example. It is
 small enough to teach and serious enough to show the value.
 
 ## The first demo (whole-ecosystem story)
 
-1. Write `CreateInvoice.intent`.
-2. Run `intent check`.
+1. Write `CreateInvoice.thunder`.
+2. Run `thunder check`.
 3. The compiler warns if duplicate prevention lacks idempotency.
 4. Add `idempotencyKey`.
-5. Run `intent build`.
+5. Run `thunder build`.
 6. Generate Markdown docs, a Mermaid graph, a test plan, and proof JSON.
 7. OpenThunder checks whether the implementation matches the mission.
 8. Repo Mastery creates flashcards and reality checks.
@@ -132,7 +132,7 @@ small enough to teach and serious enough to show the value.
 
 ## Why it matters
 
-Most tools handle one part of the lifecycle. IntentLang can be the bridge between
+Most tools handle one part of the lifecycle. ThunderLang can be the bridge between
 requirements, architecture, AI coding, implementation, tests, verification,
 documentation, learning, communication, certification, proof, and governance, a
 shared language across the whole ecosystem.

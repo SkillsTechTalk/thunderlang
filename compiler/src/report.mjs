@@ -1,4 +1,4 @@
-// Repo-wide intent health report (intent-report-v1). `intent check` gates a build pass/fail;
+// Repo-wide intent health report (intent-report-v1). `thunder check` gates a build pass/fail;
 // this AGGREGATES across every .intent file into a triage view a team adopting ThunderLang can
 // act on: how many missions, diagnostics by severity + area, the most common codes, and
 // coverage signals (are guarantees verified? do missions have tests? are outcomes contracted?).

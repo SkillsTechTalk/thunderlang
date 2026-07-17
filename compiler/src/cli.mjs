@@ -5,8 +5,8 @@
 // NOT `dist/` , OpenThunder's scanner excludes dist/node_modules, so proof artifacts must live in a
 // committed, scannable location. `.intent/` mirrors the ecosystem's dot-dir convention (.openthunder/).
 //
-//   intent check   <file>                      parse + semantic diagnostics (exit 1 on error)
-//   intent graph   <file> [--out .intent]      contract-graph.json + architecture-graph.json
+//   thunder check   <file>                      parse + semantic diagnostics (exit 1 on error)
+//   thunder graph   <file> [--out .intent]      contract-graph.json + architecture-graph.json
 //   intent proof   <file> [--out .intent]      .intent-proof.json
 //   intent build   <file> [--out .intent] [--no-ai]   all artifacts + docs + mermaid + testplan
 //
@@ -69,6 +69,11 @@ import { parseEventLog, serializeEventLog, recordEvent, timeline } from './ai-ev
 // Recursively collect supported source files, skipping vendored / build dirs.
 const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
+// ThunderLang source files. `.thunder` is the canonical public extension; `.tl` is an
+// accepted shorthand; `.intent` stays supported so legacy IntentLang sources keep working.
+const SOURCE_EXTS = ['.thunder', '.tl', '.intent'];
+const isSourceFile = (name) => SOURCE_EXTS.some((e) => name.endsWith(e));
+const stripSourceExt = (name) => name.replace(/\.(thunder|tl|intent)$/i, '');
 function collectFiles(root, acc = []) {
   for (const name of readdirSync(root)) {
     if (SKIP_DIRS.has(name)) continue;
@@ -80,15 +85,15 @@ function collectFiles(root, acc = []) {
   return acc;
 }
 
-// Walk a directory for authored .intent files (skips the .intent/ output dir).
+// Walk a directory for authored source files (skips the .intent/ output dir).
 function collectIntents(root, acc = []) {
   const st = statSync(root);
-  if (!st.isDirectory()) return root.endsWith('.intent') ? [root] : acc;
+  if (!st.isDirectory()) return isSourceFile(root) ? [root] : acc;
   for (const name of readdirSync(root)) {
     if (SKIP_DIRS.has(name)) continue;
     const full = join(root, name);
     if (statSync(full).isDirectory()) collectIntents(full, acc);
-    else if (name.endsWith('.intent')) acc.push(full);
+    else if (isSourceFile(name)) acc.push(full);
   }
   return acc;
 }
@@ -197,7 +202,7 @@ function printDiagnostics(diags) {
   return errors;
 }
 
-const HELP = `intent , the deterministic ThunderLang compiler (no AI required)
+const HELP = `thunder , the deterministic ThunderLang compiler (no AI required)
 
 usage: intent <command> <file> [options]
 
@@ -229,7 +234,7 @@ Author & check
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
-  notes <file> [--lens <lens>] [--json]  IntentLens: the compiled note blocks by lens (not verification)
+  notes <file> [--lens <lens>] [--json]  ThunderLens: the compiled note blocks by lens (not verification)
   docs <file> [--lens <lens>] [--out <dir>]  render a mission as Markdown docs (per-audience with --lens)
   code-actions <file> [--json]  available quick-fixes, safety-graded (safe | reviewable)
   apply-fix <file> [--write]    apply the SAFE autocorrects (header aliases, stray colons)
@@ -281,7 +286,7 @@ function main() {
     else console.log(JSON.stringify(out, null, 2));
     return;
   }
-  // `intent proof --schema` emits the canonical proof envelope JSON Schema (no file needed).
+  // `thunder proof --schema` emits the canonical proof envelope JSON Schema (no file needed).
   // This is the "shared envelope" schema siblings sign (STW) and re-verify (RM/OT) against.
   if (cmd === 'proof' && args.schema) {
     console.log(JSON.stringify(intentProofJsonSchema(), null, 2));
@@ -291,11 +296,11 @@ function main() {
   // drift / tampering) and the proof's claims re-derive from the source.
   if (cmd === 'verify') {
     const proofPath = args._[0];
-    if (!proofPath) { console.error('usage: intent verify <proof.json> [<source.intent>]'); process.exit(2); return; }
+    if (!proofPath) { console.error('usage: thunder verify <proof.json> [<source.intent>]'); process.exit(2); return; }
     let proof;
-    try { proof = JSON.parse(readFileSync(proofPath, 'utf8')); } catch { console.error('intent verify: proof is not valid JSON'); process.exit(2); return; }
+    try { proof = JSON.parse(readFileSync(proofPath, 'utf8')); } catch { console.error('thunder verify: proof is not valid JSON'); process.exit(2); return; }
     const srcPath = args._[1] || proof.sourceFile;
-    if (!srcPath || !existsSync(srcPath)) { console.error(`intent verify: source not found (${srcPath || 'none'}). Pass it: intent verify <proof.json> <source.intent>`); process.exit(2); return; }
+    if (!srcPath || !existsSync(srcPath)) { console.error(`thunder verify: source not found (${srcPath || 'none'}). Pass it: thunder verify <proof.json> <source.intent>`); process.exit(2); return; }
     const src = readFileSync(srcPath, 'utf8');
     const ast = parseIntent(src);
     const diags = semanticDiagnostics(ast);
@@ -309,7 +314,7 @@ function main() {
     const valid = structure.valid && hashMatch && semanticMatch && guaranteesMatch && neverMatch;
     const result = { schema: 'intent-verify-v1', proof: proofPath, source: srcPath, valid, checks: { wellFormed: structure.valid, hashMatch, semanticMatch, guaranteesMatch, neverMatch }, structureErrors: structure.errors };
     if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(valid ? 0 : 1); return; }
-    console.log(`intent verify ${basename(proofPath)}: ${valid ? 'VALID' : 'FAILED'} (source ${basename(srcPath)})`);
+    console.log(`thunder verify ${basename(proofPath)}: ${valid ? 'VALID' : 'FAILED'} (source ${basename(srcPath)})`);
     if (!structure.valid) { console.log(`  X proof is not a well-formed intent-proof-v1 document:`); for (const e of structure.errors) console.log(`      ${e.path || '(root)'}: ${e.message}`); }
     if (!hashMatch) console.log('  X source hash does not match , the source has changed since the proof was generated (drift or tampering).');
     if (!semanticMatch) console.log('  X the proof claims a different semantic result than the source produces now.');
@@ -320,13 +325,13 @@ function main() {
     return;
   }
 
-  // Explain a diagnostic code from the canonical catalog. `intent explain IL-DEC-001`.
+  // Explain a diagnostic code from the canonical catalog. `thunder explain IL-DEC-001`.
   if (cmd === 'explain') {
     const code = file;
-    if (!code) { console.error('usage: intent explain <IL-CODE>'); process.exit(2); return; }
+    if (!code) { console.error('usage: thunder explain <IL-CODE>'); process.exit(2); return; }
     const rule = ALL_DIAGNOSTICS.find((r) => r.ruleId.toLowerCase() === code.toLowerCase());
     if (args.json) { console.log(JSON.stringify(rule || { ruleId: code, found: false }, null, 2)); process.exit(rule ? 0 : 1); return; }
-    if (!rule) { console.error(`intent explain: "${code}" is not in the diagnostic catalog. Run "intent rules" for the full list.`); process.exit(1); return; }
+    if (!rule) { console.error(`thunder explain: "${code}" is not in the diagnostic catalog. Run "intent rules" for the full list.`); process.exit(1); return; }
     console.log(`${rule.ruleId}  (area: ${rule.area})`);
     console.log(`  ${rule.summary}`);
     console.log(`  severity: ${rule.severity}${rule.blocks && rule.blocks.length ? `  |  blocks: ${rule.blocks.join(', ')}` : '  |  does not block a phase'}`);
@@ -338,7 +343,7 @@ function main() {
     if (args.json) { console.log(JSON.stringify(ALL_DIAGNOSTICS, null, 2)); return; }
     const byArea = {};
     for (const r of ALL_DIAGNOSTICS) (byArea[r.area] ||= []).push(r);
-    console.log(`intent rules: ${ALL_DIAGNOSTICS.length} diagnostics in ${Object.keys(byArea).length} areas\n`);
+    console.log(`thunder rules: ${ALL_DIAGNOSTICS.length} diagnostics in ${Object.keys(byArea).length} areas\n`);
     for (const area of Object.keys(byArea).sort()) {
       console.log(`${area}`);
       for (const r of byArea[area]) {
@@ -350,7 +355,7 @@ function main() {
     return;
   }
 
-  // `intent notes <file> [--lens <lens>] [--json]` , the IntentLens report: the compiled
+  // `thunder notes <file> [--lens <lens>] [--json]` , the ThunderLens report: the compiled
   // semantic comments (`note <lens>:`) grouped by lens, each with its target and source
   // line. Notes explain meaning for a reader; they are NEVER verification.
   if (cmd === 'notes') {
@@ -363,7 +368,7 @@ function main() {
       return;
     }
     const scope = args.lens ? ` (lens: ${args.lens})` : '';
-    console.log(`intent notes ${basename(file)}${scope}: ${notes.length} note${notes.length === 1 ? '' : 's'}`);
+    console.log(`thunder notes ${basename(file)}${scope}: ${notes.length} note${notes.length === 1 ? '' : 's'}`);
     const known = new Set(KNOWN_LENSES);
     const byLens = {};
     for (const n of notes) (byLens[n.lens] ||= []).push(n);
@@ -378,7 +383,7 @@ function main() {
     return;
   }
 
-  // `intent docs <file> [--lens <lens>] [--out <dir>]` , render a mission as Markdown docs.
+  // `thunder docs <file> [--lens <lens>] [--out <dir>]` , render a mission as Markdown docs.
   // With --lens, produce an audience-specific doc with that lens's notes woven inline.
   if (cmd === 'docs') {
     if (!file) { console.error('usage: intent docs <file> [--lens <lens>] [--out <dir>]'); process.exit(2); return; }
@@ -394,19 +399,19 @@ function main() {
     return;
   }
 
-  // `intent code-actions <file> [--json]` , the available quick-fixes, each safety-graded
+  // `thunder code-actions <file> [--json]` , the available quick-fixes, each safety-graded
   // (safe autocorrects + reviewable diagnostic fixes). The IDE lightbulb's data source.
   if (cmd === 'code-actions') {
     if (!file) { console.error('usage: intent code-actions <file> [--json]'); process.exit(2); return; }
     const source = readFileSync(file, 'utf8');
     const actions = getCodeActions(source, semanticDiagnostics(parseIntent(source)));
     if (args.json) { console.log(JSON.stringify({ schema: 'intent-code-actions-v1', count: actions.length, actions }, null, 2)); return; }
-    console.log(`intent code-actions ${basename(file)}: ${actions.length} action${actions.length === 1 ? '' : 's'}`);
+    console.log(`thunder code-actions ${basename(file)}: ${actions.length} action${actions.length === 1 ? '' : 's'}`);
     for (const a of actions) console.log(`  [${a.safety}] ${a.kind}${a.line ? ` (line ${a.line})` : ''}  ${a.title}`);
     return;
   }
 
-  // `intent apply-fix <file> [--write]` , apply the SAFE autocorrects only (header aliases,
+  // `thunder apply-fix <file> [--write]` , apply the SAFE autocorrects only (header aliases,
   // stray colons). Reviewable quick-fixes are reported, never applied blindly.
   if (cmd === 'apply-fix') {
     if (!file) { console.error('usage: intent apply-fix <file> [--write]'); process.exit(2); return; }
@@ -415,7 +420,7 @@ function main() {
     const reviewable = getCodeActions(source, semanticDiagnostics(parseIntent(source))).filter((a) => a.safety !== 'safe');
     if (args.json) { console.log(JSON.stringify({ applied: changes, reviewableRemaining: reviewable.length, changed: fixed !== source }, null, 2)); }
     else {
-      console.log(`intent apply-fix ${basename(file)}: ${changes.length} safe fix${changes.length === 1 ? '' : 'es'}${args.write ? ' applied' : ' (dry run; pass --write)'}`);
+      console.log(`thunder apply-fix ${basename(file)}: ${changes.length} safe fix${changes.length === 1 ? '' : 'es'}${args.write ? ' applied' : ' (dry run; pass --write)'}`);
       for (const c of changes) console.log(`  line ${c.line}: "${c.from}" -> "${c.to}"  [${c.rule}]`);
       if (reviewable.length) console.log(`  ${reviewable.length} reviewable quick-fix(es) left for a human (run: intent code-actions ${basename(file)})`);
     }
@@ -423,12 +428,12 @@ function main() {
     return;
   }
 
-  // `intent focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]` , Intent Lens:
+  // `thunder focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]` , Intent Lens:
   // a focused Focus Graph + Intent Brief around a selected scope, built over the Atlas.
   if (cmd === 'focus') {
     const dir = args.dir || '.';
     const files = existsSync(dir) && statSync(dir).isDirectory() ? collectIntents(dir) : (file && existsSync(file) ? [file] : []);
-    if (!files.length) { console.error(`intent focus: no .intent files under ${dir}`); process.exit(2); return; }
+    if (!files.length) { console.error(`thunder focus: no .intent files under ${dir}`); process.exit(2); return; }
     const atlas = buildAtlas(files.map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8')))));
     // Resolve seeds: --nodes ids, or a mission/feature query, or (default) all missions.
     let seeds = [];
@@ -437,14 +442,14 @@ function main() {
     if (args.nodes) { seeds = args.nodes.split(',').map((s) => s.trim()).filter(Boolean); scopeType = 'custom'; scopeTitle = `${seeds.length} selected node(s)`; }
     else if (file && !existsSync(file)) {
       const hit = searchAtlas(atlas, file)[0];
-      if (!hit) { console.error(`intent focus: no Atlas node matches "${file}"`); process.exit(1); return; }
+      if (!hit) { console.error(`thunder focus: no Atlas node matches "${file}"`); process.exit(1); return; }
       seeds = [hit.id]; scopeType = hit.type === 'Mission' ? 'mission' : 'feature'; scopeTitle = hit.title || hit.id;
     } else { seeds = atlas.missions.map((m) => m.id); scopeType = 'capability'; scopeTitle = 'whole project'; }
     const scope = makeScope({ type: scopeType, title: scopeTitle, seeds, createdAt: null });
     const focus = buildFocusGraph(atlas, { seeds, depth: args.depth ? Number(args.depth) : 2, scope });
     const brief = intentBrief(focus);
     if (args.json) { console.log(JSON.stringify({ scope, brief, focus }, null, 2)); return; }
-    console.log(`intent focus , ${scope.title}  [${scope.type}]  (${scope.scopeId})`);
+    console.log(`thunder focus , ${scope.title}  [${scope.type}]  (${scope.scopeId})`);
     console.log(`  what: ${brief.what || '(unnamed)'}${brief.confidence ? `   confidence: ${brief.confidence}` : ''}`);
     if (brief.who.length) console.log(`  who: ${brief.who.join(', ')}`);
     console.log(`  focus graph: ${focus.overview.nodes} node(s), ${focus.overview.relationships} edge(s), depth ${focus.depth}`);
@@ -457,19 +462,19 @@ function main() {
     return;
   }
 
-  // `intent comprehension <file|dir> [--observed] [--learning] [--governed] [--json]` , the C0..C7
+  // `thunder comprehension <file|dir> [--observed] [--learning] [--governed] [--json]` , the C0..C7
   // understanding level of each mission (Comprehension Contract). IL scores the intent side (C1..C4);
   // --observed (OpenThunder/runtime), --learning (Skills Tech Talk), --governed (Guardian) lift the
   // joint level to C5/C6/C7 when a sibling attaches its evidence.
   if (cmd === 'comprehension') {
     const root = file || '.';
     const files = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : (existsSync(root) ? [root] : []);
-    if (!files.length) { console.error(`intent comprehension: no .intent files under ${root}`); process.exit(2); return; }
+    if (!files.length) { console.error(`thunder comprehension: no .intent files under ${root}`); process.exit(2); return; }
     const opts = { observed: !!args.observed, learningPath: !!args.learning, governed: !!args.governed };
     const asts = files.map((f) => parseIntent(readFileSync(f, 'utf8')));
     const report = comprehensionReport(asts, opts);
     if (args.json) { console.log(JSON.stringify(report, null, 2)); return; }
-    console.log(`intent comprehension ${root}: ${report.count} mission(s)`);
+    console.log(`thunder comprehension ${root}: ${report.count} mission(s)`);
     console.log(`  distribution: ${COMPREHENSION_LEVELS.map((l) => `${l.level}:${report.byLevel[l.level]}`).join('  ')}`);
     for (const m of report.missions) {
       console.log(`\n  ${m.mission || '(unnamed)'}  ,  ${m.level} ${m.levelName}`);
@@ -482,7 +487,7 @@ function main() {
     return;
   }
 
-  // `intent twelve-factor <file> [--json]` , score an intent against the 13 principles of
+  // `thunder twelve-factor <file> [--json]` , score an intent against the 13 principles of
   // humanlayer/12-factor-agents (deterministic conformance lens). Per-factor verdict + score.
   if (cmd === 'twelve-factor' || cmd === '12factor') {
     if (!file) { console.error('usage: intent twelve-factor <file> [--json]'); process.exit(2); return; }
@@ -500,14 +505,14 @@ function main() {
     return;
   }
 
-  // `intent gen <file> [--target typescript|csharp|java] [--out <dir>]` , deterministic code scaffold from
+  // `thunder gen <file> [--target typescript|csharp|java] [--out <dir>]` , deterministic code scaffold from
   // intent. Generates the typed contract + the decision logic (already executable) and leaves
   // honest TODO markers for business logic. No AI. Prints, or writes with --out.
   if (cmd === 'gen') {
     if (!file) { console.error(`usage: intent gen <file> [--target ${Object.keys(GENERATORS).join('|')}] [--out <dir>]`); process.exit(2); return; }
     const target = (args.target || 'typescript').toLowerCase();
     const generate = GENERATORS[target];
-    if (!generate) { console.error(`intent gen: unknown target "${target}" (have: ${Object.keys(GENERATORS).join(', ')})`); process.exit(2); return; }
+    if (!generate) { console.error(`thunder gen: unknown target "${target}" (have: ${Object.keys(GENERATORS).join(', ')})`); process.exit(2); return; }
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const code = generate(ast);
     if (args.outExplicit) {
@@ -520,27 +525,27 @@ function main() {
     return;
   }
 
-  // `intent changes [<base>..<head> | <base>] [--json]` , Change Lens: what a branch / PR / commit
+  // `thunder changes [<base>..<head> | <base>] [--json]` , Change Lens: what a branch / PR / commit
   // range changed BY MEANING. git-diffs the .intent files, semantic-diffs each, and reports the
   // behavior-level changes + regression risk. Default: HEAD vs the working tree.
   if (cmd === 'changes') {
     const git = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }); } catch { return null; } };
-    if (git('rev-parse --is-inside-work-tree') === null) { console.error('intent changes: not a git repository'); process.exit(2); return; }
+    if (git('rev-parse --is-inside-work-tree') === null) { console.error('thunder changes: not a git repository'); process.exit(2); return; }
     const range = file || '';
     let base, head; // head === null means "the working tree"
     if (range.includes('..')) { [base, head] = range.split('..'); head = head || 'HEAD'; }
     else if (range) { base = range; head = null; }
     else { base = 'HEAD'; head = null; }
     const diffSpec = head ? `${base} ${head}` : base;
-    const names = (git(`diff --name-only ${diffSpec} -- "*.intent"`) || '').split('\n').map((s) => s.trim()).filter(Boolean);
-    if (!names.length) { console.log(`intent changes ${range || `${base}..working-tree`}: no .intent files changed`); return; }
+    const names = (git(`diff --name-only ${diffSpec} -- "*.thunder" "*.tl" "*.intent"`) || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    if (!names.length) { console.log(`thunder changes ${range || `${base}..working-tree`}: no source files changed`); return; }
     const readAt = (ref, p) => (ref === null ? (existsSync(p) ? readFileSync(p, 'utf8') : null) : git(`show ${ref}:${p}`));
     const toGraph = (src) => (src != null ? buildIntentGraph(parseIntent(src)) : null);
     const pairs = names.map((p) => ({ path: p, before: toGraph(readAt(base, p)), after: toGraph(readAt(head, p)) }));
     const report = changeReport(pairs);
     if (args.json) { console.log(JSON.stringify(report, null, 2)); process.exit(report.verdict === 'review' ? 1 : 0); return; }
     const t = report.totals;
-    console.log(`intent changes ${range || `${base}..working-tree`}: ${report.verdict.toUpperCase()}`);
+    console.log(`thunder changes ${range || `${base}..working-tree`}: ${report.verdict.toUpperCase()}`);
     console.log(`  ${t.files} file(s) , +${t.added} / -${t.removed} / ~${t.changed} nodes${t.invalidatedApprovals ? `, ${t.invalidatedApprovals} approval(s) invalidated` : ''}`);
     if (report.regressions.length) {
       console.log('  regression risk (a promise or its proof was removed or weakened):');
@@ -559,18 +564,18 @@ function main() {
   }
 
   // MCP server (Model Context Protocol over stdio) , makes ThunderLang a native tool for AI
-  // coding agents. Long-running; no file argument. Point an MCP client at `intent mcp`.
+  // coding agents. Long-running; no file argument. Point an MCP client at `thunder mcp`.
   if (cmd === 'mcp') {
     startMcpServer();
     return; // keep the process alive on stdin
   }
 
-  // Scaffold a runnable starter mission (deterministic, no AI). `intent init [Name]`.
+  // Scaffold a runnable starter mission (deterministic, no AI). `thunder init [Name]`.
   if (cmd === 'init') {
-    const name = (file || 'Mission').replace(/\.intent$/i, '');
-    const target = join(args.out && args.out !== '.intent' ? args.out : '.', `${name}.intent`);
+    const name = stripSourceExt(file || 'Mission');
+    const target = join(args.out && args.out !== '.intent' ? args.out : '.', `${name}.thunder`);
     if (existsSync(target) && !args.force) {
-      console.error(`intent init: ${target} already exists (use --force to overwrite).`);
+      console.error(`thunder init: ${target} already exists (use --force to overwrite).`);
       process.exit(1); return;
     }
     const starter = `mission ${name}
@@ -586,7 +591,7 @@ guarantee an example property that must always hold
 never
   do something this mission must never do
 
-# A runnable decision. Try: intent run ${name}.intent --inputs '{"age":20}'
+# A runnable decision. Try: thunder run ${name}.intent --inputs '{"age":20}'
 decision Example
   inputs
     age
@@ -596,7 +601,7 @@ decision Example
   default
     return Blocked
 
-# Tests live in the file. Try: intent test ${name}.intent
+# Tests live in the file. Try: thunder test ${name}.intent
 test Example
   case adult
     given age 20
@@ -607,13 +612,13 @@ test Example
 `;
     if (target.includes('/')) mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, starter);
-    console.log(`intent init: wrote ${target}`);
-    console.log(`  next: intent check ${target}  |  intent run ${target} --inputs '{"age":20}'  |  intent test ${target}`);
+    console.log(`thunder init: wrote ${target}`);
+    console.log(`  next: thunder check ${target}  |  thunder run ${target} --inputs '{"age":20}'  |  thunder test ${target}`);
     return;
   }
 
   if (!file && cmd !== 'draft') {
-    console.error(`intent ${cmd}: missing a file argument. Run "intent help" for usage.`);
+    console.error(`thunder ${cmd}: missing a file argument. Run "intent help" for usage.`);
     process.exit(2);
   }
   // IntentLift: lift source CODE into inferred .intent drafts (not intent parsing).
@@ -638,10 +643,10 @@ test Example
       }
       if (args.out) {
         for (const m of res.missions) writeText(args.out, m.outName, m.intentText);
-        console.log(`intent lift repo ${root} -> ${res.missionsGenerated} mission(s) in ${args.out}`);
+        console.log(`thunder lift repo ${root} -> ${res.missionsGenerated} mission(s) in ${args.out}`);
         console.log(`  confidence: ${JSON.stringify(res.confidenceSummary)} | ${res.unknowns} unknown(s) total`);
       } else {
-        console.log(`intent lift repo ${root}: ${res.missionsGenerated} mission(s)`);
+        console.log(`thunder lift repo ${root}: ${res.missionsGenerated} mission(s)`);
         for (const m of res.missions) console.log(`  ${m.mission} (${m.summary.confidence}) <- ${m.sourceFile}`);
       }
       return;
@@ -653,7 +658,7 @@ test Example
       const res = liftAll(src, { language: args.from || languageForFile(file), file: basename(file) });
       if (!res.ok) { console.error(res.error); process.exit(1); }
       if (args.json) { console.log(JSON.stringify(res, null, 2)); return; }
-      console.log(`intent lift --all ${basename(file)}: ${res.count} mission(s) inferred`);
+      console.log(`thunder lift --all ${basename(file)}: ${res.count} mission(s) inferred`);
       for (const m of res.missions) console.log(`  ${m.mission}  (${m.fn}, confidence ${m.confidence})`);
       return;
     }
@@ -665,7 +670,7 @@ test Example
     if (args.json) { console.log(JSON.stringify(res.summary, null, 2)); return; }
     if (args.out) {
       const p = writeText(args.out, `${slug(res.lifted.mission)}.intent`, res.intentText);
-      console.log(`intent lift ${basename(file)} -> ${p.replace(process.cwd() + '/', '')}`);
+      console.log(`thunder lift ${basename(file)} -> ${p.replace(process.cwd() + '/', '')}`);
     } else {
       console.log(res.intentText);
     }
@@ -680,7 +685,7 @@ test Example
     // args.out defaults to '.intent'; approve writes back to the file unless a real --out was given.
     const target = args.out && args.out !== '.intent' ? args.out : file;
     writeFileSync(target, res.text);
-    console.log(`intent approve ${basename(file)} -> reviewed: true (${res.approval.source_hash.slice(0, 24)}...)`);
+    console.log(`thunder approve ${basename(file)} -> reviewed: true (${res.approval.source_hash.slice(0, 24)}...)`);
     return;
   }
 
@@ -691,7 +696,7 @@ test Example
     const out = JSON.stringify(pack, null, 2);
     if (args.out && args.out !== '.intent') {
       const p = writeText(args.out, `${slug(pack.mission)}.drift-handoff.json`, out);
-      console.log(`intent handoff ${basename(file)} -> ${p.replace(process.cwd() + '/', '')} (kind ${pack.kind}, approved ${pack.approved})`);
+      console.log(`thunder handoff ${basename(file)} -> ${p.replace(process.cwd() + '/', '')} (kind ${pack.kind}, approved ${pack.approved})`);
     } else {
       console.log(out);
     }
@@ -707,7 +712,7 @@ test Example
     const res = checkDrift(intentText, codeText, { language });
     if (args.json) { console.log(JSON.stringify(res, null, 2)); }
     else {
-      console.log(`intent drift: ${res.status.toUpperCase()} (${res.summary.blocking} blocking)`);
+      console.log(`thunder drift: ${res.status.toUpperCase()} (${res.summary.blocking} blocking)`);
       for (const f of res.findings) console.log(`  [${f.level}] ${f.code}: ${f.message}`);
     }
     process.exit(res.status === 'drift' ? 1 : 0);
@@ -725,7 +730,7 @@ test Example
       });
       const manifest = buildManifest(parsed, { projectId: args.product });
       if (args.json) { console.log(JSON.stringify(manifest, null, 2)); return; }
-      console.log(`intent ai list ${root}: ${manifest.summary.total} AI implementation(s)`);
+      console.log(`thunder ai list ${root}: ${manifest.summary.total} AI implementation(s)`);
       for (const im of manifest.implementations) {
         console.log(`  ${im.id.padEnd(28)} ${im.status.padEnd(9)} risk:${im.risk} approval:${im.approval} scope:${im.scope}`);
       }
@@ -738,7 +743,7 @@ test Example
       const file = args._[1];
       if (!file) { console.error('usage: intent ai generate <file.intent> [--from <lang>]'); process.exit(2); return; }
       const ast = parseIntent(readFileSync(file, 'utf8'));
-      if (!ast.implementation) { console.error(`intent ai generate: ${basename(file)} has no "implement with ai" block.`); process.exit(2); return; }
+      if (!ast.implementation) { console.error(`thunder ai generate: ${basename(file)} has no "implement with ai" block.`); process.exit(2); return; }
       const prompt = buildImplementationPrompt(ast, { language: args.from || 'typescript' });
       if (args.out && args.out !== '.intent') { const p = writeText(args.out, `${slug(ast.mission)}.prompt.md`, prompt); console.log(`wrote ${p.replace(process.cwd() + '/', '')}`); }
       else console.log(prompt);
@@ -765,7 +770,7 @@ test Example
       });
       const gate = productionGate(resolved, { allowPending: args.allowPending });
       if (args.json) { console.log(JSON.stringify({ ...gate, mode: args.mode || 'production', resolved }, null, 2)); process.exit(gate.ok ? 0 : 1); return; }
-      console.log(`intent ai gate ${root} (${args.mode || 'production'}): ${gate.ok ? 'PASS' : 'BLOCKED'} , ${resolved.length} implementation(s)`);
+      console.log(`thunder ai gate ${root} (${args.mode || 'production'}): ${gate.ok ? 'PASS' : 'BLOCKED'} , ${resolved.length} implementation(s)`);
       for (const r of resolved) console.log(`  ${r.id.padEnd(28)} ${r.status}${r.reasons?.[0] ? ` , ${r.reasons[0].code}: ${r.reasons[0].message}` : ''}`);
       if (!gate.ok) console.log(`  ${gate.blocking.length} implementation(s) block production. Use --allow-pending for dev builds.`);
       process.exit(gate.ok ? 0 : 1);
@@ -777,9 +782,9 @@ test Example
       if (!file || !id) { console.error('usage: intent ai adopt <targetFile> <id> [--from <lang>]'); process.exit(2); return; }
       const code = readFileSync(file, 'utf8');
       const res = adoptRegion(code, id, args.from || languageForFile(file));
-      if (!res) { console.error(`intent ai adopt: no AI-managed region "${id}" in ${basename(file)}.`); process.exit(2); return; }
+      if (!res) { console.error(`thunder ai adopt: no AI-managed region "${id}" in ${basename(file)}.`); process.exit(2); return; }
       writeFileSync(file, res.code);
-      console.log(`intent ai adopt ${id} -> human-owned (origin="ai" ownership="human") in ${basename(file)}`);
+      console.log(`thunder ai adopt ${id} -> human-owned (origin="ai" ownership="human") in ${basename(file)}`);
       return;
     }
     if (sub === 'approve' || sub === 'reject') {
@@ -790,7 +795,7 @@ test Example
       const manifest = buildManifest(parsed.map((p) => ({ path: relative(root, p.file), source: '', ast: p.ast })), {});
       const im = manifest.implementations.find((x) => x.id === id);
       const ast = parsed.find((p) => (p.ast.implementation?.id || slug(p.ast.mission || '')) === id)?.ast;
-      if (!im || !ast) { console.error(`intent ai ${sub}: no implementation "${id}" found under ${root}.`); process.exit(2); return; }
+      if (!im || !ast) { console.error(`thunder ai ${sub}: no implementation "${id}" found under ${root}.`); process.exit(2); return; }
       let region = null;
       if (im.targetLocation && existsSync(join(root, im.targetLocation))) region = parseMarkers(readFileSync(join(root, im.targetLocation), 'utf8')).regions.find((r) => r.id === id) || null;
       const pf = join(root, im.proofLocation);
@@ -809,7 +814,7 @@ test Example
         by: args.by, role: args.role, note: args.note,
         contractHash: contractHash(ast), implementationHash: implementationHash(region.code), at,
       });
-      if (error) { console.error(`intent ai ${sub}: ${error}`); process.exit(2); return; }
+      if (error) { console.error(`thunder ai ${sub}: ${error}`); process.exit(2); return; }
       writeJson(join(root, '.intent'), 'ai-approvals.json', next);
       const event = makeEvent(sub === 'approve' ? 'IntentAiImplementationApproved' : 'IntentAiImplementationRejected', {
         implementationId: id, missionId: ast.mission, contractHash: contractHash(ast), implementationHash: implementationHash(region.code),
@@ -817,18 +822,18 @@ test Example
         newStatus: sub === 'approve' ? 'APPROVED' : 'REJECTED',
       });
       const logPath = sinkEvent(root, event);
-      console.log(`intent ai ${sub} ${id} by ${args.by || '(anonymous)'}${args.role ? ` [${args.role}]` : ''} -> ${sub === 'approve' ? 'APPROVED' : 'REJECTED'} (bound to current hashes)`);
+      console.log(`thunder ai ${sub} ${id} by ${args.by || '(anonymous)'}${args.role ? ` [${args.role}]` : ''} -> ${sub === 'approve' ? 'APPROVED' : 'REJECTED'} (bound to current hashes)`);
       console.log(`  logged ${event.type} to ${logPath.replace(process.cwd() + '/', '')}`);
       if (args.json) console.log(JSON.stringify(event, null, 2));
       return;
     }
-    // `intent ai events [dir] [--subject <implId>] [--json]` , read the append-only audit log.
+    // `thunder ai events [dir] [--subject <implId>] [--json]` , read the append-only audit log.
     if (sub === 'events') {
       const root = args._[1] || '.';
       const log = readEventLog(root);
       const events = args.subject ? log.events.filter((e) => e.implementationId === args.subject) : log.events;
       if (args.json) { console.log(JSON.stringify({ ...log, events }, null, 2)); return; }
-      console.log(`intent ai events ${root}: ${events.length} event${events.length === 1 ? '' : 's'}${args.subject ? ` for ${args.subject}` : ''}`);
+      console.log(`thunder ai events ${root}: ${events.length} event${events.length === 1 ? '' : 's'}${args.subject ? ` for ${args.subject}` : ''}`);
       for (const e of events) {
         const who = e.actorId ? ` by ${e.actorId}` : '';
         const move = e.previousStatus || e.newStatus ? `  (${e.previousStatus || '?'} -> ${e.newStatus || '?'})` : '';
@@ -845,7 +850,7 @@ test Example
         .find((a) => (a.implementation?.id || slug(a.mission || '')) === id);
       const policy = parseSelection(ast?.selection || []);
       const cdir = join(root, '.intent', 'candidates', id);
-      if (!existsSync(cdir)) { console.error(`intent ai select: no candidates at ${relative(process.cwd(), cdir)}.`); process.exit(2); return; }
+      if (!existsSync(cdir)) { console.error(`thunder ai select: no candidates at ${relative(process.cwd(), cdir)}.`); process.exit(2); return; }
       const candidates = readdirSync(cdir).filter((n) => !n.endsWith('.proof.json') && !n.endsWith('.json')).map((name) => {
         const code = readFileSync(join(cdir, name), 'utf8');
         const region = parseMarkers(code).regions.find((r) => r.id === id);
@@ -856,12 +861,12 @@ test Example
       });
       const result = selectCandidate(candidates, policy);
       if (args.json) { console.log(JSON.stringify({ ...result, policy }, null, 2)); return; }
-      console.log(`intent ai select ${id}: ${result.winner ? result.winner.id : '(none eligible)'} wins (${result.eligibleCount}/${candidates.length} eligible)`);
+      console.log(`thunder ai select ${id}: ${result.winner ? result.winner.id : '(none eligible)'} wins (${result.eligibleCount}/${candidates.length} eligible)`);
       console.log(`  policy: prefer ${result.prefer.map((p) => `${p.direction} ${p.metric}`).join(', ')}${policy.requireAllChecks ? '; require all checks' : ''}`);
       for (const c of result.ranking) console.log(`  ${c.id.padEnd(20)} ${JSON.stringify(c.metrics)}${c.checksPassed === false ? ' [checks FAILED]' : ''}`);
       return;
     }
-    console.error(`intent ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject | select. OpenThunder runs verification.`);
+    console.error(`thunder ai ${sub || ''}: IL supports list | generate | gate | adopt | approve | reject | select. OpenThunder runs verification.`);
     process.exit(2);
     return;
   }
@@ -869,14 +874,14 @@ test Example
   // Semantic diff: compare two snapshots (dirs or .intent files) by meaning.
   if (cmd === 'diff') {
     const b = args._[0]; const a = args._[1];
-    if (!b || !a) { console.error('usage: intent diff <before-dir|file> <after-dir|file> [--json]'); process.exit(2); return; }
+    if (!b || !a) { console.error('usage: thunder diff <before-dir|file> <after-dir|file> [--json]'); process.exit(2); return; }
     const snap = (p) => {
       if (statSync(p).isDirectory()) return buildAtlas(collectIntents(p).map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8')))));
       return buildIntentGraph(parseIntent(readFileSync(p, 'utf8')));
     };
     const diff = diffGraphs(snap(b), snap(a));
     if (args.json) { console.log(JSON.stringify(diff, null, 2)); return; }
-    console.log(`intent diff ${b} -> ${a}: +${diff.summary.added} / -${diff.summary.removed} / ~${diff.summary.changed} node(s), +${diff.summary.relationshipsAdded} / -${diff.summary.relationshipsRemoved} edge(s)`);
+    console.log(`thunder diff ${b} -> ${a}: +${diff.summary.added} / -${diff.summary.removed} / ~${diff.summary.changed} node(s), +${diff.summary.relationshipsAdded} / -${diff.summary.relationshipsRemoved} edge(s)`);
     if (Object.keys(diff.summary.addedByType).length) console.log(`  added: ${JSON.stringify(diff.summary.addedByType)}`);
     if (Object.keys(diff.summary.removedByType).length) console.log(`  removed: ${JSON.stringify(diff.summary.removedByType)}`);
     for (const c of diff.changedNodes.slice(0, 8)) console.log(`  ~ ${c.type} ${c.id}`);
@@ -893,7 +898,7 @@ test Example
       : buildIntentGraph(parseIntent(readFileSync(p, 'utf8')));
     const res = mergeGraphs(snap(bp), snap(op), snap(tp));
     if (args.json) { console.log(JSON.stringify(res, null, 2)); process.exit(res.clean ? 0 : 1); return; }
-    console.log(`intent merge: ${res.clean ? 'CLEAN' : 'CONFLICTS'} , ${res.summary.nodes} node(s), ${res.summary.conflicts} conflict(s)`);
+    console.log(`thunder merge: ${res.clean ? 'CLEAN' : 'CONFLICTS'} , ${res.summary.nodes} node(s), ${res.summary.conflicts} conflict(s)`);
     for (const c of res.conflicts) console.log(`  conflict: ${c.type} ${c.id} (changed differently on both sides)`);
     process.exit(res.clean ? 0 : 1);
     return;
@@ -903,10 +908,10 @@ test Example
   if (cmd === 'run') {
     const ast = parseIntent(readFileSync(file, 'utf8'));
     let inputs = {};
-    if (args.inputs) { try { inputs = JSON.parse(args.inputs); } catch { console.error('intent run: --inputs must be JSON'); process.exit(2); return; } }
+    if (args.inputs) { try { inputs = JSON.parse(args.inputs); } catch { console.error('thunder run: --inputs must be JSON'); process.exit(2); return; } }
     let decisions = ast.decisions || [];
     if (args.decision) decisions = decisions.filter((d) => slug(d.name) === slug(args.decision));
-    if (!decisions.length) { console.error('intent run: no decision to run' + (args.decision ? ` matching "${args.decision}"` : '')); process.exit(2); return; }
+    if (!decisions.length) { console.error('thunder run: no decision to run' + (args.decision ? ` matching "${args.decision}"` : '')); process.exit(2); return; }
     const runs = decisions.map((d) => evaluateDecision(d, inputs));
     if (args.json) { console.log(JSON.stringify(runs.length === 1 ? runs[0] : runs, null, 2)); return; }
     for (const r of runs) {
@@ -922,8 +927,8 @@ test Example
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const r = evaluateOutcomes(ast);
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.missed > 0 ? 1 : 0); return; }
-    if (r.total === 0) { console.log(`intent outcomes ${basename(file)}: no outcome contracts found.`); return; }
-    console.log(`intent outcomes ${basename(file)}: ${r.met} met, ${r.missed} missed, ${r.pending} pending`);
+    if (r.total === 0) { console.log(`thunder outcomes ${basename(file)}: no outcome contracts found.`); return; }
+    console.log(`thunder outcomes ${basename(file)}: ${r.met} met, ${r.missed} missed, ${r.pending} pending`);
     for (const e of r.evaluations) {
       const tag = e.status === 'met' ? 'MET   ' : e.status === 'missed' ? 'MISSED' : 'PENDING';
       const detail = e.comparable ? `actual ${e.actual} vs target ${e.target} (${e.direction})${e.improvement != null ? `, ${e.improvement >= 0 ? '+' : ''}${e.improvement} vs baseline` : ''}` : `no measured result yet (target ${e.target})`;
@@ -938,8 +943,8 @@ test Example
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const r = analyzeStyle(ast);
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.diagnostics.some((d) => d.severity === 'blocker') ? 1 : 0); return; }
-    if (r.styleIntents.length === 0) { console.log(`intent style ${basename(file)}: no style intents found.`); return; }
-    console.log(`intent style ${basename(file)}: ${r.styleIntents.length} style intent(s)`);
+    if (r.styleIntents.length === 0) { console.log(`thunder style ${basename(file)}: no style intents found.`); return; }
+    console.log(`thunder style ${basename(file)}: ${r.styleIntents.length} style intent(s)`);
     for (const s of r.styleIntents) {
       const a11y = s.accessibility ? `${s.accessibility.target} (${s.accessibility.classification}, verified=${s.accessibility.verified})` : 'no target';
       console.log(`  ${s.name}  , a11y ${a11y}, ${s.tokens.length} token(s)${s.appliesTo ? `, applies_to ${s.appliesTo}` : ''}`);
@@ -955,8 +960,8 @@ test Example
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const r = runTests(ast);
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); return; }
-    if (r.total === 0) { console.log(`intent test ${basename(file)}: no test blocks found.`); return; }
-    console.log(`intent test ${basename(file)}: ${r.passed}/${r.total} passed`);
+    if (r.total === 0) { console.log(`thunder test ${basename(file)}: no test blocks found.`); return; }
+    console.log(`thunder test ${basename(file)}: ${r.passed}/${r.total} passed`);
     for (const c of r.results) {
       const detail = c.error ? `  ${c.error}`
         : c.kind === 'lifecycle' ? `expected ${c.expected ?? '(any)'}, got ${c.actual} (valid=${c.valid})`
@@ -993,7 +998,7 @@ test Example
     if (!graph || !Array.isArray(graph.nodes)) { console.error('intent validate: not an Intent Graph (no nodes[])'); process.exit(2); return; }
     const v = validateGraph(graph);
     if (args.json) { console.log(JSON.stringify(v, null, 2)); process.exit(v.valid ? 0 : 1); return; }
-    console.log(`intent validate ${basename(file)}: ${v.valid ? 'VALID' : `${v.issues.length} issue(s)`} (${v.version})`);
+    console.log(`thunder validate ${basename(file)}: ${v.valid ? 'VALID' : `${v.issues.length} issue(s)`} (${v.version})`);
     for (const i of v.issues) console.log(`  [${i.code}] ${i.message}${i.id ? ` (${i.id})` : ''}`);
     process.exit(v.valid ? 0 : 1);
     return;
@@ -1002,14 +1007,14 @@ test Example
   if (cmd === 'migrate') {
     const raw = readFileSync(file, 'utf8');
     let graph;
-    try { graph = JSON.parse(raw); } catch { console.error('intent migrate: input is not valid JSON'); process.exit(2); return; }
-    if (!graph || !Array.isArray(graph.nodes)) { console.error('intent migrate: not an Intent Graph (no nodes[])'); process.exit(2); return; }
+    try { graph = JSON.parse(raw); } catch { console.error('thunder migrate: input is not valid JSON'); process.exit(2); return; }
+    if (!graph || !Array.isArray(graph.nodes)) { console.error('thunder migrate: not an Intent Graph (no nodes[])'); process.exit(2); return; }
     let result;
     try { result = migrateGraph(graph, args.to ? { to: args.to } : {}); }
-    catch (e) { console.error(`intent migrate: ${e instanceof Error ? e.message : e}`); process.exit(2); return; }
+    catch (e) { console.error(`thunder migrate: ${e instanceof Error ? e.message : e}`); process.exit(2); return; }
     const v = validateGraph(result.graph);
     if (args.json) { console.log(JSON.stringify({ ...result, validation: v }, null, 2)); process.exit(v.valid ? 0 : 1); return; }
-    console.log(`intent migrate: ${result.from} -> ${result.to} (${result.migrated ? result.applied.length + ' step(s)' : 'already current'})`);
+    console.log(`thunder migrate: ${result.from} -> ${result.to} (${result.migrated ? result.applied.length + ' step(s)' : 'already current'})`);
     for (const a of result.applied) console.log(`  applied ${a.from} -> ${a.to}: ${a.description}`);
     console.log(`  validation: ${v.valid ? 'OK' : `${v.issues.length} issue(s)`}`);
     for (const i of v.issues.slice(0, 10)) console.log(`    [${i.code}] ${i.message}`);
@@ -1032,7 +1037,7 @@ test Example
     const src = graphToSource(graph);
     if (args.out && args.out !== '.intent') {
       const base = (graph.nodes.find((n) => n.type === 'Mission')?.title) || basename(file).replace(/\.[^.]+$/, '');
-      console.log(`intent source: wrote ${writeText(args.out, `${slug(base)}.intent`, src)}`);
+      console.log(`thunder source: wrote ${writeText(args.out, `${slug(base)}.intent`, src)}`);
     } else {
       process.stdout.write(src);
     }
@@ -1044,22 +1049,22 @@ test Example
     const xml = readFileSync(file, 'utf8');
     const fmt = args.format || detectFormat(xml);
     if (!fmt || !IMPORT_FORMATS.includes(fmt)) {
-      console.error(`intent import: could not detect format; pass --format <${IMPORT_FORMATS.join('|')}>`);
+      console.error(`thunder import: could not detect format; pass --format <${IMPORT_FORMATS.join('|')}>`);
       process.exit(2); return;
     }
     const report = importReport(xml, fmt);
-    if (report == null) { console.error(`intent import: unsupported format "${fmt}"`); process.exit(2); return; }
+    if (report == null) { console.error(`thunder import: unsupported format "${fmt}"`); process.exit(2); return; }
     if (args.json) { console.log(JSON.stringify(report, null, 2)); return; }
     const src = report.source;
     if (args.out && args.out !== '.intent') {
       const base = basename(file).replace(/\.[^.]+$/, '');
       const p = writeText(args.out, `${slug(base)}.intent`, src);
-      console.log(`intent import: wrote ${p}`);
+      console.log(`thunder import: wrote ${p}`);
     } else {
       process.stdout.write(src.endsWith('\n') ? src : src + '\n');
     }
     // Fidelity warnings go to stderr, so stdout stays clean for piping the source.
-    for (const w of report.warnings) console.error(`intent import: [${w.code}] ${w.message}`);
+    for (const w of report.warnings) console.error(`thunder import: [${w.code}] ${w.message}`);
     return;
   }
 
@@ -1073,9 +1078,9 @@ test Example
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const res = exportIntent(ast, fmt);
     if (args.out && args.out !== '.intent') {
-      const name = `${slug(ast.mission || basename(file, '.intent'))}.${res.ext}`;
+      const name = `${slug(ast.mission || stripSourceExt(basename(file)))}.${res.ext}`;
       const p = writeText(args.out, name, res.content);
-      console.log(`intent export: wrote ${p}`);
+      console.log(`thunder export: wrote ${p}`);
     } else {
       process.stdout.write(res.content);
     }
@@ -1090,13 +1095,13 @@ test Example
     if (args.search) {
       const hits = searchAtlas(atlas, args.search, { type: args.from });
       if (args.json) { console.log(JSON.stringify(hits, null, 2)); return; }
-      console.log(`intent atlas search "${args.search}": ${hits.length} hit(s)`);
+      console.log(`thunder atlas search "${args.search}": ${hits.length} hit(s)`);
       for (const h of hits) console.log(`  ${h.type.padEnd(18)} ${h.id}${h.title ? `  , ${h.title}` : ''}`);
       return;
     }
     if (args.expand) {
       const ex = expandNode(atlas, args.expand);
-      if (!ex) { console.error(`intent atlas: no node "${args.expand}".`); process.exit(2); return; }
+      if (!ex) { console.error(`thunder atlas: no node "${args.expand}".`); process.exit(2); return; }
       if (args.json) { console.log(JSON.stringify(ex, null, 2)); return; }
       console.log(`${ex.node.type} ${ex.node.id}${ex.node.title ? `  , ${ex.node.title}` : ''}`);
       for (const e of ex.out) console.log(`  -> ${e.rel.padEnd(16)} ${e.node.id}`);
@@ -1104,10 +1109,10 @@ test Example
       return;
     }
     if (args.json) { console.log(JSON.stringify(atlas, null, 2)); return; }
-    console.log(`intent atlas ${root}: ${atlas.overview.missions} mission(s), ${atlas.overview.nodes} node(s), ${atlas.overview.relationships} edge(s)`);
+    console.log(`thunder atlas ${root}: ${atlas.overview.missions} mission(s), ${atlas.overview.nodes} node(s), ${atlas.overview.relationships} edge(s)`);
     console.log(`  ${JSON.stringify(atlas.overview.byType)}`);
     for (const m of atlas.missions) console.log(`  mission  ${m.id}${m.title ? `  , ${m.title}` : ''}`);
-    console.log('  expand a node: intent atlas . --expand <id> | search: --search <query>');
+    console.log('  expand a node: thunder atlas . --expand <id> | search: --search <query>');
     return;
   }
 
@@ -1118,13 +1123,13 @@ test Example
     try {
       intentFiles = collectIntents(root).map((f) => ({ path: relative(root, f), source: readFileSync(f, 'utf8') }));
     } catch (e) {
-      console.error(`intent index: cannot read "${root}": ${e instanceof Error ? e.message : e}`);
+      console.error(`thunder index: cannot read "${root}": ${e instanceof Error ? e.message : e}`);
       process.exit(2);
       return;
     }
     const index = buildMissionIndex(intentFiles, { product: args.product });
     if (args.json) { console.log(JSON.stringify(index, null, 2)); return; }
-    console.log(`intent index ${root}: ${index.summary.missions} mission(s)`);
+    console.log(`thunder index ${root}: ${index.summary.missions} mission(s)`);
     console.log(`  ${JSON.stringify(index.summary.byArea)}`);
     for (const m of index.missions) {
       console.log(`  ${m.mission.padEnd(24)} ${String(m.risk).padEnd(7)} G:${m.guarantees} N:${m.neverRules} verify:${m.verification}${m.reviewed ? ' reviewed' : ''}`);
@@ -1134,17 +1139,17 @@ test Example
     return;
   }
 
-  // `intent verify-diff <intent> --after <code> [--before <code>]` , the AI-loop gate: prove
+  // `thunder verify-diff <intent> --after <code> [--before <code>]` , the AI-loop gate: prove
   // deterministically which of the intent's guarantees/never-rules a code change upholds or breaks.
   if (cmd === 'verify-diff') {
     const intentText = readFileSync(file, 'utf8');
-    if (!args.after) { console.error('usage: intent verify-diff <intent> --after <codeFile> [--before <codeFile>] [--from <lang>]'); process.exit(2); return; }
+    if (!args.after) { console.error('usage: thunder verify-diff <intent> --after <codeFile> [--before <codeFile>] [--from <lang>]'); process.exit(2); return; }
     const after = readFileSync(args.after, 'utf8');
     const before = args.before ? readFileSync(args.before, 'utf8') : null;
     const language = args.from || languageForFile(args.after);
     const r = verifyDiff(intentText, { before, after, language });
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); return; }
-    console.log(`intent verify-diff ${basename(file)} vs ${basename(args.after)}: ${r.verdict} (${r.blocking} blocking, ${r.summary.regressions} regression(s))`);
+    console.log(`thunder verify-diff ${basename(file)} vs ${basename(args.after)}: ${r.verdict} (${r.blocking} blocking, ${r.summary.regressions} regression(s))`);
     for (const f of r.findings) {
       const tag = f.code === 'INTENT_VERIFY_NEVER_VIOLATED' ? 'VIOLATION' : f.regression ? 'REGRESSION' : f.level.toUpperCase();
       console.log(`  [${tag}] ${f.message}${f.line ? `  (line ${f.line})` : ''}`);
@@ -1154,7 +1159,7 @@ test Example
     return;
   }
 
-  // `intent draft --brief <json|->` , scaffold a rigorous intent draft from a structured brief,
+  // `thunder draft --brief <json|->` , scaffold a rigorous intent draft from a structured brief,
   // plus a review checklist of what a human must still fill in. Prints the draft; --write saves it.
   if (cmd === 'draft') {
     const briefPath = args.brief || (cmd === 'draft' && file && file.endsWith('.json') ? file : null);
@@ -1164,19 +1169,19 @@ test Example
     try { brief = JSON.parse(raw); } catch { console.error('intent draft: --brief is not valid JSON'); process.exit(2); return; }
     const r = draftIntent(brief);
     if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
-    if (args.write) { writeFileSync(args.write, r.source); console.error(`intent draft: wrote ${args.write}`); }
+    if (args.write) { writeFileSync(args.write, r.source); console.error(`thunder draft: wrote ${args.write}`); }
     else process.stdout.write(r.source);
     if (r.review.length) { console.error('\nreview (fill these in , the draft is a proposal, not verified):'); for (const x of r.review) console.error(`  - ${x.message}`); }
     return;
   }
 
-  // `intent guard <file>` , preview what a runtime guard compiled from this intent enforces:
+  // `thunder guard <file>` , preview what a runtime guard compiled from this intent enforces:
   // which fields it redacts (secrets/PII) and which decisions it can gate at runtime.
   if (cmd === 'guard') {
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const g = guardSummary(ast);
     if (args.json) { console.log(JSON.stringify(g, null, 2)); return; }
-    console.log(`intent guard ${basename(file)}:`);
+    console.log(`thunder guard ${basename(file)}:`);
     console.log(`  redacts fields   ${g.redactsFields.length ? g.redactsFields.join(', ') : '(none declared secret/PII)'}`);
     console.log(`  enforces decisions ${g.enforcesDecisions.length ? g.enforcesDecisions.join(', ') : '(none)'}`);
     if (g.neverRules.length) { console.log('  never rules:'); for (const n of g.neverRules) console.log(`    - ${n}`); }
@@ -1184,7 +1189,7 @@ test Example
     return;
   }
 
-  // `intent ledger <file.json>` , verify the tamper-evident chain, and explain a subject's history
+  // `thunder ledger <file.json>` , verify the tamper-evident chain, and explain a subject's history
   // (why it was built, who approved it, what was assumed/corrected/verified, which risks accepted).
   if (cmd === 'ledger') {
     if (!file) { console.error('usage: intent ledger <ledger.json> [--subject <id>] [--json]'); process.exit(2); return; }
@@ -1194,7 +1199,7 @@ test Example
     if (args.subject) {
       const ex = ledgerExplain(ledger, args.subject);
       if (args.json) { console.log(JSON.stringify({ chain, ...ex }, null, 2)); process.exit(chain.valid ? 0 : 1); return; }
-      console.log(`intent ledger ${basename(file)} , ${args.subject}  (chain ${chain.valid ? 'VALID' : 'BROKEN'})`);
+      console.log(`thunder ledger ${basename(file)} , ${args.subject}  (chain ${chain.valid ? 'VALID' : 'BROKEN'})`);
       if (ex.why.length) { console.log('  why built:'); for (const w of ex.why) console.log(`    - ${w}`); }
       if (ex.approvedBy.length) console.log(`  approved by: ${ex.approvedBy.join(', ')}`);
       if (ex.assumptions.length) console.log(`  assumptions: ${ex.assumptions.length}`);
@@ -1207,12 +1212,12 @@ test Example
     }
     if (args.json) { console.log(JSON.stringify(chain, null, 2)); process.exit(chain.valid ? 0 : 1); return; }
     const n = (ledger.entries || []).length;
-    console.log(`intent ledger ${basename(file)}: ${n} entr${n === 1 ? 'y' : 'ies'}, chain ${chain.valid ? 'VALID (tamper-evident)' : `BROKEN at #${chain.brokenAt} , ${chain.reason}`}`);
+    console.log(`thunder ledger ${basename(file)}: ${n} entr${n === 1 ? 'y' : 'ies'}, chain ${chain.valid ? 'VALID (tamper-evident)' : `BROKEN at #${chain.brokenAt} , ${chain.reason}`}`);
     process.exit(chain.valid ? 0 : 1);
     return;
   }
 
-  // `intent impact <base> <proposed>` , the Simulator: estimate a change's impact BEFORE building it
+  // `thunder impact <base> <proposed>` , the Simulator: estimate a change's impact BEFORE building it
   // , the deterministic blast radius, the risk it would introduce, contradictions, release risk.
   if (cmd === 'impact') {
     const baseArg = args._[0]; const propArg = args._[1];
@@ -1220,7 +1225,7 @@ test Example
     const collect = (p) => (existsSync(p) && statSync(p).isDirectory() ? collectIntents(p) : [p]).map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') }));
     const r = simulateChange(collect(baseArg), collect(propArg));
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.summary.safe ? 0 : 1); return; }
-    console.log(`intent impact: ${r.summary.safe ? 'SAFE' : 'REVIEW'}  (${baseArg} -> ${propArg})`);
+    console.log(`thunder impact: ${r.summary.safe ? 'SAFE' : 'REVIEW'}  (${baseArg} -> ${propArg})`);
     console.log(`  change touches ${r.changedNodes} node(s); ripples to ${r.deterministicImpact.total} dependent(s)`);
     const bt = Object.entries(r.deterministicImpact.byType);
     if (bt.length) console.log('  deterministic impact by type:  ' + bt.map(([t, ns]) => `${ns.length} ${t}`).join(', '));
@@ -1232,7 +1237,7 @@ test Example
     return;
   }
 
-  // `intent guardian <before> <after>` , drift detection: what a change did to the intent , which
+  // `thunder guardian <before> <after>` , drift detection: what a change did to the intent , which
   // intent it affects, what risk it introduced, what must be reverified, what learning is stale.
   if (cmd === 'guardian') {
     const beforeArg = args._[0]; const afterArg = args._[1];
@@ -1241,7 +1246,7 @@ test Example
     const r = guardianReport(collect(beforeArg), collect(afterArg));
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.verdict === 'needs-attention' ? 1 : 0); return; }
     const c = r.changed;
-    console.log(`intent guardian: ${r.verdict.toUpperCase()}  (${beforeArg} -> ${afterArg})`);
+    console.log(`thunder guardian: ${r.verdict.toUpperCase()}  (${beforeArg} -> ${afterArg})`);
     console.log(`  changed    +${c.nodesAdded} / -${c.nodesRemoved} / ~${c.nodesChanged} nodes, +${c.relationshipsAdded} / -${c.relationshipsRemoved} relationships`);
     if (r.affectedIntent.length) console.log(`  affected   ${r.affectedIntent.map((n) => n.title || n.id).join(', ')}`);
     if (r.introducedRisk.length) { console.log(`  introduced risk (${r.introducedRisk.length}):`); for (const f of r.introducedRisk.slice(0, 6)) console.log(`    [${f.severity}] ${f.ruleId} , ${f.detected}`); }
@@ -1252,31 +1257,31 @@ test Example
     return;
   }
 
-  // `intent scan [dir]` , the Scanner spine: intent -> Intent IR -> explainable Fable findings ->
+  // `thunder scan [dir]` , the Scanner spine: intent -> Intent IR -> explainable Fable findings ->
   // risk themes. Deterministic, no AI. --json for the machine report; --ir writes the merged IR.
   // Part 3 focused scan queries , one question each over the Intent IR + Fable findings:
-  // `intent risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]`.
+  // `thunder risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]`.
   if (VIEWS[cmd]) {
     const root = file || '.';
     const targets = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : [root];
-    if (!targets.length || !existsSync(targets[0])) { console.error(`intent ${cmd}: no .intent files under ${root}`); process.exit(2); return; }
+    if (!targets.length || !existsSync(targets[0])) { console.error(`thunder ${cmd}: no .intent files under ${root}`); process.exit(2); return; }
     const scan = scanProject(targets.map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') })));
     const v = VIEWS[cmd](scan);
     if (args.json) { console.log(JSON.stringify(v, null, 2)); return; }
     if (cmd === 'coverage') {
-      console.log(`intent coverage ${root}: ${v.verified}/${v.total} claims verified (${v.coverage}%)`);
+      console.log(`thunder coverage ${root}: ${v.verified}/${v.total} claims verified (${v.coverage}%)`);
       for (const c of v.unverified) console.log(`  unverified [${c.type}] ${c.title}`);
       process.exit(v.coverage === 100 ? 0 : 1); return;
     }
     if (cmd === 'risks') {
       const s = v.bySeverity;
-      console.log(`intent risks ${root}: ${v.count} risk theme(s)  ,  ${s.blocker || 0} blocker, ${s.error || 0} error, ${s.warning || 0} warning, ${s.info || 0} info`);
+      console.log(`thunder risks ${root}: ${v.count} risk theme(s)  ,  ${s.blocker || 0} blocker, ${s.error || 0} error, ${s.warning || 0} warning, ${s.info || 0} info`);
       for (const t of v.themes) console.log(`  ${String(t.count).padStart(3)}  ${t.category}${t.blocker ? `  (${t.blocker} blocker)` : ''}`);
       for (const r of v.remediationSequence.slice(0, 5)) console.log(`  fix [${r.severity}] ${r.ruleId} (${r.count}x) , ${r.remediation}`);
       process.exit((s.blocker || 0) + (s.error || 0) === 0 ? 0 : 1); return;
     }
     // gaps / unverified / unknowns / contradictions , a uniform list
-    console.log(`intent ${cmd} ${root}: ${v.count}`);
+    console.log(`thunder ${cmd} ${root}: ${v.count}`);
     for (const g of v.gaps || []) console.log(`  [${g.severity}] ${g.ruleId} , ${g.detected}`);
     for (const c of v.claims || []) console.log(`  [${c.type}] ${c.title}`);
     for (const u of v.unknowns || []) console.log(`  [${u.type}] ${u.title}${u.confidence ? `  (${u.confidence})` : ''}`);
@@ -1291,10 +1296,10 @@ test Example
     const root = file || '.';
     const targets = existsSync(root) && statSync(root).isDirectory() ? collectIntents(root) : [root];
     const result = scanProject(targets.map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') })));
-    if (args.ir) { writeFileSync(args.ir, JSON.stringify(result.ir, null, 2)); console.error(`intent scan: wrote Intent IR (${result.ir.nodes.length} nodes) to ${args.ir}`); }
+    if (args.ir) { writeFileSync(args.ir, JSON.stringify(result.ir, null, 2)); console.error(`thunder scan: wrote Intent IR (${result.ir.nodes.length} nodes) to ${args.ir}`); }
     if (args.json) { console.log(JSON.stringify(result, null, 2)); process.exit(result.ok ? 0 : 1); return; }
     const s = result.bySeverity;
-    console.log(`intent scan ${root}: ${result.totals.findings} finding(s) across ${result.totals.missions} mission(s) in ${result.totals.files} file(s)`);
+    console.log(`thunder scan ${root}: ${result.totals.findings} finding(s) across ${result.totals.missions} mission(s) in ${result.totals.files} file(s)`);
     console.log(`  severity   ${s.blocker} blocker, ${s.error} error, ${s.warning} warning, ${s.info} info  ,  Intent IR: ${result.ir.nodes.length} nodes`);
     if (result.risks.length) {
       console.log('  risk themes:');
@@ -1308,7 +1313,7 @@ test Example
     return;
   }
 
-  // `intent report [dir]` , a repo-wide intent health summary (aggregates every .intent file).
+  // `thunder report [dir]` , a repo-wide intent health summary (aggregates every .intent file).
   // Distinct from `check` (pass/fail gate): counts by severity + area, top codes, and coverage.
   if (cmd === 'report') {
     const root = file || '.';
@@ -1316,7 +1321,7 @@ test Example
     const rep = buildReport(targets.map((f) => ({ file: relative(process.cwd(), f) || f, source: readFileSync(f, 'utf8') })));
     if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(0); return; }
     const c = rep.coverage;
-    console.log(`intent report ${root}: ${rep.totals.missions} mission(s) in ${rep.totals.files} file(s), ${rep.totals.diagnostics} diagnostic(s)`);
+    console.log(`thunder report ${root}: ${rep.totals.missions} mission(s) in ${rep.totals.files} file(s), ${rep.totals.diagnostics} diagnostic(s)`);
     console.log(`  severity   ${rep.bySeverity.blocker} blocker, ${rep.bySeverity.error} error, ${rep.bySeverity.warning} warning, ${rep.bySeverity.info} info`);
     console.log('  coverage   '
       + `guarantees verified ${c.guaranteesVerified}/${c.guarantees}${c.guaranteeVerifyRate != null ? ` (${c.guaranteeVerifyRate}%)` : ''}, `
@@ -1334,9 +1339,9 @@ test Example
     return;
   }
 
-  // `intent check <file|dir> --format sarif` emits a SARIF 2.1.0 log so ThunderLang
+  // `thunder check <file|dir> --format sarif` emits a SARIF 2.1.0 log so ThunderLang
   // diagnostics show up natively in GitHub/GitLab code scanning and SARIF-aware IDEs.
-  // This is a REPORT (exit 0); gate the build with a plain `intent check .` step.
+  // This is a REPORT (exit 0); gate the build with a plain `thunder check .` step.
   if (cmd === 'check' && args.format === 'sarif') {
     const targets = existsSync(file) && statSync(file).isDirectory() ? collectIntents(file) : [file];
     const reports = targets.map((f) => {
@@ -1352,7 +1357,7 @@ test Example
     return;
   }
 
-  // `intent check <dir>` recurses and gates every .intent file (self-contained CI, no
+  // `thunder check <dir>` recurses and gates every .intent file (self-contained CI, no
   // wrapper script needed). Errors fail the run; warnings do not.
   if (cmd === 'check' && existsSync(file) && statSync(file).isDirectory()) {
     const files = collectIntents(file);
@@ -1371,12 +1376,12 @@ test Example
       console.log(JSON.stringify({ schema: 'intent-check-batch-v1', root: file, total: reports.length, failed: failed.length, ok: failed.length === 0, files: reports }, null, 2));
       process.exit(failed.length ? 1 : 0);
     }
-    console.log(`intent check ${file}: ${reports.length - failed.length}/${reports.length} passed`);
+    console.log(`thunder check ${file}: ${reports.length - failed.length}/${reports.length} passed`);
     for (const r of reports) console.log(`  ${r.ok ? 'ok ' : 'ERR'} ${r.file}${r.errors ? ` , ${r.errors} error(s)` : ''}${r.warnings ? ` (${r.warnings} warning(s))` : ''}`);
     process.exit(failed.length ? 1 : 0);
   }
 
-  // `intent edit <file>` , apply structural field edits (intent-patch-v1) to the source,
+  // `thunder edit <file>` , apply structural field edits (intent-patch-v1) to the source,
   // preserving comments + formatting. Edits come from --edits <json|-> and/or convenience
   // flags. Prints the result to stdout, or --write applies it in place.
   if (cmd === 'edit') {
@@ -1401,7 +1406,7 @@ test Example
     for (const s of result.skipped) console.error(`  skipped: ${s.reason}`);
     if (args.write) {
       if (result.source !== src.replace(/\r\n?/g, '\n')) writeFileSync(file, result.source);
-      console.error(`intent edit ${basename(file)}: applied ${result.applied.length}, skipped ${result.skipped.length}.`);
+      console.error(`thunder edit ${basename(file)}: applied ${result.applied.length}, skipped ${result.skipped.length}.`);
     } else if (!args.json) {
       process.stdout.write(result.source);
     }
@@ -1409,7 +1414,7 @@ test Example
     return;
   }
 
-  // `intent fmt <file|dir>` , canonical formatting (whitespace only; content + comments
+  // `thunder fmt <file|dir>` , canonical formatting (whitespace only; content + comments
   // preserved). Prints to stdout, or --write in place, or --check for CI (exit 1 if any
   // file is not already formatted).
   if (cmd === 'fmt') {
@@ -1425,18 +1430,18 @@ test Example
       process.stdout.write(formatted);
     }
     if (args.check) {
-      if (unformatted.length) { console.error(`intent fmt --check: ${unformatted.length} file(s) not formatted:`); for (const u of unformatted) console.error(`  ${u}`); process.exit(1); }
-      console.log('intent fmt --check: all formatted.');
+      if (unformatted.length) { console.error(`thunder fmt --check: ${unformatted.length} file(s) not formatted:`); for (const u of unformatted) console.error(`  ${u}`); process.exit(1); }
+      console.log('thunder fmt --check: all formatted.');
       process.exit(0);
     }
-    if (args.write) console.log(`intent fmt: formatted ${changed} file(s), ${targets.length - changed} already clean.`);
+    if (args.write) console.log(`thunder fmt: formatted ${changed} file(s), ${targets.length - changed} already clean.`);
     return;
   }
 
   const { source, ast, sourceHash, sourceFile } = load(file);
   const generatedAt = new Date().toISOString();
   const diagnostics = semanticDiagnostics(ast);
-  const outDir = join(args.out, slug(ast.mission || basename(file, '.intent')));
+  const outDir = join(args.out, slug(ast.mission || stripSourceExt(basename(file))));
 
   // Production gate: a build --mode production refuses to proceed while an AI
   // implementation is not shippable. --allow-pending is for dev builds only.
@@ -1497,7 +1502,7 @@ test Example
       console.log(JSON.stringify(out, null, 2));
       process.exit(errors > 0 ? 1 : 0);
     }
-    console.log(`intent check ${sourceFile} (mission: ${ast.mission})`);
+    console.log(`thunder check ${sourceFile} (mission: ${ast.mission})`);
     process.exit(printDiagnostics(diags) > 0 ? 1 : 0);
   }
 
@@ -1526,7 +1531,7 @@ test Example
     console.error(`unknown command: ${cmd}`);
     process.exit(2);
   }
-  console.log(`intent ${cmd} ${sourceFile} -> ${outDir}`);
+  console.log(`thunder ${cmd} ${sourceFile} -> ${outDir}`);
   for (const p of generated) console.log(`  wrote ${p.replace(process.cwd() + '/', '')}`);
   printDiagnostics(diagnostics);
 }

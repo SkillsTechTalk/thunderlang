@@ -47,7 +47,7 @@ test('a waived diagnostic is marked in the JSON and does not fail the check', ()
 test('the human (non-json) output is unchanged', () => {
   const file = write('human.intent', 'mission M\nguarantees\n  a holds\n');
   const res = runCheck(file, false);
-  assert.match(res.stdout, /intent check .*mission: M/);
+  assert.match(res.stdout, /thunder check .*mission: M/);
   assert.doesNotMatch(res.stdout, /"schema"/);
 });
 

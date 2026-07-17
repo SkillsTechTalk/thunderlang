@@ -1,5 +1,5 @@
-// Guard: every diagnostic code the `intent check` pass (emit.mjs + parse.mjs) can emit must
-// be in the canonical DIAGNOSTIC_RULES catalog, so `intent explain`/`intent rules`/the docs
+// Guard: every diagnostic code the `thunder check` pass (emit.mjs + parse.mjs) can emit must
+// be in the canonical DIAGNOSTIC_RULES catalog, so `thunder explain`/`thunder rules`/the docs
 // reference cover everything a user can actually hit. Prevents undocumented codes creeping in.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -4,7 +4,7 @@
 // check its own output, and , the keystone , verify a proposed code change against the intent
 // before it ships. No AI runs here; every tool is the pure, deterministic compiler.
 //
-// Start it with `intent mcp`. Point an MCP client at that command.
+// Start it with `thunder mcp`. Point an MCP client at that command.
 
 import { parseIntent } from './parse.mjs';
 import { semanticDiagnostics, COMPILER_VERSION } from './emit.mjs';

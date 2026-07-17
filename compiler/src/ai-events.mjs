@@ -16,7 +16,7 @@ export function emptyEventLog() {
 /** Append an event to the log. Returns a NEW log (append-only, never mutates). */
 export function recordEvent(log, event) {
   if (!event || !INTENT_AI_EVENTS.includes(event.type)) {
-    throw new Error(`intent ai events: unknown event type "${event?.type}"`);
+    throw new Error(`thunder ai events: unknown event type "${event?.type}"`);
   }
   const base = log && Array.isArray(log.events) ? log : emptyEventLog();
   return { ...base, events: [...base.events, event] };

@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Roadmap",
   description:
-    "Where IntentLang is headed, the planned path from language design toward a compiler, CLI, playground, tooling, and community for the AI era.",
+    "Where ThunderLang is headed, the planned path from language design toward a compiler, CLI, playground, tooling, and community for the AI era.",
   path: "/roadmap",
 });
 

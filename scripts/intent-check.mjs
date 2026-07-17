@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// Batch `intent check` for CI and local use.
+// Batch `thunder check` for CI and local use.
 //
-// Finds every .intent file under the given paths (default: the whole repo) and
-// runs the real `intent check` CLI on each, so CI validates exactly what a
+// Finds every .thunder file under the given paths (default: the whole repo) and
+// runs the real `thunder check` CLI on each, so CI validates exactly what a
 // developer sees locally. Exits 1 if any file has errors, 0 otherwise.
 //
 // Usage:
-//   node scripts/intent-check.mjs                 # check every .intent in the repo
+//   node scripts/intent-check.mjs                 # check every .thunder in the repo
 //   node scripts/intent-check.mjs examples docs   # check only these paths
 //
 // No dependencies beyond Node (>=18). This file is also a copy-paste reference
-// for gating .intent files in any repo's CI.
+// for gating .thunder files in any repo's CI.
 
 import { readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
@@ -20,9 +20,9 @@ import { spawnSync } from 'node:child_process';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const CLI = join(REPO, 'compiler', 'src', 'cli.mjs');
-// '.intent' is the compiler's default output directory (generated drafts/artifacts),
-// not authored source, so it is skipped. Authored intents (Foo.intent) live elsewhere.
-const SKIP = new Set(['node_modules', '.git', '.next', '.vercel', 'dist', 'build', 'coverage', '.intent']);
+// '.thunder' is the compiler's default output directory (generated drafts/artifacts),
+// not authored source, so it is skipped. Authored intents (Foo.thunder) live elsewhere.
+const SKIP = new Set(['node_modules', '.git', '.next', '.vercel', 'dist', 'build', 'coverage', '.thunder']);
 
 function findIntents(root, acc = []) {
   let entries;
@@ -33,7 +33,7 @@ function findIntents(root, acc = []) {
     let st;
     try { st = statSync(full); } catch { continue; }
     if (st.isDirectory()) findIntents(full, acc);
-    else if (name.endsWith('.intent')) acc.push(full);
+    else if (/\.(thunder|tl|intent)$/.test(name)) acc.push(full);
   }
   return acc;
 }
@@ -48,11 +48,11 @@ if (!existsSync(CLI)) {
 const files = [...new Set(roots.flatMap((r) => (statSync(r).isDirectory() ? findIntents(r) : [r])))].sort();
 
 if (files.length === 0) {
-  console.log('intent-check: no .intent files found. Nothing to check.');
+  console.log('intent-check: no .thunder files found. Nothing to check.');
   process.exit(0);
 }
 
-console.log(`intent-check: checking ${files.length} .intent file(s)\n`);
+console.log(`intent-check: checking ${files.length} .thunder file(s)\n`);
 
 let failed = 0;
 for (const file of files) {

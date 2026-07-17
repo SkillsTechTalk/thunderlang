@@ -3,7 +3,7 @@
 import Editor from "@monaco-editor/react";
 
 /**
- * Monaco editor for IntentLang. Syntax highlighting + a dark theme, and inline
+ * Monaco editor for ThunderLang. Syntax highlighting + a dark theme, and inline
  * IntelliSense (completions + hover) that call the compiler through /api/assist.
  * The compiler is the single source of truth; this component only renders it.
  */

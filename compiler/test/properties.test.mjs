@@ -29,7 +29,7 @@ const pick = (r, a) => a[Math.floor(r() * a.length)];
 
 const EXAMPLES = (() => {
   const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-  return fs.readdirSync(dir).filter((f) => f.endsWith('.intent')).map((f) => ({ name: f, src: fs.readFileSync(path.join(dir, f), 'utf8') }));
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.thunder')).map((f) => ({ name: f, src: fs.readFileSync(path.join(dir, f), 'utf8') }));
 })();
 
 const DECISION = parseIntent(`mission M

@@ -46,6 +46,6 @@ under-verified billing missions.
 
 ## Where it comes from (planned)
 
-`intent summarize ./intent --since today` and
-`intent session summarize --from git` are **planned** commands owned by the
+`thunder summarize ./intent --since today` and
+`thunder session summarize --from git` are **planned** commands owned by the
 SkillsTech Compiler. This repo teaches the concept and ships the example fixture.

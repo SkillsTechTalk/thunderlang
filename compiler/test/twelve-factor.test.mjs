@@ -11,7 +11,7 @@ import { twelveFactorReport, twelveFactorSummary, TWELVE_FACTOR_SCHEMA } from '.
 import { ALL_DIAGNOSTICS } from '../src/intent-schema.mjs';
 
 const EXAMPLES = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-const strongSrc = readFileSync(join(EXAMPLES, 'TwelveFactorAgent.intent'), 'utf8');
+const strongSrc = readFileSync(join(EXAMPLES, 'TwelveFactorAgent.thunder'), 'utf8');
 
 test('report shape: 13 factors, score 0..100, grade, counts, diagnostics', () => {
   const r = twelveFactorReport(parseIntent('mission M\ngoal "x"\n'));

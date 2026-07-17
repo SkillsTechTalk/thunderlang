@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Security",
   description:
-    "IntentLang's security posture and responsible disclosure policy. The deterministic core runs offline with no AI; report vulnerabilities to support@skillstechtalk.com.",
+    "ThunderLang's security posture and responsible disclosure policy. The deterministic core runs offline with no AI; report vulnerabilities to support@skillstechtalk.com.",
   path: "/security",
 });
 
@@ -14,7 +14,7 @@ export default function SecurityPage() {
       <PageHero
         eyebrow="Trust"
         title="Security and responsible disclosure"
-        intro="IntentLang exists to make software more verifiable, so we hold our own to the same standard: inspectable, deterministic, and honest about limits."
+        intro="ThunderLang exists to make software more verifiable, so we hold our own to the same standard: inspectable, deterministic, and honest about limits."
       />
       <Section>
         <div className="grid gap-5 md:grid-cols-2">
@@ -43,7 +43,7 @@ export default function SecurityPage() {
         <Card className="mt-5">
           <h3 className="text-base font-semibold text-white">Scope</h3>
           <p className="mt-2 text-sm leading-relaxed text-haze-300">
-            In scope: the <span className="font-mono">@skillstech/intentlang</span> package, this
+            In scope: the <span className="font-mono">@skillstech/thunderlang</span> package, this
             website, and the Playground compile endpoint. The deterministic core has no data store,
             so the attack surface is small by design. The hosted ecosystem products (Studio, Engine)
             are separate and will publish their own policies as they ship.

@@ -1,12 +1,12 @@
 # Language principles
 
-These are the design rules IntentLang holds itself to. The manifesto says why the
+These are the design rules ThunderLang holds itself to. The manifesto says why the
 language exists; this page says why the language is shaped the way it is. Every
 construct, diagnostic, and compiler decision traces back to one of these.
 
 ## 1. Meaning is the source of truth
 
-A `.intent` file records what software should do, why it matters, and what must
+A `.thunder` file records what software should do, why it matters, and what must
 never happen, before any implementation exists. Code is a target, not the record.
 When code and intent disagree, the intent is the thing under review, not silently
 overwritten. This is what makes the file durable while prompts, branches, and
@@ -28,7 +28,7 @@ should carry a `verify`, and the compiler warns
 (`guarantee-without-verification`, `never-without-verification`) when it does not.
 Claims and proofs are different kinds of thing, and the language keeps them
 visibly separate: an `accessibility_target` or an inferred lift is always a
-`proposed` claim, never an IntentLang-verified fact.
+`proposed` claim, never an ThunderLang-verified fact.
 
 ## 4. Say what must never happen, not only what should
 
@@ -49,7 +49,7 @@ reader and are never mistaken for verification.
 
 ## 6. Above paradigms, not against them
 
-IntentLang does not replace TypeScript, Python, Java, .NET, Rust, or Go, and it
+ThunderLang does not replace TypeScript, Python, Java, .NET, Rust, or Go, and it
 does not pick object-oriented over functional or service-oriented over event-
 driven. It sits above them and targets each through an adapter. The same mission
 can emit clean-architecture C#, a functional core, an OpenAPI spec, or a Mermaid
@@ -74,12 +74,12 @@ never inherited by accident. Governance is on the record: a blocker can be
 
 The language and its schemas are pre-1.0 and evolve, but they evolve without
 breaking what already parses. New fields are additive; persisted graphs migrate
-across schema versions deterministically. A `.intent` file written today should
+across schema versions deterministically. A `.thunder` file written today should
 still mean the same thing tomorrow, and old proofs should still verify.
 
 ## 10. Honest about its limits
 
-IntentLang catches the mistakes prompts ship and the drift code accumulates. It
+ThunderLang catches the mistakes prompts ship and the drift code accumulates. It
 does not claim to prove a program correct. A lifted draft is inferred, not
 verified; a passing check means "no violation was found," not "nothing can go
 wrong." The value is in making purpose explicit and drift detectable, and the

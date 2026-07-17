@@ -2,7 +2,7 @@
 
 Most privacy failures are not exotic. They are ordinary data, held for a reason
 nobody wrote down, kept longer than anyone decided, on a legal basis no one named,
-and returned to a caller that did not need it. IntentLang makes those four questions
+and returned to a caller that did not need it. ThunderLang makes those four questions
 part of the intent, so the compiler can hold the line before the code ships.
 
 A `data` element declares, for one piece of data:
@@ -58,8 +58,8 @@ reproducible: the same intent always yields the same findings, in the same order
 
 ## For consumers
 
-`analyzePrivacy(ast)` is exported from `@skillstech/intentlang` (schema
+`analyzePrivacy(ast)` is exported from `@skillstech/thunderlang` (schema
 `intent-privacy-v1`), along with `DATA_CLASSIFICATIONS` and `LAWFUL_BASES`. The
-findings also flow through `semanticDiagnostics`, so `intent check` surfaces them and
+findings also flow through `semanticDiagnostics`, so `thunder check` surfaces them and
 OpenThunder's release review sees the same purpose-limitation blockers , one privacy
 model, checked at authoring time and again at ship time.

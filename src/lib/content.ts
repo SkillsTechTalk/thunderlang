@@ -1,4 +1,4 @@
-/** Shared, illustrative content. All IntentLang code here is DRAFT syntax. */
+/** Shared, illustrative content. All ThunderLang code here is DRAFT syntax. */
 
 /** The canonical CreateInvoice mission, the shared reference example. */
 export const heroExample = `mission CreateInvoice
@@ -66,7 +66,7 @@ target
   Tests
 `;
 
-/** CreateInvoice with IntentLens notes, for the playground default. */
+/** CreateInvoice with ThunderLens notes, for the playground default. */
 export const createInvoiceWithNotes = `mission CreateInvoice
 
 note pm:
@@ -326,15 +326,15 @@ export const principles: Principle[] = [
   },
   {
     title: "Architecture-aware",
-    body: "IntentLang understands services, APIs, events, databases, dependencies, ownership, and boundaries.",
+    body: "ThunderLang understands services, APIs, events, databases, dependencies, ownership, and boundaries.",
   },
   {
     title: "Repository-aware",
-    body: "IntentLang maps missions to real repo files, services, tests, docs, and ownership.",
+    body: "ThunderLang maps missions to real repo files, services, tests, docs, and ownership.",
   },
   {
     title: "Human + AI collaboration",
-    body: "IntentLang gives humans a clear way to express judgment and gives AI a structured way to help.",
+    body: "ThunderLang gives humans a clear way to express judgment and gives AI a structured way to help.",
   },
   {
     title: "Proof-producing",
@@ -350,7 +350,7 @@ export type EcosystemItem = {
 
 export const ecosystem: EcosystemItem[] = [
   {
-    name: "IntentLang",
+    name: "ThunderLang",
     role: "Define what software should do",
     detail:
       "The intent-oriented language at the center: a clear, structured statement of goals, constraints, and guarantees.",
@@ -392,23 +392,23 @@ export type NotItem = { label: string; body: string };
 export const whatIntentIsNot: NotItem[] = [
   {
     label: "Not an AI wrapper",
-    body: "IntentLang is a language with its own model of intent, contracts, and verification, not a thin shell over a chat API.",
+    body: "ThunderLang is a language with its own model of intent, contracts, and verification, not a thin shell over a chat API.",
   },
   {
     label: "Not a prompt format only",
-    body: "Prompts are one way to draft intent, but IntentLang is structured, reviewable source, not a paragraph of instructions.",
+    body: "Prompts are one way to draft intent, but ThunderLang is structured, reviewable source, not a paragraph of instructions.",
   },
   {
     label: "Not a no-code tool",
-    body: "IntentLang is for engineers. It makes engineering intent explicit; it does not hide the system from the people who own it.",
+    body: "ThunderLang is for engineers. It makes engineering intent explicit; it does not hide the system from the people who own it.",
   },
   {
     label: "Not a replacement for every language",
-    body: "IntentLang sits above Python, TypeScript, .NET, Java, Go, and Rust as an intent and verification layer. It targets them; it does not erase them.",
+    body: "ThunderLang sits above Python, TypeScript, .NET, Java, Go, and Rust as an intent and verification layer. It targets them; it does not erase them.",
   },
   {
     label: "Not magic",
-    body: "There is no hidden trick. IntentLang makes goals and guarantees explicit so tools can help you keep them.",
+    body: "There is no hidden trick. ThunderLang makes goals and guarantees explicit so tools can help you keep them.",
   },
   {
     label: "Not production-ready yet",

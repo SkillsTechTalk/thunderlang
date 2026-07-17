@@ -23,7 +23,7 @@ const AREA_TITLES = {
   outcome: 'Outcome contracts', decision: 'Decisions', distributed: 'Distributed & failure',
   lifecycle: 'Lifecycle', temporal: 'Temporal', style: 'Style intent',
   security: 'Security', type: 'Types', core: 'Core checks', architecture: 'Architecture',
-  ai: 'AI implementation', note: 'IntentLens notes',
+  ai: 'AI implementation', note: 'ThunderLens notes',
 };
 
 function generate() {
@@ -41,7 +41,7 @@ function generate() {
   L.push(`Every rule has a stable **code**, a **severity**, and what it **blocks**. Codes are`);
   L.push('the contract: editors, CI, and OpenThunder key off them, and they never change meaning');
   L.push('across versions. Warnings and info never fail a build; errors and blockers do. Get the');
-  L.push('same data as JSON with `intent rules --json`, or one rule with `intent explain <CODE>`.');
+  L.push('same data as JSON with `thunder rules --json`, or one rule with `thunder explain <CODE>`.');
   L.push('');
   L.push(`${DIAGNOSTIC_RULES.length} canonical diagnostics across ${areas.length} areas.`);
   L.push('');

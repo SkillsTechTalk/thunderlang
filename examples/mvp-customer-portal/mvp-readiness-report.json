@@ -1,5 +1,5 @@
 {
-  "_note": "Teaching fixture. Shape `intent release ./intent --mvp` is PLANNED to emit. Hand-authored to illustrate MVP Readiness. It deliberately does NOT claim production readiness.",
+  "_note": "Teaching fixture. Shape `thunder release ./intent --mvp` is PLANNED to emit. Hand-authored to illustrate MVP Readiness. It deliberately does NOT claim production readiness.",
   "_plannedCommand": "intent release ./intent --mvp",
   "schemaVersion": "0.1.0-draft",
   "product": "MVP Customer Portal",

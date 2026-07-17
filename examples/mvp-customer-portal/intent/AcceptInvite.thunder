@@ -1,0 +1,34 @@
+# AcceptInvite.thunder , MVP Customer Portal / Onboarding
+
+mission AcceptInvite
+
+goal
+  Let an invited person join a workspace through a valid invite link.
+
+why
+  This is a public endpoint that grants tenant access. A reusable or forgeable
+  invite is a direct route into another customer's workspace.
+
+input
+  inviteToken: InviteToken
+
+output
+  membership: Membership
+
+constraints
+  inviteToken.ttl <= 7 days
+
+guarantees
+  invite token can only be used once
+  accepting grants only the invited role
+
+guarantee invite token can only be used once
+  because a reused invite can add unauthorized members
+  verify test one time use
+
+never
+  return inviteToken
+
+verify
+  test one time use
+  test expired invite rejected

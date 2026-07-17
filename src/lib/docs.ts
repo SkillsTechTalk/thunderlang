@@ -3,7 +3,7 @@ import path from "path";
 import { marked } from "marked";
 
 /**
- * Reads the language docs (docs/*.md) and examples (examples/*.intent) from the
+ * Reads the language docs (docs/*.md) and examples (examples/*.thunder) from the
  * repo at build time and exposes them for static site routes. These are
  * first-party, trusted files, so rendered Markdown HTML is safe to inject.
  */
@@ -17,7 +17,7 @@ const DOC_ORDER = [
   "intent-oriented-programming",
   "language-principles",
   "getting-started",
-  "adopting-intentlang",
+  "adopting-thunderlang",
   "verifying-ai-changes",
   "runtime-enforcement",
   "intent-scanner",
@@ -64,7 +64,7 @@ const DOC_LABELS: Record<string, string> = {
   "intent-oriented-programming": "Intent-oriented programming",
   "language-principles": "Language principles",
   "getting-started": "Getting started",
-  "adopting-intentlang": "Adopting on an existing codebase",
+  "adopting-thunderlang": "Adopting on an existing codebase",
   "verifying-ai-changes": "Verifying AI code changes",
   "runtime-enforcement": "Runtime enforcement",
   "intent-scanner": "Intent Scanner and Fable",
@@ -107,11 +107,11 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 const DOC_BLURBS: Record<string, string> = {
-  manifesto: "Why IntentLang exists, and prompt vs durable intent.",
+  manifesto: "Why ThunderLang exists, and prompt vs durable intent.",
   "intent-oriented-programming": "The paradigm above OOP and FP: build around meaning, prove the code still honors it.",
   "language-principles": "The ten design rules the language holds itself to.",
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",
-  "adopting-intentlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
+  "adopting-thunderlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
   "intent-scanner": "Scan a project into Intent IR and explainable Fable findings grouped by risk.",
@@ -132,25 +132,25 @@ const DOC_BLURBS: Record<string, string> = {
   "ai-assist": "Where optional, gated AI helps, and where the compiler already does the work.",
   "intent-graph": "One intent for Product, UX, and engineering (intent-graph-v1).",
   "intent-runtime": "Run decisions and simulate lifecycles deterministically, with no AI and no generated code.",
-  "intent-tests": "Declare cases and scenarios inside a .intent file and run them with intent test.",
+  "intent-tests": "Declare cases and scenarios inside a .thunder file and run them with intent test.",
   "outcome-contracts": "Bind an outcome to a target and check whether the result met the commitment.",
   "style-intent": "Declare brand and visual language against a canonical, lockable token space.",
   governance: "Governed exceptions: waive a blocker on the record, with an owner and an expiry.",
   "data-privacy": "Purpose, retention, and lawful basis for sensitive data, enforced by the compiler.",
   "export-adapters": "Render decisions and lifecycles to DMN, BPMN, and NuSMV for existing tooling.",
   "import-adapters": "Lift existing DMN tables and BPMN processes back into runnable intent, round-trip.",
-  "graph-to-source": "Regenerate editable .intent source from an Intent Graph, closing the native round-trip.",
+  "graph-to-source": "Regenerate editable .thunder source from an Intent Graph, closing the native round-trip.",
   "schema-migrations": "Upgrade persisted graphs across schema versions, deterministically.",
   "editor-support": "A Language Server so any editor gets diagnostics, completion, and hover.",
   "structured-editing": "Edit intent as structured fields and sync back to source, comments intact.",
   "diagnostics": "Every canonical diagnostic code, its severity, and what it blocks.",
   "release-story-tutorial": "From 200 missions to one Release Story, step by step.",
   "compiler-contract": "The deterministic pipeline from source to proof.",
-  "ecosystem-brief": "How each SkillsTech sibling uses IntentLang.",
-  "ecosystem-current-state": "Grounded inventory of the ecosystem: what exists, what is duplicated, what IntentLang owns.",
+  "ecosystem-brief": "How each SkillsTech sibling uses ThunderLang.",
+  "ecosystem-current-state": "Grounded inventory of the ecosystem: what exists, what is duplicated, what ThunderLang owns.",
   "single-compiler": "The universal /core surface OpenThunder, Repo Mastery, Studio, Mobile, and the CLI all share.",
   certification: "The Intent-Oriented Programming Associate credential, and how intent backs it.",
-  "operating-checklist": "The Top 100 things IntentLang must do, mapped to status.",
+  "operating-checklist": "The Top 100 things ThunderLang must do, mapped to status.",
 };
 
 marked.setOptions({ gfm: true });
@@ -182,7 +182,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Start here",
     blurb: "The mental model and your first ten minutes.",
-    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-intentlang", "verifying-ai-changes"],
+    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-thunderlang", "verifying-ai-changes"],
   },
   {
     title: "Understand the language",
@@ -211,7 +211,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   },
   {
     title: "Ecosystem",
-    blurb: "How IntentLang fits the wider SkillsTech ecosystem.",
+    blurb: "How ThunderLang fits the wider SkillsTech ecosystem.",
     slugs: ["ecosystem-brief", "ecosystem-current-state", "certification"],
   },
   {
@@ -250,15 +250,15 @@ export function getDoc(slug: string): { label: string; html: string } | null {
 export type ExampleStatus = "runnable" | "compiler-valid";
 export type ExampleMeta = { slug: string; filename: string; title: string; runnable: boolean; status: ExampleStatus };
 
-/** examples/CreateInvoice.intent -> slug "createinvoice". */
+/** examples/CreateInvoice.thunder -> slug "createinvoice". */
 export function getExampleList(): ExampleMeta[] {
   return fs
     .readdirSync(EXAMPLES_DIR)
-    .filter((f) => f.endsWith(".intent"))
+    .filter((f) => f.endsWith(".thunder"))
     .map((filename) => {
-      const stem = filename.replace(/\.intent$/, "");
+      const stem = filename.replace(/\.thunder$/, "");
       // Every tracked example is compiler-valid (CI gates it). Those with an in-file `test`
-      // block are runnable end to end with `intent test`.
+      // block are runnable end to end with `thunder test`.
       const code = fs.readFileSync(path.join(EXAMPLES_DIR, filename), "utf8");
       const runnable = /^test\s+\w/m.test(code);
       return {

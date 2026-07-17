@@ -2,7 +2,7 @@
 // still matches the approved intent. Deterministic, no AI. This is the
 // compiler-side drift check; OpenThunder does the deeper repo-wide version later.
 //
-//   lift code -> .intent draft -> intent approve -> (code changes) -> intent drift
+//   lift code -> .intent draft -> thunder approve -> (code changes) -> intent drift
 
 import { createHash } from 'node:crypto';
 import { parseIntent, slug } from './parse.mjs';
@@ -45,7 +45,7 @@ export function approveIntent(intentText, { approvedBy, approvedAt } = {}) {
     .replace(/^(\s*)reviewed\s+false\b/m, '$1reviewed true')
     .replace(/\s+$/, '');
   // Hash the exact content that gets written (post reviewed-flip), so a later
-  // `intent drift` recomputes the same hash when nothing has changed.
+  // `thunder drift` recomputes the same hash when nothing has changed.
   const hash = sha256(base.trim());
   const lines = ['approval', '  reviewed true'];
   if (approvedBy) lines.push(`  approved_by ${approvedBy}`);
@@ -137,7 +137,7 @@ export function checkDrift(intentText, codeSource, { language = 'typescript' } =
       add('warning', 'INTENT_DRIFT_STALE_PROOF', 'The approved intent was edited after approval (hash mismatch). Re-approve it.');
     }
   } else {
-    add('info', 'INTENT_DRIFT_NOT_APPROVED', 'This intent has no approval block. Approve it first: intent approve <file>.');
+    add('info', 'INTENT_DRIFT_NOT_APPROVED', 'This intent has no approval block. Approve it first: thunder approve <file>.');
   }
 
   const lift = liftSource(codeSource, { language });

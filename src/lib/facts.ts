@@ -11,4 +11,4 @@ export const PROJECT_FACTS: { value: string; label: string; href?: string }[] = 
   { value: "v0.1.1", label: "pre-1.0, deterministic, no AI required" },
 ];
 
-export const NPM_PACKAGE = "@skillstech/intentlang";
+export const NPM_PACKAGE = "@skillstech/thunderlang";

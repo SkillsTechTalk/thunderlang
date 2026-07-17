@@ -2,21 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // Soft retirement: IntentLang -> ThunderLang. Any request that arrives on the
-  // legacy host is permanently redirected to the new canonical domain, preserving
-  // the path so deep links keep working (intentlanguage.dev/docs -> thunderlang.dev/docs).
-  // NOTE: only effective once thunderlang.dev is registered and serving this site on
-  // Vercel; deploying this before that would 301 live traffic to a dead domain.
-  async redirects() {
-    return [
-      {
-        source: '/:path*',
-        has: [{ type: 'host', value: '(www\\.)?intentlanguage\\.dev' }],
-        destination: 'https://thunderlang.dev/:path*',
-        permanent: true,
-      },
-    ];
-  },
   async headers() {
     return [
       {
@@ -27,6 +12,25 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
+    ];
+  },
+  async redirects() {
+    // Consolidate every legacy / alternate host onto the canonical thunderlang.dev.
+    // intentlanguage.dev is the retired IntentLang domain — kept as a permanent
+    // redirect so old links, packages, and search traffic land on ThunderLang.
+    // (All hosts point at this same Vercel project; DNS is managed on GoDaddy.)
+    const toCanonical = (host) => ({
+      source: "/:path*",
+      has: [{ type: "host", value: host }],
+      destination: "https://thunderlang.dev/:path*",
+      permanent: true,
+    });
+    return [
+      toCanonical("thunderlang.com"),
+      toCanonical("www.thunderlang.com"),
+      toCanonical("www.thunderlang.dev"),
+      toCanonical("intentlanguage.dev"),
+      toCanonical("www.intentlanguage.dev"),
     ];
   },
 };

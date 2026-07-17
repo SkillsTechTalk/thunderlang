@@ -1,5 +1,5 @@
 {
-  "_note": "Teaching fixture. Shape `intent summarize ./intent --since today` / `intent diff` are PLANNED to emit. Hand-authored to illustrate the Build Session Digest, Risk Radar, and Semantic Diff.",
+  "_note": "Teaching fixture. Shape `thunder summarize ./intent --since today` / `thunder diff` are PLANNED to emit. Hand-authored to illustrate the Build Session Digest, Risk Radar, and Semantic Diff.",
   "_plannedCommand": "intent summarize ./intent --since today",
   "schemaVersion": "0.1.0-draft",
   "product": "MVP Customer Portal",

@@ -8,7 +8,7 @@ import { getDocCategories } from "@/lib/docs";
 export const metadata = pageMeta({
   title: "Documentation",
   description:
-    "Early documentation for IntentLang, an Intent-Oriented Programming language by SkillsTech. Concepts, the Mission structure, contracts, and verification.",
+    "Early documentation for ThunderLang, an Intent-Oriented Programming language by SkillsTech. Concepts, the Mission structure, contracts, and verification.",
   path: "/docs",
 });
 
@@ -58,12 +58,12 @@ const securityMarkers = [
 ];
 
 const cliCommands = [
-  ["intent check", "Parse a .intent file and report diagnostics; gate a whole directory."],
+  ["intent check", "Parse a .thunder file and report diagnostics; gate a whole directory."],
   ["intent run", "Evaluate the decisions against inputs, with a full trace."],
   ["intent test", "Run the in-file test blocks (cases and scenarios)."],
-  ["intent build", "Emit docs, the contract graph, a test plan, and .intent-proof.json."],
+  ["intent build", "Emit docs, the contract graph, a test plan, and .thunder-proof.json."],
   ["intent graph", "Emit the canonical Intent Graph (intent-graph-v1)."],
-  ["intent proof", "Emit the .intent-proof.json artifact."],
+  ["intent proof", "Emit the .thunder-proof.json artifact."],
   ["intent verify-diff", "Gate a code change against the intent it must uphold."],
 ];
 
@@ -150,7 +150,7 @@ export default function DocsPage() {
                 Core concepts
               </h2>
               <p className="mt-3 text-haze-300">
-                IntentLang has a small vocabulary. These are the terms you will see
+                ThunderLang has a small vocabulary. These are the terms you will see
                 throughout the docs and examples.
               </p>
               <dl className="mt-6 divide-y divide-white/8 rounded-2xl border border-white/8">
@@ -179,7 +179,7 @@ export default function DocsPage() {
               <div className="mt-6">
                 <IntentCode
                   code={heroExample}
-                  filename="CreateInvoice.intent"
+                  filename="CreateInvoice.thunder"
                 />
               </div>
             </div>
@@ -210,7 +210,7 @@ export default function DocsPage() {
               <p className="mt-3 text-haze-300">
                 Guarantees are not tests bolted on afterward. They are part of
                 the program. Each guarantee is a property the implementation must
-                never violate, and the one IntentLang aims to verify for you across
+                never violate, and the one ThunderLang aims to verify for you across
                 every target.
               </p>
               <ul className="mt-5 space-y-2 text-sm text-haze-300">
@@ -228,7 +228,7 @@ export default function DocsPage() {
                 Semantic types
               </h2>
               <p className="mt-3 text-haze-300">
-                IntentLang favors semantic types over primitives. Writing{" "}
+                ThunderLang favors semantic types over primitives. Writing{" "}
                 <code className="font-mono text-gold-300">email: Email</code>{" "}
                 instead of{" "}
                 <code className="font-mono text-haze-200">email: string</code>{" "}
@@ -256,7 +256,7 @@ export default function DocsPage() {
                 verifier can enforce how they are handled.
               </p>
               <div className="mt-6">
-                <IntentCode code={secureFieldExample} filename="Payment.intent" />
+                <IntentCode code={secureFieldExample} filename="Payment.thunder" />
               </div>
               <dl className="mt-6 divide-y divide-white/8 rounded-2xl border border-white/8">
                 {securityMarkers.map(([marker, def]) => (
@@ -320,7 +320,7 @@ export default function DocsPage() {
                 Status &amp; stability
               </h2>
               <DraftNote>
-                IntentLang has no released compiler or CLI yet. This documentation
+                ThunderLang has no released compiler or CLI yet. This documentation
                 describes the intended model and draft syntax. Nothing here is
                 stable, and everything is subject to change before v1.
               </DraftNote>

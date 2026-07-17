@@ -1,4 +1,4 @@
-# IntentLang E2E flow scripts
+# ThunderLang E2E flow scripts
 
 Per Protocol #4 (QUALITY): no user-facing feature is "done" or deployable until it passes
 a Claude-Chrome-extension E2E on the **real rendered UI** , driving the actual flow, with
@@ -6,7 +6,7 @@ a clean console and confirmed network calls. `tsc` + unit tests prove it compile
 driving the UI proves the button works, the page renders, the API fires, and the console
 is clean.
 
-These `flows/*.md` are the runnable scripts for IntentLang's user-facing surfaces. Each
+These `flows/*.md` are the runnable scripts for ThunderLang's user-facing surfaces. Each
 is a checklist an operator (a Claude with the `claude-in-chrome` tools loaded) drives
 end to end.
 

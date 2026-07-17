@@ -44,7 +44,7 @@ Totals across the 15 missions: 9 verified, 6 partial, 1 drifting. The four high-
 
 ## Where it comes from (planned)
 
-`intent proof matrix ./intent` is a **planned** command owned by the SkillsTech
+`thunder proof matrix ./intent` is a **planned** command owned by the SkillsTech
 Compiler. The proof and drift columns combine compiler proof artifacts with
 [OpenThunder](/docs/ecosystem-brief) drift results. This repo teaches the concept
 and ships the example fixture.

@@ -17,15 +17,15 @@ export function pageMeta({
     description,
     alternates: { canonical },
     openGraph: {
-      title: `${title} | IntentLang`,
+      title: `${title} | ThunderLang`,
       description,
       url: `${siteConfig.url}${path === "/" ? "" : path}`,
-      siteName: "IntentLang",
+      siteName: "ThunderLang",
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | IntentLang`,
+      title: `${title} | ThunderLang`,
       description,
       creator: siteConfig.twitter,
     },

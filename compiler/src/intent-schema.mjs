@@ -3,7 +3,7 @@
 // enums / diagnostics (gap-closure program non-negotiable #1). Pure (no Node deps).
 //
 // IL owns + versions this. OT/RM/ST/STW import these enums + the JSON Schema instead
-// of maintaining their own copies. `intent schema` emits the JSON Schema.
+// of maintaining their own copies. `thunder schema` emits the JSON Schema.
 
 import { CLASSIFICATIONS, CONFIDENCE } from './classification.mjs';
 
@@ -134,7 +134,7 @@ const IL_AUTHOR_RULE_ROWS = [
   { ruleId: 'IL-SEC-002', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'API returns a secret with no auth requirement.' },
   { ruleId: 'IL-TYPE-001', area: 'type', severity: 'info', blocks: [], summary: 'Field uses an unrecognized (likely mistyped) type.' },
   // 12-Factor Agents conformance (twelve-factor-v1). Advisory: an intent's alignment with the
-  // humanlayer/12-factor-agents principles. `intent twelve-factor` scores these.
+  // humanlayer/12-factor-agents principles. `thunder twelve-factor` scores these.
   { ruleId: 'IL-12F-01', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F1 Natural language to tool calls: model dispatch as a decision/command.' },
   { ruleId: 'IL-12F-02', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F2 Own your prompts: behavior is an owned, guaranteed contract, not a black box.' },
   { ruleId: 'IL-12F-03', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F3 Own your context window: declare a scope boundary.' },
@@ -165,8 +165,8 @@ const IL_CORE_RULE_ROWS = [
   { ruleId: 'unknown-block', area: 'core', severity: 'info', blocks: [], summary: 'Unrecognized top-level block.' },
   { ruleId: 'INTENT-ARCH-001', area: 'architecture', severity: 'warning', blocks: [], summary: 'Architecture rule not understood.' },
   { ruleId: 'INTENT-AI-010', area: 'ai', severity: 'warning', blocks: [], summary: 'Unsupported implementation scope.' },
-  { ruleId: 'INTENT_NOTE_UNKNOWN_LENS', area: 'note', severity: 'info', blocks: [], summary: 'IntentLens note uses an unknown lens.' },
-  { ruleId: 'INTENT_NOTE_EMPTY', area: 'note', severity: 'info', blocks: [], summary: 'IntentLens note is empty.' },
+  { ruleId: 'INTENT_NOTE_UNKNOWN_LENS', area: 'note', severity: 'info', blocks: [], summary: 'ThunderLens note uses an unknown lens.' },
+  { ruleId: 'INTENT_NOTE_EMPTY', area: 'note', severity: 'info', blocks: [], summary: 'ThunderLens note is empty.' },
 ];
 
 // ── Rule namespaces: ONE id space across two PHASES ──────────────────────────

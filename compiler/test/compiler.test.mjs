@@ -22,7 +22,7 @@ const example = (name) => readFileSync(join(HERE, '..', '..', 'examples', name),
 const FIXED = '2026-07-09T00:00:00.000Z';
 
 test('parses the canonical CreateInvoice mission', () => {
-  const ast = parseIntent(example('CreateInvoice.intent'));
+  const ast = parseIntent(example('CreateInvoice.thunder'));
   assert.equal(ast.mission, 'CreateInvoice');
   assert.equal(ast.goal, 'Generate an invoice from approved orders');
   assert.equal(ast.guarantees.length, 3);
@@ -35,18 +35,18 @@ test('parses the canonical CreateInvoice mission', () => {
 });
 
 test('semantic pass: idempotency diagnostic fires only when the key is absent', () => {
-  const withKey = semanticDiagnostics(parseIntent(example('CreateInvoice.intent')));
+  const withKey = semanticDiagnostics(parseIntent(example('CreateInvoice.thunder')));
   assert.ok(!withKey.some((d) => d.code === 'duplicate-without-idempotency'),
     'should NOT warn when idempotencyKey is present');
 
-  const stripped = example('CreateInvoice.intent').split('\n').filter((l) => !/idempotencyKey/.test(l)).join('\n');
+  const stripped = example('CreateInvoice.thunder').split('\n').filter((l) => !/idempotencyKey/.test(l)).join('\n');
   const withoutKey = semanticDiagnostics(parseIntent(stripped));
   assert.ok(withoutKey.some((d) => d.code === 'duplicate-without-idempotency'),
     'should warn when idempotencyKey is absent');
 });
 
 test('diagnostics teach: each carries why + fix suggestions', () => {
-  const stripped = example('CreateInvoice.intent').split('\n').filter((l) => !/idempotencyKey/.test(l)).join('\n');
+  const stripped = example('CreateInvoice.thunder').split('\n').filter((l) => !/idempotencyKey/.test(l)).join('\n');
   const diags = semanticDiagnostics(parseIntent(stripped));
   const dup = diags.find((d) => d.code === 'duplicate-without-idempotency');
   assert.ok(dup, 'idempotency diagnostic present');
@@ -57,8 +57,8 @@ test('diagnostics teach: each carries why + fix suggestions', () => {
   assert.ok(dup.fix.some((f) => /idempotencyKey/.test(f.label) || /idempotencyKey/.test(f.insert || '')), 'fix mentions idempotencyKey');
 });
 
-test('IntentLens: notes parse, attach to nodes, carry lens + span; # stays ignored', () => {
-  const ast = parseIntent(example('CreateInvoice.intent'));
+test('ThunderLens: notes parse, attach to nodes, carry lens + span; # stays ignored', () => {
+  const ast = parseIntent(example('CreateInvoice.thunder'));
   assert.ok(ast.notes.length >= 6, 'notes collected');
   // ignored # comments never become notes
   assert.ok(!ast.notes.some((n) => /Illustrative only/.test(n.text)), '# comments are ignored');
@@ -69,14 +69,14 @@ test('IntentLens: notes parse, attach to nodes, carry lens + span; # stays ignor
   assert.match(beginner.targetPath, /input\.idempotencyKey$/);
 });
 
-test('IntentLens: unknown lens warns; notes are metadata, not verification', () => {
+test('ThunderLens: unknown lens warns; notes are metadata, not verification', () => {
   const withBadLens = parseIntent('mission M\nnote pmm:\n  restated\n');
   const diags = semanticDiagnostics(withBadLens);
   assert.ok(diags.some((d) => d.code === 'INTENT_NOTE_UNKNOWN_LENS'), 'warns on unknown lens');
 
-  const ast = parseIntent(example('CreateInvoice.intent'));
+  const ast = parseIntent(example('CreateInvoice.thunder'));
   const proof = buildProof(ast, {
-    sourceFile: 'CreateInvoice.intent', sourceHash: sha256('x'), generatedAt: FIXED,
+    sourceFile: 'CreateInvoice.thunder', sourceHash: sha256('x'), generatedAt: FIXED,
     targetsRequested: ast.targets, targetsGenerated: [], diagnostics: semanticDiagnostics(ast),
   });
   assert.equal(proof.notes.included, true);
@@ -257,7 +257,7 @@ test('IntentLift round-trip: editing the approved intent is flagged stale', () =
 });
 
 test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () => {
-  const ast = parseIntent(example('CreateInvoice.intent'));
+  const ast = parseIntent(example('CreateInvoice.thunder'));
   const cg = buildContractGraph(ast, FIXED);
   assert.equal(cg.compilerVersion, COMPILER_VERSION);
   assert.equal(cg.missions.length, 1);
@@ -269,10 +269,10 @@ test('contract-graph.json shape + stable slug IDs (OT consumer contract)', () =>
 });
 
 test('.intent-proof.json carries schema/version/hash for stale-proof detection', () => {
-  const source = example('CreateInvoice.intent');
+  const source = example('CreateInvoice.thunder');
   const ast = parseIntent(source);
   const proof = buildProof(ast, {
-    sourceFile: 'CreateInvoice.intent', sourceHash: sha256(source), generatedAt: FIXED,
+    sourceFile: 'CreateInvoice.thunder', sourceHash: sha256(source), generatedAt: FIXED,
     targetsRequested: ast.targets, targetsGenerated: ['contract-graph.json'],
     diagnostics: semanticDiagnostics(ast),
   });
@@ -286,15 +286,15 @@ test('.intent-proof.json carries schema/version/hash for stale-proof detection',
 });
 
 test('deterministic: same input + fixed timestamp => identical artifacts', () => {
-  const ast1 = parseIntent(example('CreateInvoice.intent'));
-  const ast2 = parseIntent(example('CreateInvoice.intent'));
+  const ast1 = parseIntent(example('CreateInvoice.thunder'));
+  const ast2 = parseIntent(example('CreateInvoice.thunder'));
   assert.deepEqual(buildContractGraph(ast1, FIXED), buildContractGraph(ast2, FIXED));
   assert.deepEqual(buildArchitectureGraph(ast1, FIXED), buildArchitectureGraph(ast2, FIXED));
   assert.deepEqual(buildImplementationPlan(ast1, FIXED), buildImplementationPlan(ast2, FIXED));
 });
 
 test('all four example missions parse without throwing', () => {
-  for (const f of ['CreateInvoice.intent', 'ResetPassword.intent', 'BillingService.intent', 'InvoiceCreated.intent']) {
+  for (const f of ['CreateInvoice.thunder', 'ResetPassword.thunder', 'BillingService.thunder', 'InvoiceCreated.thunder']) {
     const ast = parseIntent(example(f));
     assert.ok(ast, `${f} parsed`);
     // architecture examples should populate services/apis/events where present
@@ -325,7 +325,7 @@ test('errors and examples blocks parse, land in proof + testplan', () => {
   assert.deepEqual(ast.examples[0], { given: 'a valid cart', expect: 'an order is created', line: ast.examples[0].line });
   assert.equal(ast.examples[1].expect, 'OrderNotFound');
 
-  const proof = buildProof(ast, { sourceFile: 'x.intent', sourceHash: sha256('x'), diagnostics: semanticDiagnostics(ast), generatedAt: '2026-01-01T00:00:00Z', targetsGenerated: [], targetsRequested: [] });
+  const proof = buildProof(ast, { sourceFile: 'x.thunder', sourceHash: sha256('x'), diagnostics: semanticDiagnostics(ast), generatedAt: '2026-01-01T00:00:00Z', targetsGenerated: [], targetsRequested: [] });
   assert.deepEqual(proof.errors, [{ name: 'OrderNotFound' }, { name: 'PaymentDeclined' }]);
   assert.equal(proof.examples.length, 2);
 

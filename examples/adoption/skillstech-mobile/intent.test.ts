@@ -13,8 +13,8 @@ never allow access after suspension
   verify suspended user cannot authenticate test
 `;
 
-describe('missionLens (shared @skillstech/intentlang/core compiler)', () => {
-  it('produces a brief, a focus graph, and coverage from one .intent source', () => {
+describe('missionLens (shared @skillstech/thunderlang/core compiler)', () => {
+  it('produces a brief, a focus graph, and coverage from one .thunder source', () => {
     const lens = missionLens(SRC);
     expect(lens.brief.what).toBe('SuspendAccount');
     expect(lens.brief.guarantees.length).toBe(1);

@@ -4,14 +4,14 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "License and governance",
   description:
-    "How IntentLang is licensed and governed: the compiler is Apache-2.0 licensed, the specification and examples are public, and the project is founder-led while pre-1.0.",
+    "How ThunderLang is licensed and governed: the compiler, CLI, specification, and examples are Apache-2.0, and the project is founder-led while pre-1.0. The ThunderLang name and marks are protected separately.",
   path: "/license",
 });
 
 const rows: [string, string][] = [
-  ["Compiler + CLI (@skillstech/intentlang)", "Apache 2.0 License. Use, modify, and ship it, including commercially."],
-  ["Language specification", "Public. The grammar and the diagnostics catalog are documented and versioned."],
-  ["Examples", "Public. Every .intent example in the docs is Apache-2.0 alongside the compiler."],
+  ["Compiler + CLI (@skillstech/thunderlang)", "Apache License 2.0. Use, modify, and ship it, including commercially, with an explicit patent grant."],
+  ["Language specification", "Public, Apache-2.0. The grammar and the diagnostics catalog are documented and versioned."],
+  ["Examples", "Public. Every .thunder example in the docs is Apache-2.0 alongside the compiler."],
   ["Intent Graph schema (intent-graph-v1)", "Public and versioned, so any tool can bind to it."],
   ["Governance", "Founder-led while pre-1.0. Breaking changes are versioned; nothing that already parses is broken silently."],
 ];
@@ -22,7 +22,7 @@ export default function LicensePage() {
       <PageHero
         eyebrow="Trust"
         title="License and governance"
-        intro="We would rather you inspect this than take our word for it. IntentLang's compiler is open-source and its schemas are public; the language is pre-1.0 and evolves without breaking what already works."
+        intro="We would rather you inspect this than take our word for it. ThunderLang's compiler is open-source and its schemas are public; the language is pre-1.0 and evolves without breaking what already works."
       />
       <Section>
         <div className="overflow-x-auto">
@@ -41,9 +41,10 @@ export default function LicensePage() {
           <h3 className="text-base font-semibold text-white">Building in the open</h3>
           <p className="mt-2 text-sm leading-relaxed text-haze-300">
             The deterministic compiler requires no AI and no account to run. You can verify every
-            claim on this site with the CLI: <span className="font-mono text-haze-200">npm i @skillstech/intentlang</span>.
-            The Apache 2.0 license text ships in the package. Trademark and brand assets (the IntentLang
-            name and marks) remain SkillsTech&apos;s.
+            claim on this site with the CLI: <span className="font-mono text-haze-200">npm i @skillstech/thunderlang</span>.
+            The Apache-2.0 license text ships in the package. Trademark and brand assets (the ThunderLang
+            name and marks) are protected separately and remain Skills Tech Talk, LLC&apos;s. See{" "}
+            <a href="https://github.com/SkillsTechTalk/thunderlang/blob/main/TRADEMARKS.md" className="text-gold-300 hover:text-gold-200">TRADEMARKS.md</a>.
           </p>
         </Card>
       </Section>

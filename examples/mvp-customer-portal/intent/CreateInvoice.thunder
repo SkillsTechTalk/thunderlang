@@ -1,0 +1,43 @@
+# CreateInvoice.thunder , MVP Customer Portal / Billing
+# The canonical billing mission, reused across the SkillsTech ecosystem.
+
+mission CreateInvoice
+
+goal
+  Create an invoice for a completed order.
+
+why
+  Invoices are financial records. Duplicates and negative totals are audit and
+  trust failures.
+
+input
+  orderId: OrderId
+  idempotencyKey: IdempotencyKey
+
+output
+  invoice: Invoice
+
+guarantees
+  repeated order returns same invoice
+  invoice.total is never negative
+
+guarantee repeated order returns same invoice
+  because retrying an order must not create a duplicate invoice
+  verify test repeated order is idempotent
+
+never
+  create invoice for unapproved order
+
+errors
+  OrderNotFound
+  OrderNotApproved
+
+examples
+  given a new approved order -> expect an invoice is created
+  given the same order again -> expect the same invoice
+  given an unapproved order -> expect OrderNotApproved
+
+verify
+  test repeated order is idempotent
+  test total is never negative
+  test unapproved order is rejected

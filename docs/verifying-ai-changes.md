@@ -2,12 +2,12 @@
 
 In the AI age, writing code is cheap. **Trusting** it is not. An agent can produce a 4,000-line
 change in a minute; the bottleneck is knowing it still does what you committed to and never does
-what you forbade. That is the job IntentLang is built for , and `intent verify-diff` is where the
+what you forbade. That is the job ThunderLang is built for , and `thunder verify-diff` is where the
 loop closes.
 
 The workflow it enables:
 
-> a human states intent → an AI proposes a change → **IntentLang proves, deterministically,
+> a human states intent → an AI proposes a change → **ThunderLang proves, deterministically,
 > which guarantees and never-rules the change upholds or breaks** → the change is blocked if it
 > broke a commitment.
 
@@ -19,7 +19,7 @@ the change quietly removed.
 ## Run it
 
 ```bash
-intent verify-diff CreateInvoice.intent --before old.ts --after new.ts
+intent verify-diff CreateInvoice.thunder --before old.ts --after new.ts
 ```
 
 Given the intent:
@@ -37,7 +37,7 @@ input
 and a change that adds `console.log("charging with token", paymentToken)`, the gate blocks:
 
 ```
-intent verify-diff CreateInvoice.intent vs new.ts: BLOCK (1 blocking, 1 regression)
+intent verify-diff CreateInvoice.thunder vs new.ts: BLOCK (1 blocking, 1 regression)
   [VIOLATION] Added code may violate never-rule "expose the payment token in logs":
               console.log("charging with token", paymentToken);  (line 3)
 ```
@@ -51,7 +51,7 @@ Exit code is non-zero on `BLOCK`, so it drops into CI or an agent loop as a hard
    `--after` is the change's fault , and blocks. Pre-existing gaps (things that were already
    unsupported) are reported but do **not** block, so the gate only fails on what the change
    actually broke.
-2. **Guardrail hits.** IntentLang reads each never-rule for the sensitive thing it protects
+2. **Guardrail hits.** ThunderLang reads each never-rule for the sensitive thing it protects
    (`token`, `secret`, `password`, `ssn`, `pii`, ...) and scans the lines the change **added**
    for that value reaching a sink (a log, a response, a print). A match is a probable violation,
    located to the line.
@@ -60,7 +60,7 @@ Without `--before`, it verifies the current code fresh , useful for a first gate
 
 ## Honest by design
 
-`intent verify-diff` is deliberately humble, in the same spirit as [IntentLift](/docs/adopting-intentlang):
+`thunder verify-diff` is deliberately humble, in the same spirit as [IntentLift](/docs/adopting-thunderlang):
 it reports what it can prove deterministically and does not dress a heuristic up as a proof. A
 `PASS` means "the change did not break the contract's mechanical checks," not "the change is
 correct." Correctness is still earned by the guarantees' own verification , the tests you
@@ -75,15 +75,15 @@ stops being documentation and becomes the thing generated code is measured again
 
 ## Give the agent the tools directly (MCP)
 
-The cleanest way to close the loop is to let the agent call IntentLang itself. `intent mcp`
+The cleanest way to close the loop is to let the agent call ThunderLang itself. `thunder mcp`
 starts a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio, so a
-coding agent (Claude Code, Cursor, ...) uses IntentLang natively , no wrapper. Point an MCP
+coding agent (Claude Code, Cursor, ...) uses ThunderLang natively , no wrapper. Point an MCP
 client at the command:
 
 ```json
 {
   "mcpServers": {
-    "intentlang": { "command": "intent", "args": ["mcp"] }
+    "thunderlang": { "command": "intent", "args": ["mcp"] }
   }
 }
 ```
@@ -100,5 +100,5 @@ The server exposes the deterministic capabilities an agent needs:
 | `intent_graph` / `intent_explain` | the canonical graph / explain a diagnostic code |
 
 An agent's workflow becomes: draft or read the intent (`intent_check`), propose a change, and
-**call `intent_verify_diff` on its own output** , refusing to ship on a `BLOCK`. IntentLang
+**call `intent_verify_diff` on its own output** , refusing to ship on a `BLOCK`. ThunderLang
 becomes part of how the agent thinks, not a step someone remembers to run.

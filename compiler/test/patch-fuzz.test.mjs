@@ -19,7 +19,7 @@ const pick = (r, a) => a[Math.floor(r() * a.length)];
 const times = (r, m) => Math.floor(r() * m);
 
 const EXAMPLES_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-const CORPUS = readdirSync(EXAMPLES_DIR).filter((f) => f.endsWith('.intent'))
+const CORPUS = readdirSync(EXAMPLES_DIR).filter((f) => f.endsWith('.thunder'))
   .map((f) => readFileSync(join(EXAMPLES_DIR, f), 'utf8'));
 
 const OPS = ['setField', 'addGuarantee', 'removeGuarantee', 'addNever', 'removeNever', 'addField', 'removeField', 'setFieldType', 'addMetric', 'removeMetric', 'setMetricField', 'addOutcome', 'removeOutcome', 'addRule', 'removeRule', 'setRule', 'setDefault', 'bogusOp'];

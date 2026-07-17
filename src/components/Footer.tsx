@@ -25,6 +25,10 @@ export function Footer() {
             Pre-1.0 syntax and forward-looking statements throughout. The compiler
             is real and deterministic; the ecosystem is still being built.
           </p>
+          <p className="mt-4 text-xs text-haze-500">
+            ThunderLang was previously introduced as IntentLang. Same language and
+            vision, under a stronger, more distinctive brand.
+          </p>
         </div>
 
         {footerNav.map((group) => (
@@ -68,8 +72,8 @@ export function Footer() {
       <div className="border-t border-white/8">
         <div className="container-x flex flex-col items-center justify-between gap-3 py-6 text-xs text-haze-400 sm:flex-row">
           <p>
-            © {new Date().getFullYear()} {siteConfig.builtBy}. IntentLang is a
-            SkillsTech project.
+            © {new Date().getFullYear()} {siteConfig.builtBy}. ThunderLang is a
+            Skills Tech Talk project.
           </p>
           <p className="flex items-center gap-4">
             <span>Structured. Declarative. Verifiable. Composable.</span>

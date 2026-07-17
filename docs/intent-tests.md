@@ -1,8 +1,8 @@
 # Tests as a First-Class Construct
 
 A specification you cannot run is a hope. A specification you can run but never check is
-a liability. IntentLang makes the third thing possible: **tests live in the language**,
-next to the intent they verify, and `intent test` runs them through the deterministic
+a liability. ThunderLang makes the third thing possible: **tests live in the language**,
+next to the intent they verify, and `thunder test` runs them through the deterministic
 [Intent Runtime](/docs/intent-runtime). No AI, no generated code. The spec proves
 itself.
 
@@ -38,8 +38,8 @@ test CanEnroll
 ```
 
 ```
-intent test eligibility.intent
-  intent test eligibility.intent: 3/3 passed
+intent test eligibility.thunder
+  intent test eligibility.thunder: 3/3 passed
     PASS  CanEnroll / adult high
     PASS  CanEnroll / adult low
     PASS  CanEnroll / minor
@@ -84,12 +84,12 @@ they are the behavior. They make three things true at once:
 - **Anyone can author them.** A product manager writes the cases in the same file as
   the decision, in the same plain vocabulary, and runs them. No code, no framework.
 
-Drop `intent test ./intent` into CI next to `intent check`, and every `.intent` file
+Drop `thunder test ./intent` into CI next to `thunder check`, and every `.thunder` file
 that carries `test` blocks becomes self-verifying on every commit.
 
 ## The surface
 
-- CLI: `intent test <file>` (add `--json` for machine output). Exit code is `0` when
+- CLI: `thunder test <file>` (add `--json` for machine output). Exit code is `0` when
   every case passes, `1` otherwise.
-- Library (`@skillstech/intentlang`, schema `intent-test-v1`): `runTests(ast)` returns
+- Library (`@skillstech/thunderlang`, schema `intent-test-v1`): `runTests(ast)` returns
   the full pass/fail report.

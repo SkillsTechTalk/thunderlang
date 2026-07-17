@@ -7,7 +7,7 @@
 Every rule has a stable **code**, a **severity**, and what it **blocks**. Codes are
 the contract: editors, CI, and OpenThunder key off them, and they never change meaning
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
-same data as JSON with `intent rules --json`, or one rule with `intent explain <CODE>`.
+same data as JSON with `thunder rules --json`, or one rule with `thunder explain <CODE>`.
 
 63 canonical diagnostics across 19 areas.
 
@@ -104,12 +104,12 @@ same data as JSON with `intent rules --json`, or one rule with `intent explain <
 | `IL-LIFE-003` | warning | — | Non-terminal dead-end state (no way out). |
 | `IL-LIFE-004` | warning | — | Lifecycle has no initial state. |
 
-## IntentLens notes
+## ThunderLens notes
 
 | Code | Severity | Blocks | Meaning |
 | --- | --- | --- | --- |
-| `INTENT_NOTE_UNKNOWN_LENS` | info | — | IntentLens note uses an unknown lens. |
-| `INTENT_NOTE_EMPTY` | info | — | IntentLens note is empty. |
+| `INTENT_NOTE_UNKNOWN_LENS` | info | — | ThunderLens note uses an unknown lens. |
+| `INTENT_NOTE_EMPTY` | info | — | ThunderLens note is empty. |
 
 ## Outcome contracts
 

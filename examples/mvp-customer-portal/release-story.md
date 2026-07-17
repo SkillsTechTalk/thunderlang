@@ -2,7 +2,7 @@
 
 > This is a trust-aware release narrative, not marketing copy. Every capability it
 > claims is backed by missions and proof; every gap is stated plainly. It is the
-> human-readable output of `intent release ./intent --mvp` (planned command).
+> human-readable output of `thunder release ./intent --mvp` (planned command).
 
 ## Readiness: demo_safe
 

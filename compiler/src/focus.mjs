@@ -33,7 +33,7 @@ function fingerprint(parts) {
 
 /** Build a typed Intent Scope. `createdAt` is supplied by the caller (deterministic/testable). */
 export function makeScope({ type = 'custom', title = null, seeds = [], projectId = null, createdBy = null, createdAt = null, ...rest } = {}) {
-  if (!SCOPE_TYPES.includes(type)) throw new Error(`intent focus: unknown scope type "${type}"`);
+  if (!SCOPE_TYPES.includes(type)) throw new Error(`thunder focus: unknown scope type "${type}"`);
   return {
     schema: FOCUS_SCHEMA,
     scopeId: `scope.${type}.${fingerprint([type, ...seeds].map(String))}`,

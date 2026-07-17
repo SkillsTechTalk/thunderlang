@@ -51,7 +51,7 @@ try {
     const atlas = buildAtlas([buildIntentGraph(ast)]);
     const focus = buildFocusGraph(atlas, { seeds: [atlas.missions[0].id], depth: 2 });
     asrt(intentBrief(focus).what === 'M', '/core focus graph');
-    asrt(scanProject([{ file: 'M.intent', source: 'mission M\\ngoal\\n  x\\n' }]).schema === 'intent-scan-v1', '/core scanProject');
+    asrt(scanProject([{ file: 'M.thunder', source: 'mission M\\ngoal\\n  x\\n' }]).schema === 'intent-scan-v1', '/core scanProject');
     asrt(sha256('abc') === 'sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad', '/core sha256');
     console.log('api-ok');
   `;
@@ -75,7 +75,7 @@ try {
       const focus: FocusGraph = buildFocusGraph(atlas, { seeds: [atlas.missions[0].id], depth: 2 });
       const brief: IntentBrief = intentBrief(focus);
       const scope: IntentScope = focus.scope;
-      const scan: ScanResult = scanProject([{ file: 'M.intent', source: 'mission M\\n' }]);
+      const scan: ScanResult = scanProject([{ file: 'M.thunder', source: 'mission M\\n' }]);
       // exercise typed fields so a wrong type would fail the build
       const summary: string = \`\${brief.what ?? '?'} \${scope.type} \${scan.ok} \${focus.overview.nodes} \${sha256('x')}\`;
       if (!summary) throw new Error('unreachable');
@@ -88,11 +88,11 @@ try {
 
   // 4. smoke the CLI bin from the installed package
   const bin = join(tmp, 'node_modules', '@skillstech', 'thunderlang', 'src', 'cli.mjs');
-  writeFileSync(join(tmp, 'smoke.intent'), 'mission S\ndecision D\n  inputs\n    age\n  rule ok\n    when age >= 18\n    return Yes\n  default\n    return No\ntest D\n  case adult\n    given age 20\n    expect Yes\n');
-  const runRes = run(process.execPath, [bin, 'run', join(tmp, 'smoke.intent'), '--inputs', '{"age":20}'], tmp);
-  if (runRes.status !== 0 || !runRes.stdout.includes('Yes')) die('CLI `intent run` failed', (runRes.stdout || '') + (runRes.stderr || ''));
-  const testRes = run(process.execPath, [bin, 'test', join(tmp, 'smoke.intent')], tmp);
-  if (testRes.status !== 0 || !testRes.stdout.includes('1/1 passed')) die('CLI `intent test` failed', (testRes.stdout || '') + (testRes.stderr || ''));
+  writeFileSync(join(tmp, 'smoke.thunder'), 'mission S\ndecision D\n  inputs\n    age\n  rule ok\n    when age >= 18\n    return Yes\n  default\n    return No\ntest D\n  case adult\n    given age 20\n    expect Yes\n');
+  const runRes = run(process.execPath, [bin, 'run', join(tmp, 'smoke.thunder'), '--inputs', '{"age":20}'], tmp);
+  if (runRes.status !== 0 || !runRes.stdout.includes('Yes')) die('CLI `thunder run` failed', (runRes.stdout || '') + (runRes.stderr || ''));
+  const testRes = run(process.execPath, [bin, 'test', join(tmp, 'smoke.thunder')], tmp);
+  if (testRes.status !== 0 || !testRes.stdout.includes('1/1 passed')) die('CLI `thunder test` failed', (testRes.stdout || '') + (testRes.stderr || ''));
 
   ok = true;
   console.log(`pack:smoke OK , tarball ${tgz} installs clean; main API, /core subpath, and the intent CLI all work from the installed package.`);

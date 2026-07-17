@@ -1,6 +1,6 @@
 # Tutorial: From 200 missions to one Release Story
 
-This is the end-to-end path from a pile of `.intent` files to a shippable decision.
+This is the end-to-end path from a pile of `.thunder` files to a shippable decision.
 It ties together every concept in [working with large changes](/docs/large-changes)
 using the [customer portal example](/examples), which ships 15 real missions and the
 teaching fixtures each step produces.
@@ -8,11 +8,11 @@ teaching fixtures each step produces.
 The aggregation commands shown here are **planned** (owned by the SkillsTech
 Compiler). You can follow the whole tutorial today by reading the fixtures under
 `examples/mvp-customer-portal/`, which show exactly what each command will emit. The
-single-mission commands (`intent check`, `build`) are real now.
+single-mission commands (`thunder check`, `build`) are real now.
 
 ## The setup
 
-You (or an agent) have produced many `.intent` files. In the example, that is 15
+You (or an agent) have produced many `.thunder` files. In the example, that is 15
 missions across four feature areas: Identity and Access, Onboarding, Billing, and
 Deployment Readiness. Reading them one by one does not scale. Here is the path that
 does.
@@ -23,7 +23,7 @@ does.
 node scripts/intent-check.mjs examples/mvp-customer-portal
 ```
 
-This runs `intent check` on all 15 missions. It answers "does each file parse and
+This runs `thunder check` on all 15 missions. It answers "does each file parse and
 satisfy its own rules?" It does not answer the bigger questions. That is the rest of
 this tutorial.
 
@@ -55,7 +55,7 @@ intent chains ./intent           # planned -> mission-chain-map.json
 
 The [Mission Chains](/docs/mission-chains): Signup, Subscription Billing, and Operate
 and Recover. This is where you learn the billing journey is blocked even though every
-billing mission passes `intent check`.
+billing mission passes `thunder check`.
 
 ## 5. Digest the session
 

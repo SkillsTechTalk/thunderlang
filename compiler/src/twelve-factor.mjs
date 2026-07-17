@@ -9,7 +9,7 @@
 //
 // Verdicts: 'satisfied' | 'partial' | 'absent'. Score = (satisfied + 0.5*partial) / 13.
 // Each factor cites the IL signal it inspects, the evidence found, and a concrete fix. The
-// finding ids (IL-12F-01..13) are in the canonical rule catalog for `intent explain`.
+// finding ids (IL-12F-01..13) are in the canonical rule catalog for `thunder explain`.
 
 export const TWELVE_FACTOR_SCHEMA = 'twelve-factor-v1';
 
@@ -44,7 +44,7 @@ const FACTORS = [
       const scoped = len(ast.scope?.include) + len(ast.scope?.exclude);
       if (scoped) return { verdict: 'satisfied', evidence: `context boundary declared (scope: ${len(ast.scope.include)} include / ${len(ast.scope.exclude)} exclude)` };
       if (len(ast.requires)) return { verdict: 'partial', evidence: 'dependencies declared but no explicit scope boundary', fix: 'Declare `scope include/exclude` so the context window is curated, not unbounded.' };
-      return { verdict: 'absent', evidence: 'no scope declared', fix: 'Add a `scope` block to bound what belongs in context (IntentLens/Focus narrows it further).' };
+      return { verdict: 'absent', evidence: 'no scope declared', fix: 'Add a `scope` block to bound what belongs in context (ThunderLens/Focus narrows it further).' };
     },
   },
   {

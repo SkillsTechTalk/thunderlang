@@ -1,9 +1,9 @@
 # AI-generated missions
 
 Claude Code and Codex can generate missions far faster than a human can read them. A
-single session can produce dozens of `.intent` files. That speed is the point, and
+single session can produce dozens of `.thunder` files. That speed is the point, and
 it is also the risk: volume hides what changed, what is risky, and what is
-unverified. IntentLang is the layer that keeps AI-generated intent reviewable.
+unverified. ThunderLang is the layer that keeps AI-generated intent reviewable.
 
 Part of the family of concepts for
 [working with large changes](/docs/large-changes).
@@ -19,7 +19,7 @@ wrong. It is that:
 
 Speed without a review model produces confident, unverified software.
 
-## How IntentLang keeps it reviewable
+## How ThunderLang keeps it reviewable
 
 Every mission records its provenance: whether it was AI-authored and whether a human
 reviewed it. That metadata flows into the tools that make volume tractable:
@@ -36,7 +36,7 @@ reviewed it. That metadata flows into the tools that make volume tractable:
 ## The discipline
 
 - **AI proposes, humans approve.** A mission carries `aiAuthored` and `humanReviewed`
-  flags; `intent approve` records the human sign-off.
+  flags; `thunder approve` records the human sign-off.
 - **Verification is not optional.** An AI-generated guarantee with no test is a claim,
   not a proof. The Proof Matrix makes that visible.
 - **Review by risk, not by order.** Use the Risk Radar; do not read 47 missions

@@ -19,7 +19,7 @@ intent-graph-v0  ──▶  intent-graph-v1  ──▶  intent-graph-v2  ──�
 ```
 
 ```js
-import { migrateGraph, validateGraph } from '@skillstech/intentlang';
+import { migrateGraph, validateGraph } from '@skillstech/thunderlang';
 
 const result = migrateGraph(persistedGraph);   // to the latest by default
 // { from, to, migrated, applied: [{from,to,description}], graph }
@@ -59,7 +59,7 @@ When `intent-graph-v2` lands, adding it is a one-liner, because migrations are c
 from declarative builders:
 
 ```js
-import { renameNodeType, renameRelationshipType, backfillNodeField, dropNodeField } from '@skillstech/intentlang';
+import { renameNodeType, renameRelationshipType, backfillNodeField, dropNodeField } from '@skillstech/thunderlang';
 
 // in migrate.mjs, append to MIGRATIONS:
 {
@@ -78,9 +78,9 @@ three versions ago upgrades through the whole chain in one call.
 
 ## Usage
 
-- CLI: `intent migrate <graph.json> [--to <version>] [--out <dir>]`. Exits non-zero if the
+- CLI: `thunder migrate <graph.json> [--to <version>] [--out <dir>]`. Exits non-zero if the
   migrated graph fails validation.
-- Library (`@skillstech/intentlang`): `migrateGraph`, `validateGraph`, `graphVersion`,
+- Library (`@skillstech/thunderlang`): `migrateGraph`, `validateGraph`, `graphVersion`,
   `MIGRATIONS`, `SCHEMA_CHAIN`, and the builders `renameNodeType`,
   `renameRelationshipType`, `backfillNodeField`, `dropNodeField`.
 

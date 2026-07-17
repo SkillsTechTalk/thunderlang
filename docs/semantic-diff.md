@@ -36,7 +36,7 @@ one-word change in the text and a major change in trust.
 
 ## In review
 
-Semantic Diff is how IntentLang improves both code review and release review. A
+Semantic Diff is how ThunderLang improves both code review and release review. A
 reviewer reads what changed about the intent first, then drills into the code for
 the changes that actually move risk. It pairs with the
 [Build Session Digest](/docs/build-session-digest) (what changed this session) and
@@ -80,12 +80,12 @@ intent merge <base> <ours> <theirs>
 
 Each argument is a mission file or a directory of missions (merged as an Atlas). The
 command exits `0` when the merge is clean and `1` when conflicts remain, so it drops
-into CI the same way `intent diff` does. `--json` emits the full merge result,
+into CI the same way `thunder diff` does. `--json` emits the full merge result,
 including the merged graph and the structured conflict list.
 
 ## Where it comes from
 
-`diffGraphs` / `mergeGraphs` and the `intent diff` / `intent merge` commands are
-owned by the SkillsTech Compiler (`@skillstech/intentlang`). This repo teaches the
+`diffGraphs` / `mergeGraphs` and the `thunder diff` / `thunder merge` commands are
+owned by the SkillsTech Compiler (`@skillstech/thunderlang`). This repo teaches the
 concepts, ships the example fixture, and exposes both from the library and CLI.
-`intent diff ./intent --since HEAD~1` (git-range diffing) remains **planned**.
+`thunder diff ./intent --since HEAD~1` (git-range diffing) remains **planned**.

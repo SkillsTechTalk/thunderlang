@@ -1,5 +1,5 @@
 // Canonical proof envelope schema (intent-proof-v1) , the shape of a `.intent-proof.json`
-// document. IL owns this: it is what the compiler emits (`buildProof`), what `intent verify`
+// document. IL owns this: it is what the compiler emits (`buildProof`), what `thunder verify`
 // re-derives against, and the "shared envelope" siblings sign (STW) and re-verify (RM/OT)
 // rather than each re-describing the proof shape. Pure ESM, ZERO Node deps , browser-safe so
 // a signing service or a cert renderer can validate an envelope without a Node build.
@@ -41,7 +41,7 @@ export function intentProofJsonSchema() {
       sourceProduct: { type: 'string' },
       missionName: { type: ['string', 'null'] },
       sourceFile: { type: 'string' },
-      // sha256:<hex> , the source fingerprint `intent verify` re-checks for drift/tampering.
+      // sha256:<hex> , the source fingerprint `thunder verify` re-checks for drift/tampering.
       sourceHash: { type: 'string', pattern: '^sha256:[0-9a-f]{64}$' },
       compilerVersion: { type: 'string' },
       generatedAt: { type: ['string', 'null'] },

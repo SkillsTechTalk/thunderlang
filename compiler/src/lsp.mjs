@@ -1,7 +1,7 @@
 // A minimal Language Server for ThunderLang (LSP over stdio). Wraps the compiler's existing
 // diagnostics + IntelliSense so ANY LSP-capable editor (VS Code, Neovim, Helix, ...) gets
 // live ThunderLang intelligence: diagnostics on open/change, keyword/type completions, and
-// hover docs for semantic types and note lenses. Deterministic; no AI. `intent lsp` starts it.
+// hover docs for semantic types and note lenses. Deterministic; no AI. `thunder lsp` starts it.
 
 import { parseIntent } from './parse.mjs';
 import { semanticDiagnostics } from './emit.mjs';

@@ -7,7 +7,7 @@ views, no drift.
 
 > One intent. Every role. Verified execution.
 
-This page documents the IntentLang-owned foundation (contract `intent-graph-v1`). The
+This page documents the ThunderLang-owned foundation (contract `intent-graph-v1`). The
 lifecycle it supports:
 
 > Evidence → Opportunity → Outcome → Requirement → Experience → Design → Contract →
@@ -79,7 +79,7 @@ approval required from
   Security
 ```
 
-See `examples/CertificationStudyPlan.intent`.
+See `examples/CertificationStudyPlan.thunder`.
 
 ## Experience Contract
 
@@ -122,7 +122,7 @@ Each experience parses into typed journeys, states (with their recovery affordan
 responsive targets, accessibility requirements, and reusable patterns, and becomes
 `ExperienceContract` / `Journey` / `ExperienceState` / `Pattern` nodes in the Intent
 Graph. A failure state with no recovery path is a UX blocker (`IL-EXP-004`) that reads
-per role. See `examples/UploadStudyMaterial.intent`. OpenThunder's Experience
+per role. See `examples/UploadStudyMaterial.thunder`. OpenThunder's Experience
 Completeness Lens derives the required states from these declarations plus applied
 patterns and policy.
 
@@ -152,16 +152,16 @@ conflict GuestCheckoutAuthentication
   before ExperienceApproval
 ```
 
-IntentLang composes role-scoped constraints **deterministically and order-independently**
+ThunderLang composes role-scoped constraints **deterministically and order-independently**
 and detects: author-declared conflicts, scope contradictions (an item both included and
 excluded), redundant constraints (the same rule from two roles), and direct negations. An
 unresolved conflict is a blocker (`IL-CONFLICT-001`) that names the **owners required to
 resolve it**, the **phase it blocks**, and the **options** to choose from, rendered per
 role. The conflict becomes a first-class `Conflict` node in the Intent Graph, with
 `contradicts` edges to the constraints and `blocks` to the phase. An LLM never decides the
-resolution: IntentLang surfaces the conflict, SkillsTech Studio runs the resolution
+resolution: ThunderLang surfaces the conflict, SkillsTech Studio runs the resolution
 workspace, OpenThunder verifies the accepted resolution survives implementation, and Repo
-Mastery teaches why the decision was made. See `examples/CertificationCheckout.intent`.
+Mastery teaches why the decision was made. See `examples/CertificationCheckout.thunder`.
 
 ## Classification and evidence
 
@@ -189,9 +189,9 @@ The canonical model is the **Intent Graph** (`buildIntentGraph`, schema
 Guarantee, Never, Unknown, Assumption, Question, Approval, ...) connected by typed
 relationships (`supported_by`, `targets`, `measured_by`, `requires`, `constrained_by`,
 `approved_by`, `blocks`, `depends_on`, `verified_by`, ...). Every node has a stable id,
-type, status, owner, classification, and confidence. `intent build` emits it as
+type, status, owner, classification, and confidence. `thunder build` emits it as
 `intent-graph.json`. This is what OpenThunder, Repo Mastery, and SkillsTech Studio
-consume; they do not re-parse `.intent`.
+consume; they do not re-parse `.thunder`.
 
 ## Temporal and lifecycle
 
@@ -217,14 +217,14 @@ eventually
   within 30 seconds
 ```
 
-IntentLang builds the formal IR (states, typed transitions, initial state, reachable
+ThunderLang builds the formal IR (states, typed transitions, initial state, reachable
 set) and statically checks the **declared model**: undefined-state references
 (`IL-LIFE-001`, an error), terminal states with outgoing transitions (`IL-LIFE-002`),
 unreachable states (`IL-LIFE-003`), and dead ends (`IL-LIFE-004`). An `eventually` with
 no time bound is `IL-TEMP-001`. The lifecycle becomes `Lifecycle` / `LifecycleState`
 nodes with `transitions_to` edges. OpenThunder verifies the **implemented reality**
 against this same IR and produces counterexample traces. See
-`examples/CertificationAttempt.intent`.
+`examples/CertificationAttempt.thunder`.
 
 ## Distributed and failure semantics
 
@@ -249,14 +249,14 @@ on permanent_failure
   preserve UploadedMaterial
 ```
 
-IntentLang statically checks the **declared** failure policy is safe: a command that
+ThunderLang statically checks the **declared** failure policy is safe: a command that
 retries without an `idempotency_key` (`IL-DIST-001`, the classic duplicate-work bug) or
 without a `timeout` (`IL-DIST-002`); an `at_least_once` event with no duplicate handler
 (`IL-DIST-003`); a `permanent_failure` handler with no compensation (`IL-DIST-004`); a
 handler referencing an undeclared event (`IL-DIST-005`, an error). `Command` /
 `FailureHandler` nodes join the graph. OpenThunder verifies the **implementation**
 honors the policy (retry safety, duplicate handling, failure simulation). See
-`examples/CreateStudyPlan.intent`.
+`examples/CreateStudyPlan.thunder`.
 
 ## Decisions and rules
 
@@ -279,12 +279,12 @@ decision CertificationEligibility
   owner CertificationProduct
 ```
 
-IntentLang statically checks the **declared** decision: a decision with rules but no
+ThunderLang statically checks the **declared** decision: a decision with rules but no
 `default` (`IL-DEC-001`, undefined when nothing matches), two rules with the same
 condition but different results (`IL-DEC-002`, ambiguous), redundant rules
 (`IL-DEC-003`), and empty decisions (`IL-DEC-004`). `Decision` / `Rule` nodes join the
 graph. OpenThunder verifies rule coverage and that the implementation matches the
-decision. See `examples/CertificationEligibility.intent`.
+decision. See `examples/CertificationEligibility.thunder`.
 
 ## Design system
 
@@ -383,15 +383,15 @@ that outcome produced, and the learning that came back.
 ## Canonical schema (no forks)
 
 Every product must speak the same node types, relationship types, classifications, and
-diagnostic rule IDs. IntentLang owns and versions the canonical schema, and consumers
+diagnostic rule IDs. ThunderLang owns and versions the canonical schema, and consumers
 **generate bindings from it** rather than hand-recreating enums:
 
 ```bash
 intent schema            # emits the JSON Schema + node/relationship/classification enums + rule catalog
 ```
 
-`intent schema` outputs a draft-07 JSON Schema (`$id`
-`https://intentlanguage.dev/schema/intent-graph-v1.json`), the canonical `NODE_TYPES`
+`thunder schema` outputs a draft-07 JSON Schema (`$id`
+`https://thunderlang.dev/schema/intent-graph-v1.json`), the canonical `NODE_TYPES`
 (30) and `RELATIONSHIP_TYPES` (19), and the `DIAGNOSTIC_RULES` catalog with stable IDs.
 The compiler is tested so that `buildIntentGraph` can only emit node and relationship
 types that exist in this schema, so OpenThunder, Repo Mastery, and SkillsTech Studio can
@@ -405,12 +405,12 @@ and carries `severity` + `blocks` metadata for phase gates. Examples:
 - **Product:** "The success metric has no measurement period." (`IL-PM-001`, blocks release)
 - **Engineer:** "Unknown `MaximumUploadSize` gates Implementation." (`IL-GRAPH-010`)
 
-`intent check` stays valid (these are warning/info): a well-formed spec can still be
+`thunder check` stays valid (these are warning/info): a well-formed spec can still be
 not-ready-to-proceed, which is a phase gate, not a syntax error.
 
 ## Product responsibilities
 
-- **IntentLang** owns the language, types, AST, compiler, validation, the Intent Graph,
+- **ThunderLang** owns the language, types, AST, compiler, validation, the Intent Graph,
   and the interoperable contracts (this page).
 - **OpenThunder** deterministically verifies that designs, implementations, tests,
   analytics, and releases satisfy the declared Intent (it consumes the Intent Graph; it
@@ -440,13 +440,13 @@ intent atlas ./examples --expand <node-id>  # a node + its inbound/outbound neig
 
 `buildAtlas` assembles many mission Intent Graphs into one; `searchAtlas` and
 `expandNode` are the navigation primitives. The per-mission focused map is
-`mission-index-v1` (`intent index`). SkillsTech Studio renders the Atlas UX; OpenThunder
+`mission-index-v1` (`thunder index`). SkillsTech Studio renders the Atlas UX; OpenThunder
 surfaces findings (intent-with-no-impl, impl-with-no-intent) as Atlas nodes; Repo Mastery
-teaches through it. All consume this one Atlas, owned by IntentLang.
+teaches through it. All consume this one Atlas, owned by ThunderLang.
 
 ## Semantic diff
 
-`intent diff` compares two snapshots (files or directories) by **meaning**, not text:
+`thunder diff` compares two snapshots (files or directories) by **meaning**, not text:
 
 ```bash
 intent diff ./before ./after        # + / - / ~ nodes, + / - edges, by type

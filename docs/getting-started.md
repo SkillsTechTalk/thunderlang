@@ -6,7 +6,7 @@ deterministic and runs with no AI.
 ## 1. Install
 
 ```bash
-npm install -g @skillstech/intentlang
+npm install -g @skillstech/thunderlang
 intent help
 ```
 
@@ -16,7 +16,7 @@ intent help
 intent init Eligibility
 ```
 
-That writes `Eligibility.intent`, a real starter with a goal, a guarantee, a `never`
+That writes `Eligibility.thunder`, a real starter with a goal, a guarantee, a `never`
 rule, an executable `decision`, and in-file `test` cases. It is valid and runnable out of
 the box.
 
@@ -25,7 +25,7 @@ the box.
 A decision is a program. Give it inputs and it decides:
 
 ```bash
-intent run Eligibility.intent --inputs '{"age":20}'
+intent run Eligibility.thunder --inputs '{"age":20}'
 #   decision Example: Allowed  [rule: adult]
 ```
 
@@ -37,31 +37,31 @@ deterministically, before any implementation exists.
 The `test` blocks assert behavior through the same runtime:
 
 ```bash
-intent test Eligibility.intent
-#   intent test Eligibility.intent: 2/2 passed
+intent test Eligibility.thunder
+#   intent test Eligibility.thunder: 2/2 passed
 ```
 
-The `.intent` file is now self-verifying. No test framework, no code.
+The `.thunder` file is now self-verifying. No test framework, no code.
 
 ## 5. Format it
 
 ```bash
-intent fmt Eligibility.intent --write
+intent fmt Eligibility.thunder --write
 ```
 
-Canonical whitespace, comments preserved. Use `intent fmt . --check` in CI to keep a
+Canonical whitespace, comments preserved. Use `thunder fmt . --check` in CI to keep a
 whole tree consistent.
 
 ## 6. Check it
 
 ```bash
-intent check Eligibility.intent
+intent check Eligibility.thunder
 ```
 
 Diagnostics for one file, or gate a whole repo at once:
 
 ```bash
-intent check .        # recurses every .intent, exits non-zero on any error
+intent check .        # recurses every .thunder, exits non-zero on any error
 ```
 
 Add it to CI with the GitHub Action:
@@ -74,7 +74,7 @@ Add it to CI with the GitHub Action:
 
 ## 7. Edit with intelligence
 
-Install the [editor support](/docs/editor-support): the Language Server (`intent lsp`)
+Install the [editor support](/docs/editor-support): the Language Server (`thunder lsp`)
 gives live diagnostics, completion, and hover in VS Code, Neovim, and any LSP editor,
 plus syntax highlighting via the shipped grammar.
 
@@ -87,7 +87,7 @@ plus syntax highlighting via the shipped grammar.
 - **The whole language**: the [syntax overview](/docs/syntax-overview) and the
   [specification](/docs/spec).
 - **The model everyone builds on**: [Intent for every role](/docs/intent-graph).
-- **Already have a codebase?** [Adopt IntentLang on it](/docs/adopting-intentlang): lift,
+- **Already have a codebase?** [Adopt ThunderLang on it](/docs/adopting-thunderlang): lift,
   review, check, gate, and keep in sync , one mission at a time.
 
 The whole loop, author, run, test, format, gate, in one deterministic toolchain. That is

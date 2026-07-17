@@ -1,0 +1,69 @@
+# A 12-factor-aligned agent intent: deterministic control flow, structured I/O, a human gate,
+# bounded errors, a resumable lifecycle, and event triggers. Score it:
+#   intent twelve-factor examples/TwelveFactorAgent.thunder
+mission TriageIncident
+goal "triage an incoming incident and route it deterministically, pausing for a human on high-stakes actions"
+why "on-call engineers need reliable, auditable triage, not an autonomous loop that can spin out"
+
+requires monitoring signal
+requires runbook access
+
+scope
+  include incident severity, service ownership, runbook steps
+  exclude unrelated services, incidents older than 30 days
+
+input
+  severity: Severity
+  service: ServiceId
+  actor: UserId
+
+output
+  routing: RoutingDecision
+
+guarantee every high-severity incident is acknowledged within the SLA
+guarantee no destructive action runs without human approval
+
+decision RouteIncident
+  inputs
+    severity
+    ownerAvailable
+  rule page
+    when severity == "high" and ownerAvailable == true
+    return PageOwner
+  rule escalate
+    when severity == "high" and ownerAvailable == false
+    return EscalateToLead
+  default
+    return FileTicket
+
+approval required from
+  incident-commander
+
+errors
+  RunbookUnavailable
+  DownstreamTimeout
+
+on DownstreamTimeout
+  compensate retry with backoff
+  notify on-call channel
+
+lifecycle IncidentLifecycle
+  state Triaged
+  state Routed
+  state AwaitingApproval
+  state Resolved
+  transition route
+    from Triaged
+    to Routed
+  transition await
+    from Routed
+    to AwaitingApproval
+  transition resolve
+    from AwaitingApproval
+    to Resolved
+  terminal Resolved
+
+event IncidentRaised
+
+demonstrates explains why high-severity incidents pause for human approval
+requires_skill Incident Response, Distributed Systems

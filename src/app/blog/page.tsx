@@ -6,7 +6,7 @@ import { posts } from "./posts";
 export const metadata = pageMeta({
   title: "Blog",
   description:
-    "Notes from the team building IntentLang, an Intent-Oriented Programming language by SkillsTech for the AI era.",
+    "Notes from the team building ThunderLang, an Intent-Oriented Programming language by SkillsTech for the AI era.",
   path: "/blog",
 });
 
@@ -15,7 +15,7 @@ export default function BlogPage() {
     <>
       <PageHero
         eyebrow="Blog"
-        title="Notes from building IntentLang in the open."
+        title="Notes from building ThunderLang in the open."
         intro="Design decisions, open questions, and progress as the language takes shape. Early and honest, expect thinking-in-progress, not press releases."
       />
       <Section>

@@ -1,9 +1,9 @@
 # Runtime Enforcement
 
-Intent that only lives in a `.intent` file is advisory , a good intention a diff can quietly
+Intent that only lives in a `.thunder` file is advisory , a good intention a diff can quietly
 break. Intent that **runs** is load-bearing: it blocks the forbidden action when the software
 actually executes. `compileGuard` turns an intent into exactly that , a guard you drop into your
-application. Deterministic, no AI, and browser-safe (`@skillstech/intentlang/core`), so the same
+application. Deterministic, no AI, and browser-safe (`@skillstech/thunderlang/core`), so the same
 guard runs in a Node service or a browser app.
 
 Two things an intent declares are deterministically enforceable at runtime, and the guard
@@ -16,7 +16,7 @@ Every field the intent declares secret , a `Secret` / `Password` / `Token` type,
 Wrap a logger or a response with `redact` and the secret cannot reach it:
 
 ```js
-import { compileGuard } from "@skillstech/intentlang/core";
+import { compileGuard } from "@skillstech/thunderlang/core";
 
 const guard = compileGuard(intentSource);
 
@@ -51,11 +51,11 @@ compileGuard(intentSource, { denyResults: ["Deny", "NeedsReview"] });
 
 ## Preview what a guard enforces
 
-`intent guard <file>` shows what the compiled guard would do , which fields it redacts and which
+`thunder guard <file>` shows what the compiled guard would do , which fields it redacts and which
 decisions it gates , so it can be reviewed and audited before it ships:
 
 ```bash
-intent guard Refund.intent
+intent guard Refund.thunder
 #   redacts fields   paymentToken, ssn
 #   enforces decisions RefundDecision
 ```

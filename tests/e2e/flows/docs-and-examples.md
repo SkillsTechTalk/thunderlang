@@ -18,7 +18,7 @@ before).
    overview, Language specification, Intent Runtime, Tests, Outcome contracts, Governance,
    Data privacy, Export/Import adapters, Graph to source, Schema migrations, ...).
 2. Open **The Intent Runtime: executable intent** (`/docs/intent-runtime`).
-   - Expect the H1 and rendered Markdown (headings, the `intent run` sample, the condition
+   - Expect the H1 and rendered Markdown (headings, the `thunder run` sample, the condition
      grammar), not a raw code dump or an error page.
 3. Open **Language specification** (`/docs/spec`) and **Tests as a first-class construct**
    (`/docs/intent-tests`) -> both render full content.
@@ -28,7 +28,7 @@ before).
 ### Examples
 5. Navigate to `/examples`. Expect the list including **SubscriptionUpgrade** (the newest
    showcase) alongside CreateInvoice, CalculateRiskScore, etc.
-6. Open **SubscriptionUpgrade** -> expect the syntax-highlighted `.intent` source
+6. Open **SubscriptionUpgrade** -> expect the syntax-highlighted `.thunder` source
    (decision, lifecycle, outcome_contract, test blocks) rendered, no error.
 7. Open one older example (e.g. **CreateInvoice**) -> renders.
 

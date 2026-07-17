@@ -1,11 +1,11 @@
 /**
- * Inline vector of the Intent four-point star mark.
- * Recreated as SVG so it scales crisply, needs no network request, and can be
- * tinted/animated. Mirrors the gold "sparkle" logo in the brand assets.
+ * ThunderLang lightning-bolt mark. Exported as `StarMark` so every existing
+ * usage across the site re-skins to the bolt without renaming imports.
+ * Electric violet → cyan, echoing the wordmark gradient.
  */
 export function StarMark({
   className = "h-8 w-8",
-  title = "Intent",
+  title = "ThunderLang",
 }: {
   className?: string;
   title?: string;
@@ -18,28 +18,24 @@ export function StarMark({
       className={className}
     >
       <defs>
-        <linearGradient id="ilStarGrad" x1="20" y1="10" x2="80" y2="92">
-          <stop offset="0%" stopColor="#FCEFD6" />
-          <stop offset="45%" stopColor="#F5C97A" />
-          <stop offset="100%" stopColor="#E09A45" />
+        <linearGradient id="tlBoltGrad" x1="30" y1="6" x2="70" y2="94">
+          <stop offset="0%" stopColor="#EDE9FE" />
+          <stop offset="45%" stopColor="#B49BFF" />
+          <stop offset="100%" stopColor="#22D3EE" />
         </linearGradient>
-        <radialGradient id="ilStarCore" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="100%" stopColor="#F8DDA9" />
+        <radialGradient id="tlBoltGlow" cx="50%" cy="50%" r="55%">
+          <stop offset="0%" stopColor="rgba(124,92,240,0.55)" />
+          <stop offset="100%" stopColor="rgba(124,92,240,0)" />
         </radialGradient>
       </defs>
-      {/* Outer four-point star built from a concave diamond */}
+      <circle cx="50" cy="50" r="46" fill="url(#tlBoltGlow)" />
+      {/* Lightning bolt */}
       <path
-        d="M50 3 C54 30 70 46 97 50 C70 54 54 70 50 97 C46 70 30 54 3 50 C30 46 46 30 50 3 Z"
-        fill="none"
-        stroke="url(#ilStarGrad)"
-        strokeWidth="4.5"
+        d="M56 6 L26 54 L46 54 L40 94 L74 40 L52 40 L56 6 Z"
+        fill="url(#tlBoltGrad)"
+        stroke="url(#tlBoltGrad)"
+        strokeWidth="2.5"
         strokeLinejoin="round"
-      />
-      {/* Inner sparkle */}
-      <path
-        d="M50 30 C51.6 43 57 48.4 70 50 C57 51.6 51.6 57 50 70 C48.4 57 43 51.6 30 50 C43 48.4 48.4 43 50 30 Z"
-        fill="url(#ilStarCore)"
       />
     </svg>
   );

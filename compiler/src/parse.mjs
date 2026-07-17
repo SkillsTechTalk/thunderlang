@@ -86,7 +86,7 @@ function buildTree(rows) {
   return root.children;
 }
 
-// Known IntentLens reader lenses. Unknown lenses warn (INTENT_NOTE_UNKNOWN_LENS).
+// Known ThunderLens reader lenses. Unknown lenses warn (INTENT_NOTE_UNKNOWN_LENS).
 export const KNOWN_LENSES = [
   'pm', 'beginner', 'qa', 'risk', 'security', 'support', 'reviewer', 'ops', 'non_goal', 'term',
 ];
@@ -114,7 +114,7 @@ const kvChildren = (node) => {
 const childBlock = (node, kw) => node.children.find((c) => firstWord(c.text) === kw);
 
 function parseFields(node) {
-  // "key: Type" lines. A field may carry indented modifiers and IntentLens notes.
+  // "key: Type" lines. A field may carry indented modifiers and ThunderLens notes.
   return node.children.map((c) => {
     const m = c.text.match(/^([A-Za-z_][\w]*)\s*:\s*(.+)$/);
     const modifiers = [];
@@ -712,7 +712,7 @@ export function parseIntent(source) {
     }
   }
 
-  // ── Assemble IntentLens notes with stable ids, target kinds, paths, spans ──
+  // ── Assemble ThunderLens notes with stable ids, target kinds, paths, spans ──
   const mprefix = `mission.${ast.mission || 'unnamed'}`;
   const pushNote = (raw, targetKind, targetPath) => {
     if (!raw) return;

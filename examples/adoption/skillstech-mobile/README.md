@@ -1,6 +1,6 @@
 # SkillsTech Mobile , adopt the shared compiler
 
-A verified, turnkey adoption of `@skillstech/intentlang` in SkillsTech Mobile. Mobile becomes
+A verified, turnkey adoption of `@skillstech/thunderlang` in SkillsTech Mobile. Mobile becomes
 a *consumer* of the one compiler , it renders intent, it does not re-implement any of it.
 
 **Verified compatibility** (inspected 2026-07-13): React Native 0.81.5, Expo ~54, TypeScript
@@ -11,10 +11,10 @@ tarball** with `strict` + `moduleResolution: bundler`.
 
 ## Steps
 
-1. Install (after `@skillstech/intentlang@0.1.1` is published):
+1. Install (after `@skillstech/thunderlang@0.1.1` is published):
 
    ```bash
-   npx expo install @skillstech/intentlang
+   npx expo install @skillstech/thunderlang
    ```
 
 2. Copy `intent.ts` into `src/lib/intent.ts` and `intent.test.ts` into `__tests__/`.
@@ -27,7 +27,7 @@ tarball** with `strict` + `moduleResolution: bundler`.
      "jest": {
        "preset": "jest-expo",
        "transformIgnorePatterns": [
-         "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@skillstech/intentlang))"
+         "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@skillstech/thunderlang))"
        ]
      }
    }

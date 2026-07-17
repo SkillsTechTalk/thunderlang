@@ -129,7 +129,7 @@ export function getHover(source, position = {}) {
     return {
       hover: {
         target: lens, kind: 'note_lens', title: `note ${lens}`,
-        description: LENS_INFO[lens] || 'An IntentLens reader lens.',
+        description: LENS_INFO[lens] || 'An ThunderLens reader lens.',
         examples: [], relatedSuggestions: [],
       },
     };

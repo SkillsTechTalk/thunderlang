@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Privacy",
   description:
-    "How IntentLang handles your data: the CLI runs entirely on your machine, the Playground compiles statelessly with no AI, and waitlist emails are private and deletable.",
+    "How ThunderLang handles your data: the CLI runs entirely on your machine, the Playground compiles statelessly with no AI, and waitlist emails are private and deletable.",
   path: "/privacy",
 });
 
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
       <PageHero
         eyebrow="Trust"
         title="Privacy"
-        intro="The most private tool is one that runs on your machine. IntentLang's core does exactly that. This page states plainly what happens to your data in the few places a server is involved."
+        intro="The most private tool is one that runs on your machine. ThunderLang's core does exactly that. This page states plainly what happens to your data in the few places a server is involved."
       />
       <Section>
         <div className="grid gap-5 md:grid-cols-2">

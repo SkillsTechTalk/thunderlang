@@ -88,7 +88,7 @@ test('a malformed message does not kill the server', async () => {
   assert.ok(msgs.find((m) => m.id === 8).result.serverInfo);
 });
 
-test('the `intent lsp` CLI command starts a working server over real stdio', async () => {
+test('the `thunder lsp` CLI command starts a working server over real stdio', async () => {
   const proc = spawn(process.execPath, [CLI, 'lsp'], { stdio: ['pipe', 'pipe', 'inherit'] });
   const chunks = [];
   proc.stdout.on('data', (c) => chunks.push(c));

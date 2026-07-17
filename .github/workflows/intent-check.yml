@@ -1,7 +1,7 @@
 name: Intent Check
 
-# Gate every .intent file with the deterministic compiler (no AI, no network).
-# `intent check` fails the build if any intent has errors, so a broken or
+# Gate every .thunder file with the deterministic compiler (no AI, no network).
+# `thunder check` fails the build if any intent has errors, so a broken or
 # incomplete intent cannot merge.
 
 on:
@@ -21,7 +21,7 @@ jobs:
           node-version: 20
 
       # The compiler is pure Node (no dependencies), so no install step is needed.
-      - name: intent check (all .intent files)
+      - name: intent check (all .thunder files)
         run: npm run intent:check
 
       # Compiler unit + property tests.
@@ -41,7 +41,7 @@ jobs:
       - name: diagnostics doc sync
         run: npm run diagnostics:check
 
-      # Every .intent file stays canonically formatted.
+      # Every .thunder file stays canonically formatted.
       - name: format check
         run: npm run fmt:check
 
@@ -50,7 +50,7 @@ jobs:
       - name: package smoke test
         run: npm run pack:smoke
 
-  # Dogfood: scan this repo's own .intent files with ThunderLang and publish the results to
+  # Dogfood: scan this repo's own .thunder files with ThunderLang and publish the results to
   # GitHub code scanning, so diagnostics show up as annotations in the Security tab.
   intent-code-scan:
     runs-on: ubuntu-latest

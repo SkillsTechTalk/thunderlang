@@ -1,16 +1,16 @@
 # AI implementations
 
 An **AI implementation** is an intentionally deferred, AI-assisted implementation
-that IntentLang treats as a first-class, traceable, verifiable, reviewable concept —
+that ThunderLang treats as a first-class, traceable, verifiable, reviewable concept —
 not an ordinary TODO comment.
 
 The principle across the SkillsTech ecosystem:
 
-> **AI writes a candidate. IntentLang defines what is allowed. OpenThunder proves
+> **AI writes a candidate. ThunderLang defines what is allowed. OpenThunder proves
 > whether it is safe and correct. Repo Mastery proves that humans understand it.
 > SkillsTech connects the entire experience.**
 
-This page documents the IntentLang-owned foundation (contract `intent-ai-v1`). It is
+This page documents the ThunderLang-owned foundation (contract `intent-ai-v1`). It is
 deterministic and needs no AI provider: declaring, listing, hashing, the manifest, the
 marker format, and the provider-neutral prompt all run locally.
 
@@ -56,7 +56,7 @@ Concise form:
 implement with ai pending
 ```
 
-This is **not** treated as accidentally-missing code. `intent check` reports it as an
+This is **not** treated as accidentally-missing code. `thunder check` reports it as an
 informational `INTENT-AI-001`, and the compiler tracks its state.
 
 ### Fields
@@ -122,7 +122,7 @@ no product re-implements marker parsing.
 
 ## Manifest
 
-Project-level metadata lives in `.intent/ai-implementations.json` (schema `1.0`):
+Project-level metadata lives in `.thunder/ai-implementations.json` (schema `1.0`):
 
 ```json
 {
@@ -132,7 +132,7 @@ Project-level metadata lives in `.intent/ai-implementations.json` (schema `1.0`)
     {
       "id": "calculate-risk-score",
       "mission": "CalculateRiskScore",
-      "sourceLocation": "src/risk.intent",
+      "sourceLocation": "src/risk.thunder",
       "scope": "function_body",
       "editing": "collaborative",
       "risk": "medium",
@@ -140,7 +140,7 @@ Project-level metadata lives in `.intent/ai-implementations.json` (schema `1.0`)
       "status": "PENDING",
       "contractHash": "sha256:...",
       "implementationHash": null,
-      "proofLocation": ".intent/proofs/calculate-risk-score.json"
+      "proofLocation": ".thunder/proofs/calculate-risk-score.json"
     }
   ]
 }
@@ -158,14 +158,14 @@ architecture
   infrastructure may implement application ports
 ```
 
-IntentLang parses these into structured rules (`from`, `relation`, `to`) and includes
+ThunderLang parses these into structured rules (`from`, `relation`, `to`) and includes
 them in the contract graph and the contract hash. OpenThunder's Architecture Lens
 checks the real dependency graph against them; a forbidden edge is `INTENT-ARCH-307`.
 A line the rule parser cannot understand is a `INTENT-ARCH-001` warning, not an error.
 
 ## Candidate selection
 
-The AI may generate several candidates; **IntentLang and OpenThunder pick the winner
+The AI may generate several candidates; **ThunderLang and OpenThunder pick the winner
 by measurable rules — an LLM never decides.** Declare the policy:
 
 ```
@@ -180,9 +180,9 @@ selection
 `require` filters out candidates whose verification failed (a smaller candidate that
 fails its checks never wins). `prefer` rules rank the survivors lexicographically, and
 ties break stably by id, so selection is fully deterministic and reproducible.
-IntentLang derives `size` / `complexity` / `dependencies` from the region; OpenThunder
-supplies the verified metrics (`mutationScore`, `allocation`). `intent ai select`
-applies the policy over `.intent/candidates/<id>/`.
+ThunderLang derives `size` / `complexity` / `dependencies` from the region; OpenThunder
+supplies the verified metrics (`mutationScore`, `allocation`). `thunder ai select`
+applies the policy over `.thunder/candidates/<id>/`.
 
 ## Hashing and proof validity
 
@@ -200,12 +200,12 @@ A proof is valid only when `current contract hash == proof contract hash` **and*
 proof is stale, the status becomes `MODIFIED`, and production eligibility is revoked
 until re-verification.
 
-## CLI (IntentLang)
+## CLI (ThunderLang)
 
 ```bash
 intent check                          # reports pending implementations, stale proofs, approvals
 intent ai list ./examples             # the manifest, per implementation + state
-intent ai generate <file.intent>      # provider-neutral prompt for an external agent (Path 1)
+intent ai generate <file.thunder>      # provider-neutral prompt for an external agent (Path 1)
 intent ai gate ./examples             # production gate: resolve real state, block if unshippable
 intent ai gate ./examples --allow-pending   # dev build: tolerate PENDING only
 intent ai approve <dir> <id> --by <reviewer> [--role <role>] [--note <note>]   # record approval
@@ -215,32 +215,32 @@ intent ai select <dir> <id>           # deterministically pick a winning candida
 intent build <file> --mode production # refuses to build while an AI implementation is unshippable
 ```
 
-`intent ai generate` produces a structured prompt (mission, contract, scope, allowed
+`thunder ai generate` produces a structured prompt (mission, contract, scope, allowed
 and forbidden targets, architecture rules, verification requirements, and the exact
 marker format) with **no AI required**.
 
-`intent ai gate` resolves each implementation's **real state** from three inputs — the
+`thunder ai gate` resolves each implementation's **real state** from three inputs — the
 declaration, the generated region (parsed from its markers), and the proof — then
 blocks unless every implementation ships (`APPROVED` / `ADOPTED`). `--allow-pending`
 forgives `PENDING` for a dev build but never `MODIFIED` / `INVALID` / missing approval.
-`intent build --mode production` applies the same gate before generating.
+`thunder build --mode production` applies the same gate before generating.
 
-`intent ai approve` / `reject` record a human decision in `.intent/ai-approvals.json`,
+`thunder ai approve` / `reject` record a human decision in `.thunder/ai-approvals.json`,
 **bound to the exact contract and implementation hashes reviewed**. The compiler
 refuses to approve stale or unverified work, and once the code or contract changes the
 recorded approval no longer counts (the implementation returns to `MODIFIED`). Each
 decision emits a versioned `IntentAiImplementationApproved` / `Rejected` event.
 
-`intent ai adopt` rewrites `<intent:ai-implementation>` to
+`thunder ai adopt` rewrites `<intent:ai-implementation>` to
 `<intent:implementation origin="ai" ownership="human">`, keeping the provenance while
 removing active AI management. `verify` is driven by OpenThunder — see the workflow below.
 
 ## Provider-neutral generation
 
-IntentLang never requires an embedded LLM, and **no code is sent anywhere unless you
+ThunderLang never requires an embedded LLM, and **no code is sent anywhere unless you
 explicitly configure a provider**. Three paths:
 
-1. **External agent handoff** — `intent ai generate` emits a prompt you paste into
+1. **External agent handoff** — `thunder ai generate` emits a prompt you paste into
    Claude Code / Codex / Cursor; import the returned patch.
 2. **BYOK** — your configured provider key, with explicit consent before any code is sent.
 3. **Local model** — a local provider (e.g. Ollama).
@@ -250,11 +250,11 @@ provider.
 
 ## Product responsibilities
 
-- **IntentLang** owns the language, the contract, the state model, the manifest, the
+- **ThunderLang** owns the language, the contract, the state model, the manifest, the
   marker format, and the hashes (this page).
 - **OpenThunder** verifies (region integrity, syntax, types, contract, effects,
   architecture, security, tests, determinism), generates the proof at
-  `.intent/proofs/{id}.json`, emits SARIF, and gates CI/production. Reuses its
+  `.thunder/proofs/{id}.json`, emits SARIF, and gates CI/production. Reuses its
   Architecture Lens and Security Lens.
 - **Repo Mastery** turns a verified implementation into human understanding
   (explanation, walkthrough, reviewer checklist, flashcards, quiz, explain-back,

@@ -56,6 +56,6 @@ decide what to open; read the Matrix to see everything.
 
 ## Where it comes from (planned)
 
-The Risk Radar is part of the output of `intent summarize ./intent`, a **planned**
+The Risk Radar is part of the output of `thunder summarize ./intent`, a **planned**
 command owned by the SkillsTech Compiler. This repo teaches the concept and ships
 the example fixture.

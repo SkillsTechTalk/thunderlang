@@ -546,7 +546,7 @@ function liftDiagnostics(lift, facts) {
  * Lift a set of source files (a repo) into inferred ThunderLang drafts, one per
  * file that yields a mission. `files` is [{ file, source }] (the CLI reads the
  * filesystem; this core function stays pure). Returns per-mission drafts + a
- * repo-level summary matching the `intent lift --from repo --json` contract.
+ * repo-level summary matching the `thunder lift --from repo --json` contract.
  */
 export function languageForFile(file) {
   if (/\.rs$/i.test(file)) return 'rust';
@@ -651,7 +651,7 @@ const LANG_EXT = {
  * EXACT node ids instead of lift's own function refs, so there is no divergent second reading.
  * Additive: with no seeds the output is byte-identical to before.
  */
-export function liftSource(source, { language = 'typescript', file = '', seeds = [] } = {}) {
+export function liftSource(source, { language = 'typescript', file = '', seeds = undefined } = {}) {
   const key = String(language).toLowerCase();
   const adapter = ADAPTERS[key];
   if (!adapter) {

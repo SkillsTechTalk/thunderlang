@@ -29,7 +29,7 @@ test('multi-line string interiors are preserved byte-for-byte', () => {
 
 test('formatting preserves the graph (semantic no-op) across the corpus', () => {
   const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.intent'))) {
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.thunder'))) {
     const src = fs.readFileSync(path.join(dir, f), 'utf8');
     const formatted = formatSource(src);
     assert.equal(graphKey(buildIntentGraph(parseIntent(formatted))), graphKey(buildIntentGraph(parseIntent(src))), `${f} graph changed`);
@@ -39,7 +39,7 @@ test('formatting preserves the graph (semantic no-op) across the corpus', () => 
 
 test('the example corpus is already canonically formatted', () => {
   const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'examples');
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.intent'))) {
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.thunder'))) {
     assert.ok(isFormatted(fs.readFileSync(path.join(dir, f), 'utf8')), `${f} is not formatted , run: intent fmt examples --write`);
   }
 });

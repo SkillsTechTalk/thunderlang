@@ -65,7 +65,7 @@ export function buildGuard(ast, { denyResults, mask = '[redacted]' } = {}) {
 
   function decide(name, inputs) {
     const d = decisions.get(name);
-    if (!d) throw new Error(`intent guard: no decision "${name}"`);
+    if (!d) throw new Error(`thunder guard: no decision "${name}"`);
     const r = evaluateDecision(d, inputs || {});
     return { ...r, allowed: !isDenied(r.result) };
   }
@@ -73,7 +73,7 @@ export function buildGuard(ast, { denyResults, mask = '[redacted]' } = {}) {
   function assertAllowed(name, inputs) {
     const r = decide(name, inputs);
     if (!r.allowed) {
-      const e = new Error(`intent guard: decision "${name}" denied the action (result: ${r.result})`);
+      const e = new Error(`thunder guard: decision "${name}" denied the action (result: ${r.result})`);
       e.code = 'INTENT_GUARD_DENIED';
       e.decision = name;
       e.result = r.result;
@@ -98,7 +98,7 @@ export function compileGuard(intentText, opts) {
   return buildGuard(parseIntent(String(intentText ?? '')), opts);
 }
 
-/** A JSON-able summary of what a guard would enforce (for `intent guard` / audits). */
+/** A JSON-able summary of what a guard would enforce (for `thunder guard` / audits). */
 export function guardSummary(ast) {
   const g = buildGuard(ast);
   return { schema: GUARD_SCHEMA, redactsFields: g.secretFields, enforcesDecisions: g.decisions, neverRules: g.neverRules };

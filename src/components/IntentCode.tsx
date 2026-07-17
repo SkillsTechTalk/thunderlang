@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 
 /**
- * Lightweight, dependency-free highlighter for IntentLang's (pre-1.0) syntax.
+ * Lightweight, dependency-free highlighter for ThunderLang's (pre-1.0) syntax.
  * Intentionally simple (keyword + comment + string tinting) for display only; the
- * canonical grammar lives in the compiler (@skillstech/intentlang), not here.
+ * canonical grammar lives in the compiler (@skillstech/thunderlang), not here.
  */
 
-// Canonical IntentLang keywords are lowercase and mostly line-leading.
+// Canonical ThunderLang keywords are lowercase and mostly line-leading.
 const KEYWORDS = new Set([
   // Mission-level
   "mission",

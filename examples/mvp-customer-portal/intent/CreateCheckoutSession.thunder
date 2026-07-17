@@ -1,0 +1,30 @@
+# CreateCheckoutSession.thunder , MVP Customer Portal / Billing
+# NOTE: intentionally under-verified to demonstrate Risk Radar and a "partial" proof
+# row in the Proof Matrix. This mission would rank high for review.
+
+mission CreateCheckoutSession
+
+goal
+  Start a payment checkout session with the payment provider.
+
+why
+  This mission moves money and calls an external payment API. A mistake here
+  double-charges customers or leaks payment identifiers.
+
+input
+  workspaceId: WorkspaceId
+  planId: PlanId
+
+output
+  checkout: CheckoutSession
+
+guarantees
+  a checkout maps to exactly one plan
+  payment provider errors are surfaced, not swallowed
+
+never
+  log(paymentToken)
+  charge without an active session
+
+verify
+  test one plan per checkout

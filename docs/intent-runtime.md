@@ -33,7 +33,7 @@ decision CanEnroll
 ```
 
 ```
-intent run eligibility.intent --inputs '{"age": 20, "score": 90}'
+intent run eligibility.thunder --inputs '{"age": 20, "score": 90}'
   decision CanEnroll: Eligible  [rule: adult]
     x adult: when age >= 18 and score >= 70
     x provisional: when age >= 18
@@ -58,12 +58,12 @@ traces the path, rejecting any event that is not a legal transition from the cur
 state, and stopping cleanly at terminal states:
 
 ```
-intent simulate enrollment.intent --events submit,approve
+intent simulate enrollment.thunder --events submit,approve
   lifecycle Enrollment: Draft -> Submitted -> Approved  (valid, terminal)
     ok  Draft --submit--> Submitted
     ok  Submitted --approve--> Approved
 
-intent simulate enrollment.intent --events approve
+intent simulate enrollment.thunder --events approve
   lifecycle Enrollment: Draft  (INVALID)
     X   Draft --approve--> Draft  (no transition "approve" from "Draft")
 ```
@@ -77,7 +77,7 @@ Because decisions execute, they can be regression-tested with no code. `checkDec
 runs a decision against a table of `{ inputs, expect }` cases and reports pass/fail:
 
 ```js
-import { parseIntent, checkDecisionCases } from '@skillstech/intentlang';
+import { parseIntent, checkDecisionCases } from '@skillstech/thunderlang';
 const dec = parseIntent(src).decisions[0];
 checkDecisionCases(dec, [
   { inputs: { age: 20, score: 90 }, expect: 'Eligible' },
@@ -89,9 +89,9 @@ checkDecisionCases(dec, [
 
 ## The surface
 
-- CLI: `intent run <file> --inputs '<json>' [--decision <name>]` and
-  `intent simulate <file> --events a,b,c`. Both support `--json` and set exit codes.
-- Library (`@skillstech/intentlang`, schema `intent-runtime-v1`): `evaluateDecision`,
+- CLI: `thunder run <file> --inputs '<json>' [--decision <name>]` and
+  `thunder simulate <file> --events a,b,c`. Both support `--json` and set exit codes.
+- Library (`@skillstech/thunderlang`, schema `intent-runtime-v1`): `evaluateDecision`,
   `simulateLifecycle`, `checkDecisionCases`, and the expression engine `compileExpr` /
   `evalExpr`.
 

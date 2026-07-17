@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Community",
   description:
-    "Get involved with IntentLang, an Intent-Oriented Programming language by SkillsTech. Follow along, share ideas, and help shape the language.",
+    "Get involved with ThunderLang, an Intent-Oriented Programming language by SkillsTech. Follow along, share ideas, and help shape the language.",
   path: "/community",
 });
 
@@ -33,7 +33,7 @@ const channels = [
   },
   {
     title: "SkillsTech ecosystem",
-    body: "IntentLang sits alongside OpenThunder, Repo Mastery, SkillsTech Talk, and Certified.",
+    body: "ThunderLang sits alongside OpenThunder, Repo Mastery, SkillsTech Talk, and Certified.",
     cta: "Read the vision",
     href: "/vision",
     ready: true,
@@ -53,7 +53,7 @@ export default function CommunityPage() {
       <PageHero
         eyebrow="Community"
         title="Help shape a language while it is still forming."
-        intro="IntentLang is early, which means the people who show up now have outsized influence on where it goes. Here is how to follow along and get involved."
+        intro="ThunderLang is early, which means the people who show up now have outsized influence on where it goes. Here is how to follow along and get involved."
       >
         <DraftNote>
           Most community channels are still being set up. The links below marked

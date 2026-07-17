@@ -49,7 +49,7 @@ code against the missions is [OpenThunder](/docs/ecosystem-brief)'s job.
 
 ## Where it comes from (planned)
 
-`intent release ./intent --mvp` is a **planned** command owned by the SkillsTech
+`thunder release ./intent --mvp` is a **planned** command owned by the SkillsTech
 Compiler. It emits the readiness report and the
 [Release Story](/docs/large-changes#release-story). This repo teaches the concept
 and ships the example fixtures.

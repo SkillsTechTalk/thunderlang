@@ -83,7 +83,7 @@ test('all exporters never throw on fuzzed ASTs; JSON outputs parse (1500 cases)'
     }
     // toDesignTokens is always a valid object carrying its provenance extension.
     const dt = toDesignTokens(ast);
-    assert.ok(dt && typeof dt === 'object' && dt.$extensions && dt.$extensions['dev.thunderlang']);
+    assert.ok(dt && typeof dt === 'object' && dt.$extensions && dt.$extensions['dev.intentlanguage']);
   }
 });
 
