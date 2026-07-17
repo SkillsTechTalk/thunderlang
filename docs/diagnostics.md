@@ -9,7 +9,7 @@ the contract: editors, CI, and OpenThunder key off them, and they never change m
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
 same data as JSON with `thunder rules --json`, or one rule with `thunder explain <CODE>`.
 
-63 canonical diagnostics across 19 areas.
+82 canonical diagnostics across 21 areas.
 
 ## AI implementation
 
@@ -163,8 +163,37 @@ same data as JSON with `thunder rules --json`, or one rule with `thunder explain
 | --- | --- | --- | --- |
 | `IL-TEMP-001` | blocker | `verification` | Eventually with no time bound (cannot be verified). |
 
+## twelve-factor
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `IL-12F-01` | info | — | F1 Natural language to tool calls: model dispatch as a decision/command. |
+| `IL-12F-02` | info | — | F2 Own your prompts: behavior is an owned, guaranteed contract, not a black box. |
+| `IL-12F-03` | info | — | F3 Own your context window: declare a scope boundary. |
+| `IL-12F-04` | info | — | F4 Tools are structured outputs: typed I/O + discriminated results. |
+| `IL-12F-05` | info | — | F5 Unify execution + business state: one lifecycle/state model. |
+| `IL-12F-06` | info | — | F6 Launch/pause/resume: a resumable lifecycle with waiting + terminal states. |
+| `IL-12F-07` | info | — | F7 Contact humans with tool calls: a structured approval/human-input gate. |
+| `IL-12F-08` | info | — | F8 Own your control flow: decisions with an explicit default (total control flow). |
+| `IL-12F-09` | info | — | F9 Compact errors into context: named errors + handlers (bounded retry). |
+| `IL-12F-10` | info | — | F10 Small, focused agents: keep operations within ~10 steps (20 max). |
+| `IL-12F-11` | info | — | F11 Trigger from anywhere: declare event triggers. |
+| `IL-12F-12` | info | — | F12 Stateless reducer: pure, replayable decision/lifecycle logic. |
+| `IL-12F-13` | info | — | F13 Pre-fetch context: declare inputs so known data is fetched up front. |
+
 ## Types
 
 | Code | Severity | Blocks | Meaning |
 | --- | --- | --- | --- |
 | `IL-TYPE-001` | info | — | Field uses an unrecognized (likely mistyped) type. |
+
+## verification
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `OT-REQ-001` | error | `<verify-time>` | Reserved for an OpenThunder verify-time rule; OT owns the definition. |
+| `OT-REQ-002` | error | `<verify-time>` | Reserved for an OpenThunder verify-time rule; OT owns the definition. |
+| `OT-REQ-003` | error | `<verify-time>` | Reserved for an OpenThunder verify-time rule; OT owns the definition. |
+| `OT-REQ-004` | error | `<verify-time>` | Reserved for an OpenThunder verify-time rule; OT owns the definition. |
+| `OT-REQ-005` | error | `<verify-time>` | Reserved for an OpenThunder verify-time rule; OT owns the definition. |
+| `OT-REQ-006` | error | `<verify-time>` | Reserved for an OpenThunder verify-time rule; OT owns the definition. |

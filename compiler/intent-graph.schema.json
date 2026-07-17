@@ -41,7 +41,8 @@
     "Event",
     "FailureHandler",
     "Decision",
-    "Rule"
+    "Rule",
+    "Skill"
   ],
   "relationshipTypes": [
     "supported_by",
@@ -63,7 +64,8 @@
     "blocks",
     "teaches",
     "generated_from",
-    "transitions_to"
+    "transitions_to",
+    "requires_skill"
   ],
   "classifications": [
     "observed",
@@ -76,6 +78,8 @@
   ],
   "diagnostics": [
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-PM-001",
       "area": "product",
       "severity": "warning",
@@ -85,6 +89,8 @@
       "summary": "Metric has no measurement window."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-PM-003",
       "area": "product",
       "severity": "warning",
@@ -92,6 +98,8 @@
       "summary": "Outcome has no metric."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-EV-001",
       "area": "evidence",
       "severity": "info",
@@ -99,6 +107,8 @@
       "summary": "Evidence has no classification."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-EV-002",
       "area": "evidence",
       "severity": "warning",
@@ -106,6 +116,8 @@
       "summary": "Evidence has an unknown classification."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GRAPH-010",
       "area": "graph",
       "severity": "blocker",
@@ -115,6 +127,8 @@
       "summary": "Unresolved unknown blocks a phase."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GRAPH-011",
       "area": "graph",
       "severity": "blocker",
@@ -124,6 +138,8 @@
       "summary": "Open question blocks a phase."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-EXP-001",
       "area": "experience",
       "severity": "info",
@@ -131,6 +147,8 @@
       "summary": "Experience declares no states."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-EXP-004",
       "area": "experience",
       "severity": "blocker",
@@ -141,6 +159,8 @@
       "summary": "Failure state has no recovery path."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-CONFLICT-001",
       "area": "conflict",
       "severity": "blocker",
@@ -150,6 +170,8 @@
       "summary": "Declared conflict is unresolved."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-CONFLICT-010",
       "area": "conflict",
       "severity": "blocker",
@@ -159,6 +181,8 @@
       "summary": "Scope includes and excludes the same item."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-CONFLICT-011",
       "area": "conflict",
       "severity": "info",
@@ -166,6 +190,8 @@
       "summary": "Redundant constraint from multiple roles."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-CONFLICT-012",
       "area": "conflict",
       "severity": "blocker",
@@ -175,6 +201,8 @@
       "summary": "Directly contradictory constraints."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GOV-001",
       "area": "governance",
       "severity": "error",
@@ -182,6 +210,8 @@
       "summary": "Waiver names no diagnostic code."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GOV-002",
       "area": "governance",
       "severity": "error",
@@ -189,6 +219,8 @@
       "summary": "Waiver has no reason."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GOV-003",
       "area": "governance",
       "severity": "error",
@@ -196,6 +228,8 @@
       "summary": "Waiver names no approver."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GOV-004",
       "area": "governance",
       "severity": "warning",
@@ -203,6 +237,8 @@
       "summary": "Waiver matches no current diagnostic (stale)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-GOV-005",
       "area": "governance",
       "severity": "error",
@@ -210,6 +246,8 @@
       "summary": "Waiver has expired."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DATA-001",
       "area": "privacy",
       "severity": "blocker",
@@ -219,6 +257,8 @@
       "summary": "Sensitive data held with no stated purpose."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DATA-002",
       "area": "privacy",
       "severity": "warning",
@@ -226,6 +266,8 @@
       "summary": "Sensitive data has no retention rule."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DATA-003",
       "area": "privacy",
       "severity": "blocker",
@@ -235,6 +277,8 @@
       "summary": "Sensitive data declares no lawful basis."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DATA-004",
       "area": "privacy",
       "severity": "warning",
@@ -242,6 +286,8 @@
       "summary": "Data has an unknown classification."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DATA-005",
       "area": "privacy",
       "severity": "warning",
@@ -249,6 +295,8 @@
       "summary": "Unrecognized lawful basis."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DATA-006",
       "area": "privacy",
       "severity": "warning",
@@ -256,6 +304,8 @@
       "summary": "Sensitive data exposed as output with no guard."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-OC-001",
       "area": "outcome",
       "severity": "blocker",
@@ -265,6 +315,8 @@
       "summary": "Outcome contract has no target (cannot be evaluated)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-OC-002",
       "area": "outcome",
       "severity": "warning",
@@ -272,6 +324,8 @@
       "summary": "Outcome contract names no metric."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-OC-003",
       "area": "outcome",
       "severity": "blocker",
@@ -281,6 +335,8 @@
       "summary": "Outcome contract has no measurement window."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-OC-004",
       "area": "outcome",
       "severity": "warning",
@@ -288,6 +344,8 @@
       "summary": "Outcome contract target is not better than its baseline."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-OC-005",
       "area": "outcome",
       "severity": "warning",
@@ -295,6 +353,8 @@
       "summary": "Outcome contract has a target but no guardrails (the target is gameable)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-OC-006",
       "area": "outcome",
       "severity": "info",
@@ -302,6 +362,8 @@
       "summary": "Outcome contract has no attribution (correlation is not causation)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DEC-001",
       "area": "decision",
       "severity": "blocker",
@@ -311,6 +373,8 @@
       "summary": "Decision has no default (undefined when no rule matches)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DEC-002",
       "area": "decision",
       "severity": "blocker",
@@ -320,6 +384,8 @@
       "summary": "Two rules fire on the same condition with different results."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DEC-003",
       "area": "decision",
       "severity": "info",
@@ -327,6 +393,8 @@
       "summary": "Redundant rule, identical to another (dead)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DEC-004",
       "area": "decision",
       "severity": "warning",
@@ -334,6 +402,8 @@
       "summary": "Decision has no rules."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DIST-001",
       "area": "distributed",
       "severity": "blocker",
@@ -343,6 +413,8 @@
       "summary": "Retry without an idempotency key (duplicates work)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DIST-002",
       "area": "distributed",
       "severity": "blocker",
@@ -352,6 +424,8 @@
       "summary": "Retried or remote command with no timeout."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DIST-003",
       "area": "distributed",
       "severity": "blocker",
@@ -361,6 +435,8 @@
       "summary": "At-least-once delivery without duplicate handling."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DIST-004",
       "area": "distributed",
       "severity": "blocker",
@@ -370,6 +446,8 @@
       "summary": "Permanent failure with no compensation."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-DIST-005",
       "area": "distributed",
       "severity": "error",
@@ -377,6 +455,8 @@
       "summary": "Handler references an undeclared event."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-LIFE-001",
       "area": "lifecycle",
       "severity": "error",
@@ -384,6 +464,8 @@
       "summary": "Transition references an undefined state."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-LIFE-002",
       "area": "lifecycle",
       "severity": "warning",
@@ -391,6 +473,8 @@
       "summary": "Unreachable state."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-LIFE-003",
       "area": "lifecycle",
       "severity": "warning",
@@ -398,6 +482,8 @@
       "summary": "Non-terminal dead-end state (no way out)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-LIFE-004",
       "area": "lifecycle",
       "severity": "warning",
@@ -405,6 +491,8 @@
       "summary": "Lifecycle has no initial state."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-TEMP-001",
       "area": "temporal",
       "severity": "blocker",
@@ -414,6 +502,8 @@
       "summary": "Eventually with no time bound (cannot be verified)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-STYLE-001",
       "area": "style",
       "severity": "warning",
@@ -421,6 +511,8 @@
       "summary": "Style intent binds a token outside the canonical address space."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-STYLE-002",
       "area": "style",
       "severity": "warning",
@@ -428,6 +520,8 @@
       "summary": "Unrecognized accessibility target."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-STYLE-003",
       "area": "style",
       "severity": "info",
@@ -435,6 +529,8 @@
       "summary": "Style intent declares no accessibility target (a proposed claim)."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-STYLE-004",
       "area": "style",
       "severity": "warning",
@@ -442,6 +538,8 @@
       "summary": "Invalid mode token value."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-STYLE-005",
       "area": "style",
       "severity": "info",
@@ -449,6 +547,8 @@
       "summary": "Style intent applies to an undeclared experience."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-SEC-001",
       "area": "security",
       "severity": "blocker",
@@ -458,6 +558,8 @@
       "summary": "Secret-typed field travels over the event bus."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-SEC-002",
       "area": "security",
       "severity": "blocker",
@@ -467,11 +569,130 @@
       "summary": "API returns a secret with no auth requirement."
     },
     {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-TYPE-001",
       "area": "type",
       "severity": "info",
       "blocks": [],
       "summary": "Field uses an unrecognized (likely mistyped) type."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-01",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F1 Natural language to tool calls: model dispatch as a decision/command."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-02",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F2 Own your prompts: behavior is an owned, guaranteed contract, not a black box."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-03",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F3 Own your context window: declare a scope boundary."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-04",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F4 Tools are structured outputs: typed I/O + discriminated results."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-05",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F5 Unify execution + business state: one lifecycle/state model."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-06",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F6 Launch/pause/resume: a resumable lifecycle with waiting + terminal states."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-07",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F7 Contact humans with tool calls: a structured approval/human-input gate."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-08",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F8 Own your control flow: decisions with an explicit default (total control flow)."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-09",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F9 Compact errors into context: named errors + handlers (bounded retry)."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-10",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F10 Small, focused agents: keep operations within ~10 steps (20 max)."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-11",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F11 Trigger from anywhere: declare event triggers."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-12",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F12 Stateless reducer: pure, replayable decision/lifecycle logic."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
+      "ruleId": "IL-12F-13",
+      "area": "twelve-factor",
+      "severity": "info",
+      "blocks": [],
+      "summary": "F13 Pre-fetch context: declare inputs so known data is fetched up front."
     }
   ],
   "jsonSchema": {
@@ -561,7 +782,8 @@
               "Event",
               "FailureHandler",
               "Decision",
-              "Rule"
+              "Rule",
+              "Skill"
             ]
           },
           "title": {
@@ -674,7 +896,8 @@
               "blocks",
               "teaches",
               "generated_from",
-              "transitions_to"
+              "transitions_to",
+              "requires_skill"
             ]
           },
           "to": {
