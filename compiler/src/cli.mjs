@@ -129,6 +129,8 @@ function parseArgs(argv) {
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
     else if (a === '--all') args.all = true;
+    else if (a === '--contracts') args.contracts = true;
+    else if (a === '--strict') args.strict = true;
     else if (a === '--ir') args.ir = argv[++i];
     else if (a === '--subject') args.subject = argv[++i];
     else if (a === '--lens') args.lens = argv[++i];
@@ -958,6 +960,42 @@ test Example
   // Self-verifying intent: run the `test` blocks in a .intent file (decisions + lifecycles).
   if (cmd === 'test') {
     const ast = parseIntent(readFileSync(file, 'utf8'));
+
+    // Contract-test derivation: every `guarantee` and `never` is a test obligation.
+    // Honest resolution: no verification -> UNVERIFIED (never silently PASS); a declared
+    // verification with the file's checks green -> PASS; a failing in-file check -> FAIL.
+    // `--strict` also fails the run on any UNVERIFIED obligation (CI: nothing left unproven).
+    if (args.contracts) {
+      const t = runTests(ast);
+      const testsFailed = t.total > 0 && !t.ok;
+      const build = (kind, o) => {
+        const hasVerify = (o.verify || []).length > 0;
+        const status = !hasVerify ? 'unverified' : testsFailed ? 'failed' : 'verified';
+        return { kind, id: o.id, text: o.statement, status, verify: o.verify || [], declaredOnly: hasVerify && t.total === 0 };
+      };
+      const obligations = [
+        ...ast.guarantees.map((g) => build('guarantee', g)),
+        ...ast.neverRules.map((n) => build('prohibition', n)),
+      ];
+      const count = (s) => obligations.filter((o) => o.status === s).length;
+      const rep = { schema: 'thunder-contracts-v1', mission: ast.mission, file: basename(file),
+        total: obligations.length, verified: count('verified'), unverified: count('unverified'),
+        failed: count('failed'), obligations };
+      const bad = rep.failed > 0 || (args.strict && rep.unverified > 0);
+      if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
+      if (!rep.total) { console.log(`thunder test ${basename(file)} --contracts: no guarantees or prohibitions declared.`); return; }
+      console.log(`thunder test ${basename(file)} --contracts: ${rep.total} obligation(s), ${rep.verified} verified, ${rep.unverified} unverified${rep.failed ? `, ${rep.failed} failed` : ''}`);
+      for (const o of obligations) {
+        const label = o.status === 'verified' ? 'PASS' : o.status === 'failed' ? 'FAIL' : 'UNVERIFIED';
+        const via = o.verify.length ? `  via ${o.verify.join(', ')}` : '  (nothing verifies this)';
+        const note = o.declaredOnly ? '  [declared, runs in target mode]' : '';
+        console.log(`  ${label.padEnd(10)} ${o.kind} ${o.id}: ${o.text}${via}${note}`);
+      }
+      if (args.strict && rep.unverified) console.log(`\n  strict: ${rep.unverified} unverified obligation(s) , run fails until every claim carries a verification.`);
+      process.exit(bad ? 1 : 0);
+      return;
+    }
+
     const r = runTests(ast);
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); return; }
     if (r.total === 0) { console.log(`thunder test ${basename(file)}: no test blocks found.`); return; }
