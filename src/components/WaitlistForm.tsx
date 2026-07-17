@@ -9,7 +9,7 @@ type State =
   | { kind: "unconfigured" }
   | { kind: "error"; message: string };
 
-const CONTACT_EMAIL = "hello@thunderlang.dev";
+const CONTACT_EMAIL = "support@skillstechtalk.com";
 
 export function WaitlistForm() {
   const [email, setEmail] = useState("");
@@ -100,7 +100,7 @@ export function WaitlistForm() {
         <p className="mt-3 text-sm text-red-300">{state.message}</p>
       )}
       <p className="mt-3 text-xs text-haze-500">
-        No spam. We&apos;ll only email about Intent milestones. You can also reach
+        No spam. We&apos;ll only email about ThunderLang milestones. You can also reach
         us at{" "}
         <a
           href={`mailto:${CONTACT_EMAIL}`}

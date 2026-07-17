@@ -215,6 +215,7 @@ function parseInvariant(name, node) {
   for (const c of kids(node)) {
     const k = firstWord(c.text);
     if (k === 'verify') inv.verify.push(rest(c.text));
+    else if (k === 'id') { const v = rest(c.text); if (v) { inv.id = v; inv.stableId = v; } }
     else if (k === 'because') inv.because = rest(c.text);
     else if (k === 'statement') inv.statement = rest(c.text) || leafItems(c).join(' ');
     else if (k === 'scope') inv.scope = (rest(c.text) || leafItems(c).join(' ')).toLowerCase();
@@ -300,6 +301,9 @@ function applyDetail(rule, node) {
     const kw = firstWord(c.text);
     if (kw === 'because') rule.because = rest(c.text) || (c.children[0] && c.children[0].text) || null;
     else if (kw === 'verify') rule.verify.push(rest(c.text) || (c.children[0] && c.children[0].text) || '');
+    // Explicit stable id (e.g. `id INV-G-001`): survives renames and moved files so semantic
+    // diffs, traceability, and durable proof stay stable. Falls back to the slug when absent.
+    else if (kw === 'id') { const v = rest(c.text) || (c.children[0] && c.children[0].text); if (v) { rule.id = v; rule.stableId = v; } }
     else if (isNote(c)) rule.notes.push(parseNoteNode(c));
   }
   rule.verify = rule.verify.filter(Boolean);

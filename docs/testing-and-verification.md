@@ -114,10 +114,15 @@ guarantee EveryInvoiceIsAuditable
 
 Goals, requirements, guarantees, prohibitions, scenarios, and tests need stable IDs so semantic diffs, traceability, and proof survive renames and moved files.
 
+An explicit `id` on a guarantee or `never` rule is supported today and flows through to the proof; without one, the compiler falls back to a slug of the statement.
+
 ```thunder
-never expose_payment_token
+guarantee total is never negative
+  id INV-G-001
+  verify total test
+
+never expose payment token in logs
   id INV-N-004
-  paymentToken appears in logs
 ```
 
 ## Proof freshness

@@ -45,3 +45,16 @@ test('thunder prove writes a .thunder-proof.json next to the source', () => {
   prove(file);
   assert.ok(existsSync(join(tmp, 'billing.thunder-proof.json')), 'proof artifact written');
 });
+
+test('explicit stable ids override the slug in guarantees and never-rules', () => {
+  const file = write('Ids.thunder', `mission Billing
+guarantee total is never negative
+  id INV-G-001
+  verify total test
+never expose payment token in logs
+  id INV-N-004
+`);
+  const out = JSON.parse(prove(file, ['--json']).stdout);
+  assert.equal(out.guarantees[0].id, 'INV-G-001', 'guarantee keeps its explicit stable id');
+  assert.equal(out.neverRules[0].id, 'INV-N-004', 'never-rule keeps its explicit stable id');
+});
