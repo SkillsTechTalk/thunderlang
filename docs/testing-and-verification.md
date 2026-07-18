@@ -247,6 +247,13 @@ $ thunder conform CreateInvoice.thunder --results targets.json
 
 Without `--results`, targets show as declared (the contract, awaiting each target's outputs).
 
+For the TypeScript/JS target, ThunderLang can execute the generated code itself: `thunder test <file> --target typescript` runs the tests against the executed generated decision (proving the codegen is faithful to the intent), and `thunder conform <file> --run typescript` fills the TypeScript column from that live run instead of fed results.
+
+```text
+$ thunder test enroll.thunder --target typescript
+thunder test enroll.thunder --target typescript: 2/2 passed (executed generated code)
+```
+
 ## Change-impact selection
 
 `thunder test --changed [<range>]` is supported today. It does not merely inspect modified files: it uses the Intent Graph to select the changed intents plus any intent that shares an event, service, or API symbol with a changed one, then runs their tests. A change to a producer selects its consumers, even though their files were untouched.
