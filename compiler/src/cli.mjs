@@ -56,10 +56,22 @@ import { runMutations } from './mutate.mjs';
 import { buildConformance } from './conformance.mjs';
 import { semanticCoverage } from './coverage.mjs';
 import { runTypescriptTarget } from './target-ts.mjs';
-import { runPythonTarget } from './target-py.mjs';
-import { runCSharpTarget } from './target-cs.mjs';
-import { runJavaTarget } from './target-java.mjs';
+import { runPythonTarget, pythonAvailable } from './target-py.mjs';
+import { runCSharpTarget, csharpAvailable } from './target-cs.mjs';
+import { runJavaTarget, javaAvailable } from './target-java.mjs';
 
+// The live-target registry: one entry per canonical target that can be compiled + executed.
+// `available()` is a (cached) toolchain probe; TypeScript/JS runs in-process so it is always live.
+const LIVE_TARGETS = [
+  { key: 'typescript', run: runTypescriptTarget, available: () => true },
+  { key: 'python', run: runPythonTarget, available: pythonAvailable },
+  { key: 'csharp', run: runCSharpTarget, available: csharpAvailable },
+  { key: 'java', run: runJavaTarget, available: javaAvailable },
+];
+const LIVE_BY_KEY = new Map(LIVE_TARGETS.map((t) => [t.key, t]));
+LIVE_BY_KEY.set('javascript', LIVE_BY_KEY.get('typescript')); // js is the same in-process runner
+// All canonical targets available to run right now (used by --all-targets).
+const availableLiveTargets = () => LIVE_TARGETS.filter((t) => t.available());
 const RUNNABLE_TARGETS = new Set(['typescript', 'ts', 'javascript', 'js', 'python', 'py', 'csharp', 'cs', 'c#', 'java']);
 // Map an alias to its canonical target key + the adapter that executes it.
 const TARGET_ALIASES = { ts: 'typescript', js: 'javascript', py: 'python', cs: 'csharp', 'c#': 'csharp' };
@@ -67,12 +79,8 @@ const canonicalTarget = (t) => TARGET_ALIASES[String(t).toLowerCase()] || String
 // Execute a live target. Returns { "Test / case": actual } or null if the target can't run
 // (e.g. the runtime/SDK is not installed). Unknown targets return null.
 function runLiveTarget(ast, target) {
-  const key = canonicalTarget(target);
-  if (key === 'typescript' || key === 'javascript') return runTypescriptTarget(ast);
-  if (key === 'python') return runPythonTarget(ast);
-  if (key === 'csharp') return runCSharpTarget(ast);
-  if (key === 'java') return runJavaTarget(ast);
-  return null;
+  const entry = LIVE_BY_KEY.get(canonicalTarget(target));
+  return entry ? entry.run(ast) : null;
 }
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
@@ -246,6 +254,7 @@ function parseArgs(argv) {
     else if (a === '--learning') args.learning = true;
     else if (a === '--governed') args.governed = true;
     else if (a === '--target') args.target = argv[++i];
+    else if (a === '--all-targets') args.allTargets = true;
     else if (a === '--env') args.env = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
@@ -322,6 +331,7 @@ Everyday
   run <file> --inputs '<json>'         execute the decision(s) deterministically
   test <file> [--contracts | --properties | --scenarios | --mutate | --evals | --changed | --coverage] [--strict]
   test <file> --target typescript|python|csharp|java   run the tests against the EXECUTED generated code
+  test <file> --all-targets            run the tests against every AVAILABLE target in one pass
   prove <file>             emit an intent-proof-v1 artifact (honest verdicts + freshness)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
   build <file>             generate docs, contract graph, test plan, targets
@@ -351,7 +361,7 @@ Author & check
   proof <file>              the .thunder-proof.json artifact
   proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
-  conform <file> [--targets a,b] [--run typescript,python,csharp,java] [--results <json>]  run the same cases against every target (conformance matrix)
+  conform <file> [--targets a,b] [--run typescript,python,csharp,java | --all-targets] [--results <json>]  run the same cases against every target (conformance matrix)
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
@@ -1243,6 +1253,42 @@ test Example
       return;
     }
 
+    // All-targets mode: run the tests against EVERY target whose toolchain is available, in one
+    // pass, and report each target's pass count side by side. `thunder test <file> --all-targets`.
+    if (args.allTargets) {
+      const gradeCases = (actual) => {
+        const cs = [];
+        for (const t of ast.tests || []) {
+          if (!(ast.decisions || []).some((d) => d.name === t.name)) continue;
+          for (const c of t.cases || []) {
+            const key = `${t.name} / ${c.name || 'case'}`;
+            const act = actual[key];
+            cs.push({ key, expected: c.expect, actual: act, pass: c.expect == null || String(act) === String(c.expect) });
+          }
+        }
+        return cs;
+      };
+      const report = LIVE_TARGETS.map((t) => {
+        const actual = t.available() ? t.run(ast) : null;
+        if (actual === null) return { target: t.key, status: 'skipped', reason: `${t.key} toolchain not available` };
+        const cases = gradeCases(actual);
+        const passed = cases.filter((c) => c.pass).length;
+        return { target: t.key, status: passed === cases.length ? 'pass' : 'fail', total: cases.length, passed, cases };
+      });
+      const bad = report.some((r) => r.status === 'fail');
+      if (args.json) { console.log(JSON.stringify({ schema: 'thunder-all-targets-v1', mission: ast.mission, file: basename(file), targets: report }, null, 2)); process.exit(bad ? 1 : 0); return; }
+      const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+      const ran = report.filter((r) => r.status !== 'skipped');
+      console.log(`thunder test ${basename(file)} --all-targets: ${ran.length}/${report.length} target(s) executed`);
+      for (const r of report) {
+        if (r.status === 'skipped') { console.log(`  SKIP  ${cap(r.target).padEnd(12)} (toolchain not available)`); continue; }
+        console.log(`  ${r.status === 'pass' ? 'PASS' : 'FAIL'}  ${cap(r.target).padEnd(12)} ${r.passed}/${r.total} passed (executed generated code)`);
+        for (const c of r.cases) if (!c.pass) console.log(`          FAIL ${c.key} , expected ${c.expected}, got ${c.actual}`);
+      }
+      process.exit(bad ? 1 : 0);
+      return;
+    }
+
     // Target mode: run the tests against the GENERATED TypeScript (executed for real), not the
     // semantic engine. Proves the generated implementation is faithful to the intent.
     // `thunder test <file> --target typescript`.
@@ -1461,9 +1507,21 @@ test Example
       try { results = existsSync(args.results) ? JSON.parse(readFileSync(args.results, 'utf8')) : JSON.parse(args.results); }
       catch { console.error('thunder conform: --results must be JSON of {target: {"Test / case": result}} (file path or inline)'); process.exit(2); return; }
     }
-    const targets = (args.targets && args.targets.length ? args.targets : (ast.targets || [])).map((t) => canonicalTarget(t));
-    // --run <targets>: execute a live target (TypeScript/JS/Python) and grade its real outputs.
-    // A null result (e.g. python3 not installed) is skipped, leaving that target "declared".
+    let targets = (args.targets && args.targets.length ? args.targets : (ast.targets || [])).map((t) => canonicalTarget(t));
+    const skippedTargets = [];
+    // --all-targets: execute EVERY target whose toolchain is available in one pass, and show all
+    // live targets as columns (unavailable ones stay "declared" with a skipped note).
+    if (args.allTargets) {
+      results = results || {};
+      targets = Array.from(new Set([...targets, ...LIVE_TARGETS.map((t) => t.key)]));
+      for (const t of LIVE_TARGETS) {
+        if (!t.available()) { skippedTargets.push(t.key); continue; }
+        const actual = t.run(ast);
+        if (actual !== null) results[t.key] = actual; else skippedTargets.push(t.key);
+      }
+    }
+    // --run <targets>: execute specific live targets (TypeScript/JS/Python/C#/Java) and grade real
+    // outputs. A null result (e.g. the SDK is not installed) is skipped, leaving it "declared".
     if (args.run && args.run.length) {
       results = results || {};
       for (const rt of args.run) {
@@ -1474,6 +1532,7 @@ test Example
       }
     }
     const rep = buildConformance(ast, { targets, results });
+    if (skippedTargets.length) rep.skipped = Array.from(new Set(skippedTargets));
     const bad = rep.semanticFailures > 0 || rep.failures.length > 0;
     if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
     if (!rep.total) { console.log(`thunder conform ${basename(file)}: no test cases to conform.`); return; }
@@ -1500,6 +1559,10 @@ test Example
       console.log(`    Case:     ${f.case}`);
       console.log(`    Expected: ${f.expected}`);
       console.log(`    Actual:   ${f.actual}`);
+    }
+    if (rep.skipped && rep.skipped.length) {
+      console.log('');
+      console.log(`  Skipped (toolchain not available, left declared): ${rep.skipped.map(cap).join(', ')}`);
     }
     process.exit(bad ? 1 : 0);
     return;

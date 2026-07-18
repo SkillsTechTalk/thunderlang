@@ -267,6 +267,17 @@ $ thunder test enroll.thunder --target java
 thunder test enroll.thunder --target java: 2/2 passed (executed generated code)
 ```
 
+`--all-targets` runs every target whose toolchain is available in a single pass, so you see all implementations side by side without naming each one. `thunder test <file> --all-targets` reports each target's pass count (and skips the ones whose runtime is missing); `thunder conform <file> --all-targets` fills the whole conformance matrix at once, leaving unavailable targets declared.
+
+```text
+$ thunder test enroll.thunder --all-targets
+thunder test enroll.thunder --all-targets: 2/4 target(s) executed
+  PASS  Typescript   2/2 passed (executed generated code)
+  PASS  Python       2/2 passed (executed generated code)
+  SKIP  Csharp       (toolchain not available)
+  SKIP  Java         (toolchain not available)
+```
+
 ## Change-impact selection
 
 `thunder test --changed [<range>]` is supported today. It does not merely inspect modified files: it uses the Intent Graph to select the changed intents plus any intent that shares an event, service, or API symbol with a changed one, then runs their tests. A change to a producer selects its consumers, even though their files were untouched.
