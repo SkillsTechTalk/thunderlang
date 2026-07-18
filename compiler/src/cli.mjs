@@ -57,17 +57,21 @@ import { buildConformance } from './conformance.mjs';
 import { semanticCoverage } from './coverage.mjs';
 import { runTypescriptTarget } from './target-ts.mjs';
 import { runPythonTarget } from './target-py.mjs';
+import { runCSharpTarget } from './target-cs.mjs';
+import { runJavaTarget } from './target-java.mjs';
 
-const RUNNABLE_TARGETS = new Set(['typescript', 'ts', 'javascript', 'js', 'python', 'py']);
+const RUNNABLE_TARGETS = new Set(['typescript', 'ts', 'javascript', 'js', 'python', 'py', 'csharp', 'cs', 'c#', 'java']);
 // Map an alias to its canonical target key + the adapter that executes it.
-const TARGET_ALIASES = { ts: 'typescript', js: 'javascript', py: 'python' };
+const TARGET_ALIASES = { ts: 'typescript', js: 'javascript', py: 'python', cs: 'csharp', 'c#': 'csharp' };
 const canonicalTarget = (t) => TARGET_ALIASES[String(t).toLowerCase()] || String(t).toLowerCase();
 // Execute a live target. Returns { "Test / case": actual } or null if the target can't run
-// (e.g. python3 not installed). Unknown targets return null.
+// (e.g. the runtime/SDK is not installed). Unknown targets return null.
 function runLiveTarget(ast, target) {
   const key = canonicalTarget(target);
   if (key === 'typescript' || key === 'javascript') return runTypescriptTarget(ast);
   if (key === 'python') return runPythonTarget(ast);
+  if (key === 'csharp') return runCSharpTarget(ast);
+  if (key === 'java') return runJavaTarget(ast);
   return null;
 }
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
@@ -317,7 +321,7 @@ Everyday
   check <file|dir>         parse + lint + explainable diagnostics
   run <file> --inputs '<json>'         execute the decision(s) deterministically
   test <file> [--contracts | --properties | --scenarios | --mutate | --evals | --changed | --coverage] [--strict]
-  test <file> --target typescript|python   run the tests against the EXECUTED generated code
+  test <file> --target typescript|python|csharp|java   run the tests against the EXECUTED generated code
   prove <file>             emit an intent-proof-v1 artifact (honest verdicts + freshness)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
   build <file>             generate docs, contract graph, test plan, targets
@@ -347,7 +351,7 @@ Author & check
   proof <file>              the .thunder-proof.json artifact
   proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
-  conform <file> [--targets a,b] [--run typescript,python] [--results <json>]  run the same cases against every target (conformance matrix)
+  conform <file> [--targets a,b] [--run typescript,python,csharp,java] [--results <json>]  run the same cases against every target (conformance matrix)
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
@@ -1457,7 +1461,7 @@ test Example
       try { results = existsSync(args.results) ? JSON.parse(readFileSync(args.results, 'utf8')) : JSON.parse(args.results); }
       catch { console.error('thunder conform: --results must be JSON of {target: {"Test / case": result}} (file path or inline)'); process.exit(2); return; }
     }
-    const targets = (args.targets && args.targets.length ? args.targets : (ast.targets || [])).map((t) => String(t).toLowerCase());
+    const targets = (args.targets && args.targets.length ? args.targets : (ast.targets || [])).map((t) => canonicalTarget(t));
     // --run <targets>: execute a live target (TypeScript/JS/Python) and grade its real outputs.
     // A null result (e.g. python3 not installed) is skipped, leaving that target "declared".
     if (args.run && args.run.length) {

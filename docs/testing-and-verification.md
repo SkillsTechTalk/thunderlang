@@ -247,7 +247,14 @@ $ thunder conform CreateInvoice.thunder --results targets.json
 
 Without `--results`, targets show as declared (the contract, awaiting each target's outputs).
 
-ThunderLang can execute a live target itself instead of grading fed results. The TypeScript/JS adapter compiles each decision with the same expression translator the codegen uses and runs it in-process; the Python adapter emits the equivalent Python and runs it through a real `python3` child process. `thunder test <file> --target typescript|python` runs the tests against the executed generated decision (proving the codegen is faithful to the intent), and `thunder conform <file> --run typescript,python` fills those columns from live runs instead of fed results. If a runtime is absent (for example, `python3` is not installed), that target is skipped cleanly rather than failing, and stays declared in the conformance matrix.
+ThunderLang can execute a live target itself instead of grading fed results. Each adapter compiles every decision with the same expression translator the codegen uses, runs the test cases through it, and grades the real outputs:
+
+- **TypeScript/JS** , compiled and run in-process.
+- **Python** , emitted and run through a real `python3` child process.
+- **C#** , emitted as a typed program and run through a throwaway `dotnet` console project.
+- **Java** , emitted as a typed program and run through the JDK 11+ single-file launcher (`java ThunderTarget.java`).
+
+`thunder test <file> --target typescript|python|csharp|java` runs the tests against the executed generated decision (proving the codegen is faithful to the intent), and `thunder conform <file> --run typescript,python,csharp,java` fills those columns from live runs instead of fed results. Because C# and Java are statically typed, each decision parameter's type is inferred from the test-case values it receives (numeric usage wins, then boolean, else string). If a runtime is absent (for example, no `python3`, JDK, or .NET SDK is installed), that target is skipped cleanly rather than failing, and stays declared in the conformance matrix.
 
 ```text
 $ thunder test enroll.thunder --target typescript
@@ -255,6 +262,9 @@ thunder test enroll.thunder --target typescript: 2/2 passed (executed generated 
 
 $ thunder test enroll.thunder --target python
 thunder test enroll.thunder --target python: 2/2 passed (executed generated code)
+
+$ thunder test enroll.thunder --target java
+thunder test enroll.thunder --target java: 2/2 passed (executed generated code)
 ```
 
 ## Change-impact selection
