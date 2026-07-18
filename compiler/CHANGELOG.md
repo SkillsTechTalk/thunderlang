@@ -3,9 +3,13 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
-## 0.1.9
+## 0.2.0
 
 The cross-language target execution release. Additive; no breaking changes.
+
+Version alignment: starting with 0.2.0, ThunderLang and OpenThunder version in lockstep, since most
+OpenThunder changes land in the language first. (0.1.8 and 0.1.9 were never published; the last
+release on npm was 0.1.7.)
 
 - **Live target adapters.** `thunder test <file> --target typescript|python|csharp|java` and
   `thunder conform <file> --run <targets>` now compile the generated decision(s) and execute them
