@@ -17,10 +17,11 @@ const CS_TYPE = { number: 'double', bool: 'bool', string: 'string' };
 // implicit restore is offline.
 function dotnetRun(dir, source) {
   const proj = join(dir, 'app');
-  const mk = spawnSync('dotnet', ['new', 'console', '-o', proj, '--nologo'], { encoding: 'utf8', timeout: 120000 });
+  const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1' };
+  const mk = spawnSync('dotnet', ['new', 'console', '-o', proj], { encoding: 'utf8', timeout: 120000, env });
   if (mk.status !== 0) return null;
   writeFileSync(join(proj, 'Program.cs'), source);
-  const run = spawnSync('dotnet', ['run', '--project', proj, '-c', 'Release', '--nologo'], { encoding: 'utf8', timeout: 240000 });
+  const run = spawnSync('dotnet', ['run', '--project', proj, '-c', 'Release'], { encoding: 'utf8', timeout: 240000, env });
   if (run.status !== 0) return null;
   return run.stdout;
 }
