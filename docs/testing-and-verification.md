@@ -247,11 +247,14 @@ $ thunder conform CreateInvoice.thunder --results targets.json
 
 Without `--results`, targets show as declared (the contract, awaiting each target's outputs).
 
-For the TypeScript/JS target, ThunderLang can execute the generated code itself: `thunder test <file> --target typescript` runs the tests against the executed generated decision (proving the codegen is faithful to the intent), and `thunder conform <file> --run typescript` fills the TypeScript column from that live run instead of fed results.
+ThunderLang can execute a live target itself instead of grading fed results. The TypeScript/JS adapter compiles each decision with the same expression translator the codegen uses and runs it in-process; the Python adapter emits the equivalent Python and runs it through a real `python3` child process. `thunder test <file> --target typescript|python` runs the tests against the executed generated decision (proving the codegen is faithful to the intent), and `thunder conform <file> --run typescript,python` fills those columns from live runs instead of fed results. If a runtime is absent (for example, `python3` is not installed), that target is skipped cleanly rather than failing, and stays declared in the conformance matrix.
 
 ```text
 $ thunder test enroll.thunder --target typescript
 thunder test enroll.thunder --target typescript: 2/2 passed (executed generated code)
+
+$ thunder test enroll.thunder --target python
+thunder test enroll.thunder --target python: 2/2 passed (executed generated code)
 ```
 
 ## Change-impact selection

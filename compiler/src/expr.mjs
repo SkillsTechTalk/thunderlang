@@ -203,19 +203,22 @@ export function evalExpr(src, inputs = {}) {
 
 // Per-language rendering of the `when` grammar. `eq`/`neq` build an equality expression (JS uses
 // ===, C# ==, Java Objects.equals for correct string value equality); `inList` builds membership.
+// C-family boolean/logic defaults (js, csharp, java share these).
+const C_LOGIC = { and: (a, b) => `(${a} && ${b})`, or: (a, b) => `(${a} || ${b})`, not: (a) => `!${a}`, bool: (v) => String(v) };
 const DIALECTS = {
-  js: { eq: (a, b) => `${a} === ${b}`, neq: (a, b) => `${a} !== ${b}`, inList: (list, x) => `[${list.join(', ')}].includes(${x})`, nil: 'undefined' },
-  csharp: { eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `new[]{${list.join(', ')}}.Contains(${x})`, nil: 'null' },
-  java: { eq: (a, b) => `java.util.Objects.equals(${a}, ${b})`, neq: (a, b) => `!java.util.Objects.equals(${a}, ${b})`, inList: (list, x) => `java.util.List.of(${list.join(', ')}).contains(${x})`, nil: 'null' },
+  js: { ...C_LOGIC, eq: (a, b) => `${a} === ${b}`, neq: (a, b) => `${a} !== ${b}`, inList: (list, x) => `[${list.join(', ')}].includes(${x})`, nil: 'undefined' },
+  csharp: { ...C_LOGIC, eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `new[]{${list.join(', ')}}.Contains(${x})`, nil: 'null' },
+  java: { ...C_LOGIC, eq: (a, b) => `java.util.Objects.equals(${a}, ${b})`, neq: (a, b) => `!java.util.Objects.equals(${a}, ${b})`, inList: (list, x) => `java.util.List.of(${list.join(', ')}).contains(${x})`, nil: 'null' },
+  python: { and: (a, b) => `(${a} and ${b})`, or: (a, b) => `(${a} or ${b})`, not: (a) => `(not ${a})`, bool: (v) => (v ? 'True' : 'False'), eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `${x} in [${list.join(', ')}]`, nil: 'None' },
 };
 
 function renderExpr(src, inputs, D) {
   const known = new Set(inputs);
   const r = (n) => {
     switch (n.k) {
-      case 'or': return `(${r(n.a)} || ${r(n.b)})`;
-      case 'and': return `(${r(n.a)} && ${r(n.b)})`;
-      case 'not': return `!${r(n.a)}`;
+      case 'or': return D.or(r(n.a), r(n.b));
+      case 'and': return D.and(r(n.a), r(n.b));
+      case 'not': return D.not(r(n.a));
       case 'neg': return `-${r(n.a)}`;
       case 'arith': return `(${r(n.a)} ${n.op} ${r(n.b)})`;
       case 'cmp':
@@ -224,7 +227,7 @@ function renderExpr(src, inputs, D) {
         return `(${r(n.a)} ${n.op} ${r(n.b)})`;
       case 'in': return D.inList(n.list.map(r), r(n.a));
       case 'list': return `[${n.items.map(r).join(', ')}]`;
-      case 'lit': return typeof n.v === 'string' ? JSON.stringify(n.v) : String(n.v);
+      case 'lit': return typeof n.v === 'string' ? JSON.stringify(n.v) : typeof n.v === 'boolean' ? D.bool(n.v) : String(n.v);
       case 'ref': return (known.has(n.path) || known.has(n.path.split('.')[0])) ? n.path : JSON.stringify(n.path);
       default: return D.nil;
     }
@@ -243,3 +246,4 @@ export function exprToCode(src, { inputs = [], dialect = 'js' } = {}) {
 export const exprToJs = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'js' });
 export const exprToCSharp = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'csharp' });
 export const exprToJava = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'java' });
+export const exprToPython = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'python' });

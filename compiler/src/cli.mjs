@@ -56,8 +56,20 @@ import { runMutations } from './mutate.mjs';
 import { buildConformance } from './conformance.mjs';
 import { semanticCoverage } from './coverage.mjs';
 import { runTypescriptTarget } from './target-ts.mjs';
+import { runPythonTarget } from './target-py.mjs';
 
-const RUNNABLE_TARGETS = new Set(['typescript', 'ts', 'javascript', 'js']);
+const RUNNABLE_TARGETS = new Set(['typescript', 'ts', 'javascript', 'js', 'python', 'py']);
+// Map an alias to its canonical target key + the adapter that executes it.
+const TARGET_ALIASES = { ts: 'typescript', js: 'javascript', py: 'python' };
+const canonicalTarget = (t) => TARGET_ALIASES[String(t).toLowerCase()] || String(t).toLowerCase();
+// Execute a live target. Returns { "Test / case": actual } or null if the target can't run
+// (e.g. python3 not installed). Unknown targets return null.
+function runLiveTarget(ast, target) {
+  const key = canonicalTarget(target);
+  if (key === 'typescript' || key === 'javascript') return runTypescriptTarget(ast);
+  if (key === 'python') return runPythonTarget(ast);
+  return null;
+}
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
@@ -305,7 +317,7 @@ Everyday
   check <file|dir>         parse + lint + explainable diagnostics
   run <file> --inputs '<json>'         execute the decision(s) deterministically
   test <file> [--contracts | --properties | --scenarios | --mutate | --evals | --changed | --coverage] [--strict]
-  test <file> --target typescript      run the tests against the EXECUTED generated code
+  test <file> --target typescript|python   run the tests against the EXECUTED generated code
   prove <file>             emit an intent-proof-v1 artifact (honest verdicts + freshness)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
   build <file>             generate docs, contract graph, test plan, targets
@@ -335,7 +347,7 @@ Author & check
   proof <file>              the .thunder-proof.json artifact
   proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
-  conform <file> [--targets a,b] [--run typescript] [--results <json>]  run the same cases against every target (conformance matrix)
+  conform <file> [--targets a,b] [--run typescript,python] [--results <json>]  run the same cases against every target (conformance matrix)
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
@@ -1231,7 +1243,14 @@ test Example
     // semantic engine. Proves the generated implementation is faithful to the intent.
     // `thunder test <file> --target typescript`.
     if (args.target && RUNNABLE_TARGETS.has(String(args.target).toLowerCase())) {
-      const actual = runTypescriptTarget(ast);
+      const targetKey = canonicalTarget(args.target);
+      const actual = runLiveTarget(ast, targetKey);
+      // Live target could not run (e.g. python3 not installed) , skip cleanly, don't fail.
+      if (actual === null) {
+        if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, skipped: true, reason: `${targetKey} runtime unavailable` }, null, 2)); return; }
+        console.log(`thunder test ${basename(file)} --target ${targetKey}: skipped (the ${targetKey} runtime is not available on this machine).`);
+        return;
+      }
       const cases = [];
       for (const t of ast.tests || []) {
         const dec = (ast.decisions || []).find((d) => d.name === t.name);
@@ -1244,9 +1263,9 @@ test Example
       }
       const passed = cases.filter((c) => c.pass).length;
       const bad = passed !== cases.length;
-      if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: 'typescript', total: cases.length, passed, cases }, null, 2)); process.exit(bad ? 1 : 0); return; }
-      if (!cases.length) { console.log(`thunder test ${basename(file)} --target typescript: no decision test cases to run.`); return; }
-      console.log(`thunder test ${basename(file)} --target typescript: ${passed}/${cases.length} passed (executed generated code)`);
+      if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, total: cases.length, passed, cases }, null, 2)); process.exit(bad ? 1 : 0); return; }
+      if (!cases.length) { console.log(`thunder test ${basename(file)} --target ${targetKey}: no decision test cases to run.`); return; }
+      console.log(`thunder test ${basename(file)} --target ${targetKey}: ${passed}/${cases.length} passed (executed generated code)`);
       for (const c of cases) console.log(`  ${c.pass ? 'PASS' : 'FAIL'}  ${c.key}${c.pass ? '' : `  , expected ${c.expected}, got ${c.actual}`}`);
       process.exit(bad ? 1 : 0);
       return;
@@ -1439,12 +1458,15 @@ test Example
       catch { console.error('thunder conform: --results must be JSON of {target: {"Test / case": result}} (file path or inline)'); process.exit(2); return; }
     }
     const targets = (args.targets && args.targets.length ? args.targets : (ast.targets || [])).map((t) => String(t).toLowerCase());
-    // --run <targets>: execute a live target (TypeScript/JS) and grade its real outputs.
+    // --run <targets>: execute a live target (TypeScript/JS/Python) and grade its real outputs.
+    // A null result (e.g. python3 not installed) is skipped, leaving that target "declared".
     if (args.run && args.run.length) {
       results = results || {};
       for (const rt of args.run) {
-        const key = rt.toLowerCase();
-        if (RUNNABLE_TARGETS.has(key)) results[key === 'ts' ? 'typescript' : key === 'js' ? 'javascript' : key] = runTypescriptTarget(ast);
+        if (!RUNNABLE_TARGETS.has(rt.toLowerCase())) continue;
+        const key = canonicalTarget(rt);
+        const actual = runLiveTarget(ast, key);
+        if (actual !== null) results[key] = actual;
       }
     }
     const rep = buildConformance(ast, { targets, results });
