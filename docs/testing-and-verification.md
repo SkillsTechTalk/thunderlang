@@ -210,6 +210,25 @@ Line coverage is not enough. ThunderLang tracks goal, requirement, rule, guarant
 
 ---
 
+## Conformance across targets
+
+`thunder conform <file> [--targets ts,py] [--results <json>]` runs the same test cases against every implementation target. The deterministic engine defines the canonical result each case must produce; target outputs fed via `--results` are graded against it, and any divergence is a **CONFORMANCE FAILURE**. ThunderLang can't execute generated TypeScript or Python itself, so it defines the contract and grades the outputs your target runners produce, honestly.
+
+```text
+$ thunder conform CreateInvoice.thunder --results targets.json
+                     Semantic  Typescript  Python
+  CanEnroll / adult  PASS      PASS        PASS
+  CanEnroll / minor  PASS      PASS        FAIL
+
+  CONFORMANCE FAILURE
+    Target:   Python
+    Case:     CanEnroll / minor
+    Expected: NotEligible
+    Actual:   Eligible
+```
+
+Without `--results`, targets show as declared (the contract, awaiting each target's outputs).
+
 ## Change-impact selection
 
 `thunder test --changed [<range>]` is supported today. It does not merely inspect modified files: it uses the Intent Graph to select the changed intents plus any intent that shares an event, service, or API symbol with a changed one, then runs their tests. A change to a producer selects its consumers, even though their files were untouched.

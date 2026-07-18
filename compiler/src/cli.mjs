@@ -53,6 +53,7 @@ import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { runProperties } from './property.mjs';
 import { runMutations } from './mutate.mjs';
+import { buildConformance } from './conformance.mjs';
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
@@ -327,6 +328,7 @@ Author & check
   proof <file>              the .thunder-proof.json artifact
   proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
+  conform <file> [--targets a,b] [--results <json>]  run the same cases against every target (conformance matrix)
   schema                    emit the canonical graph schema + diagnostic catalog
   explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
   rules [--json]            list the whole canonical diagnostic catalog
@@ -1373,6 +1375,49 @@ test Example
     console.log('');
     console.log(`  wrote ${relative(process.cwd(), outPath)}`);
     process.exit(fail ? 1 : 0);
+    return;
+  }
+
+  // CONFORMANCE: the same test cases run against every target. The engine defines the canonical
+  // result each case must produce; target outputs fed via --results are graded against it.
+  // `thunder conform <file> [--targets ts,py] [--results <json|path>] [--json]`.
+  if (cmd === 'conform') {
+    const ast = parseIntent(readFileSync(file, 'utf8'));
+    let results = null;
+    if (args.results) {
+      try { results = existsSync(args.results) ? JSON.parse(readFileSync(args.results, 'utf8')) : JSON.parse(args.results); }
+      catch { console.error('thunder conform: --results must be JSON of {target: {"Test / case": result}} (file path or inline)'); process.exit(2); return; }
+    }
+    const targets = (args.targets && args.targets.length ? args.targets : (ast.targets || [])).map((t) => String(t).toLowerCase());
+    const rep = buildConformance(ast, { targets, results });
+    const bad = rep.semanticFailures > 0 || rep.failures.length > 0;
+    if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
+    if (!rep.total) { console.log(`thunder conform ${basename(file)}: no test cases to conform.`); return; }
+
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    const cols = ['Semantic', ...rep.columns.map(cap)];
+    const labelW = Math.max(12, ...rep.cases.map((c) => c.key.length));
+    const cw = (h) => Math.max(h.length, 8);
+    const cell = (v, w) => String(v).padEnd(w);
+    console.log(`thunder conform ${basename(file)}: ${rep.total} case(s) · semantic + ${rep.columns.length} target(s)${rep.graded ? '' : ' (declared , provide --results to grade targets)'}`);
+    console.log(`  ${cell('', labelW)}  ${cols.map((h) => cell(h, cw(h))).join('  ')}`);
+    for (const c of rep.cases) {
+      const sem = c.semanticPass ? 'PASS' : 'FAIL';
+      const tcells = rep.columns.map((col) => {
+        const s = c.targets[col].status;
+        return cell(s === 'pass' ? 'PASS' : s === 'fail' ? 'FAIL' : '—', cw(cap(col)));
+      });
+      console.log(`  ${cell(c.key, labelW)}  ${cell(sem, cw('Semantic'))}  ${tcells.join('  ')}`);
+    }
+    for (const f of rep.failures) {
+      console.log('');
+      console.log('  CONFORMANCE FAILURE');
+      console.log(`    Target:   ${cap(f.target)}`);
+      console.log(`    Case:     ${f.case}`);
+      console.log(`    Expected: ${f.expected}`);
+      console.log(`    Actual:   ${f.actual}`);
+    }
+    process.exit(bad ? 1 : 0);
     return;
   }
 
