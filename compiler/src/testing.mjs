@@ -42,7 +42,7 @@ export function runTests(ast) {
         const inputs = coerce(c.given);
         const run = evaluateDecision(dec, inputs);
         const pass = c.expect == null || String(run.result) === String(c.expect);
-        results.push({ ...label, kind: 'decision', expected: c.expect, actual: run.result, pass, ...(run.ok ? {} : { note: 'a condition failed to evaluate' }) });
+        results.push({ ...label, kind: 'decision', expected: c.expect, actual: run.result, matched: run.matched, pass, ...(run.ok ? {} : { note: 'a condition failed to evaluate' }) });
       } else if (lc) {
         const sim = simulateLifecycle(lc, c.events || []);
         const passState = c.expect == null || sim.finalState === c.expect;

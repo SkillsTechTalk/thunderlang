@@ -208,6 +208,24 @@ ThunderLang declares the bar; you run the eval and feed the numbers; the engine 
 
 Line coverage is not enough. ThunderLang tracks goal, requirement, rule, guarantee, prohibition, scenario, target, trace, and change coverage, so "12 of 15 prohibitions challenged" is meaningful in a way "82% line coverage" is not.
 
+`thunder test <file> --coverage` reports the meaning-level metrics today, including decision-rule coverage (which rules a test actually matched). `--strict` fails on any gap.
+
+```text
+$ thunder test grade.thunder --coverage
+thunder test grade.thunder --coverage: 38% overall
+
+  Goals                1/1   100%
+  Decision rules       1/2    50%
+  Guarantees           1/2    50%
+  Prohibitions         0/1     0%
+  Targets tested       0/2     0%
+
+  Unverified:
+    - rule Grade/b , never matched by a test
+    - guarantee score-is-never-negative , no verification
+    - never expose-raw-score , not challenged
+```
+
 ---
 
 ## Conformance across targets

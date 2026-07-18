@@ -54,6 +54,7 @@ import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { runProperties } from './property.mjs';
 import { runMutations } from './mutate.mjs';
 import { buildConformance } from './conformance.mjs';
+import { semanticCoverage } from './coverage.mjs';
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
@@ -211,6 +212,7 @@ function parseArgs(argv) {
     else if (a === '--mutate') args.mutate = true;
     else if (a === '--safe') args.safe = true;
     else if (a === '--evals') args.evals = true;
+    else if (a === '--coverage') args.coverage = true;
     else if (a === '--results') args.results = argv[++i];
     else if (a === '--cases') args.cases = argv[++i];
     else if (a === '--seed') args.seed = argv[++i];
@@ -1217,6 +1219,24 @@ test Example
         else console.log(`  DECLARED  ${r.scenario}  (${r.given} given, ${r.then} then, ${r.never} never) , needs runtime evidence`);
       }
       process.exit(failed ? 1 : 0);
+      return;
+    }
+
+    // Semantic coverage: which goals, decision rules, guarantees, prohibitions, scenarios, and
+    // targets are actually exercised , meaning-level, not lines. `thunder test <file> --coverage`.
+    if (args.coverage) {
+      const rep = semanticCoverage(ast);
+      const bad = args.strict && rep.unverified.length > 0;
+      if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
+      console.log(`thunder test ${basename(file)} --coverage: ${rep.overall}% overall`);
+      console.log('');
+      for (const m of rep.metrics) console.log(`  ${m.name.padEnd(16)} ${`${m.covered}/${m.total}`.padStart(7)}   ${String(m.pct).padStart(3)}%`);
+      if (rep.unverified.length) {
+        console.log('');
+        console.log('  Unverified:');
+        for (const u of rep.unverified) console.log(`    - ${u}`);
+      }
+      process.exit(bad ? 1 : 0);
       return;
     }
 
