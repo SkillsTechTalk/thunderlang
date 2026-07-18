@@ -267,6 +267,53 @@ $ thunder test enroll.thunder --target java
 thunder test enroll.thunder --target java: 2/2 passed (executed generated code)
 ```
 
+### What the C# and Java adapters emit
+
+Given this decision:
+
+```intent
+mission Enroll
+decision CanEnroll
+  inputs
+    age
+    score
+    region
+  rule adult
+    when age >= 18 and score >= 70 and region == US
+    return Eligible
+  default
+    return NotEligible
+test CanEnroll
+  case adult
+    given age 20, score 90, region US
+    expect Eligible
+target
+  C#
+  Java
+```
+
+ThunderLang compiles the same rule into each target language. Parameter types are inferred from the test-case values (`age` and `score` are numeric, so `double`; `region` is text, so `String`/`string`), and each language gets its own equality: Java uses `java.util.Objects.equals`, C# uses value `==`.
+
+Java (run through the JDK single-file launcher):
+
+```java
+static String CanEnroll(double age, double score, String region) {
+  if ((((age >= 18) && (score >= 70)) && (java.util.Objects.equals(region, "US")))) return "Eligible";
+  return "NotEligible";
+}
+```
+
+C# (run through a throwaway `dotnet` console project):
+
+```csharp
+static string CanEnroll(double age, double score, string region) {
+  if ((((age >= 18) && (score >= 70)) && (region == "US"))) return "Eligible";
+  return "NotEligible";
+}
+```
+
+Each generated program also carries a small driver that calls every test case with typed literal arguments and prints the results as one JSON line, which the adapter reads back and grades against the intent. Because all four targets are compiled from the same rule, a divergence in any one shows up immediately as a conformance failure.
+
 `--all-targets` runs every target whose toolchain is available in a single pass, so you see all implementations side by side without naming each one. `thunder test <file> --all-targets` reports each target's pass count (and skips the ones whose runtime is missing); `thunder conform <file> --all-targets` fills the whole conformance matrix at once, leaving unavailable targets declared.
 
 ```text
