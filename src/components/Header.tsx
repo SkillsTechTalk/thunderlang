@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Logo } from "./Logo";
+import { EcosystemMenu } from "./EcosystemMenu";
 import { mainNav } from "@/lib/site";
 
 export function Header() {
@@ -26,6 +27,7 @@ export function Header() {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
+          <EcosystemMenu current="ThunderLang" />
           <Link href="/waitlist" className="btn-primary">
             Join the Waitlist
           </Link>
