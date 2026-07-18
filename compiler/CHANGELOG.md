@@ -3,6 +3,24 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.1.9
+
+The cross-language target execution release. Additive; no breaking changes.
+
+- **Live target adapters.** `thunder test <file> --target typescript|python|csharp|java` and
+  `thunder conform <file> --run <targets>` now compile the generated decision(s) and execute them
+  for real, grading the actual outputs instead of fed results. TypeScript/JS runs in-process,
+  Python through `python3`, C# through a throwaway `dotnet` console project, and Java through the
+  JDK 11+ single-file launcher (`java ThunderTarget.java`).
+- **`--all-targets`.** `thunder test <file> --all-targets` and `thunder conform <file> --all-targets`
+  run every target whose toolchain is available in one pass, side by side, and skip any target whose
+  runtime is absent (it stays declared in the conformance matrix) rather than failing.
+- **Static-target type inference.** Because C# and Java are statically typed, each decision
+  parameter's type is inferred from the test-case values it receives (numeric wins, then boolean,
+  else string), and each language gets its own equality translation.
+- Missing toolchains are detected via cached smoke checks and skipped cleanly, so builds never fail
+  for a runtime that is not installed.
+
 ## 0.1.8
 
 The testing and verification release. Additive; no breaking changes.

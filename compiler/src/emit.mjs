@@ -30,7 +30,7 @@ export function notesSummary(ast) {
   };
 }
 
-export const COMPILER_VERSION = '0.1.8';
+export const COMPILER_VERSION = '0.1.9';
 export const PROOF_SCHEMA_VERSION = '0.1.0';
 // Identifies which ecosystem product emitted this proof. Consumed by SkillsTech
 // Certified to key cert proofs to the compiler. Stable slug per the coordination bus.
