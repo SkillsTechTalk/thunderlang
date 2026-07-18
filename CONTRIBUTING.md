@@ -37,6 +37,34 @@ node --test            # run the full suite (must stay green)
 node src/cli.mjs check ../examples/CreateInvoice.thunder
 ```
 
+### Native target toolchains (optional)
+
+The live target adapters (`thunder test --target <t>`, `thunder conform --run <t>`,
+`--all-targets`) compile and execute the generated code for real. TypeScript/JS runs
+in-process and needs nothing extra. Python needs `python3`. C# and Java need their SDKs,
+which are keg-only under Homebrew (not added to your PATH automatically):
+
+```bash
+brew install openjdk       # Java (JDK 11+; single-file `java X.java` launcher)
+brew install dotnet        # C# (.NET SDK; scaffolds a throwaway console project)
+```
+
+The compiler's smoke checks skip any target whose toolchain it cannot find or run, so a
+missing SDK never fails a build. To exercise the C#/Java adapters locally, put the SDKs on
+PATH (and set `DOTNET_ROOT`) for the run:
+
+```bash
+export PATH="/opt/homebrew/opt/dotnet/bin:$(brew --prefix openjdk)/bin:$PATH"
+export DOTNET_ROOT="/opt/homebrew/opt/dotnet/libexec"
+
+# The live compile+execute tests are opt-in (they need the SDKs and are not run in CI):
+cd compiler
+TL_NATIVE_TARGETS=1 node --test test/cli-target-native.test.mjs
+```
+
+With both SDKs present, `thunder test <file> --all-targets` executes all four targets
+(TypeScript, Python, C#, Java) and reports them side by side.
+
 Website:
 
 ```bash
