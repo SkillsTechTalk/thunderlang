@@ -50,7 +50,7 @@ export {
 } from './index';
 
 // Code generation , deterministic scaffolds from intent.
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, subjectName, intentRefId, skillRefId } from './index';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, subjectName, intentRefId, skillRefId } from './index';
 
 // 12-Factor Agents conformance lens (twelve-factor-v1).
 export { TWELVE_FACTOR_SCHEMA, TwelveFactorResult, twelveFactorReport, twelveFactorSummary } from './index';

@@ -52,6 +52,7 @@ const DOC_ORDER = [
   "editor-support",
   "structured-editing",
   "diagnostics",
+  "language-support-matrix",
   "release-story-tutorial",
   "compiler-contract",
   "ecosystem-brief",
@@ -99,6 +100,7 @@ const DOC_LABELS: Record<string, string> = {
   "editor-support": "Editor support (Language Server)",
   "structured-editing": "Structured editing and sync",
   "diagnostics": "Diagnostics catalog",
+  "language-support-matrix": "Language support matrix",
   "release-story-tutorial": "Tutorial: 200 missions to a release",
   "compiler-contract": "Compiler contract",
   "ecosystem-brief": "Ecosystem brief",
@@ -146,6 +148,7 @@ const DOC_BLURBS: Record<string, string> = {
   "editor-support": "A Language Server so any editor gets diagnostics, completion, and hover.",
   "structured-editing": "Edit intent as structured fields and sync back to source, comments intact.",
   "diagnostics": "Every canonical diagnostic code, its severity, and what it blocks.",
+  "language-support-matrix": "Which languages lift, gen, and execute live, on one page.",
   "release-story-tutorial": "From 200 missions to one Release Story, step by step.",
   "compiler-contract": "The deterministic pipeline from source to proof.",
   "ecosystem-brief": "How each SkillsTech sibling uses ThunderLang.",
@@ -209,7 +212,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Reference",
     blurb: "The exhaustive specification and catalogs.",
-    slugs: ["spec", "diagnostics", "intent-graph", "single-compiler", "ai-age-best-practices", "operating-checklist"],
+    slugs: ["spec", "diagnostics", "language-support-matrix", "intent-graph", "single-compiler", "ai-age-best-practices", "operating-checklist"],
   },
   {
     title: "Ecosystem",

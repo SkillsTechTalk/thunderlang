@@ -352,7 +352,7 @@ Author & check
   focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
   comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
   twelve-factor <file> [--json]  score an intent against the 13 humanlayer/12-factor-agents principles
-  gen <file> [--target typescript|csharp|java] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
+  gen <file> [--target typescript|csharp|java|python] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
   changes [<base>..<head> | <base>] [--json]  Change Lens: what a branch/PR changed by meaning
   guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
   impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
@@ -648,7 +648,7 @@ function main() {
     return;
   }
 
-  // `thunder gen <file> [--target typescript|csharp|java] [--out <dir>]` , deterministic code scaffold from
+  // `thunder gen <file> [--target typescript|csharp|java|python] [--out <dir>]` , deterministic code scaffold from
   // intent. Generates the typed contract + the decision logic (already executable) and leaves
   // honest TODO markers for business logic. No AI. Prints, or writes with --out.
   if (cmd === 'gen') {
@@ -659,7 +659,7 @@ function main() {
     const ast = parseIntent(readFileSync(file, 'utf8'));
     const code = generate(ast);
     if (args.outExplicit) {
-      const ext = target.startsWith('ts') || target === 'typescript' ? 'ts' : target;
+      const ext = target.startsWith('ts') || target === 'typescript' ? 'ts' : target === 'python' ? 'py' : target === 'csharp' ? 'cs' : target;
       const p = writeText(args.out, `${slug(subjectName(ast) || 'intent')}.${ext}`, code.endsWith('\n') ? code : code + '\n');
       console.log(`wrote ${p.replace(process.cwd() + '/', '')}`);
       return;
