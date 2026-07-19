@@ -1,0 +1,55 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ThunderLang",
+  "scopeName": "source.thunder",
+  "fileTypes": ["thunder", "tl", "intent"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#string" },
+    { "include": "#block-keyword" },
+    { "include": "#field-type" },
+    { "include": "#operator" },
+    { "include": "#number" },
+    { "include": "#type" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.thunder"
+    },
+    "string": {
+      "name": "string.quoted.double.thunder",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.thunder" }]
+    },
+    "block-keyword": {
+      "comment": "A line-leading keyword introduces a block or a field (indentation-structured).",
+      "match": "^\\s*(mission|use|goal|why|because|requires|inputs?|outputs?|guarantees?|never|constraints?|assumptions?|risks|target|style|verify|errors|examples|service|api|event|database|architecture|selection|title|for|persona|customer|problem|evidence|opportunity|outcome_contract|outcome|metric|scope|include|exclude|non_goal|owner|unknown|question|assumption|experience|pattern|decision|rule|default|when|return|command|on|compensate|notify|preserve|lifecycle|state|transition|from|to|terminal|always|eventually|until|conflict|options|between|resolve_by|resolution|choose|approval|capability|interface|provides|slo|release|result|learning|component|artifact|test|case|scenario|given|expect|events|data|waiver|note|implements|covers|variant|token|classification|purpose|retention|basis|baseline|window|direction|includes|measures|value|kind|ref|version|status|date|reason|approved_by|by|at|decision|expires|before|idempotency_key|timeout|retry|backoff|confidence|source|recover|follows|actor|accessible|responsive|asked_of|resolve|validate)\\b",
+      "captures": { "1": { "name": "keyword.control.thunder" } }
+    },
+    "field-type": {
+      "comment": "A typed field: name: Type (optionally List<Type>).",
+      "match": "\\b([a-z][A-Za-z0-9_.]*)\\s*(:)\\s*([A-Z][A-Za-z0-9]*(?:<[^>]+>)?)",
+      "captures": {
+        "1": { "name": "variable.other.member.thunder" },
+        "2": { "name": "punctuation.separator.thunder" },
+        "3": { "name": "entity.name.type.thunder" }
+      }
+    },
+    "operator": {
+      "comment": "Expression operators used in decision conditions (when ...).",
+      "match": "(>=|<=|==|!=|>|<|=|\\+|\\-|\\*|/|%)|\\b(and|or|not|in)\\b",
+      "name": "keyword.operator.thunder"
+    },
+    "number": {
+      "match": "\\b\\d+(?:\\.\\d+)?%?\\b",
+      "name": "constant.numeric.thunder"
+    },
+    "type": {
+      "comment": "PascalCase identifiers are entities/types in ThunderLang.",
+      "match": "\\b([A-Z][A-Za-z0-9]*)(?:<[^>]+>)?\\b",
+      "name": "entity.name.type.thunder"
+    }
+  }
+}

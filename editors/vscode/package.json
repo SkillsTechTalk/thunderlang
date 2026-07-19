@@ -1,10 +1,10 @@
 {
-  "name": "thunderlang-vscode",
+  "name": "thunderlang",
   "displayName": "ThunderLang",
-  "description": "Syntax highlighting and language intelligence (diagnostics, completion, hover) for ThunderLang .thunder files.",
-  "version": "0.1.1",
+  "description": "Syntax highlighting, diagnostics, completion, and hover for ThunderLang via the ThunderLang Language Server.",
+  "version": "0.4.1",
   "publisher": "skillstech",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://thunderlang.dev",
   "repository": {
     "type": "git",
@@ -12,36 +12,53 @@
     "directory": "editors/vscode"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Programming Languages",
     "Linters"
   ],
   "activationEvents": [
-    "onLanguage:intent"
+    "onLanguage:thunder"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
-        "id": "intent",
-        "aliases": ["ThunderLang", "intent"],
-        "extensions": [".thunder"],
+        "id": "thunder",
+        "aliases": [
+          "ThunderLang",
+          "thunder"
+        ],
+        "extensions": [
+          ".thunder",
+          ".tl",
+          ".intent"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
     "grammars": [
       {
-        "language": "intent",
+        "language": "thunder",
         "scopeName": "source.thunder",
-        "path": "./syntaxes/intent.tmLanguage.json"
+        "path": "./syntaxes/thunder.tmLanguage.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "ThunderLang",
+      "properties": {
+        "thunderlang.serverPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Command or script that provides the ThunderLang language server. Leave empty to auto-detect: a workspace-local `thunder` binary or compiler checkout first, then `thunder` on your PATH. A value ending in `.js`, `.mjs`, or `.cjs` is launched as `node <path> lsp`; any other value is launched as `<command> lsp`."
+        }
+      }
+    }
   },
   "scripts": {
-    "sync-grammar": "node -e \"require('fs').copyFileSync('../../compiler/syntaxes/intent.tmLanguage.json','./syntaxes/intent.tmLanguage.json')\"",
-    "compile": "npm run sync-grammar && tsc -p ./",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
     "vscode:prepublish": "npm run compile"
   },
   "dependencies": {
@@ -49,7 +66,8 @@
   },
   "devDependencies": {
     "@types/node": "^18.19.0",
-    "@types/vscode": "^1.75.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.32.0",
     "typescript": "^5.4.0"
   }
 }
