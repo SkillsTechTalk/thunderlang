@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from "react";
 // Tech Talk so a user can hop between all four products. Self-contained: no app
 // brand deps, dark-theme friendly. Pass `current` to mark this app.
 const PRODUCTS = [
-  { name: "OpenThunder", sub: "Understand and master any repository", href: "https://openthunder.skillstechtalk.com" },
-  { name: "Skills Tech Talk", sub: "Explain and defend it", href: "https://app.skillstechtalk.com" },
-  { name: "Skills Tech Network", sub: "Network and runtime", href: "https://network.skillstechtalk.com" },
-  { name: "ThunderLang", sub: "Ground and verify AI-assisted code", href: "https://thunderlang.dev" },
+  { name: "OpenThunder", sub: "Understand and master any repository", href: "https://openthunder.skillstechtalk.com", logo: "/brand/openthunder-mark.png" },
+  { name: "Skills Tech Talk", sub: "Explain and defend it", href: "https://app.skillstechtalk.com", logo: "/brand/skills-tech-talk.png" },
+  { name: "Skills Tech Network", sub: "Network and runtime", href: "https://network.skillstechtalk.com", logo: "/brand/skills-tech-network.png" },
+  { name: "ThunderLang", sub: "Ground and verify AI-assisted code", href: "https://thunderlang.dev", logo: "/brand/thunderlang.svg" },
 ];
 
 export function EcosystemMenu({ current }: { current?: string }) {
@@ -58,11 +58,16 @@ export function EcosystemMenu({ current }: { current?: string }) {
                 onClick={() => setOpen(false)}
                 className={`block rounded-xl px-2 py-2 transition ${isCurrent ? "bg-white/[0.06]" : "hover:bg-white/5"}`}
               >
-                <span className="block text-sm font-semibold text-white">
-                  {p.name}
-                  {isCurrent && <span className="ml-1.5 text-[10px] font-normal text-sky-300">current</span>}
+                <span className="flex items-center gap-3">
+                  <img src={p.logo} alt="" className="h-6 w-6 shrink-0 rounded-md" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-white">
+                      {p.name}
+                      {isCurrent && <span className="ml-1.5 text-[10px] font-normal text-sky-300">current</span>}
+                    </span>
+                    <span className="block truncate text-xs text-neutral-400">{p.sub}</span>
+                  </span>
                 </span>
-                <span className="block truncate text-xs text-neutral-400">{p.sub}</span>
               </a>
             );
           })}

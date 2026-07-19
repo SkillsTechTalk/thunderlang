@@ -43,9 +43,9 @@ export const CAPABILITIES: Capability[] = [
   { key: "atlasCli", name: "Intent Atlas (CLI)", status: "available", blurb: "Navigate many missions with intent atlas / index. No AI." },
   { key: "proof", name: "Proof artifacts", status: "available", blurb: "intent build emits .thunder-proof.json: the source hash + every claim's status." },
   { key: "editor", name: "Editor + Language Server", status: "available", blurb: "intent lsp gives diagnostics, completion, and hover over LSP." },
-  { key: "codeToIntent", name: "Code to candidate intent", status: "experimental", blurb: "intent lift infers a humble .thunder draft from TypeScript/Rust/Perl; always human-reviewed." },
-  { key: "codegenOther", name: "C# / Java code generation", status: "planned", blurb: "The TypeScript adapter's shape extends to more targets next." },
-  { key: "visualAtlas", name: "Visual Intent Atlas", status: "experimental", blurb: "The interactive map lives in Skills Tech Studio; the CLI + graph are available today." },
+  { key: "codeToIntent", name: "Code to candidate intent", status: "experimental", blurb: "intent lift infers a humble .thunder draft from 11 languages (TypeScript, Python, Java, C#, Go, Rust, and more); always human-reviewed." },
+  { key: "codegenOther", name: "C# / Java code generation", status: "available", blurb: "intent gen --target csharp|java emits typed records + real decision logic + honest TODO stubs, the same adapter shape as TypeScript. Live compile/run needs a JDK or .NET SDK." },
+  { key: "visualAtlas", name: "Visual Intent Atlas", status: "experimental", blurb: "An interactive map ships at /atlas (lifted-intent + proof-status views); the CLI graph (intent atlas / index) is available today." },
   { key: "intentEngine", name: "Intent Engine (AI assist)", status: "planned", blurb: "Optional, traced, human-approved prompt-to-intent and generation. Deterministic core needs no model." },
 ];
 

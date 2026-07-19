@@ -4,7 +4,7 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "Roadmap",
   description:
-    "Where ThunderLang is headed, the planned path from language design toward a compiler, CLI, playground, tooling, and community for the AI era.",
+    "Where ThunderLang is headed: the compiler, CLI, playground, and code generation that ship today, and the verification, targets, AI assist, and ecosystem still ahead.",
   path: "/roadmap",
 });
 
@@ -14,35 +14,55 @@ type Phase = {
   items: string[];
 };
 
+// Kept consistent with the capability manifest (src/lib/capabilities.ts): anything
+// "available" there is shipped here (status "Now"); only genuinely-future work sits
+// under Next / Later / Exploring. Update both together so the site tells one story.
 const phases: Phase[] = [
   {
     phase: "Foundations",
     status: "Now",
     items: [
       "Language vision and principles",
-      "Draft syntax for Missions, contracts, and guarantees",
-      "Public website and early examples",
-      "Waitlist and early community",
+      "Missions, contracts, and guarantees syntax",
+      "Deterministic parser + intent-graph-v1 / intent-ir-v1",
+      "Public site, examples, and an interactive playground with real parsing",
     ],
   },
   {
-    phase: "Language & tooling",
+    phase: "Compiler, CLI, and proof",
+    status: "Now",
+    items: [
+      "The intent CLI: check, run, test, build, and scan",
+      "Executable decisions and lifecycles, with a full first-hit trace",
+      "In-file tests, comprehension levels C0..C7, and proof artifacts",
+      "Intent Scanner + Fable and the editor language server (no AI, no key)",
+    ],
+  },
+  {
+    phase: "Code generation and reverse-engineering",
+    status: "Now",
+    items: [
+      "TypeScript, C#, and Java code generation (typed contracts + decision logic)",
+      "intent lift: infer humble drafts from 11 source languages (experimental)",
+      "Intent Atlas CLI + graph, and an interactive Visual Atlas at /atlas (experimental)",
+    ],
+  },
+  {
+    phase: "Verification, targets, and integration",
     status: "Next",
     items: [
-      "Formal grammar and specification",
-      "Reference compiler prototype",
-      "Command-line interface (CLI)",
-      "Interactive playground with real parsing",
+      "Deeper contract verification against implementations",
+      "More generation targets (Python, Go)",
+      "OpenThunder integration for understanding builds",
+      "VS Code extension and editor tooling (early)",
     ],
   },
   {
-    phase: "Verification & targets",
+    phase: "AI assist",
     status: "Later",
     items: [
-      "Contract verification against implementations",
-      "TypeScript, Python, and .NET targets",
-      "OpenThunder integration for understanding builds",
-      "VS Code extension and editor tooling",
+      "Intent Engine: optional, traced, human-approved prompt-to-intent and generation",
+      "The deterministic core keeps working with no model at all",
     ],
   },
   {
@@ -83,7 +103,7 @@ export default function RoadmapPage() {
       <PageHero
         eyebrow="Roadmap"
         title="From an idea to a language you can rely on."
-        intro="A deliberately honest, sequenced plan. Dates are intentionally omitted; each phase begins when the previous one is genuinely solid."
+        intro="A deliberately honest, sequenced plan. The first phases already ship in the compiler today; dates are intentionally omitted, and each later phase begins when the previous one is genuinely solid."
       >
         <DraftNote>
           This roadmap is directional, not a commitment. Order and scope will
@@ -98,8 +118,8 @@ export default function RoadmapPage() {
             How intent becomes verified artifacts.
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-haze-300">
-            The planned SkillsTech Compiler does not just turn syntax into code.
-            It turns intent into validated engineering artifacts: plans, code,
+            The ThunderLang compiler does not just turn syntax into code. It
+            turns intent into validated engineering artifacts: plans, code,
             tests, docs, diagrams, and a proof.
           </p>
           <div className="mt-6 overflow-x-auto">
