@@ -393,6 +393,74 @@ export function extractFactsRuby(source, file = 'input.rb') {
   return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'ruby', sourceRoot: file, functions, tests, errors };
 }
 
+// Params written "name: Type" (Kotlin, Scala). Top-level comma split so generics/tuples
+// like Map<String, Int> or (A, B) don't split mid-type. Strips val/var/vararg/implicit and defaults.
+function parseNameColonTypeParams(raw) {
+  return splitTopLevel(raw, ',').map((p) => p.trim()).filter(Boolean).map((p) => {
+    const cleaned = p.replace(/@\w+(\([^)]*\))?/g, '').replace(/^(?:val|var|vararg|implicit|final|lazy)\s+/, '').replace(/=.*$/, '').trim();
+    const mm = cleaned.match(/^([A-Za-z_]\w*)\s*:\s*(.+)$/);
+    if (mm) return { name: mm[1], type: mm[2].trim() };
+    return { name: cleaned.replace(/[^\w].*$/, '') || cleaned, type: null };
+  });
+}
+
+// ── Kotlin adapter (JVM: fun name(p: Type): Ret, @Test, *Exception) ──────────
+export function extractFactsKotlin(source, file = 'input.kt') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const testMethods = new Set(); const ta = /@Test\b[\s\S]{0,120}?\bfun\s+(?:`([^`]+)`|(\w+))\s*\(/g;
+  while ((m = ta.exec(source))) testMethods.add(m[1] || m[2]);
+  const fnRe = /\bfun\s+(?:<[^>]*>\s*)?(?:[A-Za-z_][\w.]*\.)?(?:`([^`]+)`|([A-Za-z_]\w*))\s*\(([^)]*)\)\s*(?::\s*([^{=\n]+))?/g;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1] || m[2];
+    if (testMethods.has(name)) { if (!tests.some((t) => t.name === name)) tests.push({ name, file, line: lineOf(source, m.index) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: parseNameColonTypeParams(m[3] || ''), returnType: m[4] ? m[4].trim() : null, evidence: [{ kind: 'fun', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /class\s+(\w*(?:Exception|Error))\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  const th = /throw\s+(\w+)\s*\(/g; while ((mm = th.exec(source))) addErr(mm[1], mm.index); // Kotlin: no `new`
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'kotlin', sourceRoot: file, functions, tests, errors };
+}
+
+// ── Scala adapter (def name(p: Type): Ret, ScalaTest, *Exception) ─────────────
+export function extractFactsScala(source, file = 'input.scala') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const fnRe = /\bdef\s+([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*\(([^)]*)\)\s*(?::\s*([^={\n]+))?/g;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1];
+    if (seen.has(name)) continue; seen.add(name);
+    functions.push({ name, file, line: lineOf(source, m.index), parameters: parseNameColonTypeParams(m[2] || ''), returnType: m[3] ? m[3].trim() : null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
+  }
+  // ScalaTest: `test("desc")` (FunSuite) and `"desc" in { }` / `"desc" should`/`must` (WordSpec/FlatSpec).
+  const seenT = new Set(); const addTest = (n, idx) => { const k = String(n).toLowerCase(); if (n && !seenT.has(k)) { seenT.add(k); tests.push({ name: n, file, line: lineOf(source, idx) }); } };
+  const tr = /\btest\s*\(\s*"([^"]+)"/g; while ((m = tr.exec(source))) addTest(m[1], m.index);
+  const inRe = /"([^"]+)"\s+(?:in|should|must)\b/g; while ((m = inRe.exec(source))) addTest(m[1], m.index);
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /class\s+(\w*(?:Exception|Error))\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  const th = /throw\s+new\s+(\w+)\s*\(/g; while ((mm = th.exec(source))) addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'scala', sourceRoot: file, functions, tests, errors };
+}
+
+// ── Elixir adapter (dynamic: def/defp name(args), ExUnit test, raise/defexception)
+export function extractFactsElixir(source, file = 'input.ex') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const seenT = new Set(); const addTest = (n, idx) => { const k = String(n).toLowerCase(); if (n && !seenT.has(k)) { seenT.add(k); tests.push({ name: n, file, line: lineOf(source, idx) }); } };
+  const tr = /\btest\s+"([^"]+)"/g; while ((m = tr.exec(source))) addTest(m[1], m.index); // ExUnit: test "desc" do
+  const fnRe = /^[ \t]*defp?\s+([a-z_]\w*[!?]?)\s*(?:\(([^)]*)\))?/gm;
+  while ((m = fnRe.exec(source))) {
+    const name = m[1];
+    if (seen.has(name)) continue; seen.add(name);
+    // Elixir params are pattern matches (conn, %{id: id}, x \\ default); take the leading binding name.
+    const parameters = splitTopLevel(m[2] || '', ',').map((p) => p.trim()).filter(Boolean)
+      .map((p) => ({ name: p.split(/\\\\/)[0].trim().replace(/^%\{?/, '').replace(/[^\w].*$/, '') || p, type: null }));
+    functions.push({ name, file, line: lineOf(source, m.index), indent: (m[0].match(/^[ \t]*/) || [''])[0].length, parameters, returnType: null, evidence: [{ kind: 'def', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const seenErr = new Set(); const addErr = (n, idx) => { if (n && !seenErr.has(n)) { seenErr.add(n); errors.push({ name: n, file, line: lineOf(source, idx) }); } };
+  const modErr = /defmodule\s+([\w.]*(?:Error|Exception))\b/g; while ((m = modErr.exec(source))) addErr(m[1].split('.').pop(), m.index);
+  const raiseRe = /raise\s+([A-Z][\w.]*)/g; while ((m = raiseRe.exec(source))) addErr(m[1].split('.').pop(), m.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'elixir', sourceRoot: file, functions, tests, errors };
+}
+
 const ADAPTERS = {
   typescript: extractFactsTypeScript, ts: extractFactsTypeScript,
   javascript: extractFactsTypeScript, js: extractFactsTypeScript,
@@ -405,13 +473,17 @@ const ADAPTERS = {
   cpp: extractFactsCpp, 'c++': extractFactsCpp, c: extractFactsCpp, cc: extractFactsCpp,
   php: extractFactsPhp,
   ruby: extractFactsRuby, rb: extractFactsRuby,
+  kotlin: extractFactsKotlin, kt: extractFactsKotlin, kts: extractFactsKotlin,
+  scala: extractFactsScala, sc: extractFactsScala,
+  elixir: extractFactsElixir, ex: extractFactsElixir, exs: extractFactsElixir,
 };
-export const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl'];
-const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript', 'python', 'ruby', 'php']);
+export const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl', 'kotlin', 'scala', 'elixir'];
+const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript', 'python', 'ruby', 'php', 'elixir']);
 
 const LANG_DISPLAY = {
   typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', java: 'Java',
   csharp: 'C#', go: 'Go', rust: 'Rust', cpp: 'C++', php: 'PHP', ruby: 'Ruby', perl: 'Perl',
+  kotlin: 'Kotlin', scala: 'Scala', elixir: 'Elixir',
 };
 
 // Unwrap Result<T, E> / Promise<T> / T -> { output, error }
@@ -558,6 +630,9 @@ export function languageForFile(file) {
   if (/\.(cpp|cc|cxx|hpp|hh|c|h)$/i.test(file)) return 'cpp';
   if (/\.php$/i.test(file)) return 'php';
   if (/\.rb$/i.test(file)) return 'ruby';
+  if (/\.kts?$/i.test(file)) return 'kotlin';
+  if (/\.(scala|sc)$/i.test(file)) return 'scala';
+  if (/\.exs?$/i.test(file)) return 'elixir';
   if (/\.(mjs|cjs|jsx?)$/i.test(file)) return 'javascript';
   return 'typescript';
 }
@@ -577,7 +652,7 @@ function isPublicFn(fn, language) {
   // Common private-helper naming conventions, across languages.
   if (/(?:Internal|Impl|_impl|_helper|_test|Helper)$/.test(name)) return false;
   if (language === 'go' || language === 'golang') return /^[A-Z]/.test(name) && name !== 'Test';
-  if (language === 'python' || language === 'ruby') return !name.startsWith('_') && (fn.indent == null || fn.indent <= 4);
+  if (language === 'python' || language === 'ruby' || language === 'elixir') return !name.startsWith('_') && (fn.indent == null || fn.indent <= 4);
   return !name.startsWith('_') && name !== 'init' && name !== 'constructor';
 }
 
@@ -643,6 +718,7 @@ export function liftRepo(files, { language } = {}) {
 const LANG_EXT = {
   typescript: 'ts', javascript: 'js', python: 'py', java: 'java', csharp: 'cs',
   go: 'go', rust: 'rs', cpp: 'cpp', php: 'php', ruby: 'rb', perl: 'pl',
+  kotlin: 'kt', scala: 'scala', elixir: 'ex',
 };
 
 /**

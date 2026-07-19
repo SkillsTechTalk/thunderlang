@@ -98,7 +98,13 @@ import {
 import { parseEventLog, serializeEventLog, recordEvent, timeline } from './ai-events.mjs';
 
 // Recursively collect supported source files, skipping vendored / build dirs.
-const LIFT_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.rs', '.pl', '.pm'];
+// Kept in sync with lift.mjs languageForFile(): every language the lift adapters support,
+// so repo-mode discovery matches the advertised multi-language lift surface.
+const LIFT_EXTS = [
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.pl', '.pm', '.t',
+  '.py', '.pyi', '.java', '.cs', '.go', '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.c', '.h',
+  '.php', '.rb', '.kt', '.kts', '.scala', '.sc', '.ex', '.exs',
+];
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
 // ThunderLang source files. `.thunder` is the canonical public extension; `.tl` is an
 // accepted shorthand; `.intent` stays supported so legacy IntentLang sources keep working.
@@ -846,9 +852,9 @@ test Example
       return;
     }
 
-    // Single-file mode.
+    // Single-file mode. Auto-detect language by extension (consistent with --all / repo modes).
     const src = readFileSync(file, 'utf8');
-    const res = liftSource(src, { language: args.from || 'typescript', file: basename(file) });
+    const res = liftSource(src, { language: args.from || languageForFile(file), file: basename(file) });
     if (!res.ok) { console.error(res.error); process.exit(1); }
     if (args.json) { console.log(JSON.stringify(res.summary, null, 2)); return; }
     if (args.out) {

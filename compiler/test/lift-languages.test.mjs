@@ -2,7 +2,7 @@
 // functions, infer inputs, and produce a draft that parses + checks clean.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { liftSource, SUPPORTED_LANGUAGES } from '../src/lift.mjs';
+import { liftSource, SUPPORTED_LANGUAGES, languageForFile } from '../src/lift.mjs';
 import { parseIntent } from '../src/parse.mjs';
 import { semanticDiagnostics } from '../src/emit.mjs';
 
@@ -68,6 +68,34 @@ end
 class DuplicateInvoice < StandardError
 end
 `,
+  kotlin: `fun createInvoice(orderId: OrderId, total: Money): Invoice {
+  if (exists(orderId)) throw DuplicateInvoiceException()
+  return save(orderId, total)
+}
+@Test fun neverDuplicates() {}
+class DuplicateInvoiceException : Exception()
+`,
+  scala: `def createInvoice(orderId: OrderId, total: Money): Invoice = {
+  if (exists(orderId)) throw new DuplicateInvoiceException()
+  save(orderId, total)
+}
+test("never creates a duplicate") {}
+class DuplicateInvoiceException extends Exception
+`,
+  elixir: `defmodule Invoices do
+  def create_invoice(order_id, total) do
+    if exists?(order_id), do: raise DuplicateInvoiceError
+    save(order_id, total)
+  end
+
+  test "never creates a duplicate" do
+  end
+end
+
+defmodule DuplicateInvoiceError do
+  defexception message: "duplicate"
+end
+`,
 };
 
 for (const [lang, src] of Object.entries(SAMPLES)) {
@@ -101,11 +129,20 @@ test('Python def with no matching function still lifts gracefully or reports cle
   assert.match(r.error, /No functions/i);
 });
 
-test('SUPPORTED_LANGUAGES advertises the top languages (>= 10)', () => {
-  assert.ok(SUPPORTED_LANGUAGES.length >= 10, `only ${SUPPORTED_LANGUAGES.length}`);
-  for (const l of ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl']) {
+test('SUPPORTED_LANGUAGES advertises the top languages (>= 14, incl. Kotlin/Scala/Elixir)', () => {
+  assert.ok(SUPPORTED_LANGUAGES.length >= 14, `only ${SUPPORTED_LANGUAGES.length}`);
+  for (const l of ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl', 'kotlin', 'scala', 'elixir']) {
     assert.ok(SUPPORTED_LANGUAGES.includes(l), `missing ${l}`);
   }
+});
+
+test('languageForFile maps the new JVM/BEAM extensions', () => {
+  assert.equal(languageForFile('Invoice.kt'), 'kotlin');
+  assert.equal(languageForFile('build.gradle.kts'), 'kotlin');
+  assert.equal(languageForFile('Invoice.scala'), 'scala');
+  assert.equal(languageForFile('script.sc'), 'scala');
+  assert.equal(languageForFile('invoices.ex'), 'elixir');
+  assert.equal(languageForFile('invoices_test.exs'), 'elixir');
 });
 
 import { liftAll } from '../src/lift.mjs';
