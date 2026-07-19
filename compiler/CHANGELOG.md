@@ -3,6 +3,19 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.3.0
+
+The 14-language lift release. Additive; no breaking changes. Restores the OpenThunder -> ThunderLang
+recover-intent loop for every language OpenThunder's archgraph core can now discover.
+
+- **Kotlin, Scala, and Elixir lift adapters.** `thunder lift` now extracts candidate intent from
+  `.kt`/`.kts`, `.scala`/`.sc`, and `.ex`/`.exs`, bringing the supported-language count to 14. A new
+  `name: Type` parameter parser handles the JVM signature shape; Elixir joins the dynamic-language set.
+- **Fix: repo-walk language coverage.** `LIFT_EXTS` was stale and silently skipped Python, Java, C#,
+  Go, C++, PHP, and Ruby during repo/`--all` lifts; it now mirrors the full adapter set.
+- **Fix: single-file lift language detection.** `thunder lift <file>` now auto-detects the language by
+  extension instead of defaulting to TypeScript, consistent with `--all`/repo modes.
+
 ## 0.2.0
 
 The cross-language target execution release. Additive; no breaking changes.
