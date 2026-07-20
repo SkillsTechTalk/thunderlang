@@ -6,11 +6,11 @@ representation , [Intent IR](/docs/intent-graph) , and a set of **explainable fi
 by risk. Deterministic, no AI, no key required; the whole pipeline runs locally.
 
 ```bash
-intent scan .
+thunder scan .
 ```
 
 ```
-intent scan .: 6 finding(s) across 1 mission(s) in 1 file(s)
+thunder scan .: 6 finding(s) across 1 mission(s) in 1 file(s)
   severity   1 blocker, 0 error, 4 warning, 1 info  ,  Intent IR: 3 nodes
   risk themes:
       4  Intent risk
@@ -71,11 +71,11 @@ question drift monitoring exists for:
 > what learning content should be refreshed.
 
 ```bash
-intent guardian old/ new/
+thunder guardian old/ new/
 ```
 
 ```
-intent guardian: NEEDS-ATTENTION  (before.thunder -> after.thunder)
+thunder guardian: NEEDS-ATTENTION  (before.thunder -> after.thunder)
   changed    +0 / -1 / ~1 nodes
   affected   CreateInvoice
   introduced risk (2):
@@ -102,11 +102,11 @@ not: `thunder impact <base> <proposed>` estimates what a proposed change would t
 build it.
 
 ```bash
-intent impact current/ proposed/
+thunder impact current/ proposed/
 ```
 
 ```
-intent impact: REVIEW  (base -> proposed)
+thunder impact: REVIEW  (base -> proposed)
   change touches 2 node(s); ripples to 3 dependent(s)
   deterministic impact by type:  1 Mission, 1 Outcome, 1 Metric
   risk it would introduce (2):
@@ -137,11 +137,11 @@ hash-chained record of a project's meaning and decisions , provenance, assumptio
 rejections, corrections, accepted risks, verifications, and stale lessons.
 
 ```bash
-intent ledger project.ledger.json --subject CreateInvoice
+thunder ledger project.ledger.json --subject CreateInvoice
 ```
 
 ```
-intent ledger project.ledger.json , CreateInvoice  (chain VALID)
+thunder ledger project.ledger.json , CreateInvoice  (chain VALID)
   why built:
     - chose an idempotency key to prevent duplicate charges
   approved by: pm
@@ -156,7 +156,7 @@ rewrite history. `thunder ledger <file>` verifies the whole chain and, if it was
 break to the exact entry:
 
 ```
-intent ledger project.ledger.json: 6 entries, chain BROKEN at #1 , entry 1 hash does not match its content (tampered)
+thunder ledger project.ledger.json: 6 entries, chain BROKEN at #1 , entry 1 hash does not match its content (tampered)
 ```
 
 It answers the questions a project forgets over time , *why was this built, who approved it, what

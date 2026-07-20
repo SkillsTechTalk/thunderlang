@@ -40,7 +40,7 @@ BPMN process from any modeler imports its tasks as states, its sequence flows as
 transitions, and any activity that flows to an end event as a terminal state.
 
 ```
-intent import loan-decision.dmn
+thunder import loan-decision.dmn
 ```
 ```
 mission Loan
@@ -67,13 +67,13 @@ hit policy, a BPMN gateway, a guarded sequence flow. Rather than drop those sile
 lost, so nothing goes missing without a trace.
 
 ```
-intent import ticket.bpmn
+thunder import ticket.bpmn
   mission Ticket
   lifecycle Ticket
     state Open
     state Closed
-  intent import: [IL-IMP-BPMN-001] Process "Ticket" has 1 gateway(s); branching is flattened into direct transitions.
-  intent import: [IL-IMP-BPMN-002] A sequence flow carries a condition; ThunderLang transitions have no guards, so the condition is dropped.
+  thunder import: [IL-IMP-BPMN-001] Process "Ticket" has 1 gateway(s); branching is flattened into direct transitions.
+  thunder import: [IL-IMP-BPMN-002] A sequence flow carries a condition; ThunderLang transitions have no guards, so the condition is dropped.
 ```
 
 The source prints to stdout (clean for piping); the warnings print to stderr. Pass

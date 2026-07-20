@@ -203,7 +203,7 @@ until re-verification.
 ## CLI (ThunderLang)
 
 ```bash
-intent check                          # reports pending implementations, stale proofs, approvals
+thunder check                          # reports pending implementations, stale proofs, approvals
 intent ai list ./examples             # the manifest, per implementation + state
 intent ai generate <file.thunder>      # provider-neutral prompt for an external agent (Path 1)
 intent ai gate ./examples             # production gate: resolve real state, block if unshippable
@@ -212,7 +212,7 @@ intent ai approve <dir> <id> --by <reviewer> [--role <role>] [--note <note>]   #
 intent ai reject  <dir> <id> --by <reviewer> [--note <note>]                  # record rejection
 intent ai adopt <targetFile> <id>     # rewrite an AI region to human-owned, preserving provenance
 intent ai select <dir> <id>           # deterministically pick a winning candidate by measurable rules
-intent build <file> --mode production # refuses to build while an AI implementation is unshippable
+thunder build <file> --mode production # refuses to build while an AI implementation is unshippable
 ```
 
 `thunder ai generate` produces a structured prompt (mission, contract, scope, allowed

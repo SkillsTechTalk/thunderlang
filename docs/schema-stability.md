@@ -56,8 +56,8 @@ is `intent-graph-v2`, and it lands together with a registered migration step so 
 graphs upgrade deterministically:
 
 ```bash
-intent migrate <graph.json> --to intent-graph-v2   # walk the version chain, pure and deterministic
-intent validate <graph.json>                       # confirm the result is canonical
+thunder migrate <graph.json> --to intent-graph-v2   # walk the version chain, pure and deterministic
+thunder validate <graph.json>                       # confirm the result is canonical
 ```
 
 Both commands ship today (`thunder migrate`, `thunder validate`), and the v0 to v1

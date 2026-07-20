@@ -22,7 +22,7 @@ Every step is one CLI verb, and they compose in order:
 
 | Step | Command | What it proves |
 | --- | --- | --- |
-| 1. Bootstrap intent from existing code | `thunder lift` | recovers a humble `.thunder` draft from the code you already have (11 languages); never claims verified |
+| 1. Bootstrap intent from existing code | `thunder lift` | recovers a humble `.thunder` draft from the code you already have (14 languages); never claims verified |
 | 2. Approve the contract | `thunder approve` | stamps the reviewed intent with a source hash, the drift baseline |
 | 3. Gate a proposed change | `thunder verify-diff` | which guarantees/never-rules the *diff* upholds or breaks; exit 1 on BLOCK |
 | 4. Stand guard over the code as it is | `thunder drift` | whether today's implementation still satisfies the approved intent, no diff needed |
@@ -166,7 +166,7 @@ client at the command:
 ```json
 {
   "mcpServers": {
-    "thunderlang": { "command": "intent", "args": ["mcp"] }
+    "thunderlang": { "command": "thunder", "args": ["mcp"] }
   }
 }
 ```
@@ -181,7 +181,7 @@ The server exposes every verb of the loop:
 | `intent_drift` | check the code as it exists today against the intent, no diff needed |
 | `intent_draft` | turn a structured brief into a rigorous intent draft + a gap checklist |
 | `intent_check` | run diagnostics on intent source |
-| `intent_lift` | bootstrap intent from existing code (11 languages) |
+| `intent_lift` | bootstrap intent from existing code (14 languages) |
 | `intent_run` / `intent_test` | evaluate a decision / run in-file tests |
 | `intent_graph` / `intent_explain` | the canonical graph / explain a diagnostic code |
 

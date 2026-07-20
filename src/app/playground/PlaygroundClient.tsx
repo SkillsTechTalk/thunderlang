@@ -425,7 +425,7 @@ export function PlaygroundClient() {
           <span className="text-sm font-medium text-white">
             IntentLift{" "}
             <span className="text-haze-400">
-              · lift code from 11 languages into an inferred intent draft
+              · lift code from 14 languages into an inferred intent draft
             </span>
           </span>
           <span className="text-haze-400">{showLift ? "−" : "+"}</span>

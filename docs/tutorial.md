@@ -86,7 +86,7 @@ guarantee token can only be used once
 Now run the compiler. This is real, not conceptual:
 
 ```
-intent check ResetPassword.thunder
+thunder check ResetPassword.thunder
 ```
 
 At this point only "token can only be used once" carries a `verify`, so the compiler
@@ -124,7 +124,7 @@ decision CanReset
 Now execute it, with no AI and no generated code:
 
 ```
-intent run ResetPassword.thunder --inputs '{"tokenAgeMinutes":3,"attempts":1}'
+thunder run ResetPassword.thunder --inputs '{"tokenAgeMinutes":3,"attempts":1}'
   decision CanReset: Allowed  [rule: allowed]
       expired: when tokenAgeMinutes > 15
       tooManyAttempts: when attempts >= 5
@@ -134,7 +134,7 @@ intent run ResetPassword.thunder --inputs '{"tokenAgeMinutes":3,"attempts":1}'
 The `>` marks every rule whose condition was true; the first one wins (FIRST-hit).
 
 ```
-intent run ResetPassword.thunder --inputs '{"tokenAgeMinutes":20,"attempts":1}'
+thunder run ResetPassword.thunder --inputs '{"tokenAgeMinutes":20,"attempts":1}'
   decision CanReset: Denied  [rule: expired]
     > expired: when tokenAgeMinutes > 15  (matched)
       tooManyAttempts: when attempts >= 5
@@ -164,8 +164,8 @@ test CanReset
 ```
 
 ```
-intent test ResetPassword.thunder
-  intent test ResetPassword.thunder: 3/3 passed
+thunder test ResetPassword.thunder
+  thunder test ResetPassword.thunder: 3/3 passed
     PASS  CanReset / fresh token
     PASS  CanReset / expired token
     PASS  CanReset / locked out
@@ -179,7 +179,7 @@ The `.thunder` file is now **self-verifying**: no code, no test framework, no AI
 When you want the full output:
 
 ```
-intent build ResetPassword.thunder
+thunder build ResetPassword.thunder
 ```
 
 produces the generated docs, a contract graph, a test plan, and `.thunder-proof.json`, a

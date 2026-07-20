@@ -387,7 +387,7 @@ diagnostic rule IDs. ThunderLang owns and versions the canonical schema, and con
 **generate bindings from it** rather than hand-recreating enums:
 
 ```bash
-intent schema            # emits the JSON Schema + node/relationship/classification enums + rule catalog
+thunder schema            # emits the JSON Schema + node/relationship/classification enums + rule catalog
 ```
 
 `thunder schema` outputs a draft-07 JSON Schema (`$id`
@@ -436,9 +436,9 @@ Intent Graph, not a fork of it. Missions are the entry points (progressive discl
 you never start from files or a 1000-node dump). Deterministic, no AI.
 
 ```bash
-intent atlas ./examples                     # overview: missions + node-type counts
-intent atlas ./examples --search checkout   # exact + substring search (deterministic)
-intent atlas ./examples --expand <node-id>  # a node + its inbound/outbound neighbors
+thunder atlas ./examples                     # overview: missions + node-type counts
+thunder atlas ./examples --search checkout   # exact + substring search (deterministic)
+thunder atlas ./examples --expand <node-id>  # a node + its inbound/outbound neighbors
 ```
 
 `buildAtlas` assembles many mission Intent Graphs into one; `searchAtlas` and
@@ -452,7 +452,7 @@ teaches through it. All consume this one Atlas, owned by ThunderLang.
 `thunder diff` compares two snapshots (files or directories) by **meaning**, not text:
 
 ```bash
-intent diff ./before ./after        # + / - / ~ nodes, + / - edges, by type
+thunder diff ./before ./after        # + / - / ~ nodes, + / - edges, by type
 ```
 
 `diffGraphs` reports added / removed / changed nodes (a node "changed" when the same id

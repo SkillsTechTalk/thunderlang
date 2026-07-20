@@ -120,12 +120,12 @@ arguments lands in `skipped` with a reason, and the rest still apply.
 The same patcher is a CLI command, so scripts and CI can edit intent without the library:
 
 ```bash
-intent edit mission.thunder --set-goal "Create an approved invoice, once." \
+thunder edit mission.thunder --set-goal "Create an approved invoice, once." \
   --add-guarantee "an order is invoiced at most once" --write
 
 # or drive it with the full JSON edit list (from a file or stdin)
 echo '[{"op":"addField","section":"input","name":"age","type":"int"}]' \
-  | intent edit mission.thunder --edits -
+  | thunder edit mission.thunder --edits -
 ```
 
 Without `--write` it prints the edited source to stdout; with `--write` it applies in place and

@@ -177,10 +177,10 @@ scope are the signer's concern layered on top.
 
 The following must succeed with `--no-ai`:
 
-    intent check   CreateInvoice.thunder
-    intent graph   CreateInvoice.thunder
-    intent build   CreateInvoice.thunder   # docs, test plan, proof
-    intent proof   CreateInvoice.thunder
+    thunder check   CreateInvoice.thunder
+    thunder graph   CreateInvoice.thunder
+    thunder build   CreateInvoice.thunder   # docs, test plan, proof
+    thunder proof   CreateInvoice.thunder
 
 Optional AI-assisted commands (`thunder plan`, `thunder generate`, `thunder explain`,
 `thunder translate`, and prompt-to-intent drafting) must record provider, model,
@@ -191,15 +191,15 @@ status. AI assists; humans approve, verify, and own the result.
 
 Shipped and deterministic (run `thunder help` for the full reference):
 
-    intent check · build · graph · proof · schema · rules # author & check
-    intent run · simulate · test · outcomes              # execute (no AI)
-    intent export · import · source · migrate            # interop
-    intent atlas · index · diff · merge                  # navigate & compare
-    intent lift · approve · drift                        # code <-> intent
+    thunder check · build · graph · proof · schema · rules # author & check
+    thunder run · simulate · test · outcomes              # execute (no AI)
+    thunder export · import · source · migrate            # interop
+    thunder atlas · index · diff · merge                  # navigate & compare
+    thunder lift · approve · drift                        # code <-> intent
 
 Proposed (AI-assisted; humans approve, verify, and own the result):
 
-    intent init · plan · generate · verify · explain · translate
+    thunder init · plan · generate · verify · explain · translate
 
 ## Continuous integration
 

@@ -31,7 +31,7 @@ optional AI half.
   ```
   echo '{"name":"CancelSubscription","goal":"Let a customer cancel",
          "guarantees":["access continues until the period ends"],
-         "nevers":["charge after cancellation"]}' | intent draft --brief -
+         "nevers":["charge after cancellation"]}' | thunder draft --brief -
 
   mission CancelSubscription
   use product
@@ -60,7 +60,7 @@ matters, and how to fix it, with no model involved. `thunder explain <IL-CODE>` 
 code:
 
 ```
-intent explain IL-SEC-001
+thunder explain IL-SEC-001
   IL-SEC-001  (area: security)
   Secret-typed field travels over the event bus.
   severity: blocker  |  blocks: release

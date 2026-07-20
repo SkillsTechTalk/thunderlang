@@ -39,8 +39,8 @@ carry. So a sparse graph a consumer serialized before the schema stabilized beco
 graph the rest of the compiler can rely on:
 
 ```
-intent migrate old-graph.json
-  intent migrate: intent-graph-v0 -> intent-graph-v1 (1 step)
+thunder migrate old-graph.json
+  thunder migrate: intent-graph-v0 -> intent-graph-v1 (1 step)
     applied intent-graph-v0 -> intent-graph-v1: Stamp schema version and backfill the standard node fields.
     validation: OK
 ```

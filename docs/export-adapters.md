@@ -32,7 +32,7 @@ rule. The `when` expression is preserved verbatim (XML-escaped) so nothing about
 condition is lost in translation.
 
 ```
-intent export eligibility.thunder --format dmn
+thunder export eligibility.thunder --format dmn
 ```
 
 ## BPMN , lifecycles become processes
@@ -43,7 +43,7 @@ and terminal states flow to an end event. Open it in any BPMN modeler to see the
 declared flow as a diagram.
 
 ```
-intent export enrollment.thunder --format bpmn
+thunder export enrollment.thunder --format bpmn
 ```
 
 ## NuSMV , lifecycles become checkable models
@@ -58,7 +58,7 @@ adapter emits the specs it can derive with certainty:
   atomic proposition for a human to bind, rather than guessing.
 
 ```
-intent export enrollment.thunder --format smv
+thunder export enrollment.thunder --format smv
 ```
 
 ```
@@ -88,7 +88,7 @@ opaque object), and marks every declared field required unless it carries an `op
 modifier.
 
 ```
-intent export mission.thunder --format jsonschema
+thunder export mission.thunder --format jsonschema
 ```
 
 The OpenAPI adapter goes one step further and renders the whole mission as an operation:
@@ -98,7 +98,7 @@ and declared `errors` become named error responses with inferred status codes
 declared `api` block when present, else default to `POST /<mission>`.
 
 ```
-intent export mission.thunder --format openapi
+thunder export mission.thunder --format openapi
 ```
 
 So a mission with typed inputs and outputs is, for free, a validatable JSON Schema and a
@@ -114,7 +114,7 @@ groups, and each token carries the inferred `$type` (`color.primary → color`,
 dimension`).
 
 ```
-intent export mission.thunder --format tokens
+thunder export mission.thunder --format tokens
 ```
 
 ```json
@@ -155,7 +155,7 @@ rest) and every relationship as a labeled edge. Node ids are made Mermaid-safe a
 sanitized, so the output pastes straight into GitHub, Markdown, or Notion as a live diagram.
 
 ```
-intent export mission.thunder --format mermaid
+thunder export mission.thunder --format mermaid
 ```
 
 ```
@@ -179,7 +179,7 @@ test). It is a **scaffold** , the structure of the test that proves the experien
 along as a comment (a proposed goal, never assumed met).
 
 ```
-intent export mission.thunder --format playwright
+thunder export mission.thunder --format playwright
 ```
 
 This is the test-plan target for the experience profile: it turns "what the UI must do" into

@@ -22,10 +22,10 @@ There is a real, deterministic compiler and CLI, published as
 
 ```bash
 npm install -g @skillstech/thunderlang
-intent init Eligibility                              # scaffold a runnable starter
-intent run Eligibility.thunder --inputs '{"age":20}'  # a decision decides, with a trace
-intent test Eligibility.thunder                       # in-file tests prove it (2/2 passed)
-intent check .                                       # gate every .thunder in the repo
+thunder init Eligibility                              # scaffold a runnable starter
+thunder run Eligibility.thunder --inputs '{"age":20}'  # a decision decides, with a trace
+thunder test Eligibility.thunder                       # in-file tests prove it (2/2 passed)
+thunder check .                                       # gate every .thunder in the repo
 ```
 
 That is the point of ThunderLang: some intent does not need code generated, it **runs**.

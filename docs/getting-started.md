@@ -13,7 +13,7 @@ intent help
 ## 2. Scaffold a mission
 
 ```bash
-intent init Eligibility
+thunder init Eligibility
 ```
 
 That writes `Eligibility.thunder`, a real starter with a goal, a guarantee, a `never`
@@ -25,7 +25,7 @@ the box.
 A decision is a program. Give it inputs and it decides:
 
 ```bash
-intent run Eligibility.thunder --inputs '{"age":20}'
+thunder run Eligibility.thunder --inputs '{"age":20}'
 #   decision Example: Allowed  [rule: adult]
 ```
 
@@ -37,8 +37,8 @@ deterministically, before any implementation exists.
 The `test` blocks assert behavior through the same runtime:
 
 ```bash
-intent test Eligibility.thunder
-#   intent test Eligibility.thunder: 2/2 passed
+thunder test Eligibility.thunder
+#   thunder test Eligibility.thunder: 2/2 passed
 ```
 
 The `.thunder` file is now self-verifying. No test framework, no code.
@@ -46,7 +46,7 @@ The `.thunder` file is now self-verifying. No test framework, no code.
 ## 5. Format it
 
 ```bash
-intent fmt Eligibility.thunder --write
+thunder fmt Eligibility.thunder --write
 ```
 
 Canonical whitespace, comments preserved. Use `thunder fmt . --check` in CI to keep a
@@ -55,13 +55,13 @@ whole tree consistent.
 ## 6. Check it
 
 ```bash
-intent check Eligibility.thunder
+thunder check Eligibility.thunder
 ```
 
 Diagnostics for one file, or gate a whole repo at once:
 
 ```bash
-intent check .        # recurses every .thunder, exits non-zero on any error
+thunder check .        # recurses every .thunder, exits non-zero on any error
 ```
 
 Add it to CI with the GitHub Action:

@@ -38,8 +38,8 @@ test CanEnroll
 ```
 
 ```
-intent test eligibility.thunder
-  intent test eligibility.thunder: 3/3 passed
+thunder test eligibility.thunder
+  thunder test eligibility.thunder: 3/3 passed
     PASS  CanEnroll / adult high
     PASS  CanEnroll / adult low
     PASS  CanEnroll / minor

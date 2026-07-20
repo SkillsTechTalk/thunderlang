@@ -55,7 +55,7 @@ compileGuard(intentSource, { denyResults: ["Deny", "NeedsReview"] });
 decisions it gates , so it can be reviewed and audited before it ships:
 
 ```bash
-intent guard Refund.thunder
+thunder guard Refund.thunder
 #   redacts fields   paymentToken, ssn
 #   enforces decisions RefundDecision
 ```

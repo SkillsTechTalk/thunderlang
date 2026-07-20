@@ -42,7 +42,7 @@ Run `thunder check` on a governed mission and the matching blocker is downgraded
 waived, on-the-record exception:
 
 ```
-intent check governed.thunder --now 2026-07-11
+thunder check governed.thunder --now 2026-07-11
   [warning] (WAIVED) IL-PM-001: Metric "conversion rate" has no measurement window.
       waived by: Head of Product , measurement window deferred to v2, tracked in JIRA-123
   0 error(s), 1 warning(s), 1 waived

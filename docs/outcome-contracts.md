@@ -40,8 +40,8 @@ result Q3Conversion
 ```
 
 ```
-intent outcomes checkout.thunder
-  intent outcomes checkout.thunder: 1 met, 0 missed, 0 pending
+thunder outcomes checkout.thunder
+  thunder outcomes checkout.thunder: 1 met, 0 missed, 0 pending
     MET     FasterCheckout  , actual 62% vs target 60% (higher), +14 vs baseline
 ```
 
