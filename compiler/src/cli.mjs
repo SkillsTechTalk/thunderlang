@@ -327,81 +327,83 @@ function printDiagnostics(diags) {
 
 const HELP = `thunder , the ThunderLang compiler + engine (deterministic, no AI required)
 
+The flow: author intent, inspect it, run and prove it, then keep real code aligned with it.
+
 usage: thunder <command> <file> [options]
        thunder mission <Name> <command>     run any command on a mission by name
 
-Everyday
-  new [Name]               scaffold a runnable starter mission (Name.thunder)   [alias: init]
-  mission <Name> [cmd]     resolve a mission by name and run a command on it (list | <Name> | <Name> <cmd>)
-  check <file|dir>         parse + lint + explainable diagnostics
-  run <file> --inputs '<json>'         execute the decision(s) deterministically
+Author
+  new [Name]                 scaffold a runnable starter mission (Name.thunder)   [alias: init]
+  mission <Name> [cmd]       resolve a mission by name and run a command on it (list | <Name> | <Name> <cmd>)
+  draft --brief <json|->     scaffold a rigorous intent draft + gap checklist from a brief
+  edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]   structural edits, comments kept
+  fmt <file|dir> [--write|--check]   canonical formatting (whitespace only; comments kept)
+  source <file|graph.json>   regenerate .thunder from a persisted graph
+
+Inspect
+  check <file|dir> [--json|--format sarif]   parse + lint + explainable diagnostics; gate a whole dir
+  report [dir] [--json]      repo-wide intent health: severity + area counts, coverage
+  risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]   focused scan queries
+  focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]   Intent Lens: focused graph + brief
+  comprehension <file|dir> [--observed] [--learning] [--governed] [--json]   the C0..C7 understanding level
+  twelve-factor <file> [--json]   score against the 13 humanlayer/12-factor-agents principles   [alias: 12factor]
+  explain <IL-CODE>          explain a diagnostic code (area, severity, what it blocks)
+  rules [--json]             list the whole canonical diagnostic catalog
+  notes <file> [--lens <lens>] [--json]   ThunderLens: the compiled note blocks by lens (not verification)
+  docs <file> [--lens <lens>] [--out <dir>]   render a mission as Markdown docs (per-audience with --lens)
+  index <dir>                the Mission Atlas inventory
+  atlas <dir> [--search q | --expand id]   the whole-system Atlas
+
+Run & test
+  run <file> --inputs '<json>'   execute the decision(s) deterministically
   test <file> [--contracts | --properties | --scenarios | --mutate | --evals | --changed | --coverage] [--strict]
   test <file> --target typescript|python|csharp|java   run the tests against the EXECUTED generated code
-  test <file> --all-targets            run the tests against every AVAILABLE target in one pass
-  prove <file>             emit an intent-proof-v1 artifact (honest verdicts + freshness)
+  test <file> --all-targets  run the tests against every AVAILABLE target in one pass
+  simulate <file> --events a,b,c   walk the lifecycle(s) over events
+  outcomes <file>            evaluate outcome contracts vs delivery results
+  style <file>               resolve style intents vs the canonical token space
+  gen <file> [--target typescript|csharp|java|python] [--out <dir>]   deterministic code scaffold (types + decision logic + TODOs)
+  build <file>               generate docs, contract graph, test plan, and .thunder-proof.json
+
+Prove & verify intent
+  prove <file>               emit an intent-proof-v1 artifact (honest verdicts + freshness)
+  proof <file>               the .thunder-proof.json artifact (see also: prove, which emits verdicts)
+  proof --schema             emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
-  build <file>             generate docs, contract graph, test plan, targets
+  conform <file> [--targets a,b] [--run typescript,python,csharp,java | --all-targets] [--results <json>]   conformance matrix across targets
 
-Author & check
-  init [Name]              scaffold a runnable starter mission (Name.thunder)
-  draft --brief <json|->   scaffold a rigorous intent draft + gap checklist from a brief
-  check <file|dir> [--json|--format sarif]  diagnostics for one file, or gate a whole dir
-  report [dir] [--json]     repo-wide intent health: severity + area counts, coverage
-  scan [dir] [--json] [--ir <path>]  Scanner: intent -> Intent IR -> Fable findings -> risk themes
-  risks | gaps | unverified | coverage | unknowns | contradictions [dir] [--json]  focused scan queries
-  focus <mission|query|--nodes a,b> [--depth N] [--dir <d>] [--json]  Intent Lens: focused graph + brief
-  comprehension <file|dir> [--observed] [--learning] [--governed] [--json]  the C0..C7 understanding level
-  twelve-factor <file> [--json]  score an intent against the 13 humanlayer/12-factor-agents principles
-  gen <file> [--target typescript|csharp|java|python] [--out <dir>]  deterministic code scaffold (types + decision logic + TODOs)
-  changes [<base>..<head> | <base>] [--json]  Change Lens: what a branch/PR changed by meaning
-  guardian <before> <after>  drift: what changed, what risk, what to reverify, what learning is stale
-  impact <base> <proposed>  Simulator: estimate a change's blast radius + risk BEFORE building it
-  ledger <file.json> [--subject <id>]  verify the tamper-evident history + explain why/who/what changed
-  guard <file> [--json]     preview the runtime guard (redacted fields, enforced decisions)
-  fmt <file|dir> [--write|--check]  canonical formatting (whitespace only; comments kept)
-  edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]  structural edits, comments kept
-  lsp                      start the Language Server (LSP over stdio, for editors)
-  mcp                      start the MCP server (for AI coding agents; stdio)
-  build <file>              docs, contract graph, test plan, and .thunder-proof.json
-  graph <file> [--safe]     the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
-  proof <file>              the .thunder-proof.json artifact
-  proof --schema            emit the canonical proof envelope JSON Schema (intent-proof-v1)
-  verify <proof.json> [src]  confirm a proof is well-formed and still matches its source
-  conform <file> [--targets a,b] [--run typescript,python,csharp,java | --all-targets] [--results <json>]  run the same cases against every target (conformance matrix)
-  schema                    emit the canonical graph schema + diagnostic catalog
-  explain <IL-CODE>         explain a diagnostic code (area, severity, what it blocks)
-  rules [--json]            list the whole canonical diagnostic catalog
-  notes <file> [--lens <lens>] [--json]  ThunderLens: the compiled note blocks by lens (not verification)
-  docs <file> [--lens <lens>] [--out <dir>]  render a mission as Markdown docs (per-audience with --lens)
-  code-actions <file> [--json]  available quick-fixes, safety-graded (safe | reviewable)
-  apply-fix <file> [--write]    apply the SAFE autocorrects (header aliases, stray colons)
+Real code vs intent (drift)
+  lift <file> [--from <lang>]    lift source code into inferred intent
+  drift <codeFile> --intent <file.intent> [--from <lang>]   check intent vs code drift
+  approve <file> --by <name>     approve intent (drift baseline)
+  verify-diff <intent> --after <code> [--before <code>]   gate a code change against its intent
+  changes [<base>..<head> | <base>] [--json]   Change Lens: what a branch/PR changed by meaning
+  guardian <before> <after>      drift: what changed, what risk, what to reverify, what learning is stale
+  impact <base> <proposed>       Simulator: estimate a change's blast radius + risk BEFORE building it
+  diff <before> <after>          semantic diff (by meaning)
+  merge <base> <ours> <theirs>   deterministic 3-way semantic merge
+  handoff <file>                 the OpenThunder drift handoff
+  ledger <file.json> [--subject <id>]   verify the tamper-evident history + explain why/who/what changed
+  guard <file> [--json]          preview the runtime guard (redacted fields, enforced decisions)
 
-Execute (no AI, no generated code)
-  run <file> --inputs '<json>'      evaluate the decision(s) against inputs
-  simulate <file> --events a,b,c    walk the lifecycle(s) over events
-  test <file>                       run the in-file test blocks (case/scenario)
-  outcomes <file>                   evaluate outcome contracts vs delivery results
-  style <file>                      resolve style intents vs the canonical token space
+Graph & IR
+  graph <file> [--safe]      the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
+  migrate <graph.json> [--to <version>]   upgrade a persisted graph
+  validate <graph.json> [--json]   check a graph is canonical (anti-fork)
+  schema                     emit the canonical graph schema + diagnostic catalog
 
 Interop
   export <file> --format <dmn|bpmn|smv|jsonschema|openapi|tokens|mermaid|css|playwright>   render to a standard format
-  import <file> [--format dmn|bpmn] [--json]                 lift DMN/BPMN into intent
-  source <file|graph.json>                                   regenerate .thunder from a graph
-  migrate <graph.json> [--to <version>]                      upgrade a persisted graph
-  validate <graph.json> [--json]                             check a graph is canonical (anti-fork)
+  import <file> [--format dmn|bpmn] [--json]   lift DMN/BPMN into intent
 
-Navigate & compare (over many missions)
-  atlas <dir> [--search q | --expand id]   the whole-system Atlas
-  index <dir>                              the Mission Atlas inventory
-  diff <before> <after>                    semantic diff (by meaning)
-  merge <base> <ours> <theirs>             deterministic 3-way semantic merge
+Fix
+  scan [dir] [--json] [--ir <path>]   Scanner: intent -> Intent IR -> Fable findings -> risk themes
+  code-actions <file> [--json]   available quick-fixes, safety-graded (safe | reviewable)
+  apply-fix <file> [--write]     apply the SAFE autocorrects (header aliases, stray colons)
 
-Code <-> intent
-  lift <file> [--from <lang>]   lift source code into inferred intent
-  approve <file> --by <name>    approve intent (drift baseline)
-  drift <file> --from <code>    check intent vs code drift
-  verify-diff <intent> --after <code> [--before <code>]  gate a code change against its intent
-  handoff <file>                the OpenThunder drift handoff
+Servers
+  lsp                        start the Language Server (LSP over stdio, for editors)
+  mcp                        start the MCP server (for AI coding agents; stdio)
 
 Common options: --out <dir>, --json, --no-ai. See https://thunderlang.dev/docs`;
 
