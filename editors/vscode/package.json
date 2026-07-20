@@ -5,11 +5,15 @@
   "version": "0.4.1",
   "publisher": "skillstech",
   "license": "Apache-2.0",
+  "icon": "icon.png",
   "homepage": "https://thunderlang.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
+    "url": "git+https://github.com/SkillsTechTalk/thunderlang.git",
     "directory": "editors/vscode"
+  },
+  "bugs": {
+    "url": "https://github.com/SkillsTechTalk/thunderlang/issues"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -17,6 +21,13 @@
   "categories": [
     "Programming Languages",
     "Linters"
+  ],
+  "keywords": [
+    "thunderlang",
+    "intent",
+    "intent-oriented programming",
+    "specification",
+    "verification"
   ],
   "activationEvents": [
     "onLanguage:thunder"
