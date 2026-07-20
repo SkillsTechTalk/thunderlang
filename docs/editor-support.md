@@ -9,7 +9,7 @@ no AI, no network.
 ## Start it
 
 ```
-intent lsp
+thunder lsp
 ```
 
 That runs the server over stdio (LSP `Content-Length`-framed JSON-RPC on stdin/stdout).

@@ -41,7 +41,7 @@ Test pass counts, drift, and human review come from later steps and repo evidenc
 ## 3. View the Atlas
 
 ```bash
-intent graph ./intent --view atlas   # planned
+thunder graph ./intent --view atlas   # planned
 ```
 
 The same inventory as a tree from product down to code evidence. See
@@ -69,7 +69,7 @@ modified, plus the [Risk Radar](/docs/risk-radar) ordering of what to review fir
 ## 6. Read the Proof Matrix
 
 ```bash
-intent proof matrix ./intent     # planned -> mission-proof-matrix.json
+thunder proof matrix ./intent     # planned -> mission-proof-matrix.json
 ```
 
 The [Proof Matrix](/docs/proof-matrix): 9 verified, 6 partial, 1 drifting. Scan the
@@ -84,7 +84,7 @@ rollback missions. Review those, not all 15 equally. See
 ## 8. Run the Semantic Diff
 
 ```bash
-intent diff ./intent --since HEAD~1   # planned
+thunder diff ./intent --since HEAD~1   # planned
 ```
 
 The [Semantic Diff](/docs/semantic-diff): guarantees added, never rules weakened,

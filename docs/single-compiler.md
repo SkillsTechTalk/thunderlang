@@ -2,7 +2,7 @@
 
 ThunderLang (`@skillstech/thunderlang`) is the **single source of truth** for parsing, graph
 building, analysis, and navigation across the ecosystem. OpenThunder, Repo Mastery, SkillsTech
-(Studio + site), SkillsTech Mobile, and the `intent` CLI all run the *same* compiler code, not
+(Studio + site), SkillsTech Mobile, and the `thunder` CLI (`intent` is a legacy alias) all run the *same* compiler code, not
 a re-implementation. This page is the consumption contract.
 
 > The rule: no product re-parses `.thunder`, re-derives the Intent Graph, or forks the Intent IR.
@@ -12,7 +12,7 @@ a re-implementation. This page is the consumption contract.
 
 | Import | Runtime | Use it in |
 | --- | --- | --- |
-| `@skillstech/thunderlang` (`.`) | Node.js | the `intent` CLI, OpenThunder server, any build step; adds filesystem/CLI helpers on top of everything in `/core` |
+| `@skillstech/thunderlang` (`.`) | Node.js | the `thunder` CLI, OpenThunder server, any build step; adds filesystem/CLI helpers on top of everything in `/core` |
 | `@skillstech/thunderlang/core` | **Universal** (Node, browser, React Native) | SkillsTech Studio (browser), Repo Mastery web, SkillsTech Mobile, and any bundler target |
 
 `/core` is the whole compiler minus the two Node-only entry points (`cli.mjs`, `drift.mjs`,
@@ -74,7 +74,7 @@ siblings decide what to *do* with it.
 
 Once the package is published, each consumer retires its fork/copy and imports this one.
 
-- **The `intent` CLI** , already this package. Nothing to do.
+- **The `thunder` CLI** , already this package. Nothing to do.
 - **OpenThunder** (Node / TypeScript) , `npm i @skillstech/thunderlang`. Import `parseIntent`,
   `buildIntentGraph`, `scanProject`, `graphToIR` from `.` (Node) or `/core`. Keep ArchGraph as
   a *language extractor* that projects up via `graphToIR` into `intent-ir-v1`; delete any local

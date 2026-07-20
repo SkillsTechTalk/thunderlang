@@ -42,7 +42,7 @@ contract):
 ## Usage
 
 ```
-intent source <file>
+thunder source <file>
 ```
 
 - Given an `.thunder` file, it parses, builds the graph, and regenerates source (a

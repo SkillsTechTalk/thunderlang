@@ -474,7 +474,7 @@ outcome, and the lifecycle/distributed/decision families. The full catalog is
 
 ## 23. Tooling surface
 
-The `intent` CLI: `check`, `build`, `graph`, `proof`, `atlas`, `diff`, `merge`,
+The `thunder` CLI (`intent` is a legacy alias): `check`, `build`, `graph`, `proof`, `atlas`, `diff`, `merge`,
 `export` (dmn|bpmn|smv), `import` (dmn|bpmn), `run`, `simulate`, `test`, `outcomes`,
 `lift`, `approve`, `drift`, `index`, `schema`. The library
 (`@skillstech/thunderlang`, and the browser-safe `@skillstech/thunderlang/core` subset)

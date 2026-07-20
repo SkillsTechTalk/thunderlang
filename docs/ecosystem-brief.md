@@ -65,8 +65,8 @@ The compiler emits the handoff; OpenThunder consumes it against real repo eviden
 ```bash
 # ThunderLang side: approve the intent in place (adds the approval + source hash),
 # then emit the handoff pack to a file.
-intent approve CreateInvoice.thunder --by "you"
-intent handoff CreateInvoice.thunder > intent-handoff.json
+thunder approve CreateInvoice.thunder --by "you"
+thunder handoff CreateInvoice.thunder > intent-handoff.json
 
 # OpenThunder side: check the repo against the pack.
 openthunder intent drift --pack intent-handoff.json --repo .

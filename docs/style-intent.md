@@ -72,8 +72,8 @@ produce. A style intent that omits the target gets an informational `IL-STYLE-00
 "accessible" left implicit is "accessible" left unchecked.
 
 ```
-intent style storefront.thunder
-  intent style storefront.thunder: 1 style intent(s)
+thunder style storefront.thunder
+  thunder style storefront.thunder: 1 style intent(s)
     CheckoutLook  , a11y WCAG_2_2_AA (proposed, verified=false), 3 token(s), applies_to CheckoutFlow
 ```
 

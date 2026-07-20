@@ -16,7 +16,7 @@ review. It covers the top languages (TypeScript, JavaScript, Python, Java, C#, G
 PHP, Ruby, Perl):
 
 ```bash
-intent lift src/billing/invoice.ts
+thunder lift src/billing/invoice.ts
 # -> writes .thunder/createinvoice.thunder
 #    [warning] INTENT_LIFT_NEEDS_HUMAN_REVIEW: a human must review goal, never rules, verification
 #    [warning] INTENT_LIFT_NO_TEST_EVIDENCE: no tests found to ground guarantees
@@ -69,7 +69,7 @@ past code review: a guarantee with no verification, a secret on an event payload
 duplicate-prevention promise with no idempotency key, a contradiction between constraints.
 
 ```bash
-intent check intent/CreateInvoice.thunder
+thunder check intent/CreateInvoice.thunder
 ```
 
 Errors fail; warnings inform. Fix what matters, waive what you have governed, move on.
@@ -80,8 +80,8 @@ Once you have lifted a handful of missions, `thunder report` gives the health of
 whole , not pass/fail, but a dashboard for triage:
 
 ```bash
-intent report intent/
-# intent report intent/: 12 mission(s) in 12 file(s), 40 diagnostic(s)
+thunder report intent/
+# thunder report intent/: 12 mission(s) in 12 file(s), 40 diagnostic(s)
 #   severity   0 blocker, 0 error, 38 warning, 2 info
 #   coverage   guarantees verified 22/31 (71%), missions with tests 5/12 (42%)
 #   top codes  guarantee-without-verification (9), missing-goal (2)
@@ -97,8 +97,8 @@ to keep a broken intent from merging , and `--format sarif` puts the diagnostics
 GitLab code scanning as inline annotations:
 
 ```bash
-intent check intent/ --format sarif > intent.sarif   # upload to code scanning
-intent check intent/                                  # the gate (fails on errors)
+thunder check intent/ --format sarif > intent.sarif   # upload to code scanning
+thunder check intent/                                  # the gate (fails on errors)
 ```
 
 The published [GitHub Action](/docs/compiler-contract) makes it three lines.
@@ -109,8 +109,8 @@ Intent is only worth having if it stays true. Approve a mission to set a baselin
 `thunder drift` tell you when the code and the intent have diverged:
 
 ```bash
-intent approve intent/CreateInvoice.thunder --by you@team.com
-intent drift src/billing/invoice.ts --intent intent/CreateInvoice.thunder
+thunder approve intent/CreateInvoice.thunder --by you@team.com
+thunder drift src/billing/invoice.ts --intent intent/CreateInvoice.thunder
 # -> IN_SYNC, or the specific guarantees/inputs that no longer match
 ```
 

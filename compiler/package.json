@@ -70,11 +70,11 @@
   "homepage": "https://thunderlang.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SkillsTechTalk/intent-language.git",
+    "url": "git+https://github.com/SkillsTechTalk/thunderlang.git",
     "directory": "compiler"
   },
   "bugs": {
-    "url": "https://github.com/SkillsTechTalk/intent-language/issues"
+    "url": "https://github.com/SkillsTechTalk/thunderlang/issues"
   },
   "author": "Skills Tech Talk, LLC",
   "license": "Apache-2.0",

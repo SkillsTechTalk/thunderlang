@@ -9,8 +9,8 @@ runtime. The conformance lens turns "12-factor compliant" into a **deterministic
 verifiable claim** the proof can carry , not a marketing checkbox.
 
 ```
-intent twelve-factor examples/TwelveFactorAgent.thunder          # scored report
-intent twelve-factor examples/TwelveFactorAgent.thunder --json   # machine-readable
+thunder twelve-factor examples/TwelveFactorAgent.thunder          # scored report
+thunder twelve-factor examples/TwelveFactorAgent.thunder --json   # machine-readable
 ```
 
 Programmatic (`@skillstech/thunderlang` / `/core`):

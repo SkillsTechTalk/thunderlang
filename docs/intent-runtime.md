@@ -33,7 +33,7 @@ decision CanEnroll
 ```
 
 ```
-intent run eligibility.thunder --inputs '{"age": 20, "score": 90}'
+thunder run eligibility.thunder --inputs '{"age": 20, "score": 90}'
   decision CanEnroll: Eligible  [rule: adult]
     x adult: when age >= 18 and score >= 70
     x provisional: when age >= 18
@@ -58,12 +58,12 @@ traces the path, rejecting any event that is not a legal transition from the cur
 state, and stopping cleanly at terminal states:
 
 ```
-intent simulate enrollment.thunder --events submit,approve
+thunder simulate enrollment.thunder --events submit,approve
   lifecycle Enrollment: Draft -> Submitted -> Approved  (valid, terminal)
     ok  Draft --submit--> Submitted
     ok  Submitted --approve--> Approved
 
-intent simulate enrollment.thunder --events approve
+thunder simulate enrollment.thunder --events approve
   lifecycle Enrollment: Draft  (INVALID)
     X   Draft --approve--> Draft  (no transition "approve" from "Draft")
 ```

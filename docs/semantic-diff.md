@@ -73,8 +73,8 @@ collaborative Atlas editor auto-merge the safe majority of concurrent edits and
 surface only the genuine intent conflicts for a human to resolve.
 
 ```
-intent merge <base> <ours> <theirs>
-  intent merge: CONFLICTS , 58 node(s), 1 conflict(s)
+thunder merge <base> <ours> <theirs>
+  thunder merge: CONFLICTS , 58 node(s), 1 conflict(s)
     conflict: Guarantee guarantee.pay.amount-never-negative (changed differently on both sides)
 ```
 

@@ -11,7 +11,7 @@ Part of [ThunderLang](https://thunderlang.dev), the intent language for AI-era s
 ## Install
 
 ```bash
-npm install -g @skillstech/thunderlang     # then: intent check path/to/Mission.intent
+npm install -g @skillstech/thunderlang     # then: thunder check path/to/Mission.intent
 npx @skillstech/thunderlang help           # or run without installing
 ```
 
@@ -19,36 +19,36 @@ npx @skillstech/thunderlang help           # or run without installing
 
 ```bash
 # Author & check
-intent init [Name]           # scaffold a runnable starter mission
-intent check <file|dir>      # semantic diagnostics (exit 1 on error); a dir gates the repo
-intent fmt <file|dir> -w     # canonical formatting (whitespace only; comments preserved)
-intent build <file>          # docs, contract graph, test plan, .intent-proof.json
-intent graph <file>          # the canonical Intent Graph (intent-graph-v1)
-intent check . --format sarif   # SARIF 2.1.0 for GitHub/GitLab code scanning
-intent schema                # emit the graph schema + diagnostic catalog
-intent rules  ·  intent explain <CODE>   # the full diagnostic catalog / one code
-intent proof --schema        # the canonical proof envelope schema (intent-proof-v1)
+thunder init [Name]           # scaffold a runnable starter mission
+thunder check <file|dir>      # semantic diagnostics (exit 1 on error); a dir gates the repo
+thunder fmt <file|dir> -w     # canonical formatting (whitespace only; comments preserved)
+thunder build <file>          # docs, contract graph, test plan, .intent-proof.json
+thunder graph <file>          # the canonical Intent Graph (intent-graph-v1)
+thunder check . --format sarif   # SARIF 2.1.0 for GitHub/GitLab code scanning
+thunder schema                # emit the graph schema + diagnostic catalog
+thunder rules  ·  thunder explain <CODE>   # the full diagnostic catalog / one code
+thunder proof --schema        # the canonical proof envelope schema (intent-proof-v1)
 
 # Execute (no AI, no generated code)
-intent run <file> --inputs '{"age":20}'    # evaluate the decision(s) against inputs
-intent simulate <file> --events submit,approve  # walk the lifecycle(s)
-intent test <file>                          # run in-file test blocks (case/scenario)
-intent outcomes <file>                      # evaluate outcome contracts vs results
-intent style <file>                         # resolve style intents vs the canonical token space
+thunder run <file> --inputs '{"age":20}'    # evaluate the decision(s) against inputs
+thunder simulate <file> --events submit,approve  # walk the lifecycle(s)
+thunder test <file>                          # run in-file test blocks (case/scenario)
+thunder outcomes <file>                      # evaluate outcome contracts vs results
+thunder style <file>                         # resolve style intents vs the canonical token space
 
 # Interop  (9 export formats)
-intent export <file> --format dmn|bpmn|smv|jsonschema|openapi|tokens|css|mermaid|playwright
-intent import <file> [--format dmn|bpmn] [--json]   # lift DMN/BPMN into intent
-intent source <file|graph.json>             # regenerate .intent from a graph
-intent migrate <graph.json> [--to <ver>]    # upgrade a persisted graph
-intent verify <proof.json> [src]            # confirm a proof matches its source
+thunder export <file> --format dmn|bpmn|smv|jsonschema|openapi|tokens|css|mermaid|playwright
+thunder import <file> [--format dmn|bpmn] [--json]   # lift DMN/BPMN into intent
+thunder source <file|graph.json>             # regenerate .intent from a graph
+thunder migrate <graph.json> [--to <ver>]    # upgrade a persisted graph
+thunder verify <proof.json> [src]            # confirm a proof matches its source
 
 # Navigate & compare
-intent atlas <dir> [--search q]   intent index <dir>
-intent diff <before> <after>      intent merge <base> <ours> <theirs>
+thunder atlas <dir> [--search q]   thunder index <dir>
+thunder diff <before> <after>      thunder merge <base> <ours> <theirs>
 
 # Code <-> intent
-intent lift <file>   intent approve <file>   intent drift <file>
+thunder lift <file>   thunder approve <file>   thunder drift <file>
 ```
 
 Run `thunder help` for the full reference.
@@ -75,8 +75,8 @@ test Eligibility
 ```
 
 ```bash
-intent run mission.intent --inputs '{"age":20,"score":90}'   # -> Eligible, with a trace
-intent test mission.intent                                    # -> 1/1 passed
+thunder run mission.intent --inputs '{"age":20,"score":90}'   # -> Eligible, with a trace
+thunder test mission.intent                                    # -> 1/1 passed
 ```
 
 No AI, no generated code. The intent itself decides.

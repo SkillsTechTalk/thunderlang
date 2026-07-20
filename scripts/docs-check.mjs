@@ -9,6 +9,9 @@
 //   3. Every IL-* diagnostic code cited in docs is one the compiler can emit.
 //   4. Every intent-like fenced code block parses with no `unknown-block` diagnostic.
 //   5. Every docs/*.md is registered in src/lib/docs.ts (DOC_ORDER), and vice versa.
+//   6. No doc teaches a legacy `intent <subcommand>` CLI invocation (the binary is
+//      `thunder`; `intent` stays only as an alias). Only code blocks are checked, so
+//      concept vocabulary ("intent drift", "Intent Graph", intent_check, ...) is untouched.
 //
 // No dependencies beyond Node (>=18) + the sibling compiler.
 
@@ -77,6 +80,36 @@ const orderMatch = docsTs.match(/const DOC_ORDER = \[([\s\S]*?)\]/);
 const ordered = new Set(orderMatch ? [...orderMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]) : []);
 for (const slug of docSlugs) if (!ordered.has(slug)) fail('src/lib/docs.ts', `docs/${slug}.md is not in DOC_ORDER`);
 for (const slug of ordered) if (!docSlugs.has(slug)) fail('src/lib/docs.ts', `DOC_ORDER entry "${slug}" has no docs/${slug}.md`);
+
+// 6. no legacy `intent <subcommand>` CLI invocations in doc code blocks. The check only
+// looks inside fenced shell/plain code blocks and indented code lines that start with
+// `intent`, and skips `openthunder intent ...` (a different tool's subcommand), so plain
+// English uses of "intent" and MCP tool names (intent_check, ...) can never trip it.
+const CLI_VERBS =
+  'init|new|draft|check|run|test|build|gen|lift|scan|prove|verify|conform|atlas|index|lsp|mcp|graph|fmt|report|export|import|simulate|edit|drift|approve|migrate|validate|source|explain|rules|docs|notes|guard|ledger|focus|comprehension|twelve-factor|outcomes|style|code-actions|apply-fix|changes|guardian|impact|handoff|mission|diff|merge|schema|proof';
+const legacyInvocation = new RegExp(`(?<!openthunder )\\bintent (?:${CLI_VERBS})\\b`);
+const cliDocs = [
+  ...docFiles.map((f) => [`docs/${f}`, join(DOCS, f)]),
+  ['README.md', join(ROOT, 'README.md')],
+  ['compiler/README.md', join(ROOT, 'compiler', 'README.md')],
+];
+for (const [rel, path] of cliDocs) {
+  const lines = readFileSync(path, 'utf8').split('\n');
+  let inFence = false;
+  let shellFence = false;
+  lines.forEach((line, i) => {
+    const fence = line.match(/^\s*```([a-zA-Z]*)\s*$/);
+    if (fence) {
+      inFence = !inFence;
+      shellFence = inFence && ['', 'bash', 'sh', 'shell', 'console', 'text'].includes(fence[1]);
+      return;
+    }
+    const indentedInvocation = !inFence && /^ {4,}intent /.test(line);
+    if (((inFence && shellFence) || indentedInvocation) && legacyInvocation.test(line)) {
+      fail(rel, `line ${i + 1}: legacy CLI invocation "intent <subcommand>" , the binary is \`thunder\``);
+    }
+  });
+}
 
 if (problems.length) {
   console.error(`docs-check: ${problems.length} problem(s):`);
