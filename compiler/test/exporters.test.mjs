@@ -158,6 +158,28 @@ experience CheckoutFlow
   assert.match(spec, /WCAG_2_2_AA \(proposed/);
 });
 
+test('toPlaywright guards every scaffolded test with test.fixme so an unfilled scaffold cannot pass vacuously', () => {
+  const src = `mission Storefront
+use experience
+experience CheckoutFlow
+  journey HappyPath
+    user pays
+  state Reviewing
+  state Failed
+    recover retry
+`;
+  const spec = toPlaywright(parseIntent(src));
+  const testCount = (spec.match(/^ {2}test\('/gm) || []).length;
+  const guardCount = (spec.match(/^ {4}test\.fixme\(true, 'scaffold: /gm) || []).length;
+  assert.equal(testCount, 3); // 1 journey + 2 states
+  assert.equal(guardCount, testCount, 'each generated test must open with a test.fixme guard');
+  // the guard is the first statement of each test body
+  const lines = spec.split('\n');
+  lines.forEach((line, i) => {
+    if (/^ {2}test\('/.test(line)) assert.match(lines[i + 1], /^ {4}test\.fixme\(true, /);
+  });
+});
+
 test('toPlaywright escapes quotes in journey/step text (valid JS strings)', () => {
   const spec = toPlaywright(parseIntent(`mission M
 use experience
