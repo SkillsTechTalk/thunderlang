@@ -19,6 +19,7 @@ const DOC_ORDER = [
   "getting-started",
   "adopting-thunderlang",
   "verifying-ai-changes",
+  "mcp",
   "runtime-enforcement",
   "intent-scanner",
   "syntax-overview",
@@ -70,6 +71,7 @@ const DOC_LABELS: Record<string, string> = {
   "getting-started": "Getting started",
   "adopting-thunderlang": "Adopting on an existing codebase",
   "verifying-ai-changes": "Verifying AI code changes",
+  "mcp": "ThunderLang for AI agents (MCP)",
   "runtime-enforcement": "Runtime enforcement",
   "intent-scanner": "Intent Scanner and Fable",
   "syntax-overview": "Syntax overview",
@@ -119,6 +121,7 @@ const DOC_BLURBS: Record<string, string> = {
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",
   "adopting-thunderlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
+  "mcp": "Install the MCP server so a coding agent can run the verify-real-code loop: lift, gate a change, prove, and check drift.",
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
   "intent-scanner": "Scan a project into Intent IR and explainable Fable findings grouped by risk.",
   "syntax-overview": "The keywords, three layers, types, and blocks.",
@@ -190,7 +193,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Start here",
     blurb: "The mental model and your first ten minutes.",
-    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-thunderlang", "verifying-ai-changes"],
+    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-thunderlang", "verifying-ai-changes", "mcp"],
   },
   {
     title: "Understand the language",
