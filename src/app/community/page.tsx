@@ -19,10 +19,10 @@ const channels = [
   },
   {
     title: "GitHub",
-    body: "The examples repo, RFCs, and reference tooling will live here as they open up.",
-    cta: "Coming soon",
-    href: "#",
-    ready: false,
+    body: "The compiler, docs, and examples are open source (Apache-2.0). Read the code, file issues, and open pull requests.",
+    cta: "View on GitHub",
+    href: "https://github.com/SkillsTechTalk/thunderlang",
+    ready: true,
   },
   {
     title: "Community forum",
