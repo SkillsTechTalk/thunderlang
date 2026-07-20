@@ -6,18 +6,78 @@
 //
 // Start it with `thunder mcp`. Point an MCP client at that command.
 
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { parseIntent } from './parse.mjs';
-import { semanticDiagnostics, COMPILER_VERSION } from './emit.mjs';
+import { semanticDiagnostics, buildProof, COMPILER_VERSION } from './emit.mjs';
+import { sha256 } from './hash.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { liftSource, SUPPORTED_LANGUAGES } from './lift.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateDecision } from './runtime.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
+import { buildConformance } from './conformance.mjs';
+import { checkDrift } from './drift.mjs';
 import { draftIntent } from './draft.mjs';
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const str = { type: 'string' };
+
+// ── prove helpers ────────────────────────────────────────────────────────────
+// Per-claim resolution , mirrors resolveObligations in cli.mjs (shared there by `thunder test
+// --contracts` and `thunder prove`) so the MCP proof and the CLI proof agree claim for claim.
+// States: verified (proven by a passing named test), failed (its test fails), declared (a
+// verification is named but not runnable in-file), unverified (nothing).
+function resolveObligations(ast) {
+  const t = runTests(ast);
+  const testPass = new Map();
+  for (const res of (t.results || [])) {
+    const cur = testPass.get(res.target);
+    testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
+  }
+  const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const matchTest = (verifyText) => {
+    const v = norm(verifyText); if (!v) return null;
+    for (const [name, pass] of testPass) { const n = norm(name); if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass }; }
+    return null;
+  };
+  const build = (kind, o) => {
+    const verify = o.verify || [];
+    let status = 'unverified', provenBy = null;
+    if (verify.length) {
+      let m = null;
+      for (const vt of verify) { const x = matchTest(vt); if (x) { m = x; if (!x.pass) break; } }
+      if (m) { status = m.pass ? 'verified' : 'failed'; provenBy = m.name; } else status = 'declared';
+    }
+    return { kind, id: o.id, status, provenBy };
+  };
+  const obligations = [...ast.guarantees.map((g) => build('guarantee', g)), ...ast.neverRules.map((n) => build('prohibition', n))];
+  return { obligations, tests: t, failed: obligations.filter((o) => o.status === 'failed').length };
+}
+
+// Freshness tuple , the (intent, implementation, dependencies, compiler, environment) binding
+// `thunder verify` recomputes later to mark a proof STALE. Mirrors freshnessFor in cli.mjs;
+// implementation/dependencies are read from the server's working directory when available.
+const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock', 'Cargo.lock', 'go.sum', 'Gemfile.lock', 'composer.lock'];
+function proofFreshness(proof, environment) {
+  let head = null;
+  try { head = execSync('git rev-parse HEAD', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null; } catch { head = null; }
+  let lock = null, dir = process.cwd();
+  for (let i = 0; i < 6 && !lock; i++) {
+    for (const lf of LOCKFILES) { const p = join(dir, lf); if (existsSync(p)) { lock = p; break; } }
+    const parent = dirname(dir); if (parent === dir) break; dir = parent;
+  }
+  return {
+    intentHash: proof.sourceHash,
+    compilerVersion: proof.compilerVersion,
+    implementation: head,
+    dependencies: lock ? { file: basename(lock), hash: sha256(readFileSync(lock, 'utf8')) } : null,
+    environment: environment || null,
+    generatedAt: proof.generatedAt,
+  };
+}
 
 // Each tool is a pure function of its arguments. `run` returns a JSON-able value or a string.
 const TOOLS = [
@@ -43,6 +103,70 @@ const TOOLS = [
       },
     },
     run: ({ intent, after, before = null, language = 'typescript' }) => verifyDiff(String(intent), { before: before == null ? null : String(before), after: String(after), language }),
+  },
+  {
+    name: 'intent_prove',
+    description: 'Emit the durable intent-proof-v1 artifact for .intent source: per-claim verdicts (verified / failed / planned / needs_verification, each bound to the named test that proves it) plus the freshness tuple (intent hash, compiler version, commit, dependency lockfile) that lets `thunder verify` mark the proof STALE later. Mirrors `thunder prove`; an unverified claim never reads as passed. Call it after the gate passes to record WHAT was proven.',
+    inputSchema: {
+      type: 'object', required: ['source'],
+      properties: {
+        source: { ...str, description: 'the .intent source' },
+        sourceFile: { ...str, description: 'file name to record in the proof (default intent.thunder)' },
+        environment: { ...str, description: 'environment name to bind into the freshness tuple (optional)' },
+      },
+    },
+    run: ({ source, sourceFile = 'intent.thunder', environment }) => {
+      const text = String(source);
+      const ast = parseIntent(text);
+      const diagnostics = semanticDiagnostics(ast);
+      const resolved = resolveObligations(ast);
+      const proof = buildProof(ast, {
+        sourceFile: String(sourceFile),
+        sourceHash: sha256(text),
+        targetsRequested: ast.targets || [],
+        targetsGenerated: [],
+        diagnostics,
+        generatedAt: new Date().toISOString(),
+      });
+      // Fold per-claim verdicts into the proof so it records real status, not just planned/needs_verification.
+      const CLAIM_MAP = { verified: 'verified', failed: 'failed', declared: 'planned', unverified: 'needs_verification' };
+      const byId = new Map(resolved.obligations.map((o) => [o.id, o]));
+      const applyStatus = (claim) => { const o = byId.get(claim.id); return o ? { ...claim, status: CLAIM_MAP[o.status], provenBy: o.provenBy || null } : claim; };
+      proof.guarantees = proof.guarantees.map(applyStatus);
+      proof.neverRules = proof.neverRules.map(applyStatus);
+      proof.freshness = proofFreshness(proof, environment);
+      const ok = proof.verification.semanticPassed && resolved.tests.ok !== false && resolved.failed === 0;
+      return { ok, proofId: `proof-${proof.sourceHash.replace('sha256:', '').slice(0, 6)}`, ...proof, tests: resolved.tests };
+    },
+  },
+  {
+    name: 'intent_conform',
+    description: 'Grade cross-target conformance (thunder-conformance-v1): the deterministic engine defines the canonical result every in-file test case must produce, and each target\'s outputs (passed via `results`) are graded against it. Same tests, every implementation , a diverging target case is a CONFORMANCE FAILURE. Mirrors `thunder conform`. Without `results`, targets honestly stay "declared", never "pass".',
+    inputSchema: {
+      type: 'object', required: ['source'],
+      properties: {
+        source: { ...str, description: 'the .intent source (with test blocks)' },
+        targets: { type: 'array', items: str, description: 'target languages to grade (default: the targets the intent declares)' },
+        results: { type: 'object', description: 'per-target actual outputs to grade: {target: {"Test / case": result}}' },
+      },
+    },
+    run: ({ source, targets = [], results = null }) => {
+      const rep = buildConformance(parseIntent(String(source)), { targets: Array.isArray(targets) ? targets.map(String) : [], results });
+      return { ok: rep.semanticFailures === 0 && rep.failures.length === 0, ...rep };
+    },
+  },
+  {
+    name: 'intent_drift',
+    description: 'Check whether real code, as it exists TODAY, still satisfies its intent , the standing-guard complement to intent_verify_diff (no diff needed). Re-lifts the code and reports drift findings: guarantees with no matching evidence, never-rules with no guard, declared inputs missing from the signature, and new behavior the intent never declared. Mirrors `thunder drift`.',
+    inputSchema: {
+      type: 'object', required: ['intent', 'code'],
+      properties: {
+        intent: { ...str, description: 'the approved .intent source (the contract)' },
+        code: { ...str, description: 'the implementation source as it exists now' },
+        language: { ...str, description: `source language (default typescript). One of: ${SUPPORTED_LANGUAGES.join(', ')}` },
+      },
+    },
+    run: ({ intent, code, language = 'typescript' }) => checkDrift(String(intent), String(code), { language }),
   },
   {
     name: 'intent_draft',
