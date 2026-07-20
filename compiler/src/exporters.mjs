@@ -180,17 +180,23 @@ export function toMermaid(ast) {
 
 // ── Playwright (experience -> E2E test scaffold) ─────────────────────────────
 // A SKELETON, not a passing test: declared experiences/journeys/states become structured
-// Playwright stubs (describe/test/test.step) with TODOs for selectors + assertions. This is
-// the test-plan target for the experience profile , it turns "what the UI must do" into the
-// shape of the test that proves it, deterministically. Consistent with the compiler's scope
-// (test scaffolds, not production code).
+// Playwright stubs (describe/test/test.step) with TODOs for selectors + assertions. The
+// TODOs are intentional and stay: a deterministic compiler cannot know the app's selectors,
+// so it must not fabricate them. To keep the scaffold honest, every generated test opens
+// with a test.fixme(true, ...) guard: Playwright reports it as "fixme" (not a vacuous pass)
+// until a human fills in the body and removes the guard. This is the test-plan target for
+// the experience profile , it turns "what the UI must do" into the shape of the test that
+// proves it, deterministically. Consistent with the compiler's scope (test scaffolds, not
+// production code).
 const jsStr = (s) => `'${String(s ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}'`;
 
 export function toPlaywright(ast) {
   const exps = ast.experiences || [];
   const L = [];
   L.push('// Playwright test scaffold generated from experience intent by @skillstech/thunderlang.');
-  L.push('// SKELETON: fill in selectors and assertions. It is not a passing test until you do.');
+  L.push('// SKELETON: fill in selectors and assertions. Every test starts with a test.fixme');
+  L.push('// guard so an unimplemented scaffold reports "fixme" instead of passing vacuously;');
+  L.push('// remove the guard from each test once its body is real.');
   L.push("import { test, expect } from '@playwright/test';");
   L.push('');
   if (!exps.length) {
@@ -204,6 +210,7 @@ export function toPlaywright(ast) {
     }
     for (const j of exp.journeys || []) {
       L.push(`  test(${jsStr(j.name || 'journey')}, async ({ page }) => {`);
+      L.push(`    test.fixme(true, ${jsStr('scaffold: implement the steps, then remove this guard')});`);
       if (!(j.steps || []).length) L.push('    // TODO: no steps declared for this journey');
       for (const step of j.steps || []) {
         L.push(`    await test.step(${jsStr(step)}, async () => {`);
@@ -215,10 +222,12 @@ export function toPlaywright(ast) {
     for (const st of exp.states || []) {
       if (st.hasRecovery) {
         L.push(`  test(${jsStr(`failure state "${st.name}" offers a recovery path`)}, async ({ page }) => {`);
+        L.push(`    test.fixme(true, ${jsStr('scaffold: implement this state check, then remove this guard')});`);
         L.push(`    // TODO: drive the UI into "${st.name}", assert a recovery action is available`);
         L.push('  });');
       } else {
         L.push(`  test(${jsStr(`reaches state: ${st.name}`)}, async ({ page }) => {`);
+        L.push(`    test.fixme(true, ${jsStr('scaffold: implement this state check, then remove this guard')});`);
         L.push(`    // TODO: drive the UI to "${st.name}" and assert it is shown`);
         L.push('  });');
       }

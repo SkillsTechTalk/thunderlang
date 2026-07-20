@@ -392,10 +392,13 @@ intent schema            # emits the JSON Schema + node/relationship/classificat
 
 `thunder schema` outputs a draft-07 JSON Schema (`$id`
 `https://thunderlang.dev/schema/intent-graph-v1.json`), the canonical `NODE_TYPES`
-(30) and `RELATIONSHIP_TYPES` (19), and the `DIAGNOSTIC_RULES` catalog with stable IDs.
+(42) and `RELATIONSHIP_TYPES` (21), and the `DIAGNOSTIC_RULES` catalog with stable IDs.
 The compiler is tested so that `buildIntentGraph` can only emit node and relationship
 types that exist in this schema, so OpenThunder, Repo Mastery, and SkillsTech Studio can
-rely on it without drift.
+rely on it without drift. The rules the schema evolves under, additive-only within v1,
+versioned independently of the npm package, breaking changes only as `intent-graph-v2`
+with a migration, are the committed
+[schema stability policy](/docs/schema-stability).
 
 ## Role-aware diagnostics
 

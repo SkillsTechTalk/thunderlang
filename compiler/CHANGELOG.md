@@ -3,6 +3,32 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.4.1
+
+The coherence release. Additive; no breaking changes. Version chosen to align with OpenThunder
+(TL and OT version in lockstep; OT is moving from 0.4.0 to match).
+
+- **Python code generation.** `thunder gen <file> --target python` now emits a typed Python 3
+  scaffold, aligning the codegen axis with live execution. Also fixes a real gap: C# and Java `gen`
+  silently dropped `requires` preconditions that TypeScript emitted; they are now emitted as guided
+  TODOs.
+- **Language support matrix.** New `docs/language-support-matrix.md` documents the three axes , lift
+  (14 languages), gen, and live target execution (4) , and makes them discoverable.
+- **VS Code extension.** `editors/vscode/` ships a real extension: syntax highlighting and a Language
+  Server client that launches `thunder lsp`. Packageable with `vsce package`.
+- **Grouped, scannable CLI help.** `thunder --help` is reorganized into nine labeled groups with a
+  one-line mental model. Command behavior is unchanged (help text only); a test guards that no
+  command was dropped.
+- **Verify-real-code loop, productized.** New MCP tools `intent_prove`, `intent_conform`, and
+  `intent_drift` let AI agents drive the full loop. `docs/verifying-ai-changes.md` is rewritten as
+  the headline workflow (author intent, write code, prove conformance, gate the merge) with a CI
+  recipe.
+- **Honest Playwright scaffolds.** The exported Playwright tests now open with `test.fixme` so an
+  unfilled scaffold cannot pass vacuously.
+- **intent-graph-v1 stability policy.** New `docs/schema-stability.md` commits to additive-only type
+  sets within v1, an IR version that moves independently of the package, a deprecation policy, and a
+  road to 1.0, so consumers like OpenThunder can depend on the IR safely.
+
 ## 0.3.0
 
 The 14-language lift release. Additive; no breaking changes. Restores the OpenThunder -> ThunderLang

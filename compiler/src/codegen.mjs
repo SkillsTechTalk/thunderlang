@@ -5,9 +5,9 @@
 // the "see how it works, then change it" surface for the playground and `thunder gen`.
 //
 // Pure and browser-safe so the playground can render it. TypeScript first; the same adapter
-// shape (a type map + a body walk) extends to C# / Java.
+// shape (a type map + a body walk) extends to C# / Java / Python.
 
-import { exprToJs, exprToCSharp, exprToJava } from './expr.mjs';
+import { exprToJs, exprToCSharp, exprToJava, exprToPython } from './expr.mjs';
 import { subjectName } from './parse.mjs';
 
 export const CODEGEN_SCHEMA = 'intent-codegen-v1';
@@ -138,7 +138,7 @@ export function toCSharp(ast) {
     L.push(`  public static string ${pascal(d.name)}(${inputs.map((i) => `dynamic ${i}`).join(', ')})`);
     L.push('  {');
     for (const r of d.rules || []) {
-      let cond; try { cond = exprToCSharp(r.when, { inputs }); } catch { cond = `false /* TODO: "${r.when}" */`; }
+      let cond; try { cond = exprToCSharp(r.when, { inputs }); } catch { cond = `false /* TODO: could not translate "${r.when}" */`; }
       L.push(`    if (${cond}) return ${JSON.stringify(r.result)}; // rule ${r.name}`);
     }
     L.push(`    return ${JSON.stringify(d.default ?? 'Undecided')}; // default`, '  }');
@@ -146,6 +146,7 @@ export function toCSharp(ast) {
   const inName = (ast.inputs || []).length ? `${subject}Input` : null;
   const outName = (ast.outputs || []).length ? `${subject}Output` : 'void';
   L.push(`  public static ${outName} Run(${inName ? `${inName} input` : ''})`, '  {');
+  for (const r of ast.requires || []) L.push(`    // precondition: ${r}  , TODO: validate`);
   for (const n of ast.neverRules || []) L.push(`    // NEVER: ${n.statement}`);
   for (const g of ast.guarantees || []) L.push(`    // GUARANTEE: ${g.statement}`);
   L.push('    throw new NotImplementedException("TODO: implement , the intent above defines what this must do.");', '  }');
@@ -192,7 +193,7 @@ export function toJava(ast) {
     L.push(`  // decision ${d.name} , first matching rule wins.`);
     L.push(`  public static String ${lower(pascal(d.name))}(${inputs.map((i) => `Object ${i}`).join(', ')}) {`);
     for (const r of d.rules || []) {
-      let cond; try { cond = exprToJava(r.when, { inputs }); } catch { cond = `false /* TODO: "${r.when}" */`; }
+      let cond; try { cond = exprToJava(r.when, { inputs }); } catch { cond = `false /* TODO: could not translate "${r.when}" */`; }
       L.push(`    if (${cond}) return ${JSON.stringify(r.result)}; // rule ${r.name}`);
     }
     L.push(`    return ${JSON.stringify(d.default ?? 'Undecided')}; // default`, '  }');
@@ -200,6 +201,7 @@ export function toJava(ast) {
   const inName = (ast.inputs || []).length ? `${subject}Input` : null;
   const outName = (ast.outputs || []).length ? `${subject}Output` : 'void';
   L.push(`  public static ${outName} run(${inName ? `${inName} input` : ''}) {`);
+  for (const r of ast.requires || []) L.push(`    // precondition: ${r}  , TODO: validate`);
   for (const n of ast.neverRules || []) L.push(`    // NEVER: ${n.statement}`);
   for (const g of ast.guarantees || []) L.push(`    // GUARANTEE: ${g.statement}`);
   L.push('    throw new UnsupportedOperationException("TODO: implement , the intent above defines what this must do.");', '  }');
@@ -207,8 +209,75 @@ export function toJava(ast) {
   return L.join('\n');
 }
 
+// ── Python ───────────────────────────────────────────────────────────────────
+const PY_TYPES = {
+  Email: 'str', Url: 'str', UserId: 'str', AccountId: 'str', OrderId: 'str',
+  InvoiceId: 'str', CustomerId: 'str', Secret: 'str', Token: 'str', Jwt: 'str',
+  IdempotencyKey: 'str', Currency: 'str', Date: 'str', DateTime: 'str',
+  Money: 'float', Percentage: 'float', Count: 'int', Duration: 'int', Flag: 'bool',
+};
+function pyType(type, domain) {
+  if (!type) return 'object';
+  const list = /^List<(.+)>$/.exec(type);
+  if (list) return `list[${pyType(list[1], domain)}]`;
+  const base = type.replace(/\(.*\)/, '');
+  if (PY_TYPES[base]) return PY_TYPES[base];
+  domain.add(base); return base;
+}
+// PascalCase/camelCase -> snake_case, for idiomatic Python function names. Field and decision
+// input names stay verbatim: the translated conditions reference them by their intent names.
+const snake = (s) => pascal(s).replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+
+/** Generate a deterministic Python scaffold from an intent AST. */
+export function toPython(ast) {
+  const subject = pascal(subjectName(ast) || 'Intent');
+  const domain = new Set();
+  const L = [
+    `# ${subject} , generated from ThunderLang (intent-codegen-v1). Deterministic, no AI.`,
+    '# The dataclass contract and the decision logic are fully determined by the intent;',
+    '# business logic marked TODO is yours, bound by the guarantees and never-rules below.',
+    '',
+  ];
+  const hasData = (ast.inputs || []).length || (ast.outputs || []).length;
+  // Postponed annotations so a dataclass may reference a domain stub declared below it.
+  if (hasData) L.push('from __future__ import annotations', 'from dataclasses import dataclass', '');
+  const cls = (name, fields) => fields.length
+    ? ['@dataclass', `class ${name}:`, ...fields.map((f) => `    ${f.name}: ${pyType(f.type, domain)}`), '']
+    : [];
+  if ((ast.inputs || []).length) L.push(...cls(`${subject}Input`, ast.inputs));
+  if ((ast.outputs || []).length) L.push(...cls(`${subject}Output`, ast.outputs));
+  for (const d of ast.decisions || []) {
+    const inputs = d.inputs || [];
+    L.push(`# decision ${d.name} , first matching rule wins.`);
+    L.push(`def ${snake(d.name)}(${inputs.join(', ')}) -> str:`);
+    for (const r of d.rules || []) {
+      let cond, note = '';
+      try { cond = exprToPython(r.when, { inputs }); }
+      catch { cond = 'False'; note = `  # TODO: could not translate "${r.when}"`; }
+      L.push(`    if ${cond}:${note}`);
+      L.push(`        return ${JSON.stringify(r.result)}  # rule ${r.name}`);
+    }
+    L.push(`    return ${JSON.stringify(d.default ?? 'Undecided')}  # default`, '');
+  }
+  const inName = (ast.inputs || []).length ? `${subject}Input` : null;
+  const outName = (ast.outputs || []).length ? `${subject}Output` : 'None';
+  L.push(`def run(${inName ? `input: ${inName}` : ''}) -> ${outName}:`);
+  for (const r of ast.requires || []) L.push(`    # precondition: ${r}  , TODO: validate`);
+  for (const n of ast.neverRules || []) L.push(`    # NEVER: ${n.statement}`);
+  for (const g of ast.guarantees || []) L.push(`    # GUARANTEE: ${g.statement}`);
+  L.push('    raise NotImplementedError("TODO: implement , the intent above defines what this must do.")', '');
+  const stubs = [...domain].filter((t) => !PY_TYPES[t] && /^[A-Z]/.test(t)).sort();
+  if (stubs.length) {
+    L.push('# Domain types referenced by the intent , complete these.');
+    for (const t of stubs) L.push(`class ${t}: pass  # TODO: fields`);
+    L.push('');
+  }
+  return L.join('\n');
+}
+
 export const GENERATORS = {
   typescript: toTypeScript, ts: toTypeScript,
   csharp: toCSharp, cs: toCSharp,
   java: toJava,
+  python: toPython, py: toPython,
 };

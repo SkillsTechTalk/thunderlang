@@ -2,7 +2,9 @@
 
 > Status: this describes the contract the reference compiler upholds. It is implemented
 > in this repository (`compiler/`, published as `@skillstech/thunderlang`) and is
-> deterministic, no AI required. Pre-1.0, so the contract can still change.
+> deterministic, no AI required. Pre-1.0, so the contract can still change; the emitted
+> Intent IR has its own committed [schema stability policy](/docs/schema-stability),
+> which versions independently of the package.
 
 The compiler does not merely convert syntax into code. It converts intent into
 validated engineering artifacts. It must be **deterministic first**: every stage

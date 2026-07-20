@@ -1,10 +1,22 @@
 {
   "comments": { "lineComment": "#" },
-  "brackets": [["[", "]"], ["<", ">"], ["(", ")"]],
+  "brackets": [
+    ["[", "]"],
+    ["(", ")"],
+    ["<", ">"]
+  ],
   "autoClosingPairs": [
-    { "open": "\"", "close": "\"" },
+    { "open": "\"", "close": "\"", "notIn": ["string", "comment"] },
     { "open": "[", "close": "]" },
     { "open": "(", "close": ")" }
   ],
-  "surroundingPairs": [["\"", "\""], ["[", "]"], ["(", ")"]]
+  "surroundingPairs": [
+    ["\"", "\""],
+    ["[", "]"],
+    ["(", ")"],
+    ["<", ">"]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(goal|why|requires|inputs?|outputs?|guarantees?|guarantee|never|constraints?|assumptions?|risks|target|errors|examples|decision|rule|default|test|case|scenario|note|lifecycle|state|transition|conflict|options|component|service|api|event|database|architecture)\\b.*$"
+  }
 }
