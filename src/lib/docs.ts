@@ -38,6 +38,7 @@ const DOC_ORDER = [
   "ai-assist",
   "twelve-factor-agents",
   "intent-graph",
+  "schema-stability",
   "intent-runtime",
   "intent-tests",
   "testing-and-verification",
@@ -87,6 +88,7 @@ const DOC_LABELS: Record<string, string> = {
   "ai-implementations": "AI implementations",
   "ai-assist": "Optional AI assist",
   "intent-graph": "Intent for every role",
+  "schema-stability": "Schema stability policy",
   "intent-runtime": "The Intent Runtime: executable intent",
   "intent-tests": "Tests as a first-class construct",
   "outcome-contracts": "Outcome contracts",
@@ -135,6 +137,7 @@ const DOC_BLURBS: Record<string, string> = {
   "ai-implementations": "Intentionally deferred, verifiable AI implementations (intent-ai-v1).",
   "ai-assist": "Where optional, gated AI helps, and where the compiler already does the work.",
   "intent-graph": "One intent for Product, UX, and engineering (intent-graph-v1).",
+  "schema-stability": "The committed stability contract for intent-graph-v1: what is guaranteed, how it versions, how consumers depend on it.",
   "intent-runtime": "Run decisions and simulate lifecycles deterministically, with no AI and no generated code.",
   "intent-tests": "Declare cases and scenarios inside a .thunder file and run them with intent test.",
   "outcome-contracts": "Bind an outcome to a target and check whether the result met the commitment.",
@@ -212,7 +215,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Reference",
     blurb: "The exhaustive specification and catalogs.",
-    slugs: ["spec", "diagnostics", "language-support-matrix", "intent-graph", "single-compiler", "ai-age-best-practices", "operating-checklist"],
+    slugs: ["spec", "diagnostics", "language-support-matrix", "intent-graph", "schema-stability", "single-compiler", "ai-age-best-practices", "operating-checklist"],
   },
   {
     title: "Ecosystem",
