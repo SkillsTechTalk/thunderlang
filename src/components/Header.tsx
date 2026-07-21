@@ -39,8 +39,8 @@ export function Header() {
             </svg>
           </a>
           <EcosystemMenu current="ThunderLang" />
-          <Link href="/waitlist" className="btn-primary">
-            Join the Waitlist
+          <Link href="/docs/getting-started" className="btn-primary">
+            Get started
           </Link>
         </div>
 
@@ -94,11 +94,11 @@ export function Header() {
               GitHub
             </a>
             <Link
-              href="/waitlist"
+              href="/docs/getting-started"
               onClick={() => setOpen(false)}
               className="btn-primary mt-3 w-full"
             >
-              Join the Waitlist
+              Get started
             </Link>
           </nav>
         </div>

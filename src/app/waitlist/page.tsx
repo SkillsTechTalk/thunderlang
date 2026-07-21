@@ -3,25 +3,25 @@ import { WaitlistForm } from "@/components/WaitlistForm";
 import { pageMeta } from "@/lib/seo";
 
 export const metadata = pageMeta({
-  title: "Join the Waitlist",
+  title: "Run a Team Pilot",
   description:
-    "Join the waitlist for ThunderLang, the first Intent-Oriented Programming language for the AI era, built by SkillsTech.",
+    "Run a ThunderLang pilot on your team. Get hands-on help wiring the deterministic verify-diff gate into your CI and AI agents, on your real repo, with direct access to the team.",
   path: "/waitlist",
 });
 
 const perks = [
-  "Early access to docs, examples, and the playground",
-  "Updates as the language evolves toward 1.0",
-  "A chance to influence the syntax before v1",
+  "Hands-on help wiring the verify-diff gate into your CI and your AI agents",
+  "Adoption support on your real repo, not a toy example",
+  "Direct access to the team building ThunderLang while you roll it out",
 ];
 
 export default function WaitlistPage() {
   return (
     <>
       <PageHero
-        eyebrow="Early access"
-        title="Be early to ThunderLang."
-        intro="ThunderLang is the first Intent-Oriented Programming language for the AI era. Join the waitlist to follow along and get access as the tooling opens up."
+        eyebrow="Team pilot"
+        title="Run a ThunderLang pilot on your team."
+        intro="ThunderLang is open source and public on npm, so individuals can just install it. If you want to roll it out across a team, tell us a little about your setup and we will help you stand up the deterministic verify-diff gate on your own codebase."
       />
       <Section>
         <div className="mx-auto max-w-xl">
@@ -35,9 +35,9 @@ export default function WaitlistPage() {
             ))}
           </ul>
           <p className="mt-8 text-xs leading-relaxed text-haze-500">
-            We&apos;ll only use your email to share ThunderLang milestones. Signups are
-            stored privately and are never shared. You can ask us to remove your
-            address at any time.
+            We&apos;ll only use what you share here to follow up about a pilot.
+            Requests are stored privately and are never shared. You can ask us
+            to remove your details at any time.
           </p>
         </div>
       </Section>

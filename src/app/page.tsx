@@ -569,26 +569,36 @@ BLOCK  payment token found
       </Section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Waitlist CTA                                                       */}
+      {/* Get started CTA                                                    */}
       {/* ------------------------------------------------------------------ */}
       <Section>
         <div className="panel relative overflow-hidden px-6 py-14 text-center sm:px-12">
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[560px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[100px]" />
           <div className="relative mx-auto max-w-2xl">
-            <Eyebrow>Early access</Eyebrow>
+            <Eyebrow>Open source and on npm</Eyebrow>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Help shape the first Intent-Oriented language.
+              Gate your first AI change today.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-haze-300">
-              Join the waitlist to follow the language as it takes shape and get
-              early access to docs, examples, and the playground.
+              ThunderLang is open source and public on npm. Install it, write
+              your first intent, and put the verify-diff gate in front of your
+              next AI change , no waitlist, no key.
             </p>
             <div className="mt-8 flex justify-center">
               <CTAButtons
-                primary={{ href: "/waitlist", label: "Join the Waitlist" }}
+                primary={{ href: "/docs/getting-started", label: "Get started" }}
                 secondary={{ href: "/roadmap", label: "See the Roadmap" }}
               />
             </div>
+            <p className="mt-5 text-sm text-haze-400">
+              Rolling it out across a team?{" "}
+              <Link
+                href="/waitlist"
+                className="font-medium text-gold-300 hover:text-gold-200"
+              >
+                Run a team pilot →
+              </Link>
+            </p>
           </div>
         </div>
       </Section>

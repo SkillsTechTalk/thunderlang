@@ -21,11 +21,24 @@ export const runtime = "nodejs";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Read an optional short free-text field from the request body. */
+function optionalField(value: unknown, maxLength = 200): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim().slice(0, maxLength);
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 export async function POST(request: Request) {
   let email = "";
+  let teamSize: string | undefined;
+  let languages: string | undefined;
+  let aiTooling: string | undefined;
   try {
     const body = await request.json();
     email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    teamSize = optionalField(body?.teamSize);
+    languages = optionalField(body?.languages);
+    aiTooling = optionalField(body?.aiTooling);
   } catch {
     return NextResponse.json(
       { status: "error", message: "Invalid request body." },
@@ -46,7 +59,14 @@ export async function POST(request: Request) {
       const key = createHash("sha256").update(email).digest("hex").slice(0, 32);
       await put(
         `waitlist/${key}.json`,
-        JSON.stringify({ email, ts: new Date().toISOString(), source: "web" }),
+        JSON.stringify({
+          email,
+          ts: new Date().toISOString(),
+          source: "web",
+          ...(teamSize ? { teamSize } : {}),
+          ...(languages ? { languages } : {}),
+          ...(aiTooling ? { aiTooling } : {}),
+        }),
         {
           access: "private", // store is private; emails are never publicly readable
           contentType: "application/json",
@@ -70,7 +90,13 @@ export async function POST(request: Request) {
       const res = await fetch(webhook, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ email, source: "thunderlang.dev/waitlist" }),
+        body: JSON.stringify({
+          email,
+          source: "thunderlang.dev/waitlist",
+          ...(teamSize ? { teamSize } : {}),
+          ...(languages ? { languages } : {}),
+          ...(aiTooling ? { aiTooling } : {}),
+        }),
       });
       if (!res.ok) {
         return NextResponse.json(
