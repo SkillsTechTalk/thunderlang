@@ -154,7 +154,7 @@ export default function HomePage() {
   because a plaintext password in
   logs is a credential leak`}
             </pre>
-            <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-sky-300">The AI's change</div>
+            <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-sky-300">The AI&apos;s change</div>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
 {`+ console.log("resetting password",
 +   { email, newPassword });`}
