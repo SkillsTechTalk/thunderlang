@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "intent:check": "node scripts/intent-check.mjs",
     "intent:test": "node --test compiler",
+    "intent:prove": "node scripts/intent-prove.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "pack:smoke": "node scripts/pack-smoke.mjs",
     "schema:emit": "node compiler/src/cli.mjs schema > compiler/intent-graph.schema.json",

@@ -60,6 +60,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Project",
     items: [
       { href: "/roadmap", label: "Roadmap" },
+      { href: "/proof", label: "Proof matrix" },
       { href: "/blog", label: "Blog" },
       { href: "/community", label: "Community" },
       { href: "/waitlist", label: "Run a team pilot" },

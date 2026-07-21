@@ -28,6 +28,12 @@ jobs:
       - name: intent tests
         run: npm run intent:test
 
+      # Dogfood: `thunder prove` over every example mission. Fails on any FAILED
+      # claim, failing in-file test, or semantic error. The site's /proof page
+      # renders the same verdicts, so this step keeps its self-proof claim honest.
+      - name: intent prove (self-proof gate)
+        run: npm run intent:prove
+
       # Keep the docs honest against the shipped compiler (links, diagnostic codes,
       # parseable code blocks, doc registration).
       - name: docs consistency

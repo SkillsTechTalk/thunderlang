@@ -56,6 +56,8 @@ export default function AtlasPage() {
           This proof layer is what a verification platform like{" "}
           <Link href="/manifesto#openthunder" className="text-gold-300 hover:text-gold-200">OpenThunder</Link>{" "}
           supplies: ThunderLang defines what the software should do, and the atlas shows whether it does.
+          ThunderLang runs this same verdict model on its own repo, live in the{" "}
+          <Link href="/proof" className="text-gold-300 hover:text-gold-200">proof matrix</Link>.
         </p>
       </Section>
 
