@@ -138,6 +138,57 @@ export default function HomePage() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
+      {/* The wedge: gate an AI change before it merges (deterministic)      */}
+      {/* ------------------------------------------------------------------ */}
+      <Section id="gate">
+        <SectionHeading
+          eyebrow="The gate"
+          title="Catch the AI's mistake before it merges."
+          intro="You declare what must never happen. An AI writes the code. ThunderLang proves, deterministically, whether the change upholds your intent, and blocks it if it does not. No model runs in the check."
+        />
+        <div className="mt-10 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-gold-300">Intent , the contract</div>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
+{`never log the new password
+  because a plaintext password in
+  logs is a credential leak`}
+            </pre>
+            <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-sky-300">The AI's change</div>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
+{`+ console.log("resetting password",
++   { email, newPassword });`}
+            </pre>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
+            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-300">thunder verify-diff , the deterministic gate</div>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
+{`$ thunder verify-diff ResetPassword.thunder \\
+    --before before.ts --after ai-change.ts
+
+BLOCK (1 blocking, 1 regression)
+  [VIOLATION] Added code may violate
+  never-rule "log the new password":
+  console.log("resetting password", ...)
+  (line 2)
+
+$ echo $?
+1`}
+            </pre>
+            <p className="mt-3 text-xs text-haze-400">Exit code 1. Drop it into CI or an agent loop and the change cannot merge. No AI ran; the verdict is deterministic.</p>
+          </div>
+        </div>
+        <p className="mt-6 text-sm text-haze-400">
+          <Link href="/docs/getting-started" className="font-medium text-gold-300 hover:text-gold-200">
+            Gate your first AI change →
+          </Link>
+          <Link href="/docs/mcp" className="ml-5 font-medium text-gold-300 hover:text-gold-200">
+            Wire it into your agent (MCP) →
+          </Link>
+        </p>
+      </Section>
+
+      {/* ------------------------------------------------------------------ */}
       {/* What works today (single source of truth: the capability manifest) */}
       {/* ------------------------------------------------------------------ */}
       <Section id="today">
