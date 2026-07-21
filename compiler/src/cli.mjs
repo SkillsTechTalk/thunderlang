@@ -84,7 +84,7 @@ function runLiveTarget(ast, target) {
 }
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
-import { toEvidenceEvents } from './evidence.mjs';
+import { toEvidenceEvents, verifyDiffToEvidence, conformToEvidence, driftToEvidence } from './evidence.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
 import { analyzeStyle } from './style.mjs';
 import { intentProofJsonSchema, validateProof } from './proof-schema.mjs';
@@ -262,6 +262,7 @@ function parseArgs(argv) {
     else if (a === '--governed') args.governed = true;
     else if (a === '--target') args.target = argv[++i];
     else if (a === '--all-targets') args.allTargets = true;
+    else if (a === '--evidence') args.evidence = true;
     else if (a === '--env') args.env = argv[++i];
     else if (a === '--brief') args.brief = argv[++i];
     else if (a === '--after') args.after = argv[++i];
@@ -372,6 +373,7 @@ Prove & verify intent
   proof --schema             emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
   evidence <file>            emit evidence-event-v1 JSON (tool_verified) for the shared proof spine
+                             (also: prove/verify-diff/conform/drift accept --evidence to emit their own event)
   conform <file> [--targets a,b] [--run typescript,python,csharp,java | --all-targets] [--results <json>]   conformance matrix across targets
 
 Real code vs intent (drift)
@@ -903,6 +905,11 @@ test Example
     const codeText = readFileSync(file, 'utf8');
     const language = args.from && args.from !== 'repo' ? args.from : languageForFile(file);
     const res = checkDrift(intentText, codeText, { language });
+    if (args.evidence) {
+      const ctx = { compilerVersion: COMPILER_VERSION, occurredAt: new Date().toISOString(), missionName: parseIntent(intentText).mission || null, intentHash: sha256(intentText), codeHash: sha256(codeText) };
+      console.log(JSON.stringify(driftToEvidence(res, ctx), null, 2));
+      process.exit(res.status === 'drift' ? 1 : 0); return;
+    }
     if (args.json) { console.log(JSON.stringify(res, null, 2)); }
     else {
       console.log(`thunder drift: ${res.status.toUpperCase()} (${res.summary.blocking} blocking)`);
@@ -1572,6 +1579,11 @@ test Example
     const rep = buildConformance(ast, { targets, results });
     if (skippedTargets.length) rep.skipped = Array.from(new Set(skippedTargets));
     const bad = rep.semanticFailures > 0 || rep.failures.length > 0;
+    if (args.evidence) {
+      const ctx = { compilerVersion: COMPILER_VERSION, occurredAt: new Date().toISOString(), missionName: ast.mission || null, intentHash: sha256(readFileSync(file, 'utf8')) };
+      console.log(JSON.stringify(conformToEvidence(rep, ctx), null, 2));
+      process.exit(bad ? 1 : 0); return;
+    }
     if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
     if (!rep.total) { console.log(`thunder conform ${basename(file)}: no test cases to conform.`); return; }
 
@@ -1782,6 +1794,11 @@ test Example
     const before = args.before ? readFileSync(args.before, 'utf8') : null;
     const language = args.from || languageForFile(args.after);
     const r = verifyDiff(intentText, { before, after, language });
+    if (args.evidence) {
+      const ctx = { compilerVersion: COMPILER_VERSION, occurredAt: new Date().toISOString(), missionName: parseIntent(intentText).mission || null, intentHash: sha256(intentText), changeHash: sha256(after) };
+      console.log(JSON.stringify(verifyDiffToEvidence(r, ctx), null, 2));
+      process.exit(r.ok ? 0 : 1); return;
+    }
     if (args.json) { console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); return; }
     console.log(`thunder verify-diff ${basename(file)} vs ${basename(args.after)}: ${r.verdict} (${r.blocking} blocking, ${r.summary.regressions} regression(s))`);
     for (const f of r.findings) {
