@@ -32,11 +32,11 @@ output
 
 guarantee each event is loaded at most once
   because at-least-once delivery replays events, and double-counting skews metrics
-  verify exactly once load test
+  verify test RouteRecord
 
 guarantee schema-invalid records are quarantined, never loaded
   because one malformed row can break every query that reads the table
-  verify schema validation test
+  verify test RouteRecord
 
 never
   load a record that fails schema validation
@@ -44,11 +44,11 @@ never
 
 never load a record that fails schema validation
   because unvalidated data poisons every downstream consumer at once
-  verify schema validation test
+  verify test RouteRecord
 
 never write raw personal data to the warehouse in the clear
   because unmasked PII in analytics storage is a compliance and breach risk
-  verify pii masking test
+  verify test RouteRecord
 
 # One deterministic routing decision per record. `thunder run` / `thunder test`.
 decision RouteRecord

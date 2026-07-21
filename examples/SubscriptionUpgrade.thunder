@@ -16,6 +16,10 @@ never
   charge a customer whose payment method is invalid
   downgrade entitlements before the new charge settles
 
+never charge a customer whose payment method is invalid
+  because a charge that cannot settle becomes a failed payment and a refund cycle
+  verify test CanUpgrade
+
 outcome FasterUpgrades
   "customers complete an upgrade in one step, without contacting support"
 

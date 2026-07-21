@@ -32,11 +32,11 @@ output
 
 guarantee an authenticated caller within quota reaches an allowed route
   because the gateway must not block legitimate traffic it was built to serve
-  verify happy path routing test
+  verify test AdmitRequest
 
 guarantee a caller over its rate limit is throttled, not served
   because one caller must never exhaust capacity for everyone else
-  verify rate limit test
+  verify test AdmitRequest
 
 never
   forward an unauthenticated request to a protected route
@@ -44,11 +44,11 @@ never
 
 never forward an unauthenticated request to a protected route
   because that is the exact bypass an API gateway exists to prevent
-  verify auth enforcement test
+  verify test AdmitRequest
 
 never route to a path outside the allowlist
   because an unlisted path is unowned surface with no contract behind it
-  verify route allowlist test
+  verify test AdmitRequest
 
 # Admission is deny-by-default: only an explicit Allow forwards. `thunder run` / `thunder test`.
 decision AdmitRequest

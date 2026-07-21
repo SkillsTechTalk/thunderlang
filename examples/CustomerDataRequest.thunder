@@ -12,7 +12,7 @@ guarantee a request is fulfilled or refused within the statutory window
   verify sla-timer test
 
 never disclose one customer's data to another person
-  verify identity-verification test
+  verify test CanFulfil
 
 # Governed data elements: each names why it is held, how long, and on what lawful basis,
 # so the compiler can enforce purpose limitation (see the IL-DATA-* diagnostics).

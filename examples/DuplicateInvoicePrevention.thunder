@@ -40,11 +40,11 @@ guarantee a repeated request with the same key returns the first invoice
   because at-least-once delivery means the same request will arrive more than once
   note risk:
     Without this, every retry is a new invoice and a new charge.
-  verify idempotency replay test
+  verify test InvoiceForKey
 
 guarantee two different keys never collapse into one invoice
   because over-deduplication silently drops real, distinct purchases
-  verify distinct keys test
+  verify test InvoiceForKey
 
 never
   create a second invoice for an already-processed key
@@ -52,7 +52,7 @@ never
 
 never create a second invoice for an already-processed key
   because that is the exact failure this mission exists to prevent
-  verify idempotency replay test
+  verify test InvoiceForKey
 
 never bill a customer more than once for one order
   because a double charge is a trust-breaking billing error

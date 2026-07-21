@@ -12,16 +12,16 @@ goal
 # and escalation are DETERMINISTIC guardrails , not left to a prompt.
 guarantee every answer is grounded in at least one retrieved document
   because an ungrounded answer is a confident guess, and confident guesses erode trust
-  verify grounding test on retrievedCount
+  verify test AnswerAction
 
 guarantee a low-confidence question is escalated, never answered by guess
   because a wrong answer costs more than a slower one
-  verify escalation-on-low-confidence test
+  verify test AnswerAction
 
 never present generated text as a cited fact when retrieval did not support it
   verify citation-grounding test
 never return a document the requester is not authorized to see
-  verify authorization test
+  verify test AnswerAction
 
 outcome SelfServeDeflection
   "more questions are answered well without a human, without lowering answer quality"
