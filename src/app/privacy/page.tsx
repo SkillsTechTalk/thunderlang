@@ -26,8 +26,12 @@ const points: { title: string; body: string }[] = [
     body: "If you request a team pilot, we store your email address and the optional details you share (team size, languages, AI tooling) to follow up about the pilot. It is never sold or shared. Ask us and we will delete it.",
   },
   {
+    title: "Website analytics",
+    body: "This website, not the CLI, uses analytics to understand aggregate traffic and improve the docs: Vercel Analytics and Speed Insights, plus Google Analytics. This applies only to the pages you browse here; the CLI and compiler send nothing. We do not sell this data.",
+  },
+  {
     title: "What we do not collect",
-    body: "We do not collect your source code from the CLI, we do not fingerprint you, and we do not sell data. The best privacy guarantee is that the core needs no server at all.",
+    body: "We do not collect your source code from the CLI, we do not sell data, and there is no telemetry in the compiler. The best privacy guarantee is that the core needs no server at all.",
   },
 ];
 
