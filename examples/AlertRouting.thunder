@@ -10,10 +10,10 @@ goal
 
 guarantee a triggered alert is acknowledged or escalated, never silently dropped
   because an unrouted incident is an outage nobody is fixing
-  verify escalation-on-timeout test
+  verify test AlertLifecycle
 
 never page an engineer for a non-actionable informational event
-  verify alert-classification test
+  verify test RouteAlert
 never send incident details over an unauthenticated channel
   verify transport-security scan
 

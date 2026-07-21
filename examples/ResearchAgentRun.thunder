@@ -41,7 +41,7 @@ guarantee every claim in the answer cites a retrieved source
 
 guarantee the agent halts at its step and budget limits
   because an unbounded loop is how agents overspend and hang
-  verify budget and step limit test
+  verify test AgentNextAction
 
 never
   take an irreversible action without human approval
@@ -50,7 +50,7 @@ never
 
 never take an irreversible action without human approval
   because a delete, a payment, or a send cannot be undone by a retry
-  verify approval gate test
+  verify test AgentNextAction
 
 never call a tool outside the allowlist
   because the allowlist is the agent's entire authority boundary
@@ -58,7 +58,7 @@ never call a tool outside the allowlist
 
 never exceed the spend budget
   because runaway token or API cost is a direct financial loss
-  verify budget and step limit test
+  verify test AgentNextAction
 
 # The agent control loop, one deterministic step decision. `thunder run` / `thunder test`.
 decision AgentNextAction

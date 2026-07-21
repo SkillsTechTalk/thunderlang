@@ -133,6 +133,75 @@ declare module "*/compiler/src/parse.mjs" {
   export function slug(s: string): string;
 }
 
+// Types for the proof surface used by src/lib/self-proof.ts and /api/proof.
+declare module "*/compiler/src/emit.mjs" {
+  export const COMPILER_VERSION: string;
+  export interface SemanticDiagnostic {
+    level: "error" | "warning" | "info";
+    code: string;
+    message: string;
+    [key: string]: unknown;
+  }
+  export function semanticDiagnostics(ast: unknown): SemanticDiagnostic[];
+  export interface ProofClaim {
+    id: string;
+    text: string;
+    status: string;
+    evidence: string[];
+    verifications: unknown[];
+    provenBy?: string | null;
+  }
+  export interface ProofArtifact {
+    schemaVersion: string;
+    missionName: string | null;
+    sourceFile: string;
+    sourceHash: string;
+    compilerVersion: string;
+    generatedAt: string;
+    guarantees: ProofClaim[];
+    neverRules: ProofClaim[];
+    verification: { syntaxPassed: boolean; semanticPassed: boolean; targetsGenerated: boolean };
+    diagnostics: SemanticDiagnostic[];
+    proofStatus: string;
+    [key: string]: unknown;
+  }
+  export function buildProof(
+    ast: unknown,
+    opts: {
+      sourceFile: string;
+      sourceHash: string;
+      targetsRequested: string[];
+      targetsGenerated: string[];
+      diagnostics: SemanticDiagnostic[];
+      generatedAt: string;
+      origin?: string;
+    },
+  ): ProofArtifact;
+}
+
+declare module "*/compiler/src/testing.mjs" {
+  export interface TestResult {
+    target: string;
+    case: string;
+    kind: string;
+    pass: boolean;
+    [key: string]: unknown;
+  }
+  export function runTests(ast: unknown): {
+    schema: string;
+    total: number;
+    passed: number;
+    failed: number;
+    results: TestResult[];
+    ok: boolean;
+  };
+}
+
+declare module "*/compiler/src/hash.mjs" {
+  export function sha256hex(input: string): string;
+  export const sha256: (s: string) => string;
+}
+
 declare module "*/compiler/src/runtime.mjs" {
   export interface DecisionRun {
     schema: string;

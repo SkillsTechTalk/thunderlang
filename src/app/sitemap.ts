@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/docs",
     "/examples",
     "/playground",
+    "/proof",
     "/roadmap",
     "/blog",
     "/community",

@@ -31,11 +31,11 @@ output
 
 guarantee approved, encrypted egress is allowed
   because blocking sanctioned traffic breaks the workloads the policy protects
-  verify allowlist egress test
+  verify test AllowEgress
 
 guarantee unapproved destinations are denied by default
   because an implicit allow is an open door nobody chose to open
-  verify deny by default test
+  verify test AllowEgress
 
 never
   allow unencrypted egress to the public internet
@@ -43,11 +43,11 @@ never
 
 never allow unencrypted egress to the public internet
   because plaintext over the open internet exposes data to anyone on the path
-  verify encryption in transit test
+  verify test AllowEgress
 
 never allow egress to a destination not in the catalog
   because an uncatalogued endpoint has no owner and no justification on record
-  verify allowlist egress test
+  verify test AllowEgress
 
 # Deny-by-default egress policy as a decision. `thunder run` / `thunder test`.
 decision AllowEgress

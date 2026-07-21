@@ -35,7 +35,7 @@ output
 
 guarantee a resubmitted checkout with the same key returns the first order
   because customers double-submit, and each retry must not create a new order
-  verify idempotent checkout test
+  verify test CanPlaceOrder
 
 guarantee stock is reserved before the customer is charged
   because charging for stock you cannot ship is the worst checkout failure
@@ -48,11 +48,11 @@ never
 
 never create a second order for the same idempotency key
   because that is a duplicate order and a duplicate charge
-  verify idempotent checkout test
+  verify test CanPlaceOrder
 
 never sell more units than are in stock
   because overselling forces cancellations and breaks delivery promises
-  verify oversell prevention test
+  verify test CanPlaceOrder
 
 never capture payment before stock is reserved
   because a charge without reserved stock guarantees a refund
