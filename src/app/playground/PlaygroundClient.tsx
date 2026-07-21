@@ -54,7 +54,7 @@ const samples = [
   { label: "InvoiceCreated event", code: eventExample },
 ];
 
-type Tab = "debug" | "diagnostics" | "notes" | "code" | "docs" | "graph" | "testplan" | "proof";
+type Tab = "debug" | "diagnostics" | "notes" | "code" | "docs" | "graph" | "testplan" | "proof" | "gate";
 const TABS: { id: Tab; label: string }[] = [
   { id: "debug", label: "Debug" },
   { id: "diagnostics", label: "Diagnostics" },
@@ -64,6 +64,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "graph", label: "Graph" },
   { id: "testplan", label: "Test Plan" },
   { id: "proof", label: "Proof" },
+  { id: "gate", label: "Gate a change" },
 ];
 
 // Reader lenses for ThunderLens notes (compiler is the source of truth for the notes).
@@ -225,6 +226,14 @@ test("repeated order returns the same invoice", () => {});
 it("never creates a duplicate invoice", () => {});
 `;
 
+// A realistic bad AI edit: it logs the payment token, which the default
+// example's "never expose payment token in logs" rule must block.
+const GATE_BAD_EDIT = `export function charge(amount: number, token: string) {
+  console.log("charging", { amount, token });
+  return gateway.charge(amount, token);
+}
+`;
+
 const breakers: { label: string; apply: (c: string) => string }[] = [
   { label: "Remove idempotency key", apply: (c) => c.split("\n").filter((l) => !/idempotencyKey/.test(l)).join("\n") },
   { label: "Remove verify block", apply: (c) => removeBlock(c, "verify") },
@@ -266,6 +275,41 @@ export function PlaygroundClient() {
   const [liftBusy, setLiftBusy] = useState(false);
   const [approvedIntent, setApprovedIntent] = useState<string | null>(null);
   const [driftResult, setDriftResult] = useState<any>(null);
+  const [gateAfter, setGateAfter] = useState(GATE_BAD_EDIT);
+  const [gateBefore, setGateBefore] = useState("");
+  const [showGateBefore, setShowGateBefore] = useState(false);
+  const [gateResult, setGateResult] = useState<any>(null);
+  const [gateBusy, setGateBusy] = useState(false);
+  const [gateError, setGateError] = useState("");
+
+  // Run the deterministic gate: the intent in the editor is the contract,
+  // the textarea holds the change an AI proposes.
+  async function runGate() {
+    setGateBusy(true);
+    setGateError("");
+    setGateResult(null);
+    try {
+      const res = await fetch("/api/verify-diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          intentText: code,
+          after: gateAfter,
+          ...(gateBefore.trim() ? { before: gateBefore } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setGateError(data.error ?? "Gate check failed.");
+        return;
+      }
+      setGateResult(data);
+    } catch {
+      setGateError("Network error. Please try again.");
+    } finally {
+      setGateBusy(false);
+    }
+  }
 
   async function approveDraft() {
     if (!liftResult?.intentText) return;
@@ -406,6 +450,8 @@ export function PlaygroundClient() {
     : 0;
   const scores = result ? computeScores(compiledSrc || code, result) : null;
   const debug = result ? buildDebug(result) : null;
+  // The gate only has teeth if the editor's intent declares rules to enforce.
+  const gateHasRules = /^(never|guarantees|guarantee)\b/m.test(code);
   const trustColor =
     scores?.trust === "Ready"
       ? "text-emerald-300"
@@ -690,9 +736,9 @@ export function PlaygroundClient() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
-              disabled={!result}
+              disabled={!result && t.id !== "gate"}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${
-                tab === t.id && result
+                tab === t.id && (result || t.id === "gate")
                   ? "bg-white/[0.08] text-white"
                   : "text-haze-300 hover:text-haze-100"
               }`}
@@ -705,7 +751,7 @@ export function PlaygroundClient() {
           ))}
         </div>
 
-        {!result && status !== "error" && (
+        {!result && status !== "error" && tab !== "gate" && (
           <div className="flex h-[460px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/12 text-center">
             <p className="text-sm text-haze-300">
               Click <span className="text-white">Run Compiler</span> to compile
@@ -724,7 +770,7 @@ export function PlaygroundClient() {
           </div>
         )}
 
-        {result && (
+        {result && tab !== "gate" && (
           <div>
             {/* Trust strip */}
             <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5 text-xs">
@@ -1131,6 +1177,147 @@ export function PlaygroundClient() {
                   label="Download proof JSON"
                 />
                 <OutputBlock text={JSON.stringify(proof, null, 2)} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "gate" && (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <p className="text-xs leading-relaxed text-haze-400">
+                The deterministic gate. The intent in the editor on the left is
+                the contract. Paste the change an AI proposes below, then run{" "}
+                <code className="text-haze-200">verify-diff</code>. No AI: the
+                compiler checks the change against every guarantee and never
+                rule, and answers PASS or BLOCK.
+              </p>
+              {!gateHasRules && (
+                <p className="mt-2 rounded-xl border border-gold-300/25 bg-gold-300/[0.06] p-3 text-xs leading-relaxed text-gold-200">
+                  The intent in the editor declares no guarantees or never
+                  rules, so the gate has nothing to enforce. Load an example
+                  like CreateInvoice above to see a real BLOCK.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.16em] text-haze-400">
+                The AI&apos;s proposed change
+              </label>
+              <textarea
+                value={gateAfter}
+                onChange={(e) => setGateAfter(e.target.value)}
+                spellCheck={false}
+                className="h-40 w-full resize-none rounded-xl border border-white/10 bg-black/40 p-4 font-mono text-[12.5px] leading-relaxed text-haze-100 outline-none focus:border-gold-300/40"
+              />
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowGateBefore((v) => !v)}
+                className="text-xs text-haze-400 hover:text-haze-200"
+              >
+                {showGateBefore ? "−" : "+"} Original code (before), optional.
+                Add it so the gate can tell a regression from a pre-existing gap.
+              </button>
+              {showGateBefore && (
+                <textarea
+                  value={gateBefore}
+                  onChange={(e) => setGateBefore(e.target.value)}
+                  spellCheck={false}
+                  placeholder="// The code before the change (optional)"
+                  className="mt-2 h-28 w-full resize-none rounded-xl border border-white/10 bg-black/40 p-4 font-mono text-[12.5px] leading-relaxed text-haze-100 outline-none focus:border-gold-300/40"
+                />
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={runGate}
+                disabled={gateBusy}
+                className="btn-primary disabled:opacity-60"
+              >
+                {gateBusy ? "Gating…" : "Run the gate"}
+              </button>
+              <span className="text-[11px] text-haze-500">
+                Deterministic. No AI. Same check the CI gate runs.
+              </span>
+            </div>
+
+            {gateError && (
+              <div className="rounded-2xl border border-red-400/30 bg-red-400/[0.06] p-4 text-sm text-red-200">
+                {gateError}
+              </div>
+            )}
+
+            {gateResult && (
+              <div
+                className={`rounded-2xl border p-5 ${
+                  gateResult.verdict === "PASS"
+                    ? "border-emerald-400/30 bg-emerald-400/[0.06]"
+                    : "border-rose-400/30 bg-rose-400/[0.06]"
+                }`}
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span
+                    className={`text-2xl font-semibold tracking-wide ${
+                      gateResult.verdict === "PASS"
+                        ? "text-emerald-300"
+                        : "text-rose-300"
+                    }`}
+                  >
+                    {gateResult.verdict}
+                  </span>
+                  <span className="text-xs text-haze-400">
+                    {gateResult.blocking} blocking finding
+                    {gateResult.blocking === 1 ? "" : "s"} ·{" "}
+                    {gateResult.findings?.length ?? 0} total
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xs leading-relaxed text-haze-300">
+                  {gateResult.verdict === "PASS"
+                    ? "No guardrail violations, no regressions of the contract. The change may still need tests and review; the gate proves it broke nothing it declared."
+                    : "The gate blocks this change: it violates the contract in the editor. An agent (or CI) would refuse to merge it."}
+                </p>
+                {(gateResult.findings?.length ?? 0) > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {gateResult.findings.map(
+                      (
+                        f: {
+                          code: string;
+                          message: string;
+                          level: string;
+                          line?: number;
+                          regression?: boolean;
+                        },
+                        i: number,
+                      ) => (
+                        <li
+                          key={i}
+                          className="rounded-xl border border-white/10 bg-black/40 p-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                f.level === "error" ? "bg-rose-400" : "bg-gold-300"
+                              }`}
+                            />
+                            <span className="font-mono text-[11px] uppercase tracking-wide text-haze-400">
+                              {f.level} · {f.code}
+                              {typeof f.line === "number" ? ` · line ${f.line}` : ""}
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-sm leading-relaxed text-haze-100">
+                            {f.message}
+                          </p>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                )}
               </div>
             )}
           </div>
