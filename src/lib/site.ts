@@ -62,7 +62,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
       { href: "/roadmap", label: "Roadmap" },
       { href: "/blog", label: "Blog" },
       { href: "/community", label: "Community" },
-      { href: "/waitlist", label: "Join Early Access" },
+      { href: "/waitlist", label: "Run a team pilot" },
     ],
   },
   {

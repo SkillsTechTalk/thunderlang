@@ -325,12 +325,12 @@ export default function DocsPage() {
                 stable, and everything is subject to change before v1.
               </DraftNote>
               <p className="mt-5 text-sm text-haze-400">
-                Want to follow along?{" "}
+                Rolling it out with your team?{" "}
                 <Link
                   href="/waitlist"
                   className="text-gold-300 hover:text-gold-200"
                 >
-                  Join the waitlist
+                  Run a team pilot
                 </Link>{" "}
                 or check the{" "}
                 <Link

@@ -11,9 +11,9 @@ export const metadata = pageMeta({
 // TODO: replace hrefs with real destinations once channels exist.
 const channels = [
   {
-    title: "Join the waitlist",
-    body: "The most reliable way to hear about docs, examples, and early access as they land.",
-    cta: "Join the waitlist",
+    title: "Run a team pilot",
+    body: "Bringing ThunderLang to a team? Tell us about your setup and get hands-on help wiring the verify-diff gate into your CI and agents.",
+    cta: "Request a pilot",
     href: "/waitlist",
     ready: true,
   },

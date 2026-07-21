@@ -36,7 +36,7 @@ export default function VisionPage() {
         intro="ThunderLang is the first Intent-Oriented Programming language for the AI era. It is built on a simple bet: as AI writes more code, the leverage moves to whoever can state intent clearly and verify it faithfully."
       >
         <CTAButtons
-          primary={{ href: "/waitlist", label: "Join the Waitlist" }}
+          primary={{ href: "/docs/getting-started", label: "Get started" }}
           secondary={{ href: "/examples", label: "View Examples" }}
         />
       </PageHero>

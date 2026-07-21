@@ -50,8 +50,8 @@ export default function BlogPostPage({
           ))}
         </div>
         <div className="mt-12 border-t border-white/8 pt-6">
-          <Link href="/waitlist" className="btn-primary">
-            Join the Waitlist
+          <Link href="/docs/getting-started" className="btn-primary">
+            Get started
           </Link>
         </div>
       </article>

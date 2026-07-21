@@ -22,8 +22,8 @@ const points: { title: string; body: string }[] = [
     body: "Everything the site demonstrates runs without a model. If and when optional AI assistance is added, it will be clearly labeled, opt-in, and disclosed at the point of use, never silent.",
   },
   {
-    title: "Waitlist email",
-    body: "If you join the waitlist, we store your email address to send product updates. It is never sold or shared. Ask us and we will delete it.",
+    title: "Team pilot requests",
+    body: "If you request a team pilot, we store your email address and the optional details you share (team size, languages, AI tooling) to follow up about the pilot. It is never sold or shared. Ask us and we will delete it.",
   },
   {
     title: "What we do not collect",
