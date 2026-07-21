@@ -18,6 +18,7 @@ const DOC_ORDER = [
   "language-principles",
   "getting-started",
   "adopting-thunderlang",
+  "case-study-feature-flags",
   "verifying-ai-changes",
   "mcp",
   "runtime-enforcement",
@@ -70,6 +71,7 @@ const DOC_LABELS: Record<string, string> = {
   "language-principles": "Language principles",
   "getting-started": "Getting started",
   "adopting-thunderlang": "Adopting on an existing codebase",
+  "case-study-feature-flags": "Case study: a feature-flag gate",
   "verifying-ai-changes": "Verifying AI code changes",
   "mcp": "ThunderLang for AI agents (MCP)",
   "runtime-enforcement": "Runtime enforcement",
@@ -120,6 +122,7 @@ const DOC_BLURBS: Record<string, string> = {
   "language-principles": "The ten design rules the language holds itself to.",
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",
   "adopting-thunderlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
+  "case-study-feature-flags": "A worked adoption: lift a feature-flag evaluator, prove four languages agree, and gate a bad AI change.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
   "mcp": "Install the MCP server so a coding agent can run the verify-real-code loop: lift, gate a change, prove, and check drift.",
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
@@ -193,7 +196,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Start here",
     blurb: "The mental model and your first ten minutes.",
-    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-thunderlang", "verifying-ai-changes", "mcp"],
+    slugs: ["manifesto", "intent-oriented-programming", "getting-started", "tutorial", "adopting-thunderlang", "case-study-feature-flags", "verifying-ai-changes", "mcp"],
   },
   {
     title: "Understand the language",

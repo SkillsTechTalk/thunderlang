@@ -1,0 +1,77 @@
+# FeatureFlagRollout.thunder
+# A feature-flag rollout gate, the kind every product has: a kill switch, an
+# allowlist, and a percentage rollout. Lifted from a real evaluator, then made
+# into intent that four languages must agree on.
+
+mission FeatureFlagRollout
+
+goal
+  Decide whether a feature flag is on for a given user
+
+why
+  A flag evaluator that ignores its own kill switch ships incidents to everyone.
+
+input
+  flagEnabled: Boolean
+  userAllowlisted: Boolean
+  userInRolloutBucket: Boolean
+  overrideToken: Secret
+
+output
+  state: FlagState
+
+guarantees
+  a disabled flag is off for everyone
+  an allowlisted user on an enabled flag is on
+
+guarantee a disabled flag is off for everyone
+  because a kill switch that leaks is not a kill switch
+  verify test FlagDecision
+
+guarantee an allowlisted user on an enabled flag is on
+  because the allowlist is how we dogfood before rollout
+  verify test FlagDecision
+
+never
+  log the override token
+
+never log the override token
+  because the override token lets anyone force a flag state
+  verify test raw override token not logged
+
+decision FlagDecision
+  inputs
+    flagEnabled
+    userAllowlisted
+    userInRolloutBucket
+  rule killSwitch
+    when flagEnabled == false
+    return Off
+  rule allowlist
+    when userAllowlisted == true
+    return On
+  rule rollout
+    when userInRolloutBucket == true
+    return On
+  default
+    return Off
+
+target
+  TypeScript
+  Python
+  CSharp
+  Java
+
+test FlagDecision
+  case disabled beats allowlist
+    given flagEnabled false, userAllowlisted true, userInRolloutBucket true
+    expect Off
+  case allowlisted user is on
+    given flagEnabled true, userAllowlisted true, userInRolloutBucket false
+    expect On
+  case rollout bucket is on
+    given flagEnabled true, userAllowlisted false, userInRolloutBucket true
+    expect On
+  case default is off
+    given flagEnabled true, userAllowlisted false, userInRolloutBucket false
+    expect Off

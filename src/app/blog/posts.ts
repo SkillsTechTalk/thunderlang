@@ -11,6 +11,21 @@ export type Post = {
 
 export const posts: Post[] = [
   {
+    slug: "feature-flag-gate-case-study",
+    title: "A feature-flag gate, proven across four languages",
+    date: "2026-07-21",
+    tag: "Case study",
+    excerpt:
+      "We lifted an ordinary feature-flag evaluator into intent, proved TypeScript, Python, C#, and Java all agree on it, and watched ThunderLang block an AI change that logged the override token.",
+    body: [
+      "Every product has a feature-flag evaluator: a kill switch, an allowlist, a percentage rollout. It is small, it gets copied between services, and when it drifts (a refactor that forgets the kill switch, an assistant that logs the override token) the blast radius is everyone. It is a perfect first mission to adopt ThunderLang on, because the logic is real, the failure is expensive, and the whole loop fits on one page.",
+      "We started from an existing TypeScript evaluator and let `thunder lift` recover a humble draft, which said plainly what a human still had to decide: review the goal, mark the sensitive fields, add the never-log rules. A person then turned that draft into a contract: a disabled flag is off for everyone, an allowlisted user on an enabled flag is on, and the override token is never logged.",
+      "Then we proved it. `thunder conform --all-targets` ran the same test cases against the decision compiled to TypeScript, Python, C#, and Java, and all four agreed with the semantic engine on every case. The kill switch stopped being a code-review convention and became a rule that four languages are held to, from one source of truth.",
+      "Finally we let an assistant add logging. It wrote a reasonable-looking line that happened to send the override token to the logs, and `thunder verify-diff` refused the change with a BLOCK and exit code 1, naming the exact never-rule and line. No AI ran in that check; the verdict is deterministic.",
+      "The evaluator was never rewritten. ThunderLang wrapped the decision the team already had, proved the targets agree, and turned do-not-log-the-token from a hope into a gate. The full walkthrough with every command and its output is in the docs at /docs/case-study-feature-flags, and the runnable files are in examples/adoption on GitHub.",
+    ],
+  },
+  {
     slug: "introducing-intent",
     title: "Introducing ThunderLang: understand and control AI-era software",
     date: "2026-07-09",
