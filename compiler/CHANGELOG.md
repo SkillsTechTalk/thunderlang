@@ -3,6 +3,21 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.4.2
+
+The evidence-graph release. Additive; no breaking changes.
+
+- **Evidence projections.** ThunderLang can now project its verification into `evidence-event-v1`
+  events (`evidenceType: tool_verified`) for the shared SkillsTech proof spine: `thunder evidence
+  <file>` emits `intent.proven`, and `--evidence` on `verify-diff` / `conform` / `drift` emits
+  `change.gated` / `conformance.verified` / `intent.drift`. The projections are pure, offline, and
+  safe-derived (ids, hashes, verdicts, diagnostic codes, and counts only , never source, secret
+  values, finding messages, or expected/actual values). The library exports `toEvidenceEvents`,
+  `verifyDiffToEvidence`, `conformToEvidence`, and `driftToEvidence`. The network push to the spine
+  is intentionally left to the org-layer/CI, so the compiler stays offline and deterministic.
+- **Fix: `thunder lift` emits canonical `.thunder` drafts** instead of the legacy `.intent`
+  extension, on both single-file and repo lifts.
+
 ## 0.4.1
 
 The coherence release. Additive; no breaking changes. Version chosen to align with OpenThunder
