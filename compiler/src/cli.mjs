@@ -860,7 +860,7 @@ test Example
     if (!res.ok) { console.error(res.error); process.exit(1); }
     if (args.json) { console.log(JSON.stringify(res.summary, null, 2)); return; }
     if (args.out) {
-      const p = writeText(args.out, `${slug(res.lifted.mission)}.intent`, res.intentText);
+      const p = writeText(args.out, `${slug(res.lifted.mission)}.thunder`, res.intentText);
       console.log(`thunder lift ${basename(file)} -> ${p.replace(process.cwd() + '/', '')}`);
     } else {
       console.log(res.intentText);

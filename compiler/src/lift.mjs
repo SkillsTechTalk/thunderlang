@@ -696,7 +696,7 @@ export function liftRepo(files, { language } = {}) {
     const base = slug(r.lifted.mission);
     const n = (usedNames.get(base) || 0) + 1;
     usedNames.set(base, n);
-    const outName = n === 1 ? `${base}.intent` : `${base}-${n}.intent`;
+    const outName = n === 1 ? `${base}.thunder` : `${base}-${n}.thunder`;
     missions.push({
       mission: r.lifted.mission, sourceFile: file, outName,
       intentText: r.intentText, summary: r.summary, diagnostics: r.diagnostics,
