@@ -8,6 +8,7 @@
 
 // Parsing
 export { parseIntent, slug, KNOWN_LENSES } from './parse.mjs';
+export { toEvidenceEvents } from './evidence.mjs';
 
 // Semantic analysis, graphs, and proof
 export {

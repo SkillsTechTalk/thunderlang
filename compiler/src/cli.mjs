@@ -84,6 +84,7 @@ function runLiveTarget(ast, target) {
 }
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
+import { toEvidenceEvents } from './evidence.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
 import { analyzeStyle } from './style.mjs';
 import { intentProofJsonSchema, validateProof } from './proof-schema.mjs';
@@ -370,6 +371,7 @@ Prove & verify intent
   proof <file>               the .thunder-proof.json artifact (see also: prove, which emits verdicts)
   proof --schema             emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
+  evidence <file>            emit evidence-event-v1 JSON (tool_verified) for the shared proof spine
   conform <file> [--targets a,b] [--run typescript,python,csharp,java | --all-targets] [--results <json>]   conformance matrix across targets
 
 Real code vs intent (drift)
@@ -1502,6 +1504,34 @@ test Example
     console.log('');
     console.log(`  wrote ${relative(process.cwd(), outPath)}`);
     process.exit(fail ? 1 : 0);
+    return;
+  }
+
+  // `thunder evidence <file>` , project the intent's proof into evidence-event-v1 events for the
+  // shared SkillsTech evidence graph (STW spine). Deterministic, offline, safe-derived; prints JSON.
+  // The network push to the spine belongs to the org-layer/CI, not this CLI.
+  if (cmd === 'evidence') {
+    if (!file || !existsSync(file)) { console.error('usage: thunder evidence <file>  # emit evidence-event-v1 JSON for the shared proof spine'); process.exit(2); return; }
+    const source = readFileSync(file, 'utf8');
+    const ast = parseIntent(source);
+    const diagnostics = semanticDiagnostics(ast);
+    const resolved = resolveObligations(ast);
+    const proof = buildProof(ast, {
+      sourceFile: basename(file),
+      sourceHash: sha256(source),
+      targetsRequested: ast.targets || [],
+      targetsGenerated: [],
+      diagnostics,
+      generatedAt: new Date().toISOString(),
+    });
+    const CLAIM_MAP = { verified: 'verified', failed: 'failed', declared: 'planned', unverified: 'needs_verification' };
+    const byId = new Map(resolved.obligations.map((o) => [o.id, o]));
+    const applyStatus = (claim) => { const o = byId.get(claim.id); return o ? { ...claim, status: CLAIM_MAP[o.status], provenBy: o.provenBy || null } : claim; };
+    proof.guarantees = proof.guarantees.map(applyStatus);
+    proof.neverRules = proof.neverRules.map(applyStatus);
+    proof.freshness = freshnessFor(file, proof, args.env);
+    const events = toEvidenceEvents(proof);
+    console.log(JSON.stringify(events, null, 2));
     return;
   }
 
