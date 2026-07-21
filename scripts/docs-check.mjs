@@ -86,7 +86,7 @@ for (const slug of ordered) if (!docSlugs.has(slug)) fail('src/lib/docs.ts', `DO
 // `intent`, and skips `openthunder intent ...` (a different tool's subcommand), so plain
 // English uses of "intent" and MCP tool names (intent_check, ...) can never trip it.
 const CLI_VERBS =
-  'init|new|draft|check|run|test|build|gen|lift|scan|prove|verify|conform|atlas|index|lsp|mcp|graph|fmt|report|export|import|simulate|edit|drift|approve|migrate|validate|source|explain|rules|docs|notes|guard|ledger|focus|comprehension|twelve-factor|outcomes|style|code-actions|apply-fix|changes|guardian|impact|handoff|mission|diff|merge|schema|proof';
+  'init|new|draft|check|run|test|build|gen|lift|scan|prove|verify|conform|atlas|index|lsp|mcp|graph|fmt|report|export|import|simulate|edit|drift|approve|migrate|validate|source|explain|rules|docs|notes|guard|ledger|focus|comprehension|twelve-factor|outcomes|style|code-actions|apply-fix|changes|guardian|impact|handoff|mission|diff|merge|schema|proof|help';
 const legacyInvocation = new RegExp(`(?<!openthunder )\\bintent (?:${CLI_VERBS})\\b`);
 const cliDocs = [
   ...docFiles.map((f) => [`docs/${f}`, join(DOCS, f)]),
