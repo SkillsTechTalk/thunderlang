@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/proof",
     "/roadmap",
     "/blog",
+    "/articles",
     "/community",
     "/waitlist",
   ];
