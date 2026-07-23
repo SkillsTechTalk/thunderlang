@@ -36,12 +36,18 @@ export type NavItem = { href: string; label: string };
 export const mainNav: NavItem[] = [
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
-  { href: "/docs", label: "Docs" },
-  { href: "/docs/mcp", label: "For agents" },
-  { href: "/examples", label: "Examples" },
   { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
   { href: "/roadmap", label: "Roadmap" },
+];
+
+// Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
+export const learnNav: NavItem[] = [
+  { href: "/docs", label: "Docs" },
+  { href: "/examples", label: "Examples" },
+  { href: "/articles", label: "Articles" },
+  { href: "/blog", label: "Blog" },
+  { href: "/docs/mcp", label: "For AI agents (MCP)" },
 ];
 
 export const footerNav: { title: string; items: NavItem[] }[] = [
