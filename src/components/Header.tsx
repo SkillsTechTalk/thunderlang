@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Logo } from "./Logo";
 import { EcosystemMenu } from "./EcosystemMenu";
-import { mainNav } from "@/lib/site";
+import { LearnMenu } from "./LearnMenu";
+import { mainNav, learnNav } from "@/lib/site";
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -15,14 +16,16 @@ export function Header() {
         <Logo />
 
         <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
-          {mainNav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm text-haze-300 transition-colors hover:text-haze-100"
-            >
-              {item.label}
-            </Link>
+          {mainNav.map((item, i) => (
+            <Fragment key={item.href}>
+              <Link
+                href={item.href}
+                className="text-sm text-haze-300 transition-colors hover:text-haze-100"
+              >
+                {item.label}
+              </Link>
+              {i === 1 && <LearnMenu items={learnNav} />}
+            </Fragment>
           ))}
         </nav>
 
@@ -75,6 +78,19 @@ export function Header() {
         <div className="border-t border-white/8 bg-ink-900/95 md:hidden">
           <nav className="container-x flex flex-col py-4" aria-label="Mobile">
             {mainNav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className="py-2.5 text-sm text-haze-200"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <p className="mt-2 pt-2 text-xs font-semibold uppercase tracking-[0.18em] text-haze-500">
+              Learn
+            </p>
+            {learnNav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
