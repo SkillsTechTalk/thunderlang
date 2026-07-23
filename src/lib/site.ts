@@ -39,7 +39,6 @@ export const mainNav: NavItem[] = [
   { href: "/docs", label: "Docs" },
   { href: "/docs/mcp", label: "For agents" },
   { href: "/examples", label: "Examples" },
-  { href: "/articles", label: "Articles" },
   { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
   { href: "/roadmap", label: "Roadmap" },
