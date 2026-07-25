@@ -3,6 +3,22 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
+## 0.5.0 (next)
+
+The executable-targets release. Additive; no breaking changes.
+
+- **Five more live execution targets.** `thunder test <file> --target <lang>`,
+  `thunder conform <file> --run <lang>`, and `--all-targets` now compile and run the
+  generated decision in Go, Rust, Kotlin, Scala, and Elixir, grading real executed
+  outputs. Live execution now spans nine languages (TypeScript, Python, C#, Java, Go,
+  Rust, Kotlin, Scala, Elixir); each target is probed with a real compile+run smoke and
+  skips cleanly (never fails) when its toolchain is absent. New aliases: `golang`, `rs`,
+  `kt`, `sc`, `ex`. The expression translator gained matching dialects (`exprToGo`,
+  `exprToRust`, `exprToKotlin`, `exprToScala`, `exprToElixir`); existing JS/C#/Java/Python
+  output is unchanged.
+- **Language support matrix.** `docs/language-support-matrix.md` updated: lift (14), gen
+  (4), live execution (9).
+
 ## 0.4.2
 
 The evidence-graph release. Additive; no breaking changes.

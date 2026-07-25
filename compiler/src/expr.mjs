@@ -210,6 +210,13 @@ const DIALECTS = {
   csharp: { ...C_LOGIC, eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `new[]{${list.join(', ')}}.Contains(${x})`, nil: 'null' },
   java: { ...C_LOGIC, eq: (a, b) => `java.util.Objects.equals(${a}, ${b})`, neq: (a, b) => `!java.util.Objects.equals(${a}, ${b})`, inList: (list, x) => `java.util.List.of(${list.join(', ')}).contains(${x})`, nil: 'null' },
   python: { and: (a, b) => `(${a} and ${b})`, or: (a, b) => `(${a} or ${b})`, not: (a) => `(not ${a})`, bool: (v) => (v ? 'True' : 'False'), eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `${x} in [${list.join(', ')}]`, nil: 'None' },
+  // Go has no built-in membership operator, so `in` becomes a parenthesized chain of equalities
+  // (an empty list is an impossible match -> false). Booleans and logic are C-family.
+  go: { ...C_LOGIC, eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => (list.length ? `(${list.map((e) => `${x} == ${e}`).join(' || ')})` : 'false'), nil: 'nil' },
+  rust: { ...C_LOGIC, num: (v) => `${v}f64`, eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `[${list.join(', ')}].contains(&${x})`, nil: 'Default::default()' },
+  kotlin: { ...C_LOGIC, num: (v) => (Number.isInteger(v) ? `${v}.0` : String(v)), eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `${x} in listOf(${list.join(', ')})`, nil: 'null' },
+  scala: { ...C_LOGIC, eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `List(${list.join(', ')}).contains(${x})`, nil: 'null' },
+  elixir: { and: (a, b) => `(${a} and ${b})`, or: (a, b) => `(${a} or ${b})`, not: (a) => `(not ${a})`, bool: (v) => String(v), eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `${x} in [${list.join(', ')}]`, nil: 'nil' },
 };
 
 function renderExpr(src, inputs, D) {
@@ -227,7 +234,7 @@ function renderExpr(src, inputs, D) {
         return `(${r(n.a)} ${n.op} ${r(n.b)})`;
       case 'in': return D.inList(n.list.map(r), r(n.a));
       case 'list': return `[${n.items.map(r).join(', ')}]`;
-      case 'lit': return typeof n.v === 'string' ? JSON.stringify(n.v) : typeof n.v === 'boolean' ? D.bool(n.v) : String(n.v);
+      case 'lit': return typeof n.v === 'string' ? JSON.stringify(n.v) : typeof n.v === 'boolean' ? D.bool(n.v) : (D.num ? D.num(n.v) : String(n.v));
       case 'ref': return (known.has(n.path) || known.has(n.path.split('.')[0])) ? n.path : JSON.stringify(n.path);
       default: return D.nil;
     }
@@ -247,3 +254,8 @@ export const exprToJs = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 
 export const exprToCSharp = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'csharp' });
 export const exprToJava = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'java' });
 export const exprToPython = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'python' });
+export const exprToGo = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'go' });
+export const exprToRust = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'rust' });
+export const exprToKotlin = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'kotlin' });
+export const exprToScala = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'scala' });
+export const exprToElixir = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'elixir' });

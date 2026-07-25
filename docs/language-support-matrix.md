@@ -11,7 +11,7 @@ surface area. This page is the single reference for which language is supported 
   markers for the business logic. Four languages.
 - **Live execution (`--target`).** `thunder test --target <lang>` and `thunder conform`
   compile each decision into that language and run the in-file test cases through the
-  real toolchain, grading executed code rather than fed results. Four languages.
+  real toolchain, grading executed code rather than fed results. Nine languages.
 
 All three axes are deterministic and AI-free: the same input always produces the same
 output, and nothing leaves your machine.
@@ -25,19 +25,22 @@ output, and nothing leaves your machine.
 | Python     | yes                   | yes (`python`, `py`) | yes (needs `python3`)       |
 | C#         | yes                   | yes (`csharp`, `cs`) | yes (needs `dotnet`)        |
 | Java       | yes                   | yes (`java`)        | yes (needs `java`)          |
-| Go         | yes                   | no                  | no                          |
-| Rust       | yes                   | no                  | no                          |
+| Go         | yes                   | no                  | yes (needs `go`)            |
+| Rust       | yes                   | no                  | yes (needs `rustc`)         |
 | C++        | yes                   | no                  | no                          |
 | PHP        | yes                   | no                  | no                          |
 | Ruby       | yes                   | no                  | no                          |
 | Perl       | yes                   | no                  | no                          |
-| Kotlin     | yes                   | no                  | no                          |
-| Scala      | yes                   | no                  | no                          |
-| Elixir     | yes                   | no                  | no                          |
+| Kotlin     | yes                   | no                  | yes (needs `kotlinc`)       |
+| Scala      | yes                   | no                  | yes (needs `scala`)         |
+| Elixir     | yes                   | no                  | yes (needs `elixir`)        |
 
-The four gen languages and the four live targets are the same set by design: any
-language you can scaffold into, you can also execute the decision tests against, so the
-conformance matrix always covers everything `gen` emits.
+Live execution is the widest of the two "write" axes: the four gen languages are a
+subset of the nine live targets. `gen` emits an editable, TODO-marked scaffold, so it
+carries a stronger promise and grows more deliberately; a live target only has to compile
+and run the decision functions, so it can cover more languages. Every language you can
+`gen` into you can also execute, and five more (Go, Rust, Kotlin, Scala, Elixir) can be
+executed and conformed even though they do not yet have a full `gen` scaffold.
 
 ## Reading the axes
 
@@ -59,9 +62,10 @@ does not determine is a marked TODO, never a silent stub. Run
 decisions with the same expression translator `gen` uses, runs every declared test case
 through a real interpreter or compiler, and grades the actual outputs.
 `thunder conform <file> --all-targets` runs the same cases against every available
-target at once. TypeScript is always available (it runs in-process); Python, C#, and
-Java are probed on your machine and reported as skipped, not failed, when the toolchain
-is absent.
+target at once. TypeScript is always available (it runs in-process); Python, C#, Java,
+Go, Rust, Kotlin, Scala, and Elixir are probed on your machine and reported as skipped,
+not failed, when the toolchain is absent. Aliases are accepted for every target
+(`golang`, `rs`, `kt`, `sc`, `ex`, alongside the existing `ts`, `js`, `py`, `cs`).
 
 ## Related pages
 

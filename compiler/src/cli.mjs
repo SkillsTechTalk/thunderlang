@@ -59,6 +59,11 @@ import { runTypescriptTarget } from './target-ts.mjs';
 import { runPythonTarget, pythonAvailable } from './target-py.mjs';
 import { runCSharpTarget, csharpAvailable } from './target-cs.mjs';
 import { runJavaTarget, javaAvailable } from './target-java.mjs';
+import { runGoTarget, goAvailable } from './target-go.mjs';
+import { runRustTarget, rustAvailable } from './target-rust.mjs';
+import { runKotlinTarget, kotlinAvailable } from './target-kotlin.mjs';
+import { runScalaTarget, scalaAvailable } from './target-scala.mjs';
+import { runElixirTarget, elixirAvailable } from './target-elixir.mjs';
 
 // The live-target registry: one entry per canonical target that can be compiled + executed.
 // `available()` is a (cached) toolchain probe; TypeScript/JS runs in-process so it is always live.
@@ -67,14 +72,25 @@ const LIVE_TARGETS = [
   { key: 'python', run: runPythonTarget, available: pythonAvailable },
   { key: 'csharp', run: runCSharpTarget, available: csharpAvailable },
   { key: 'java', run: runJavaTarget, available: javaAvailable },
+  { key: 'go', run: runGoTarget, available: goAvailable },
+  { key: 'rust', run: runRustTarget, available: rustAvailable },
+  { key: 'kotlin', run: runKotlinTarget, available: kotlinAvailable },
+  { key: 'scala', run: runScalaTarget, available: scalaAvailable },
+  { key: 'elixir', run: runElixirTarget, available: elixirAvailable },
 ];
 const LIVE_BY_KEY = new Map(LIVE_TARGETS.map((t) => [t.key, t]));
 LIVE_BY_KEY.set('javascript', LIVE_BY_KEY.get('typescript')); // js is the same in-process runner
 // All canonical targets available to run right now (used by --all-targets).
 const availableLiveTargets = () => LIVE_TARGETS.filter((t) => t.available());
-const RUNNABLE_TARGETS = new Set(['typescript', 'ts', 'javascript', 'js', 'python', 'py', 'csharp', 'cs', 'c#', 'java']);
+const RUNNABLE_TARGETS = new Set([
+  'typescript', 'ts', 'javascript', 'js', 'python', 'py', 'csharp', 'cs', 'c#', 'java',
+  'go', 'golang', 'rust', 'rs', 'kotlin', 'kt', 'scala', 'sc', 'elixir', 'ex',
+]);
 // Map an alias to its canonical target key + the adapter that executes it.
-const TARGET_ALIASES = { ts: 'typescript', js: 'javascript', py: 'python', cs: 'csharp', 'c#': 'csharp' };
+const TARGET_ALIASES = {
+  ts: 'typescript', js: 'javascript', py: 'python', cs: 'csharp', 'c#': 'csharp',
+  golang: 'go', rs: 'rust', kt: 'kotlin', sc: 'scala', ex: 'elixir',
+};
 const canonicalTarget = (t) => TARGET_ALIASES[String(t).toLowerCase()] || String(t).toLowerCase();
 // Execute a live target. Returns { "Test / case": actual } or null if the target can't run
 // (e.g. the runtime/SDK is not installed). Unknown targets return null.
@@ -359,7 +375,7 @@ Inspect
 Run & test
   run <file> --inputs '<json>'   execute the decision(s) deterministically
   test <file> [--contracts | --properties | --scenarios | --mutate | --evals | --changed | --coverage] [--strict]
-  test <file> --target typescript|python|csharp|java   run the tests against the EXECUTED generated code
+  test <file> --target typescript|python|csharp|java|go|rust|kotlin|scala|elixir   run the tests against the EXECUTED generated code
   test <file> --all-targets  run the tests against every AVAILABLE target in one pass
   simulate <file> --events a,b,c   walk the lifecycle(s) over events
   outcomes <file>            evaluate outcome contracts vs delivery results
@@ -374,7 +390,7 @@ Prove & verify intent
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
   evidence <file>            emit evidence-event-v1 JSON (tool_verified) for the shared proof spine
                              (also: prove/verify-diff/conform/drift accept --evidence to emit their own event)
-  conform <file> [--targets a,b] [--run typescript,python,csharp,java | --all-targets] [--results <json>]   conformance matrix across targets
+  conform <file> [--targets a,b] [--run typescript,python,csharp,java,go,rust,kotlin,scala,elixir | --all-targets] [--results <json>]   conformance matrix across targets
 
 Real code vs intent (drift)
   lift <file> [--from <lang>]    lift source code into inferred intent

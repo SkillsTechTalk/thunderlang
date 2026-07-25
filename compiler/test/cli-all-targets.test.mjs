@@ -10,6 +10,8 @@ const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli.mjs'
 const tmp = mkdtempSync(join(tmpdir(), 'tl-all-'));
 const write = (name, src) => { const p = join(tmp, name); writeFileSync(p, src); return p; };
 const run = (args) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8' });
+// The canonical LIVE_TARGETS order (in-process TypeScript first, then the toolchain-probed targets).
+const ALL_LIVE = ['typescript', 'python', 'csharp', 'java', 'go', 'rust', 'kotlin', 'scala', 'elixir'];
 
 const SRC = `mission Enroll
 decision CanEnroll
@@ -35,11 +37,11 @@ target
   Java
 `;
 
-test('test --all-targets runs every live adapter and always includes the four targets', () => {
+test('test --all-targets runs every live adapter and always includes all live targets', () => {
   const res = run(['test', write('a.thunder', SRC), '--all-targets', '--json']);
   const out = JSON.parse(res.stdout);
   assert.equal(out.schema, 'thunder-all-targets-v1');
-  assert.deepEqual(out.targets.map((t) => t.target), ['typescript', 'python', 'csharp', 'java']);
+  assert.deepEqual(out.targets.map((t) => t.target), ALL_LIVE);
   // TypeScript runs in-process, so it is always executed and must pass the faithful decision.
   const ts = out.targets.find((t) => t.target === 'typescript');
   assert.equal(ts.status, 'pass');
@@ -58,10 +60,10 @@ test('test --all-targets exits 0 when no available target fails', () => {
 test('conform --all-targets shows every live target as a column and grades the available ones', () => {
   const out = JSON.parse(run(['conform', write('c.thunder', SRC), '--all-targets', '--json']).stdout);
   assert.equal(out.graded, true);
-  assert.deepEqual(out.columns, ['typescript', 'python', 'csharp', 'java']);
+  assert.deepEqual(out.columns, ALL_LIVE);
   assert.ok(out.cases.every((c) => c.targets.typescript.status === 'pass'), 'TS conforms');
   // Absent toolchains stay declared and are listed under skipped.
-  for (const c of out.cases) for (const col of ['csharp', 'java']) {
+  for (const c of out.cases) for (const col of ['csharp', 'java', 'go', 'rust', 'kotlin', 'scala', 'elixir']) {
     assert.ok(['pass', 'declared'].includes(c.targets[col].status), col);
   }
 });
@@ -70,5 +72,5 @@ test('conform --all-targets unions declared targets with all runnable targets (n
   // A mission that declares only TypeScript still gets every runnable target as a column.
   const minimal = SRC.replace(/target\n(  .+\n)+/, 'target\n  TypeScript\n');
   const out = JSON.parse(run(['conform', write('d.thunder', minimal), '--all-targets', '--json']).stdout);
-  assert.deepEqual(out.columns, ['typescript', 'python', 'csharp', 'java']);
+  assert.deepEqual(out.columns, ALL_LIVE);
 });
