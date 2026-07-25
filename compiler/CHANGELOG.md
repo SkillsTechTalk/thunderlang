@@ -3,9 +3,10 @@
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 `intent-graph-v1` schema version independently and may still change.
 
-## 0.5.0 (next)
+## 0.5.0
 
-The executable-targets release. Additive; no breaking changes.
+The executable-targets release. Additive; no breaking changes. Minor bump to keep the 0.x lockstep
+with OpenThunder.
 
 - **Five more live execution targets.** `thunder test <file> --target <lang>`,
   `thunder conform <file> --run <lang>`, and `--all-targets` now compile and run the
