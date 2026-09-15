@@ -33,3 +33,11 @@ next-env.d.ts
 # working brand source (large originals kept out of the repo; copies live in /public/brand)
 /.brand-assets
 .env*
+
+# internal docs — kept LOCAL only, never published to the public repo.
+# Removing them from HEAD stops search engines defining ThunderLang by them
+# (see README.md as the canonical definition) and avoids exposing the internal
+# coordination bus / open-core classification map.
+/MAILBOX.md
+/TODO.md
+/CLASSIFICATION.md
