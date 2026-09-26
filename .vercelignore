@@ -1,0 +1,7 @@
+
+# Keep internal material outside website deployment uploads.
+docs/moat/
+MAILBOX.md
+TODO.md
+CLASSIFICATION.md
+.env*
