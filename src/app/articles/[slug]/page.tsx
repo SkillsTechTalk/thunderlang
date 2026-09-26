@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { marked } from "marked";
+import { Marked } from "marked";
 import { Section } from "@/components/ui";
 import { absoluteUrl } from "@/lib/site";
 import { getArticle } from "@/lib/articles";
 
 export const revalidate = 3600;
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+const safeUrl = (value: string) => /^(https:\/\/|\/(?!\/))/.test(value) ? escapeHtml(value) : "";
+const markdown = new Marked({ renderer: {
+  html(token) { return escapeHtml(token.text); },
+  link(token) { const href = safeUrl(token.href); const text = this.parser.parseInline(token.tokens); return href ? `<a href="${href}">${text}</a>` : text; },
+  image(token) { const src = safeUrl(token.href); return src ? `<img src="${src}" alt="${escapeHtml(token.text)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:14px">` : ""; },
+} });
 
 export async function generateMetadata({
   params,
@@ -21,8 +28,9 @@ export async function generateMetadata({
     description: a.description,
     keywords: a.keywords,
     alternates: { canonical },
-    openGraph: { title: a.title, description: a.description, type: "article", url: canonical },
-    twitter: { card: "summary_large_image", title: a.title, description: a.description },
+    robots: { index: true, follow: true, googleBot: { "max-image-preview": "large" } },
+    openGraph: { images: a.images?.map(image => ({ url: image.url, alt: image.alt, width: image.width, height: image.height })), title: a.title, description: a.description, type: "article", url: canonical },
+    twitter: { images: a.images?.map(image => image.url), card: "summary_large_image", title: a.title, description: a.description },
   };
 }
 
@@ -30,13 +38,14 @@ export default async function ArticlePage({ params }: { params: { slug: string }
   const a = await getArticle(params.slug);
   if (!a) notFound();
 
-  const html = marked.parse(a.content || "") as string;
+  const html = markdown.parse(a.content || "") as string;
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: a.title,
     description: a.description,
     datePublished: a.published_date,
+    ...(a.images?.length ? { image: a.images.map(image => image.url) } : {}),
     author: { "@type": "Organization", name: a.author || "SkillsTech" },
     publisher: { "@type": "Organization", name: "ThunderLang" },
     url: absoluteUrl(`/articles/${a.slug}`),
@@ -47,7 +56,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     <Section>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <div className="mx-auto max-w-prose">
         <Link href="/articles" className="text-sm link-muted">
