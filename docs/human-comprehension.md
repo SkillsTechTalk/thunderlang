@@ -175,5 +175,7 @@ research tasks owned by ThunderLang, not claims established by unit tests.
   refund application; boundary regression caught and repair verified.
 - Website production build, lint, and type checks pass. Browser checks exercised
   five passing cases, the one-case boundary failure, invalid syntax, and Reset.
+  Automated Chrome checks at 1440px and 390px also covered keyboard activation,
+  no horizontal overflow, and no runtime errors.
 - Existing grammar is unchanged. The preview is experimental. Unaided participant
   testing has not been performed, and comprehension superiority is not established.

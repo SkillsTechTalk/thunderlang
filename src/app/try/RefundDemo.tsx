@@ -50,11 +50,11 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
         <p className="text-sm font-semibold text-gold-300">2 · Check the examples</p>
         <h2 className="mt-3 text-2xl font-semibold text-white">The boundary makes the difference.</h2>
         <p role="status" aria-live="polite" className="my-4 text-haze-200">{dirty ? "Edited since the last run. Run examples to update these results." : notice}</p>
-        {error && <p role="alert" className="mb-4 rounded-lg border border-rose-400/40 bg-rose-400/10 p-3 text-rose-200">{error}</p>}
+        {error && <p role="alert" className="mb-4 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-red-200">{error}</p>}
         <ul className="space-y-3" aria-label="Contract examples">
           {report.tests.results.map((r: { case: string; pass: boolean; expected: unknown; actual: unknown }, i: number) => <li key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium text-white">{r.case}</span>
-              <span className={!ran || dirty ? "text-haze-400" : r.pass ? "text-emerald-300" : "text-rose-300"}>{!ran ? "Ready" : dirty ? "Needs rerun" : r.pass ? "Passed" : "Failed"}</span></div>
+              <span className={!ran || dirty ? "text-haze-400" : r.pass ? "text-emerald-300" : "text-red-300"}>{!ran ? "Ready" : dirty ? "Needs rerun" : r.pass ? "Passed" : "Failed"}</span></div>
             <p className="mt-1 text-sm text-haze-300">Expected {String(r.expected)}{ran && !dirty && !error ? ` · Got ${String(r.actual)}` : ""}</p>
           </li>)}
         </ul>
