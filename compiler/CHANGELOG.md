@@ -1,3 +1,9 @@
+# 0.5.1
+
+- Add experimental `thunder human` shorthand, readable decision preview, example tables, and canonical source output.
+- Expose the browser-safe human contract helpers through `/core`. Existing grammar and commands are unchanged.
+- Preview reports contract examples separately from application evidence.
+
 # Changelog
 
 All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the

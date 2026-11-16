@@ -47,7 +47,7 @@ for (const file of docFiles) {
   const txt = readFileSync(join(DOCS, file), 'utf8');
 
   // 1. internal /docs links
-  for (const m of txt.matchAll(/\/docs\/([a-z0-9-]+)/g)) {
+  for (const m of txt.matchAll(/(?<![A-Za-z0-9/.:-])\/docs\/([a-z0-9-]+)/g)) {
     if (!docSlugs.has(m[1])) fail(rel, `broken internal link /docs/${m[1]}`);
   }
   // 2. example-file references

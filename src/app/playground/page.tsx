@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHero, Section, SectionHeading } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
 import { PlaygroundClient } from "./PlaygroundClient";
@@ -19,6 +20,7 @@ export default function PlaygroundPage() {
         intro="This is what beyond prompt engineering looks like: intent you can execute. Run a decision against real inputs and simulate a lifecycle against real events, deterministically and with no AI, then compile the whole mission into diagnostics, docs, a graph, a test plan, and a proof."
       />
       <Section>
+        <p className="mb-8 rounded-xl border border-gold-300/20 p-5 text-haze-200">New here? <Link href="/try" className="font-semibold text-gold-300 underline">Try the refund example</Link>: a readable rule, five cases, and one boundary mistake.</p>
         <SectionHeading
           eyebrow="Run it"
           title="Executable intent"

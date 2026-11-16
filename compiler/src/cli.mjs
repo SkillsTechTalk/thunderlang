@@ -15,6 +15,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
+import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION,
@@ -407,6 +408,7 @@ Real code vs intent (drift)
   guard <file> [--json]          preview the runtime guard (redacted fields, enforced decisions)
 
 Graph & IR
+  human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   graph <file> [--safe]      the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
   migrate <graph.json> [--to <version>]   upgrade a persisted graph
   validate <graph.json> [--json]   check a graph is canonical (anti-fork)
@@ -434,6 +436,18 @@ function main() {
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
     process.exit(cmd ? 0 : 2);
+  }
+  if (cmd === 'human') {
+    try {
+      if (!file) throw new Error('Use thunder human <file> [--json | --format source].');
+      if (args.format && args.format !== 'source') throw new Error('The supported format is source; omit --format for the reading view.');
+      const report = previewHumanContract(readFileSync(file, 'utf8'));
+      if (args.json) console.log(JSON.stringify(report, null, 2));
+      else if (args.format === 'source') process.stdout.write(report.canonicalSource);
+      else console.log(renderHumanContract(report));
+      process.exitCode = report.tests.failed ? 1 : report.tests.total ? 0 : 2;
+    } catch (e) { console.error(`thunder human: ${e.message}`); process.exitCode = 2; }
+    return;
   }
   // `schema` takes no file (it emits the canonical Intent Graph schema).
   if (cmd === 'schema') {

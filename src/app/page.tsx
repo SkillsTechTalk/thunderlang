@@ -107,10 +107,11 @@ export default function HomePage() {
 
             <div className="mt-8">
               <CTAButtons
-                primary={{ href: "/playground", label: "Try the Playground" }}
+                primary={{ href: "/try", label: "Try the refund example" }}
                 secondary={{ href: "/docs/getting-started", label: "Read the Docs" }}
               />
               <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">Full Playground →</Link>
                 <Link href="/atlas" className="font-medium text-gold-300 hover:text-gold-200">
                   Explore Intent Atlas →
                 </Link>
