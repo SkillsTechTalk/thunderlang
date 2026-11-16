@@ -6,7 +6,7 @@
 
 // The canonical hash (byte-identical to node:crypto).
 export { sha256, sha256hex } from './index';
-export { HumanContractPreview, compileHumanContract, previewHumanContract, renderHumanContract } from './human-contract.mjs';
+export { HumanContractPreview, compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
 
 // Parser + graph + in-memory compile.
 export {

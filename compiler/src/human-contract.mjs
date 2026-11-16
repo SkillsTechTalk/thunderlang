@@ -9,6 +9,23 @@ const id = new RegExp(`^${ID}$`);
 const literal = /^(?:-?(?:0|[1-9]\d*)(?:\.\d+)?|true|false|"[A-Za-z0-9 _-]*")$/;
 const fail = (line, text) => { throw new Error(`Line ${line}: ${text}`); };
 
+function namedCase(text, line, decision) {
+  const match = text.match(new RegExp(`^case "([^"\\\\]+)":\\s*\\((.*)\\)\\s*->\\s*(${ID})$`));
+  if (!match) fail(line, 'Use case "name": (input: value, otherInput: value) -> Outcome. Use -> for both rules and examples.');
+  const values = new Map();
+  const entries = match[2].trim().replace(/,\s*$/, '').split(',');
+  for (const entry of entries) {
+    const arg = entry.trim().match(new RegExp(`^(${ID})\\s*:\\s*(.+)$`));
+    if (!arg) fail(line, 'Name every example input, such as amount: 100.');
+    if (!decision.inputs.includes(arg[1])) fail(line, `Unknown input ${arg[1]}. Expected: ${decision.inputs.join(', ')}.`);
+    if (values.has(arg[1])) fail(line, `Duplicate input ${arg[1]}. Provide each input once.`);
+    values.set(arg[1], arg[2].trim());
+  }
+  const missing = decision.inputs.filter(input => !values.has(input));
+  if (missing.length) fail(line, `Missing input ${missing.join(', ')}. Missing is not the same as false.`);
+  return { cells: [match[1].trim(), ...decision.inputs.map(input => values.get(input)), match[3]], line };
+}
+
 /** Compile the small, explicit human-v1 subset into ordinary .thunder source. */
 export function compileHumanContract(source) {
   if (typeof source !== 'string' || source.length > 200000) throw new Error('A human contract must be text of at most 200 KB.');
@@ -16,7 +33,8 @@ export function compileHumanContract(source) {
     .filter(r => r.text && !r.text.startsWith('#'));
   let mission = null, purpose = null, active = null;
   const decisions = [], tables = new Map();
-  for (const row of rows) {
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
     const { text, line } = row;
     if (!row.indented) {
       active = null;
@@ -28,15 +46,18 @@ export function compileHumanContract(source) {
         if (!mission || purpose) fail(line, 'Declare one purpose after the contract name.');
         purpose = text.slice(8).trim();
       } else if ((match = text.match(new RegExp(`^decision (${ID})\\(([^)]*)\\)$`)))) {
-        const inputs = match[2].split(',').map(x => x.trim());
+        const signature = match[2].split(',').map(x => x.trim().match(new RegExp(`^(${ID})(?:\\s*:\\s*(number|boolean|string))?$`)));
+        if (signature.some(input => !input)) fail(line, 'Use input names, optionally typed as number, boolean, or string.');
+        const inputs = signature.map(input => input[1]);
+        const inputTypes = Object.fromEntries(signature.filter(input => input[2]).map(input => [input[1], input[2]]));
         if (!mission || !purpose) fail(line, 'Start with contract and purpose before a decision.');
         if (!inputs.length || inputs.some(x => !id.test(x) || ['case', 'expect', 'true', 'false', 'and', 'or', 'not', 'in'].includes(x)) || new Set(inputs).size !== inputs.length) fail(line, 'Use unique input names, such as decision RefundPolicy(amount, withinWindow).');
         if (decisions.some(d => d.name === match[1])) fail(line, 'Decision names must be unique.');
-        active = { kind: 'decision', name: match[1], inputs, rules: [], otherwise: null, line };
+        active = { kind: 'decision', name: match[1], inputs, inputTypes, rules: [], otherwise: null, line };
         decisions.push(active);
       } else if ((match = text.match(new RegExp(`^examples (${ID})$`)))) {
-        if (tables.has(match[1]) || !decisions.some(d => d.name === match[1])) fail(line, 'Examples must name one preceding decision exactly, with one table per decision.');
-        active = { kind: 'examples', name: match[1], rows: [], line };
+        if (tables.has(match[1]) || !decisions.some(d => d.name === match[1])) fail(line, 'Examples must name one preceding decision exactly, with one examples block per decision.');
+        active = { kind: 'examples', name: match[1], rows: [], format: null, line };
         tables.set(match[1], active);
       } else fail(line, 'Expected contract, purpose, decision Name(inputs), or examples Name. This preview does not guess unknown syntax.');
     } else if (active?.kind === 'decision') {
@@ -56,8 +77,19 @@ export function compileHumanContract(source) {
         active.otherwise = match[1];
       } else fail(line, 'Use when <condition> -> Outcome or otherwise -> Outcome.');
     } else if (active?.kind === 'examples') {
-      if (!text.startsWith('|') || !text.endsWith('|')) fail(line, 'Write an examples table row with | around every cell.');
-      active.rows.push({ cells: text.slice(1, -1).split('|').map(s => s.trim()), line });
+      const format = text.startsWith('|') ? 'table' : 'named';
+      if (active.format && active.format !== format) fail(line, 'Use named cases or a table within one examples block, not both.');
+      active.format = format;
+      if (format === 'table') {
+        if (!text.endsWith('|')) fail(line, 'Write an examples table row with | around every cell.');
+        active.rows.push({ cells: text.slice(1, -1).split('|').map(s => s.trim()), line });
+      } else {
+        let statement = text;
+        while (!/\)\s*(?:->|=>)/.test(statement) && index + 1 < rows.length && rows[index + 1].indented && !/^(case |\|)/.test(rows[index + 1].text)) {
+          statement += ` ${rows[++index].text}`;
+        }
+        active.rows.push(namedCase(statement, line, decisions.find(d => d.name === active.name)));
+      }
     } else fail(line, 'This indented line has no decision or examples block.');
   }
   if (!mission || !purpose || !decisions.length) throw new Error('Include a contract, purpose, and at least one decision with examples.');
@@ -68,13 +100,13 @@ export function compileHumanContract(source) {
     d.rules.forEach((r, i) => out.push(`  rule condition_${i + 1}`, `    when ${r.condition}`, `    return ${r.result}`));
     out.push('  default', `    return ${d.otherwise}`);
     const table = tables.get(d.name);
-    if (!table || table.rows.length < 2) fail(d.line, `Add examples ${d.name} with a header and at least one case.`);
-    const header = table.rows[0].cells;
+    if (!table || !table.rows.length) fail(d.line, `Add examples ${d.name} with at least one case.`);
     const expectedHeader = ['case', ...d.inputs, 'expect'];
+    const header = table.format === 'table' ? table.rows[0].cells : expectedHeader;
     if (JSON.stringify(header) !== JSON.stringify(expectedHeader)) fail(table.rows[0].line, `Use this header: | ${expectedHeader.join(' | ')} |`);
     const names = new Set();
     out.push('', `test ${d.name}`);
-    for (const row of table.rows.slice(1)) {
+    for (const row of table.rows.slice(table.format === 'table' ? 1 : 0)) {
       if (row.cells.every(c => /^:?-+:?$/.test(c))) continue; // optional Markdown separator
       const [name, ...values] = row.cells;
       if (row.cells.length !== header.length || !name || names.has(name)) fail(row.line, 'Use a unique case name and fill every column.');
@@ -83,7 +115,11 @@ export function compileHumanContract(source) {
       if (!id.test(expected)) fail(row.line, 'The expected outcome must be a named result, such as Approve or Review.');
       const outcomes = [...d.rules.map(r => r.result), d.otherwise];
       if (!outcomes.includes(expected)) fail(row.line, `Unknown outcome ${expected}. Use one of: ${[...new Set(outcomes)].join(', ')}.`);
-      values.forEach(v => { if (!literal.test(v) || (!v.startsWith('"') && !['true', 'false'].includes(v) && !Number.isFinite(Number(v)))) fail(row.line, 'Inputs must be finite numbers, true/false, or quoted simple text. Complex values need ordinary ThunderLang.'); });
+      values.forEach((v, i) => {
+        if (!literal.test(v) || (!v.startsWith('"') && !['true', 'false'].includes(v) && !Number.isFinite(Number(v)))) fail(row.line, 'Inputs must be finite numbers, true/false, or quoted simple text. Complex values need ordinary ThunderLang.');
+        const type = v.startsWith('"') ? 'string' : ['true', 'false'].includes(v) ? 'boolean' : 'number';
+        if (d.inputTypes[d.inputs[i]] && type !== d.inputTypes[d.inputs[i]]) fail(row.line, `${d.inputs[i]} expects ${d.inputTypes[d.inputs[i]]}, received ${type}. Values are not coerced.`);
+      });
       out.push(`  case ${name}`, `    given ${d.inputs.map((input, i) => `${input} ${values[i]}`).join(', ')}`, `    expect ${expected}`);
     }
     if (!names.size) fail(table.line, 'The table has no examples; add a row with inputs and an expected outcome.');
@@ -121,7 +157,7 @@ export function previewHumanContract(source) {
   const ast = parseIntent(canonicalSource);
   const tests = runTests(ast);
   const declared = (ast.tests ?? []).flatMap(t => t.cases);
-  const results = tests.results.map((r, i) => ({ ...r, pass: !!r.pass && !r.error && !r.note && declared[i]?.expect != null }));
+  const results = tests.results.map((r, i) => ({ ...r, given: declared[i]?.given ?? {}, pass: !!r.pass && !r.error && !r.note && declared[i]?.expect != null }));
   const passed = results.filter(r => r.pass).length;
   const report = {
     schema: 'thunder-human-preview-v1', experimental: true, origin: ast.lift?.inferred ? 'inferred-code' : compact ? 'human-v1' : 'thunderlang',
@@ -157,7 +193,21 @@ export function renderHumanContract(report) {
     out.push(`Otherwise choose ${d.otherwise ?? '(not stated)'}.`);
   }
   out.push('', `Contract examples: ${report.tests.passed}/${report.tests.total} passed. Application: not checked.`);
-  for (const r of report.tests.results) out.push(`  ${r.pass ? 'Passed' : 'Failed'}: ${r.case}; expected ${r.expected ?? '(missing)'}, got ${r.actual ?? '(unavailable)'}.`);
+  for (const target of new Set(report.tests.results.map(r => r.target))) {
+    const rows = report.tests.results.filter(r => r.target === target);
+    const inputs = report.decisions.find(d => d.name === target)?.inputs ?? [...new Set(rows.flatMap(r => Object.keys(r.given)))];
+    out.push('', `Examples: ${target}`, renderExampleTable(inputs, rows.map(r => ({ ...r, status: r.pass ? 'Passed' : 'Failed' }))));
+    for (const row of rows) if (row.error || row.note) out.push(`${row.case}: ${row.error || row.note}`);
+  }
   out.push('', ...report.limitations);
   return out.join('\n');
+}
+
+/** Generated presentation only. Input order comes from the decision signature. */
+export function renderExampleTable(inputs, rows) {
+  const cell = value => String(value ?? 'Not available').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\|/g, '\\|');
+  const header = ['Case', ...inputs, 'Expected', 'Actual', 'Result'];
+  const values = rows.map(row => [row.case, ...inputs.map(input => row.given?.[input]), row.expected,
+    Object.prototype.hasOwnProperty.call(row, 'actual') ? row.actual : 'Not checked', row.status]);
+  return [header, header.map(() => '---'), ...values].map(row => `| ${row.map(cell).join(' | ')} |`).join('\n');
 }

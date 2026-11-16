@@ -17,8 +17,7 @@ explicitly marked as not understood.
 ## What the first implementation does
 
 `thunder human` reads a compact contract or an ordinary ThunderLang file and shows
-a deterministic decision view. Compact files use `.thunder-human` so existing
-contract discovery cannot mistake experimental notation for canonical source.
+a deterministic decision view. Compact files use `.thunder-human`. OpenThunder recognizes this suffix and lowers it through the compiler before contract and application checks. Older tooling can use the compiled `.thunder` output.
 
 ```sh
 node compiler/src/cli.mjs human examples/human/RefundReview.thunder-human
