@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { previewHumanContract } from "../../../compiler/src/human-contract.mjs";
+import { parseIntent } from "../../../compiler/src/parse.mjs";
 
 const button = "rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300 disabled:opacity-40";
 
@@ -14,6 +15,11 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
   const [notice, setNotice] = useState("Five examples are ready. Run them to check the contract.");
   const [ran, setRan] = useState(false);
   const dirty = source !== testedSource;
+  const examples = useMemo(() => {
+    const ast = parseIntent(report.canonicalSource);
+    const tests = (ast.tests ?? []) as Array<{ cases: Array<{ given?: Record<string, string> }> }>;
+    return tests.flatMap(test => test.cases);
+  }, [report]);
 
   function run(next = source) {
     try {
@@ -31,14 +37,23 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <div className="space-y-8">
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid min-w-0 gap-6">
       <div className="min-w-0 rounded-2xl border border-white/10 bg-ink-850/60 p-5 sm:p-7">
         <p className="text-sm font-semibold text-gold-300">1 · Express the rule</p>
         <h2 className="mt-3 text-2xl font-semibold text-white">A rule the whole team can read.</h2>
         <p className="mt-3 text-haze-300">Approve a non-negative refund up to $100, within the refund window. Otherwise, send it for review.</p>
-        <label htmlFor="refund-source" className="mb-2 mt-6 block text-sm text-haze-300">Edit the contract and its examples</label>
-        <textarea id="refund-source" value={source} onChange={e => setSource(e.target.value)} maxLength={20000}
-          spellCheck={false} className="min-h-[390px] w-full rounded-lg border border-white/20 bg-black/30 p-3 font-mono text-sm leading-6 text-haze-100 focus:outline-gold-300" />
+        <div className="mt-6 overflow-hidden rounded-xl border border-white/20 bg-black/30">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+            <label htmlFor="refund-source" className="text-sm font-medium text-haze-100">Edit the contract and its examples</label>
+            <span className="font-mono text-xs text-haze-300">RefundReview.thunder-human</span>
+          </div>
+          <textarea id="refund-source" value={source} onChange={e => setSource(e.target.value)} maxLength={20000}
+            rows={Math.max(9, Math.min(26, source.split("\n").length + 1))} wrap="off"
+            aria-describedby="refund-editor-help" spellCheck={false} autoCapitalize="off" autoCorrect="off"
+            style={{ colorScheme: "dark", scrollbarWidth: "thin", scrollbarColor: "#394150 #080B14" }}
+            className="block w-full resize-y overflow-auto bg-transparent p-4 font-mono text-[13px] leading-6 text-haze-100 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-gold-300 sm:text-sm" />
+        </div>
+        <p id="refund-editor-help" className="mt-2 text-xs text-haze-300">One line stays one line. <span className="sm:hidden">Swipe sideways to read long lines. </span>The examples are also shown as a table below.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button type="button" className={`${button} bg-gold-400 text-ink-950 hover:bg-gold-300`} onClick={() => run()}>Run examples</button>
           <button type="button" className={button} onClick={() => { const next = initialSource.replace("amount <= 100", "amount < 100"); setSource(next); run(next); }}>Break the $100 rule</button>
@@ -51,13 +66,26 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
         <h2 className="mt-3 text-2xl font-semibold text-white">The boundary makes the difference.</h2>
         <p role="status" aria-live="polite" className="my-4 text-haze-200">{dirty ? "Edited since the last run. Run examples to update these results." : notice}</p>
         {error && <p role="alert" className="mb-4 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-red-200">{error}</p>}
-        <ul className="space-y-3" aria-label="Contract examples">
-          {report.tests.results.map((r: { case: string; pass: boolean; expected: unknown; actual: unknown }, i: number) => <li key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium text-white">{r.case}</span>
-              <span className={!ran || dirty ? "text-haze-400" : r.pass ? "text-emerald-300" : "text-red-300"}>{!ran ? "Ready" : dirty ? "Needs rerun" : r.pass ? "Passed" : "Failed"}</span></div>
-            <p className="mt-1 text-sm text-haze-300">Expected {String(r.expected)}{ran && !dirty && !error ? ` · Got ${String(r.actual)}` : ""}</p>
-          </li>)}
-        </ul>
+        <table className="block w-full text-left text-sm sm:table" aria-label="Contract examples">
+          <thead className="hidden border-b border-white/15 text-haze-300 sm:table-header-group">
+            <tr>{["Example", "Inputs", "Expected", "Actual", "Result"].map(label => <th key={label} scope="col" className="px-3 py-3 font-medium">{label}</th>)}</tr>
+          </thead>
+          <tbody className="block space-y-3 sm:table-row-group sm:space-y-0">
+            {report.tests.results.map((r, i) => <tr key={i} className={`block rounded-xl border border-white/10 p-4 sm:table-row sm:rounded-none sm:border-x-0 sm:border-t-0 sm:p-0 ${ran && !dirty && !r.pass ? "bg-red-400/[0.06]" : "bg-white/[0.02]"}`}>
+              <th scope="row" className="block pb-3 font-medium text-white sm:table-cell sm:w-[27%] sm:px-3 sm:py-4">{r.case}</th>
+              <td className="block pb-3 text-haze-200 sm:table-cell sm:px-3 sm:py-4">
+                {Object.entries(examples[i]?.given ?? {}).map(([key, value]) => <span key={key} className="block break-words">
+                  <span className="text-haze-300">{key.replace(/([a-z])([A-Z])/g, "$1 $2")}:</span> {value}
+                </span>)}
+              </td>
+              <td className="block py-1 text-haze-200 sm:table-cell sm:px-3 sm:py-4"><span className="mr-2 text-haze-300 sm:hidden">Expected</span>{String(r.expected)}</td>
+              <td className="block py-1 text-haze-200 sm:table-cell sm:px-3 sm:py-4"><span className="mr-2 text-haze-300 sm:hidden">Actual</span>{ran && !dirty && !error ? String(r.actual) : "Not run"}</td>
+              <td className="block pt-2 font-medium sm:table-cell sm:px-3 sm:py-4">
+                <span className={!ran || dirty ? "text-haze-300" : r.pass ? "text-emerald-300" : "text-red-300"}>{!ran ? "Ready" : dirty ? "Needs rerun" : r.pass ? "Passed" : "Failed"}</span>
+              </td>
+            </tr>)}
+          </tbody>
+        </table>
         <div className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-haze-200"><strong className="text-amber-200">Application: not checked.</strong> These results execute the contract only. They do not establish what your service does, or cover every possible input.</div>
       </div>
     </div>
