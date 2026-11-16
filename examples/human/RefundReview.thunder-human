@@ -2,14 +2,13 @@
 contract RefundReview
 purpose Approve eligible refunds up to 100 USD.
 
-decision RefundPolicy(amount, withinWindow)
-  when amount >= 0 and amount <= 100 and withinWindow == true -> Approve
+decision RefundPolicy(amount: number, withinWindow: boolean)
+  when amount >= 0 and amount <= 100 and withinWindow -> Approve
   otherwise -> Review
 
 examples RefundPolicy
-  | case                      | amount | withinWindow | expect  |
-  | below the limit           | 99     | true         | Approve |
-  | exactly at the limit      | 100    | true         | Approve |
-  | above the limit           | 101    | true         | Review  |
-  | outside the refund window | 50     | false        | Review  |
-  | negative amount           | -1     | true         | Review  |
+  case "below the limit": (amount: 99, withinWindow: true) -> Approve
+  case "exactly at the limit": (amount: 100, withinWindow: true) -> Approve
+  case "above the limit": (amount: 101, withinWindow: true) -> Review
+  case "outside the refund window": (amount: 50, withinWindow: false) -> Review
+  case "negative amount": (amount: -1, withinWindow: true) -> Review

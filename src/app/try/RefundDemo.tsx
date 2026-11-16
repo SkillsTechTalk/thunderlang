@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { previewHumanContract } from "../../../compiler/src/human-contract.mjs";
-import { parseIntent } from "../../../compiler/src/parse.mjs";
 
-const button = "rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300 disabled:opacity-40";
+const button = "rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold transition hover:bg-white/10 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300 disabled:opacity-40";
 
 export function RefundDemo({ initialSource }: { initialSource: string }) {
   const [source, setSource] = useState(initialSource);
@@ -15,11 +14,6 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
   const [notice, setNotice] = useState("Five examples are ready. Run them to check the contract.");
   const [ran, setRan] = useState(false);
   const dirty = source !== testedSource;
-  const examples = useMemo(() => {
-    const ast = parseIntent(report.canonicalSource);
-    const tests = (ast.tests ?? []) as Array<{ cases: Array<{ given?: Record<string, string> }> }>;
-    return tests.flatMap(test => test.cases);
-  }, [report]);
 
   function run(next = source) {
     try {
@@ -49,11 +43,12 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
           </div>
           <textarea id="refund-source" value={source} onChange={e => setSource(e.target.value)} maxLength={20000}
             rows={Math.max(9, Math.min(26, source.split("\n").length + 1))} wrap="off"
-            aria-describedby="refund-editor-help" spellCheck={false} autoCapitalize="off" autoCorrect="off"
+            aria-describedby={error ? "refund-editor-help refund-editor-error" : "refund-editor-help"} aria-invalid={!!error} spellCheck={false} autoCapitalize="off" autoCorrect="off"
             style={{ colorScheme: "dark", scrollbarWidth: "thin", scrollbarColor: "#394150 #080B14" }}
             className="block w-full resize-y overflow-auto bg-transparent p-4 font-mono text-[13px] leading-6 text-haze-100 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-gold-300 sm:text-sm" />
         </div>
-        <p id="refund-editor-help" className="mt-2 text-xs text-haze-300">One line stays one line. <span className="sm:hidden">Swipe sideways to read long lines. </span>The examples are also shown as a table below.</p>
+        <p id="refund-editor-help" className="mt-2 text-xs text-haze-300">Name each input and use -&gt; for the outcome. Long cases can wrap inside parentheses. <span className="sm:hidden">Swipe sideways to read long lines. </span>Run examples to generate the table below.</p>
+        {error && <p id="refund-editor-error" role="alert" className="mt-3 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-red-200">{error}</p>}
         <div className="mt-4 flex flex-wrap gap-3">
           <button type="button" className={`${button} bg-gold-400 text-ink-950 hover:bg-gold-300`} onClick={() => run()}>Run examples</button>
           <button type="button" className={button} onClick={() => { const next = initialSource.replace("amount <= 100", "amount < 100"); setSource(next); run(next); }}>Break the $100 rule</button>
@@ -64,9 +59,8 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
       <div className="min-w-0 rounded-2xl border border-white/10 p-5 sm:p-7">
         <p className="text-sm font-semibold text-gold-300">2 · Check the examples</p>
         <h2 className="mt-3 text-2xl font-semibold text-white">The boundary makes the difference.</h2>
-        <p role="status" aria-live="polite" className="my-4 text-haze-200">{dirty ? "Edited since the last run. Run examples to update these results." : notice}</p>
-        {error && <p role="alert" className="mb-4 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-red-200">{error}</p>}
-        <table className="block w-full text-left text-sm sm:table" aria-label="Contract examples">
+        <p role="status" aria-live="polite" className="my-4 text-haze-200">{error ? notice : dirty ? "Edited since the last run. Run examples to update these results." : notice}</p>
+        {!error && <table className="block w-full text-left text-sm sm:table" aria-label="Contract examples">
           <thead className="hidden border-b border-white/15 text-haze-300 sm:table-header-group">
             <tr>{["Example", "Inputs", "Expected", "Actual", "Result"].map(label => <th key={label} scope="col" className="px-3 py-3 font-medium">{label}</th>)}</tr>
           </thead>
@@ -74,7 +68,7 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
             {report.tests.results.map((r, i) => <tr key={i} className={`block rounded-xl border border-white/10 p-4 sm:table-row sm:rounded-none sm:border-x-0 sm:border-t-0 sm:p-0 ${ran && !dirty && !r.pass ? "bg-red-400/[0.06]" : "bg-white/[0.02]"}`}>
               <th scope="row" className="block pb-3 font-medium text-white sm:table-cell sm:w-[27%] sm:px-3 sm:py-4">{r.case}</th>
               <td className="block pb-3 text-haze-200 sm:table-cell sm:px-3 sm:py-4">
-                {Object.entries(examples[i]?.given ?? {}).map(([key, value]) => <span key={key} className="block break-words">
+                {Object.entries(r.given).map(([key, value]) => <span key={key} className="block break-words">
                   <span className="text-haze-300">{key.replace(/([a-z])([A-Z])/g, "$1 $2")}:</span> {value}
                 </span>)}
               </td>
@@ -85,7 +79,7 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
               </td>
             </tr>)}
           </tbody>
-        </table>
+        </table>}
         <div className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-haze-200"><strong className="text-amber-200">Application: not checked.</strong> These results execute the contract only. They do not establish what your service does, or cover every possible input.</div>
       </div>
     </div>
@@ -101,6 +95,7 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
     <details className="rounded-xl border border-white/10 p-5">
       <summary className="cursor-pointer font-medium text-white">Keep the source or explore the full language</summary>
       <p className="mt-3 text-sm text-haze-300">The shorthand lowers to ordinary ThunderLang. Existing contracts, runtime, code generators, Atlas, and Playground remain available.</p>
+      {(dirty || error) && <p className="mt-2 text-sm text-haze-300">Run the examples successfully to enable the compiled contract download.</p>}
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className={button} onClick={() => download(source, "RefundReview.thunder-human")}>Download edited source</button>
         <button type="button" className={button} disabled={dirty || !!error} onClick={() => download(report.canonicalSource, "RefundReview.thunder")}>Download compiled contract</button>

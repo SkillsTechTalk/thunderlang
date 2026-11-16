@@ -1,3 +1,8 @@
+# 0.5.2
+
+- Add named example inputs with one `->` arrow, optional primitive input annotations, and multiline cases in human-v1. Existing tables and canonical source remain supported.
+- Generate example tables from the canonical parsed cases; preserve separate contract and application evidence.
+
 # 0.5.1
 
 - Add experimental `thunder human` shorthand, readable decision preview, example tables, and canonical source output.

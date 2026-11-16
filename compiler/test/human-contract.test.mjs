@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { compileHumanContract, previewHumanContract, renderHumanContract } from '../src/human-contract.mjs';
+import { compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from '../src/human-contract.mjs';
 import { parseIntent } from '../src/parse.mjs';
 import { evaluateDecision } from '../src/runtime.mjs';
 import { toTypeScript, toPython } from '../src/codegen.mjs';
@@ -65,11 +65,11 @@ test('missing defaults, examples, headers, cells, duplicate cases, and undeclare
   for (const changed of [
     source.replace('  otherwise -> Review', ''),
     source.split('examples RefundPolicy')[0],
-    source.replace('| case ', '| name '),
-    source.replace('| 99     | true', '|        | true'),
+    source.replace('amount: 99', 'ammount: 99'),
+    source.replace('amount: 99, withinWindow: true', 'amount: 99'),
     source.replace('below the limit', 'exactly at the limit'),
-    source.replace('| Approve |', '| Wrong |'),
-    source.replace('withinWindow)', 'withinWindow, amount)'),
+    source.replace('true) -> Approve', 'true) -> Wrong'),
+    source.replace('withinWindow: boolean)', 'withinWindow: boolean, amount: number)'),
     source.replace('examples RefundPolicy', 'examples Refund'),
   ]) assert.throws(() => compileHumanContract(changed));
 });
@@ -116,4 +116,44 @@ test('code lifted from TypeScript and Python remains source-linked, inferred, an
     assert.match(text, /Behavior rules: not recovered/);
     assert.match(text, /Application: not checked/);
   }
+});
+
+
+test('original table input preserves behavior and still rejects malformed table rows', () => {
+  const table = readFileSync(new URL('../../examples/human/RefundReview.table.thunder-human', import.meta.url), 'utf8');
+  assert.deepEqual(previewHumanContract(table).tests, previewHumanContract(source).tests);
+  for (const broken of [table.replace('| case ', '| name '), table.replace('| 99     | true', '|        | true'), table.replace('| Approve |', '| Wrong |')]) {
+    assert.throws(() => compileHumanContract(broken));
+  }
+});
+
+test('named inputs are order independent and can wrap without changing the canonical source', () => {
+  const reordered = source.replace('(amount: 99, withinWindow: true)', '(withinWindow: true, amount: 99)');
+  const wrapped = source.replace('(amount: 99, withinWindow: true)', '(\n    amount: 99,\n    withinWindow: true,\n  )');
+  assert.equal(compileHumanContract(reordered), compileHumanContract(source));
+  assert.equal(compileHumanContract(wrapped), compileHumanContract(source));
+});
+
+test('named examples reject duplicate, missing, positional, unknown, and incorrectly typed inputs', () => {
+  for (const [replacement, message] of [
+    ['(amount: 99, amount: 98, withinWindow: true)', /Duplicate input amount/],
+    ['(amount: 99)', /Missing input withinWindow/],
+    ['(99, true)', /Name every example input/],
+    ['(amount: 99, window: true)', /Unknown input window/],
+    ['(amount: "99", withinWindow: true)', /amount expects number, received string/],
+    ['(amount: 99, withinWindow: "false")', /withinWindow expects boolean, received string/],
+    ['(amount: NaN, withinWindow: true)', /finite numbers/],
+  ]) assert.throws(() => compileHumanContract(source.replace('(amount: 99, withinWindow: true)', replacement)), message);
+  assert.throws(() => compileHumanContract(source.replace(') -> Approve', ') => Approve')), /Use -> for both/);
+  assert.throws(() => compileHumanContract(source.replace('number', 'money')), /number, boolean, or string/);
+});
+
+test('generated table includes signature-ordered inputs, expectations, actuals and literal escaping', () => {
+  const text = renderHumanContract(previewHumanContract(source));
+  assert.match(text, /\| Case \| amount \| withinWindow \| Expected \| Actual \| Result \|/);
+  assert.match(text, /\| exactly at the limit \| 100 \| true \| Approve \| Approve \| Passed \|/);
+  const table = renderExampleTable(['message'], [{case: 'pipe|name', given: {message: 'two\nlines'}, expected: 'Allow', status: 'Not checked'}]);
+  assert.ok(table.includes('pipe\\|name'));
+  assert.ok(table.includes('two lines'));
+  assert.ok(table.includes('| Not checked | Not checked |'));
 });
