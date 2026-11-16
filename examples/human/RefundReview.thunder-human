@@ -1,0 +1,15 @@
+# Experimental human-v1: compile to ordinary ThunderLang before other commands.
+contract RefundReview
+purpose Approve eligible refunds up to 100 USD.
+
+decision RefundPolicy(amount, withinWindow)
+  when amount >= 0 and amount <= 100 and withinWindow == true -> Approve
+  otherwise -> Review
+
+examples RefundPolicy
+  | case                      | amount | withinWindow | expect  |
+  | below the limit           | 99     | true         | Approve |
+  | exactly at the limit      | 100    | true         | Approve |
+  | above the limit           | 101    | true         | Review  |
+  | outside the refund window | 50     | false        | Review  |
+  | negative amount           | -1     | true         | Review  |

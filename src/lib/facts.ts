@@ -11,7 +11,7 @@ export const PROJECT_FACTS: { value: string; label: string; href?: string }[] = 
   { value: "39", label: "worked examples", href: "/examples" },
   { value: "14", label: "languages lifted to intent", href: "/docs/language-support-matrix" },
   { value: "10", label: "export formats (DMN, BPMN, OpenAPI, ...)" },
-  { value: "v0.4.1", label: "pre-1.0, deterministic, no AI required" },
+  { value: "v0.5.1", label: "pre-1.0, deterministic, no AI required" },
 ];
 
 export const NPM_PACKAGE = "@skillstech/thunderlang";

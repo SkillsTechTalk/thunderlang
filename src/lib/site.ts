@@ -34,6 +34,7 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
+  { href: "/try", label: "Try it" },
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
   { href: "/atlas", label: "Atlas" },

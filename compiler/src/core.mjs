@@ -6,6 +6,7 @@
 
 // AI-implementation helpers (unchanged , keeps existing /core consumers working).
 export * from './ai-core.mjs';
+export { compileHumanContract, previewHumanContract, renderHumanContract } from './human-contract.mjs';
 
 // Classification model (observed/inferred/proposed/... + isFactual). Node-free.
 export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_PHASES } from './classification.mjs';
