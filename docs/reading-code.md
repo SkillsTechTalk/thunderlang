@@ -78,6 +78,27 @@ Conditions can use comparisons, `&&`, `||`, `!`, `and`, `or`, `not`, parentheses
 
 Anything else is listed under "Not read" with the line and the reason. That includes answers that are computed, conditions that call functions with arguments, loops, and side effects. The reader never fills a gap with a guess.
 
+## Turn a reading into a rule
+
+A reading tells you what the code does. To make that a rule the code must keep following, promote the decision to a contract. On [/read](/read), choose **Turn into a contract** on any decision. In the terminal:
+
+```bash
+thunder read LoanPolicy.java --promote decide --out Decide.thunder-human
+```
+
+The contract restates the rule in the readable notation and adds starter examples chosen where mistakes hide: one per rule, one for the fallback, and both sides of every number the rule compares against (for example `creditScore` at 499 and 500). Field paths such as `order.total` become plain inputs such as `orderTotal`, with a comment mapping them back.
+
+The examples' answers are computed from the code, so they record what the code does **today**. That is the point: if someone later changes `creditScore < 500` to `creditScore <= 500`, the example at 500 fails. But it also means a bug in the code is copied into the examples. Have a person confirm each answer and change any that are wrong before you rely on the contract.
+
+Then turn it into standard ThunderLang and check every change against it:
+
+```bash
+thunder human Decide.thunder-human --format source > Decide.thunder
+thunder test Decide.thunder
+```
+
+Contracts answer with names, so a decision that returns numbers or computed values cannot be promoted yet. The tool says why.
+
 ## Read the result as inferred
 
 A reading is inferred from code by pattern, not by running it. It tells you what the code appears to decide, not what anyone meant it to decide. To make a rule the source of truth, copy its ThunderLang into a `.thunder` file, add examples, and have a person approve it. From then on, `thunder verify-diff` checks every change against it.

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
+import { PromotePanel } from "./PromotePanel";
 import type { ReadItem, ReadKind } from "../../../compiler/src/read.mjs";
 import { parseIntent } from "../../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../../compiler/src/translate.mjs";
@@ -90,6 +91,7 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
   }, [item.thunder, know]);
   const knowLabel = KNOW.find((k) => k.key === know)?.label ?? know;
   const guards = item.guards ?? [];
+  const [promoting, setPromoting] = useState(false);
 
   return (
     <li className={`rounded-2xl border transition ${compact ? "p-4" : "p-5"} ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : "border-white/10 bg-ink-850/40"}`}>
@@ -163,6 +165,20 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
               <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedCode source={rewritten} lang={know} /></pre>
             </div>
           )}
+        </div>
+      )}
+
+      {item.kind === "decision" && (
+        <div className="mt-4">
+          <button
+            type="button"
+            aria-expanded={promoting}
+            onClick={() => setPromoting((v) => !v)}
+            className="rounded-lg border border-gold-300/50 px-3 py-2 text-sm font-semibold text-gold-200 hover:bg-gold-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300"
+          >
+            {promoting ? "Hide the contract" : "Turn into a contract"}
+          </button>
+          {promoting && <PromotePanel item={item} file={(item as ReadItem & { file?: string }).file} />}
         </div>
       )}
 

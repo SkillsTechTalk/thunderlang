@@ -18,6 +18,7 @@ import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
+import { promoteDecision } from './promote.mjs';
 import { collectReadableFiles } from './read-repo-fs.mjs';
 import { translateDecisions } from './translate.mjs';
 import {
@@ -284,6 +285,7 @@ function parseArgs(argv) {
     else if (a === '--kind') args.kind = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
     else if (a === '--in') args.inLang = argv[++i];
     else if (a === '--answer') args.answer = argv[++i];
+    else if (a === '--promote') args.promote = argv[++i];
     else if (a === '--input') args.input = argv[++i];
     else if (a === '--lang') args.langs = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
     else if (a === '--path') args.pathPrefix = argv[++i];
@@ -456,6 +458,7 @@ Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
+       --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
                              read code you don't know: its decision rules as ThunderLang + plain English,
                              optionally rewritten in a language you know (--in typescript|python|go|rust|csharp|java)
   graph <file> [--safe]      the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
@@ -490,6 +493,23 @@ function main() {
     try {
       if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');
       if (statSync(file).isDirectory()) { readFolder(file, args); return; }
+      if (args.promote) {
+        const items = statSync(file).isDirectory()
+          ? searchRepo(readRepo(collectReadableFiles(file)), { path: args.pathPrefix || '' })
+          : readCode(readFileSync(file, 'utf8'), { language: args.from, file: basename(file) }).items.map((it) => ({ ...it, file: basename(file) }));
+        const matches = items.filter((it) => it.kind === 'decision' && it.name === args.promote);
+        if (!matches.length) throw new Error(`No decision named ${args.promote}. Run thunder read ${file} --kind decision to list them.`);
+        if (matches.length > 1) throw new Error(`${matches.length} decisions are named ${args.promote} (${matches.map((m) => m.file).join(', ')}). Narrow with --path.`);
+        const p = promoteDecision(matches[0]);
+        if (!p.ok) throw new Error(p.reason);
+        const report = previewHumanContract(p.source);
+        if (args.out) {
+          writeFileSync(args.out, p.source);
+          console.error(`Wrote ${args.out}: ${report.tests.total} examples recording what the code does today (${report.tests.passed} pass).`);
+          console.error(`Next: confirm each answer with a person, then: thunder human ${args.out} --format source > ${p.name}.thunder`);
+        } else process.stdout.write(p.source);
+        return;
+      }
       const reading = readCode(readFileSync(file, 'utf8'), { language: args.from, file: basename(file) });
       const items = searchReading(reading, { query: args.search || '', kinds: args.kind || [] });
       if (args.json) { console.log(JSON.stringify({ ...reading, items }, null, 2)); return; }

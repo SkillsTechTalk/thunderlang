@@ -23,6 +23,7 @@ import { draftIntent } from './draft.mjs';
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';
 import { readCode, searchReading, READ_LANGUAGES } from './read.mjs';
 import { readRepo, searchRepo } from './read-repo.mjs';
+import { promoteDecision } from './promote.mjs';
 import { collectReadableFiles } from './read-repo-fs.mjs';
 import { resolve } from 'node:path';
 import { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
@@ -274,6 +275,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'intent_promote',
+    description: 'Turn a decision recovered from code into a readable ThunderLang contract with starter examples chosen at every rule and threshold. The examples record what the code does TODAY (computed from the recovered rule), so a person must confirm each answer; after that, intent_verify_diff can hold every change to it. Give the source code and the decision (function) name.',
+    inputSchema: {
+      type: 'object', required: ['source', 'name'],
+      properties: { source: { ...str, description: 'the source code' }, name: { ...str, description: 'the function whose decision to promote' }, language: { ...str, description: `one of: ${READ_LANGUAGES.join(', ')} (detected when omitted)` } },
+    },
+    run: ({ source, name, language }) => {
+      const item = readCode(String(source), { language }).items.find((i) => i.name === name);
+      if (!item) return { ok: false, reason: `No function named ${name} was found.` };
+      const p = promoteDecision(item);
+      return p.ok ? { ...p, examplesPass: previewHumanContract(p.source).tests } : p;
+    },
+  },
+  {
     name: 'intent_translate',
     description: `Generate readable, typed code for every decision in ThunderLang source, in ${TRANSLATE_LANGUAGES.map((l) => l.label).join(', ')}. Deterministic, no AI; the first matching rule wins in every language. Accepts canonical .thunder source or the readable contract notation.`,
     inputSchema: {
@@ -297,7 +312,7 @@ const TOOLS = [
 
 // Tools that are pure functions of their arguments (no filesystem, git, or process state), so they
 // are safe to serve to remote clients such as ChatGPT. intent_prove reads the local repository.
-export const REMOTE_SAFE_TOOLS = ['intent_check', 'intent_verify_diff', 'intent_conform', 'intent_drift', 'intent_draft', 'intent_lift', 'intent_run', 'intent_test', 'intent_graph', 'intent_explain', 'intent_read', 'intent_translate', 'intent_human'];
+export const REMOTE_SAFE_TOOLS = ['intent_check', 'intent_verify_diff', 'intent_conform', 'intent_drift', 'intent_draft', 'intent_lift', 'intent_run', 'intent_test', 'intent_graph', 'intent_explain', 'intent_read', 'intent_promote', 'intent_translate', 'intent_human'];
 
 export const MCP_TOOLS = TOOLS.map((t) => t.name);
 

@@ -90,6 +90,7 @@ The gate is the one to reach for first; the rest support and record the loop.
 | `intent_explain` | Explain any diagnostic code. |
 | `intent_read` | Read code you don't know. Recovers the decision rules in TypeScript, JavaScript, Python, Go, Rust, C#, or Java as ThunderLang and plain English, with search, kind filters, and an optional rewrite in a language you know. Anything it cannot read is listed, never guessed. |
 | `intent_read_repo` | (Local only.) Read a whole repository into one searchable index: routes, decisions, checks, errors, and tests with file and line. Filter by text, kind, language, folder, an answer the code gives or fails with, or an input a rule uses. |
+| `intent_promote` | Turn a decision recovered from code into a readable contract with starter examples at every rule and threshold. The examples record what the code does today, so a person confirms each answer before relying on it. |
 | `intent_translate` | Generate the decisions in ThunderLang source as readable, typed TypeScript, Python, Go, Rust, C#, or Java. |
 | `intent_human` | Check a contract written in the readable notation: run every example and return pass or fail per case. |
 
