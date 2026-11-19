@@ -102,3 +102,7 @@ export {
 // Decisions -> readable typed source in six languages.
 export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 export type { TranslateLanguage } from './translate.mjs';
+
+// Read code you don't know.
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
+export type { Reading, ReadItem, ReadKind } from './read.mjs';

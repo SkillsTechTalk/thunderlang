@@ -16,6 +16,8 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSy
 import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
+import { readCode, searchReading } from './read.mjs';
+import { translateDecisions } from './translate.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
   semanticDiagnostics, buildProof, sha256, COMPILER_VERSION,
@@ -243,6 +245,8 @@ function parseArgs(argv) {
     else if (a === '--role') args.role = argv[++i];
     else if (a === '--note') args.note = argv[++i];
     else if (a === '--search') args.search = argv[++i];
+    else if (a === '--kind') args.kind = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
+    else if (a === '--in') args.inLang = argv[++i];
     else if (a === '--expand') args.expand = argv[++i];
     else if (a === '--now') args.now = argv[++i];
     else if (a === '--format') args.format = argv[++i];
@@ -409,6 +413,9 @@ Real code vs intent (drift)
 
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
+  read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+                             read code you don't know: its decision rules as ThunderLang + plain English,
+                             optionally rewritten in a language you know (--in typescript|python|go|rust|csharp|java)
   graph <file> [--safe]      the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
   migrate <graph.json> [--to <version>]   upgrade a persisted graph
   validate <graph.json> [--json]   check a graph is canonical (anti-fork)
@@ -436,6 +443,32 @@ function main() {
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
     process.exit(cmd ? 0 : 2);
+  }
+  if (cmd === 'read') {
+    try {
+      if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');
+      const reading = readCode(readFileSync(file, 'utf8'), { language: args.from, file: basename(file) });
+      const items = searchReading(reading, { query: args.search || '', kinds: args.kind || [] });
+      if (args.json) { console.log(JSON.stringify({ ...reading, items }, null, 2)); return; }
+      const c = reading.counts;
+      console.log(`${basename(file)} (${reading.language}${reading.detected ? ', detected' : ''}): ${c.decision} decision(s), ${c.function} other function(s), ${c.error} error(s), ${c.test} test(s). Inferred from code; confirm before relying on it.`);
+      if (!items.length) console.log('\nNothing matches. Try fewer words or remove --kind.');
+      for (const it of items) {
+        console.log(`\n[${it.kind}${it.status === 'partial' ? ', partly read' : ''}] ${it.name}  (line ${it.line})`);
+        console.log(`  ${it.says}`);
+        if (it.thunder) {
+          console.log('');
+          for (const l of it.thunder.split('\n')) console.log(`    ${l}`);
+          if (args.inLang) {
+            const code = translateDecisions(parseIntent(it.thunder), args.inLang).split('\n').slice(2);
+            console.log(`\n  In ${args.inLang}:`);
+            for (const l of code) console.log(`    ${l}`);
+          }
+        }
+        for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
+      }
+    } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
   }
   if (cmd === 'human') {
     try {

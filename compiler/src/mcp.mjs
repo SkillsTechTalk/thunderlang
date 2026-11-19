@@ -21,8 +21,13 @@ import { buildConformance } from './conformance.mjs';
 import { checkDrift } from './drift.mjs';
 import { draftIntent } from './draft.mjs';
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';
+import { readCode, searchReading, READ_LANGUAGES } from './read.mjs';
+import { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
+import { previewHumanContract } from './human-contract.mjs';
 
 const PROTOCOL_VERSION = '2024-11-05';
+// Versions this server can speak; it answers with the client's requested version when listed.
+const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const str = { type: 'string' };
 
 // ── prove helpers ────────────────────────────────────────────────────────────
@@ -221,48 +226,100 @@ const TOOLS = [
     inputSchema: { type: 'object', required: ['code'], properties: { code: { ...str, description: 'e.g. IL-SEC-001' } } },
     run: ({ code }) => ALL_DIAGNOSTICS.find((r) => r.ruleId.toLowerCase() === String(code).toLowerCase()) || { code, found: false },
   },
+  {
+    name: 'intent_read',
+    description: `READ CODE YOU DON'T KNOW. Given source code (${READ_LANGUAGES.join(', ')}), returns each function and the decision rules it makes, as ThunderLang and plain English, plus errors raised and tests found. Inferred from code by pattern (no AI); anything it could not read is listed, never guessed. Optional search text and kind filters. Pass \`in\` to also rewrite each decision in a language the reader knows.`,
+    inputSchema: {
+      type: 'object', required: ['source'],
+      properties: {
+        source: { ...str, description: 'the source code' },
+        language: { ...str, description: `source language; detected when omitted. One of: ${READ_LANGUAGES.join(', ')}` },
+        query: { ...str, description: 'free-text search over names, inputs, conditions, and answers' },
+        kinds: { type: 'array', items: { type: 'string', enum: ['decision', 'function', 'error', 'test'] }, description: 'only these kinds' },
+        in: { ...str, description: `rewrite decisions in this language: ${TRANSLATE_LANGUAGES.map((l) => l.key).join(', ')}` },
+      },
+    },
+    run: ({ source, language, query = '', kinds = [], in: inLang }) => {
+      const reading = readCode(String(source), { language });
+      const items = searchReading(reading, { query, kinds }).map((it) => (inLang && it.thunder
+        ? { ...it, rewritten: { language: inLang, code: translateDecisions(parseIntent(it.thunder), inLang) } }
+        : it));
+      return { ...reading, items };
+    },
+  },
+  {
+    name: 'intent_translate',
+    description: `Generate readable, typed code for every decision in ThunderLang source, in ${TRANSLATE_LANGUAGES.map((l) => l.label).join(', ')}. Deterministic, no AI; the first matching rule wins in every language. Accepts canonical .thunder source or the readable contract notation.`,
+    inputSchema: {
+      type: 'object', required: ['source', 'language'],
+      properties: { source: str, language: { type: 'string', enum: TRANSLATE_LANGUAGES.map((l) => l.key) } },
+    },
+    run: ({ source, language }) => {
+      const text = String(source);
+      const canonical = /^\s*contract\s/m.test(text.split('\n').find((l) => l.trim() && !l.trim().startsWith('#')) || '')
+        ? previewHumanContract(text).canonicalSource : text;
+      return translateDecisions(parseIntent(canonical), language);
+    },
+  },
+  {
+    name: 'intent_human',
+    description: 'Check a contract written in the readable notation (contract / purpose / decision Name(inputs) / when ... -> Outcome / examples). Runs every example and returns pass/fail per case plus the canonical .thunder source. Use it to write or review business rules with a person.',
+    inputSchema: { type: 'object', required: ['source'], properties: { source: str } },
+    run: ({ source }) => previewHumanContract(String(source)),
+  },
 ];
+
+// Tools that are pure functions of their arguments (no filesystem, git, or process state), so they
+// are safe to serve to remote clients such as ChatGPT. intent_prove reads the local repository.
+export const REMOTE_SAFE_TOOLS = ['intent_check', 'intent_verify_diff', 'intent_conform', 'intent_drift', 'intent_draft', 'intent_lift', 'intent_run', 'intent_test', 'intent_graph', 'intent_explain', 'intent_read', 'intent_translate', 'intent_human'];
 
 export const MCP_TOOLS = TOOLS.map((t) => t.name);
 
-/** Start the ThunderLang MCP server over the given streams (default: process stdio). */
-export function startMcpServer({ readable = process.stdin, writable = process.stdout } = {}) {
-  const send = (msg) => writable.write(`${JSON.stringify(msg)}\n`);
-  const respond = (id, result) => send({ jsonrpc: '2.0', id, result });
-  const fail = (id, code, message) => send({ jsonrpc: '2.0', id, error: { code, message } });
-
-  function handle(msg) {
+/**
+ * A transport-free MCP handler: give it one JSON-RPC message, get back the response object (or
+ * null for notifications). Shared by the stdio server and the hosted HTTP endpoint.
+ */
+export function createMcpHandler({ tools = MCP_TOOLS } = {}) {
+  const allowed = TOOLS.filter((t) => tools.includes(t.name));
+  const ok = (id, result) => ({ jsonrpc: '2.0', id, result });
+  const err = (id, code, message) => ({ jsonrpc: '2.0', id: id ?? null, error: { code, message } });
+  return function handle(msg) {
     const { id, method, params } = msg || {};
     switch (method) {
-      case 'initialize':
-        respond(id, { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: { name: 'thunderlang', version: COMPILER_VERSION } });
-        break;
+      case 'initialize': {
+        const asked = params?.protocolVersion;
+        const protocolVersion = SUPPORTED_PROTOCOLS.includes(asked) ? asked : PROTOCOL_VERSION;
+        return ok(id, { protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'thunderlang', version: COMPILER_VERSION } });
+      }
       case 'notifications/initialized':
       case 'initialized':
       case 'notifications/cancelled':
-        break; // notifications , no response
+        return null; // notifications , no response
       case 'ping':
-        respond(id, {});
-        break;
+        return ok(id, {});
       case 'tools/list':
-        respond(id, { tools: TOOLS.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) });
-        break;
+        return ok(id, { tools: allowed.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema })) });
       case 'tools/call': {
-        const tool = TOOLS.find((t) => t.name === params?.name);
-        if (!tool) { fail(id, -32602, `Unknown tool: ${params?.name}`); break; }
+        const tool = allowed.find((t) => t.name === params?.name);
+        if (!tool) return err(id, -32602, `Unknown tool: ${params?.name}`);
         try {
           const result = tool.run(params.arguments || {});
           const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-          respond(id, { content: [{ type: 'text', text }] });
+          return ok(id, { content: [{ type: 'text', text }] });
         } catch (e) {
-          respond(id, { content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : String(e)}` }], isError: true });
+          return ok(id, { content: [{ type: 'text', text: `Error: ${e instanceof Error ? e.message : String(e)}` }], isError: true });
         }
-        break;
       }
       default:
-        if (id != null) fail(id, -32601, `Method not found: ${method}`);
+        return id != null ? err(id, -32601, `Method not found: ${method}`) : null;
     }
-  }
+  };
+}
+
+/** Start the ThunderLang MCP server over the given streams (default: process stdio). */
+export function startMcpServer({ readable = process.stdin, writable = process.stdout } = {}) {
+  const respondTo = createMcpHandler();
+  const handle = (msg) => { const reply = respondTo(msg); if (reply) writable.write(`${JSON.stringify(reply)}\n`); };
 
   let buffer = '';
   readable.on('data', (chunk) => {

@@ -17,7 +17,14 @@ function typesFor(ast, dec) {
   const names = inputNames(dec);
   const types = inferInputTypes(ast, dec);
   const hasExample = (n) => (ast.tests || []).some((t) => t.name === dec.name && (t.cases || []).some((c) => (c.given || {})[n] != null));
+  // A declared type (`amount: number`, as the reader and typed contracts emit) wins outright.
+  const declared = {};
+  for (const raw of dec.inputs || []) {
+    const m = String(raw).match(/^\s*(\w+)\s*:\s*(number|boolean|bool|string)\s*$/);
+    if (m) declared[m[1]] = m[2] === 'boolean' ? 'bool' : m[2];
+  }
   for (const n of names) {
+    if (declared[n]) { types[n] = declared[n]; continue; }
     if (hasExample(n)) continue;
     let guess = 'string';
     for (const r of dec.rules || []) {
