@@ -53,3 +53,16 @@ test('refuses what a contract cannot hold, with the reason', () => {
   const fn = readCode('function f(x: number) { log(x); return x * 2; }', { language: 'typescript' }).items[0];
   assert.match(promoteDecision(fn).reason, /Only decisions/);
 });
+
+test('switches over enum values promote with the enum members as text', async () => {
+  const d = readCode(`class P { static String tier(Plan plan) {
+    return switch (plan) { case FREE, TRIAL -> "Basic"; case PRO -> "Plus"; default -> "Custom"; };
+  } }`, { language: 'java' }).items.find((i) => i.kind === 'decision');
+  const p = promoteDecision(d);
+  assert.ok(p.ok, p.reason);
+  assert.match(p.source, /decision Tier\(plan: string\)/);
+  assert.match(p.source, /when plan == "FREE" or plan == "TRIAL" -> Basic/);
+  const report = previewHumanContract(p.source);
+  assert.equal(report.tests.failed, 0);
+  assert.equal(report.tests.total, 3);
+});

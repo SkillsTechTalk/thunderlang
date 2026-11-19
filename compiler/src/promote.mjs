@@ -18,20 +18,27 @@ const flat = (path) => path.split('.').map((seg, i) => (i ? seg[0].toUpperCase()
 const OUTCOME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const STRING_LIT = /^[A-Za-z0-9 _-]*$/;
 
-/** Inputs a condition references, with how each is used: compared to a number, to text, or alone. */
-function usage(conditions) {
+/**
+ * Inputs a condition references, with how each is used: compared to a number, to text, or alone.
+ * Only the function's parameters (and fields on them) are inputs; any other bare name in a condition
+ * is an enum value (plan == FREE), which a contract compares as text.
+ */
+function usage(conditions, params) {
+  const isInput = (name) => (params.size ? params.has(name.split('.')[0]) : !/^[A-Z]/.test(name));
   const refs = new Map(); // path -> { numbers:Set, strings:Set, bare:boolean }
+  const entry = (name) => { if (!refs.has(name)) refs.set(name, { numbers: new Set(), strings: new Set(), bare: false }); return refs.get(name); };
   for (const cond of conditions) {
     const toks = tokenize(cond);
     toks.forEach((t, i) => {
-      if (t.t !== 'id') return;
-      const u = refs.get(t.v) || { numbers: new Set(), strings: new Set(), bare: false };
-      refs.set(t.v, u);
-      const op = toks[i + 1]?.t === 'op' ? toks[i + 1] : toks[i - 1]?.t === 'op' ? toks[i - 1] : null;
-      const other = toks[i + 1]?.t === 'op' ? toks[i + 2] : toks[i - 1]?.t === 'op' ? toks[i - 2] : null;
+      if (t.t !== 'id' || !isInput(t.v)) return;
+      const u = entry(t.v);
+      const after = toks[i + 1]?.t === 'op';
+      const op = after ? toks[i + 1] : toks[i - 1]?.t === 'op' ? toks[i - 1] : null;
+      const other = after ? toks[i + 2] : toks[i - 1]?.t === 'op' ? toks[i - 2] : null;
       if (op && other?.t === 'num') u.numbers.add(other.v);
       else if (op && other?.t === 'str') u.strings.add(other.v);
-      else if (op && other?.t === 'id') u.numbers.add(0); // compared with another input: give it a number range
+      else if (op && other?.t === 'id' && !isInput(other.v)) u.strings.add(other.v); // enum member
+      else if (op && other?.t === 'id') u.numbers.add(0); // compared with another input
       else if (!op) u.bare = true;
     });
   }
@@ -78,10 +85,10 @@ export function promoteDecision(item, { file = item.file || '' } = {}) {
   const notes = [];
   const renames = new Map();
   const conditions = item.rules.map((r) => r.when);
-  const refs = usage(conditions);
+  const refs = usage(conditions, new Set((item.inputs || []).map((p) => p.name)));
   for (const path of refs.keys()) if (path.includes('.')) { renames.set(path, flat(path)); notes.push(`${flat(path)} stands for ${path} in the code.`); }
   const rewrite = (cond) => tokenize(cond).map((t) => {
-    if (t.t === 'id') return renames.get(t.v) ?? t.v;
+    if (t.t === 'id') return refs.has(t.v) ? (renames.get(t.v) ?? t.v) : JSON.stringify(t.v); // enum members are text in a contract
     if (t.t === 'str') return JSON.stringify(t.v);
     if (t.t === 'num' || t.t === 'bool') return String(t.v);
     return t.v;
@@ -95,7 +102,7 @@ export function promoteDecision(item, { file = item.file || '' } = {}) {
   for (const [path, u] of refs) {
     const name = renames.get(path) ?? path;
     const t = declared.get(path);
-    types[name] = ['number', 'boolean', 'string'].includes(t) ? t : u.numbers.size ? 'number' : u.strings.size ? 'string' : 'boolean';
+    types[name] = ['number', 'boolean', 'string'].includes(t) && !(t !== 'string' && u.strings.size) ? t : u.strings.size ? 'string' : u.numbers.size ? 'number' : 'boolean';
     for (const s of u.strings) if (!STRING_LIT.test(s)) return { ok: false, reason: `The text "${s}" has characters a contract example cannot hold yet.` };
     values[name] = candidates(types[name], u);
   }

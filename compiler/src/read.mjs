@@ -49,8 +49,18 @@ function matchClose(src, open) {
   return -1;
 }
 
+// The language being read. Only Rust has lifetimes ('static, 'a), which look like an opening quote.
+let READING_RUST = false;
+
 function skipString(src, i) {
   const q = src[i];
+  if (q === '\'' && !READING_RUST) {
+    for (let j = i + 1; j < src.length; j++) {
+      if (src[j] === '\\') { j++; continue; }
+      if (src[j] === q || src[j] === '\n') return j;
+    }
+    return src.length;
+  }
   // Rust lifetimes ('static, 'a) are not strings: a quote, a name, and no closing quote right after it.
   // 'path' and 'a' are strings or chars because the name is followed by a quote.
   if (q === '\'' && /[A-Za-z_]/.test(src[i + 1] || '')) {
@@ -176,7 +186,10 @@ function findFunctions(src, language) {
           const bo = markerAt + 2 + lead, bc = matchClose(src, bo);
           if (bc > 0) fns.push({ key, name, line: fnLine, params, returns, bodyStart: bo + 1, body: src.slice(bo + 1, bc) });
         } else {
-          const end = rest.search(/;\s*(\n|$)|\n\s*\n/);
+          // An expression body ends at its first top-level semicolon (or a blank line, for JS without semicolons).
+          const semi = topLevelIndex(rest, ';');
+          const blank = rest.search(/\n\s*\n/);
+          const end = semi < 0 ? blank : blank < 0 ? semi : Math.min(semi, blank);
           const expr = (end < 0 ? rest : rest.slice(0, end)).trim();
           fns.push({ key, name, line: fnLine, params, returns, bodyStart: markerAt + 2 + lead, body: `return ${expr};` });
         }
@@ -466,6 +479,168 @@ function splitIf(text, language) {
   return { cond: cond.trim(), branch, remaining };
 }
 
+
+// ── switch / match ──────────────────────────────────────────────────────────────────────────
+// Each arm becomes a rule: `subject == value` (several values joined with or), a range, a C#
+// relational pattern, or (Go's subject-less switch) the case's own condition; Rust/Python guards
+// are added with and. The default arm (default, _, case _) becomes the fallback. Any arm whose
+// body does more than give a fixed answer makes the whole switch "not read", never half-guessed.
+
+/** One switch label or pattern as a ThunderLang condition, or null. */
+function patternCondition(pattern, subject, inputs, language) {
+  const p = pattern.trim();
+  let m;
+  if (subject == null) return toThunderCondition(p, inputs); // Go: switch { case cond: }
+  if ((m = p.match(/^(-?\d+(?:\.\d+)?)\s*\.\.(=?)\s*(-?\d+(?:\.\d+)?)$/))) return `${subject} >= ${m[1]} and ${subject} ${m[2] ? '<=' : '<'} ${m[3]}`;
+  if ((m = p.match(/^(>=|<=|>|<)\s*(-?\d+(?:\.\d+)?)$/))) return `${subject} ${m[1]} ${m[2]}`; // C# relational pattern
+  if ((m = p.match(/^not\s+(.+)$/)) && language === 'csharp') { const v = toThunderOutcome(m[1]); return v ? `${subject} != ${/^[A-Za-z_]/.test(v) && !/^(true|false)$/.test(v) ? v : v}` : null; }
+  const parts = splitTop(p.replace(/\s+or\s+/g, '|'), language === 'rust' || language === 'csharp' || language === 'python' ? '|' : ',').map((x) => x.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    const each = parts.map((x) => patternCondition(x, subject, inputs, language));
+    return each.every(Boolean) ? each.map((c) => (/\s(and|or)\s/.test(c) ? `(${c})` : c)).join(' or ') : null;
+  }
+  const v = valueLiteral(p);
+  return v == null ? null : `${subject} == ${v}`;
+}
+
+/** A case label value as a ThunderLang literal: "text", 42, true, or an enum member name. */
+function valueLiteral(text) {
+  const s = text.trim();
+  let m;
+  if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$/))) return JSON.stringify(m[1] ?? m[2]);
+  if (/^-?\d+(\.\d+)?$/.test(s)) return s;
+  if (/^(true|false|True|False)$/.test(s)) return s.toLowerCase();
+  if ((m = s.match(/^(?:[A-Za-z_]\w*(?:\.|::))*([A-Za-z_]\w*)$/))) return m[1];
+  return null;
+}
+
+/** Replace a pattern binding (Rust `n if n > 3`) with the subject inside its guard. */
+const rebind = (guard, name, subject) => guard.replace(new RegExp(`\\b${name}\\b`, 'g'), subject);
+
+/** The arms of a switch/match body: [{ pattern|null (default), guard, value, line }] or null. */
+function switchArms(body, language, baseLine) {
+  const arms = [];
+  const lineOf = (idx) => baseLine + lineAt(body, idx) - 1;
+  if (language === 'rust' || language === 'csharp-expr') {
+    // pattern => value, separated by top-level commas (Rust arms may use blocks without commas).
+    let i = 0;
+    while (i < body.length) {
+      while (i < body.length && /[\s,]/.test(body[i])) i++;
+      if (i >= body.length) break;
+      const arrow = body.indexOf('=>', i);
+      if (arrow < 0) return null;
+      const head = body.slice(i, arrow).trim();
+      let j = arrow + 2;
+      while (/\s/.test(body[j] || '')) j++;
+      let value, end;
+      if (body[j] === '{') { const c = matchClose(body, j); if (c < 0) return null; value = blockOnlyValue(body.slice(j + 1, c), language); end = c + 1; }
+      else { const c = topLevelIndex(body, ',', j); end = c < 0 ? body.length : c; value = body.slice(j, end).trim(); }
+      const g = head.match(/^(.*?)\s+(?:if|when)\s+(.+)$/s);
+      arms.push({ pattern: (g ? g[1] : head).trim(), guard: g ? g[2].trim() : null, value, line: lineOf(i) });
+      i = end + 1;
+    }
+    return arms;
+  }
+  // C-family: case LABELS: / case LABELS -> / default: / default ->
+  const starts = [];
+  const re = /(^|[\s;{}:])(case\b|default\b)/g;
+  let m;
+  while ((m = re.exec(body))) {
+    const at = m.index + m[1].length;
+    if (depthAt(body, at) === 0) starts.push(at);
+  }
+  let pending = [];
+  for (let k = 0; k < starts.length; k++) {
+    const clause = body.slice(starts[k], starts[k + 1] ?? body.length).trim();
+    const isDefault = clause.startsWith('default');
+    const afterKw = clause.replace(/^(case|default)\b/, '');
+    const arrowAt = topLevelIndex(afterKw, '-') >= 0 && /->/.test(afterKw) ? afterKw.indexOf('->') : -1;
+    const colonAt = topLevelIndex(afterKw, ':');
+    const useArrow = arrowAt >= 0 && (colonAt < 0 || arrowAt < colonAt);
+    const cut = useArrow ? arrowAt : colonAt;
+    if (cut < 0) return null;
+    const label = afterKw.slice(0, cut).trim();
+    let rest = afterKw.slice(cut + (useArrow ? 2 : 1)).trim();
+    const g = label.match(/^(.*?)\s+when\s+(.+)$/s);
+    const pattern = isDefault ? null : (g ? g[1] : label);
+    if (!useArrow && !rest) { pending.push(pattern); continue; } // C fall-through: case A: case B: return X;
+    let value;
+    if (rest.startsWith('{')) value = blockOnlyValue(rest.slice(1, matchClose(rest, 0)), language);
+    else {
+      rest = rest.replace(/;?\s*break\s*;?\s*$/, '').replace(/;\s*$/, '').trim();
+      value = useArrow ? rest : (rest.match(/^return\s+([\s\S]+)$/) || [])[1] ?? null;
+      if (value && /;/.test(value)) value = null; // more than one statement
+    }
+    const patterns = [...pending, pattern];
+    pending = [];
+    if (patterns.includes(null)) arms.push({ pattern: null, guard: null, value, line: lineOf(starts[k]) });
+    else arms.push({ pattern: patterns.join(language === 'go' && patterns.length === 1 ? '' : ', ') || patterns[0], guard: g ? g[2].trim() : null, value, line: lineOf(starts[k]) });
+  }
+  return arms;
+}
+
+function depthAt(s, idx) {
+  let d = 0;
+  for (let i = 0; i < idx; i++) {
+    const c = s[i];
+    if (c === '"' || c === '\'' || c === '`') { i = skipString(s, i); continue; }
+    if ('({['.includes(c)) d++; else if (')}]'.includes(c)) d--;
+  }
+  return d;
+}
+
+/** The single answer a block gives: `{ return X; }` or a Rust tail value. */
+function blockOnlyValue(inner, language) {
+  const t = inner.trim().replace(/;\s*$/, '');
+  if (/;/.test(t)) return null;
+  const m = t.match(/^return\s+([\s\S]+)$/);
+  if (m) return m[1].trim();
+  return language === 'rust' || language === 'csharp-expr' ? t : null;
+}
+
+/**
+ * Read a switch/match statement or expression. `text` is `switch (x) {...}`, `switch x {...}`,
+ * `match x {...}`, or C# `x switch {...}`. Returns { rules, otherwise } or { unread } or null.
+ */
+function readSwitch(text, language, inputs, line) {
+  let subjectText, body, kind = language;
+  let m;
+  const t = text.trim();
+  if ((m = t.match(/^switch\s*\(([\s\S]*?)\)\s*\{/)) && language !== 'go' && language !== 'rust') {
+    const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
+  } else if (language === 'go' && (m = t.match(/^switch\b([^{]*)\{/))) {
+    const open = t.indexOf('{'); subjectText = m[1].trim() || null; body = t.slice(open + 1, matchClose(t, open));
+  } else if (language === 'rust' && (m = t.match(/^match\s+([^{]+?)\s*\{/))) {
+    const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
+  } else if (language === 'csharp' && (m = t.match(/^([\w.]+)\s+switch\s*\{/))) {
+    const open = t.indexOf('{'); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open)); kind = 'csharp-expr';
+  } else return null;
+  if (body == null) return null;
+  const subject = subjectText == null ? null : toThunderCondition(subjectText, inputs);
+  if (subjectText != null && (!subject || /\s/.test(subject))) return { unread: [{ line, text: t.split('\n')[0].slice(0, 120), reason: 'This switch compares something other than an input or field.' }] };
+  const arms = switchArms(body, kind, line);
+  if (!arms || !arms.length) return { unread: [{ line, text: t.split('\n')[0].slice(0, 120), reason: 'This switch has a shape the reader does not recognize yet.' }] };
+  const rules = [];
+  let otherwise = null;
+  for (const a of arms) {
+    const result = a.value == null ? null : toThunderOutcome(a.value);
+    if (!result) return { unread: [{ line: a.line, text: (a.pattern ?? 'default') + ' => ' + String(a.value ?? '...').slice(0, 60), reason: 'This case does more than give a fixed answer, so the switch is not shown as rules.' }] };
+    const isDefault = a.pattern == null || a.pattern === '_' || (language === 'rust' && /^[a-z_]\w*$/.test(a.pattern) && !a.guard && !inputs.includes(a.pattern));
+    if (isDefault && !a.guard) { otherwise = { result, line: a.line }; break; }
+    let when = isDefault ? null : patternCondition(a.pattern, subject, inputs, language);
+    if (a.guard) {
+      const binding = (a.pattern || '').match(/^([a-z_]\w*)$/);
+      const g = toThunderCondition(binding && subject ? rebind(a.guard, binding[1], subject) : a.guard, inputs);
+      if (!g) return { unread: [{ line: a.line, text: `${a.pattern} if ${a.guard}`, reason: 'This case guard uses something besides comparisons and and/or/not.' }] };
+      when = when && !binding ? `(${when}) and (${g})` : g;
+    }
+    if (!when) return { unread: [{ line: a.line, text: String(a.pattern).slice(0, 80), reason: 'This case pattern is not a value, range, or comparison the reader recognizes.' }] };
+    try { compileExpr(when, { inputs }); } catch { return { unread: [{ line: a.line, text: String(a.pattern), reason: 'This case pattern could not be read as a condition.' }] }; }
+    rules.push({ when: simplifyExpr(when), result, line: a.line });
+  }
+  return { rules, otherwise };
+}
+
 // ── Statement readers ───────────────────────────────────────────────────────────────────────
 
 /** Split a brace-language body into top-level statements with their source line numbers. */
@@ -581,6 +756,19 @@ function readBraceStatements(stmts, language, inputs) {
       if (!ok) continue;
       continue;
     }
+    // switch / match, as a statement or as the returned value.
+    {
+      const isLast = st === stmts[stmts.length - 1];
+      const val = (t.match(/^return\s+([\s\S]+?);?$/) || [])[1];
+      const candidate = /^(switch|match)\b/.test(t) ? t : val && /^(switch\b|match\b|[\w.]+\s+switch\s*\{)/.test(val) ? val : null;
+      const sw = candidate && (candidate === t ? !(language === 'rust' && !isLast && /^match/.test(t) && false) : true) ? readSwitch(candidate, language, inputs, st.line) : null;
+      if (sw) {
+        if (sw.unread) { unread.push(...sw.unread); continue; }
+        rules.push(...sw.rules);
+        if (sw.otherwise) otherwise = sw.otherwise;
+        continue;
+      }
+    }
     const ret = t.match(/^return\s+([\s\S]+?);?$/) || (language === 'rust' && st === stmts[stmts.length - 1] && !/;\s*$/.test(t) ? [null, t] : null);
     if (ret) {
       if (readTernary(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
@@ -648,6 +836,45 @@ function readPythonBody(body, inputs) {
     const { text, line, indent } = body[i];
     if (indent !== base) continue;
     let m;
+    if ((m = text.match(/^match\s+(.+?):\s*$/))) {
+      const subject = toThunderCondition(m[1], inputs);
+      const block = [];
+      for (let k = i + 1; k < body.length && body[k].indent > base; k++) block.push(body[k]);
+      i += block.length;
+      const caseIndent = block[0]?.indent;
+      const arms = [];
+      for (let k = 0; k < block.length; k++) {
+        const c = block[k];
+        if (c.indent !== caseIndent) continue;
+        const cm = c.text.match(/^case\s+(.+?)(?:\s+if\s+(.+?))?:\s*(.*)$/);
+        if (!cm) { arms.length = 0; break; }
+        const inner = block.slice(k + 1).filter((x, n, arr) => x.indent > caseIndent && arr.slice(0, n).every((y) => y.indent > caseIndent));
+        const valueLine = cm[3].trim() || (inner.length === 1 ? inner[0].text : '');
+        const r = valueLine.match(/^return\s+(.+)$/);
+        arms.push({ pattern: cm[1].trim(), guard: cm[2]?.trim() || null, value: r ? r[1] : null, line: c.line });
+      }
+      let ok = !!subject && !/\s/.test(subject) && arms.length > 0;
+      const local = [];
+      let fallback = null;
+      for (const a of ok ? arms : []) {
+        const result = a.value == null ? null : toThunderOutcome(a.value);
+        if (!result) { ok = false; break; }
+        if (a.pattern === '_' && !a.guard) { fallback = { result, line: a.line }; break; }
+        const binding = a.pattern.match(/^([a-z_]\w*)$/) && a.pattern !== '_' ? a.pattern : null;
+        let when = a.pattern === '_' || binding ? null : patternCondition(a.pattern, subject, inputs, 'python');
+        if (a.guard) {
+          const g = toThunderCondition(binding ? rebind(a.guard, binding, subject) : a.guard, inputs);
+          if (!g) { ok = false; break; }
+          when = when ? `(${when}) and (${g})` : g;
+        }
+        if (!when) { ok = false; break; }
+        local.push({ when: simplifyExpr(when), result, line: a.line });
+      }
+      if (!ok) { unread.push({ line, text: text.slice(0, 120), reason: 'This match has a case that does more than give a fixed answer.' }); continue; }
+      rules.push(...local);
+      if (fallback) otherwise = fallback;
+      continue;
+    }
     if ((m = text.match(/^(?:if|elif)\s+(.+?):\s*(.*)$/))) {
       const inline = m[2].trim();
       const next = body[i + 1];
@@ -727,6 +954,7 @@ export function readCode(source, { language, file = '' } = {}) {
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
   const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
+  READING_RUST = lang === 'rust';
   const items = [];
   for (const fn of findFunctions(src, lang)) {
     const inputs = fn.params;

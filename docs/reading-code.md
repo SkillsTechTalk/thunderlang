@@ -73,6 +73,7 @@ The reader recognizes the common ways code chooses an answer:
 - `if` / `else if` / `else` chains that return a fixed value
 - ternaries (`cond ? A : B`) and Python's `A if cond else B`
 - Rust and Go tail forms such as `if cond { A } else { B }`
+- `switch` and `match`: C-style switches with fall-through (TypeScript, JavaScript, Java, C#, Go), Java arrow switches (`case A, B -> "X"`), C# switch expressions with relational patterns (`>= 90 => "A"`), Go switches with no subject, Rust `match` with `|`, ranges (`1..=5`), and `if` guards, and Python `match`/`case`. A switch where any case does real work is listed as not read, rather than half-shown.
 
 Conditions can use comparisons, `&&`, `||`, `!`, `and`, `or`, `not`, parentheses, literals, inputs, and fields such as `order.total`. Java's `equals` becomes `==`, and enum answers such as `Verdict::Block` read as `Block`.
 
