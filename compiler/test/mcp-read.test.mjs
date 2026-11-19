@@ -46,3 +46,17 @@ test('initialize negotiates the client protocol version when supported', () => {
   assert.equal(handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '1999-01-01' } }).result.protocolVersion, '2024-11-05');
   assert.equal(handle({ jsonrpc: '2.0', method: 'notifications/initialized' }), null);
 });
+
+test('intent_read_repo reads a folder locally and is never offered to remote clients', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = mkdtempSync(join(tmpdir(), 'thunder-mcp-repo-'));
+  mkdirSync(join(root, 'api'));
+  writeFileSync(join(root, 'api/routes.ts'), 'app.post("/refunds", (req, res) => {\n  if (!req.user) return res.status(401).end();\n  res.json({});\n});\n');
+  const r = call(createMcpHandler(), 'intent_read_repo', { path: root, kinds: ['route'], answer: '401' });
+  assert.equal(r.matched, 1);
+  assert.equal(r.items[0].name, 'POST /refunds');
+  assert.equal(r.items[0].file, 'api/routes.ts');
+  assert.ok(!REMOTE_SAFE_TOOLS.includes('intent_read_repo'));
+});

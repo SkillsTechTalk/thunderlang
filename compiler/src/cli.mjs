@@ -17,6 +17,8 @@ import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
 import { readCode, searchReading } from './read.mjs';
+import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
+import { collectReadableFiles } from './read-repo-fs.mjs';
 import { translateDecisions } from './translate.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
@@ -142,6 +144,40 @@ function collectFiles(root, acc = []) {
   return acc;
 }
 
+// `thunder read <dir>`: one searchable reading of a whole repository, grouped by file.
+function readFolder(dir, args) {
+  const index = readRepo(collectReadableFiles(dir));
+  const items = searchRepo(index, {
+    query: args.search || '', kinds: args.kind || [], languages: args.langs || [],
+    path: args.pathPrefix || '', answer: args.answer || '', input: args.input || '',
+  });
+  if (args.json) { console.log(JSON.stringify({ ...index, items }, null, 2)); return; }
+  const c = index.counts;
+  const langs = Object.entries(index.languages).map(([l, n]) => `${l} ${n}`).join(', ') || 'none';
+  console.log(`${dir}: ${index.files.length} files read (${langs}). ${c.route} route(s), ${c.decision} decision(s), ${c.function} other function(s) (${c.guarded} with checks), ${c.error} error(s), ${c.test} test(s). Inferred from code; confirm before relying on it.`);
+  if (index.skipped.length) console.log(`${index.skipped.length} file(s) skipped: ${index.skipped.slice(0, 5).map((s) => `${s.path} (${s.reason})`).join('; ')}${index.skipped.length > 5 ? '; ...' : ''}`);
+  const filtered = items.length !== index.items.length;
+  if (!filtered && index.answers.length) {
+    console.log(`\nAnswers the code gives: ${index.answers.slice(0, 12).map((a) => `${a.name} (${a.decisions.length})`).join(', ')}`);
+    console.log('Narrow with --answer <Outcome>, --input <name>, --search <words>, --kind, --lang, or --path.');
+  }
+  if (!items.length) { console.log('\nNothing matches. Try fewer words or fewer filters.'); return; }
+  const limit = Number.isFinite(args.limit) && args.limit > 0 ? args.limit : (filtered ? Infinity : 40);
+  let shown = 0;
+  for (const g of groupByFile(items)) {
+    if (shown >= limit) break;
+    console.log(`\n${g.file}  (${g.language})`);
+    for (const it of g.items) {
+      if (shown++ >= limit) break;
+      console.log(`  [${it.kind}${it.status === 'partial' ? ', partly read' : ''}] ${it.name}  line ${it.line}: ${it.says}`);
+      if (args.inLang && it.thunder) {
+        for (const l of translateDecisions(parseIntent(it.thunder), args.inLang).split('\n').slice(2)) console.log(`      ${l}`);
+      }
+    }
+  }
+  if (items.length > shown) console.log(`\n${items.length - Math.min(shown, items.length)} more. Narrow the search, or pass --limit ${items.length}.`);
+}
+
 // Walk a directory for authored source files (skips the .intent/ output dir).
 function collectIntents(root, acc = []) {
   const st = statSync(root);
@@ -247,6 +283,11 @@ function parseArgs(argv) {
     else if (a === '--search') args.search = argv[++i];
     else if (a === '--kind') args.kind = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
     else if (a === '--in') args.inLang = argv[++i];
+    else if (a === '--answer') args.answer = argv[++i];
+    else if (a === '--input') args.input = argv[++i];
+    else if (a === '--lang') args.langs = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
+    else if (a === '--path') args.pathPrefix = argv[++i];
+    else if (a === '--limit') args.limit = Number(argv[++i]);
     else if (a === '--expand') args.expand = argv[++i];
     else if (a === '--now') args.now = argv[++i];
     else if (a === '--format') args.format = argv[++i];
@@ -413,7 +454,8 @@ Real code vs intent (drift)
 
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
-  read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+  read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+       for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
                              read code you don't know: its decision rules as ThunderLang + plain English,
                              optionally rewritten in a language you know (--in typescript|python|go|rust|csharp|java)
   graph <file> [--safe]      the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
@@ -447,6 +489,7 @@ function main() {
   if (cmd === 'read') {
     try {
       if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');
+      if (statSync(file).isDirectory()) { readFolder(file, args); return; }
       const reading = readCode(readFileSync(file, 'utf8'), { language: args.from, file: basename(file) });
       const items = searchReading(reading, { query: args.search || '', kinds: args.kind || [] });
       if (args.json) { console.log(JSON.stringify({ ...reading, items }, null, 2)); return; }

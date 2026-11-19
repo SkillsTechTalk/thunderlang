@@ -23,6 +23,31 @@ Otherwise, if amount is at most 5000 and creditScore is at least 700 and verifie
 Otherwise, the answer is Review.
 ```
 
+## A whole repository
+
+Point the reader at a folder and it reads every supported file into one index you can search. On [/read](/read), choose **A whole folder**: the files are read in your browser and nothing is uploaded. In the terminal, pass a folder instead of a file.
+
+Beyond decisions, a repository reading includes:
+
+- **Routes**: HTTP handlers named by method and path, such as `POST /refunds`. It recognizes Express, Fastify, and similar `app.get(...)` handlers, Go `HandleFunc` and router methods, Python `@app.get` and `@app.route`, Spring `@GetMapping`, ASP.NET `[HttpGet]`, and NestJS `@Get()`.
+- **Checks**: early exits inside any function, read as rules. For example: "Responds 401 if not req.user", "Fails with InsufficientFunds if balance is less than amount", "Stops early and returns nothing if not order". Routine Go error passing (`if err != nil { return err }`) is left out because it is plumbing, not a rule.
+
+Two filters answer the questions people new to a codebase ask most:
+
+- **Answer**: where does the code decide `Decline`, respond `401`, or fail with `NotFoundError`?
+- **Input**: which rules use `creditScore`?
+
+```bash
+thunder read .                                   # a summary and the answers the code gives
+thunder read . --kind route                      # every HTTP route
+thunder read . --kind route --answer 401         # routes that can respond 401
+thunder read services --answer Decline --in python
+thunder read . --input creditScore --lang java,go
+thunder read . --path payments/ --json
+```
+
+Dependency and build folders (`node_modules`, `vendor`, `target`, `dist`, `build`, virtual environments, and similar) are skipped, along with type declarations and minified files. Generated files and files over 400 KB are listed as skipped, with the reason.
+
 ## In your terminal
 
 ```bash
@@ -39,7 +64,7 @@ thunder read grading.py --json
 
 ## In a coding agent
 
-The `intent_read` MCP tool takes the same options (`query`, `kinds`, `in`). Ask your agent "what does this file decide?" and it can answer from the reading instead of guessing. See [ThunderLang for AI agents](/docs/mcp) to connect Claude Code, Codex, or ChatGPT.
+The `intent_read` MCP tool takes the same options (`query`, `kinds`, `in`). For a repository, `intent_read_repo` takes a folder plus the same filters as the terminal (`kinds`, `languages`, `folder`, `answer`, `input`). It reads your local files, so it runs only in local agents such as Claude Code and Codex, never on the hosted endpoint. Ask your agent "what does this file decide?" and it can answer from the reading instead of guessing. See [ThunderLang for AI agents](/docs/mcp) to connect Claude Code, Codex, or ChatGPT.
 
 ## What it reads, and what it does not
 

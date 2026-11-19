@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { readCode, searchReading, type ReadItem, type ReadKind, type Reading } from "../../../compiler/src/read.mjs";
-import { parseIntent } from "../../../compiler/src/parse.mjs";
-import { translateDecisions } from "../../../compiler/src/translate.mjs";
+import { readCode, searchReading, type ReadItem, type Reading } from "../../../compiler/src/read.mjs";
 import { READ_SAMPLES } from "./samples.mjs";
-import { HighlightedCode, HighlightedSource } from "@/lib/highlight";
 import type { CodeLang } from "@/lib/code-tokens";
+import { FACETS, KNOW, ReadCard, SourceView, chip, field, linesOf, type ReadFacet } from "./parts";
+import { FolderReader } from "./FolderReader";
 
 const LANGS: { key: string; label: string }[] = [
   { key: "auto", label: "Detect automatically" },
@@ -19,45 +18,12 @@ const LANGS: { key: string; label: string }[] = [
   { key: "csharp", label: "C#" },
   { key: "java", label: "Java" },
 ];
-const KNOW: { key: CodeLang; label: string }[] = [
-  { key: "typescript", label: "TypeScript" },
-  { key: "python", label: "Python" },
-  { key: "go", label: "Go" },
-  { key: "rust", label: "Rust" },
-  { key: "csharp", label: "C#" },
-  { key: "java", label: "Java" },
-];
-const KINDS: { key: ReadKind; label: string; tone: string }[] = [
-  { key: "decision", label: "Decisions", tone: "border-[#C4B5FD]/40 text-[#C4B5FD]" },
-  { key: "function", label: "Other functions", tone: "border-[#67E8F9]/40 text-[#67E8F9]" },
-  { key: "error", label: "Errors", tone: "border-red-300/40 text-red-200" },
-  { key: "test", label: "Tests", tone: "border-emerald-300/40 text-emerald-200" },
-];
 const KNOW_KEY = "thunderlang-read-language";
-const field = "rounded-lg border border-white/15 bg-ink-900 px-3 py-2 text-sm text-haze-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300";
 const labelOf = (key: string) => LANGS.find((l) => l.key === key)?.label ?? key;
 
-function linesOf(item: ReadItem): number[] {
-  const lines = new Set<number>([item.line]);
-  for (const r of item.rules ?? []) lines.add(r.line);
-  if (item.otherwise) lines.add(item.otherwise.line);
-  for (const u of item.unread ?? []) lines.add(u.line);
-  return [...lines];
-}
-
 export function ReadClient() {
-  const [sample, setSample] = useState(READ_SAMPLES[0].key);
-  const [source, setSource] = useState(READ_SAMPLES[0].source);
-  const [file, setFile] = useState(READ_SAMPLES[0].file);
-  const [language, setLanguage] = useState("auto");
+  const [mode, setMode] = useState<"file" | "folder">("file");
   const [know, setKnow] = useState<CodeLang>("python");
-  const [query, setQuery] = useState("");
-  const [kinds, setKinds] = useState<ReadKind[]>([]);
-  const [partialOnly, setPartialOnly] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
-  const lineRefs = useRef(new Map<number, HTMLElement>());
-
   useEffect(() => {
     try {
       const saved = localStorage.getItem(KNOW_KEY) as CodeLang | null;
@@ -68,6 +34,44 @@ export function ReadClient() {
     setKnow(next);
     try { localStorage.setItem(KNOW_KEY, next); } catch {}
   }
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div role="group" aria-label="What to read" className="inline-flex rounded-xl border border-white/15 p-1">
+          {([["file", "One file"], ["folder", "A whole folder"]] as const).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={mode === k}
+              onClick={() => setMode(k)}
+              className={`rounded-lg px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300 ${mode === k ? "bg-white/10 text-white" : "text-haze-300 hover:text-haze-100"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="flex flex-col gap-1 text-sm text-haze-300">
+          A language you know
+          <select className={field} value={know} onChange={(e) => chooseKnow(e.target.value as CodeLang)}>
+            {KNOW.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
+          </select>
+        </label>
+      </div>
+      {mode === "file" ? <FileReader know={know} /> : <FolderReader know={know} />}
+    </div>
+  );
+}
+
+function FileReader({ know }: { know: CodeLang }) {
+  const [sample, setSample] = useState(READ_SAMPLES[0].key);
+  const [source, setSource] = useState(READ_SAMPLES[0].source);
+  const [file, setFile] = useState(READ_SAMPLES[0].file);
+  const [language, setLanguage] = useState("auto");
+  const [query, setQuery] = useState("");
+  const [kinds, setKinds] = useState<ReadFacet[]>([]);
+  const [partialOnly, setPartialOnly] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const { reading, error } = useMemo((): { reading: Reading | null; error: string } => {
     if (!source.trim()) return { reading: null, error: "" };
@@ -101,9 +105,8 @@ export function ReadClient() {
   function showInCode(item: ReadItem) {
     setEditing(false);
     setSelected(item.id);
-    requestAnimationFrame(() => lineRefs.current.get(item.line)?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
   }
-  const toggleKind = (k: ReadKind) => setKinds((all) => (all.includes(k) ? all.filter((x) => x !== k) : [...all, k]));
+  const toggleKind = (k: ReadFacet) => setKinds((all) => (all.includes(k) ? all.filter((x) => x !== k) : [...all, k]));
   const filtersOn = !!query || kinds.length > 0 || partialOnly;
 
   return (
@@ -132,12 +135,6 @@ export function ReadClient() {
               Code language
               <select className={field} value={language} onChange={(e) => setLanguage(e.target.value)}>
                 {LANGS.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-haze-300">
-              A language you know
-              <select className={field} value={know} onChange={(e) => chooseKnow(e.target.value as CodeLang)}>
-                {KNOW.map((l) => <option key={l.key} value={l.key}>{l.label}</option>)}
               </select>
             </label>
           </div>
@@ -182,18 +179,7 @@ export function ReadClient() {
                 style={{ colorScheme: "dark" }}
               />
             ) : (
-              <pre aria-label="Code with line numbers" className="max-h-[560px] overflow-auto py-3 font-mono text-[12.5px] leading-6 text-haze-300">
-                {source.split("\n").map((l, i) => (
-                  <div
-                    key={i}
-                    ref={(el) => { if (el) lineRefs.current.set(i + 1, el); else lineRefs.current.delete(i + 1); }}
-                    className={`flex ${highlighted.has(i + 1) ? "bg-gold-400/15 text-white" : ""}`}
-                  >
-                    <span className="w-12 shrink-0 select-none pr-4 text-right text-haze-500">{i + 1}</span>
-                    <span className="whitespace-pre pr-4">{l || " "}</span>
-                  </div>
-                ))}
-              </pre>
+              <SourceView source={source} highlighted={highlighted} label="Code with line numbers" />
             )}
             {highlighted.size > 0 && !editing && (
               <p className="border-t border-white/10 px-4 py-2 text-xs text-haze-400">Highlighted: the lines behind your selection.</p>
@@ -220,20 +206,14 @@ export function ReadClient() {
                   />
                 </label>
                 <div role="group" aria-label="Show only" className="flex flex-wrap items-center gap-2">
-                  {KINDS.map((k) => (
-                    <button
-                      key={k.key}
-                      type="button"
-                      aria-pressed={kinds.includes(k.key)}
-                      onClick={() => toggleKind(k.key)}
-                      disabled={!reading.counts[k.key]}
-                      className={`rounded-full border px-3 py-1 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300 disabled:opacity-40 ${
-                        kinds.includes(k.key) ? `${k.tone} bg-white/10` : "border-white/15 text-haze-300 hover:text-haze-100"
-                      }`}
-                    >
-                      {k.label} <span className="text-haze-400">{reading.counts[k.key]}</span>
-                    </button>
-                  ))}
+                  {FACETS.map((k) => {
+                    const count = k.key === "route" ? reading.counts.route : k.key === "guard" ? reading.counts.guarded : reading.counts[k.key];
+                    return (
+                      <button key={k.key} type="button" aria-pressed={kinds.includes(k.key)} onClick={() => toggleKind(k.key)} disabled={!count} className={chip(kinds.includes(k.key), k.tone)}>
+                        {k.label} <span className="text-haze-400">{count}</span>
+                      </button>
+                    );
+                  })}
                   <button
                     type="button"
                     aria-pressed={partialOnly}
@@ -273,95 +253,20 @@ export function ReadClient() {
       </div>
 
       <section aria-labelledby="read-more" className="border-t border-white/10 pt-8">
-        <h2 id="read-more" className="text-xl font-semibold text-white">Read a whole repository</h2>
-        <p className="mt-2 max-w-2xl text-haze-300">
-          The same reader runs in your terminal and inside AI coding agents. Search and filter with the same words:
-        </p>
+        <h2 id="read-more" className="text-xl font-semibold text-white">In your terminal and your coding agent</h2>
+        <p className="mt-2 max-w-2xl text-haze-300">The same reader runs on a file or a whole repository, with the same filters:</p>
         <pre className="mt-4 max-w-2xl overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-6 text-haze-200">
-          thunder read src/billing.go --search refund --in python{"\n"}
-          thunder read LoanPolicy.java --kind decision --json
+          thunder read . --kind route --answer 401{"\n"}
+          thunder read services --answer Decline --in python{"\n"}
+          thunder read LoanPolicy.java --json
         </pre>
         <p className="mt-3 text-sm text-haze-400">
-          In Claude Code, Codex, or ChatGPT, the <code className="font-mono text-haze-200">intent_read</code> tool does the same.{" "}
+          In Claude Code or Codex, <code className="font-mono text-haze-200">intent_read_repo</code> reads your repository and{" "}
+          <code className="font-mono text-haze-200">intent_read</code> reads one file; ChatGPT can use <code className="font-mono text-haze-200">intent_read</code>.{" "}
+          <Link href="/docs/reading-code" className="font-medium text-gold-300 hover:text-gold-200">How reading works →</Link>{" "}
           <Link href="/docs/mcp" className="font-medium text-gold-300 hover:text-gold-200">Connect your agent →</Link>
         </p>
       </section>
     </div>
-  );
-}
-
-function ReadCard({ item, know, selected, onShow }: { item: ReadItem; know: CodeLang; selected: boolean; onShow: () => void }) {
-  const kind = KINDS.find((k) => k.key === item.kind)!;
-  const rewritten = useMemo(() => {
-    if (!item.thunder) return "";
-    try {
-      return translateDecisions(parseIntent(item.thunder), know).split("\n").slice(2).join("\n");
-    } catch {
-      return "";
-    }
-  }, [item.thunder, know]);
-  const knowLabel = KNOW.find((k) => k.key === know)?.label ?? know;
-
-  return (
-    <li className={`rounded-2xl border p-5 transition ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : "border-white/10 bg-ink-850/40"}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${kind.tone}`}>{kind.label.replace(/s$/, "").replace("Other function", "Function")}</span>
-        <h3 className="font-mono text-base font-semibold text-white">{item.name}</h3>
-        {item.status === "partial" && <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-xs text-amber-200">Partly read</span>}
-        <button type="button" onClick={onShow} aria-pressed={selected} className="ml-auto rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-haze-200 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">
-          {selected ? `Showing line ${item.line}` : `Show line ${item.line} in the code`}
-        </button>
-      </div>
-      <p className="mt-3 leading-relaxed text-haze-100">{item.says}</p>
-
-      {item.rules && item.otherwise && (
-        <table className="mt-4 w-full text-left text-sm">
-          <caption className="sr-only">Rules for {item.name}, checked top to bottom</caption>
-          <thead className="text-xs uppercase tracking-wide text-haze-400">
-            <tr><th scope="col" className="pb-2 pr-4 font-medium">When</th><th scope="col" className="pb-2 font-medium">The answer is</th></tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {item.rules.map((r, i) => (
-              <tr key={i}>
-                <td className="py-2 pr-4 text-haze-200">{i ? "Otherwise, if " : "If "}{r.says}</td>
-                <td className="py-2 font-medium text-[#67E8F9]">{r.result}</td>
-              </tr>
-            ))}
-            <tr>
-              <td className="py-2 pr-4 text-haze-200">Otherwise</td>
-              <td className="py-2 font-medium text-[#67E8F9]">{item.otherwise.result}</td>
-            </tr>
-          </tbody>
-        </table>
-      )}
-
-      {item.thunder && (
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          <div className="min-w-0">
-            <p className="mb-1 text-xs font-medium text-haze-400">In ThunderLang</p>
-            <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedSource source={item.thunder} /></pre>
-          </div>
-          {rewritten && (
-            <div className="min-w-0">
-              <p className="mb-1 text-xs font-medium text-haze-400">In {knowLabel}, a language you know</p>
-              <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedCode source={rewritten} lang={know} /></pre>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!!item.unread?.length && (
-        <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-300/[0.05] p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">Not read</p>
-          <ul className="mt-1 space-y-1 text-sm">
-            {item.unread.map((u, i) => (
-              <li key={i} className="text-haze-300">
-                <span className="text-haze-400">Line {u.line}:</span> <code className="font-mono text-haze-200">{u.text}</code> {u.reason}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </li>
   );
 }

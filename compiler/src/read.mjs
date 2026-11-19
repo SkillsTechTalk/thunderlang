@@ -51,8 +51,13 @@ function matchClose(src, open) {
 
 function skipString(src, i) {
   const q = src[i];
-  // Rust lifetimes ('static, 'a) are not strings.
-  if (q === '\'' && /[A-Za-z_]/.test(src[i + 1] || '') && src[i + 2] !== '\'') return i;
+  // Rust lifetimes ('static, 'a) are not strings: a quote, a name, and no closing quote right after it.
+  // 'path' and 'a' are strings or chars because the name is followed by a quote.
+  if (q === '\'' && /[A-Za-z_]/.test(src[i + 1] || '')) {
+    let j = i + 1;
+    while (/\w/.test(src[j] || '')) j++;
+    if (src[j] !== '\'') return i;
+  }
   for (let j = i + 1; j < src.length; j++) {
     if (src[j] === '\\') { j++; continue; }
     if (src[j] === q) return j;
@@ -127,6 +132,7 @@ function findFunctions(src, language) {
       }
       fns.push({ name: m[2], line: i + 1, params: parseParams(m[3], language), returns: m[4]?.trim() || null, pyBody: body });
     });
+    annotateRoutes(fns, src);
     return fns;
   }
   const patterns = {
@@ -180,8 +186,48 @@ function findFunctions(src, language) {
       }
     }
   }
+  // Anonymous HTTP handlers: app.post('/refunds', (req, res) => {...}), r.Get("/x", func(w, r) {...}).
+  const routeRes = language === 'go'
+    ? [/\.(Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE|HandleFunc|Handle)\(\s*"([^"]+)"\s*,\s*func\s*\(/g]
+    : (language === 'typescript' || language === 'javascript')
+      ? [/\b\w+\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,(?:[^,()]*,)*?\s*(?:async\s*)?(?:function\s*\w*\s*)?\(/g]
+      : [];
+  for (const re of routeRes) {
+    let m;
+    while ((m = re.exec(src))) {
+      const open = src.indexOf('(', m.index + m[0].length - 1);
+      const close = matchClose(src, open);
+      if (close < 0) continue;
+      const brace = src.indexOf('{', close);
+      if (brace < 0 || !/^\s*(=>\s*)?(\w[\w.*\s]*)?\s*$/.test(src.slice(close + 1, brace))) continue;
+      const bc = matchClose(src, brace);
+      if (bc < 0) continue;
+      const method = /^handle/i.test(m[1]) ? 'ANY' : m[1].toUpperCase();
+      fns.push({ name: `${method} ${m[2]}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method, path: m[2] } });
+    }
+  }
+  annotateRoutes(fns, src);
   return fns.sort((a, b) => a.line - b.line);
 }
+/** Mark functions that a decorator or annotation binds to an HTTP route. */
+function annotateRoutes(fns, src) {
+  // Decorated handlers: @app.get("/x") / @router.post (Python), @GetMapping (Spring), [HttpGet] (ASP.NET), @Get() (NestJS).
+  const lines = src.split('\n');
+  for (const fn of fns) {
+    if (fn.route) continue;
+    for (let k = fn.line - 2; k >= Math.max(0, fn.line - 6); k--) {
+      const l = lines[k].trim();
+      let m;
+      if ((m = l.match(/^@\w+\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/i))) { fn.route = { method: m[1].toUpperCase(), path: m[2] }; break; }
+      if ((m = l.match(/^@\w+\.route\(\s*['"]([^'"]*)['"](?:.*methods\s*=\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'GET').toUpperCase(), path: m[1] }; break; }
+      if ((m = l.match(/^@(Get|Post|Put|Patch|Delete|Request)Mapping(?:\(\s*(?:value\s*=\s*|path\s*=\s*)?["']([^"']*)["'])?/))) { fn.route = { method: m[1] === 'Request' ? 'ANY' : m[1].toUpperCase(), path: m[2] || '/' }; break; }
+      if ((m = l.match(/^\[Http(Get|Post|Put|Patch|Delete)(?:\(\s*"([^"]*)")?/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
+      if ((m = l.match(/^@(Get|Post|Put|Patch|Delete)\(\s*(?:['"]([^'"]*)['"])?\s*\)/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
+      if (!/^(@|\[|\/\/|#|\*|\/\*)/.test(l) && l) break;
+    }
+  }
+}
+
 
 // ── Expressions: source language -> ThunderLang ─────────────────────────────────────────────
 
@@ -301,9 +347,12 @@ function splitArgs(toks) {
 export function toThunderOutcome(text) {
   let s = String(text).trim().replace(/;$/, '').trim();
   s = s.replace(/^Ok\((.*)\)$/, '$1').replace(/\.(to_string|into|to_owned)\(\)$/, '').replace(/^String::from\((.*)\)$/, '$1').trim();
+  // Absence is not an answer: None/null/nil/undefined are "returns nothing", handled as guards.
+  if (/^(None|null|nil|undefined|Nothing)$/.test(s)) return null;
   let m;
   if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$|^`([^`$\\]*)`$/))) {
     const v = m[1] ?? m[2] ?? m[3];
+    if (v === '') return null; // an empty string is not an answer a reader can act on
     return /^[A-Za-z_][A-Za-z0-9_]*$/.test(v) ? v : JSON.stringify(v);
   }
   if (/^-?\d+(\.\d+)?(f64|f32|[fFdDmMlL])?$/.test(s)) return s.replace(/(f64|f32|[fFdDmMlL])$/, '');
@@ -311,6 +360,110 @@ export function toThunderOutcome(text) {
   if ((m = s.match(/^(?:[A-Za-z_][\w]*(?:\.|::))+([A-Z][A-Za-z0-9_]*)$/))) return m[1];
   if (/^[A-Z][A-Za-z0-9_]*$/.test(s)) return s;
   return null;
+}
+
+
+// ── Guards: early exits inside any function ─────────────────────────────────────────────────
+// Most real functions are not pure decisions, but they still enforce rules as early exits:
+// "if the row is missing, fail with NotFound". A guard is an `if` with no else whose branch is a
+// single terminating statement. Routine error passing (Go `if err != nil { return err }`) is noise
+// to a reader and is skipped.
+
+const lastSeg = (s) => String(s).split(/\.|::/).pop();
+const firstString = (s) => (String(s).match(/^\s*(?:f|r|b)?["'`]([^"'`]{1,80})["'`]/) || [])[1] || null;
+
+function splitTop(str, delim) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === '"' || ch === '\'' || ch === '`') { const j = skipString(str, i); cur += str.slice(i, j + 1); i = j; continue; }
+    if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth--;
+    if (ch === delim && depth === 0) { out.push(cur); cur = ''; } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** What a terminating statement does, or null when the statement does not end the function. */
+export function terminatorEffect(stmt, language) {
+  const s = String(stmt).trim().replace(/;$/, '').trim();
+  let m;
+  if ((m = s.match(/^throw\s+new\s+([\w.$]+)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) };
+  if ((m = s.match(/^throw\s+([\w.$]+)$/))) return { kind: 'fails', name: lastSeg(m[1]) };
+  if ((m = s.match(/^raise\s+([\w.]+)(?:\(([\s\S]*)\))?$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: m[2] ? firstString(m[2]) : null };
+  if ((m = s.match(/^panic!?\(([\s\S]*)\)$/))) return { kind: 'fails', name: 'panic', detail: firstString(m[1]) };
+  if ((m = s.match(/^return\s+Err\(([\s\S]*)\)$/))) {
+    const inner = m[1].trim();
+    return { kind: 'fails', name: firstString(inner) ? 'error' : lastSeg(inner.replace(/\(.*$/s, '')), detail: firstString(inner) };
+  }
+  if (s === 'return') return { kind: 'stops' };
+  if (!(m = s.match(/^return\s+([\s\S]+)$/))) return null;
+  const v = m[1].trim();
+  if (language === 'go') {
+    const parts = splitTop(v, ',').map((x) => x.trim());
+    const last = parts[parts.length - 1];
+    if (last === 'err' || /^fmt\.Errorf\([^)]*%w/.test(last)) return { kind: 'passes-error' };
+    if ((m = last.match(/^(?:errors\.New|fmt\.Errorf)\(\s*"([^"]*)"/))) return { kind: 'fails', name: 'error', detail: m[1] };
+    if (/^Err[A-Z]\w*$/.test(last)) return { kind: 'fails', name: last };
+    if (parts.length === 1 && last === 'nil') return { kind: 'nothing' };
+  }
+  if (/^(null|undefined|None|nil|void 0)$/.test(v)) return { kind: 'nothing' };
+  if ((m = v.match(/(?:\b(?:status|Status|StatusCode|HttpStatus|sendStatus)|\.code)\s*\(\s*(\d{3})\s*\)/)) || (m = v.match(/^\{\s*status\s*:\s*(\d{3})\b/))) return { kind: 'responds', name: m[1] };
+  if ((m = v.match(/^(BadRequest|Unauthorized|Forbid|Forbidden|NotFound|Conflict|UnprocessableEntity)\s*\(/))) return { kind: 'responds', name: m[1] };
+  const fixed = toThunderOutcome(v);
+  if (fixed) return { kind: 'returns', name: fixed };
+  return { kind: 'returns-computed' };
+}
+
+function sayGuard(effect, condText) {
+  const when = `if ${condText}`;
+  switch (effect.kind) {
+    case 'fails': return `Fails with ${effect.name}${effect.detail ? ` ("${effect.detail}")` : ''} ${when}.`;
+    case 'responds': return `Responds ${effect.name} ${when}.`;
+    case 'nothing': return `Stops early and returns nothing ${when}.`;
+    case 'stops': return `Stops early ${when}.`;
+    case 'returns': return `Returns ${effect.name} early ${when}.`;
+    default: return `Returns early ${when}.`;
+  }
+}
+
+/** Build a guard from a condition and a single terminating statement, or null (or 'skip' for noise). */
+function makeGuard(cond, branch, language, inputs, line) {
+  const stmts = splitTop(branch.trim().replace(/;\s*$/, ''), ';').map((x) => x.trim()).filter(Boolean);
+  if (stmts.length !== 1 || /\n\s*\S[\s\S]*\n/.test(stmts[0]) && !/^(throw|raise|return)/.test(stmts[0])) return null;
+  const effect = terminatorEffect(stmts[0], language);
+  if (!effect) return null;
+  if (effect.kind === 'passes-error') return 'skip';
+  const when = toThunderCondition(cond, inputs);
+  const code = cond.trim().replace(/\s+/g, ' ');
+  return { when, code, effect, line, readable: !!when, says: sayGuard(effect, when ? sayCondition(when) : `\`${code}\``) };
+}
+
+/** Parse `if COND BRANCH [rest]` in a brace language: { cond, branch, remaining } or null. */
+function splitIf(text, language) {
+  let rest = text.replace(/^if\b\s*/, '');
+  let cond, after;
+  if (language === 'go' || language === 'rust' || rest[0] !== '(') {
+    const b = findTopBrace(rest);
+    if (b < 0) return null;
+    cond = rest.slice(0, b).trim(); after = rest.slice(b);
+  } else {
+    const close = matchClose(rest, 0);
+    if (close < 0) return null;
+    cond = rest.slice(1, close); after = rest.slice(close + 1).trimStart();
+  }
+  let branch, remaining;
+  if (after[0] === '{') {
+    const bc = matchClose(after, 0);
+    if (bc < 0) return null;
+    branch = after.slice(1, bc).trim(); remaining = after.slice(bc + 1).trim();
+  } else {
+    const semi = topLevelIndex(after, ';');
+    branch = (semi < 0 ? after : after.slice(0, semi)).trim(); remaining = semi < 0 ? '' : after.slice(semi + 1).trim();
+  }
+  return { cond: cond.trim(), branch, remaining };
 }
 
 // ── Statement readers ───────────────────────────────────────────────────────────────────────
@@ -350,7 +503,7 @@ const stripCommentsKeepLayout = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.r
 
 /** Read `if ... else ...` / `return ...` statements into rules. Returns { rules, otherwise, unread }. */
 function readBraceStatements(stmts, language, inputs) {
-  const rules = [], unread = [];
+  const rules = [], unread = [], guards = [];
   let otherwise = null;
   const take = (cond, outcomeText, line) => {
     const when = cond == null ? null : toThunderCondition(cond, inputs);
@@ -369,6 +522,19 @@ function readBraceStatements(stmts, language, inputs) {
   for (const st of stmts) {
     const t = st.text;
     if (/^if\b/.test(t)) {
+      // A guard: an `if` with no else whose branch exits without a fixed answer.
+      const head = splitIf(t, language);
+      if (head && !/^else\b/.test(head.remaining)) {
+        const single = head.branch.replace(/^return\s+/, '').replace(/;\s*$/, '');
+        // Error values (ErrNotFound, NotFoundError, BadRequestException) are failures, not answers.
+        const looksLikeError = /^(Err[A-Z]\w*|\w*(Error|Exception))$/.test(lastSeg(single));
+        const isFixedReturn = /^return\s/.test(head.branch) && toThunderOutcome(single) && !looksLikeError && (language !== 'go' || !single.includes(','));
+        if (!isFixedReturn) {
+          const g = makeGuard(head.cond, head.branch, language, inputs, st.line);
+          if (g === 'skip') continue;
+          if (g) { guards.push(g); continue; }
+        }
+      }
       // Walk the chain: if C B (else if C B)* (else B)?
       let rest = t;
       let ok = true;
@@ -423,7 +589,7 @@ function readBraceStatements(stmts, language, inputs) {
     }
     unread.push({ line: st.line, text: t.split('\n')[0].slice(0, 120), reason: 'This statement does work besides choosing an answer.' });
   }
-  return { rules, otherwise, unread };
+  return { rules, otherwise, unread, guards };
 }
 
 function findTopBrace(s) {
@@ -475,7 +641,7 @@ function topLevelIndex(s, ch, from = 0) {
 }
 
 function readPythonBody(body, inputs) {
-  const rules = [], unread = [];
+  const rules = [], unread = [], guards = [];
   let otherwise = null;
   const base = body[0]?.indent ?? 0;
   for (let i = 0; i < body.length; i++) {
@@ -488,6 +654,10 @@ function readPythonBody(body, inputs) {
       const valueText = inline ? inline : next && next.indent > base ? next.text : '';
       const deeper = body.slice(i + 1).filter((b, k, arr) => b.indent > base && arr.slice(0, k).every((x) => x.indent > base));
       const r = valueText.match(/^return\s+(.+)$/);
+      if (/^if\s/.test(text) && (inline || deeper.length === 1) && !body.slice(i + 1).find((b) => b.indent === base && /^(elif|else)\b/.test(b.text) && b.line > line && body.slice(i + 1, body.indexOf(b)).every((x) => x.indent > base)) && !(r && toThunderOutcome(r[1]))) {
+        const g = makeGuard(m[1], valueText, 'python', inputs, line);
+        if (g && g !== 'skip') { guards.push(g); continue; }
+      }
       if (!r || (!inline && deeper.length > 1)) { unread.push({ line, text: text.slice(0, 120), reason: 'This branch does more than choose an answer.' }); continue; }
       const when = toThunderCondition(m[1], inputs), result = toThunderOutcome(r[1]);
       if (!when) { unread.push({ line, text: `if ${m[1]}`, reason: 'This condition uses something besides comparisons and and/or/not.' }); continue; }
@@ -516,7 +686,7 @@ function readPythonBody(body, inputs) {
     if (/^("""|''')/.test(text)) continue;
     unread.push({ line, text: text.slice(0, 120), reason: 'This statement does work besides choosing an answer.' });
   }
-  return { rules, otherwise, unread };
+  return { rules, otherwise, unread, guards };
 }
 
 // ── Plain English ───────────────────────────────────────────────────────────────────────────
@@ -565,23 +735,31 @@ export function readCode(source, { language, file = '' } = {}) {
       ? readPythonBody(fn.pyBody, names)
       : readBraceStatements(splitStatements(fn.body, lineAt(src, fn.bodyStart)), lang, names);
     const isDecision = read.rules.length > 0 && !!read.otherwise;
+    const guards = read.guards || [];
+    // In a function that is not a pure decision, early fixed returns are still rules worth reading.
+    if (!isDecision) {
+      for (const r of read.rules) guards.push({ when: r.when, code: r.when, effect: { kind: 'returns', name: r.result }, line: r.line, readable: true, says: sayGuard({ kind: 'returns', name: r.result }, sayCondition(r.when)) });
+      guards.sort((a, b) => a.line - b.line);
+    }
+    const guardNote = guards.length ? ` It checks ${guards.length} condition${guards.length === 1 ? '' : 's'} first: ${guards.map((g) => g.says.replace(/\.$/, '')).join('; ')}.` : '';
     const base = {
       id: `${fn.name}:${fn.line}`, name: fn.name, line: fn.line, inputs, returns: simpleType(fn.returns),
+      ...(fn.route ? { route: fn.route } : {}),
       provenance: 'inferred-from-code',
     };
     if (isDecision) {
       items.push({
         ...base, kind: 'decision', status: read.unread.length ? 'partial' : 'read',
         rules: read.rules.map((r) => ({ ...r, says: sayCondition(r.when) })), otherwise: read.otherwise,
-        says: sayDecision(read.rules, read.otherwise),
+        says: (fn.route ? `Handles ${fn.route.method} ${fn.route.path}. ` : '') + sayDecision(read.rules, read.otherwise) + guardNote, guards,
         thunder: decisionSource(fn.name, inputs, read.rules, read.otherwise),
         unread: read.unread,
       });
     } else {
       items.push({
         ...base, kind: 'function', status: 'signature-only',
-        says: `${fn.name} takes ${inputs.length ? inputs.map((p) => p.type && !/[<>\[\]]/.test(p.type) ? `${p.name} (${p.type})` : p.name).join(', ') : 'no inputs'}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}. Its body does more than choose between fixed answers, so no rules are shown.`,
-        unread: read.unread,
+        says: fn.route ? `Handles ${fn.route.method} ${fn.route.path || '(this controller\'s path)'}.${guardNote}` : `${fn.name} takes ${inputs.length ? inputs.map((p) => p.type && !/[<>\[\]]/.test(p.type) ? `${p.name} (${p.type})` : p.name).join(', ') : 'no inputs'}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}. ${guards.length ? '' : ' Its body does more than choose between fixed answers, so no rules are shown.'}${guardNote}`,
+        guards, unread: read.unread,
       });
     }
   }
@@ -590,8 +768,8 @@ export function readCode(source, { language, file = '' } = {}) {
   for (const e of facts?.errors || []) items.push({ id: `error:${e.name}:${e.line}`, kind: 'error', name: e.name, line: e.line, status: 'read', says: /\s/.test(e.name) ? `Can fail with the error "${e.name}".` : `Raises ${e.name}.`, provenance: 'inferred-from-code' });
   for (const t of facts?.tests || []) items.push({ id: `test:${t.name}:${t.line}`, kind: 'test', name: t.name, line: t.line, status: 'read', says: `A test named "${t.name}".`, provenance: 'inferred-from-code' });
   items.sort((a, b) => a.line - b.line);
-  const counts = { decision: 0, function: 0, error: 0, test: 0, partial: 0 };
-  for (const it of items) { counts[it.kind]++; if (it.status === 'partial') counts.partial++; }
+  const counts = { decision: 0, function: 0, error: 0, test: 0, partial: 0, guarded: 0, route: 0 };
+  for (const it of items) { counts[it.kind]++; if (it.status === 'partial') counts.partial++; if (it.guards?.length) counts.guarded++; if (it.route) counts.route++; }
   return {
     schema: READ_SCHEMA, language: lang, detected: !language, items, counts,
     limitations: [
@@ -606,10 +784,10 @@ export function searchReading(reading, { query = '', kinds = [], status = [] } =
   const q = String(query).trim().toLowerCase();
   const terms = q ? q.split(/\s+/) : [];
   return reading.items.filter((it) => {
-    if (kinds.length && !kinds.includes(it.kind)) return false;
+    if (kinds.length && !kinds.includes(it.kind) && !(kinds.includes('guard') && it.guards?.length) && !(kinds.includes('route') && it.route)) return false;
     if (status.length && !status.includes(it.status)) return false;
     if (!terms.length) return true;
-    const hay = [it.name, it.says, it.thunder, ...(it.inputs || []).map((p) => `${p.name} ${p.type ?? ''}`), ...(it.rules || []).flatMap((r) => [r.when, r.result, r.says]), it.otherwise?.result]
+    const hay = [it.name, it.route && `${it.route.method} ${it.route.path}`, it.says, it.thunder, ...(it.guards || []).flatMap((g) => [g.code, g.effect.name, g.says]), ...(it.inputs || []).map((p) => `${p.name} ${p.type ?? ''}`), ...(it.rules || []).flatMap((r) => [r.when, r.result, r.says]), it.otherwise?.result]
       .filter(Boolean).join(' ').toLowerCase();
     return terms.every((t) => hay.includes(t));
   });

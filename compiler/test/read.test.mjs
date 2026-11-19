@@ -128,3 +128,96 @@ test('readings drop noise parentheses but keep the ones that aid reading', async
   assert.equal(simplifyExpr('(a or b) and not c'), '(a or b) and not c');
   assert.equal(simplifyExpr('not (a and b)'), 'not (a and b)');
 });
+
+test('guards: early exits inside ordinary functions become readable rules', () => {
+  const ts = readCode(`export async function refund(req: Request, res: Response) {
+  if (!req.user) return res.status(401).json({ error: "sign in" });
+  if (req.body.amount > 500) throw new LimitExceeded("refunds over 500 need approval");
+  const order = await db.find(req.body.orderId);
+  if (!order) return null;
+  await payments.refund(order, req.body.amount);
+  return res.json({ ok: true });
+}`, { language: 'typescript' }).items.find((i) => i.name === 'refund');
+  assert.equal(ts.kind, 'function');
+  assert.deepEqual(ts.guards.map((g) => g.says), [
+    'Responds 401 if not req.user.',
+    'Fails with LimitExceeded ("refunds over 500 need approval") if req.body.amount is more than 500.',
+    'Stops early and returns nothing if not order.',
+  ]);
+  const go = readCode(`package svc
+func Withdraw(acct *Account, amount float64) error {
+	if amount <= 0 {
+		return errors.New("amount must be positive")
+	}
+	bal, err := acct.Balance()
+	if err != nil {
+		return err
+	}
+	if bal < amount {
+		return ErrInsufficientFunds
+	}
+	return acct.Debit(amount)
+}`, { language: 'go' }).items.find((i) => i.name === 'Withdraw');
+  assert.deepEqual(go.guards.map((g) => g.effect), [
+    { kind: 'fails', name: 'error', detail: 'amount must be positive' },
+    { kind: 'fails', name: 'ErrInsufficientFunds' },
+  ], 'routine `if err != nil { return err }` is not shown as a rule');
+  const py = readCode(`def enroll(student, course):
+    if course.full:
+        raise CourseFull("no seats left")
+    if student.balance > 0:
+        return None
+    course.add(student)
+`, { language: 'python' }).items[0];
+  assert.deepEqual(py.guards.map((g) => g.says), ['Fails with CourseFull ("no seats left") if course.full.', 'Stops early and returns nothing if student.balance is more than 0.']);
+  const rust = readCode(`fn open(path: &str, size: u64) -> Result<File, OpenError> {
+    if size > 1_000_000 { return Err(OpenError::TooLarge); }
+    File::open(path)
+}`, { language: 'rust' }).items[0];
+  assert.equal(rust.guards[0].effect.name, 'TooLarge');
+  assert.equal(rust.guards[0].readable, false, 'a condition it cannot convert is shown as written, flagged unreadable');
+});
+
+test('guards are searchable and filterable', () => {
+  const r = readCode(`function a(x: number) { if (x < 0) throw new RangeError("negative"); return Math.sqrt(x); }
+function b(y: number) { return y * 2; }`, { language: 'typescript' });
+  assert.deepEqual(searchReading(r, { kinds: ['guard'] }).map((i) => i.name), ['a']);
+  assert.deepEqual(searchReading(r, { query: 'RangeError' }).map((i) => i.name), ['a', 'RangeError'], 'the guard and the error item both match');
+  assert.equal(r.counts.guarded, 1);
+});
+
+test('routes: anonymous and decorated HTTP handlers are named by method and path', () => {
+  const ts = readCode(`router.post("/refunds", requireAuth, async (req, res) => {
+  if (!req.user) return res.status(401).end();
+  res.json(await refunds.create(req.body));
+});
+app.get('/health', (_req, res) => { res.send("ok"); });`, { language: 'typescript' });
+  assert.deepEqual(ts.items.filter((i) => i.route).map((i) => i.name), ['POST /refunds', 'GET /health']);
+  assert.equal(ts.items[0].guards[0].says, 'Responds 401 if not req.user.');
+  assert.equal(ts.counts.route, 2);
+  const py = readCode(`@app.post("/loans")\ndef apply(amount: float, score: int):\n    if score < 500:\n        raise HTTPException(403)\n    return save(amount)\n`, { language: 'python' }).items[0];
+  assert.deepEqual(py.route, { method: 'POST', path: '/loans' });
+  assert.match(py.says, /^Handles POST \/loans\./);
+  const java = readCode(`public class C {\n  @GetMapping("/accounts/{id}")\n  public Account get(String id) {\n    return repo.find(id);\n  }\n}`, { language: 'java' }).items[0];
+  assert.deepEqual(java.route, { method: 'GET', path: '/accounts/{id}' });
+  const cs = readCode(`public class C {\n  [HttpDelete("docs/{id}")]\n  public IActionResult Remove(string id)\n  {\n    if (!User.IsAdmin()) return Forbid();\n    return Ok();\n  }\n}`, { language: 'csharp' }).items[0];
+  assert.deepEqual(cs.route, { method: 'DELETE', path: 'docs/{id}' });
+  assert.equal(cs.guards[0].effect.kind, 'responds');
+  const go = readCode(`package api\nfunc Routes(r chi.Router) {\n\tr.Get("/orders/{id}", func(w http.ResponseWriter, req *http.Request) {\n\t\tif req.Header.Get("X-Key") == "" {\n\t\t\thttp.Error(w, "no key", 401)\n\t\t\treturn\n\t\t}\n\t\twrite(w)\n\t})\n}`, { language: 'go' });
+  assert.ok(go.items.some((i) => i.name === 'GET /orders/{id}'));
+  assert.deepEqual(searchReading(ts, { kinds: ['route'] }).length, 2);
+  assert.deepEqual(searchReading(ts, { query: 'post refunds' }).map((i) => i.name), ['POST /refunds']);
+});
+
+test('quotes: TypeScript strings are never mistaken for Rust lifetimes', () => {
+  const r = readCode(`export async function designRoutes(fastify: FastifyInstance) {
+  fastify.get('/api/design', async (request, reply) => {
+    if (!request.query.path) return reply.code(400).send({ error: 'path' });
+    return build();
+  });
+}`, { language: 'typescript' });
+  assert.deepEqual(r.items.map((i) => i.name), ['designRoutes', 'GET /api/design']);
+  assert.equal(r.items[1].guards[0].says, 'Responds 400 if not request.query.path.', 'Fastify reply.code(400)');
+  const rust = readCode("fn label(x: f64) -> &'static str { if x > 1.0 { \"big\" } else { \"small\" } }", { language: 'rust' }).items[0];
+  assert.equal(rust.kind, 'decision');
+});

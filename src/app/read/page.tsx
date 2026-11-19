@@ -4,7 +4,7 @@ import { ReadClient } from "./ReadClient";
 
 export const metadata = pageMeta({
   title: "Read code you don't know",
-  description: "Paste TypeScript, Python, Go, Rust, C#, or Java. See the rules it makes in plain English and ThunderLang, search and filter them, and see each rule in a language you know.",
+  description: "Read a file or a whole repository in TypeScript, Python, Go, Rust, C#, or Java: routes, rules, and checks in plain English, searchable and filterable, rewritten in a language you know.",
   path: "/read",
 });
 
@@ -14,7 +14,7 @@ export default function ReadPage() {
       <PageHero
         eyebrow="Code reader · No install · No AI"
         title="Read code you don't know."
-        intro="Paste code in TypeScript, JavaScript, Python, Go, Rust, C#, or Java. See the rules it makes in plain English and ThunderLang, search and filter them, and see each rule rewritten in a language you know."
+        intro="Paste a file or open a whole folder of TypeScript, JavaScript, Python, Go, Rust, C#, or Java. See its routes, the rules it makes, and the checks it runs, in plain English. Search and filter everything, and see each rule rewritten in a language you know."
       />
       <Section>
         <ReadClient />

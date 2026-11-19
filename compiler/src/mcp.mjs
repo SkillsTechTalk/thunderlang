@@ -22,6 +22,9 @@ import { checkDrift } from './drift.mjs';
 import { draftIntent } from './draft.mjs';
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';
 import { readCode, searchReading, READ_LANGUAGES } from './read.mjs';
+import { readRepo, searchRepo } from './read-repo.mjs';
+import { collectReadableFiles } from './read-repo-fs.mjs';
+import { resolve } from 'node:path';
 import { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 import { previewHumanContract } from './human-contract.mjs';
 
@@ -245,6 +248,29 @@ const TOOLS = [
         ? { ...it, rewritten: { language: inLang, code: translateDecisions(parseIntent(it.thunder), inLang) } }
         : it));
       return { ...reading, items };
+    },
+  },
+  {
+    name: 'intent_read_repo',
+    description: `READ A WHOLE REPOSITORY (local only). Reads every ${READ_LANGUAGES.join(', ')} file under a folder (skipping dependency and build folders) into one index: HTTP routes, decisions, checks that fail or respond early, errors, and tests, each with file and line. Filter by text, kind (route, decision, guard, function, error, test), language, folder prefix, an answer the code gives or fails with (e.g. "Decline", "401", "NotFoundError"), or an input a rule uses. Answers "what does this app do?" and "where does it decide X?" without guessing.`,
+    inputSchema: {
+      type: 'object', required: ['path'],
+      properties: {
+        path: { ...str, description: 'folder to read (absolute, or relative to the server working directory)' },
+        query: str,
+        kinds: { type: 'array', items: { type: 'string', enum: ['route', 'decision', 'guard', 'function', 'error', 'test'] } },
+        languages: { type: 'array', items: { type: 'string', enum: READ_LANGUAGES } },
+        folder: { ...str, description: 'only files under this relative path prefix' },
+        answer: { ...str, description: 'only items that answer, fail, or respond with this value' },
+        input: { ...str, description: 'only decisions that use this input' },
+        limit: { type: 'number', description: 'max items to return (default 50)' },
+      },
+    },
+    run: ({ path, query = '', kinds = [], languages = [], folder = '', answer = '', input = '', limit = 50 }) => {
+      const index = readRepo(collectReadableFiles(resolve(String(path))));
+      const items = searchRepo(index, { query, kinds, languages, path: folder, answer, input });
+      const { files, ...rest } = index;
+      return { ...rest, files: files.length, matched: items.length, items: items.slice(0, Math.max(1, Math.min(500, Number(limit) || 50))) };
     },
   },
   {
