@@ -91,3 +91,5 @@ export { TWELVE_FACTOR_SCHEMA, twelveFactorReport, twelveFactorSummary } from '.
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.
 export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
+// Decisions -> readable typed source in six languages (browser-safe; same translators as the targets).
+export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';

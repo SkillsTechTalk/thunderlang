@@ -98,3 +98,7 @@ export {
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
 } from './index';
+
+// Decisions -> readable typed source in six languages.
+export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
+export type { TranslateLanguage } from './translate.mjs';

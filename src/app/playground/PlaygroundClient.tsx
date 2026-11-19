@@ -11,6 +11,8 @@ import {
 } from "@/lib/content";
 import { MermaidDiagram } from "@/components/MermaidDiagram";
 import { IntentMonaco } from "@/components/IntentMonaco";
+import { HighlightedCode, HighlightedSource } from "@/lib/highlight";
+import type { CodeLang } from "@/lib/code-tokens";
 
 type Fix = { label: string; insert?: string; block?: string };
 type Diagnostic = {
@@ -250,10 +252,10 @@ function download(name: string, content: string, type = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
-function OutputBlock({ text }: { text: string }) {
+function OutputBlock({ text, lang }: { text: string; lang?: CodeLang }) {
   return (
-    <pre className="max-h-[440px] overflow-auto rounded-xl border border-white/10 bg-ink-900/80 p-4 font-mono text-[12.5px] leading-relaxed text-haze-100">
-      {text}
+    <pre className={`max-h-[440px] overflow-auto rounded-xl border border-white/10 bg-ink-900/80 p-4 font-mono text-[12.5px] leading-relaxed ${lang ? "text-haze-200" : "text-haze-100"}`}>
+      {lang ? <HighlightedCode source={text} lang={lang} /> : text}
     </pre>
   );
 }
@@ -545,8 +547,8 @@ export function PlaygroundClient() {
                       <TrustChip warn label={`${liftResult.summary.unknowns.length} unknowns`} />
                       <TrustChip warn label="reviewed: false" />
                     </div>
-                    <pre className="max-h-52 overflow-auto rounded-xl border border-white/10 bg-ink-900/80 p-3 font-mono text-[12px] leading-relaxed text-haze-100">
-                      {liftResult.intentText}
+                    <pre className="max-h-52 overflow-auto rounded-xl border border-white/10 bg-ink-900/80 p-3 font-mono text-[12px] leading-relaxed text-haze-200">
+                      <HighlightedSource source={liftResult.intentText} />
                     </pre>
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <button
@@ -1078,7 +1080,7 @@ export function PlaygroundClient() {
                   onCopy={() => copy(result.generatedCode ?? "")}
                   label="Download .ts"
                 />
-                <OutputBlock text={result.generatedCode ?? "// Compile to generate code."} />
+                <OutputBlock text={result.generatedCode ?? "// Compile to generate code."} lang="typescript" />
               </div>
             )}
 

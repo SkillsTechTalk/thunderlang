@@ -1,159 +1,196 @@
 import Link from "next/link";
-import { IntentCode } from "@/components/IntentCode";
-import {
-  Section,
-  SectionHeading,
-  Card,
-  Eyebrow,
-  Pill,
-  CTAButtons,
-  DraftNote,
-} from "@/components/ui";
+import { Section, SectionHeading, Eyebrow, Pill, CTAButtons } from "@/components/ui";
 import { StarMark } from "@/components/StarMark";
-import {
-  heroExample,
-  principles,
-  ecosystem,
-  whatIntentIsNot,
-} from "@/lib/content";
-import { siteConfig } from "@/lib/site";
+import { HighlightedLine, HighlightedSource } from "@/lib/highlight";
+import { HeroTranslate } from "@/components/HeroTranslate";
+import { whatIntentIsNot } from "@/lib/content";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PROJECT_FACTS, NPM_PACKAGE } from "@/lib/facts";
 
-const philosophy = [
-  { step: "Prompt", body: "How the conversation starts. Useful, but temporary." },
-  { step: "Intent", body: "What the team commits to. Durable and reviewable." },
-  { step: "Contract", body: "The guarantees and constraints that must hold." },
-  { step: "Plan", body: "A deterministic implementation plan, before any code." },
-  { step: "Implementation", body: "Code in your target language, human or AI authored." },
-  { step: "Verification", body: "Types, tests, and checks that the contract holds." },
-  { step: "Proof", body: "Durable evidence that intent and reality agree." },
-];
+// The home page tells one story, in order: why ThunderLang exists, what the world looks like if it
+// works, how it works, and where to write it. Deeper material lives on /vision, /docs, and /learn.
 
-const whyPoints = [
+const shift = [
   {
-    title: "AI writes faster than we can review",
-    body: "AI can generate code faster than humans can read, review, and trust it. Reviewing output line by line does not scale.",
+    when: "Before AI",
+    body: "People wrote the code, so the rules lived in their heads and in code they had read.",
   },
   {
-    title: "Traditional languages start with the how",
-    body: "Most languages ask you to commit to implementation first. The original intent is scattered across code, tickets, and memory.",
+    when: "Now",
+    body: "AI writes code faster than anyone can review it. The rules get scattered across prompts, tickets, chats, and thousands of generated lines.",
   },
   {
-    title: "ThunderLang starts with the what and why",
-    body: "ThunderLang focuses on what the software should do, why it exists, which constraints matter, and how it should be verified.",
-  },
-  {
-    title: "Engineers stay in control",
-    body: "The goal is not to replace engineers. It is to help them express, verify, and own software far more clearly.",
+    when: "The result",
+    body: "Nobody can say for sure what the software must do, or whether the last AI change quietly broke it.",
   },
 ];
 
-const targets = ["TypeScript", "Python", ".NET", "Java", "Go", "Rust"];
+const imagine = [
+  {
+    title: "Every important rule has one home",
+    body: "Refund limits, access rules, and pricing live in short files a product manager can read and an engineer can trust.",
+  },
+  {
+    title: "AI reads the rules before it writes",
+    body: "Coding agents get the rules as their brief, and every change they make is checked against those rules before it merges.",
+  },
+  {
+    title: "Rules outlive the code",
+    body: "Move from Python to Go, or rewrite a service, and no rule is lost. The rules were never buried in the old code.",
+  },
+  {
+    title: "Review means reading the rules",
+    body: "Instead of reading 4,000 generated lines, a reviewer asks one question: did any rule change, and do all the examples still pass?",
+  },
+];
 
-const runnable = `decision CanEnroll
-  inputs
-    age
-    score
-  rule adult
-    when age >= 18 and score >= 70
-    return Eligible
-  default
-    return NotEligible
-
-test CanEnroll
-  case adult
-    given age 20, score 90
-    expect Eligible
-  case minor
-    given age 10
-    expect NotEligible`;
+const steps = [
+  {
+    n: "1",
+    title: "Write",
+    body: "Say the rule in plain words: a decision, its inputs, and what happens when.",
+    code: "when total >= 50 -> Free",
+  },
+  {
+    n: "2",
+    title: "Prove",
+    body: "Add examples with the answer you expect. Every one runs, so a wrong rule shows up immediately.",
+    code: 'case "exactly $50": (total: 50) -> Free',
+  },
+  {
+    n: "3",
+    title: "Generate and guard",
+    body: "Get the rule in TypeScript, Python, Go, Rust, C#, or Java, and block AI changes that break a rule you wrote.",
+    code: "thunder verify-diff Rules.thunder",
+  },
+];
 
 export default function HomePage() {
   return (
     <>
-      {/* ------------------------------------------------------------------ */}
-      {/* Hero                                                               */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Hero: the promise, and the proof you can touch. */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-grid-faint bg-[size:44px_44px] opacity-30" />
         <div className="pointer-events-none absolute left-1/2 top-[-10%] h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[120px]" />
-
-        <div className="container-x relative grid gap-14 py-16 sm:py-24 lg:grid-cols-[1.05fr_1fr] lg:items-center">
+        <div className="container-x relative grid gap-12 py-16 sm:py-20 lg:grid-cols-[1fr_1.05fr] lg:items-center">
           <div className="animate-fade-up">
             <div className="flex items-center gap-3">
               <StarMark className="h-6 w-6 animate-twinkle" />
-              <Pill>The human control layer for AI-written software</Pill>
+              <Pill>A language for the rules AI must follow</Pill>
             </div>
-            <p className="mt-4 text-xs text-haze-500">
-              ThunderLang was previously introduced as IntentLang.
-            </p>
-
-            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-[3.2rem]">
-              Understand what your software is supposed to do,{" "}
-              <span className="text-gradient-gold">
-                what it actually does, and whether you can trust it.
-              </span>
+            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+              AI writes the code.{" "}
+              <span className="text-gradient-gold">You write the rules.</span>
             </h1>
-
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-haze-300">
-              {siteConfig.wordmark} turns human goals into durable software
-              contracts, scans existing code to recover meaning, maps the system,
-              and connects implementation to verification and proof , so humans
-              stay in control as AI writes more of the code. Built by{" "}
-              {siteConfig.builtBy}.
+              ThunderLang is a small, readable language for the rules your software must never get wrong. Write a rule once
+              in plain words, prove it with examples, and generate it in the language you ship. When AI changes your code,
+              ThunderLang checks that every rule still holds.
             </p>
-
             <div className="mt-8">
               <CTAButtons
-                primary={{ href: "/try", label: "Try the refund example" }}
-                secondary={{ href: "/docs/getting-started", label: "Read the Docs" }}
+                primary={{ href: "/learn", label: "Start the 10-minute tutorial" }}
+                secondary={{ href: "#why", label: "Why ThunderLang exists" }}
               />
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-                <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">Full Playground →</Link>
-                <Link href="/atlas" className="font-medium text-gold-300 hover:text-gold-200">
-                  Explore Intent Atlas →
-                </Link>
-                <Link href="/examples" className="font-medium text-gold-300 hover:text-gold-200">
-                  View Examples →
-                </Link>
-              </div>
             </div>
-
-            <p className="mt-8 max-w-lg text-sm leading-relaxed text-haze-400">
-              <span className="text-haze-200">Deterministic core.</span>{" "}
-              AI-assisted only when you enable it. No model required for the
-              supported local analysis , the compiler, scanner, and proof run
-              offline with no key.
+            <p className="mt-6 max-w-lg text-sm leading-relaxed text-haze-400">
+              Open source. Runs in your browser, your terminal, and OpenThunder. The compiler is deterministic: no AI and no
+              key needed.
             </p>
           </div>
-
-          <div className="animate-fade-up [animation-delay:120ms]">
-            <IntentCode code={heroExample} filename="CreateInvoice.thunder" />
-            <p className="mt-3 text-center text-xs text-haze-500">
-              Pre-1.0 syntax , and it compiles with the thunder CLI today.
-            </p>
+          <div className="animate-fade-up min-w-0 [animation-delay:120ms]">
+            <HeroTranslate />
           </div>
         </div>
       </section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* The wedge: gate an AI change before it merges (deterministic)      */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Why it exists. */}
+      <Section id="why" className="border-y border-white/8 bg-ink-900/40">
+        <SectionHeading
+          eyebrow="Why ThunderLang exists"
+          title="Code got cheap. Knowing what it must do did not."
+          intro="Programming languages were built for people telling computers how to do something. With AI writing more of the how, the scarce thing is a clear, checkable statement of what must stay true."
+        />
+        <ol className="mt-12 grid gap-4 lg:grid-cols-3">
+          {shift.map((s, i) => (
+            <li key={s.when} className="relative rounded-2xl border border-white/10 bg-ink-850/50 p-6">
+              <p className={`text-xs font-semibold uppercase tracking-wide ${i === 2 ? "text-red-300" : "text-haze-400"}`}>{s.when}</p>
+              <p className="mt-3 text-lg leading-relaxed text-haze-100">{s.body}</p>
+              {i < 2 && (
+                <span aria-hidden="true" className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-2xl text-haze-500 lg:block">→</span>
+              )}
+            </li>
+          ))}
+        </ol>
+        <div className="mt-8 rounded-2xl border border-gold-300/30 bg-gold-400/[0.07] p-6 sm:p-8">
+          <p className="text-xl font-semibold leading-relaxed text-white sm:text-2xl">
+            ThunderLang gives the rules a home: one readable file that people agree on, AI reads, and machines check.
+          </p>
+        </div>
+      </Section>
+
+      {/* The world it points to. */}
+      <Section id="imagine">
+        <SectionHeading
+          eyebrow="Imagine if this became the way"
+          title="Software where the rules are the source of truth."
+          intro="This is the future ThunderLang is built for. Parts of it work today; the rest is the direction."
+        />
+        <div className="mt-12 grid gap-4 sm:grid-cols-2">
+          {imagine.map((m) => (
+            <div key={m.title} className="rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+              <h3 className="text-lg font-semibold text-white">{m.title}</h3>
+              <p className="mt-2 leading-relaxed text-haze-300">{m.body}</p>
+            </div>
+          ))}
+        </div>
+        <figure className="mx-auto mt-14 max-w-3xl text-center">
+          <blockquote className="text-balance text-2xl font-semibold leading-snug text-white sm:text-3xl">
+            The most important language of the AI era will not be the one AI writes. It will be the one people use to tell AI
+            what must stay true.
+          </blockquote>
+          <figcaption className="mt-4 text-haze-400">
+            That is what ThunderLang is built to be. It is pre-1.0 today, and{" "}
+            <a href="#today" className="font-medium text-gold-300 hover:text-gold-200">here is exactly what works</a>.
+          </figcaption>
+        </figure>
+      </Section>
+
+      {/* How it works. */}
+      <Section id="how" className="border-y border-white/8 bg-ink-900/40">
+        <SectionHeading eyebrow="How it works" title="Write it. Prove it. Ship it in any language." />
+        <ol className="mt-12 grid gap-4 lg:grid-cols-3">
+          {steps.map((s) => (
+            <li key={s.n} className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/50 p-6">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-gold-300 text-sm font-semibold text-ink-950">{s.n}</span>
+              <h3 className="mt-4 text-xl font-semibold text-white">{s.title}</h3>
+              <p className="mt-2 flex-1 leading-relaxed text-haze-300">{s.body}</p>
+              <code className="mt-5 block overflow-x-auto rounded-lg bg-black/40 px-3 py-2 font-mono text-xs text-haze-200">
+                <HowCode text={s.code} />
+              </code>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-8">
+          <Link href="/learn" className="font-medium text-gold-300 hover:text-gold-200">
+            Learn all three in the tutorial →
+          </Link>
+        </p>
+      </Section>
+
+      {/* The AI-change gate. */}
       <Section id="gate">
         <SectionHeading
           eyebrow="The gate"
           title="Catch the AI's mistake before it merges."
           intro="You declare what must never happen. An AI writes the code. ThunderLang proves, deterministically, whether the change upholds your intent, and blocks it if it does not. No model runs in the check."
         />
-        <div className="mt-10 grid gap-4 lg:grid-cols-2">
+        <div className="mt-10 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-gold-300">Intent , the contract</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-gold-300">Your rule</div>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
-{`never log the new password
-  because a plaintext password in
-  logs is a credential leak`}
+<HighlightedSource source={"never log the new password\n  because a plaintext password in\n  logs is a credential leak"} />
             </pre>
             <div className="mt-4 text-xs font-semibold uppercase tracking-wide text-sky-300">The AI&apos;s change</div>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
@@ -162,7 +199,7 @@ export default function HomePage() {
             </pre>
           </div>
           <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-300">thunder verify-diff , the deterministic gate</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-300">thunder verify-diff: the deterministic gate</div>
             <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
 {`$ thunder verify-diff ResetPassword.thunder \\
     --before before.ts --after ai-change.ts
@@ -189,9 +226,53 @@ $ echo $?
         </p>
       </Section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* What works today (single source of truth: the capability manifest) */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Where to write it. */}
+      <Section id="where">
+        <SectionHeading
+          eyebrow="Write it wherever you work"
+          title="The browser, your terminal, or OpenThunder."
+          intro="One .thunder file works in all three. Start in the browser, then carry the same file into your repository."
+        />
+        <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+            <Eyebrow>In the browser</Eyebrow>
+            <h3 className="mt-2 text-lg font-semibold text-white">Nothing to install</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-haze-300">
+              Learn the language in ten minutes, then write larger contracts with completions, diagrams, and proofs.
+            </p>
+            <div className="mt-5 flex flex-col gap-2 text-sm">
+              <Link href="/learn" className="font-medium text-gold-300 hover:text-gold-200">Start the tutorial →</Link>
+              <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">Open the Playground →</Link>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+            <Eyebrow>In your terminal</Eyebrow>
+            <h3 className="mt-2 text-lg font-semibold text-white">The thunder CLI</h3>
+            <p className="mt-2 text-sm leading-relaxed text-haze-300">Run the examples, generate code, and gate AI changes in CI.</p>
+            <pre className="mt-4 flex-1 overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-6 text-haze-200">
+              npm install -g {NPM_PACKAGE}{"\n"}
+              thunder test Rules.thunder{"\n"}
+              thunder gen Rules.thunder --target python{"\n"}
+              thunder verify-diff Rules.thunder \{"\n"}
+              {"  "}--before old.ts --after new.ts
+            </pre>
+          </div>
+          <div className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+            <Eyebrow>In OpenThunder</Eyebrow>
+            <h3 className="mt-2 text-lg font-semibold text-white">Write and verify in one place</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-haze-300">
+              The OpenThunder editor understands .thunder files, with highlighting, completions, and hover help. From your
+              repository, <code className="font-mono text-haze-100">openthunder intent prove</code> checks every contract and{" "}
+              <code className="font-mono text-haze-100">openthunder intent conform</code> compares the generated languages.
+            </p>
+            <a href="https://openthunder.dev" className="mt-5 text-sm font-medium text-gold-300 hover:text-gold-200">
+              Get OpenThunder →
+            </a>
+          </div>
+        </div>
+      </Section>
+
+      {/* What works today: one manifest drives every status label. */}
       <Section id="today">
         <SectionHeading
           eyebrow="Honest status"
@@ -218,7 +299,7 @@ $ echo $?
           </Link>
         </p>
 
-        {/* Inspectable evidence, not hype , the ThunderLang way. */}
+        {/* Inspectable evidence, not hype. */}
         <div className="mt-10 grid grid-cols-2 gap-4 rounded-2xl border border-white/8 bg-ink-850/40 p-6 sm:grid-cols-3 lg:grid-cols-6">
           {PROJECT_FACTS.map((f) => (
             <div key={f.label} className="text-center">
@@ -238,264 +319,6 @@ $ echo $?
         </p>
       </Section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Live proof: Define -> Scan -> Prove                                */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="proof">
-        <SectionHeading
-          eyebrow="Define. Scan. Prove."
-          title="One statement of intent, checked and proven , not just generated."
-          intro="Write what must be true, let the scanner find the risk, and get proof of what holds and what does not. Deterministic, no AI required."
-        />
-        <div className="mt-10 grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-gold-300">1 , Define</div>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
-{`guarantee duplicate invoices
-  are never created
-
-never expose payment token`}
-            </pre>
-            <p className="mt-3 text-xs text-haze-400">State the guarantees and the prohibitions in durable, reviewable intent.</p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-sky-300">2 , Scan</div>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
-{`Risk: the retry path has no
-idempotency verification
-
-Risk: guarantee has nothing
-proving it (drift hides here)`}
-            </pre>
-            <p className="mt-3 text-xs text-haze-400">The Intent Scanner surfaces explainable risks, grouped by theme. No AI, no key.</p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
-            <div className="text-xs font-semibold uppercase tracking-wide text-emerald-300">3 , Prove</div>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs leading-relaxed text-haze-200">
-{`PASS   duplicate prevention
-PASS   audit trail
-BLOCK  payment token found
-       in event payload`}
-            </pre>
-            <p className="mt-3 text-xs text-haze-400">A proof artifact records the status of every claim , earned trust, not assumed.</p>
-          </div>
-        </div>
-        <p className="mt-6 text-sm text-haze-400">
-          <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">
-            Run it in the Playground →
-          </Link>
-        </p>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Intent Truth: Intended / Implemented / Observed / Outcome          */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="truth">
-        <SectionHeading
-          eyebrow="Intent Truth"
-          title="Four truths about the same software , and where they disagree is where risk lives."
-          intro="A feature can pass every test and still fail its purpose. ThunderLang keeps these four truths separate so you can compare them honestly, rather than assuming technical success means success."
-        />
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { name: "Intended", status: "available" as const, body: "What humans approved: goals, guarantees, prohibitions, and how each must be verified. This is the intent you write." },
-            { name: "Implemented", status: "experimental" as const, body: "What the code actually does, recovered from source with intent lift and surfaced by the Intent Scanner." },
-            { name: "Observed", status: "planned" as const, body: "What actually happens at runtime , traces, metrics, errors. Connected through OpenThunder and runtime evidence." },
-            { name: "Outcome", status: "experimental" as const, body: "Whether it achieved its purpose. Outcome contracts bind a target and guardrails; real measurement needs product analytics." },
-          ].map((t) => (
-            <div key={t.name} className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-base font-semibold text-white">{t.name} Truth</h3>
-                <StatusBadge status={t.status} />
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-haze-300">{t.body}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-6 text-sm text-haze-400">
-          Intended Truth is available today. Implemented, Observed, and Outcome Truth arrive as
-          the scanner, runtime evidence, and the wider ecosystem connect , honestly labeled, never
-          assumed.
-        </p>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Why Intent                                                         */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="why">
-        <SectionHeading
-          eyebrow="Why ThunderLang"
-          title="Software is being written faster than it can be understood."
-          intro="Intent-Oriented Programming puts the meaning of software first, so engineers and AI can move quickly without losing the thread of what the code is supposed to do."
-        />
-        <div className="mt-12 grid gap-5 md:grid-cols-2">
-          {whyPoints.map((p) => (
-            <Card key={p.title}>
-              <h3 className="text-lg font-semibold text-white">{p.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-haze-300">
-                {p.body}
-              </p>
-            </Card>
-          ))}
-        </div>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Prompt is temporary. Intent is durable.                            */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="durable">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-          <div>
-            <SectionHeading
-              eyebrow="Prompt is temporary. Intent is durable."
-              title="A prompt is a conversation. Intent is a commitment."
-              intro="A prompt is useful, but it is not a contract, it is not cleanly versioned, and it is not automatically verifiable. ThunderLang turns it into a reviewable, versionable, testable .thunder file."
-            />
-            <figure className="mt-6 rounded-2xl border border-white/10 bg-ink-850/50 p-5">
-              <figcaption className="text-xs font-medium uppercase tracking-[0.18em] text-haze-400">
-                The prompt
-              </figcaption>
-              <blockquote className="mt-3 text-sm leading-relaxed text-haze-200">
-                &ldquo;Build a secure invoice creation flow that prevents
-                duplicates, audits every invoice, and never logs payment
-                tokens.&rdquo;
-              </blockquote>
-              <p className="mt-4 text-xs text-haze-500">
-                Useful, but temporary. It becomes intent on the right.
-              </p>
-            </figure>
-          </div>
-          <div>
-            <div className="mb-2 text-center text-xs font-medium uppercase tracking-[0.18em] text-gold-300">
-              The intent
-            </div>
-            <IntentCode code={heroExample} filename="CreateInvoice.thunder" />
-          </div>
-        </div>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Core philosophy                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="philosophy" className="border-y border-white/8 bg-ink-900/40">
-        <SectionHeading
-          eyebrow="Core philosophy"
-          title="Prompt → Intent → Contract → Plan → Implementation → Verification → Proof"
-          intro="Prompt is how the conversation starts. Intent is what the team commits to. Code is how the system fulfills it. Proof is how trust is earned. Every stage is inspectable, and nothing is hidden from the engineer who owns it."
-        />
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          {philosophy.map((item, i) => (
-            <div key={item.step} className="panel h-full p-5">
-              <span className="font-mono text-xs text-gold-300">
-                0{i + 1}
-              </span>
-              <h3 className="mt-2 text-base font-semibold text-white">
-                {item.step}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-haze-300">
-                {item.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Executable intent                                                  */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="executable">
-        <SectionHeading
-          eyebrow="Beyond prompt engineering"
-          title="Intent you can run. No code. No AI."
-          intro="A decision is not a description of behavior, it is the behavior. Give it inputs and it decides, first matching rule wins, deterministically, before any implementation exists. Tests live in the same file and prove it."
-        />
-        <div className="mt-10 grid gap-6 lg:grid-cols-2 lg:items-start">
-          <IntentCode code={runnable} filename="eligibility.thunder" />
-          <div className="rounded-2xl border border-white/10 bg-ink-950/70 p-5 font-mono text-[12.5px] leading-relaxed text-haze-200">
-            <div className="text-haze-500">
-              {"$ thunder run eligibility.thunder --inputs '{\"age\":20,\"score\":90}'"}
-            </div>
-            <div className="mt-1">
-              <span className="text-emerald-300">decision CanEnroll: Eligible</span>{" "}
-              <span className="text-haze-500">[rule: adult]</span>
-            </div>
-            <div className="mt-5 text-haze-500">$ thunder test eligibility.thunder</div>
-            <div className="mt-1">
-              <span className="text-emerald-300">PASS</span>&nbsp;&nbsp;CanEnroll / adult
-            </div>
-            <div>
-              <span className="text-emerald-300">PASS</span>&nbsp;&nbsp;CanEnroll / minor
-            </div>
-            <div className="mt-1 text-haze-300">2/2 passed</div>
-          </div>
-        </div>
-        <p className="mt-5 text-sm leading-relaxed text-haze-400">
-          Deterministic: the same intent and inputs always decide the same way, with a full
-          trace, no model in the loop. Run it yourself in the{" "}
-          <Link href="/playground" className="text-gold-300 hover:text-gold-200">
-            playground
-          </Link>
-          .
-        </p>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Example syntax                                                     */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="example">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-center">
-          <div>
-            <SectionHeading
-              eyebrow="Example syntax"
-              title="Describe the mission. Let tooling handle the rest."
-              intro="A Mission states a goal, what it requires, the guarantees that must hold, and the languages it should target. It reads top-to-bottom like structured pseudocode."
-            />
-            <div className="mt-6 flex flex-wrap gap-2">
-              {targets.map((t) => (
-                <Pill key={t}>{t}</Pill>
-              ))}
-            </div>
-            <div className="mt-6">
-              <DraftNote>
-                This is <strong>pre-1.0 syntax</strong>. It compiles today, but
-                names, keywords, and structure can still change before 1.0.
-              </DraftNote>
-            </div>
-            <div className="mt-6">
-              <CTAButtons
-                primary={{ href: "/examples", label: "View Examples" }}
-                secondary={{ href: "/docs", label: "Read the Docs" }}
-              />
-            </div>
-          </div>
-          <IntentCode code={heroExample} filename="CreateInvoice.thunder" />
-        </div>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Language principles                                                */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="principles" className="border-y border-white/8 bg-ink-900/40">
-        <SectionHeading
-          eyebrow="Language principles"
-          title="Ten commitments that shape the language."
-          intro="These principles are the north star for every design decision in Intent."
-        />
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {principles.map((p) => (
-            <div key={p.title} className="panel p-5">
-              <h3 className="text-base font-semibold text-white">{p.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-haze-300">
-                {p.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* What Intent is NOT                                                 */}
-      {/* ------------------------------------------------------------------ */}
       <Section id="not">
         <SectionHeading
           eyebrow="What ThunderLang is not"
@@ -534,75 +357,38 @@ BLOCK  payment token found
         </div>
       </Section>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* SkillsTech ecosystem                                               */}
-      {/* ------------------------------------------------------------------ */}
-      <Section id="ecosystem" className="border-y border-white/8 bg-ink-900/40">
-        <SectionHeading
-          eyebrow="SkillsTech ecosystem"
-          title="ThunderLang is the center of a larger system."
-          intro="Proof is the through-line. ThunderLang defines what software should do, and each product proves a different thing about the same mission."
-        />
-        <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {ecosystem.map((item) => (
-            <Card key={item.name}>
-              <div className="flex items-center gap-2.5">
-                {item.name === "ThunderLang" && <StarMark className="h-5 w-5" />}
-                <h3 className="text-base font-semibold text-white">
-                  {item.name}
-                </h3>
-              </div>
-              <p className="mt-2 text-sm font-medium text-gold-300">
-                {item.role}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-haze-300">
-                {item.detail}
-              </p>
-            </Card>
-          ))}
-        </div>
-        <p className="mx-auto mt-8 max-w-2xl text-center text-sm leading-relaxed text-haze-400">
-          The artifact exists, the implementation still matches it, the engineer
-          who owns it understands it, and the practitioner has proven the method.
-          That is how trust is earned in AI-era software: not by trusting the
-          code, but by proving the intent behind it.
-        </p>
-      </Section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Get started CTA                                                    */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Next step. */}
       <Section>
         <div className="panel relative overflow-hidden px-6 py-14 text-center sm:px-12">
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[560px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[100px]" />
           <div className="relative mx-auto max-w-2xl">
             <Eyebrow>Open source and on npm</Eyebrow>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Gate your first AI change today.
+              Write your first rule in ten minutes.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-haze-300">
-              ThunderLang is open source and public on npm. Install it, write
-              your first intent, and put the verify-diff gate in front of your
-              next AI change , no waitlist, no key.
+              Five short lessons in your browser. By the end you will have a rule, its proof, and the same rule in six languages.
             </p>
             <div className="mt-8 flex justify-center">
               <CTAButtons
-                primary={{ href: "/docs/getting-started", label: "Get started" }}
-                secondary={{ href: "/roadmap", label: "See the Roadmap" }}
+                primary={{ href: "/learn", label: "Start the tutorial" }}
+                secondary={{ href: "/docs/getting-started", label: "Read the docs" }}
               />
             </div>
-            <p className="mt-5 text-sm text-haze-400">
-              Rolling it out across a team?{" "}
-              <Link
-                href="/waitlist"
-                className="font-medium text-gold-300 hover:text-gold-200"
-              >
-                Run a team pilot →
-              </Link>
+            <p className="mt-6 text-sm text-haze-400">
+              Go deeper:{" "}
+              <Link href="/vision" className="font-medium text-gold-300 hover:text-gold-200">the vision</Link>,{" "}
+              <Link href="/architecture" className="font-medium text-gold-300 hover:text-gold-200">architecture</Link>,{" "}
+              <Link href="/examples" className="font-medium text-gold-300 hover:text-gold-200">39 examples</Link>, or{" "}
+              <Link href="/waitlist" className="font-medium text-gold-300 hover:text-gold-200">run a team pilot</Link>.
             </p>
           </div>
         </div>
       </Section>
     </>
   );
+}
+
+function HowCode({ text }: { text: string }) {
+  return text.startsWith("thunder ") ? <>{text}</> : <HighlightedLine line={text} />;
 }

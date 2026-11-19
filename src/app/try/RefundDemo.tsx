@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ThunderEditor } from "@/components/ThunderEditor";
 import { previewHumanContract } from "../../../compiler/src/human-contract.mjs";
 
 const button = "rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold transition hover:bg-white/10 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300 disabled:opacity-40";
@@ -41,11 +42,8 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
             <label htmlFor="refund-source" className="text-sm font-medium text-haze-100">Edit the contract and its examples</label>
             <span className="font-mono text-xs text-haze-300">RefundReview.thunder-human</span>
           </div>
-          <textarea id="refund-source" value={source} onChange={e => setSource(e.target.value)} maxLength={20000}
-            rows={Math.max(9, Math.min(26, source.split("\n").length + 1))} wrap="off"
-            aria-describedby={error ? "refund-editor-help refund-editor-error" : "refund-editor-help"} aria-invalid={!!error} spellCheck={false} autoCapitalize="off" autoCorrect="off"
-            style={{ colorScheme: "dark", scrollbarWidth: "thin", scrollbarColor: "#394150 #080B14" }}
-            className="block w-full resize-y overflow-auto bg-transparent p-4 font-mono text-[13px] leading-6 text-haze-100 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-gold-300 sm:text-sm" />
+          <ThunderEditor id="refund-source" value={source} onChange={setSource} invalid={!!error}
+            describedBy={error ? "refund-editor-help refund-editor-error" : "refund-editor-help"} minRows={9} />
         </div>
         <p id="refund-editor-help" className="mt-2 text-xs text-haze-300">Name each input and use -&gt; for the outcome. Long cases can wrap inside parentheses. <span className="sm:hidden">Swipe sideways to read long lines. </span>Run examples to generate the table below.</p>
         {error && <p id="refund-editor-error" role="alert" className="mt-3 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-red-200">{error}</p>}
