@@ -65,24 +65,42 @@
     @apply btn border border-white/12 bg-white/[0.03] text-haze-100 hover:border-white/25 hover:bg-white/[0.06];
   }
 
-  /* Intent draft-syntax highlighting */
+  /* ThunderLang syntax highlighting: each role gets its own hue (all >= 7:1 on ink-900) */
   .tok-key {
-    @apply text-gold-300;
+    @apply font-semibold text-[#C4B5FD];
+  }
+  .tok-key-soft {
+    @apply text-[#A78BFA];
+  }
+  .tok-logic {
+    @apply font-semibold text-[#F9A8D4];
+  }
+  .tok-op {
+    @apply text-[#F472B6];
   }
   .tok-fn {
     @apply text-[#7FB2FF];
   }
   .tok-type {
-    @apply text-[#8FD3C4];
+    @apply text-[#67E8F9];
+  }
+  .tok-field {
+    @apply text-[#93C5FD];
+  }
+  .tok-id {
+    @apply text-[#FCD34D];
+  }
+  .tok-num {
+    @apply text-[#FDBA74];
   }
   .tok-str {
-    @apply text-[#C7E29A];
+    @apply text-[#BEF264];
   }
   .tok-comment {
     @apply text-haze-400 italic;
   }
   .tok-punc {
-    @apply text-haze-300;
+    @apply text-haze-400;
   }
 }
 
@@ -134,6 +152,13 @@
 }
 .doc-prose pre code {
   @apply bg-transparent p-0 text-haze-100;
+}
+/* ThunderLang blocks in any rendered Markdown (docs, articles): same palette as the code cards. */
+pre.thunder-code {
+  @apply my-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/80 p-4 font-mono text-[13px] leading-relaxed;
+}
+pre.thunder-code code {
+  @apply rounded-none bg-transparent p-0 text-[1em] text-haze-200;
 }
 .doc-prose hr {
   @apply my-8 border-white/10;

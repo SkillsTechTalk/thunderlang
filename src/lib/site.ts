@@ -34,9 +34,9 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
+  { href: "/learn", label: "Tutorial" },
+  { href: "/read", label: "Read code" },
   { href: "/try", label: "Try it" },
-  { href: "/vision", label: "Vision" },
-  { href: "/architecture", label: "Architecture" },
   { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
   { href: "/roadmap", label: "Roadmap" },
@@ -44,6 +44,9 @@ export const mainNav: NavItem[] = [
 
 // Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
 export const learnNav: NavItem[] = [
+  { href: "/learn", label: "Tutorial" },
+  { href: "/vision", label: "Vision" },
+  { href: "/architecture", label: "Architecture" },
   { href: "/docs", label: "Docs" },
   { href: "/examples", label: "Examples" },
   { href: "/articles", label: "Articles" },
@@ -55,6 +58,8 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
   {
     title: "Language",
     items: [
+      { href: "/learn", label: "Tutorial" },
+      { href: "/read", label: "Read code" },
       { href: "/vision", label: "Vision" },
       { href: "/architecture", label: "Architecture" },
       { href: "/docs", label: "Documentation" },

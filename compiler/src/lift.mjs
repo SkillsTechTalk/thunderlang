@@ -477,6 +477,13 @@ const ADAPTERS = {
   scala: extractFactsScala, sc: extractFactsScala,
   elixir: extractFactsElixir, ex: extractFactsElixir, exs: extractFactsElixir,
 };
+/** Signature-level code facts (functions, errors, tests) for one source, in a supported language. */
+export function extractFacts(source, language, file) {
+  const key = String(language).toLowerCase();
+  const adapter = ADAPTERS[key];
+  return adapter ? adapter(String(source), file || `input.${LANG_EXT[key] || 'txt'}`) : null;
+}
+
 export const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl', 'kotlin', 'scala', 'elixir'];
 const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript', 'python', 'ruby', 'php', 'elixir']);
 

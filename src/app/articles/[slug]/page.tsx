@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Marked } from "marked";
+import { thunderCodeRenderer } from "@/lib/thunder-tokens";
 import { Section } from "@/components/ui";
 import { absoluteUrl } from "@/lib/site";
 import { getArticle } from "@/lib/articles";
@@ -10,6 +11,7 @@ export const revalidate = 3600;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 const safeUrl = (value: string) => /^(https:\/\/|\/(?!\/))/.test(value) ? escapeHtml(value) : "";
 const markdown = new Marked({ renderer: {
+  code: thunderCodeRenderer,
   html(token) { return escapeHtml(token.text); },
   link(token) { const href = safeUrl(token.href); const text = this.parser.parseInline(token.tokens); return href ? `<a href="${href}">${text}</a>` : text; },
   image(token) { const src = safeUrl(token.href); return src ? `<img src="${src}" alt="${escapeHtml(token.text)}" loading="lazy" decoding="async" style="max-width:100%;height:auto;border-radius:14px">` : ""; },

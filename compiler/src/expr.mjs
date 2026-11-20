@@ -243,6 +243,35 @@ function renderExpr(src, inputs, D) {
 }
 
 /**
+ * Reprint a ThunderLang condition with only the parentheses its meaning needs, so a reading of
+ * generated or heavily bracketed code stays easy to read. Returns the input unchanged when it
+ * uses a construct this printer does not cover (lists, `in`).
+ */
+export function simplifyExpr(src) {
+  const PREC = { or: 1, and: 2, not: 3, cmp: 4, arith: 5, neg: 6, lit: 7, ref: 7 };
+  let unsupported = false;
+  const p = (n, parent = 0) => {
+    const me = PREC[n.k];
+    if (me == null) { unsupported = true; return ''; }
+    let out;
+    switch (n.k) {
+      // `and` inside `or` keeps its parentheses: correct without them, but easy to misread.
+      case 'or': out = `${p(n.a, n.a.k === 'and' ? 9 : me)} or ${p(n.b, n.b.k === 'and' ? 9 : me + 0.5)}`; break;
+      case 'and': out = `${p(n.a, me)} and ${p(n.b, me + 0.5)}`; break;
+      case 'not': out = `not ${p(n.a, me)}`; break;
+      case 'cmp': out = `${p(n.a, me + 0.5)} ${n.op} ${p(n.b, me + 0.5)}`; break;
+      case 'arith': out = `${p(n.a, me)} ${n.op} ${p(n.b, me + 0.5)}`; break;
+      case 'neg': out = `-${p(n.a, me)}`; break;
+      case 'lit': out = typeof n.v === 'string' ? JSON.stringify(n.v) : String(n.v); break;
+      case 'ref': out = n.path; break;
+    }
+    return me < parent ? `(${out})` : out;
+  };
+  const text = p(parse(tokenize(src)));
+  return unsupported ? src : text;
+}
+
+/**
  * Render a `when` condition as an equivalent expression in a target language, for code generation.
  * Input names render as identifiers; any other bare token is an enum literal (a string). Reuses
  * the parser, so precedence is exact. `dialect` is js (default) | csharp | java.

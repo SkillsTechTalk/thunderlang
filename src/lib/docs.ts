@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { marked } from "marked";
+import { thunderCodeRenderer } from "./thunder-tokens";
 
 /**
  * Reads the language docs (docs/*.md) and examples (examples/*.thunder) from the
@@ -23,6 +24,7 @@ const DOC_ORDER = [
   "case-study-feature-flags",
   "verifying-ai-changes",
   "mcp",
+  "reading-code",
   "runtime-enforcement",
   "intent-scanner",
   "syntax-overview",
@@ -78,6 +80,7 @@ const DOC_LABELS: Record<string, string> = {
   "case-study-feature-flags": "Case study: a feature-flag gate",
   "verifying-ai-changes": "Verifying AI code changes",
   "mcp": "ThunderLang for AI agents (MCP)",
+  "reading-code": "Read code you don't know",
   "runtime-enforcement": "Runtime enforcement",
   "intent-scanner": "Intent Scanner and Fable",
   "syntax-overview": "Syntax overview",
@@ -128,7 +131,8 @@ const DOC_BLURBS: Record<string, string> = {
   "adopting-thunderlang": "Bring intent to a codebase you already have: lift, review, check, gate, and keep in sync.",
   "case-study-feature-flags": "A worked adoption: lift a feature-flag evaluator, prove four languages agree, and gate a bad AI change.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
-  "mcp": "Install the MCP server so a coding agent can run the verify-real-code loop: lift, gate a change, prove, and check drift.",
+  "mcp": "Connect Claude Code, Codex, ChatGPT, or Cursor, and give your agent the rules for when to call each tool.",
+  "reading-code": "See what code in TypeScript, Python, Go, Rust, C#, or Java decides, in plain English and in a language you know.",
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
   "intent-scanner": "Scan a project into Intent IR and explainable Fable findings grouped by risk.",
   "syntax-overview": "The keywords, three layers, types, and blocks.",
@@ -172,6 +176,7 @@ const DOC_BLURBS: Record<string, string> = {
 };
 
 marked.setOptions({ gfm: true });
+marked.use({ renderer: { code: thunderCodeRenderer } });
 
 export type DocMeta = { slug: string; label: string; blurb: string };
 
@@ -210,7 +215,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Understand software",
     blurb: "Scan, map, and reason about existing and AI-written code.",
-    slugs: ["intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "mission-chains", "ai-generated-missions"],
+    slugs: ["reading-code", "intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "mission-chains", "ai-generated-missions"],
   },
   {
     title: "Build and verify",
