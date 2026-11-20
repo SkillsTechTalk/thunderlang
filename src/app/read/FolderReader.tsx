@@ -16,6 +16,9 @@ const SAMPLE_PROJECT = [
   { path: "shop/loans/LoanPolicy.java", source: READ_SAMPLES[2].source },
   { path: "shop/school/grading.py", source: READ_SAMPLES[3].source },
   { path: "shop/docs/AccessPolicy.cs", source: READ_SAMPLES[4].source },
+  { path: "shop/delivery/Delivery.kt", source: READ_SAMPLES[5].source },
+  { path: "shop/checkout/Coupons.php", source: READ_SAMPLES[6].source },
+  { path: "shop/support/priority.rb", source: READ_SAMPLES[7].source },
 ];
 
 type Progress = { done: number; total: number } | null;
@@ -53,7 +56,7 @@ export function FolderReader({ know }: { know: CodeLang }) {
     const root = (all[0].webkitRelativePath || all[0].name).split("/")[0];
     const wanted = all.filter((f) => readableLanguage(f.webkitRelativePath || f.name));
     if (!wanted.length) {
-      setError(`No TypeScript, JavaScript, Python, Go, Rust, C#, or Java files were found in "${root}" outside dependency and build folders.`);
+      setError(`No TypeScript, JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby files were found in "${root}" outside dependency and build folders.`);
       return;
     }
     const capped = wanted.slice(0, MAX_FILES);
@@ -104,7 +107,7 @@ export function FolderReader({ know }: { know: CodeLang }) {
         <button type="button" onClick={() => picker.current?.click()} className="rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-ink-950 hover:bg-gold-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300">
           Choose a folder
         </button>
-        <button type="button" onClick={() => load(SAMPLE_PROJECT, "shop (sample project in five languages)")} className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-haze-100 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300">
+        <button type="button" onClick={() => load(SAMPLE_PROJECT, "shop (sample project in eight languages)")} className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-haze-100 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300">
           Try a sample project
         </button>
         <p className="text-sm text-haze-400">Files are read in your browser. Nothing is uploaded. Dependency and build folders are skipped.</p>

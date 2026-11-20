@@ -2,7 +2,7 @@
 
 You can understand what an application decides without knowing its language. ThunderLang reads the decision rules in a codebase and shows each one three ways: in plain English, in ThunderLang, and rewritten in a language you already know.
 
-It works on TypeScript, JavaScript, Python, Go, Rust, C#, and Java. It runs deterministically, with no AI, in your browser at [/read](/read), in your terminal, and inside coding agents.
+It works on TypeScript, JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, and Ruby. It runs deterministically, with no AI, in your browser at [/read](/read), in your terminal, and inside coding agents.
 
 ## What you get
 
@@ -74,6 +74,9 @@ The reader recognizes the common ways code chooses an answer:
 - ternaries (`cond ? A : B`) and Python's `A if cond else B`
 - Rust and Go tail forms such as `if cond { A } else { B }`
 - `switch` and `match`: C-style switches with fall-through (TypeScript, JavaScript, Java, C#, Go), Java arrow switches (`case A, B -> "X"`), C# switch expressions with relational patterns (`>= 90 => "A"`), Go switches with no subject, Rust `match` with `|`, ranges (`1..=5`), and `if` guards, and Python `match`/`case`. A switch where any case does real work is listed as not read, rather than half-shown.
+- Kotlin: functions with block or expression bodies (`fun f(x: Int) = ...`), `if` used as a value, `when` with and without a subject (values, `in 1..5`, `until`, `else`), `require` and `check` as checks, `throw` without `new`, and Ktor and Spring routes.
+- PHP: `$variables` and `->` fields, `elseif`, `switch`, PHP 8 `match` (including `match(true)`), `throw`, Laravel `abort`, `abort_if`, and `abort_unless`, and Laravel `Route::post(...)` and `#[Route]` routes.
+- Ruby: implicit returns (the last value is the answer), modifier `if` and `unless` (`return :review if amount > 1000`), symbols, `case`/`when` with ranges (`90..100` includes 100, `80...90` does not), `raise`, Rails `head` and `render status:`, and Sinatra routes. Predicate methods such as `user.admin?` read as the field `user.admin`; `nil?`, `empty?` and similar are not guessed and are shown as written.
 
 Conditions can use comparisons, `&&`, `||`, `!`, `and`, `or`, `not`, parentheses, literals, inputs, and fields such as `order.total`. Java's `equals` becomes `==`, and enum answers such as `Verdict::Block` read as `Block`.
 

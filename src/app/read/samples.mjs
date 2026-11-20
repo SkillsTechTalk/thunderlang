@@ -169,4 +169,83 @@ def test_boundary():
 `,
     expect: { decisions: ['CanOpen'], functions: ['Audit'] },
   },
+  {
+    key: 'kotlin-delivery',
+    label: 'Kotlin: delivery speed',
+    language: 'kotlin',
+    file: 'Delivery.kt',
+    source: `package shop.delivery
+
+// How fast an order can ship, from its weight and the customer's plan.
+fun speed(weightKg: Double, plan: String): String = when {
+    weightKg > 30.0 -> "Freight"
+    plan == "prime" -> "NextDay"
+    weightKg <= 2.0 -> "Express"
+    else -> "Standard"
+}
+
+fun schedule(orderId: String, weightKg: Double): Shipment {
+    require(weightKg > 0.0) { "weight must be positive" }
+    return Shipment(orderId, speed(weightKg, "basic"))
+}
+`,
+    expect: { decisions: ['speed'], functions: ['schedule'] },
+  },
+  {
+    key: 'php-coupons',
+    label: 'PHP: coupon check',
+    language: 'php',
+    file: 'Coupons.php',
+    source: `<?php
+namespace Shop\\Checkout;
+
+class Coupons
+{
+    // Whether a coupon can be applied to a cart.
+    public function check(string $code, float $cartTotal, bool $firstOrder): string
+    {
+        if ($code === 'WELCOME' && !$firstOrder) {
+            return 'NotEligible';
+        }
+        if ($cartTotal < 20) {
+            return 'BelowMinimum';
+        }
+        return 'Applied';
+    }
+
+    public function apply(Cart $cart, string $code): Cart
+    {
+        abort_if($cart->locked, 409);
+        return $cart->withCoupon($code);
+    }
+}
+`,
+    expect: { decisions: ['check'], functions: ['apply'] },
+  },
+  {
+    key: 'ruby-support',
+    label: 'Ruby: support ticket priority',
+    language: 'ruby',
+    file: 'priority.rb',
+    source: `class TicketPriority
+  # How urgent a support ticket is.
+  def priority(plan, outage, hours_open)
+    return :urgent if outage
+    return :high if plan == :pro && hours_open > 24
+    case plan
+    when :enterprise then :high
+    when :pro then :normal
+    else
+      :low
+    end
+  end
+
+  def escalate(ticket)
+    raise ArgumentError, "ticket is closed" if ticket.closed
+    ticket.assign_to_lead
+  end
+end
+`,
+    expect: { decisions: ['priority'], functions: ['escalate'] },
+  },
 ];

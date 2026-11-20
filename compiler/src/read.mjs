@@ -13,14 +13,17 @@ import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java'];
-const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java']);
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby'];
+const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
 /** Best-effort language guess for pasted code (a file name, when known, is more reliable). */
 export function detectLanguage(source, file = '') {
   if (file) return languageForFile(file);
   const s = String(source);
+  if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
+  if (/\bfun\s+(<[^>]*>\s*)?[\w.]*\w+\s*\(/.test(s)) return 'kotlin';
+  if (/^\s*def\s+[\w.?!]+(\s*\(.*\))?\s*$/m.test(s) && /^\s*end\s*$/m.test(s)) return 'ruby';
   if (/^\s*package\s+\w+\s*$/m.test(s) || /\bfunc\s+(\([^)]*\)\s*)?\w+\s*\(/.test(s)) return 'go';
   if (/\bfn\s+\w+\s*(<[^>]*>)?\s*\(/.test(s) || /\blet\s+mut\b|->\s*&'static/.test(s)) return 'rust';
   if (/^\s*def\s+\w+\s*\(.*\)\s*(->\s*[^:]+)?:\s*$/m.test(s)) return 'python';
@@ -94,6 +97,11 @@ function parseParams(raw, language) {
   for (let p of parts.map((x) => x.trim()).filter(Boolean)) {
     p = p.replace(/=.*$/, '').trim();
     if (/^&?\s*(mut\s+)?self$|^self$|^cls$|^this$/.test(p)) continue;
+    if (language === 'ruby') {
+      if (/^&/.test(p)) continue; // a block argument
+      out.push({ name: p.replace(/^\*+/, '').replace(/:.*$/, '').trim(), type: null });
+      continue;
+    }
     let name = p, type = null, m;
     if (language === 'go') {
       m = p.match(/^(\w+)\s+(.+)$/);
@@ -101,13 +109,13 @@ function parseParams(raw, language) {
       [, name, type] = m;
       for (const g of pendingGo) out.push({ name: g, type: simpleType(type) });
       pendingGo = [];
-    } else if (language === 'java' || language === 'csharp') {
-      m = p.replace(/^(final|ref|in|out|params)\s+/, '').match(/^(.+?)\s+(\w+)$/);
+    } else if (language === 'java' || language === 'csharp' || language === 'php') {
+      m = p.replace(/^(final|ref|in|out|params|public|private|protected|readonly)\s+/g, '').replace(/^(public|private|protected|readonly)\s+/g, '').match(/^(.+?)\s+&?(?:\.\.\.)?(\w+)$/);
       if (m) [, type, name] = m;
     } else if ((m = p.match(/^(\w+)\??\s*:\s*(.+)$/))) {
       [, name, type] = m;
     }
-    out.push({ name: name.replace(/^mut\s+/, ''), type: simpleType(type) });
+    out.push({ name: name.replace(/^(mut|val|var|vararg)\s+/, '').replace(/^[&$]+/, ''), type: simpleType(type ? type.replace(/^\?/, '') : type) });
   }
   for (const g of pendingGo) out.push({ name: g, type: null });
   return out;
@@ -116,7 +124,7 @@ function parseParams(raw, language) {
 function simpleType(t) {
   if (!t) return null;
   const s = String(t).trim().replace(/^&(mut\s+)?/, '');
-  if (/^(number|int|long|short|float|double|decimal|f32|f64|i\d+|u\d+|usize|isize|float64|float32|int\d*|uint\d*|Integer|Double|Long|BigDecimal)$/.test(s)) return 'number';
+  if (/^(number|int|long|short|float|double|decimal|f32|f64|i\d+|u\d+|usize|isize|float64|float32|int\d*|uint\d*|Integer|Double|Long|BigDecimal|Int|Float|Short|Byte)$/.test(s)) return 'number';
   if (/^(bool|boolean|Boolean)$/.test(s)) return 'boolean';
   if (/^(str|string|String|&str|char)$/.test(s)) return 'string';
   return s;
@@ -145,6 +153,7 @@ function findFunctions(src, language) {
     annotateRoutes(fns, src);
     return fns;
   }
+  if (language === 'ruby') return findRubyFunctions(src);
   const patterns = {
     typescript: [
       /(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*(?:<[^>]*>)?\s*\(/g,
@@ -154,6 +163,8 @@ function findFunctions(src, language) {
     go: [/func\s+(?:\([^)]*\)\s*)?(\w+)\s*(?:\[[^\]]*\])?\s*\(/g],
     rust: [/(?:pub(?:\([^)]*\))?\s+)?(?:const\s+)?(?:async\s+)?(?:unsafe\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(/g],
     java: [/(?:(?:public|private|protected|static|final|synchronized|abstract)\s+)*(?:<[^>]+>\s+)?[\w.<>\[\],?\s]+?\s+(\w+)\s*\(/g],
+    kotlin: [/\bfun\s+(?:<[^>]*>\s*)?(?:[\w.]+\.)?(\w+)\s*\(/g],
+    php: [/\bfunction\s+&?(\w+)\s*\(/g],
   };
   patterns.javascript = patterns.typescript;
   patterns.csharp = [/(?:(?:public|private|protected|internal|static|virtual|override|async|sealed|abstract|readonly)\s+)*[\w.<>\[\],?\s]+?\s+(\w+)\s*\(/g];
@@ -169,8 +180,22 @@ function findFunctions(src, language) {
       if (close < 0) continue;
       // After the parameter list: an optional return type / throws clause, then a body.
       const after = src.slice(close + 1);
-      const head = after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/);
+      const head = language === 'kotlin'
+        ? after.match(/^\s*(?::\s*([^{=]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
+        : after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/);
       if (!head || head[4] === ';') continue;
+      if (language === 'kotlin' && head[4] === '=') {
+        // Kotlin expression body: fun f(x: Int) = when (x) { ... } / = if (...) "A" else "B" / = "A"
+        const markerAt = close + 1 + head[0].length - 1;
+        const fnLine = lineAt(src, m.index + m[0].lastIndexOf(name));
+        if (seen.has(name + ':' + fnLine)) continue;
+        seen.add(name + ':' + fnLine);
+        const rest = src.slice(markerAt + 1);
+        const lead = rest.match(/^\s*/)[0].length;
+        const end = kotlinExprEnd(rest, lead);
+        fns.push({ key: `${name}@${m.index}`, name, line: fnLine, params: parseParams(src.slice(open + 1, close), language), returns: (head[1] || '').trim() || null, bodyStart: markerAt + 1 + lead, body: `return ${rest.slice(lead, end).trim()}` });
+        continue;
+      }
       const key = `${name}@${m.index}`;
       // The function's line is where its name is, not where a multi-line match began.
       const fnLine = lineAt(src, m.index + m[0].lastIndexOf(name));
@@ -200,7 +225,20 @@ function findFunctions(src, language) {
     }
   }
   // Anonymous HTTP handlers: app.post('/refunds', (req, res) => {...}), r.Get("/x", func(w, r) {...}).
-  const routeRes = language === 'go'
+  if (language === 'kotlin') {
+    // Ktor: get("/x") { ... } inside routing { }
+    const re = /\b(get|post|put|patch|delete)\(\s*"([^"]+)"\s*\)\s*\{/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const brace = m.index + m[0].length - 1;
+      const bc = matchClose(src, brace);
+      if (bc < 0) continue;
+      fns.push({ name: `${m[1].toUpperCase()} ${m[2]}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method: m[1].toUpperCase(), path: m[2] } });
+    }
+  }
+  const routeRes = language === 'php'
+    ? [/\bRoute::(get|post|put|patch|delete|any)\(\s*['"]([^'"]+)['"]\s*,\s*(?:static\s+)?function\s*\(/g]
+    : language === 'go'
     ? [/\.(Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE|HandleFunc|Handle)\(\s*"([^"]+)"\s*,\s*func\s*\(/g]
     : (language === 'typescript' || language === 'javascript')
       ? [/\b\w+\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,(?:[^,()]*,)*?\s*(?:async\s*)?(?:function\s*\w*\s*)?\(/g]
@@ -234,6 +272,7 @@ function annotateRoutes(fns, src) {
       if ((m = l.match(/^@\w+\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/i))) { fn.route = { method: m[1].toUpperCase(), path: m[2] }; break; }
       if ((m = l.match(/^@\w+\.route\(\s*['"]([^'"]*)['"](?:.*methods\s*=\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'GET').toUpperCase(), path: m[1] }; break; }
       if ((m = l.match(/^@(Get|Post|Put|Patch|Delete|Request)Mapping(?:\(\s*(?:value\s*=\s*|path\s*=\s*)?["']([^"']*)["'])?/))) { fn.route = { method: m[1] === 'Request' ? 'ANY' : m[1].toUpperCase(), path: m[2] || '/' }; break; }
+      if ((m = l.match(/^#\[Route\(\s*(?:path:\s*)?['"]([^'"]*)['"](?:.*methods:\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'ANY').toUpperCase(), path: m[1] }; break; }
       if ((m = l.match(/^\[Http(Get|Post|Put|Patch|Delete)(?:\(\s*"([^"]*)")?/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
       if ((m = l.match(/^@(Get|Post|Put|Patch|Delete)\(\s*(?:['"]([^'"]*)['"])?\s*\)/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
       if (!/^(@|\[|\/\/|#|\*|\/\*)/.test(l) && l) break;
@@ -241,6 +280,161 @@ function annotateRoutes(fns, src) {
   }
 }
 
+
+// ── Kotlin and PHP: small source normalizations so the brace-language reader applies ────────
+
+const KT_CONTINUES_NEXT = /^\s*(\.|\?\.|\?:|&&|\|\||[+\-*/%]|else\b(?!\s*->)|->|\)|\]|:)/;
+const KT_CONTINUES_LINE = /(&&|\|\||[=+\-*/%(,.:[]|->|\belse|\bif\s*\([^)]*\))\s*$/;
+
+/** Where a Kotlin expression body (after `=`) ends: the first line break at depth 0 that is not a continuation. */
+function kotlinExprEnd(src, from) {
+  let depth = 0;
+  for (let i = from; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' || c === '\'') { i = skipString(src, i); continue; }
+    if (c === '/' && src[i + 1] === '/') { const n = src.indexOf('\n', i); if (n < 0) return src.length; i = n - 1; continue; }
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) { if (--depth < 0) return i; }
+    else if (c === '\n' && depth === 0) {
+      const line = src.slice(src.lastIndexOf('\n', i - 1) + 1, i);
+      const next = src.slice(i + 1);
+      if (/^\s*\n/.test(next) || !next.trim()) return i;
+      if (!KT_CONTINUES_LINE.test(line) && !KT_CONTINUES_NEXT.test(next)) return i;
+    }
+  }
+  return src.length;
+}
+
+/** Kotlin has no semicolons: end each top-level statement of a body with one so it splits like Java. */
+function kotlinTerminate(body) {
+  const src = stripCommentsKeepLayout(body);
+  let out = '', depth = 0, last = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' || c === '\'') { i = skipString(src, i); continue; }
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) depth--;
+    else if (c === '\n' && depth === 0) {
+      const line = src.slice(src.lastIndexOf('\n', i - 1) + 1, i);
+      const next = src.slice(i + 1);
+      if (line.trim() && !/[{;]\s*$/.test(line) && !KT_CONTINUES_LINE.test(line) && !KT_CONTINUES_NEXT.test(next)) {
+        out += src.slice(last, i) + ';';
+        last = i;
+      }
+    }
+  }
+  return out + src.slice(last);
+}
+
+/** Apply `fn` to the code between strings and comments (strings and comments are kept as written). */
+function mapCode(src, fn) {
+  let out = '', start = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    let end = -1;
+    if (c === '"' || c === '\'') end = skipString(src, i);
+    else if (c === '/' && src[i + 1] === '/') { const n = src.indexOf('\n', i); end = n < 0 ? src.length - 1 : n - 1; }
+    else if (c === '/' && src[i + 1] === '*') { const n = src.indexOf('*/', i + 2); end = n < 0 ? src.length - 1 : n + 1; }
+    if (end < 0) continue;
+    end = Math.max(end, i); // always move forward
+    out += fn(src.slice(start, i)) + src.slice(i, end + 1);
+    start = i = end + 1;
+    i--;
+  }
+  return out + fn(src.slice(start));
+}
+
+/** PHP reads like the other brace languages once `$name` is `name` and `->` is `.` (line numbers unchanged). */
+function normalizePhp(src) {
+  return mapCode(src.replace(/(^|[^\[])#(?!\[)/gm, '$1//'), (code) => code
+    .replace(/\$this\s*->/g, 'this.')
+    .replace(/\$(?=[A-Za-z_])/g, '')
+    .replace(/(\w|\))\s*(?:\?)?->\s*(?=[A-Za-z_])/g, '$1.')
+    .replace(/\belseif\b/g, 'else if'));
+}
+
+/** Kotlin `if (c) A else if (c2) B else C` used as a value. Returns false when the text is not one. */
+function readKotlinIf(text, inputs, rules, unread, line, setOtherwise) {
+  let s = text.trim().replace(/;$/, '');
+  if (!/^if\s*\(/.test(s)) return false;
+  const local = [];
+  const value = (v) => {
+    v = v.trim();
+    if (v.startsWith('{')) { const c = matchClose(v, 0); return c === v.length - 1 ? v.slice(1, -1).trim() : null; }
+    return v;
+  };
+  while (/^if\s*\(/.test(s)) {
+    const open = s.indexOf('(');
+    const close = matchClose(s, open);
+    if (close < 0) return false;
+    const cond = s.slice(open + 1, close);
+    const rest = s.slice(close + 1).trim();
+    const elseAt = rest.startsWith('{') ? matchClose(rest, 0) + 1 : rest.search(/\belse\b/);
+    if (elseAt <= 0) return false;
+    const thenPart = value(rest.slice(0, elseAt));
+    const after = rest.slice(elseAt).trim();
+    if (!/^else\b/.test(after)) return false;
+    const when = toThunderCondition(cond, inputs), result = thenPart == null ? null : toThunderOutcome(thenPart);
+    if (!when || !result) { unread.push({ line, text: `if (${cond.trim()})`, reason: 'This choice uses a condition or answer that is not a fixed value.' }); return true; }
+    local.push({ when, result, line });
+    s = after.replace(/^else\s*/, '');
+  }
+  const fb = value(s);
+  const fallback = fb == null ? null : toThunderOutcome(fb);
+  if (!fallback) { unread.push({ line, text: s.slice(0, 120), reason: 'The fallback answer is computed, not a fixed value.' }); return true; }
+  rules.push(...local);
+  setOtherwise({ result: fallback, line });
+  return true;
+}
+
+/** Kotlin `when` arms: `A, B -> value`, `in 1..5 -> value`, `else -> value`, one per line or `;`. */
+function kotlinWhenArms(body, baseLine) {
+  const arms = [];
+  const src = stripCommentsKeepLayout(body);
+  let i = 0;
+  while (i < src.length) {
+    while (i < src.length && /[\s;]/.test(src[i])) i++;
+    if (i >= src.length) break;
+    const arrow = (() => {
+      let depth = 0;
+      for (let j = i; j < src.length; j++) {
+        const c = src[j];
+        if (c === '"' || c === '\'') { j = skipString(src, j); continue; }
+        if ('([{'.includes(c)) depth++; else if (')]}'.includes(c)) depth--;
+        else if (c === '-' && src[j + 1] === '>' && depth === 0) return j;
+      }
+      return -1;
+    })();
+    if (arrow < 0) return null;
+    const pattern = src.slice(i, arrow).trim();
+    let j = arrow + 2;
+    while (/[ \t]/.test(src[j] || '')) j++;
+    let value, end;
+    if (src[j] === '{') {
+      const c = matchClose(src, j);
+      if (c < 0) return null;
+      const inner = src.slice(j + 1, c).trim();
+      value = /[;\n]/.test(inner) ? null : inner;
+      end = c + 1;
+    } else {
+      end = kotlinExprEnd(src, j);
+      const semi = topLevelIndex(src.slice(j, end), ';');
+      if (semi >= 0) end = j + semi;
+      value = src.slice(j, end).trim();
+    }
+    if (value) value = value.replace(/^return\s+/, '');
+    arms.push({ pattern: pattern === 'else' ? null : pattern, guard: null, value, line: baseLine + lineAt(src, i) - 1 });
+    i = end;
+  }
+  return arms;
+}
+
+/** Kotlin `in a..b` (inclusive), `in a until b`, `in a..<b` as the reader's range forms. */
+function kotlinPattern(p) {
+  return p.split(/,(?![^(]*\))/).map((x) => x.trim()
+    .replace(/^in\s+(-?[\d.]+)\s*\.\.\s*(-?[\d.]+)$/, '$1..=$2')
+    .replace(/^in\s+(-?[\d.]+)\s*(?:until|\.\.<)\s*(-?[\d.]+)$/, '$1..$2')).join(', ');
+}
 
 // ── Expressions: source language -> ThunderLang ─────────────────────────────────────────────
 
@@ -281,7 +475,7 @@ export function toThunderCondition(text, inputs = []) {
     if (['>', '<', '>=', '<=', '(', ')'].includes(t)) { out.push(t); continue; }
     if (t === 'True' || t === 'true') { out.push('true'); continue; }
     if (t === 'False' || t === 'false') { out.push('false'); continue; }
-    if (/^["']/.test(t)) { out.push(JSON.stringify(unquote(t))); continue; }
+    if (/^["']/.test(t)) { if (t[0] === '"' && /#\{|\$\{|\$[A-Za-z_]/.test(t)) return null; out.push(JSON.stringify(unquote(t))); continue; }
     if (/^\d/.test(t)) { out.push(t.replace(/(f64|f32|[fFdDmMlL])$/, '')); continue; }
     if (/^[A-Za-z_$]/.test(t)) {
       // Java/C# equality helpers: a.equals(b), Objects.equals(a, b), string.Equals(a, b).
@@ -332,7 +526,8 @@ export function toThunderCondition(text, inputs = []) {
     }
     return null;
   }
-  const expr = out.join(' ').replace(/\( /g, '(').replace(/ \)/g, ')').replace(/not \(/g, 'not (');
+  for (let k = 0; k < out.length; k++) if (/^[<>]=?$/.test(out[k]) && (/^"/.test(out[k - 1] || '') || /^"/.test(out[k + 1] || ''))) return null; // text ordering differs by language
+  const expr = out.join(' ').replace(/\( /g, '(').replace(/ \)/g, ')').replace(/not \(/g, 'not (').replace(/\bnot not /g, ''); // !!x is x
   try { compileExpr(expr, { inputs }); } catch { return null; }
   return simplifyExpr(expr);
 }
@@ -364,6 +559,8 @@ export function toThunderOutcome(text) {
   if (/^(None|null|nil|undefined|Nothing)$/.test(s)) return null;
   let m;
   if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$|^`([^`$\\]*)`$/))) {
+    // "#{x}" (Ruby) and "$x" / "${x}" (Kotlin, PHP) build the text from values: computed, not fixed.
+    if (m[1] != null && /#\{|\$\{|\$[A-Za-z_]/.test(m[1])) return null;
     const v = m[1] ?? m[2] ?? m[3];
     if (v === '') return null; // an empty string is not an answer a reader can act on
     return /^[A-Za-z_][A-Za-z0-9_]*$/.test(v) ? v : JSON.stringify(v);
@@ -405,13 +602,22 @@ export function terminatorEffect(stmt, language) {
   let m;
   if ((m = s.match(/^throw\s+new\s+([\w.$]+)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) };
   if ((m = s.match(/^throw\s+([\w.$]+)$/))) return { kind: 'fails', name: lastSeg(m[1]) };
+  if ((m = s.match(/^throw\s+([A-Z][\w.$]*)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) }; // Kotlin: no `new`
+  if ((m = s.match(/^error\(([\s\S]*)\)$/)) && language === 'kotlin') return { kind: 'fails', name: 'IllegalStateException', detail: firstString(m[1]) };
+  if ((m = s.match(/^abort\(\s*(\d{3})\b/))) return { kind: 'responds', name: m[1] }; // Laravel
   if ((m = s.match(/^raise\s+([\w.]+)(?:\(([\s\S]*)\))?$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: m[2] ? firstString(m[2]) : null };
+  if (language === 'ruby') {
+    if ((m = s.match(/^raise\s+([A-Z][\w:]*)(?:\.new)?\s*(?:,\s*|\(\s*)?([\s\S]*?)\)?$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2] || '') };
+    if ((m = s.match(/^(?:raise|fail)\s+(["'][\s\S]*)$/))) return { kind: 'fails', name: 'RuntimeError', detail: firstString(m[1]) };
+    if ((m = s.match(/^(?:head|halt)\s+(?::|")?(\w+)"?/))) return { kind: 'responds', name: m[1] }; // Rails head :forbidden, Sinatra halt 401
+  }
   if ((m = s.match(/^panic!?\(([\s\S]*)\)$/))) return { kind: 'fails', name: 'panic', detail: firstString(m[1]) };
   if ((m = s.match(/^return\s+Err\(([\s\S]*)\)$/))) {
     const inner = m[1].trim();
     return { kind: 'fails', name: firstString(inner) ? 'error' : lastSeg(inner.replace(/\(.*$/s, '')), detail: firstString(inner) };
   }
   if (s === 'return') return { kind: 'stops' };
+  if ((m = s.match(/^render\b.*\bstatus:\s*(?::|")?(\w+)/)) && language === 'ruby') return { kind: 'responds', name: m[1] };
   if (!(m = s.match(/^return\s+([\s\S]+)$/))) return null;
   const v = m[1].trim();
   if (language === 'go') {
@@ -507,7 +713,8 @@ function patternCondition(pattern, subject, inputs, language) {
 function valueLiteral(text) {
   const s = text.trim();
   let m;
-  if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$/))) return JSON.stringify(m[1] ?? m[2]);
+  if (/^(nil|null|None|undefined)$/.test(s)) return null; // "is missing" is not a value a rule can hold
+  if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$/))) return m[1] != null && /#\{|\$\{|\$[A-Za-z_]/.test(m[1]) ? null : JSON.stringify(m[1] ?? m[2]);
   if (/^-?\d+(\.\d+)?$/.test(s)) return s;
   if (/^(true|false|True|False)$/.test(s)) return s.toLowerCase();
   if ((m = s.match(/^(?:[A-Za-z_]\w*(?:\.|::))*([A-Za-z_]\w*)$/))) return m[1];
@@ -612,14 +819,25 @@ function readSwitch(text, language, inputs, line) {
     const open = t.indexOf('{'); subjectText = m[1].trim() || null; body = t.slice(open + 1, matchClose(t, open));
   } else if (language === 'rust' && (m = t.match(/^match\s+([^{]+?)\s*\{/))) {
     const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
+  } else if (language === 'php' && (m = t.match(/^match\s*\(([\s\S]*?)\)\s*\{/))) {
+    const open = t.indexOf('{', m[0].length - 1); subjectText = /^\s*true\s*$/.test(m[1]) ? null : m[1]; body = t.slice(open + 1, matchClose(t, open)); kind = 'csharp-expr';
+  } else if (language === 'kotlin' && (m = t.match(/^when\s*(?:\(([\s\S]*?)\))?\s*\{/))) {
+    const open = t.indexOf('{', m[0].length - 1); subjectText = m[1] ?? null; body = t.slice(open + 1, matchClose(t, open)); kind = 'kotlin-when';
   } else if (language === 'csharp' && (m = t.match(/^([\w.]+)\s+switch\s*\{/))) {
     const open = t.indexOf('{'); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open)); kind = 'csharp-expr';
   } else return null;
   if (body == null) return null;
   const subject = subjectText == null ? null : toThunderCondition(subjectText, inputs);
   if (subjectText != null && (!subject || /\s/.test(subject))) return { unread: [{ line, text: t.split('\n')[0].slice(0, 120), reason: 'This switch compares something other than an input or field.' }] };
-  const arms = switchArms(body, kind, line);
+  const arms = kind === 'kotlin-when'
+    ? (kotlinWhenArms(body, line) || null)?.map((a) => (a.pattern == null || subjectText == null ? a : { ...a, pattern: kotlinPattern(a.pattern) }))
+    : switchArms(body, kind, line)?.map((a) => (language === 'php' && a.pattern === 'default' ? { ...a, pattern: null } : a));
   if (!arms || !arms.length) return { unread: [{ line, text: t.split('\n')[0].slice(0, 120), reason: 'This switch has a shape the reader does not recognize yet.' }] };
+  return armsToRules(arms, subject, inputs, language);
+}
+
+/** Switch arms -> { rules, otherwise } or { unread }. Any arm that is not a fixed answer leaves the whole switch unread. */
+function armsToRules(arms, subject, inputs, language) {
   const rules = [];
   let otherwise = null;
   for (const a of arms) {
@@ -696,6 +914,7 @@ function readBraceStatements(stmts, language, inputs) {
   };
   for (const st of stmts) {
     const t = st.text;
+    let m;
     if (/^if\b/.test(t)) {
       // A guard: an `if` with no else whose branch exits without a fixed answer.
       const head = splitIf(t, language);
@@ -756,11 +975,34 @@ function readBraceStatements(stmts, language, inputs) {
       if (!ok) continue;
       continue;
     }
+    // Kotlin preconditions: require(cond) { "msg" } fails unless cond holds.
+    if (language === 'kotlin' && (m = t.match(/^(require|check|requireNotNull|checkNotNull)\s*\(/))) {
+      const open = t.indexOf('(');
+      const close = matchClose(t, open);
+      const cond = t.slice(open + 1, close);
+      const name = m[1].startsWith('require') ? 'IllegalArgumentException' : 'IllegalStateException';
+      const detail = firstString(t.slice(close + 1).replace(/^\s*\{/, '')) || null;
+      const when = /NotNull$/.test(m[1]) ? null : toThunderCondition(`!(${cond})`, inputs);
+      const effect = { kind: 'fails', name, detail };
+      const condSaid = when ? sayCondition(when) : `\`${/NotNull$/.test(m[1]) ? `${cond.trim()} is null` : `not (${cond.trim()})`}\``;
+      guards.push({ when, code: `${m[1]}(${cond.trim()})`, effect, line: st.line, readable: !!when, says: sayGuard(effect, condSaid) });
+      continue;
+    }
+    if (language === 'php' && (m = t.match(/^abort_(if|unless)\s*\(([\s\S]*)\)\s*;?$/))) {
+      const args = splitTop(m[2], ',').map((x) => x.trim());
+      if (args.length >= 2 && /^\d{3}$/.test(args[1])) {
+        const cond = m[1] === 'if' ? args[0] : `!(${args[0]})`;
+        const when = toThunderCondition(cond, inputs);
+        const effect = { kind: 'responds', name: args[1] };
+        guards.push({ when, code: `abort_${m[1]}(${args[0]})`, effect, line: st.line, readable: !!when, says: sayGuard(effect, when ? sayCondition(when) : `\`${cond}\``) });
+        continue;
+      }
+    }
     // switch / match, as a statement or as the returned value.
     {
       const isLast = st === stmts[stmts.length - 1];
       const val = (t.match(/^return\s+([\s\S]+?);?$/) || [])[1];
-      const candidate = /^(switch|match)\b/.test(t) ? t : val && /^(switch\b|match\b|[\w.]+\s+switch\s*\{)/.test(val) ? val : null;
+      const candidate = /^(switch|match|when)\b/.test(t) && (language === 'kotlin' || !/^when\b/.test(t)) ? t : val && /^(switch\b|match\b|when\b|[\w.]+\s+switch\s*\{)/.test(val) && (language === 'kotlin' || !/^when\b/.test(val)) ? val : null;
       const sw = candidate && (candidate === t ? !(language === 'rust' && !isLast && /^match/.test(t) && false) : true) ? readSwitch(candidate, language, inputs, st.line) : null;
       if (sw) {
         if (sw.unread) { unread.push(...sw.unread); continue; }
@@ -771,6 +1013,7 @@ function readBraceStatements(stmts, language, inputs) {
     }
     const ret = t.match(/^return\s+([\s\S]+?);?$/) || (language === 'rust' && st === stmts[stmts.length - 1] && !/;\s*$/.test(t) ? [null, t] : null);
     if (ret) {
+      if (language === 'kotlin' && readKotlinIf(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
       if (readTernary(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
       take(null, ret[1], st.line);
       continue;
@@ -916,13 +1159,229 @@ function readPythonBody(body, inputs) {
   return { rules, otherwise, unread, guards };
 }
 
+// ── Ruby: `def ... end`, implicit returns, modifier if/unless, case/when ───────────────────
+
+const RB_OPENER = /^(if|unless|while|until|case|begin|for|def|class|module)\b/;
+const rbCodeOnly = (l) => l.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""').replace(/(^|\s)#.*$/, '$1');
+/** A Ruby line without its trailing # comment (strings kept as written). */
+function rbNoComment(l) {
+  for (let i = 0; i < l.length; i++) {
+    const c = l[i];
+    if (c === '"' || c === '\'') { i = skipString(l, i); continue; }
+    if (c === '#' && l[i + 1] !== '{' && (i === 0 || /\s/.test(l[i - 1]))) return l.slice(0, i);
+  }
+  return l;
+}
+
+/** How much a Ruby line opens (+) or closes (-) blocks. */
+function rbDelta(raw) {
+  const l = rbCodeOnly(raw).trim();
+  if (!l) return 0;
+  let d = 0;
+  if (RB_OPENER.test(l) && !/^def\s+[\w.?!]+(\([^)]*\))?\s*=/.test(l)) d++;
+  if (/\bdo\s*(\|[^|]*\|)?\s*$/.test(l)) d++;
+  if (/[=(,]\s*(if|unless|case|begin)\b/.test(l) && !RB_OPENER.test(l)) d++;
+  d -= (l.match(/(^|[^.\w])end\b(?![?!:])/g) || []).length;
+  return d;
+}
+
+function findRubyFunctions(src) {
+  const lines = src.split('\n');
+  const fns = [];
+  const collect = (from, headIndent) => {
+    const body = [];
+    let depth = 0;
+    for (let j = from; j < lines.length; j++) {
+      const t = lines[j];
+      const code = rbCodeOnly(t).trim();
+      if (!code) continue;
+      if (depth === 0 && /^end\b/.test(code)) return body;
+      body.push({ text: t.trim(), line: j + 1, depth });
+      depth += rbDelta(t);
+      if (depth < 0) return body;
+    }
+    return body;
+  };
+  lines.forEach((l, i) => {
+    let m;
+    if ((m = l.match(/^(\s*)def\s+(?:self\.)?([\w]+[?!=]?)\s*(?:\((.*?)\)|\s+([^=#][^#]*?))?\s*(=\s*(.+))?\s*$/))) {
+      const params = parseParams(m[3] ?? m[4] ?? '', 'ruby');
+      const body = m[5] ? [{ text: m[6].trim(), line: i + 1, depth: 0 }] : collect(i + 1, m[1].length);
+      fns.push({ name: m[2], line: i + 1, params, returns: null, rbBody: body });
+      return;
+    }
+    if ((m = l.match(/^\s*(get|post|put|patch|delete)\s+['"]([^'"]+)['"]\s+do\b/))) { // Sinatra
+      const method = m[1].toUpperCase();
+      fns.push({ name: `${method} ${m[2]}`, line: i + 1, params: [], returns: null, rbBody: collect(i + 1), route: { method, path: m[2] } });
+    }
+  });
+  return fns;
+}
+
+const RB_PREDICATE_NOT_FIELD = /^(nil|empty|zero|blank|present|any|none|all|include|key|is_a|kind_of|respond_to|start_with|end_with|between|positive|negative|even|odd)$/;
+
+/** Ruby expression -> the shape the shared converters read: @x -> x, :sym -> "sym", user.admin? -> user.admin. */
+function rbExpr(text) {
+  let bad = false;
+  // Ruby's === is "matches" (a pattern, a class, a range), not equality: never read it as ==.
+  // And `<` / `<=` beside a class name asks "is a subclass of", not "is less than".
+  const bare = String(text).replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  if (/===/.test(bare) || /(<=?|>=?)\s*[A-Z][a-z]\w*(?!\w*\s*[(.])/.test(bare.replace(/<=>/g, '')) || /\b[A-Z][a-z]\w*\s*(<=?|>=?)/.test(bare)) return null;
+  const out = mapCode(String(text), (code) => code
+    .replace(/@(?=[A-Za-z_])/g, '')
+    .replace(/(^|[\s(,=!<>[])::?([A-Za-z_]\w*)\b(?!:)/g, (all, pre, name) => (all.includes('::') ? all : `${pre}"${name}"`))
+    .replace(/\.(\w+)\?/g, (all, name) => { if (RB_PREDICATE_NOT_FIELD.test(name)) bad = true; return `.${name}`; })
+    .replace(/\bunless\b/g, 'if not'));
+  return bad ? null : out;
+}
+const rbCond = (text, inputs, negate = false) => { const e = rbExpr(text); return e == null ? null : toThunderCondition(negate ? `!(${e})` : e, inputs); };
+const rbOutcome = (text) => { const e = rbExpr(String(text).replace(/^return\s+/, '')); return e == null ? null : toThunderOutcome(e); };
+
+/** Ruby ranges as the reader's range forms: a..b is inclusive (a..=b), a...b excludes b (a..b). */
+function rbRange(p) {
+  return p.split(/,(?![^(]*\))/).map((x) => x.trim().replace(/^\(?(-?\d+(?:\.\d+)?)\s*(\.\.\.?)\s*(-?\d+(?:\.\d+)?)\)?$/,
+    (_, a, dots, b) => (dots === '...' ? `${a}..${b}` : `${a}..=${b}`))).join(', ');
+}
+
+function readRubyBody(body, inputs) {
+  const rules = [], unread = [], guards = [];
+  let otherwise = null;
+  let top = body.map((b, k) => ({ ...b, k })).filter((b) => b.depth === 0);
+  // A method-level `rescue` or `ensure` starts error handling; the answer is what comes before it.
+  const rescueAt = top.findIndex((b) => /^(rescue|ensure)\b/.test(rbNoComment(b.text).trim()));
+  if (rescueAt >= 0) {
+    unread.push({ line: top[rescueAt].line, text: rbNoComment(top[rescueAt].text).trim().slice(0, 120), reason: 'Error handling (rescue) is not read as rules.' });
+    top = top.slice(0, rescueAt);
+  }
+  // The lines inside a block, without the block's own closing `end`.
+  const blockOf = (start) => {
+    const out = [];
+    for (let k = start + 1; k < body.length && body[k].depth > 0; k++) if (!(body[k].depth === 1 && /^end\b/.test(rbNoComment(body[k].text).trim()))) out.push(body[k]);
+    return out;
+  };
+  const sole = (lines) => (lines.length === 1 ? lines[0].text : null);
+  top.forEach((st, n) => {
+    const t = rbNoComment(st.text).trim();
+    const isLast = n === top.length - 1;
+    let m;
+    // Modifier form: `return X if cond`, `raise Error, "msg" unless cond`.
+    if ((m = t.match(/^(return\b.*?|raise\b.*?|fail\b.*?|head\b.*?|halt\b.*?|render\b.*?)\s+(if|unless)\s+(.+)$/))) {
+      const when = rbCond(m[3], inputs, m[2] === 'unless');
+      const stmt = m[1].trim();
+      const fixed = /^return\s+\S/.test(stmt) ? rbOutcome(stmt) : null;
+      if (fixed) {
+        if (!when) unread.push({ line: st.line, text: t.slice(0, 120), reason: 'This condition uses something besides comparisons and and/or/not.' });
+        else rules.push({ when, result: fixed, line: st.line });
+        return;
+      }
+      const effect = terminatorEffect(rbExpr(stmt) ?? stmt, 'ruby');
+      if (effect) {
+        const code = (m[2] === 'unless' ? 'unless ' : '') + m[3].trim();
+        guards.push({ when, code, effect, line: st.line, readable: !!when, says: sayGuard(effect, when ? sayCondition(when) : `\`${code}\``) });
+        return;
+      }
+    }
+    // if / unless ... elsif ... else ... end
+    if ((m = t.match(/^(if|unless)\s+(.+?)(?:\s+then)?$/))) {
+      const block = blockOf(st.k);
+      const parts = [];
+      let cur = { cond: m[2], negate: m[1] === 'unless', lines: [], line: st.line };
+      for (const b of block) {
+        const bt = rbNoComment(b.text).trim();
+        let e;
+        if (b.depth === 1 && (e = bt.match(/^elsif\s+(.+?)(?:\s+then)?$/))) { parts.push(cur); cur = { cond: e[1], negate: false, lines: [], line: b.line }; continue; }
+        if (b.depth === 1 && /^else$/.test(bt)) { parts.push(cur); cur = { cond: null, lines: [], line: b.line }; continue; }
+        cur.lines.push({ ...b, text: bt });
+      }
+      parts.push(cur);
+      const hasElse = parts.some((p) => p.cond == null);
+      // A guard: one branch, no else, that exits without a fixed answer.
+      if (parts.length === 1 && !hasElse) {
+        const only = sole(parts[0].lines);
+        const fixed = only && /^return\s/.test(only) ? rbOutcome(only) : null;
+        if (only && !fixed) {
+          const effect = terminatorEffect(rbExpr(only) ?? only, 'ruby');
+          if (effect && effect.kind !== 'returns-computed') {
+            const when = rbCond(parts[0].cond, inputs, parts[0].negate);
+            const code = (parts[0].negate ? 'unless ' : '') + parts[0].cond;
+            guards.push({ when, code, effect, line: st.line, readable: !!when, says: sayGuard(effect, when ? sayCondition(when) : `\`${code}\``) });
+            return;
+          }
+        }
+      }
+      const local = [];
+      let fallback = null;
+      for (const p of parts) {
+        const v = sole(p.lines);
+        // A bare value only answers when the whole `if` is the method's last expression.
+        const valueText = v && (/^return\s/.test(v) || isLast) ? v : null;
+        const result = valueText ? rbOutcome(valueText) : null;
+        if (!result) { unread.push({ line: p.line, text: p.cond ? `${p.negate ? 'unless' : 'if'} ${p.cond}` : 'else', reason: 'This branch does more than choose an answer.' }); return; }
+        if (p.cond == null) { fallback = { result, line: p.line }; continue; }
+        const when = rbCond(p.cond, inputs, p.negate);
+        if (!when) { unread.push({ line: p.line, text: `if ${p.cond}`, reason: 'This condition uses something besides comparisons and and/or/not.' }); return; }
+        local.push({ when, result, line: p.line });
+      }
+      rules.push(...local);
+      if (fallback) otherwise = fallback;
+      return;
+    }
+    // case subject / when values [then answer] / else / end
+    if ((m = t.match(/^(?:return\s+)?case(?:\s+(.+))?$/))) {
+      const subject = m[1] ? rbCond(m[1], inputs) : null;
+      if (m[1] && (!subject || /\s/.test(subject))) { unread.push({ line: st.line, text: t.slice(0, 120), reason: 'This case compares something other than an input or field.' }); return; }
+      const block = blockOf(st.k);
+      const arms = [];
+      let cur = null;
+      for (const b of block) {
+        const bt = rbNoComment(b.text).trim();
+        let w;
+        if (b.depth === 1 && (w = bt.match(/^when\s+(.+?)(?:\s+then\s+(.+))?$/))) { cur = { pattern: w[1], value: w[2] ?? null, lines: [], line: b.line }; arms.push(cur); continue; }
+        if (b.depth === 1 && (w = bt.match(/^else(?:\s+(.+))?$/))) { cur = { pattern: null, value: w[1] ?? null, lines: [], line: b.line }; arms.push(cur); continue; }
+        if (cur) cur.lines.push(bt);
+      }
+      const answerable = isLast || /^return\s/.test(t);
+      const ready = arms.map((a) => {
+        const v = a.value ?? (a.lines.length === 1 ? a.lines[0] : null);
+        const ok = v && (answerable || /^return\s/.test(v));
+        const conv = ok ? rbExpr(v.replace(/^return\s+/, '')) : null;
+        // `when SomeClass` asks "is it a kind of SomeClass?" (===), not equality: not read.
+        const typeCheck = m[1] && a.pattern != null && a.pattern.split(',').some((x) => /^[A-Z][\w:]*$/.test(x.trim()) && !/^[A-Z][A-Z0-9_]*$/.test(x.trim().split('::').pop()));
+        const pattern = a.pattern == null ? null : typeCheck ? null : m[1] ? rbExpr(rbRange(a.pattern)) : rbExpr(a.pattern);
+        return { pattern: a.pattern != null && pattern == null ? '\u0000' : pattern, guard: null, value: conv, line: a.line };
+      });
+      const sw = arms.length ? armsToRules(ready, subject, inputs, 'ruby') : { unread: [{ line: st.line, text: t, reason: 'This case has no when branches the reader recognizes.' }] };
+      if (sw.unread) { unread.push(...sw.unread); return; }
+      rules.push(...sw.rules);
+      if (sw.otherwise) otherwise = sw.otherwise;
+      return;
+    }
+    // The last expression is the answer; `return X` answers anywhere.
+    if (/^return\s/.test(t) || isLast) {
+      const v = t.replace(/^return\s+/, '');
+      const e = rbExpr(v);
+      if (e && readTernary(e, inputs, rules, unread, st.line, (o) => { otherwise = o; })) return;
+      const result = rbOutcome(v);
+      if (result) { otherwise = { result, line: st.line }; return; }
+      unread.push({ line: st.line, text: t.slice(0, 120), reason: 'This answer is computed, not a fixed value.' });
+      return;
+    }
+    unread.push({ line: st.line, text: t.slice(0, 120), reason: 'This statement does work besides choosing an answer.' });
+  });
+  return { rules, otherwise, unread, guards };
+}
+
 // ── Plain English ───────────────────────────────────────────────────────────────────────────
 
 const OP_WORDS = { '>=': 'is at least', '>': 'is more than', '<=': 'is at most', '<': 'is less than', '==': 'is', '!=': 'is not' };
 
 /** Read a ThunderLang condition aloud: `amount <= 100 and withinWindow` -> "amount is at most 100 and withinWindow". */
+const NOT_OP_WORDS = { '>=': 'is less than', '>': 'is at most', '<=': 'is more than', '<': 'is at least', '==': 'is not', '!=': 'is' };
+
 export function sayCondition(cond) {
   return cond
+    // `not x > 0` negates the whole comparison in ThunderLang; say it the way a person would.
+    .replace(/\bnot\s+([A-Za-z_][\w.]*)\s*(>=|<=|==|!=|>|<)\s*("[^"]*"|-?[\w.]+)/g, (_, a, op, b) => `${a} ${NOT_OP_WORDS[op]} ${b}`)
     .replace(/\s*(>=|<=|==|!=|>|<)\s*/g, (_, op) => ` ${OP_WORDS[op]} `)
     .replace(/\bnot\s+/g, 'not ')
     .replace(/\s+/g, ' ')
@@ -952,16 +1411,20 @@ function decisionSource(name, inputs, rules, otherwise) {
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
+  // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
+  const code = lang === 'php' ? normalizePhp(src) : src;
   const items = [];
-  for (const fn of findFunctions(src, lang)) {
+  for (const fn of findFunctions(code, lang)) {
     const inputs = fn.params;
     const names = inputs.map((p) => p.name);
     const read = lang === 'python'
       ? readPythonBody(fn.pyBody, names)
-      : readBraceStatements(splitStatements(fn.body, lineAt(src, fn.bodyStart)), lang, names);
+      : lang === 'ruby'
+        ? readRubyBody(fn.rbBody, names)
+        : readBraceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), lang, names);
     const isDecision = read.rules.length > 0 && !!read.otherwise;
     const guards = read.guards || [];
     // In a function that is not a pure decision, early fixed returns are still rules worth reading.

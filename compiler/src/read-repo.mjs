@@ -18,6 +18,9 @@ const EXT_LANG = [
   [/\.rs$/i, 'rust'],
   [/\.cs$/i, 'csharp'],
   [/\.java$/i, 'java'],
+  [/\.kts?$/i, 'kotlin'],
+  [/\.php$/i, 'php'],
+  [/\.rb$/i, 'ruby'],
 ];
 
 /** Folders that hold dependencies, build output, or tooling state rather than the application. */

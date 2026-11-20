@@ -18,7 +18,7 @@ export const KNOW: { key: CodeLang; label: string }[] = [
 ];
 
 export const LANG_LABEL: Record<string, string> = {
-  typescript: "TypeScript", javascript: "JavaScript", python: "Python", go: "Go", rust: "Rust", csharp: "C#", java: "Java",
+  typescript: "TypeScript", javascript: "JavaScript", python: "Python", go: "Go", rust: "Rust", csharp: "C#", java: "Java", kotlin: "Kotlin", php: "PHP", ruby: "Ruby",
 };
 
 /** Filter chips. "route" and "guard" match items that have a route or checks, whatever their kind. */
