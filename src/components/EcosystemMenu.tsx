@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 // Tech Talk so a user can hop between all four products. Self-contained: no app
 // brand deps, dark-theme friendly. Pass `current` to mark this app.
 const PRODUCTS = [
-  { name: "OpenThunder", sub: "Understand and master any repository", href: "https://openthunder.skillstechtalk.com", logo: "/brand/openthunder-mark.png" },
+  { name: "OpenThunder", sub: "Check every AI change before it ships", href: "https://openthunder.dev", logo: "/brand/openthunder-mark.png" },
   { name: "Skills Tech Talk", sub: "Explain and defend it", href: "https://app.skillstechtalk.com", logo: "/brand/skills-tech-talk.png" },
   { name: "Skills Tech Network", sub: "Network and runtime", href: "https://network.skillstechtalk.com", logo: "/brand/skills-tech-network.png" },
   { name: "ThunderLang", sub: "Ground and verify AI-assisted code", href: "https://thunderlang.dev", logo: "/brand/thunderlang.svg" },
