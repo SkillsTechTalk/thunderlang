@@ -10,6 +10,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { siteConfig } from "@/lib/site";
+import { EcosystemHandoff } from "@/components/EcosystemHandoff";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -93,6 +94,7 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${GA_ID}');`}
         </Script>
+        <EcosystemHandoff />
       </body>
     </html>
   );

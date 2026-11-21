@@ -5,6 +5,12 @@ import Link from "next/link";
 import { ThunderEditor } from "@/components/ThunderEditor";
 import { previewHumanContract } from "../../../compiler/src/human-contract.mjs";
 
+type Gtag = (command: "event", name: string, params: Record<string, string | number | boolean>) => void;
+/** Record a demo run in GA4 (mark refund_demo_run as a key event: a visitor who ran the demo engaged, not bounced). */
+function track(name: string, params: Record<string, string | number | boolean>) {
+  (window as unknown as { gtag?: Gtag }).gtag?.("event", name, params);
+}
+
 const button = "rounded-lg border border-white/20 px-4 py-3 text-sm font-semibold transition hover:bg-white/10 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-300 disabled:opacity-40";
 
 export function RefundDemo({ initialSource }: { initialSource: string }) {
@@ -16,10 +22,11 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
   const [ran, setRan] = useState(false);
   const dirty = source !== testedSource;
 
-  function run(next = source) {
+  function run(next = source, how: "run" | "break" | "reset" = "run") {
     try {
       const result = previewHumanContract(next);
       setReport(result); setTestedSource(next); setError(""); setRan(true);
+      track("refund_demo_run", { how, passed: result.tests.passed, failed: result.tests.failed, edited: next !== initialSource });
       setNotice(`${result.tests.passed} of ${result.tests.total} contract examples passed. ${result.tests.failed ? "Inspect the failed example below." : "The real application has not been checked yet."}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read this contract.");
@@ -49,8 +56,8 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
         {error && <p id="refund-editor-error" role="alert" className="mt-3 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-red-200">{error}</p>}
         <div className="mt-4 flex flex-wrap gap-3">
           <button type="button" className={`${button} bg-gold-400 text-ink-950 hover:bg-gold-300`} onClick={() => run()}>Run examples</button>
-          <button type="button" className={button} onClick={() => { const next = initialSource.replace("amount <= 100", "amount < 100"); setSource(next); run(next); }}>Break the $100 rule</button>
-          <button type="button" className={button} onClick={() => { setSource(initialSource); run(initialSource); }}>Reset</button>
+          <button type="button" className={button} onClick={() => { const next = initialSource.replace("amount <= 100", "amount < 100"); setSource(next); run(next, "break"); }}>Break the $100 rule</button>
+          <button type="button" className={button} onClick={() => { setSource(initialSource); run(initialSource, "reset"); }}>Reset</button>
         </div>
         <p className="mt-3 text-xs text-haze-400">Runs in your browser. No account, API key, or upload.</p>
       </div>
@@ -78,6 +85,13 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
             </tr>)}
           </tbody>
         </table>}
+        {ran && !dirty && !error && report.tests.failed > 0 && <div className="mt-5 rounded-lg border border-gold-300/30 bg-gold-300/5 p-4 text-sm text-haze-200" data-placement="try:caught-failure">
+          <strong className="text-gold-200">That is the mistake that slips through review.</strong> A one-character change broke a rule nobody re-read.
+          <span className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+            <a className="font-medium text-gold-300 underline-offset-4 hover:underline" href="https://openthunder.dev">Catch it on every pull request with OpenThunder ↗</a>
+            <a className="font-medium text-gold-300 underline-offset-4 hover:underline" href="https://skillstechtalk.com">Practice explaining this decision in an interview ↗</a>
+          </span>
+        </div>}
         <div className="mt-5 rounded-lg border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-haze-200"><strong className="text-amber-200">Application: not checked.</strong> These results execute the contract only. They do not establish what your service does, or cover every possible input.</div>
       </div>
     </div>
