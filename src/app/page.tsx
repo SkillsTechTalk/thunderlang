@@ -45,6 +45,26 @@ const imagine = [
   },
 ];
 
+// What the compiler does with a .thunder file. Shown right under the hero so nobody mistakes ThunderLang for a
+// language without a compiler.
+const compilerSteps = [
+  {
+    verb: "Check",
+    title: "Problems as you type",
+    body: "The compiler reads every rule and points at what is missing or unclear, with the reason and the line.",
+  },
+  {
+    verb: "Prove",
+    title: "Every example runs",
+    body: "The examples you write are tests. Run them and see which pass, and for a failure, what you expected and what came back.",
+  },
+  {
+    verb: "Generate",
+    title: "Code in the language you ship",
+    body: "The same rule comes out as real code, so the rule you read is the rule that runs.",
+  },
+];
+
 const steps = [
   {
     n: "1",
@@ -95,8 +115,10 @@ export default function HomePage() {
               />
             </div>
             <p className="mt-6 max-w-lg text-sm leading-relaxed text-haze-400">
-              Open source. Runs in your browser, your terminal, and OpenThunder. The compiler is deterministic: no AI and no
-              key needed.
+              Not just a language: it has a real compiler, and{" "}
+              <a href="#compiler" className="font-medium text-gold-300 hover:text-gold-200">OpenThunder is where it runs</a>.
+              The same open-source compiler also runs in your browser and your terminal. Deterministic: no AI and no key
+              needed.
             </p>
           </div>
           <div className="animate-fade-up min-w-0 [animation-delay:120ms]">
@@ -104,6 +126,37 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* The compiler: ThunderLang is compiled, and OpenThunder ships the compiler. */}
+      <Section id="compiler" className="border-t border-white/8">
+        <SectionHeading
+          eyebrow="The compiler"
+          title="A language with a compiler. OpenThunder compiles it."
+          intro="ThunderLang is not a format you hope someone implements later. Every .thunder file is compiled: checked, proven with its own examples, and turned into code. The compiler is built into OpenThunder, so you write the rules and run them in the same place."
+        />
+        <div className="mt-12 grid gap-5 md:grid-cols-3">
+          {compilerSteps.map((c) => (
+            <div key={c.title} className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+              <Eyebrow>{c.verb}</Eyebrow>
+              <h3 className="mt-2 text-lg font-semibold text-white">{c.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-haze-300">{c.body}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:gap-6">
+          <a href="https://openthunder.dev" className="font-medium text-gold-300 hover:text-gold-200">
+            Write ThunderLang in OpenThunder →
+          </a>
+          <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">
+            Or try the compiler in your browser →
+          </Link>
+        </div>
+        <p className="mt-6 max-w-3xl text-sm leading-relaxed text-haze-400">
+          AI will write most of the code. Someone still has to say what the code must do, and that is what you write in
+          ThunderLang. You can let AI draft the rules too: the compiler checks them the same way, so nothing is trusted just
+          because a model wrote it.
+        </p>
+      </Section>
 
       {/* Why it exists. */}
       <Section id="why" className="border-y border-white/8 bg-ink-900/40">
@@ -259,14 +312,15 @@ $ echo $?
           </div>
           <div className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
             <Eyebrow>In OpenThunder</Eyebrow>
-            <h3 className="mt-2 text-lg font-semibold text-white">Write and verify in one place</h3>
+            <h3 className="mt-2 text-lg font-semibold text-white">The compiler, built in</h3>
             <p className="mt-2 flex-1 text-sm leading-relaxed text-haze-300">
-              The OpenThunder editor understands .thunder files, with highlighting, completions, and hover help. From your
-              repository, <code className="font-mono text-haze-100">openthunder intent prove</code> checks every contract and{" "}
+              Open a .thunder file and the compiler sits beside it: problems as you type, Run tests for your examples, and
+              generated TypeScript, Python, C#, or Java. Start a new file from a working rule. Across your repository,{" "}
+              <code className="font-mono text-haze-100">openthunder intent prove</code> checks every contract and{" "}
               <code className="font-mono text-haze-100">openthunder intent conform</code> compares the generated languages.
             </p>
             <a href="https://openthunder.dev" className="mt-5 text-sm font-medium text-gold-300 hover:text-gold-200">
-              Get OpenThunder →
+              Write ThunderLang in OpenThunder →
             </a>
           </div>
         </div>
