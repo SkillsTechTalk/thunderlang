@@ -1,0 +1,47 @@
+# area: Agent safety
+mission AgentSpendBudget
+
+goal
+  Admit an agent step only when its reserved cost fits the remaining budget.
+
+why
+  Repeated model and tool calls need a predictable spending boundary.
+
+guarantee a proposed charge stays inside the remaining budget
+  verify test SpendAdmission
+
+never admit negative cost or negative remaining budget
+  verify test SpendAdmission
+
+decision SpendAdmission
+  inputs
+    remainingCents
+    reservedCents
+  rule affordable step
+    when remainingCents >= 0 and reservedCents >= 0 and reservedCents <= remainingCents
+    return Admit
+  default
+    return Stop
+
+test SpendAdmission
+  case below the budget
+    given remainingCents 100, reservedCents 99
+    expect Admit
+  case exactly at the budget
+    given remainingCents 100, reservedCents 100
+    expect Admit
+  case above the budget
+    given remainingCents 100, reservedCents 101
+    expect Stop
+  case exhausted budget
+    given remainingCents 0, reservedCents 1
+    expect Stop
+  case negative reservation
+    given remainingCents 100, reservedCents -1
+    expect Stop
+  case negative budget
+    given remainingCents -1, reservedCents 0
+    expect Stop
+
+note engineering
+  The host must validate integer cents, reserve atomically across concurrent calls, and reconcile actual cost. These cases test admission only.

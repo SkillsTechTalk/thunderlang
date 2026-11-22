@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 const PRODUCTS = [
   { name: "OpenThunder", sub: "Understand and master any repository", href: "https://openthunder.skillstechtalk.com", logo: "/brand/openthunder-mark.png" },
   { name: "Skills Tech Talk", sub: "Explain and defend it", href: "https://app.skillstechtalk.com", logo: "/brand/skills-tech-talk.png" },
-  { name: "Skills Tech Network", sub: "Network and runtime", href: "https://network.skillstechtalk.com", logo: "/brand/skills-tech-network.png" },
+  { name: "Repo Mastery", sub: "Learn and master your codebase", href: "https://app.repomastery.com", logo: "/brand/openthunder-mark.png" },
   { name: "ThunderLang", sub: "Ground and verify AI-assisted code", href: "https://thunderlang.dev", logo: "/brand/thunderlang.svg" },
 ];
 

@@ -36,7 +36,7 @@ export const CAPABILITIES: Capability[] = [
   { key: "parser", name: "Parser + Intent IR", status: "available", blurb: "Deterministic parse into the canonical intent-graph-v1 / intent-ir-v1." },
   { key: "decisions", name: "Executable decisions", status: "available", blurb: "Run decision tables with a full first-hit trace, no code generated." },
   { key: "lifecycles", name: "Lifecycles + temporal", status: "available", blurb: "Walk a state machine and reject illegal transitions." },
-  { key: "tests", name: "In-file tests", status: "available", blurb: "case / scenario blocks run by thunder test; the spec proves itself." },
+  { key: "tests", name: "In-file tests", status: "available", blurb: "Case and scenario blocks execute declared behavior for specific inputs through thunder test." },
   { key: "scanner", name: "Intent Scanner + Fable", status: "available", blurb: "Scan a project into explainable, risk-grouped findings. No AI, no key." },
   { key: "comprehension", name: "Comprehension level C0..C7", status: "available", blurb: "Measure how well-understood each mission is, from Unknown to Governed." },
   { key: "codegen", name: "Code generation (4 targets)", status: "available", blurb: "thunder gen --target typescript|csharp|java|python emits a typed contract + real decision logic + honest TODO stubs." },

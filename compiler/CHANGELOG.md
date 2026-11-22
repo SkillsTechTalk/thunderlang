@@ -5,9 +5,13 @@ All notable changes to `@skillstech/thunderlang`. Pre-1.0: the language and the
 
 ## 0.5.0
 
-The executable-targets release. Additive; no breaking changes. Minor bump to keep the 0.x lockstep
-with OpenThunder.
+The executable-targets release, with stricter test evidence. Pre-1.0 migration notes below.
 
+- **Review Atlas for AI changes.** `thunder atlas --review` executes contract cases, preserves invalid files, ranks evidence gaps, and exports `intent-review-atlas-v1`. `--agent-brief` produces bounded review context; `--strict` exits 2 for incomplete evidence and 1 for evaluated failures. `--openthunder <report.json>` compares source hashes and compiler versions without promoting imported claims. The browser-safe `buildReviewAtlas`, `renderReviewBrief`, and `reviewAtlasExitCode` API and `intent_atlas` MCP tool share this policy. Original graph navigation is unchanged.
+
+- **Strict named evidence.** CLI, MCP, and embedding products share `resolveObligations`. References must match a complete, case-sensitive target (`verify Target` or `verify test Target`). Previously fuzzy references such as `verify Target test` remain declared until rewritten. All references must resolve and pass; one passing subset cannot verify a claim. This intentionally changes permissive earlier results.
+- **Fail closed on invalid tests.** Evaluation errors cannot pass through a matching fallback. Cases need assertions, empty test blocks fail, and lifecycle paths must be valid unless explicitly asserted invalid. Files with no test blocks still report zero cases; zero cases do not establish verified behavior.
+- **Browser-safe evidence API.** `/core` now exports `runTests`, `TEST_SCHEMA`, and `resolveObligations` with public types. Passing results cover the declared cases, not arbitrary inputs or repository implementation.
 - **Five more live execution targets.** `thunder test <file> --target <lang>`,
   `thunder conform <file> --run <lang>`, and `--all-targets` now compile and run the
   generated decision in Go, Rust, Kotlin, Scala, and Elixir, grading real executed

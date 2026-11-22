@@ -36,10 +36,17 @@ try {
   // 3. smoke the MAIN entry + the /core subpath from the installed package
   const smoke = `
     import { parseIntent, buildIntentGraph, evaluateDecision, toOpenAPI, migrateGraph, graphToSource, importReport } from '@skillstech/thunderlang';
-    import { NODE_TYPES, classify, evalExpr, buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/thunderlang/core';
+    import { NODE_TYPES, classify, evalExpr, buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256, runTests, resolveObligations, buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from '@skillstech/thunderlang/core';
+    import { createRequire } from 'node:module';
     const ast = parseIntent('mission M\\ndecision D\\n  inputs\\n    age\\n  rule a\\n    when age >= 18\\n    return Y\\n  default\\n    return N\\n');
     const asrt = (c, m) => { if (!c) { console.error('assert failed: ' + m); process.exit(3); } };
     asrt(ast.mission === 'M', 'parseIntent');
+    asrt(typeof resolveObligations === 'function' && typeof runTests === 'function', '/core strict test exports');
+    asrt(resolveObligations(ast).tests.total === 0, '/core strict resolution');
+    const review = buildReviewAtlas([{path: 'M.thunder', source: 'mission M'}]);
+    asrt(reviewAtlasExitCode(review, {strict: true}) === 2 && renderReviewBrief(review).includes('review brief'), '/core review Atlas');
+    const cjs = createRequire(import.meta.url)('@skillstech/thunderlang/core');
+    asrt(cjs.buildReviewAtlas([]).schema === review.schema, 'CJS review Atlas');
     asrt(buildIntentGraph(ast).nodes.length >= 3, 'buildIntentGraph');
     asrt(evaluateDecision(ast.decisions[0], { age: 20 }).result === 'Y', 'evaluateDecision');
     asrt(toOpenAPI(ast).openapi === '3.1.0', 'toOpenAPI');
@@ -68,10 +75,12 @@ try {
     }));
     writeFileSync(join(tmp, 'consumer.ts'), `
       import { parseIntent, buildIntentGraph } from '@skillstech/thunderlang';
-      import { buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256 } from '@skillstech/thunderlang/core';
+      import { buildAtlas, buildFocusGraph, intentBrief, scanProject, sha256, runTests, resolveObligations, buildReviewAtlas, renderReviewBrief, type ReviewAtlas } from '@skillstech/thunderlang/core';
       import type { FocusGraph, IntentBrief, IntentScope, ScanResult, IntentAtlas } from '@skillstech/thunderlang/core';
       const ast = parseIntent('mission M\\ngoal\\n  x\\n');
       const atlas: IntentAtlas = buildAtlas([buildIntentGraph(ast)]);
+      const review: ReviewAtlas = buildReviewAtlas([{path: 'M.thunder', source: 'mission M'}]);
+      const reviewBrief: string = renderReviewBrief(review);
       const focus: FocusGraph = buildFocusGraph(atlas, { seeds: [atlas.missions[0].id], depth: 2 });
       const brief: IntentBrief = intentBrief(focus);
       const scope: IntentScope = focus.scope;

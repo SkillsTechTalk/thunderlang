@@ -33,6 +33,17 @@ A decision evaluates against inputs, a lifecycle simulates against events, an ou
 contract is judged against a result, all deterministically. See
 [Getting started](./docs/getting-started.md).
 
+### Review the next AI change
+
+The [Atlas workspace](https://thunderlang.dev/atlas) is being upgraded with local contract evaluation, claim-to-case evidence, OpenThunder snapshot comparisons, and downloadable coding-agent briefs. Run the development workflow from this checkout:
+
+```sh
+node compiler/src/cli.mjs atlas ./examples --review --json
+node compiler/src/cli.mjs atlas ./examples --agent-brief
+```
+
+`--strict` requires cases in every file and resolved claims. The new `intent_atlas` MCP tool exposes the same review policy. See [Atlas review](./docs/atlas-review.md) for OpenThunder imports, evidence scope, and release compatibility. These additions require a release before they are available through the published CLI.
+
 ### This repository (a monorepo)
 
 - `compiler/` , the deterministic compiler, CLI, and Language Server (published as

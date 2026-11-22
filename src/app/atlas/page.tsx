@@ -2,14 +2,15 @@ import Link from "next/link";
 import { PageHero, Section, SectionHeading, DraftNote, Pill } from "@/components/ui";
 import { IntentCode } from "@/components/IntentCode";
 import { AtlasMap } from "@/components/AtlasMap";
-import { ProofAtlas } from "@/components/ProofAtlas";
+import { ReviewAtlas } from "@/components/ReviewAtlas";
+import { getExample } from "@/lib/docs";
 import { pageMeta } from "@/lib/seo";
 import atlas from "@/data/atlas.json";
 
 export const metadata = pageMeta({
   title: "Intent Atlas",
   description:
-    "Understand well-known open-source projects through their intent. ThunderLang lifts each project's public functions into inferred intent drafts, deterministically and with no AI, so a whole module reads as what it does.",
+    "Review AI-era software contracts with executable cases, claim evidence, agent briefs, and OpenThunder snapshot checks. Open your own contracts locally in Intent Atlas.",
   path: "/atlas",
 });
 
@@ -26,38 +27,33 @@ const LANG_LABEL: Record<string, string> = {
 
 export default function AtlasPage() {
   const { projects, totals } = atlas as unknown as { projects: Project[]; totals: { projects: number; missions: number; languages: string[] } };
+  const reviewFiles = ["researchagentrun", "agentspendbudget", "agenttoolauthorization"].map((slug) => {
+    const example = getExample(slug)!;
+    return { path: example.filename, source: example.code };
+  });
 
   return (
-    <main>
+    <div>
       <PageHero
         eyebrow="Intent Atlas"
-        title="Understand a project through its intent."
-        intro={`ThunderLang lifts each project's public functions into inferred intent , deterministically, no AI , so a whole module reads as what it does. ${totals.missions} missions across ${totals.projects} well-known projects and ${totals.languages.length} languages.`}
+        title="AI writes the code. Keep the intent in view."
+        intro="See what your agents must uphold, which contract cases pass, and what still needs evidence. Start with tool permissions and spending limits, then open your own contracts."
       >
-        <DraftNote>
-          These are <strong>inferred, humble drafts</strong> , a lens on each project, not its
-          authors&rsquo; committed intent. Every draft is unverified and needs review; only the
-          lifted intent is shown, with attribution and license. This is exactly what{" "}
-          <Link href="/docs/adopting-thunderlang">adopting ThunderLang</Link> looks like: lift first,
-          then make it yours.
-        </DraftNote>
+        <div className="flex flex-wrap gap-3"><a href="#review-atlas" className="btn-primary">Open the review workspace ↓</a><Link href="/docs/atlas-review" className="btn-secondary">Use with your coding agent</Link></div>
+        <p className="mt-5 text-sm text-haze-400">Deterministic compiler. No model or API key required. Local contract evaluation.</p>
       </PageHero>
 
       <Section className="border-b border-white/8">
         <SectionHeading
-          eyebrow="Define it. Prove it."
-          title="See the whole system, and which parts you can actually trust."
-          intro="A product you define in ThunderLang, rendered from its Intent Graph. Every guarantee, prohibition, and check is painted with its proof status. Green is proven, amber is partial, and red is drifting, a claim with nothing verifying it, exactly where intent and reality silently disagree. Click a guarantee to trace a live edge to the check that proves it, or open a red node to see the gap."
+          eyebrow="Intent → cases → evidence → review"
+          title="Make the next AI change reviewable."
+          intro="Every result below comes from running the displayed contracts. Inspect a claim, introduce a boundary bug, or import an OpenThunder report to see whether its source and compiler still match."
         />
         <div className="mt-8">
-          <ProofAtlas />
+          <ReviewAtlas initialFiles={reviewFiles} />
         </div>
         <p className="mt-4 text-sm text-haze-400">
-          This proof layer is what a verification platform like{" "}
-          <Link href="/manifesto#openthunder" className="text-gold-300 hover:text-gold-200">OpenThunder</Link>{" "}
-          supplies: ThunderLang defines what the software should do, and the atlas shows whether it does.
-          ThunderLang runs this same verdict model on its own repo, live in the{" "}
-          <Link href="/proof" className="text-gold-300 hover:text-gold-200">proof matrix</Link>.
+          ThunderLang checks declared contract cases. <Link href="/docs/using-with-openthunder" className="text-gold-300 hover:text-gold-200">OpenThunder</Link> connects intent to repository workflows. Implementation tests and review establish what the application actually does. See all example results in the <Link href="/proof" className="text-gold-300 hover:text-gold-200">proof matrix</Link>.
         </p>
       </Section>
 
@@ -65,8 +61,9 @@ export default function AtlasPage() {
         <SectionHeading
           eyebrow="Lifted intent"
           title="Or point it at code you did not write."
-          intro="The same map, over 13 well-known open-source projects. ThunderLang lifts each project's functions into inferred intent, deterministically and with no AI. Color here marks inference confidence, not proof, these are unverified drafts. Expand a project and click any mission to read what it does."
+          intro={`${totals.missions} inferred missions across ${totals.projects} open-source projects and ${totals.languages.length} languages. Explore the map to understand a module before adopting a contract.`}
         />
+        <div className="mt-5"><DraftNote>These are inferred drafts with attribution, not the authors&rsquo; committed intent. Color marks inference confidence. Every draft needs review and verification. <Link href="/docs/adopting-thunderlang">Learn how to adopt one.</Link></DraftNote></div>
         <div className="mt-8">
           <AtlasMap projects={projects} totals={totals} />
         </div>
@@ -108,6 +105,6 @@ export default function AtlasPage() {
           </div>
         </Section>
       ))}
-    </main>
+    </div>
   );
 }

@@ -89,3 +89,12 @@ npm run build          # production build + type check
 
 Open an issue on the repository, or email **support@skillstechtalk.com**. For
 security issues, follow SECURITY.md instead of filing a public issue.
+
+<!-- BEGIN shared-usability-standard -->
+
+## User-facing changes
+
+Read [the design standard](./DESIGN.md) before designing or implementing a user-facing change.
+Include its checklist and review record in the pull request, with the affected surfaces and actual validation evidence.
+
+<!-- END shared-usability-standard -->

@@ -4,14 +4,14 @@ import path from "path";
 // It runs at build time with no AI and no network. See src/compiler.d.ts.
 import { parseIntent } from "../../compiler/src/parse.mjs";
 import { semanticDiagnostics, COMPILER_VERSION } from "../../compiler/src/emit.mjs";
-import { runTests } from "../../compiler/src/testing.mjs";
+import { resolveObligations } from "../../compiler/src/obligations.mjs";
 
 /**
  * Dogfood: run the shipped compiler over this repo's own example missions at
  * build time and report the honest result. This is the same per-claim verdict
- * model `thunder prove` uses (compiler/src/cli.mjs resolveObligations):
+ * model `thunder prove` uses (compiler/src/obligations.mjs):
  *
- *   verified            a named in-file test proves the claim and passes
+ *   verified            all named in-file tests pass their declared cases
  *   failed              the claim's named test exists and fails
  *   declared            a verification is named (a scan, an external test)
  *                       but is not runnable in-file, so it does not count as proven
@@ -58,49 +58,6 @@ export type SelfProofMatrix = {
   };
 };
 
-export type Obligation = { verify?: string[] };
-export type ObligationAst = { guarantees?: Obligation[]; neverRules?: Obligation[] };
-
-export type ClaimStatus = "verified" | "declared" | "needsVerification" | "failed";
-
-/**
- * Resolve each guarantee/never claim against the specific in-file test that
- * verifies it. Mirrors resolveObligations in compiler/src/cli.mjs so the site
- * and `thunder prove` agree per claim.
- */
-export function claimStatuses(ast: ObligationAst, testResults: { target: string; pass: boolean }[]): ClaimStatus[] {
-  const testPass = new Map<string, boolean>();
-  for (const res of testResults) {
-    const cur = testPass.get(res.target);
-    testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
-  }
-  const norm = (s: unknown) => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
-  const matchTest = (verifyText: string): { name: string; pass: boolean } | null => {
-    const v = norm(verifyText);
-    if (!v) return null;
-    for (const [name, pass] of testPass) {
-      const n = norm(name);
-      if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass };
-    }
-    return null;
-  };
-  const statusOf = (o: Obligation): ClaimStatus => {
-    const verify = o.verify || [];
-    if (!verify.length) return "needsVerification";
-    let m: { name: string; pass: boolean } | null = null;
-    for (const vt of verify) {
-      const x = matchTest(vt);
-      if (x) {
-        m = x;
-        if (!x.pass) break;
-      }
-    }
-    if (m) return m.pass ? "verified" : "failed";
-    return "declared";
-  };
-  return [...(ast.guarantees || []), ...(ast.neverRules || [])].map(statusOf);
-}
-
 function emptyClaims(): ClaimCounts {
   return { verified: 0, declared: 0, needsVerification: 0, failed: 0, total: 0 };
 }
@@ -128,8 +85,8 @@ export function buildSelfProofMatrix(): SelfProofMatrix {
       const source = fs.readFileSync(path.join(EXAMPLES_DIR, file), "utf8");
       const ast = parseIntent(source);
       const diagnostics = semanticDiagnostics(ast);
-      const tests = runTests(ast);
-      const statuses = claimStatuses(ast as ObligationAst, tests.results);
+      const { tests, obligations } = resolveObligations(ast);
+      const statuses = obligations.map((o) => o.status === "unverified" ? "needsVerification" as const : o.status);
       const claims = emptyClaims();
       for (const s of statuses) {
         claims[s] += 1;

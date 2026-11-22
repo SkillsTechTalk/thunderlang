@@ -5,18 +5,18 @@
  */
 
 export const siteConfig = {
-  name: "Intent",
+  name: "ThunderLang",
   wordmark: "ThunderLang",
-  tagline: "The Intent-Oriented Programming Language",
+  tagline: "Executable rules for AI-assisted development",
   builtBy: "SkillsTech",
   // Production base URL. Override locally with NEXT_PUBLIC_SITE_URL if needed.
   url:
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://thunderlang.dev",
   description:
-    "ThunderLang is the intent language for AI-era software by SkillsTech. Define what software should do, what must never happen, and how it must be verified before code is generated or changed.",
+    "Write readable software rules, test their edge cases, and use the same contracts in OpenThunder or your existing developer tools.",
   promise:
-    "Write what your software should do. Let AI and the compiler help determine how to build it, verify it, and keep it understandable.",
+    "Keep the rules behind a code change explicit, executable, and reviewable.",
   twitter: "@skillstech",
   keywords: [
     "Intent programming language",
@@ -34,8 +34,8 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
-  { href: "/vision", label: "Vision" },
-  { href: "/architecture", label: "Architecture" },
+  { href: "/#contract-lab", label: "Try a rule" },
+  { href: "/docs/using-with-openthunder", label: "OpenThunder" },
   { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
   { href: "/roadmap", label: "Roadmap" },

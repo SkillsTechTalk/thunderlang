@@ -53,6 +53,19 @@ test('tools/list exposes the ThunderLang tools with input schemas', async () => 
   for (const t of r.result.tools) { assert.ok(t.description); assert.equal(t.inputSchema.type, 'object'); }
 });
 
+test('intent_atlas returns canonical review evidence and enforces incomplete strict checks', async () => {
+  const s = server();
+  const r = await s.request(101, 'tools/call', { name: 'intent_atlas', arguments: { files: [{ path: 'policy.thunder', source: 'mission Policy\n' }], strict: true } });
+  const result = JSON.parse(r.result.content[0].text);
+  assert.equal(result.atlas.schema, 'intent-review-atlas-v1');
+  assert.equal(result.ok, false);
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.atlas.files[0].status, 'needs-evidence');
+  assert.match(result.brief, /Application code/);
+  const invalid = await s.request(102, 'tools/call', { name: 'intent_atlas', arguments: { files: Array.from({ length: 101 }, () => ({ path: 'x', source: '' })) } });
+  assert.equal(invalid.result.isError, true);
+});
+
 test('tools/call intent_verify_diff gates a leak (BLOCK) through MCP', async () => {
   const s = server();
   const intent = 'mission M\nuse product\nnever expose the payment token in logs\ninput\n  paymentToken: Secret\n';
@@ -73,7 +86,7 @@ test('tools/call intent_run evaluates a decision', async () => {
 // targets against the canonical contract, drift checks code-as-it-is-today against the intent.
 const ENROLL = `mission Enroll
 guarantee eligibility is decided deterministically
-  verify CanEnroll test
+  verify test CanEnroll
 never expose the ssn in logs
 decision CanEnroll
   inputs

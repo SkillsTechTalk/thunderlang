@@ -202,6 +202,13 @@ declare module "*/compiler/src/hash.mjs" {
   export const sha256: (s: string) => string;
 }
 
+declare module "*/compiler/src/obligations.mjs" {
+  export function resolveObligations(ast: unknown): {
+    obligations: Array<{ status: 'verified' | 'failed' | 'declared' | 'unverified'; provenBy: string | null }>;
+    tests: { passed: number; failed: number; total: number; ok: boolean; results: Array<{ target: string; case: string; pass: boolean; expected?: unknown; actual?: unknown; error?: string }> };
+  };
+}
+
 declare module "*/compiler/src/runtime.mjs" {
   export interface DecisionRun {
     schema: string;

@@ -357,13 +357,13 @@ export const ecosystem: EcosystemItem[] = [
   },
   {
     name: "OpenThunder",
-    role: "Proves the repo matches the intent",
+    role: "Build and check changes against intent",
     detail:
-      "Reads intent, compares it to the real repo, and detects drift: unverified guarantees, violated rules, and ownership gaps.",
+      "The developer environment that consumes ThunderLang contracts alongside repository checks. Keep test results, unresolved claims, and implementation evidence visible.",
   },
   {
     name: "Repo Mastery",
-    role: "Proves the human understands the mission",
+    role: "Build understanding of the mission",
     detail:
       "Turns missions into learning paths, quizzes, and reality checks so engineers truly understand the code they own.",
   },
@@ -375,15 +375,9 @@ export const ecosystem: EcosystemItem[] = [
   },
   {
     name: "SkillsTech Certified",
-    role: "Proves the learner understands the method",
+    role: "A proposed path to demonstrate understanding",
     detail:
       "A path to demonstrate real, verifiable command of Intent-Oriented Programming and the intent behind a codebase.",
-  },
-  {
-    name: "Skills Tech Studio",
-    role: "Build it",
-    detail:
-      "The desktop environment where every role writes, previews, compiles, verifies, and traces intent, connected to real repo files.",
   },
 ];
 
