@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSy
 import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
+import { previewPlainContract } from './plain-contract.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
@@ -456,6 +457,7 @@ Real code vs intent (drift)
 
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
+  plain <file> [--json | --format source]   experimental plain-English contract (.thunder-plain): run its examples
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
@@ -531,6 +533,21 @@ function main() {
         for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
       }
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'plain') {
+    try {
+      if (!file) throw new Error('Use thunder plain <file> [--json | --format source].');
+      if (args.format && args.format !== 'source') throw new Error('The supported format is source; omit --format to run the examples.');
+      const report = previewPlainContract(readFileSync(file, 'utf8'));
+      if (args.json) console.log(JSON.stringify(report, null, 2));
+      else if (args.format === 'source') process.stdout.write(report.canonicalSource);
+      else {
+        console.log(`${report.model.title}: ${report.tests.passed} of ${report.tests.total} examples pass. Application: not checked.`);
+        for (const r of report.tests.results) if (!r.pass) console.log(`  failed: ${r.name}: expected ${r.expected}, got ${r.actual}`);
+      }
+      process.exitCode = report.tests.failed ? 1 : 0;
+    } catch (e) { console.error(`thunder plain: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'human') {

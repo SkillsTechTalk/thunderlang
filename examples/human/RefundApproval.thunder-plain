@@ -1,0 +1,20 @@
+Refund approval
+Why: Let support resolve small refunds without waiting for a manager.
+
+We need
+  the amount, in dollars
+  whether it is on time or late
+
+When do we approve a refund?
+  Approve when all of these are true:
+    it is on time
+    the amount is at least $0
+    the amount is at most $100
+  Otherwise, Review.
+
+Examples
+  $99, on time    gives Approve   (below the limit)
+  $100, on time   gives Approve   (exactly at the limit)
+  $101, on time   gives Review    (above the limit)
+  $50, late       gives Review    (outside the refund window)
+  -$1, on time    gives Review    (negative amount)

@@ -11,7 +11,7 @@ export const OUTPUT_TABS: { key: CodeLang | "thunder"; label: string }[] = [
   { key: "rust", label: "Rust" },
   { key: "csharp", label: "C#" },
   { key: "java", label: "Java" },
-  { key: "thunder", label: "Full .thunder" },
+  { key: "thunder", label: "ThunderLang" },
 ];
 
 export type OutputKey = (typeof OUTPUT_TABS)[number]["key"];

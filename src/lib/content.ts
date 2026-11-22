@@ -326,15 +326,15 @@ export const principles: Principle[] = [
   },
   {
     title: "Architecture-aware",
-    body: "ThunderLang understands services, APIs, events, databases, dependencies, ownership, and boundaries.",
+    body: "Thunder understands services, APIs, events, databases, dependencies, ownership, and boundaries.",
   },
   {
     title: "Repository-aware",
-    body: "ThunderLang maps missions to real repo files, services, tests, docs, and ownership.",
+    body: "Thunder maps missions to real repo files, services, tests, docs, and ownership.",
   },
   {
     title: "Human + AI collaboration",
-    body: "ThunderLang gives humans a clear way to express judgment and gives AI a structured way to help.",
+    body: "Thunder gives humans a clear way to express judgment and gives AI a structured way to help.",
   },
   {
     title: "Proof-producing",
@@ -392,23 +392,23 @@ export type NotItem = { label: string; body: string };
 export const whatIntentIsNot: NotItem[] = [
   {
     label: "Not an AI wrapper",
-    body: "ThunderLang is a language with its own model of intent, contracts, and verification, not a thin shell over a chat API.",
+    body: "Thunder is a language with its own model of intent, contracts, and verification, and a real compiler, not a thin shell over a chat API.",
   },
   {
     label: "Not a prompt format only",
-    body: "Prompts are one way to draft intent, but ThunderLang is structured, reviewable source, not a paragraph of instructions.",
+    body: "Prompts are one way to draft a rule, but Thunder is structured, reviewable, and executable, not a paragraph of instructions.",
   },
   {
-    label: "Not a no-code tool",
-    body: "ThunderLang is for engineers. It makes engineering intent explicit; it does not hide the system from the people who own it.",
+    label: "Not a no-code app builder",
+    body: "Product people can read rules in Thunder and propose changes. Engineers keep the code, the review, and the final say; nothing hides the system from the people who own it.",
   },
   {
     label: "Not a replacement for every language",
-    body: "ThunderLang sits above Python, TypeScript, .NET, Java, Go, and Rust as an intent and verification layer. It targets them; it does not erase them.",
+    body: "Thunder sits above Python, TypeScript, .NET, Java, Go, and Rust as a layer for reading, intent, and verification. It reads and targets them; it does not erase them.",
   },
   {
     label: "Not magic",
-    body: "There is no hidden trick. ThunderLang makes goals and guarantees explicit so tools can help you keep them.",
+    body: "There is no hidden trick. Thunder makes goals and guarantees explicit so tools can help you keep them.",
   },
   {
     label: "Not production-ready yet",

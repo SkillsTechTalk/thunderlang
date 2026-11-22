@@ -90,9 +90,11 @@ export default function ArchitecturePage() {
           </table>
         </div>
         <p className="mt-6 text-sm leading-relaxed text-haze-400">
-          The short name is <span className="text-haze-200">Thunder</span>; the language is{" "}
-          <span className="text-haze-200">ThunderLang</span>; the CLI is{" "}
-          <span className="font-mono text-haze-200">thunder</span>.
+          <span className="text-haze-200">Thunder</span> is the visual language for reading and changing the rules in software;{" "}
+          <span className="text-haze-200">ThunderLang</span> is its formal specification and compiler; the CLI is{" "}
+          <span className="font-mono text-haze-200">thunder</span>. Existing code shown in Thunder is{" "}
+          <span className="text-haze-200">Thundered</span>: Thundered Python, Thundered C#, Thundered Java.{" "}
+          <a className="text-gold-300 underline-offset-4 hover:underline" href="/docs/thunder-vocabulary">The vocabulary</a>.
         </p>
       </Section>
 

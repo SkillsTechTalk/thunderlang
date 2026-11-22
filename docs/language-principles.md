@@ -4,6 +4,15 @@ These are the design rules ThunderLang holds itself to. The manifesto says why t
 language exists; this page says why the language is shaped the way it is. Every
 construct, diagnostic, and compiler decision traces back to one of these.
 
+## 0. Programming, made human
+
+**AI should handle the complexity of writing software. Humans should keep the clarity
+and control to understand it.** Thunder is designed for the person who has to read,
+question, and approve a rule, not only the person or model that writes it. A rule is
+shown as a picture first and text second; every answer comes with the reason; every
+change shows which cases it affects. If a construct cannot be explained to a reader
+without programming vocabulary, it is not finished.
+
 ## 1. Meaning is the source of truth
 
 A `.thunder` file records what software should do, why it matters, and what must
