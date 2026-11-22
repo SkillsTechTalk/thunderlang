@@ -1,3 +1,7 @@
+# 0.5.3
+
+- Export the code reader from the package: `readCode`, `readRepo`, `searchRepo`, `groupByFile`, `readableLanguage`, and `promoteDecision` (turn a recovered decision into a contract with edge-case examples) from both the main entry and the browser-safe `/core` entry, plus `collectReadableFiles` (read a folder on disk) from the main entry. Tools such as OpenThunder can now import them directly instead of going through the MCP tool interface. Additive; no behavior changes.
+
 # 0.5.2
 
 - Add named example inputs with one `->` arrow, optional primitive input annotations, and multiline cases in human-v1. Existing tables and canonical source remain supported.
