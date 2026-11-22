@@ -44,6 +44,7 @@ export const OPENTHUNDER_URL = "https://openthunder.dev";
 
 // Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
 export const learnNav: NavItem[] = [
+  { href: "/install", label: "Install" },
   { href: "/learn", label: "Tutorial" },
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },

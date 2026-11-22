@@ -5,7 +5,7 @@ import Link from "next/link";
 import { readCode, searchReading, type ReadItem, type Reading } from "../../../compiler/src/read.mjs";
 import { READ_SAMPLES } from "./samples.mjs";
 import type { CodeLang } from "@/lib/code-tokens";
-import { FACETS, KNOW, ReadCard, SourceView, chip, field, linesOf, type ReadFacet } from "./parts";
+import { KNOW, ReadCard, SourceView, field, linesOf, isDrawable, type ReadFacet } from "./parts";
 import { FolderReader } from "./FolderReader";
 
 const LANGS: { key: string; label: string }[] = [
@@ -109,8 +109,14 @@ function FileReader({ know }: { know: CodeLang }) {
     setEditing(false);
     setSelected(item.id);
   }
-  const toggleKind = (k: ReadFacet) => setKinds((all) => (all.includes(k) ? all.filter((x) => x !== k) : [...all, k]));
-  const filtersOn = !!query || kinds.length > 0 || partialOnly;
+  // One simple choice instead of many chips: everything, the rules Thunder drew, or what a person must read.
+  const [view, setView] = useState<"all" | "rules" | "person">("all");
+  const main = items.filter((it) => it.kind === "decision" || it.kind === "function");
+  const extras = items.filter((it) => it.kind === "error" || it.kind === "test");
+  const rulesDrawn = main.filter(isDrawable);
+  const forPerson = main.filter((it) => !isDrawable(it));
+  const shown = view === "rules" ? rulesDrawn : view === "person" ? forPerson : main;
+  void kinds; void setKinds; void partialOnly; void setPartialOnly;
 
   return (
     <div className="space-y-8">
@@ -182,7 +188,7 @@ function FileReader({ know }: { know: CodeLang }) {
                 style={{ colorScheme: "dark" }}
               />
             ) : (
-              <SourceView source={source} highlighted={highlighted} label="Code with line numbers" />
+              <SourceView source={source} highlighted={highlighted} label="Code with line numbers" language={reading?.language} />
             )}
             {highlighted.size > 0 && !editing && (
               <p className="border-t border-white/10 px-4 py-2 text-xs text-haze-400">Highlighted: the lines behind your selection.</p>
@@ -197,58 +203,39 @@ function FileReader({ know }: { know: CodeLang }) {
           {!error && !reading && <p className="text-haze-300">Paste some code to read it.</p>}
           {reading && (
             <>
-              <div className="flex flex-col gap-3">
-                <label className="flex flex-col gap-1 text-sm text-haze-300">
-                  Search names, inputs, conditions, and answers
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="for example: enterprise, amount, Decline"
-                    className={field}
-                  />
-                </label>
-                <div role="group" aria-label="Show only" className="flex flex-wrap items-center gap-2">
-                  {FACETS.map((k) => {
-                    const count = k.key === "route" ? reading.counts.route : k.key === "guard" ? reading.counts.guarded : reading.counts[k.key];
-                    return (
-                      <button key={k.key} type="button" aria-pressed={kinds.includes(k.key)} onClick={() => toggleKind(k.key)} disabled={!count} className={chip(kinds.includes(k.key), k.tone)}>
-                        {k.label} <span className="text-haze-400">{count}</span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    aria-pressed={partialOnly}
-                    onClick={() => setPartialOnly((v) => !v)}
-                    className={`rounded-full border px-3 py-1 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300 ${
-                      partialOnly ? "border-amber-300/50 bg-amber-300/10 text-amber-200" : "border-white/15 text-haze-300 hover:text-haze-100"
-                    }`}
-                  >
-                    Needs a closer look
-                  </button>
-                  {filtersOn && (
-                    <button type="button" onClick={() => { setQuery(""); setKinds([]); setPartialOnly(false); }} className="text-sm font-medium text-gold-300 hover:text-gold-200">
-                      Clear filters
-                    </button>
-                  )}
-                </div>
-              </div>
-              <p id="read-summary" role="status" aria-live="polite" className="text-sm text-haze-300">
-                {items.length === reading.items.length
-                  ? `${reading.counts.decision} decision${reading.counts.decision === 1 ? "" : "s"}, ${reading.counts.function} other function${reading.counts.function === 1 ? "" : "s"}, ${reading.counts.error} error${reading.counts.error === 1 ? "" : "s"}, ${reading.counts.test} test${reading.counts.test === 1 ? "" : "s"}.`
-                  : `Showing ${items.length} of ${reading.items.length}.`}{" "}
-                {items.length === 0 && "Nothing matches. Try fewer words or clear the filters."}
+              <p id="read-summary" role="status" aria-live="polite" className="text-haze-100">
+                Thunder drew <strong className="text-white">{rulesDrawn.length} rule{rulesDrawn.length === 1 ? "" : "s"}</strong>.{" "}
+                {forPerson.length > 0 ? <><strong className="text-white">{forPerson.length}</strong> {forPerson.length === 1 ? "function needs" : "functions need"} a person to read.</> : "Nothing else needs a person."}
               </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div role="radiogroup" aria-label="Show" className="inline-flex rounded-lg border border-white/12 p-0.5">
+                  {([["all", "Everything", main.length], ["rules", "Rules", rulesDrawn.length], ["person", "Needs a person", forPerson.length]] as const).map(([k, label, n]) => (
+                    <button key={k} type="button" role="radio" aria-checked={view === k} onClick={() => setView(k)}
+                      className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300 ${view === k ? "bg-white/12 font-medium text-white" : "text-haze-300 hover:text-white"}`}>{label} <span className="text-haze-400">{n}</span></button>
+                  ))}
+                </div>
+                <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search names, inputs, conditions, and answers"
+                  placeholder="Search, e.g. amount" className={`${field} sm:ml-auto sm:w-56`} />
+              </div>
+              {shown.length === 0 && <p className="text-sm text-haze-300">Nothing here. {query ? "Try fewer words." : "Choose Everything."}</p>}
               <ul className="space-y-4">
-                {items.map((it) => (
+                {shown.map((it) => (
                   <ReadCard key={it.id} item={it} know={know} selected={selected === it.id} onShow={() => showInCode(it)} />
                 ))}
               </ul>
+              {extras.length > 0 && (
+                <div className="rounded-xl border border-white/10 p-4">
+                  <p className="text-sm font-medium text-haze-200">Also found</p>
+                  <ul className="mt-2 space-y-1 text-sm text-haze-300">
+                    {extras.map((e) => (
+                      <li key={e.id}><button type="button" onClick={() => showInCode(e)} className="text-left hover:text-white"><span className="text-haze-400">{e.kind === "error" ? "Error" : "Test"} · line {e.line}:</span> {e.says}</button></li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <p className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-relaxed text-haze-400">
-                Inferred from the code by pattern, not by running it, and with no AI. A reading shows what the code appears to
-                decide, not what it was meant to decide. Anything it could not read is listed under &ldquo;Not read&rdquo;
-                instead of being guessed.
+                Read from the code by pattern, not by running it, and with no AI. It shows what the code does today, not what it
+                was meant to do. Anything Thunder can&apos;t read is marked for a person instead of guessed.
               </p>
             </>
           )}

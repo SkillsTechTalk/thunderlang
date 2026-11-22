@@ -6,7 +6,11 @@ import type { ReadItem, ReadKind } from "../../../compiler/src/read.mjs";
 import { parseIntent } from "../../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../../compiler/src/translate.mjs";
 import { HighlightedCode, HighlightedSource } from "@/lib/highlight";
-import type { CodeLang } from "@/lib/code-tokens";
+import { readLang, tokenizeCode, type CodeLang } from "@/lib/code-tokens";
+import { plainFromReading } from "../../../compiler/src/plain-contract.mjs";
+import type { PlainModel } from "../../../compiler/src/plain-contract.d.mts";
+import { RulePictureStatic } from "@/app/try/RuleVisual";
+import { AskIt } from "@/components/AskIt";
 
 export const KNOW: { key: CodeLang; label: string }[] = [
   { key: "typescript", label: "TypeScript" },
@@ -46,6 +50,14 @@ const KIND_BADGE: Record<ReadKind, { label: string; tone: string }> = {
   test: { label: "Test", tone: FACETS[5].tone },
 };
 
+/** True when Thunder can draw this item as a Thunder card. */
+export function isDrawable(item: ReadItem): boolean {
+  if (item.kind !== "decision") return false;
+  try { return !!plainFromReading(item); } catch { return false; }
+}
+
+const readable = (n: string) => n.replace(/^(GET|POST|PUT|PATCH|DELETE) /, "").replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").replace(/\?$/, "").toLowerCase().replace(/^./, (c) => c.toUpperCase());
+
 /** Every source line a reading item is based on, for highlighting. */
 export function linesOf(item: ReadItem): number[] {
   const lines = new Set<number>([item.line]);
@@ -57,7 +69,10 @@ export function linesOf(item: ReadItem): number[] {
 }
 
 /** Source with line numbers; highlighted lines scroll into view when they change. */
-export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560px]" }: { source: string; highlighted: Set<number>; label: string; maxHeight?: string }) {
+export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560px]", language = "typescript" }: { source: string; highlighted: Set<number>; label: string; maxHeight?: string; language?: string }) {
+  const lang = readLang(language);
+  // Editor colors, line by line, in the site's shared palette (same as every code block).
+  const colored = useMemo(() => source.split("\n").map((l) => tokenizeCode(l, lang)), [source, lang]);
   const refs = useRef(new Map<number, HTMLElement>());
   const first = useMemo(() => Math.min(...highlighted), [highlighted]);
   useEffect(() => {
@@ -72,7 +87,7 @@ export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560
           className={`flex ${highlighted.has(i + 1) ? "bg-gold-400/15 text-white" : ""}`}
         >
           <span className="w-12 shrink-0 select-none pr-4 text-right text-haze-500">{i + 1}</span>
-          <span className="whitespace-pre pr-4">{l || " "}</span>
+          <span className="whitespace-pre pr-4">{l ? colored[i].map((t, k) => (t.cls ? <span key={k} className={t.cls}>{t.text}</span> : <span key={k}>{t.text}</span>)) : " "}</span>
         </div>
       ))}
     </pre>
@@ -90,33 +105,42 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
     }
   }, [item.thunder, know]);
   const knowLabel = KNOW.find((k) => k.key === know)?.label ?? know;
+  // The picture is the product: a decision Thunder can draw becomes a Thunder card.
+  const card = useMemo(() => {
+    if (item.kind !== "decision") return null;
+    try { return plainFromReading(item) as (PlainModel & { needsReview?: string[]; partial?: boolean }) | null; } catch { return null; }
+  }, [item]);
+  const dashed = item.kind === "function" || (item.kind === "decision" && !card);
   const guards = item.guards ?? [];
   const [promoting, setPromoting] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
+  const [showUnread, setShowUnread] = useState(false);
+  const [hood, setHood] = useState(false);
 
   return (
-    <li className={`rounded-2xl border transition ${compact ? "p-4" : "p-5"} ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : "border-white/10 bg-ink-850/40"}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        {item.route ? (
-          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${FACETS[0].tone}`}>Route</span>
-        ) : (
-          <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${kind.tone}`}>{kind.label}</span>
-        )}
-        <h3 className="min-w-0 break-all font-mono text-base font-semibold text-white">{item.name}</h3>
-        {item.status === "partial" && <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-xs text-amber-200">Partly read</span>}
-        <button
-          type="button"
-          onClick={onShow}
-          aria-pressed={selected}
-          className="ml-auto rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-haze-200 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300"
-        >
-          {selected ? `Showing line ${item.line}` : `Show line ${item.line} in the code`}
-        </button>
-      </div>
-      <p className="mt-3 leading-relaxed text-haze-100">{guards.length ? item.says.replace(/ It checks \d+ conditions? first:.*$/, "") : item.says}</p>
+    <li className={`rounded-2xl border transition ${compact ? "p-4" : "p-5"} ${dashed ? "border-dashed" : ""} ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : dashed ? "border-white/20" : "border-white/10 bg-ink-850/40"}`}>
+      <button type="button" onClick={onShow} aria-pressed={selected} title="Highlight it in the code"
+        className="flex w-full items-center gap-2 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">
+        {card
+          ? <><span aria-hidden="true" className="text-[#7FB2FF]">◇</span><span className="min-w-0 text-base font-semibold tok-fn">{card.question}</span></>
+          : <><span aria-hidden="true" className="text-haze-400">▭</span><span className="min-w-0 truncate text-base font-semibold text-white">{readable(item.name)}</span></>}
+        {item.route && <span className={`rounded-full border px-2 py-0.5 text-[11px] ${FACETS[0].tone}`}>{item.route.method} {item.route.path}</span>}
+        {(item.status === "partial" || card?.partial) && <span className="rounded-full border border-dashed border-white/30 px-2 py-0.5 text-[11px] text-haze-300">partly read</span>}
+        <span className="ml-auto shrink-0 font-mono text-xs text-haze-400">{card || item.name !== readable(item.name) ? `${item.name} · ` : ""}line {item.line}</span>
+      </button>
+      {card ? (
+        <div className="mt-4">
+          <RulePictureStatic model={card} hideQuestion />
+          {asking && !compact && <div className="mt-4 border-t border-white/10 pt-4"><AskIt model={card} /></div>}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm leading-relaxed text-haze-300">Thunder can&apos;t draw this yet. {guards.length ? item.says.replace(/ It checks \d+ conditions? first:.*$/, "").replace(/ Its body does more than choose between fixed answers, so no rules are shown\./, "") : ""}</p>
+      )}
 
       {guards.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#F9A8D4]">Checks first</p>
+          <p className="text-xs font-medium text-haze-400">It checks first</p>
           <ul className="mt-1 space-y-1 text-sm text-haze-200">
             {guards.map((g, i) => (
               <li key={i} className="flex gap-2">
@@ -132,66 +156,40 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
         </div>
       )}
 
-      {item.rules && item.otherwise && (
-        <table className="mt-4 w-full text-left text-sm">
-          <caption className="sr-only">Rules for {item.name}, checked top to bottom</caption>
-          <thead className="text-xs uppercase tracking-wide text-haze-400">
-            <tr><th scope="col" className="pb-2 pr-4 font-medium">When</th><th scope="col" className="pb-2 font-medium">The answer is</th></tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {item.rules.map((r, i) => (
-              <tr key={i}>
-                <td className="py-2 pr-4 text-haze-200">{i ? "Otherwise, if " : "If "}{r.says}</td>
-                <td className="py-2 font-medium text-[#67E8F9]">{r.result}</td>
-              </tr>
-            ))}
-            <tr>
-              <td className="py-2 pr-4 text-haze-200">Otherwise</td>
-              <td className="py-2 font-medium text-[#67E8F9]">{item.otherwise.result}</td>
-            </tr>
-          </tbody>
-        </table>
-      )}
 
-      {item.thunder && (
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          <div className="min-w-0">
-            <p className="mb-1 text-xs font-medium text-haze-400">In ThunderLang</p>
-            <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedSource source={item.thunder} /></pre>
-          </div>
-          {rewritten && (
-            <div className="min-w-0">
-              <p className="mb-1 text-xs font-medium text-haze-400">In {knowLabel}, a language you know</p>
-              <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedCode source={rewritten} lang={know} /></pre>
-            </div>
+      {!compact && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-sm">
+          {card && <button type="button" aria-expanded={asking} onClick={() => setAsking((v) => !v)} className={`rounded-lg border px-3 py-1.5 font-medium ${asking ? "border-gold-300/60 text-white" : "border-white/20 text-haze-100 hover:bg-white/10"} focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300`}>{asking ? "Hide Ask it" : "Ask it"}</button>}
+          {item.kind === "decision" && <button type="button" aria-expanded={promoting} onClick={() => setPromoting((v) => !v)} className="rounded-lg px-3 py-1.5 text-haze-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">{promoting ? "Hide the contract" : "Turn into a contract"}</button>}
+          {!!card?.needsReview?.length && <button type="button" aria-expanded={reviewing} onClick={() => setReviewing((v) => !v)} className="rounded-lg px-3 py-1.5 text-haze-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">{card.needsReview.length} to confirm</button>}
+          {!!item.unread?.length && <button type="button" aria-expanded={showUnread} onClick={() => setShowUnread((v) => !v)} className="rounded-lg px-3 py-1.5 text-haze-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">{item.unread.length} line{item.unread.length === 1 ? "" : "s"} not read</button>}
+          {item.thunder && <button type="button" aria-expanded={hood} onClick={() => setHood((v) => !v)} className="ml-auto rounded-lg px-3 py-1.5 text-haze-400 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">Under the hood</button>}
+        </div>
+      )}
+      {reviewing && !!card?.needsReview?.length && (
+        <ul className="mt-3 space-y-1 rounded-lg border border-dashed border-white/20 p-3 text-sm text-haze-300">{card.needsReview.map((n) => <li key={n}>• {n}</li>)}</ul>
+      )}
+      {showUnread && !!item.unread?.length && (
+        <ul className="mt-3 space-y-1 rounded-lg border border-dashed border-white/20 p-3 text-sm">
+          {item.unread.map((u, i) => <li key={i} className="text-haze-300"><span className="text-haze-400">Line {u.line}:</span> <code className="font-mono text-haze-200">{u.text}</code> {u.reason}</li>)}
+        </ul>
+      )}
+      {promoting && <div className="mt-3"><PromotePanel item={item} file={(item as ReadItem & { file?: string }).file} /></div>}
+      {hood && item.thunder && (
+        <div className="mt-3 space-y-3">
+          {item.rules && item.otherwise && (
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Rules for {item.name}, checked top to bottom</caption>
+              <tbody className="divide-y divide-white/5">
+                {item.rules.map((r, i) => <tr key={i}><td className="py-1.5 pr-4 text-haze-300">{i ? "Otherwise, if " : "If "}{r.says}</td><td className="py-1.5 font-medium text-[#67E8F9]">{r.result}</td></tr>)}
+                <tr><td className="py-1.5 pr-4 text-haze-300">Otherwise</td><td className="py-1.5 font-medium text-[#67E8F9]">{item.otherwise.result}</td></tr>
+              </tbody>
+            </table>
           )}
-        </div>
-      )}
-
-      {item.kind === "decision" && (
-        <div className="mt-4">
-          <button
-            type="button"
-            aria-expanded={promoting}
-            onClick={() => setPromoting((v) => !v)}
-            className="rounded-lg border border-gold-300/50 px-3 py-2 text-sm font-semibold text-gold-200 hover:bg-gold-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300"
-          >
-            {promoting ? "Hide the contract" : "Turn into a contract"}
-          </button>
-          {promoting && <PromotePanel item={item} file={(item as ReadItem & { file?: string }).file} />}
-        </div>
-      )}
-
-      {!compact && !!item.unread?.length && (
-        <div className="mt-4 rounded-lg border border-amber-300/20 bg-amber-300/[0.05] p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">Not read</p>
-          <ul className="mt-1 space-y-1 text-sm">
-            {item.unread.map((u, i) => (
-              <li key={i} className="text-haze-300">
-                <span className="text-haze-400">Line {u.line}:</span> <code className="font-mono text-haze-200">{u.text}</code> {u.reason}
-              </li>
-            ))}
-          </ul>
+          <div className="grid gap-3 xl:grid-cols-2">
+            <div className="min-w-0"><p className="mb-1 text-xs font-medium text-haze-400">Thunder source</p><pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedSource source={item.thunder} /></pre></div>
+            {rewritten && <div className="min-w-0"><p className="mb-1 text-xs font-medium text-haze-400">In {knowLabel}</p><pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedCode source={rewritten} lang={know} /></pre></div>}
+          </div>
         </div>
       )}
       {compact && !!item.unread?.length && (

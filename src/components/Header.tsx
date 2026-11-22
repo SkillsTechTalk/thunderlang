@@ -45,7 +45,7 @@ export function Header() {
           <a href={OPENTHUNDER_URL} className="whitespace-nowrap rounded-full border border-gold-300/40 px-3.5 py-1.5 text-sm font-medium text-gold-200 transition hover:border-gold-300/70 hover:bg-gold-300/10">
             OpenThunder ↗
           </a>
-          <Link href="/docs/getting-started" className="btn-primary whitespace-nowrap">
+          <Link href="/install" className="btn-primary whitespace-nowrap">
             Get started
           </Link>
         </div>
@@ -114,7 +114,7 @@ export function Header() {
               GitHub
             </a>
             <Link
-              href="/docs/getting-started"
+              href="/install"
               onClick={() => setOpen(false)}
               className="btn-primary mt-3 w-full"
             >

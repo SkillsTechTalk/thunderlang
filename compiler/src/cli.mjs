@@ -17,6 +17,7 @@ import { basename, join, relative, dirname } from 'node:path';
 import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
 import { previewPlainContract } from './plain-contract.mjs';
+import { thunderRepo, renderThunderRepo } from './thunder-repo.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
@@ -457,6 +458,8 @@ Real code vs intent (drift)
 
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
+  --version                 print the Thunder compiler version
+  repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
@@ -487,6 +490,10 @@ function main() {
   const [cmd, ...restArgv] = process.argv.slice(2);
   const args = parseArgs(restArgv);
   const file = args._[0];
+  if (cmd === '--version' || cmd === '-v' || cmd === 'version') {
+    console.log(`thunder ${COMPILER_VERSION} (the Thunder compiler, also called ThunderLang)`);
+    return;
+  }
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
     process.exit(cmd ? 0 : 2);
@@ -533,6 +540,15 @@ function main() {
         for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
       }
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'repo') {
+    try {
+      if (!file) throw new Error('Use thunder repo <owner/repo | https://github.com/owner/repo | folder> [--json].');
+      const report = thunderRepo(file, { maxFiles: args.maxFiles ? Number(args.maxFiles) : undefined });
+      console.log(args.json ? JSON.stringify(report, null, 2) : renderThunderRepo(report));
+      process.exitCode = report.errors.length ? 1 : 0;
+    } catch (e) { console.error(`thunder repo: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'plain' || cmd === 'text') {

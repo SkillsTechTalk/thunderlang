@@ -6,12 +6,12 @@ import { HighlightedPlainPhrase } from "@/lib/highlight";
 import { DecisionGlyph, Outcome } from "./Glyphs";
 
 /** "$100, on time" with each value in its color. */
-export function RequestWords({ model, values }: { model: PlainModel; values: Record<string, number | boolean> }) {
+export function RequestWords({ model, values }: { model: PlainModel; values: Record<string, number | boolean | string> }) {
   return <span>{model.inputs.map((input, i) => <span key={input.id}>{i > 0 && ", "}<span className={input.kind === "yesno" ? "tok-id" : "tok-num"}>{formatValue(input, values[input.id])}</span></span>)}</span>;
 }
 
 /** The answer to one request, and the checks that decided it, as readable sentences. */
-export function AnswerView({ model, values, explanation, context }: { model: PlainModel; values: Record<string, number | boolean>; explanation: PlainExplanation; context: string }) {
+export function AnswerView({ model, values, explanation, context }: { model: PlainModel; values: Record<string, number | boolean | string>; explanation: PlainExplanation; context: string }) {
   const decided = explanation.ruleIndex >= 0;
   const rules = decided ? [explanation.rules[explanation.ruleIndex]] : explanation.rules;
   return <div>
@@ -33,11 +33,11 @@ export function AnswerView({ model, values, explanation, context }: { model: Pla
 }
 
 /** The rule as a picture with nothing to click: words in their colors, shapes beside them. */
-export function RulePictureStatic({ model }: { model: PlainModel }) {
+export function RulePictureStatic({ model, hideQuestion = false }: { model: PlainModel; hideQuestion?: boolean }) {
   const context = renderContext(model);
   return <div>
-    <p className="flex items-center gap-2 font-semibold"><DecisionGlyph /><span className="tok-fn">{model.question}</span></p>
-    <div className="mt-3 space-y-3 border-l border-white/15 pl-5 text-[15px]">
+    {!hideQuestion && <p className="flex items-center gap-2 font-semibold"><DecisionGlyph /><span className="tok-fn">{model.question}</span></p>}
+    <div className={`${hideQuestion ? "" : "mt-3"} space-y-3 border-l border-white/15 pl-5 text-[15px]`}>
       {model.rules.map((r, ri) => <div key={ri}>
         <p className="flex flex-wrap items-center gap-2"><Outcome>{r.outcome}</Outcome>
           <span className="tok-key">{r.conditions.length > 1 ? `when ${r.join} of these ${r.join === "all" ? "are" : "is"} true` : "when"}</span></p>
