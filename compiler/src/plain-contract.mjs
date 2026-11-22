@@ -267,7 +267,18 @@ const spaced = s => s.replace(/([a-z0-9])([A-Z])/g, (_m, a, b) => `${a} ${b.toLo
  */
 export function plainFromReading(item) {
   if (!item || item.kind !== 'decision' || !item.rules?.length || !item.otherwise) return null;
-  const inputs = (item.inputs ?? []).map(i => (i.type === 'boolean'
+  // Untyped languages (JavaScript, Ruby, untyped Python): infer a type only from how the rule uses the input,
+  // and say so in needsReview. Compared with a number -> number; used alone as a condition -> yes/no.
+  const inferred = [];
+  const whens = (item.rules ?? []).map(r => r.when ?? '').join(' and ');
+  const typed = (item.inputs ?? []).map(i => {
+    if (i.type) return i;
+    const esc = i.name.replace(/[$]/g, '\\$');
+    if (new RegExp(`\\b${esc}\\s*(>=|<=|<|>|==)\\s*-?\\d`).test(whens)) { inferred.push(i.name); return { ...i, type: 'number' }; }
+    if (new RegExp(`(^|\\s|not\\s+|!)${esc}(\\s|$)`).test(whens)) { inferred.push(i.name); return { ...i, type: 'boolean' }; }
+    return i;
+  });
+  const inputs = typed.map(i => (i.type === 'boolean'
     ? { id: i.name, kind: 'yesno', label: `it is ${spaced(i.name)}`, yes: spaced(i.name), no: `not ${spaced(i.name)}` }
     : i.type === 'number' ? { id: i.name, kind: 'number', label: `the ${spaced(i.name)}` } : null));
   if (inputs.some(i => !i)) return null;
@@ -295,6 +306,7 @@ export function plainFromReading(item) {
   for (const i of inputs) {
     model.needsReview.push(i.kind === 'yesno' ? `What does "${i.yes}" mean in business words?` : `Is ${i.label} money, a count, or something else?`);
   }
+  for (const name of inferred) model.needsReview.push(`The code does not declare a type for ${spaced(name)}; Thunder inferred it from how the rule uses it.`);
   model.needsReview.push('Why does this rule exist? Code shows what happens, not why.', 'No examples yet: add cases before relying on it.');
   return model;
 }

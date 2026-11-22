@@ -457,7 +457,7 @@ Real code vs intent (drift)
 
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
-  plain <file> [--json | --format source]   experimental plain-English contract (.thunder-plain): run its examples
+  text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
@@ -535,7 +535,7 @@ function main() {
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
     return;
   }
-  if (cmd === 'plain') {
+  if (cmd === 'plain' || cmd === 'text') {
     try {
       if (!file) throw new Error('Use thunder plain <file> [--json | --format source].');
       if (args.format && args.format !== 'source') throw new Error('The supported format is source; omit --format to run the examples.');

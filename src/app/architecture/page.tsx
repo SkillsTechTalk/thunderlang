@@ -5,12 +5,12 @@ import { pageMeta } from "@/lib/seo";
 export const metadata = pageMeta({
   title: "How Thunder works",
   description:
-    "The Thunder architecture, the way Java has the JVM. ThunderLang is the language; the Thunder Compiler turns it into the Intent Graph; the Thunder Engine executes and proves it deterministically; OpenThunder verifies it stays true.",
+    "The Thunder architecture, the way Java has the JVM. Thunder (also called ThunderLang) is the language; the Thunder Compiler turns it into the Intent Graph; the Thunder Engine executes and proves it deterministically; OpenThunder verifies it stays true.",
   path: "/architecture",
 });
 
 const analogy: [string, string, string][] = [
-  ["Java (the language)", "ThunderLang", "the language you write, in .thunder files"],
+  ["Java (the language)", "Thunder (ThunderLang)", "the language you read and write, in .thunder files"],
   ["javac (the compiler)", "Thunder Compiler", "source to the Intent Graph and to target code"],
   ["bytecode", "Intent Graph", "the canonical compiled model everything binds to"],
   ["the JVM", "Thunder Engine", "runs and proves intent deterministically, no AI"],
@@ -59,14 +59,14 @@ export default function ArchitecturePage() {
       <PageHero
         eyebrow="Architecture"
         title="How Thunder works."
-        intro="Thunder is built the way Java is: a language, a compiler, a portable model, and an engine that runs it. ThunderLang is the language; the Thunder Compiler turns it into the Intent Graph; the Thunder Engine executes and proves it, deterministically and offline. OpenThunder is the platform that keeps the proof honest over time."
+        intro="Thunder is built the way Java is: a language, a compiler, a portable model, and an engine that runs it. Thunder (also called ThunderLang) is the language; the Thunder Compiler turns it into the Intent Graph; the Thunder Engine executes and proves it, deterministically and offline. OpenThunder is the platform that keeps the proof honest over time."
       />
 
       {/* The analogy */}
       <Section>
         <SectionHeading
           eyebrow="The shape of it"
-          title="ThunderLang is to the Thunder Engine what Java is to the JVM."
+          title="Thunder is to the Thunder Engine what Java is to the JVM."
           intro="If you know the Java stack, you already know this one."
         />
         <div className="mt-8 overflow-x-auto">
@@ -91,7 +91,7 @@ export default function ArchitecturePage() {
         </div>
         <p className="mt-6 text-sm leading-relaxed text-haze-400">
           <span className="text-haze-200">Thunder</span> is the visual language for reading and changing the rules in software;{" "}
-          <span className="text-haze-200">ThunderLang</span> is its formal specification and compiler; the CLI is{" "}
+          <span className="text-haze-200">ThunderLang</span> is another name for the same language, the way Go is also called Golang; the CLI is{" "}
           <span className="font-mono text-haze-200">thunder</span>. Existing code shown in Thunder is{" "}
           <span className="text-haze-200">Thundered</span>: Thundered Python, Thundered C#, Thundered Java.{" "}
           <a className="text-gold-300 underline-offset-4 hover:underline" href="/docs/thunder-vocabulary">The vocabulary</a>.

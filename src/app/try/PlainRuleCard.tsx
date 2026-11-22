@@ -19,7 +19,7 @@ function track(name: string, params: Record<string, string | number | boolean>) 
 }
 
 type View = "picture" | "plain" | "source" | "python";
-const VIEWS: Array<[View, string]> = [["picture", "Thunder"], ["plain", "Thunder text"], ["source", "ThunderLang"], ["python", "Python"]];
+const VIEWS: Array<[View, string]> = [["picture", "Thunder"], ["plain", "Thunder Text"], ["source", "Thunder source"], ["python", "Python"]];
 // Editable words keep their syntax color; the box around them says "you can change this".
 const control = "rounded-md border border-white/25 bg-white/[0.06] px-2 py-1 font-semibold hover:border-white/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300";
 const button = "rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold transition hover:bg-white/10 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300";
@@ -167,14 +167,14 @@ export function PlainRuleCard({ initialSource, breadcrumb }: { initialSource: st
         <p className="mt-3 text-xs text-haze-400">Rules are checked from the top. The first one that fits decides; “otherwise” catches everything else.</p>
       </>}
       {view === "plain" && <div>
-        <label htmlFor={`${ids}-text`} className="text-sm text-haze-200">Thunder saved as text, for versioning and review. You never need it, but editing it updates the picture.</label>
+        <label htmlFor={`${ids}-text`} className="text-sm text-haze-200">Thunder Text: the same rule in readable words, saved for versioning and review. You never need it, but editing it updates the picture.</label>
         <div className="mt-2 overflow-hidden rounded-xl border border-white/15 bg-black/30">
           <ThunderEditor id={`${ids}-text`} value={text} onChange={onText} invalid={!!textError} describedBy={textError ? `${ids}-text-error` : undefined}
             minRows={10} highlight={src => <HighlightedPlain source={src} />} />
         </div>
         {textError && <p id={`${ids}-text-error`} role="alert" className="mt-2 rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-sm text-red-200">{textError} The picture keeps the last version that could be read.</p>}
       </div>}
-      {view === "source" && <Code label="Compiled ThunderLang. Generated from the Thunder text; engineers and tools use this."><HighlightedSource source={proposed.canonicalSource} /></Code>}
+      {view === "source" && <Code label="Thunder source (.thunder), generated from the Thunder Text. Engineers and tools use this."><HighlightedSource source={proposed.canonicalSource} /></Code>}
       {view === "python" && <Code label="Python generated from the same rule. Deterministic, no AI."><HighlightedCode source={python} lang="python" /></Code>}
     </div>
 

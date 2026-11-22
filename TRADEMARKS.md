@@ -1,7 +1,8 @@
 # ThunderLang Trademark Policy
 
-ThunderLang, the ThunderLang name, and the ThunderLang logo are trademarks of
-Skills Tech Talk, LLC. This policy explains how you may and may not use them.
+Thunder™, ThunderLang™, their names, and the Thunder and ThunderLang logos are
+trademarks of Skills Tech Talk, LLC. Thunder and ThunderLang name the same language
+(like Go and Golang). This policy explains how you may and may not use them.
 
 The source code in this repository is licensed under the Apache License, Version
 2.0. That open-source license covers the **code**. It does **not** grant any
