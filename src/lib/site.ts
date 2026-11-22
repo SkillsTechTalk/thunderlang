@@ -71,6 +71,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
   {
     title: "Project",
     items: [
+      { href: "https://github.com/SkillsTechTalk/thunderlang", label: "Source on GitHub" },
       { href: "/roadmap", label: "Roadmap" },
       { href: "/proof", label: "Proof matrix" },
       { href: "/blog", label: "Blog" },

@@ -117,7 +117,9 @@ export default function HomePage() {
             <p className="mt-6 max-w-lg text-sm leading-relaxed text-haze-400">
               Not just a language: it has a real compiler, and{" "}
               <a href="#compiler" className="font-medium text-gold-300 hover:text-gold-200">OpenThunder is where it runs</a>.
-              The same open-source compiler also runs in your browser and your terminal. Deterministic: no AI and no key
+              The same{" "}
+              <a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-300 hover:text-gold-200">open-source compiler</a>{" "}
+              also runs in your browser and your terminal. Deterministic: no AI and no key
               needed.
             </p>
           </div>
