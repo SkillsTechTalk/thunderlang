@@ -113,3 +113,17 @@ test('ruleParts shows only numbers, comparisons, and text as changeable, and joi
   assert.equal(joinRuleParts(ruleParts('tier == "gold"')), 'tier == "gold"');
   assert.deepEqual(COMPARISON_CHOICES.map((c) => c.words), ['at most', 'less than', 'at least', 'more than', 'is', 'is not']);
 });
+
+test('Python rules with trailing # comments are read and written, and the comments are kept', () => {
+  const source = 'def approve_refund(amount, is_vip):  # decide\n    if is_vip:  # VIPs first\n        return "Approve"\n    if amount <= 100.0:  # limit 100\n        return "Approve"\n    return "Review"  # fallback\n';
+  const d = decisionOf(source, 'python');
+  assert.deepEqual(d.rules.map((r) => r.when), ['is_vip', 'amount <= 100']);
+  assert.equal(d.otherwise.result, 'Review');
+  assert.deepEqual(d.unread, []);
+  const r = writeRule({ source, language: 'python', decision: 'approve_refund', rule: 2, when: 'amount < 75' });
+  assert.ok(r.ok, r.problems?.join(' '));
+  assert.equal(r.source.split('\n')[3], '    if amount < 75.0:  # limit 100');
+  // A # inside a string is text, not a comment.
+  const s = decisionOf('def tier(code):\n    if code == "a#b":  # exact code\n        return "Gold"\n    return "Basic"\n', 'python');
+  assert.deepEqual(s.rules.map((x) => x.when), ['code == "a#b"']);
+});

@@ -1,7 +1,7 @@
 // Lossless anchoring: every Thunder step points at its exact place in the original file, so a change made
 // in Thunder can be written back to exactly that place and nowhere else. This is the foundation for
 // Thunder write. Deterministic and browser-safe; it edits text only and never runs code.
-import { readCode } from './read.mjs';
+import { readCode, pyNoComment, rbNoComment } from './read.mjs';
 
 export const ANCHOR_SCHEMA = 'thunder-anchor-v1';
 
@@ -38,6 +38,15 @@ export function replaceSpan(source, span, replacement) {
   return source.slice(0, a) + replacement + source.slice(b);
 }
 
+/** The trailing # comment on a Python or Ruby line, with the spaces before it; '' when there is none. */
+function trailingComment(text, language) {
+  const strip = language === 'python' ? pyNoComment : language === 'ruby' ? rbNoComment : null;
+  if (!strip) return '';
+  const last = String(text).split('\n').pop();
+  const rest = last.slice(strip(last).replace(/\s+$/, '').length);
+  return /^\s*#/.test(rest) ? rest : '';
+}
+
 /** Find a step by path: [3] is the 4th top-level step, [1, 0] the first step inside the 2nd. */
 function stepAt(steps, path) {
   let list = steps, step = null;
@@ -72,6 +81,9 @@ export function editStep({ source, language, file = '', functionName, line = nul
   const step = stepAt(fn.steps, path);
   if (!step?.span) return { ok: false, source, problems: [`Step ${path.join('.')} does not exist in ${functionName}.`] };
   const original = spanText(source, step.span);
+  // Whole-line spans include a trailing # comment; keep it unless the replacement brings its own.
+  const comment = step.span.exact !== 'offset' ? trailingComment(original, before.language) : '';
+  if (comment && !String(replacement).includes('#')) replacement = String(replacement).replace(/\s+$/, '') + comment;
   const next = replaceSpan(source, step.span, replacement);
 
   // Verify: re-read, the function is still there, the edited step reads as the new code, others unchanged.
