@@ -106,3 +106,7 @@ export type { TranslateLanguage } from './translate.mjs';
 // Read code you don't know.
 export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
+export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
+export type { Promotion } from './promote.mjs';

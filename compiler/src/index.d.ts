@@ -724,3 +724,12 @@ export interface ChangeReport {
   touchedNodeIds: string[];
 }
 export function changeReport(pairs: Array<{ path: string; before: IntentGraph | null; after: IntentGraph | null }>): ChangeReport;
+
+// Read code you don't know.
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
+export type { Reading, ReadItem, ReadKind } from './read.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
+export function collectReadableFiles(root: string, options?: { maxFiles?: number; maxFileBytes?: number }): Array<{ path: string; source: string; size?: number }>;
+export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
+export type { Promotion } from './promote.mjs';
