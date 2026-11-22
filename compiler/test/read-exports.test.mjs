@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -33,7 +33,9 @@ test('main exports collectReadableFiles for reading a folder on disk', () => {
   assert.equal(main.readRepo(files).items.filter((i) => i.kind === 'decision').length, 1);
 });
 
-test('the CommonJS builds expose the same functions', () => {
+// dist/ is built by `npm run build:cjs` (and prepack); CI runs the tests on the sources, so skip when it is absent.
+const built = existsSync(new URL('../dist/index.cjs', import.meta.url)) && existsSync(new URL('../dist/core.cjs', import.meta.url));
+test('the CommonJS builds expose the same functions', { skip: built ? false : 'dist/ not built (run npm run build:cjs)' }, () => {
   const require = createRequire(import.meta.url);
   for (const p of ['../dist/index.cjs', '../dist/core.cjs']) {
     const m = require(p);
