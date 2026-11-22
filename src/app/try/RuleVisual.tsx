@@ -33,11 +33,11 @@ export function AnswerView({ model, values, explanation, context }: { model: Pla
 }
 
 /** The rule as a picture with nothing to click: words in their colors, shapes beside them. */
-export function RulePictureStatic({ model }: { model: PlainModel }) {
+export function RulePictureStatic({ model, hideQuestion = false }: { model: PlainModel; hideQuestion?: boolean }) {
   const context = renderContext(model);
   return <div>
-    <p className="flex items-center gap-2 font-semibold"><DecisionGlyph /><span className="tok-fn">{model.question}</span></p>
-    <div className="mt-3 space-y-3 border-l border-white/15 pl-5 text-[15px]">
+    {!hideQuestion && <p className="flex items-center gap-2 font-semibold"><DecisionGlyph /><span className="tok-fn">{model.question}</span></p>}
+    <div className={`${hideQuestion ? "" : "mt-3"} space-y-3 border-l border-white/15 pl-5 text-[15px]`}>
       {model.rules.map((r, ri) => <div key={ri}>
         <p className="flex flex-wrap items-center gap-2"><Outcome>{r.outcome}</Outcome>
           <span className="tok-key">{r.conditions.length > 1 ? `when ${r.join} of these ${r.join === "all" ? "are" : "is"} true` : "when"}</span></p>

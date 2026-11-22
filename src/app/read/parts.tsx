@@ -122,15 +122,16 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
     <li className={`rounded-2xl border transition ${compact ? "p-4" : "p-5"} ${dashed ? "border-dashed" : ""} ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : dashed ? "border-white/20" : "border-white/10 bg-ink-850/40"}`}>
       <button type="button" onClick={onShow} aria-pressed={selected} title="Highlight it in the code"
         className="flex w-full items-center gap-2 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">
-        {!card && <span aria-hidden="true" className="text-haze-400">▭</span>}
-        <span className="min-w-0 truncate text-base font-semibold text-white">{readable(item.name)}</span>
+        {card
+          ? <><span aria-hidden="true" className="text-[#7FB2FF]">◇</span><span className="min-w-0 text-base font-semibold tok-fn">{card.question}</span></>
+          : <><span aria-hidden="true" className="text-haze-400">▭</span><span className="min-w-0 truncate text-base font-semibold text-white">{readable(item.name)}</span></>}
         {item.route && <span className={`rounded-full border px-2 py-0.5 text-[11px] ${FACETS[0].tone}`}>{item.route.method} {item.route.path}</span>}
         {(item.status === "partial" || card?.partial) && <span className="rounded-full border border-dashed border-white/30 px-2 py-0.5 text-[11px] text-haze-300">partly read</span>}
-        <span className="ml-auto shrink-0 font-mono text-xs text-haze-400">{item.name !== readable(item.name) ? `${item.name} · ` : ""}line {item.line}</span>
+        <span className="ml-auto shrink-0 font-mono text-xs text-haze-400">{card || item.name !== readable(item.name) ? `${item.name} · ` : ""}line {item.line}</span>
       </button>
       {card ? (
         <div className="mt-4">
-          <RulePictureStatic model={card} />
+          <RulePictureStatic model={card} hideQuestion />
           {asking && !compact && <div className="mt-4 border-t border-white/10 pt-4"><AskIt model={card} /></div>}
         </div>
       ) : (
