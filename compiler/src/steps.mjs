@@ -39,14 +39,14 @@ function matchingClose(str, open) {
 const lastWords = (path) => words(String(path).split('.').pop());
 /** "cmd.commandCalledAs.called" -> "called on command called as"; "this.count" -> "count". */
 function targetWords(path) {
-  const parts = String(path).replace(/^@+/, '').replace(/\[.*$/, '').split('.').filter((p) => !/^(this|self)$/.test(p));
+  const parts = String(path).replace(/^@+/, '').replace(/#/g, '').replace(/\[.*$/, '').split('.').filter((p) => !/^(this|self)$/.test(p));
   if (parts.length <= 1) return words(parts[0] || path);
   return `${words(parts[parts.length - 1])} on ${words(parts[parts.length - 2])}`;
 }
 
 function callee(text) {
-  const m = String(text).match(/^(?:await\s+|try\s+|yield\s+)?(?:new\s+)?([A-Za-z_$][\w$]*(?:(?:\.|::|->)[A-Za-z_$][\w$]*)*)!?\s*\(/);
-  return m ? m[1].replace(/::|->/g, '.') : null;
+  const m = String(text).match(/^(?:await\s+|try\s+|yield\s+|void\s+)?(?:new\s+)?([A-Za-z_$#@][\w$#]*(?:<[^()]*?>)?(?:(?:\.|::|->)[A-Za-z_$#][\w$#]*(?:<[^()]*?>)?(?:\(\))?)*)!?\s*\(/);
+  return m ? m[1].replace(/<[^()]*?>/g, '').replace(/\(\)/g, '').replace(/::|->/g, '.').replace(/#/g, '') : null;
 }
 function sayCall(name, args) {
   for (const k of KNOWN_CALLS) if (k.re.test(name)) {
@@ -75,9 +75,30 @@ function sayValue(expr) {
 }
 
 /** Classify one statement (its first line or header). Returns { kind, says, code } where code is the original text. */
+const CHAIN = [
+  { re: /\.(?:map|Select|flatMap|SelectMany|map_values|collect\{)\s*[({]/, say: (src) => `one for each item in ${src}` },
+  { re: /\.(?:filter|Where|filter_map|select|reject|grep)\s*[({]/, say: (src) => `the items in ${src} that match` },
+  { re: /\.(?:find|First|FirstOrDefault|find_first|detect)\s*[({]/, say: (src) => `the first item in ${src} that matches` },
+  { re: /\.(?:some|Any|any)\s*[({]/, say: (src) => `whether any item in ${src} matches` },
+  { re: /\.(?:every|All|all)\s*[({]/, say: (src) => `whether every item in ${src} matches` },
+  { re: /\.(?:reduce|Aggregate|fold|inject|sum|Sum)\s*[({]/, say: (src) => `a total over ${src}` },
+  { re: /\.(?:sort|sorted|OrderBy|sortBy|sort_by)\s*[({]/, say: (src) => `${src}, sorted` },
+  { re: /\.(?:join|Join|joinToString)\s*[({]/, say: (src) => `${src} joined into text` },
+];
+/** "items.filter(x => …).map(…)" -> "one for each item in items" (the last collection step wins). */
+function sayChain(value) {
+  const src = (value.match(/^(?:await\s+)?([A-Za-z_$#][\w$#.]*?)(?:\.(?:iter|into_iter|stream|asSequence|values|keys|entries)\(\))?\./) || [])[1];
+  if (!src) return null;
+  let hit = null;
+  for (const c of CHAIN) { const m = value.match(c.re); if (m && (!hit || m.index > hit.index)) hit = { index: m.index, c }; }
+  return hit ? hit.c.say(words(src.split('.').pop().replace(/^#/, ''))) : null;
+}
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
-  const head = text.split('\n')[0].trim();
+  // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
+  const head = text.split('\n')[0].trim()
+    .replace(/\(\s*([\w$#.]+)\s+as\s+[^)]+\)/g, '$1').replace(/([\w$\])])!(?=[.(\[])/g, '$1').replace(/\?\.(?=[\w(\[])/g, '.').replace(/\.\(/g, '(').replace(/^\(\*+(self|this)\)\./, '$1.');
   const code = clip(head, 90);
   let m;
   const innerNote = inner ? ` (${inner} step${inner === 1 ? '' : 's'} inside)` : '';
@@ -100,6 +121,10 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
       const msg = (expr.match(/["'`]([^"'`]{1,60})["'`]/) || [])[1];
       return { kind: 'fail', says: `Returns an error${msg ? `: "${msg}"` : ''}`, code };
     }
+    const chain = sayChain(expr);
+    if (chain) return { kind: 'return', says: `Returns ${chain}`, code };
+    if (/^[({]/.test(expr) || /^\{/.test(expr)) return { kind: 'return', says: /^\(?\s*</.test(expr) ? 'Returns what to show on screen' : 'Returns an object', code };
+    if (/^\(?\s*</.test(expr)) return { kind: 'return', says: 'Returns what to show on screen', code };
     const v = sayValue(expr);
     return { kind: 'return', says: v ? `Returns ${v}` : 'Returns a computed value', code, ...(v ? {} : { value: clip(expr, 60) }) };
   }
@@ -125,10 +150,23 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if (/^defer\b/.test(head)) return { kind: 'call', says: `At the end, ${clip(head.replace(/^defer\s+/, ''), 60)}`, code };
   if (/^super\b/.test(head)) return { kind: 'call', says: 'Runs the parent version first', code };
   if (/^yield\b/.test(head)) return { kind: 'call', says: 'Hands control to the given block', code };
+  if ((m = head.match(/^([A-Z]\w*)(?:::\w+)*\s*\{\s*$/)) || (m = head.match(/^([A-Z]\w*)\s*\{.*\}$/))) return { kind: 'return', says: `Returns a new ${words(m[1])}`, code };
+  if ((m = head.match(/^(?:[A-Z]\w*::)+([A-Z]\w*)$/))) return { kind: 'return', says: `Returns ${m[1]}`, code };
+  if (/^vec!?\[/.test(head)) return { kind: 'return', says: 'Returns a list', code };
   // A bare value as a statement is an implicit return (Ruby, Rust, Kotlin/Scala expression bodies).
   if (/^(?:["'`].*["'`]|-?\d+(?:\.\d+)?|true|false|nil|null|None|self|[a-z_][\w.]*)$/.test(head) && !/^(?:else|end|break|next|redo|retry|pass)$/.test(head)) {
     const v = sayValue(head);
     return { kind: 'return', says: v ? `Returns ${v}` : 'Returns a value', code };
+  }
+  if ((m = head.match(/^(?:\+\+|--)?([@A-Za-z_$#][\w$#.]*)(\+\+|--)?;?$/)) && (/^(\+\+|--)/.test(head) || m[2])) return { kind: 'set', says: `${/\+\+/.test(head) ? 'Adds one to' : 'Subtracts one from'} ${targetWords(m[1].replace(/#/g, ''))}`, code };
+  if ((m = head.match(/^(?:export\s+)?(?:abstract\s+)?(?:class|struct|interface|enum|record|object)\s+([A-Za-z_]\w*)/))) return { kind: 'set', says: `Defines ${words(m[1])}`, code };
+  if ((m = head.match(/^(?:async\s+)?(?:function|def|fn|fun|func)\s+([A-Za-z_]\w*)/))) return { kind: 'set', says: `Defines a helper, ${words(m[1])}`, code };
+  if ((m = head.match(/^(?:const|let|var|val)\s+([A-Za-z_$]\w*)\s*(?::\s*[^=]+)?=\s*(?:async\s+)?(?:\([^)]*\)|[A-Za-z_$]\w*)\s*(?::\s*[^=]+)?=>/))) return { kind: 'set', says: `Defines a helper, ${words(m[1])}`, code };
+  if ((m = head.match(/^(?:const|let|var|val)\s+([{[])\s*(.*?)\s*[}\]]\s*(?::\s*[^=]+)?=\s*(.+)$/))) {
+    const names = m[2].split(',').map((x) => x.trim().split(/\s*[:=]\s*/)[0].replace(/^\.\.\./, '')).filter(Boolean).map(words);
+    const value = stripTail(m[3]); const c = callee(value);
+    const from = c ? lastWords(c) : (sayValue(value) || words(value.split('.').pop()));
+    return { kind: 'set', says: `Takes ${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''} from ${from}`, code };
   }
   if ((m = head.match(/^(?:var|const)\s*\($/))) return { kind: 'set', says: 'Declares some values', code };
   if ((m = head.match(/^var\s+([\w, ]+?)\s+[\w.*\[\]]+$/))) return { kind: 'set', says: `Declares ${m[1].split(/\s*,\s*/).map(words).join(', ')}`, code };
@@ -146,9 +184,11 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
   }
   // Assignment (not comparisons)
-  if ((m = head.match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$][\w$.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$][\w$.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
+  if ((m = head.match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
     const target = m[1].split(/\s*,\s*/).map(targetWords).join(', ');
     const value = stripTail(m[3]);
+    const chain = value ? sayChain(value) : null;
+    if (chain) return { kind: 'set', says: `Works out ${target}: ${chain}`, code };
     const c = callee(value);
     if (c) {
       const known = sayCall(c, firstArgs(value));
@@ -167,7 +207,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const known = sayCall(c, firstArgs(head));
     return { kind: 'call', says: known || `Calls ${lastWords(c)}`, code, callee: c };
   }
-  if ((m = head.match(/^([a-z_][\w.]*[?!]?)\s+(?![=<>!+\-*/%]|and\b|or\b|if\b|unless\b)(.+)$/)) && !/^(?:if|for|while|return|else|elsif|when|case|def|class|module|end|not)$/.test(m[1])) {
+  if ((m = head.match(/^([a-z_][\w.]*[?!]?)\s+(?![=<>!+\-*/%]|and\b|or\b|if\b|unless\b)(.+)$/)) && !/^(?:if|for|while|return|else|elsif|when|case|def|class|module|end|not|const|let|var|val|new|await|typeof|delete|void|in|of|throw|import|export|from|as|is)$/.test(m[1])) {
     if (/^assert/.test(m[1])) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
     const known = sayCall(m[1], m[2]);
     return { kind: 'call', says: known || `Calls ${lastWords(m[1])}`, code, callee: m[1] };
@@ -182,7 +222,7 @@ export function stepsFrom(statements) {
     if (!s.text || /^(?:else\b|elsif\b|end\b|\}|except\b|catch\b|finally\b|rescue\b|ensure\b|pass$|break$|continue$|#)/.test(s.text.trim())) continue;
     const t = s.text.trim();
     if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t)) continue; // docstrings and doc comments
-    if (/^[)\]}]+[):;,]*$/.test(t) || /^\.\.\.$/.test(t) || /^\.[A-Za-z_]/.test(t) || /^@\w+(?:\(.*\))?$/.test(t) || /^:(?:param|rtype|return|raises|type)\b/.test(t)) continue;
+    if (/^[)\]}]+[):;,]*$/.test(t) || /^\.\.\.$/.test(t) || /^\.[A-Za-z_]/.test(t) || /^@\w+(?:\(.*\))?$/.test(t) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t) || /^:(?:param|rtype|return|raises|type)\b/.test(t)) continue;
     const step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line };
     if (s.children?.length && ['branch', 'loop', 'try'].includes(step.kind)) {
       const kids = stepsFrom(s.children.map(({ children, ...rest }) => rest)).steps.slice(0, 6);
