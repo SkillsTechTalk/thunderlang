@@ -9,6 +9,7 @@ should change, whatever language the software is written in.
 | **Thunder** | The Thunder programming language: the visual language people read and change rules in | "I read the refund rule in Thunder." |
 | **ThunderLang** | Another name for Thunder, the way Go is also called Golang. Used for the website, the package, the repository, and search | "Search for ThunderLang", thunderlang.dev, `@skillstech/thunderlang` |
 | **Thunder compiler** | The open-source compiler: checks rules, runs examples, generates code | `thunder test`, `thunder gen` |
+| **Thunder Text** | The interim written form: a Thunder picture in readable, structured words, stored and reviewed like code | `RefundApproval.thunder-plain`, `thunder text` |
 | **Thundered** | Existing code shown in Thunder | "This is our Python refund service, Thundered so Product can review it." |
 | **Thundering** | Turning existing code into Thunder | "Thunder the billing folder and look for the $100 limit." |
 | **Thunder read** | Reading code visually, in Thunder | "Thunder read shows exactly where $100 is decided." |
@@ -61,10 +62,11 @@ a person: **"Here is what happens today. Is that what we want?"** Thundered code
 from code until a person answers questions such as "is this amount money?" and "why does this rule
 exist?", and adds examples. See [Human comprehension: design and limits](/docs/human-comprehension).
 
-## The written form
+## Thunder Text, the interim written form
 
-Thunder is drawn as a picture, and stored as text so it can be versioned, reviewed in pull
-requests, and compiled. You never need to read the text, but you can:
+Thunder is drawn as a picture. **Thunder Text** is the same rule in readable, structured words: what
+gets saved, versioned, reviewed in pull requests, and compiled. It sits between the picture and
+Thunder source (`.thunder`). You never need to read it, but you can:
 
 ```text
 Refund approval
@@ -86,7 +88,7 @@ Examples
   $50, late       gives Review    (outside the refund window)
 ```
 
-Run it with `thunder plain RefundApproval.thunder-plain`. The full example is
+Run it with `thunder text RefundApproval.thunder-plain` (`thunder plain` also works). The full example is
 `examples/human/RefundApproval.thunder-plain`. This notation is experimental: one decision per
 file; inputs are dollar amounts, numbers, or yes/no; dollars are checked in the text, but generated
 code receives a plain number.

@@ -96,10 +96,10 @@ compiler is built in.
 Until Thunder write ships, a Thundered rule offers **Propose rule change**, never "Update code". Nothing is ever
 transformed silently.
 
-## The written form, the compiler, and the CLI
+## Thunder Text, the compiler, and the CLI
 
-A Thunder picture is stored as text so it can be versioned, reviewed, and compiled. You never need to read it,
-but you can:
+**Thunder Text** is the interim written form: a Thunder picture in readable, structured words, saved so it can be
+versioned, reviewed, and compiled. You never need to read it, but you can:
 
 ```text
 Refund approval
@@ -123,15 +123,15 @@ Examples
 
 ```bash
 npm install -g @skillstech/thunderlang
-thunder plain RefundApproval.thunder-plain                    # run its examples (experimental notation)
-thunder plain RefundApproval.thunder-plain --format source    # the Thunder source it compiles to
+thunder text RefundApproval.thunder-plain                     # run a Thunder Text rule's examples (experimental)
+thunder text RefundApproval.thunder-plain --format source     # the Thunder source it compiles to
 thunder test Rules.thunder                                    # in-file examples prove the rule
 thunder gen Rules.thunder --target python                     # TypeScript, Python, C#, or Java
 thunder verify-diff Rules.thunder --before old.ts --after new.ts   # block an AI change that breaks a rule
 ```
 
-`thunder plain` ships in the next release of `@skillstech/thunderlang`; until then run it from this repository with
-`node compiler/src/cli.mjs plain <file>`.
+`thunder text` (alias `thunder plain`) ships in the next release of `@skillstech/thunderlang`; until then run it from
+this repository with `node compiler/src/cli.mjs text <file>`.
 
 The compiler is deterministic (no AI, no key, no network) and explains its findings instead of just flagging them:
 
@@ -152,6 +152,7 @@ events, and an outcome contract is judged against a result. Start with
 | **Thunder™** | The Thunder programming language: the visual language people read and change rules in |
 | **ThunderLang™** | Another name for Thunder, like Golang for Go (the site, the npm package, this repository) |
 | **Thunder compiler** | The open-source compiler and `thunder` CLI in this repository |
+| **Thunder Text** | The interim written form: a Thunder picture in readable words, stored and reviewed like code |
 | **Thundered code** | Existing code shown in Thunder: Thundered Python, Thundered TypeScript |
 | **Thunder read / Thunder write** | Reading code visually / changing code visually, verified (write is planned) |
 | **OpenThunder™** | The IDE for Thunder: read, navigate, learn, change, and verify your app |
