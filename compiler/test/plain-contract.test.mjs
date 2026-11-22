@@ -170,3 +170,18 @@ test('statements Thunder does not recognize stay as their original code, never g
   assert.equal(s.kind, 'other');
   assert.equal(s.code, 'status <<~EOS');
 });
+
+test('Python -> Thunder -> Python keeps behavior and input types for a decision', async () => {
+  const { readCode } = await import('../src/read.mjs');
+  const { plainFromReading, plainToThunder, explainPlain } = await import('../src/plain-contract.mjs');
+  const { parseIntent } = await import('../src/parse.mjs');
+  const { translateDecisions } = await import('../src/translate.mjs');
+  const orig = 'def refund(amount: float, within_window: bool) -> str:\n    if amount >= 0 and amount <= 100 and within_window:\n        return "Approve"\n    return "Review"\n';
+  const m = plainFromReading(readCode(orig, { language: 'python' }).items.find(i => i.kind === 'decision'));
+  const py = translateDecisions(parseIntent(plainToThunder(m)), 'python');
+  assert.match(py, /def Refund\(amount: float, within_window: bool\) -> str:/);
+  const reference = (a, w) => (a >= 0 && a <= 100 && w ? 'Approve' : 'Review');
+  for (const a of [-1, 0, 50, 100, 100.01, 1e9]) for (const w of [true, false]) {
+    assert.equal(explainPlain(m, { amount: a, within_window: w }).outcome, reference(a, w), `${a}/${w}`);
+  }
+});

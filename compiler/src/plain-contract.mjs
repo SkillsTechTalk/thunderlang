@@ -212,7 +212,7 @@ export function plainToThunder(model) {
   const lit = v => (typeof v === 'boolean' ? String(v) : String(v));
   const out = [`# Compiled from plain ThunderLang (${PLAIN_SCHEMA}). Edit the plain file, not this one.`,
     `mission ${name}`, '', `title ${JSON.stringify(model.title)}`, '', 'goal', `  ${model.why || model.title}`,
-    '', `# ${model.question}`, `decision ${name}`, '  inputs', ...model.inputs.map(i => `    ${i.id}`)];
+    '', `# ${model.question}`, `decision ${name}`, '  inputs', ...model.inputs.map(i => `    ${i.id}${i.kind === 'yesno' ? ': boolean' : i.kind === 'number' || i.kind === 'dollars' ? ': number' : i.kind === 'text' ? ': string' : ''}`)];
   const used = new Map();
   for (const r of model.rules) {
     const base = lowerFirst(r.outcome); const n = (used.get(base) ?? 0) + 1; used.set(base, n);
