@@ -1,155 +1,124 @@
-# ThunderLang, thunderlang.dev
+<p align="center">
+  <img src="docs/assets/readme-hero.svg" alt="ThunderLang: program what you mean. Rules people can read, a compiler that proves them, built into OpenThunder." width="100%">
+</p>
 
-**ThunderLang is the intent language for AI-era software.** It lets engineers
-define what software should do, why it matters, what must never happen, and how
-the result must be verified before code is generated, changed, or shipped. Built
-by **SkillsTech**. Category: **Intent-Oriented Programming**.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@skillstech/thunderlang"><img alt="npm" src="https://img.shields.io/npm/v/@skillstech/thunderlang?color=7C5CF0&label=npm"></a>
+  <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-22D3EE"></a>
+  <a href="https://thunderlang.dev/try"><img alt="Try it in your browser" src="https://img.shields.io/badge/try%20it-in%20your%20browser-B49BFF"></a>
+  <a href="https://openthunder.dev"><img alt="Write it in OpenThunder" src="https://img.shields.io/badge/write%20it%20in-OpenThunder-34D399"></a>
+</p>
 
-> Prompt → Intent → Contract → Plan → Implementation → Verification → Proof
->
-> Prompt is how the conversation starts. Intent is what the team commits to.
-> Code is how the system fulfills it. Proof is how trust is earned.
+**ThunderLang is a small language for writing down what your software must decide and must never do, in words a
+person can read.** A real compiler checks it, runs its tests, and turns it into code. **OpenThunder is where you
+write it:** the compiler is built in.
 
-ThunderLang sits above programming paradigms. It can target object-oriented,
-functional, service-oriented, event-driven, API-first, infrastructure, and
-documentation artifacts depending on the adapter. It does not replace TypeScript,
-Python, Java, .NET, Rust, or Go, and it is not magic AI code generation.
+<p align="center">
+  <img src="docs/assets/readme-at-a-glance.svg" alt="ThunderLang in 10 seconds: 1 write the rule; 2 OpenThunder compiles it (problems as you type, run the rule's tests, generate TypeScript, Python, C#, or Java); 3 hold your real code to the rule; 4 enforce it in CI." width="100%">
+</p>
 
-## Try it
+## Why it exists
 
-There is a real, deterministic compiler and CLI, published as
-[`@skillstech/thunderlang`](https://www.npmjs.com/package/@skillstech/thunderlang). No AI.
+AI can write a thousand lines in a minute, but code does not say what it was supposed to do. A chat prompt is gone
+once the work is done, and a spec in a document cannot be run. A ThunderLang rule stays in your repository, reads
+like a sentence in a review, and can be proven by a machine. That gives your AI agents, your team, and your CI one
+shared definition of correct.
+
+## See it in 20 seconds
+
+```thunder
+decision RefundPolicy
+  inputs
+    amount
+    withinWindow
+  rule small-refund
+    when amount <= 100 and withinWindow
+    return Approve
+  default
+    return Review
+
+test RefundPolicy
+  case at-the-limit
+    given amount 100, withinWindow true
+    expect Approve
+  case over-the-limit
+    given amount 101, withinWindow true
+    expect Review
+  case outside-the-window
+    given amount 50, withinWindow false
+    expect Review
+```
+
+```text
+$ thunder test Refund.thunder
+thunder test Refund.thunder: 3/3 passed
+  PASS  RefundPolicy / at-the-limit
+  PASS  RefundPolicy / over-the-limit
+  PASS  RefundPolicy / outside-the-window
+
+$ thunder gen Refund.thunder --target typescript
+export function refundPolicy(amount: unknown, withinWindow: unknown): string {
+  if (((amount <= 100) && withinWindow)) return "Approve"; // rule small-refund
+  return "Review"; // default
+}
+```
+
+The compiler explains its findings instead of just flagging them:
+
+```text
+[warning] never-without-verification: Never rule "approve a refund outside the refund window" has no explicit verification.
+    why: A never rule forbids behavior, but without a check nothing enforces it in the real implementation.
+    fix: Attach a verify check (for example a security scan)
+```
+
+## Write it in OpenThunder
+
+[OpenThunder](https://openthunder.dev) is the AI IDE that compiles ThunderLang. Open any `.thunder` file and the
+compiler panel opens beside it:
+
+| | What you get |
+|---|---|
+| **Problems** | Checked as you type, each with the reason, marked in the editor. |
+| **Tests** | Run the file's `test` blocks. A failing case says what it expected and what it got. |
+| **Generate code** | The same rules as TypeScript, Python, C#, or Java, ready to copy. |
+| **Your app vs the rule** | `openthunder intent test-app` runs the rule's cases against your real code. In the [refund walkthrough](https://openthunder.dev/docs/refund-contract.html) it catches a $100 off-by-one in the app while the rule itself passes. |
+| **In CI** | Exit code 0 passed, 1 broke the rule, 2 not checked. |
+
+[Download OpenThunder Desktop](https://openthunder.dev) (Mac, Windows, Linux) or use
+[OpenThunder Cloud](https://app.openthunder.ai) in the browser. No AI key is needed for any of the above.
+
+## Or use the CLI
 
 ```bash
 npm install -g @skillstech/thunderlang
-thunder init Eligibility                              # scaffold a runnable starter
+thunder init Eligibility                              # a runnable starter
 thunder run Eligibility.thunder --inputs '{"age":20}'  # a decision decides, with a trace
-thunder test Eligibility.thunder                       # in-file tests prove it (2/2 passed)
-thunder check .                                       # gate every .thunder in the repo
+thunder test Eligibility.thunder                       # in-file tests prove it
+thunder check .                                       # check every .thunder in the repo
 ```
 
-That is the point of ThunderLang: some intent does not need code generated, it **runs**.
-A decision evaluates against inputs, a lifecycle simulates against events, an outcome
-contract is judged against a result, all deterministically. See
+Some intent does not need code generated at all: it runs. A decision evaluates against inputs, a lifecycle
+simulates against events, and an outcome contract is judged against a result, all deterministically. Start with
 [Getting started](./docs/getting-started.md).
 
-### This repository (a monorepo)
+## What is in this repository
 
-- `compiler/` , the deterministic compiler, CLI, and Language Server (published as
-  `@skillstech/thunderlang`). Executable runtime, first-class tests, outcome contracts,
-  five-profile language, style intent, security/type checks, nine export adapters
-  (DMN/BPMN/NuSMV/JSON-Schema/OpenAPI/Design-Tokens/CSS/Mermaid/Playwright), schema
-  migrations, a canonical proof envelope, and SARIF code scanning. 340+ tests.
-- `editors/vscode/` , a VS Code extension (grammar + language client).
-- `src/`, `docs/`, `examples/` , the website (thunderlang.dev), the concept docs, and
-  worked example missions.
-- Roadmap: [`TODO.md`](./TODO.md) · Manifesto: [`docs/manifesto.md`](./docs/manifesto.md)
-  · Spec: [`docs/spec.md`](./docs/spec.md) · Editor support:
-  [`docs/editor-support.md`](./docs/editor-support.md)
+- **`compiler/`**: the deterministic compiler, CLI, and language server, published as
+  [`@skillstech/thunderlang`](https://www.npmjs.com/package/@skillstech/thunderlang). Runtime, in-file tests,
+  outcome contracts, security and type checks, code generation, export adapters (DMN, BPMN, NuSMV, JSON Schema,
+  OpenAPI, design tokens, CSS, Mermaid, Playwright), a proof envelope, and SARIF output.
+- **`editors/vscode/`**: a VS Code extension (grammar and language client).
+- **`src/`, `docs/`, `examples/`**: the [thunderlang.dev](https://thunderlang.dev) website, the docs, and worked
+  examples. Working on the website: [WEBSITE.md](./WEBSITE.md).
 
-The compiler is deterministic and works without AI; AI is optional, traced, and
-human-approved.
-
-## Tech stack
-
-- [Next.js 14](https://nextjs.org) (App Router)
-- TypeScript
-- Tailwind CSS
-- Deployed on [Vercel](https://vercel.com) → `thunderlang.dev`
-
-## Website development
-
-The website (this repo's `src/`) is a Next.js app. The compiler is a zero-dependency
-sibling in `compiler/` (no install needed to run `node compiler/src/cli.mjs ...`).
-
-```bash
-npm install
-cp .env.example .env.local   # optional, see Environment variables
-npm run dev                  # http://localhost:5187
-```
-
-### Scripts
-
-| Command             | Description                          |
-| ------------------- | ------------------------------------ |
-| `npm run dev`       | Start the local dev server           |
-| `npm run build`     | Production build                     |
-| `npm run start`     | Serve the production build           |
-| `npm run lint`      | ESLint (next/core-web-vitals)        |
-| `npm run typecheck` | TypeScript type check (`tsc --noEmit`) |
-
-## Routes
-
-| Route          | Purpose                                          |
-| -------------- | ------------------------------------------------ |
-| `/`            | Home, hero, why, philosophy, principles, ecosystem |
-| `/vision`      | The vision and beliefs behind Intent             |
-| `/docs`        | Early docs: concepts, Mission block, contracts   |
-| `/examples`    | Draft Intent examples                            |
-| `/playground`  | Run decisions + simulate lifecycles in-browser, and compile a mission |
-| `/roadmap`     | Directional roadmap                              |
-| `/blog`        | Blog index + posts (`/blog/[slug]`)              |
-| `/community`   | How to get involved                              |
-| `/waitlist`    | Waitlist signup                                  |
-| `/api/waitlist`| Waitlist intake endpoint                         |
-
-SEO extras: `/sitemap.xml`, `/robots.txt`, dynamic `/opengraph-image`,
-`/manifest.webmanifest`, and an SVG favicon (`/icon.svg`).
-
-## Environment variables
-
-See [`.env.example`](./.env.example).
-
-| Variable                | Required | Description                                                                 |
-| ----------------------- | -------- | --------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SITE_URL`  | No       | Public base URL. Defaults to `https://thunderlang.dev`.                  |
-| `WAITLIST_WEBHOOK_URL`  | No       | Endpoint that receives `POST { email, source }` for waitlist signups.       |
-
-## Waitlist behavior
-
-The waitlist captures real signups, in priority order:
-
-1. **Vercel Blob (default).** A private Blob store named `waitlist` is linked to
-   the project, so `BLOB_READ_WRITE_TOKEN` is set automatically. Each signup is
-   written to `waitlist/<sha256(email)>.json` (idempotent - re-submitting the
-   same address overwrites its record, no duplicates). List signups with
-   `vercel blob list`. Emails are stored privately and never publicly readable.
-2. **Webhook fallback.** If no Blob token is present but `WAITLIST_WEBHOOK_URL`
-   is set, signups are POSTed there instead.
-3. **Honest no-op.** If neither is configured, the API returns
-   `status: "unconfigured"` and the form asks the visitor to email us directly.
-   It never fakes a signup.
-
-Analytics: `@vercel/analytics` and `@vercel/speed-insights` are wired in the root
-layout. Enable Web Analytics / Speed Insights in the Vercel dashboard to collect
-data.
-
-## Deployment
-
-Deployed to Vercel and served at `thunderlang.dev`.
-
-1. Import the repo into Vercel (framework auto-detected as Next.js).
-2. Set env vars in Project Settings → Environment Variables.
-3. Add the domain `thunderlang.dev` (and `www`) under Project → Domains.
-
-DNS (registrar: GoDaddy):
-
-- `A  @  216.198.79.1` (Vercel apex) **or** an `ALIAS/ANAME` to
-  `cname.vercel-dns.com` if the registrar supports it.
-- `CNAME  www  cname.vercel-dns.com` (already present).
-
-Vercel provisions TLS automatically once DNS resolves. Confirm the exact records
-Vercel asks for in Project → Domains, as they can change.
-
-## Brand
-
-Brand assets live in [`public/brand`](./public/brand). The gold four-point star
-is reproduced as inline SVG in `src/components/StarMark.tsx` for crisp scaling.
+Read more: [Spec](./docs/spec.md) · [Manifesto](./docs/manifesto.md) · [Editor support](./docs/editor-support.md)
 
 ## Status
 
-Pre-1.0 and honest. The compiler is real, deterministic, and tested (340+ tests, fuzz +
-property + composition, with CI guards for checks, docs, schema sync, and formatting).
-The language and its `intent-graph-v1` schema version independently and can still change
-before 1.0. ThunderLang sits above paradigms; it does not replace Rust, Go, Python, Java,
-TypeScript, or .NET.
+Pre-1.0 and honest. The compiler is real, deterministic, and tested (780+ tests, including fuzz, property, and
+composition tests, with CI guards for checks, docs, schema sync, and formatting). The language and its
+`intent-graph-v1` schema are versioned separately and can still change before 1.0. ThunderLang sits above
+programming languages; it does not replace TypeScript, Python, Java, .NET, Rust, or Go.
+
+ThunderLang™ and OpenThunder™ are trademarks of Skills Tech Talk, LLC. The code is licensed under
+[Apache 2.0](./LICENSE); see [TRADEMARKS.md](./TRADEMARKS.md) for use of the names.
