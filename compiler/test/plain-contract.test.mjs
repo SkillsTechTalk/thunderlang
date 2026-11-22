@@ -149,3 +149,24 @@ test('thunder --version prints the compiler version', async () => {
   assert.equal(r.status, 0);
   assert.match(r.stdout, new RegExp(`^thunder ${COMPILER_VERSION.replace(/\./g, '\\.')} `));
 });
+
+test('functions that are not decisions are read as plain steps, with one level of nesting', async () => {
+  const { readCode } = await import('../src/read.mjs');
+  const py = 'def issue_refund(order_id: str, amount: float) -> str:\n    """Issue it."""\n    decision = approve_refund(amount)\n    if decision == "Approve":\n        stripe.Refund.create(order=order_id)\n        db.insert("refunds", {"id": order_id})\n        events.publish("refund.issued", {})\n    return decision\n';
+  const f = readCode(py, { language: 'python' }).items.find(i => i.name === 'issue_refund');
+  assert.deepEqual(f.steps.map(s => s.kind), ['set', 'branch', 'return']);
+  assert.equal(f.steps[0].says, 'Works out decision from approve refund');
+  assert.deepEqual(f.steps[1].children.map(c => c.says), ['Calls Stripe', 'Writes to the database (insert): refunds', 'Announces an event: refund.issued']);
+  assert.equal(f.stepsReadable, 1);
+  const go = 'func Label(order Order) (string, error) {\n\tif order.Address == "" {\n\t\treturn "", ErrNoAddress\n\t}\n\treturn fmt.Sprintf("%s", order.Name), nil\n}\n';
+  const g = readCode(go, { language: 'go' }).items.find(i => i.name === 'Label');
+  assert.equal(g.steps[0].says, 'If order.Address is empty');
+  assert.equal(g.steps[0].children[0].says, 'Returns an error to the caller: ErrNoAddress');
+});
+
+test('statements Thunder does not recognize stay as their original code, never guessed', async () => {
+  const { classifyStatement } = await import('../src/steps.mjs');
+  const s = classifyStatement('status <<~EOS');
+  assert.equal(s.kind, 'other');
+  assert.equal(s.code, 'status <<~EOS');
+});

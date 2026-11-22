@@ -9,6 +9,7 @@
 //   return cond ? X : Y   (nested ternaries)  Python: return X if cond else Y
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
+import { stepsFrom, braceStatements, indentStatements } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
@@ -1439,6 +1440,24 @@ function readPredicate(fn, lang, names, code) {
   return when ? { rule: { when, result: 'true', line } } : null;
 }
 
+function functionSteps(fn, lang, code, names) {
+  let stmts = [];
+  try {
+    if (lang === 'python') stmts = indentStatements(fn.pyBody, { depthKey: 'indent' });
+    else if (lang === 'ruby') stmts = indentStatements(fn.rbBody, { depthKey: 'depth' });
+    else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
+  } catch { return null; }
+  if (!stmts.length) return null;
+  const r = stepsFrom(stmts);
+  for (const st of r.steps) {
+    if (st.kind !== 'branch' || !st.cond) continue;
+    const cond = toThunderCondition(st.cond, names);
+    if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${sayCondition(cond).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
+    delete st.cond; delete st.negate;
+  }
+  return r;
+}
+
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
@@ -1484,8 +1503,10 @@ export function readCode(source, { language, file = '' } = {}) {
         unread: read.unread,
       });
     } else {
+      const st = functionSteps(fn, lang, code, names);
       items.push({
         ...base, kind: 'function', status: 'signature-only',
+        ...(st ? { steps: st.steps, stepsMore: st.more, stepsReadable: Math.round(st.readable * 100) / 100 } : {}),
         says: fn.route ? `Handles ${fn.route.method} ${fn.route.path || '(this controller\'s path)'}.${guardNote}` : `${fn.name} takes ${inputs.length ? inputs.map((p) => p.type && !/[<>\[\]]/.test(p.type) ? `${p.name} (${p.type})` : p.name).join(', ') : 'no inputs'}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}. ${guards.length ? '' : ' Its body does more than choose between fixed answers, so no rules are shown.'}${guardNote}`,
         guards, unread: read.unread,
       });

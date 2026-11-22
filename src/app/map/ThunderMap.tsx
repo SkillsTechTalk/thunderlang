@@ -5,6 +5,7 @@ import type { Integration, MapItem, ThunderMap as TMap } from "@/lib/thunder-map
 import { explainPlain, formatValue } from "../../../compiler/src/plain-contract.mjs";
 import { HighlightedCode } from "@/lib/highlight";
 import { AnswerView, RulePictureStatic } from "@/app/try/RuleVisual";
+import { StepsView, type Step } from "@/app/try/StepsView";
 import {
   ActionGlyph, CloudGlyph, ContractGlyph, CylinderGlyph, DecisionGlyph, EnvelopeGlyph, ExampleGlyph, FolderGlyph, ServiceGlyph,
 } from "@/app/try/Glyphs";
@@ -21,12 +22,12 @@ function IntegrationChip({ i }: { i: Integration }) {
 }
 
 function ItemButton({ item, lit, dim, onOpen }: { item: MapItem; lit: boolean; dim: boolean; onOpen: () => void }) {
-  const drawable = !!item.card;
-  const Icon = drawable ? DecisionGlyph : ActionGlyph;
+  const drawable = !!item.card || !!item.steps;
+  const Icon = item.card ? DecisionGlyph : ActionGlyph;
   return <button type="button" onClick={onOpen}
     className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-sm transition hover:bg-white/[0.06] ${focusRing}
       ${drawable ? "border-white/15" : "border-dashed border-white/25"} ${lit ? "border-gold-300/70 bg-gold-300/10" : ""} ${dim ? "opacity-35" : ""}`}>
-    <Icon className={drawable ? "text-[#7FB2FF]" : ""} />
+    <Icon className={item.card ? "text-[#7FB2FF]" : item.steps ? "text-[#67E8F9]" : ""} />
     <span className={drawable ? "text-white" : "text-haze-300"}>{item.readable}</span>
     {!drawable && <span className="ml-auto text-[11px] text-haze-400">can&apos;t fully read</span>}
   </button>;
@@ -134,7 +135,7 @@ function ItemView({ map, item, onOpen }: { map: TMap; item: MapItem; onOpen: (id
   const snippet = lines.slice(item.line - 1, end).join("\n").trimEnd();
 
   return <section aria-labelledby="item-level" className="space-y-4">
-    <div className={`rounded-2xl border p-5 ${card ? "border-white/15 bg-ink-850/60" : "border-dashed border-white/30"}`}>
+    <div className={`rounded-2xl border p-5 ${card || item.steps ? "border-white/15 bg-ink-850/60" : "border-dashed border-white/30"}`}>
       <p className="flex flex-wrap items-center gap-2 text-xs text-haze-400">
         <span className="rounded-full border border-white/20 px-2 py-0.5">Thunder Code · Thundered {item.file.endsWith(".py") ? "Python" : "TypeScript"}</span>
         <span className="rounded-full border border-dashed border-white/25 px-2 py-0.5">Read from code: no person has confirmed this rule</span>
@@ -154,6 +155,9 @@ function ItemView({ map, item, onOpen }: { map: TMap; item: MapItem; onOpen: (id
           </div>
           <AnswerView model={card} values={values} explanation={explainPlain(card, values)} context={""} />
         </div>
+      </div> : item.steps ? <div className="mt-4">
+        <p className="mb-3 text-sm text-haze-300">Read as steps (not rules): what this function does, in order.</p>
+        <StepsView steps={item.steps as Step[]} more={item.stepsMore} />
       </div> : <div className="mt-3 text-sm text-haze-200">
         <p>{item.says}</p>
         <p className="mt-2 text-haze-300">Thunder can&apos;t draw this function yet. The original code below is the source of truth.</p>
