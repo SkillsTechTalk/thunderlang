@@ -5,7 +5,7 @@ import { NPM_PACKAGE, PUBLISHED_VERSION } from "@/lib/facts";
 import { COMPILER_VERSION } from "../../../compiler/src/index.mjs";
 
 export const metadata = pageMeta({
-  title: "Install Thunder",
+  title: "Install ThunderLang",
   description: "Download and install the Thunder programming language (ThunderLang): the open-source Thunder compiler and the thunder command. Node.js 18 or newer, no account, no AI key.",
   path: "/install",
 });
@@ -37,8 +37,8 @@ function Code({ children }: { children: string }) {
 export default function InstallPage() {
   return (
     <>
-      <PageHero eyebrow="Install" title="Install Thunder."
-        intro="The Thunder programming language (also called ThunderLang): the open-source Thunder compiler and the thunder command. No account and no AI key." />
+      <PageHero eyebrow="Install" title="Install ThunderLang™."
+        intro="Download and install the ThunderLang™ programming language and compiler (also called Thunder™): the open-source Thunder compiler and the thunder command. No account and no AI key." />
       <Section className="!pt-0">
         <ol className="max-w-3xl space-y-10">
           <li>
@@ -48,7 +48,7 @@ export default function InstallPage() {
           <li>
             <h2 className="text-xl font-semibold text-white"><span className="mr-2 text-gold-300">2</span>Install the thunder command</h2>
             <Code>{`npm install -g ${NPM_PACKAGE}`}</Code>
-            <p className="mt-2 text-sm text-haze-400">Installs version {PUBLISHED_VERSION}, the current release on npm. Source: <a className="text-gold-300 hover:text-gold-200" href="https://github.com/SkillsTechTalk/thunderlang">github.com/SkillsTechTalk/thunderlang</a> (Apache 2.0).</p>
+            <p className="mt-2 text-sm text-haze-400">Installs ThunderLang™ version {PUBLISHED_VERSION}, the current release. Package: <a className="text-gold-300 hover:text-gold-200" href={`https://www.npmjs.com/package/${NPM_PACKAGE}`}>npmjs.com/package/{NPM_PACKAGE}</a>. Source: <a className="text-gold-300 hover:text-gold-200" href="https://github.com/SkillsTechTalk/thunderlang">github.com/SkillsTechTalk/thunderlang</a> (Apache 2.0).</p>
           </li>
           <li>
             <h2 className="text-xl font-semibold text-white"><span className="mr-2 text-gold-300">3</span>Check that it works</h2>
