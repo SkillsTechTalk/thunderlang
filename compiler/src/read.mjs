@@ -194,7 +194,7 @@ function findFunctions(src, language) {
         const rest = src.slice(markerAt + 1);
         const lead = rest.match(/^\s*/)[0].length;
         const end = kotlinExprEnd(rest, lead);
-        fns.push({ key: `${name}@${m.index}`, name, line: fnLine, params: parseParams(src.slice(open + 1, close), language), returns: (head[1] || '').trim() || null, bodyStart: markerAt + 1 + lead, body: `return ${rest.slice(lead, end).trim()}` });
+        fns.push({ key: `${name}@${m.index}`, name, line: fnLine, params: parseParams(src.slice(open + 1, close), language), returns: (head[1] || '').trim() || null, bodyStart: markerAt + 1 + lead, body: `return ${rest.slice(lead, end).trim()}`, exprBody: rest.slice(lead, end).trim().length });
         continue;
       }
       const key = `${name}@${m.index}`;
@@ -217,7 +217,7 @@ function findFunctions(src, language) {
           const blank = rest.search(/\n\s*\n/);
           const end = semi < 0 ? blank : blank < 0 ? semi : Math.min(semi, blank);
           const expr = (end < 0 ? rest : rest.slice(0, end)).trim();
-          fns.push({ key, name, line: fnLine, params, returns, bodyStart: markerAt + 2 + lead, body: `return ${expr};` });
+          fns.push({ key, name, line: fnLine, params, returns, bodyStart: markerAt + 2 + lead, body: `return ${expr};`, exprBody: expr.length });
         }
       } else {
         const bc = matchClose(src, markerAt);
@@ -904,8 +904,11 @@ function splitStatements(body, baseLine) {
         if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
       }
     }
-    const text = src.slice(start, i).trim();
-    if (text) out.push({ text, line: baseLine + lineAt(src, start) - 1 });
+    const raw = src.slice(start, i);
+    const text = raw.trim();
+    // Offsets are into the body as given (comments are blanked in place, so lengths are unchanged).
+    const end = start + raw.replace(/[\s;]+$/, '').length;
+    if (text) out.push({ text, line: baseLine + lineAt(src, start) - 1, endLine: baseLine + lineAt(src, Math.max(start, end - 1)) - 1, start, end });
   }
   return out;
 }
@@ -1456,7 +1459,34 @@ function readPredicate(fn, lang, names, code) {
   return when ? { rule: { when, result: 'true', line } } : null;
 }
 
-function functionSteps(fn, lang, code, names) {
+const TRIVIA_LINE = /^\s*(?:$|\/\/|#(?!\[)|\/\*|\*|\*\/|[{}()\[\];,]+\s*$|\}\s*else\b.*\{\s*$|else\s*:?\s*\{?\s*$|end\s*$|"""|''')/;
+
+/** The original lines a function body spans: [firstLine, lastLine] (1-based, inclusive). */
+function bodyRange(fn, lang, code) {
+  if (lang === 'python' && fn.pyBody?.length) return [fn.pyBody[0].line, fn.pyBody[fn.pyBody.length - 1].line];
+  if (lang === 'ruby' && fn.rbBody?.length) return [fn.rbBody[0].line, fn.rbBody[fn.rbBody.length - 1].line];
+  // Expression bodies (=> expr / = expr) are read through a stand-in "return expr"; measure the real expression.
+  if (fn.exprBody != null && fn.bodyStart != null) return [lineAt(code, fn.bodyStart), lineAt(code, fn.bodyStart + Math.max(0, fn.exprBody - 1))];
+  if (typeof fn.body === 'string' && fn.bodyStart != null) {
+    // The body starts right after "{", usually on the signature line; start counting at the first code line.
+    const lead = fn.body.match(/^[ \t]*\r?\n/) ? 1 : 0;
+    return [lineAt(code, fn.bodyStart) + lead, lineAt(code, fn.bodyStart + Math.max(0, fn.body.length - 1))];
+  }
+  return null;
+}
+
+/** Make a step span absolute in the file. Offsets are exact except for PHP, which is read after normalizing. */
+function anchorSpan(span, fn, lang) {
+  if (!span) return;
+  if (fn.exprBody != null && span.start != null) {
+    // Stand-in body: shift past the synthetic "return " so offsets land on the real expression.
+    span.start = Math.max(0, span.start - 7) + fn.bodyStart; span.end = Math.min(fn.bodyStart + fn.exprBody, span.end - 7 + fn.bodyStart); span.exact = 'offset'; return;
+  }
+  if (span.start != null && fn.bodyStart != null && lang !== 'php') { span.start += fn.bodyStart; span.end += fn.bodyStart; span.exact = 'offset'; }
+  else { delete span.start; delete span.end; span.exact = 'lines'; }
+}
+
+function functionSteps(fn, lang, code, names, srcLines = []) {
   let stmts = [];
   try {
     if (lang === 'python') stmts = indentStatements(fn.pyBody, { depthKey: 'indent' });
@@ -1465,6 +1495,24 @@ function functionSteps(fn, lang, code, names) {
   } catch { return null; }
   if (!stmts.length) return null;
   const r = stepsFrom(stmts);
+  // Anchoring: every step (and child step) points at its exact place in the original file.
+  const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
+  walk(r.steps);
+  for (const sk of r.skipped) anchorSpan(sk, fn, lang);
+  const range = bodyRange(fn, lang, code);
+  if (range) {
+    const covered = new Set();
+    for (const sp of [...r.steps.map((x) => x.span), ...r.skipped]) if (sp) for (let l = sp.startLine; l <= sp.endLine; l++) covered.add(l);
+    let real = 0, hit = 0;
+    const missing = [];
+    for (let l = range[0]; l <= range[1]; l++) {
+      const t = srcLines[l - 1] ?? '';
+      if (TRIVIA_LINE.test(t)) continue;
+      real++;
+      if (covered.has(l)) hit++; else if (missing.length < 5) missing.push(l);
+    }
+    r.anchor = { schema: 'thunder-anchor-v1', bodyLines: range, codeLines: real, coveredLines: hit, coverage: real ? Math.round((hit / real) * 1000) / 1000 : 1, missing };
+  }
   for (const st of r.steps) {
     if (st.kind !== 'branch' || !st.cond) continue;
     const cond = toThunderCondition(st.cond, names);
@@ -1483,6 +1531,7 @@ export function readCode(source, { language, file = '' } = {}) {
   // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
   const code = lang === 'php' ? normalizePhp(src) : src;
   const items = [];
+  const srcLines = src.split('\n');
   for (const fn of findFunctions(code, lang)) {
     const inputs = fn.params;
     const names = inputs.map((p) => p.name);
@@ -1519,10 +1568,10 @@ export function readCode(source, { language, file = '' } = {}) {
         unread: read.unread,
       });
     } else {
-      const st = functionSteps(fn, lang, code, names);
+      const st = functionSteps(fn, lang, code, names, srcLines);
       items.push({
         ...base, kind: 'function', status: 'signature-only',
-        ...(st ? { steps: st.steps, stepsMore: st.more, stepsReadable: Math.round(st.readable * 100) / 100 } : {}),
+        ...(st ? { steps: st.steps, stepsMore: st.more, stepsReadable: Math.round(st.readable * 100) / 100, ...(st.anchor ? { anchor: st.anchor } : {}) } : {}),
         says: fn.route ? `Handles ${fn.route.method} ${fn.route.path || '(this controller\'s path)'}.${guardNote}` : `${fn.name} takes ${inputs.length ? inputs.map((p) => p.type && !/[<>\[\]]/.test(p.type) ? `${p.name} (${p.type})` : p.name).join(', ') : 'no inputs'}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}. ${guards.length ? '' : ' Its body does more than choose between fixed answers, so no rules are shown.'}${guardNote}`,
         guards, unread: read.unread,
       });
