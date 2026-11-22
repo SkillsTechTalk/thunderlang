@@ -9,7 +9,7 @@ export type CodeLang = "typescript" | "python" | "go" | "rust" | "csharp" | "jav
 
 const KEYWORDS: Record<CodeLang, string[]> = {
   typescript: ["export", "function", "if", "return", "const", "let", "interface", "throw", "new", "import", "from", "type"],
-  python: ["def", "if", "return"],
+  python: ["def", "if", "elif", "else", "return", "raise", "class", "import", "from"],
   go: ["package", "import", "func", "if", "return"],
   rust: ["fn", "if", "return", "let", "static"],
   csharp: ["public", "static", "if", "return", "class"],
@@ -28,6 +28,7 @@ const TOKEN =
 export function tokenizeCode(source: string, lang: CodeLang): Token[] {
   const kw = new Set(KEYWORDS[lang]);
   const out: Token[] = [];
+  let afterDef = false;
   for (const m of source.matchAll(TOKEN)) {
     const [text, comment, str, op, num, word, , punc] = m;
     if (comment && !(lang !== "python" && comment.startsWith("#"))) out.push({ text, cls: "tok-comment" });
@@ -35,7 +36,9 @@ export function tokenizeCode(source: string, lang: CodeLang): Token[] {
     else if (str) out.push({ text, cls: "tok-str" });
     else if (op) out.push({ text, cls: "tok-op" });
     else if (num) out.push({ text, cls: "tok-num" });
+    else if (word && afterDef) { out.push({ text, cls: "tok-fn" }); afterDef = false; }
     else if (word) {
+      if (/^(def|func|fn|function)$/.test(word)) afterDef = true;
       if (lang === "python" && /^(and|or|not)$/.test(word)) out.push({ text, cls: "tok-logic" });
       else if (kw.has(word)) out.push({ text, cls: "tok-key" });
       else if (LITERALS.has(word)) out.push({ text, cls: "tok-num" });

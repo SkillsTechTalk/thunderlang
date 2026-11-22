@@ -7,14 +7,14 @@
 export const siteConfig = {
   name: "Intent",
   wordmark: "ThunderLang",
-  tagline: "The Intent-Oriented Programming Language",
+  tagline: "Thunder. Programming, made human",
   builtBy: "SkillsTech",
   // Production base URL. Override locally with NEXT_PUBLIC_SITE_URL if needed.
   url:
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://thunderlang.dev",
   description:
-    "ThunderLang is the intent language for AI-era software by SkillsTech. Define what software should do, what must never happen, and how it must be verified before code is generated or changed.",
+    "Thunder. Programming, made human. AI can write the code; humans should understand it. Thunder makes software rules visual and readable: read a rule, understand why it decides, change it, and ship it in the language you use. ThunderLang is its open-source spec and compiler, by SkillsTech.",
   promise:
     "Write what your software should do. Let AI and the compiler help determine how to build it, verify it, and keep it understandable.",
   twitter: "@skillstech",
@@ -35,7 +35,7 @@ export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
   { href: "/learn", label: "Tutorial" },
-  { href: "/read", label: "Read code" },
+  { href: "/read", label: "Read in Thunder" },
   { href: "/try", label: "Try it" },
   { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
@@ -59,7 +59,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Language",
     items: [
       { href: "/learn", label: "Tutorial" },
-      { href: "/read", label: "Read code" },
+      { href: "/read", label: "Read in Thunder" },
       { href: "/vision", label: "Vision" },
       { href: "/architecture", label: "Architecture" },
       { href: "/docs", label: "Documentation" },

@@ -1,14 +1,26 @@
 import Link from "next/link";
 import { Section, SectionHeading, Eyebrow, Pill, CTAButtons } from "@/components/ui";
 import { StarMark } from "@/components/StarMark";
-import { HighlightedLine, HighlightedSource } from "@/lib/highlight";
-import { HeroTranslate } from "@/components/HeroTranslate";
+import fs from "node:fs";
+import path from "node:path";
+import { HighlightedCode, HighlightedPlainPhrase, HighlightedSource } from "@/lib/highlight";
+import { HeroThunder } from "@/components/HeroThunder";
+import { RulePictureStatic } from "@/app/try/RuleVisual";
+import { readCode } from "../../compiler/src/read.mjs";
+import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
+import type { PlainModel } from "../../compiler/src/plain-contract.d.mts";
 import { whatIntentIsNot } from "@/lib/content";
 import { CAPABILITIES } from "@/lib/capabilities";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PROJECT_FACTS, NPM_PACKAGE } from "@/lib/facts";
 
-// The home page tells one story, in order: why ThunderLang exists, what the world looks like if it
+const PLAIN = fs.readFileSync(path.join(process.cwd(), "examples/human/RefundApproval.thunder-plain"), "utf8");
+const PYTHON = `def Refund(amount: float, withinWindow: bool) -> str:
+    if (((amount >= 0) and (amount <= 100)) and withinWindow):
+        return "Approve"
+    return "Review"`;
+
+// The home page tells one story, in order: read a rule in Thunder, why Thunder exists, what the world looks like if it
 // works, how it works, and where to write it. Deeper material lives on /vision, /docs, and /learn.
 
 const shift = [
@@ -29,7 +41,7 @@ const shift = [
 const imagine = [
   {
     title: "Every important rule has one home",
-    body: "Refund limits, access rules, and pricing live in short files a product manager can read and an engineer can trust.",
+    body: "Refund limits, access rules, and pricing live in Thunder, where a product manager can read them and an engineer can trust them.",
   },
   {
     title: "AI reads the rules before it writes",
@@ -45,8 +57,8 @@ const imagine = [
   },
 ];
 
-// What the compiler does with a .thunder file. Shown right under the hero so nobody mistakes ThunderLang for a
-// language without a compiler.
+// What the Thunder compiler does with a rule. Shown right under the hero so nobody mistakes Thunder for a
+// picture without a compiler.
 const compilerSteps = [
   {
     verb: "Check",
@@ -68,20 +80,20 @@ const compilerSteps = [
 const steps = [
   {
     n: "1",
-    title: "Write",
-    body: "Say the rule in plain words: a decision, its inputs, and what happens when.",
-    code: "when total >= 50 -> Free",
+    title: "Read it",
+    body: "See the rule as a picture: the question it answers, the facts it reads, and what happens when.",
+    code: "the amount is at most $100",
   },
   {
     n: "2",
-    title: "Prove",
-    body: "Add examples with the answer you expect. Every one runs, so a wrong rule shows up immediately.",
-    code: 'case "exactly $50": (total: 50) -> Free',
+    title: "Understand it",
+    body: "Ask it what happens to a real case and see why. Examples with the answer you expect run every time, so a wrong rule shows up immediately.",
+    code: "$100, on time   gives Approve   (exactly at the limit)",
   },
   {
     n: "3",
-    title: "Generate and guard",
-    body: "Get the rule in TypeScript, Python, Go, Rust, C#, or Java, and block AI changes that break a rule you wrote.",
+    title: "Change it",
+    body: "Click a word to change the rule and see which cases are affected. The compiler writes it in TypeScript, Python, Go, Rust, C#, or Java, and blocks AI changes that break it.",
     code: "thunder verify-diff Rules.thunder",
   },
 ];
@@ -97,34 +109,40 @@ export default function HomePage() {
           <div className="animate-fade-up">
             <div className="flex items-center gap-3">
               <StarMark className="h-6 w-6 animate-twinkle" />
-              <Pill>A language for the rules AI must follow</Pill>
+              <Pill>Introducing Thunder</Pill>
             </div>
             <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
-              AI writes the code.{" "}
-              <span className="text-gradient-gold">You write the rules.</span>
+              Programming,{" "}
+              <span className="text-gradient-gold">made human.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-haze-300">
-              ThunderLang is a small, readable language for the rules your software must never get wrong. Write a rule once
-              in plain words, prove it with examples, and generate it in the language you ship. When AI changes your code,
-              ThunderLang checks that every rule still holds.
+            <p className="mt-5 text-xl font-medium text-white sm:text-2xl">AI can write the code. Humans should understand it.</p>
+            <p className="mt-4 max-w-xl text-lg leading-relaxed text-haze-300">
+              For decades, people learned to speak to computers. Now that AI writes software, programming should speak our
+              language. Thunder makes software&apos;s rules visual and readable, so you can see what it does, question its
+              decisions, and change its rules. The Thunder compiler turns them into the code you ship and checks every AI
+              change against them.
+            </p>
+            <p className="mt-3 max-w-xl text-sm text-haze-400">
+              Today Thunder covers decisions and business rules: refunds, access, pricing, eligibility. It is not yet a
+              general-purpose programming language.
             </p>
             <div className="mt-8">
               <CTAButtons
-                primary={{ href: "/learn", label: "Start the 10-minute tutorial" }}
-                secondary={{ href: "#why", label: "Why ThunderLang exists" }}
+                primary={{ href: "/try", label: "Try it on a refund rule" }}
+                secondary={{ href: "/read", label: "Read your code in Thunder" }}
               />
             </div>
             <p className="mt-6 max-w-lg text-sm leading-relaxed text-haze-400">
-              Not just a language: it has a real compiler, and{" "}
-              <a href="#compiler" className="font-medium text-gold-300 hover:text-gold-200">OpenThunder is where it runs</a>.
-              The same{" "}
-              <a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-300 hover:text-gold-200">open-source compiler</a>{" "}
-              also runs in your browser and your terminal. Deterministic: no AI and no key
-              needed.
+              Not just a picture: Thunder has a{" "}
+              <a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-300 hover:text-gold-200">real, open-source compiler</a>{" "}
+              (ThunderLang). It runs in your browser, your terminal, and{" "}
+              <a href="#compiler" className="font-medium text-gold-300 hover:text-gold-200">OpenThunder, the IDE for Thunder</a>.
+              Deterministic: no AI and no key needed. New here?{" "}
+              <Link href="/learn" className="font-medium text-gold-300 hover:text-gold-200">Take the 10-minute tutorial</Link>.
             </p>
           </div>
           <div className="animate-fade-up min-w-0 [animation-delay:120ms]">
-            <HeroTranslate />
+            <HeroThunder source={PLAIN} />
           </div>
         </div>
       </section>
@@ -132,9 +150,9 @@ export default function HomePage() {
       {/* The compiler: ThunderLang is compiled, and OpenThunder ships the compiler. */}
       <Section id="compiler" className="border-t border-white/8">
         <SectionHeading
-          eyebrow="The compiler"
-          title="A language with a compiler. OpenThunder compiles it."
-          intro="ThunderLang is not a format you hope someone implements later. Every .thunder file is compiled: checked, proven with its own examples, and turned into code. The compiler is built into OpenThunder, so you write the rules and run them in the same place."
+          eyebrow="The Thunder compiler"
+          title="A language with a compiler. OpenThunder is where you work with it."
+          intro="Thunder is not a drawing you hope someone implements later. Every rule is compiled: checked, proven with its own examples, and turned into code. The open-source Thunder compiler runs in your browser and terminal, and it is built into OpenThunder, the IDE for Thunder."
         />
         <div className="mt-12 grid gap-5 md:grid-cols-3">
           {compilerSteps.map((c) => (
@@ -147,23 +165,37 @@ export default function HomePage() {
         </div>
         <div className="mt-8 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:gap-6">
           <a href="https://openthunder.dev" className="font-medium text-gold-300 hover:text-gold-200">
-            Write ThunderLang in OpenThunder →
+            Work in Thunder with OpenThunder →
           </a>
           <Link href="/playground" className="font-medium text-gold-300 hover:text-gold-200">
             Or try the compiler in your browser →
           </Link>
         </div>
         <p className="mt-6 max-w-3xl text-sm leading-relaxed text-haze-400">
-          AI will write most of the code. Someone still has to say what the code must do, and that is what you write in
-          ThunderLang. You can let AI draft the rules too: the compiler checks them the same way, so nothing is trusted just
+          AI will write most of the code. Someone still has to say what the code must do, and that is what you read and
+          write in Thunder. You can let AI draft the rules too: the compiler checks them the same way, so nothing is trusted just
           because a model wrote it.
+        </p>
+      </Section>
+
+      {/* Thundered code: existing code, read in Thunder. */}
+      <Section id="thundered">
+        <SectionHeading
+          eyebrow="Thundered code"
+          title="Already have code? Read it in Thunder."
+          intro="Python helps people write instructions for computers. Thunder helps people understand and control software, including software AI wrote. It reads existing TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, and Ruby and draws the rules it finds. Your code stays the source of truth; Thunder shows what it does today, so a person can say whether that is what the team wants."
+        />
+        <ThunderedPreview />
+        <p className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your code in Thunder →</Link>
+          <Link href="/docs/thunder-vocabulary" className="font-medium text-gold-300 hover:text-gold-200">Thunder, ThunderLang, and Thundered code →</Link>
         </p>
       </Section>
 
       {/* Why it exists. */}
       <Section id="why" className="border-y border-white/8 bg-ink-900/40">
         <SectionHeading
-          eyebrow="Why ThunderLang exists"
+          eyebrow="Why Thunder exists"
           title="Code got cheap. Knowing what it must do did not."
           intro="Programming languages were built for people telling computers how to do something. With AI writing more of the how, the scarce thing is a clear, checkable statement of what must stay true."
         />
@@ -180,7 +212,10 @@ export default function HomePage() {
         </ol>
         <div className="mt-8 rounded-2xl border border-gold-300/30 bg-gold-400/[0.07] p-6 sm:p-8">
           <p className="text-xl font-semibold leading-relaxed text-white sm:text-2xl">
-            ThunderLang gives the rules a home: one readable file that people agree on, AI reads, and machines check.
+            AI writes the code. Humans understand the logic.
+          </p>
+          <p className="mt-2 text-lg leading-relaxed text-haze-200">
+            Thunder gives the rules a home: one picture people agree on, AI reads, and machines check.
           </p>
         </div>
       </Section>
@@ -190,7 +225,7 @@ export default function HomePage() {
         <SectionHeading
           eyebrow="Imagine if this became the way"
           title="Software where the rules are the source of truth."
-          intro="This is the future ThunderLang is built for. Parts of it work today; the rest is the direction."
+          intro="This is the future Thunder is built for. Parts of it work today; the rest is the direction."
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2">
           {imagine.map((m) => (
@@ -202,11 +237,10 @@ export default function HomePage() {
         </div>
         <figure className="mx-auto mt-14 max-w-3xl text-center">
           <blockquote className="text-balance text-2xl font-semibold leading-snug text-white sm:text-3xl">
-            The most important language of the AI era will not be the one AI writes. It will be the one people use to tell AI
-            what must stay true.
+            AI should handle the complexity of writing software. Humans should keep the clarity and control to understand it.
           </blockquote>
           <figcaption className="mt-4 text-haze-400">
-            That is what ThunderLang is built to be. It is pre-1.0 today, and{" "}
+            That is the principle Thunder is designed around. It is pre-1.0 today, and{" "}
             <a href="#today" className="font-medium text-gold-300 hover:text-gold-200">here is exactly what works</a>.
           </figcaption>
         </figure>
@@ -214,7 +248,7 @@ export default function HomePage() {
 
       {/* How it works. */}
       <Section id="how" className="border-y border-white/8 bg-ink-900/40">
-        <SectionHeading eyebrow="How it works" title="Write it. Prove it. Ship it in any language." />
+        <SectionHeading eyebrow="How it works" title="Read it. Understand it. Change it." intro="Then ship it in the language you use, and let the compiler guard it." />
         <ol className="mt-12 grid gap-4 lg:grid-cols-3">
           {steps.map((s) => (
             <li key={s.n} className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/50 p-6">
@@ -239,7 +273,7 @@ export default function HomePage() {
         <SectionHeading
           eyebrow="The gate"
           title="Catch the AI's mistake before it merges."
-          intro="You declare what must never happen. An AI writes the code. ThunderLang proves, deterministically, whether the change upholds your intent, and blocks it if it does not. No model runs in the check."
+          intro="You declare what must never happen. An AI writes the code. Thunder proves, deterministically, whether the change upholds your intent, and blocks it if it does not. No model runs in the check."
         />
         <div className="mt-10 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-2xl border border-white/8 bg-ink-850/40 p-5">
@@ -284,9 +318,9 @@ $ echo $?
       {/* Where to write it. */}
       <Section id="where">
         <SectionHeading
-          eyebrow="Write it wherever you work"
+          eyebrow="Work in Thunder wherever you are"
           title="The browser, your terminal, or OpenThunder."
-          intro="One .thunder file works in all three. Start in the browser, then carry the same file into your repository."
+          intro="One Thunder file works in all three. Start in the browser, then carry the same file into your repository."
         />
         <div className="mt-12 grid gap-5 lg:grid-cols-3">
           <div className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
@@ -313,7 +347,7 @@ $ echo $?
             </pre>
           </div>
           <div className="flex flex-col rounded-2xl border border-white/10 bg-ink-850/40 p-6">
-            <Eyebrow>In OpenThunder</Eyebrow>
+            <Eyebrow>In OpenThunder, the IDE for Thunder</Eyebrow>
             <h3 className="mt-2 text-lg font-semibold text-white">The compiler, built in</h3>
             <p className="mt-2 flex-1 text-sm leading-relaxed text-haze-300">
               Open a .thunder file and the compiler sits beside it: problems as you type, Run tests for your examples, and
@@ -322,7 +356,7 @@ $ echo $?
               <code className="font-mono text-haze-100">openthunder intent conform</code> compares the generated languages.
             </p>
             <a href="https://openthunder.dev" className="mt-5 text-sm font-medium text-gold-300 hover:text-gold-200">
-              Write ThunderLang in OpenThunder →
+              Work in Thunder with OpenThunder →
             </a>
           </div>
         </div>
@@ -377,9 +411,9 @@ $ echo $?
 
       <Section id="not">
         <SectionHeading
-          eyebrow="What ThunderLang is not"
+          eyebrow="What Thunder is not"
           title="Clear about what we are not claiming."
-          intro="Being honest about the boundaries is part of being a serious language project. ThunderLang sits above paradigms and targets your languages; it does not replace them."
+          intro="Being honest about the boundaries is part of being a serious language project. Thunder sits above your languages and reads and targets them; it does not replace them."
         />
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {whatIntentIsNot.map((n) => (
@@ -418,17 +452,18 @@ $ echo $?
         <div className="panel relative overflow-hidden px-6 py-14 text-center sm:px-12">
           <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[560px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[100px]" />
           <div className="relative mx-auto max-w-2xl">
-            <Eyebrow>Open source and on npm</Eyebrow>
+            <Eyebrow>Read it. Understand it. Change it.</Eyebrow>
             <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Write your first rule in ten minutes.
+              Read your first rule in Thunder.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-haze-300">
-              Five short lessons in your browser. By the end you will have a rule, its proof, and the same rule in six languages.
+              Ask a refund rule a question, change one condition, and see what breaks. Then take five short lessons and leave
+              with a rule, its proof, and the same rule in six languages.
             </p>
             <div className="mt-8 flex justify-center">
               <CTAButtons
-                primary={{ href: "/learn", label: "Start the tutorial" }}
-                secondary={{ href: "/docs/getting-started", label: "Read the docs" }}
+                primary={{ href: "/try", label: "Try it on a refund rule" }}
+                secondary={{ href: "/learn", label: "Start the tutorial" }}
               />
             </div>
             <p className="mt-6 text-sm text-haze-400">
@@ -446,5 +481,27 @@ $ echo $?
 }
 
 function HowCode({ text }: { text: string }) {
-  return text.startsWith("thunder ") ? <>{text}</> : <HighlightedLine line={text} />;
+  return text.startsWith("thunder ") ? <>{text}</> : <HighlightedPlainPhrase context={PLAIN} phrase={text} />;
+}
+
+/** Original Python next to the same Python, Thundered by the real code reader. */
+function ThunderedPreview() {
+  const lifted = plainFromReading(readCode(PYTHON, { language: "python" }).items[0]) as PlainModel | null;
+  return (
+    <div className="mt-10 grid gap-4 lg:grid-cols-2">
+      <figure className="min-w-0 rounded-2xl border border-white/10 bg-ink-850/40 p-5">
+        <figcaption className="text-sm font-semibold text-white">Original Python</figcaption>
+        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-4 font-mono text-[12px] leading-6 text-haze-200"><code><HighlightedCode source={PYTHON} lang="python" /></code></pre>
+      </figure>
+      <figure className="min-w-0 rounded-2xl border border-gold-300/30 bg-ink-850/40 p-5">
+        <figcaption className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-white">Thundered Python
+          <span className="flex flex-wrap gap-2 text-xs font-normal">
+            <span className="rounded-full border border-white/20 px-2 py-0.5 text-haze-200">Read in Thunder: yes</span>
+            <span className="rounded-full border border-dashed border-white/25 px-2 py-0.5 text-haze-300">Update the Python from here: not yet</span>
+          </span>
+        </figcaption>
+        <div className="mt-3">{lifted ? <RulePictureStatic model={lifted} /> : <p className="text-sm text-haze-300">This code could not be read.</p>}</div>
+      </figure>
+    </div>
+  );
 }

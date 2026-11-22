@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { HighlightedSource } from "@/lib/highlight";
 
 /**
@@ -16,6 +16,7 @@ export function ThunderEditor({
   invalid,
   minRows = 8,
   maxRows = 26,
+  highlight,
 }: {
   id: string;
   value: string;
@@ -24,13 +25,15 @@ export function ThunderEditor({
   invalid?: boolean;
   minRows?: number;
   maxRows?: number;
+  /** Optional renderer for another notation's colors (defaults to ThunderLang). */
+  highlight?: (source: string) => ReactNode;
 }) {
   const layer = useRef<HTMLPreElement>(null);
   const text = "p-4 font-mono text-[13px] leading-6 sm:text-sm";
   return (
     <div className="relative">
       <pre ref={layer} aria-hidden="true" className={`pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre text-haze-200 ${text}`}>
-        <HighlightedSource source={value + "\n"} />
+        {highlight ? highlight(value + "\n") : <HighlightedSource source={value + "\n"} />}
       </pre>
       <textarea
         id={id}

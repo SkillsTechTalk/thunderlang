@@ -143,7 +143,7 @@ function FileReader({ know }: { know: CodeLang }) {
           </div>
           {reading && (
             <p className="text-sm text-haze-400">
-              Reading as <span className="font-medium text-haze-100">{labelOf(reading.language)}</span>
+              Thundered <span className="font-medium text-haze-100">{labelOf(reading.language)}</span>
               {reading.detected ? " (detected)" : ""}
             </p>
           )}
@@ -192,7 +192,7 @@ function FileReader({ know }: { know: CodeLang }) {
 
         {/* 2. The reading. */}
         <section aria-labelledby="read-output" className="min-w-0 space-y-4">
-          <h2 id="read-output" className="text-xl font-semibold text-white">2. Read what it decides</h2>
+          <h2 id="read-output" className="text-xl font-semibold text-white">2. Read it in Thunder</h2>
           {error && <p role="alert" className="rounded-lg border border-red-400/40 bg-red-400/10 p-3 text-sm text-red-200">{error}</p>}
           {!error && !reading && <p className="text-haze-300">Paste some code to read it.</p>}
           {reading && (

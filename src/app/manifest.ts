@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "ThunderLang",
     short_name: "ThunderLang",
     description:
-      "Intent-Oriented Programming for the AI era, by SkillsTech.",
+      "Thunder. Programming, made human. By SkillsTech.",
     start_url: "/",
     display: "standalone",
     background_color: "#05070E",
