@@ -5,7 +5,7 @@ import { Fragment, useState } from "react";
 import { Logo } from "./Logo";
 import { EcosystemMenu } from "./EcosystemMenu";
 import { LearnMenu } from "./LearnMenu";
-import { mainNav, learnNav } from "@/lib/site";
+import { mainNav, learnNav, OPENTHUNDER_URL } from "@/lib/site";
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -15,12 +15,12 @@ export function Header() {
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <Logo />
 
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">
           {mainNav.map((item, i) => (
             <Fragment key={item.href}>
               <Link
                 href={item.href}
-                className="text-sm text-haze-300 transition-colors hover:text-haze-100"
+                className="whitespace-nowrap text-sm text-haze-300 transition-colors hover:text-haze-100"
               >
                 {item.label}
               </Link>
@@ -29,7 +29,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <a
             href="https://github.com/SkillsTechTalk/thunderlang"
             target="_blank"
@@ -42,7 +42,10 @@ export function Header() {
             </svg>
           </a>
           <EcosystemMenu current="ThunderLang" />
-          <Link href="/docs/getting-started" className="btn-primary">
+          <a href={OPENTHUNDER_URL} className="whitespace-nowrap rounded-full border border-gold-300/40 px-3.5 py-1.5 text-sm font-medium text-gold-200 transition hover:border-gold-300/70 hover:bg-gold-300/10">
+            OpenThunder ↗
+          </a>
+          <Link href="/install" className="btn-primary whitespace-nowrap">
             Get started
           </Link>
         </div>
@@ -52,7 +55,7 @@ export function Header() {
           aria-label="Toggle menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-haze-200 md:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-haze-200 lg:hidden"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             {open ? (
@@ -75,7 +78,7 @@ export function Header() {
       </div>
 
       {open && (
-        <div className="border-t border-white/8 bg-ink-900/95 md:hidden">
+        <div className="border-t border-white/8 bg-ink-900/95 lg:hidden">
           <nav className="container-x flex flex-col py-4" aria-label="Mobile">
             {mainNav.map((item) => (
               <Link
@@ -87,6 +90,7 @@ export function Header() {
                 {item.label}
               </Link>
             ))}
+            <a href={OPENTHUNDER_URL} className="py-2.5 text-sm font-medium text-gold-200">OpenThunder, the IDE for Thunder ↗</a>
             <p className="mt-2 pt-2 text-xs font-semibold uppercase tracking-[0.18em] text-haze-500">
               Learn
             </p>
@@ -110,7 +114,7 @@ export function Header() {
               GitHub
             </a>
             <Link
-              href="/docs/getting-started"
+              href="/install"
               onClick={() => setOpen(false)}
               className="btn-primary mt-3 w-full"
             >

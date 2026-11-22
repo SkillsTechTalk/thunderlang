@@ -1,346 +1,228 @@
 import Link from "next/link";
-import { ContractLab } from "@/components/ContractLab";
-import {
-  Section,
-  SectionHeading,
-  Card,
-  Pill,
-  CTAButtons,
-} from "@/components/ui";
-import { CAPABILITIES } from "@/lib/capabilities";
-import { StatusBadge } from "@/components/StatusBadge";
+import fs from "node:fs";
+import path from "node:path";
+import { Section, SectionHeading, CTAButtons } from "@/components/ui";
+import { StarMark } from "@/components/StarMark";
+import { HeroThunder } from "@/components/HeroThunder";
+import { ServiceGlyph } from "@/app/try/Glyphs";
+import { readCode } from "../../compiler/src/read.mjs";
+import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
+import type { PlainModel } from "../../compiler/src/plain-contract.d.mts";
 import { PROJECT_FACTS } from "@/lib/facts";
-import { pageMeta } from "@/lib/seo";
+import { THUNDERED_SAMPLES } from "@/lib/thundered-samples";
+import { ThunderedTabs, type ThunderedSample } from "@/components/ThunderedTabs";
 
-export const metadata = pageMeta({
-  title: "Executable rules for AI-assisted development",
-  description:
-    "Write readable software rules, run their edge cases without AI, and bring the same contract into OpenThunder. Try a real boundary failure in your browser.",
-  path: "/",
+const PLAIN = fs.readFileSync(path.join(process.cwd(), "examples/human/RefundApproval.thunder-plain"), "utf8");
+
+// The home page follows one story (StoryBrand SB7): the reader wants to understand the software AI writes (hero);
+// the problem stops them; Thunder is the guide; a three-step plan; a clear call to action; what is at stake; what
+// success looks like. Everything else lives one click away (/try, /read, /map, /roadmap, /docs).
+
+const PROBLEM = [
+  { kind: "What you see", text: "AI writes code faster than anyone can read it. The rules that run your business end up buried in thousands of lines." },
+  { kind: "How it feels", text: "You approve changes you can't fully read, and hope nothing important moved." },
+  { kind: "Why it's wrong", text: "The people responsible for software should be able to understand what it does." },
+];
+
+const PLAN = [
+  { n: "1", title: "Read it", body: "Open a rule, or your own code, and see it as a picture: the question, the facts it reads, what it decides.", href: "/read", cta: "Read your code in Thunder" },
+  { n: "2", title: "Understand it", body: "Ask it about a real case and get the answer with the reason. See the whole app and where to look first.", href: "/map", cta: "See a whole app" },
+  { n: "3", title: "Change it", body: "Click a word to change the rule. See which cases change before you apply, and let the compiler check every change.", href: "/try", cta: "Change a rule" },
+];
+
+const WITHOUT = [
+  "A $100 refund limit lives in two services, and nobody notices they disagree.",
+  "An AI change moves a limit by one character, and review misses it.",
+  "Only the person who wrote the code can say what it decides.",
+];
+const WITH = [
+  "Every important rule is a picture a product manager can read.",
+  "Thunder points out where services disagree and asks which one the business wants.",
+  "Every change, by a person or an AI, is checked against the rules before it merges.",
+];
+
+// Ways to see your software in Thunder (naming agreed with OpenThunder). Status is honest.
+const VIEWS = [
+  { name: "Thunder Code", what: "every function in a file or folder, read in Thunder", href: "/read", status: "Preview here" },
+  { name: "Thunder Map", what: "how the code is built: services, packages, integrations", href: "/map", status: "Prototype here" },
+  { name: "Thunder Atlas", what: "zoom from the whole product to one rule, then the code", href: "/map", status: "Prototype here" },
+  { name: "Thunder Brief", what: "the big picture on a page", href: "/map", status: "Prototype here" },
+  { name: "Thunder Focus", what: "where to look first, and why", href: "/map", status: "Prototype here" },
+  { name: "Thunder Trace", what: "one user action, from start to data", href: "https://openthunder.dev", status: "In OpenThunder" },
+  { name: "Thunder Learn", what: "walk and memorize your app", href: "https://openthunder.dev", status: "In OpenThunder" },
+  { name: "Thunder Review", what: "a pull request as before-and-after pictures", href: "https://openthunder.dev", status: "Later" },
+];
+
+const AUTHORITY = [PROJECT_FACTS[0], { value: "10", label: "languages read in Thunder", href: "/read" }, PROJECT_FACTS[3]];
+
+// The same refund rule in every language the reader supports, Thundered at build time by the real reader.
+const SAMPLES: ThunderedSample[] = THUNDERED_SAMPLES.map((x) => {
+  const item = readCode(x.source, { language: x.key }).items.find((i) => i.kind === "decision");
+  const model = item ? (plainFromReading(item) as (PlainModel & { needsReview: string[] }) | null) : null;
+  return { ...x, model, inferred: !!model?.needsReview.some((n) => n.includes("inferred")) };
 });
-
-const workflow = [
-  {
-    step: "01",
-    title: "Name the rule",
-    body: "Choose a decision or transition your team needs to preserve. Keep its conditions and expected results together in a reviewed .thunder file.",
-  },
-  {
-    step: "02",
-    title: "Test the boundaries",
-    body: "Run the declared cases. A failure shows the input, expected decision, and actual result. Add the edge case that would otherwise be easy to miss.",
-  },
-  {
-    step: "03",
-    title: "Carry it into the change",
-    body: "Use the same file in OpenThunder, the CLI, or an agent tool. Review policy results alongside tests of the real implementation.",
-  },
-];
-const examples = [
-  {
-    href: "/examples/alertrouting",
-    title: "Route an alert",
-    detail: "Decision rules and lifecycle scenarios in one file.",
-    tag: "Decisions + transitions",
-  },
-  {
-    href: "/examples/duplicateinvoiceprevention",
-    title: "Review duplicate invoices",
-    detail: "Inspect declared guarantees, named tests, and remaining checks.",
-    tag: "Rules + evidence",
-  },
-  {
-    href: "/examples/placeorder",
-    title: "Follow an order",
-    detail: "Explore an order policy with explicit test cases.",
-    tag: "A business workflow",
-  },
-];
 
 export default function HomePage() {
   return (
     <>
+      {/* 1. The character and what they want: understand the software AI writes. */}
       <section className="relative overflow-hidden">
-        <div className="pointer-events-none absolute inset-0 bg-grid-faint bg-[size:44px_44px] opacity-20" />
-        <div className="container-x relative grid gap-10 py-12 sm:py-20 lg:grid-cols-[1fr_1.08fr] lg:items-center lg:gap-14">
-          <div>
-            <Pill>Developer tooling for OpenThunder and your workflow</Pill>
-            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
-              AI changes your code.
-              <br />
-              <span className="text-gradient-gold">
-                Keep the rules explicit.
-              </span>
+        <div className="pointer-events-none absolute inset-0 bg-grid-faint bg-[size:44px_44px] opacity-30" />
+        <div className="pointer-events-none absolute left-1/2 top-[-10%] h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[120px]" />
+        <div className="container-x relative py-16 sm:py-20">
+        <HeroThunder source={PLAIN}>
+          <div className="animate-fade-up">
+            <div className="flex items-center gap-3">
+              <StarMark className="h-8 w-8 animate-twinkle" />
+              <p className="text-base font-semibold tracking-tight text-haze-100 sm:whitespace-nowrap sm:text-lg">
+                Introducing the{" "}
+                <span className="text-gradient-gold text-xl font-bold sm:text-2xl">Thunder<sup className="ml-0.5 align-super text-[0.5em] font-semibold">™</sup></span>{" "}
+                programming language
+              </p>
+            </div>
+            <h1 className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+              Programming,{" "}
+              <span className="text-gradient-gold">made human.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-haze-300">
-              Write the decisions your software must make, test the edge cases,
-              and carry that contract into OpenThunder. Start with one rule in
-              an existing project.
+            <p className="mt-5 text-xl font-medium text-white sm:text-2xl">AI can write the code. Humans should understand it.</p>
+            <p className="mt-4 max-w-xl text-lg leading-relaxed text-haze-300">
+              For decades, people learned to speak to computers. Now that AI writes software, programming should speak our
+              language. Thunder makes software&apos;s rules visual and readable, so you can see what it does, question its
+              decisions, and change its rules. The Thunder compiler turns them into the code you ship and checks every AI
+              change against them.
+            </p>
+            <p className="mt-3 max-w-xl text-sm text-haze-400">
+              Today Thunder covers decisions and business rules: refunds, access, pricing, eligibility. It is not yet a
+              general-purpose programming language.
             </p>
             <div className="mt-8">
               <CTAButtons
-                primary={{ href: "#contract-lab", label: "Try a real rule →" }}
-                secondary={{
-                  href: "/docs/using-with-openthunder",
-                  label: "Use with OpenThunder",
-                }}
+                primary={{ href: "/try", label: "Try it on a refund rule" }}
+                secondary={{ href: "/read", label: "Read your code in Thunder" }}
               />
             </div>
-            <p className="mt-4 text-sm leading-relaxed text-haze-400">
-              Open source. No signup or API key. The demo runs locally in your
-              browser.
-            </p>
-            <div className="mt-8 border-l-2 border-gold-400/40 pl-4">
-              <p className="text-sm font-medium text-haze-200">
-                A rule you can read. A failure you can explain.
-              </p>
-              <p className="mt-1 max-w-md text-sm leading-relaxed text-haze-400">
-                Keep the reason for a decision visible when the code around it
-                changes.
-              </p>
-            </div>
+            <ul className="mt-7 flex flex-wrap gap-2 text-xs text-haze-300">
+              {["Also called ThunderLang™", "Open-source compiler", "Deterministic: no AI, no key"].map(t => (
+                <li key={t} className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1">{t}</li>
+              ))}
+              <li><Link href="/learn" className="inline-block rounded-full px-3 py-1 font-medium text-gold-300 hover:text-gold-200">10-minute tutorial →</Link></li>
+            </ul>
           </div>
-          <div className="min-w-0">
-            <ContractLab />
-          </div>
+        </HeroThunder>
         </div>
       </section>
 
-      <Section
-        id="openthunder"
-        className="border-y border-white/10 bg-ink-900/40"
-      >
+      {/* Thunder Code: the proof. Any language you already have, read in Thunder. */}
+      <Section id="thundered" className="border-t border-white/8">
         <SectionHeading
-          eyebrow="From the demo to your repository"
-          title="One rule, through every change."
-          intro="ThunderLang defines and executes the policy. OpenThunder brings it into your development workflow, alongside checks of the code that implements it."
+          eyebrow="Thunder Code"
+          title="Already have code? Read it in Thunder."
+          intro="Python helps people write instructions for computers. Thunder helps people understand them, including code AI wrote. Pick a language: the same refund rule becomes the same Thunder picture."
         />
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          {workflow.map((item) => (
-            <Card key={item.step}>
-              <p className="font-mono text-sm text-gold-300">{item.step}</p>
-              <h3 className="mt-4 text-xl font-semibold text-white">
-                {item.title}
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-haze-300">
-                {item.body}
-              </p>
-            </Card>
+        <div className="mt-8"><ThunderedTabs samples={SAMPLES} /></div>
+        <p className="mt-6 text-sm text-haze-300">
+          <span className="font-medium text-white">Thunder reads today:</span> {THUNDERED_SAMPLES.map((x) => x.label).join(", ")}.{" "}
+          <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your own code in Thunder →</Link>
+        </p>
+      </Section>
+
+      {/* 2. The problem. */}
+      <Section id="problem" className="border-t border-white/8">
+        <SectionHeading eyebrow="The problem" title="Software got easy to write and hard to understand." />
+        <ul className="mt-10 grid gap-4 md:grid-cols-3">
+          {PROBLEM.map((p) => (
+            <li key={p.kind} className="rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-haze-400">{p.kind}</p>
+              <p className="mt-3 text-lg leading-relaxed text-haze-100">{p.text}</p>
+            </li>
           ))}
-        </div>
-        <div className="mt-6 grid gap-6 rounded-2xl border border-white/10 bg-ink-950 p-5 sm:p-7 lg:grid-cols-2">
+        </ul>
+      </Section>
+
+      {/* 3. The guide: empathy and authority. */}
+      <Section id="guide" className="border-y border-white/8 bg-ink-900/40">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.2fr_1fr]">
           <div>
-            <p className="text-sm font-semibold text-white">
-              Same source. Clear scope.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-haze-300">
-              Keep{" "}
-              <code className="text-gold-200">
-                contracts/RefundReview.thunder
-              </code>{" "}
-              in your project. Policy cases check the declared decision. Your
-              application tests check the implementation. The review needs both.
-            </p>
-            <Link
-              href="/docs/using-with-openthunder"
-              className="mt-4 inline-block text-sm font-semibold text-gold-300 hover:text-gold-200"
-            >
-              Follow the setup guide →
-            </Link>
+            <SectionHeading
+              eyebrow="Your guide"
+              title="Thunder is built for the person who has to understand."
+              intro="Not only the person, or the model, that writes the code. Every rule is shown as a picture first, every answer comes with its reason, and every change shows what it affects. A real compiler stands behind each picture: open source, deterministic, no AI and no key."
+            />
           </div>
-          <pre className="overflow-x-auto rounded-xl bg-black/25 p-4 text-xs leading-7 text-haze-200">
-            <code>{`# Run the policy cases\nthunder test contracts/RefundReview.thunder\n\n# Inspect project intent from OpenThunder\nopenthunder intent prove --repo . --json`}</code>
-          </pre>
-        </div>
-      </Section>
-
-      <Section id="examples">
-        <SectionHeading
-          eyebrow="Choose a problem you recognize"
-          title="Start where a small mistake matters."
-          intro="Use a worked example to learn the syntax, inspect the cases, and decide what belongs in your own contract."
-        />
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          {examples.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="group rounded-2xl border border-white/10 bg-ink-900/40 p-6 transition-colors hover:border-gold-300/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300"
-            >
-              <p className="text-xs font-medium text-gold-300">{item.tag}</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">
-                {item.title}{" "}
-                <span
-                  aria-hidden="true"
-                  className="text-haze-400 group-hover:text-gold-300"
-                >
-                  ↗
-                </span>
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-haze-300">
-                {item.detail}
-              </p>
-            </Link>
-          ))}
-        </div>
-        <div className="mt-6 flex flex-wrap gap-6 text-sm font-medium text-gold-300">
-          <Link href="/examples">Browse every example →</Link>
-          <Link href="/playground">Open the full playground →</Link>
-          <Link href="/docs/mcp">Connect an AI agent →</Link>
-        </div>
-      </Section>
-
-      <Section id="today" className="border-y border-white/10 bg-ink-900/40">
-        <SectionHeading
-          eyebrow="Evidence you can inspect"
-          title="Know what was checked. See what is still open."
-          intro="A passing case covers its declared inputs. A generated artifact records evidence. Neither establishes that an entire application is correct."
-        />
-        <div className="mt-8 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-5">
-            <p className="font-semibold text-emerald-300">✓ Cases passed</p>
-            <p className="mt-2 text-sm leading-relaxed text-haze-300">
-              The declared policy produced the expected results for these
-              inputs.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-red-400/20 bg-red-400/[0.04] p-5">
-            <p className="font-semibold text-red-300">✕ A case failed</p>
-            <p className="mt-2 text-sm leading-relaxed text-haze-300">
-              Inspect the exact case, expected result, and actual decision
-              before changing the rule.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.04] p-5">
-            <p className="font-semibold text-amber-300">○ Still unverified</p>
-            <p className="mt-2 text-sm leading-relaxed text-haze-300">
-              An unresolved reference, absent test, or external check remains
-              visible.
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {PROJECT_FACTS.map((fact) => (
-            <Link
-              key={fact.value}
-              href={fact.href ?? "/docs"}
-              className="rounded-xl border border-white/10 p-4 hover:border-white/25"
-            >
-              <p className="font-semibold text-white">{fact.value}</p>
-              <p className="mt-1 text-xs leading-relaxed text-haze-400">
-                {fact.label} →
-              </p>
-            </Link>
-          ))}
-        </div>
-        <details className="mt-6 rounded-2xl border border-white/10 p-5">
-          <summary className="cursor-pointer font-medium text-haze-200">
-            Explore compiler capabilities and release status
-          </summary>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {CAPABILITIES.map((c) => (
-              <div
-                key={c.key}
-                className="rounded-xl border border-white/10 p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-medium text-white">{c.name}</h3>
-                  <StatusBadge status={c.status} />
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-haze-300">
-                  {c.blurb}
-                </p>
+          <dl className="grid grid-cols-3 gap-4">
+            {AUTHORITY.map((f) => (
+              <div key={f.label} className="rounded-2xl border border-white/10 bg-ink-850/50 p-5 text-center">
+                <dt className="sr-only">{f.label}</dt>
+                <dd className="text-3xl font-semibold tracking-tight text-white">{f.value}</dd>
+                <dd className="mt-1 text-xs leading-snug text-haze-400">{f.label}</dd>
               </div>
             ))}
-          </div>
-          <Link
-            href="/roadmap"
-            className="mt-5 inline-block text-sm text-gold-300"
-          >
-            Read the roadmap →
-          </Link>
-        </details>
+          </dl>
+        </div>
       </Section>
 
-      <Section id="questions">
-        <SectionHeading
-          eyebrow="Before you adopt it"
-          title="Fit it into the tools you already use."
-        />
-        <div className="mt-8 grid gap-x-12 gap-y-8 md:grid-cols-2">
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              Where does it fit alongside normal tests?
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-haze-300">
-              Use ThunderLang for rules that benefit from readable decisions,
-              state transitions, and a shared contract across tools. Keep unit
-              and integration tests for implementation behavior. Start with one
-              rule and evaluate the maintenance cost.
-            </p>
+      {/* 4. The plan. */}
+      <Section id="plan">
+        <SectionHeading eyebrow="The plan" title="Read it. Understand it. Change it." />
+        <ol className="mt-10 grid gap-4 lg:grid-cols-3">
+          {PLAN.map((s) => (
+            <li key={s.n} className="flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-6">
+              <span className="grid h-8 w-8 place-items-center rounded-full border border-gold-300/50 text-sm font-semibold text-gold-200">{s.n}</span>
+              <h3 className="mt-4 text-xl font-semibold tracking-tight text-white">{s.title}</h3>
+              <p className="mt-2 flex-1 leading-relaxed text-haze-300">{s.body}</p>
+              <Link href={s.href} className="mt-5 text-sm font-medium text-gold-300 hover:text-gold-200">{s.cta} →</Link>
+            </li>
+          ))}
+        </ol>
+      </Section>
+
+      {/* 5. Stakes and success. */}
+      <Section id="stakes" className="border-y border-white/8 bg-ink-900/40">
+        <SectionHeading eyebrow="What changes" title="From hoping to knowing." />
+        <div className="mt-10 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 p-6">
+            <p className="font-semibold text-haze-200">Without Thunder</p>
+            <ul className="mt-4 space-y-3">{WITHOUT.map((w) => <li key={w} className="flex gap-3 text-haze-300"><span aria-hidden="true" className="text-haze-500">–</span>{w}</li>)}</ul>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              Do I need an AI model?
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-haze-300">
-              The compiler, declared decision tests, and supported local checks
-              run without a model. An agent can help draft a change through MCP;
-              review the rule and its expected results before adopting them.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              Can it verify any AI-written code?
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-haze-300">
-              Its checks have defined scope. Policy cases execute intent;
-              conformance checks compare supported generated targets. Change
-              scans use patterns and can miss issues or flag safe code. Continue
-              running your project tests and reviewing the implementation.
-            </p>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-white">
-              How stable is the language?
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-haze-300">
-              ThunderLang is pre-1.0. Pin your compiler version, review release
-              notes, and rerun your cases when upgrading. The setup guide
-              identifies differences between published releases and local
-              development features.
-            </p>
+          <div className="rounded-2xl border border-gold-300/40 bg-gradient-to-b from-gold-400/[0.06] to-transparent p-6">
+            <p className="font-semibold text-white">With Thunder</p>
+            <ul className="mt-4 space-y-3">{WITH.map((w) => <li key={w} className="flex gap-3 text-haze-100"><span aria-hidden="true" className="text-gold-300">✦</span>{w}</li>)}</ul>
           </div>
         </div>
       </Section>
 
-      <Section className="border-t border-white/10 bg-ink-900/40">
-        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-          <div>
-            <p className="text-sm font-medium text-gold-300">
-              Start small. Keep the evidence.
+      {/* 6. Call to action: try it now, then take it to your own app in OpenThunder. */}
+      <Section>
+        <div className="panel relative overflow-hidden px-6 py-14 text-center sm:px-12">
+          <div className="pointer-events-none absolute left-1/2 top-0 h-64 w-[560px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[100px]" />
+          <div className="relative mx-auto max-w-2xl">
+            <h2 className="text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">Read your first rule in Thunder.</h2>
+            <p className="mt-4 text-lg leading-relaxed text-haze-300">
+              Ask a refund rule a question and change one word. It takes a minute and runs in your browser.
             </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white">
-              Make your next rule reviewable.
-            </h2>
+            <div className="mt-8 flex justify-center">
+              <CTAButtons primary={{ href: "/try", label: "Try it on a refund rule" }} secondary={{ href: "/learn", label: "Take the 10-minute tutorial" }} />
+            </div>
           </div>
-          <CTAButtons
-            primary={{
-              href: "#contract-lab",
-              label: "Try the boundary example",
-            }}
-            secondary={{
-              href: "/docs/using-with-openthunder",
-              label: "Bring it to OpenThunder",
-            }}
-          />
+          <div className="relative mx-auto mt-12 max-w-3xl border-t border-white/10 pt-8">
+            <p className="flex items-center justify-center gap-2 font-semibold text-white"><ServiceGlyph className="text-gold-300" />See your own app in Thunder with OpenThunder, the IDE for Thunder</p>
+            <ul className="mt-6 grid gap-2 text-left text-sm sm:grid-cols-2">
+              {VIEWS.map((v) => (
+                <li key={v.name}>
+                  <a href={v.href} className="flex items-baseline justify-between gap-3 rounded-xl border border-white/10 px-4 py-2.5 transition hover:border-gold-300/40 hover:bg-white/[0.03]">
+                    <span><span className="font-semibold text-white">{v.name}</span> <span className="text-haze-400">· {v.what}</span></span>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${v.status === "Later" ? "border-dashed border-white/20 text-haze-400" : "border-white/20 text-haze-300"}`}>{v.status}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
+              <a href="https://openthunder.dev" className="font-medium text-gold-300 hover:text-gold-200">Open OpenThunder ↗</a>
+              <Link href="/roadmap" className="font-medium text-gold-300 hover:text-gold-200">See exactly what works today →</Link>
+              <Link href="/install" className="font-medium text-gold-300 hover:text-gold-200">Install Thunder →</Link>
+            </p>
+          </div>
         </div>
-        <p className="mt-6 text-sm text-haze-400">
-          Exploring it with your team?{" "}
-          <Link href="/waitlist" className="text-gold-300">
-            Discuss a pilot →
-          </Link>
-        </p>
       </Section>
     </>
   );

@@ -5,18 +5,18 @@
  */
 
 export const siteConfig = {
-  name: "ThunderLang",
+  name: "Intent",
   wordmark: "ThunderLang",
-  tagline: "Executable rules for AI-assisted development",
+  tagline: "Thunder. Programming, made human",
   builtBy: "SkillsTech",
   // Production base URL. Override locally with NEXT_PUBLIC_SITE_URL if needed.
   url:
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://thunderlang.dev",
   description:
-    "Write readable software rules, test their edge cases, and use the same contracts in OpenThunder or your existing developer tools.",
+    "Thunder. Programming, made human. AI can write the code; humans should understand it. Thunder makes software rules visual and readable: read a rule, understand why it decides, change it, and ship it in the language you use. The Thunder programming language, also called ThunderLang, is open source, by SkillsTech.",
   promise:
-    "Keep the rules behind a code change explicit, executable, and reviewable.",
+    "Write what your software should do. Let AI and the compiler help determine how to build it, verify it, and keep it understandable.",
   twitter: "@skillstech",
   keywords: [
     "Intent programming language",
@@ -34,16 +34,24 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
-  { href: "/#contract-lab", label: "Try a rule" },
-  { href: "/docs/using-with-openthunder", label: "OpenThunder" },
-  { href: "/atlas", label: "Atlas" },
+  { href: "/read", label: "Thunder Code" },
+  { href: "/try", label: "Try it" },
+  { href: "/map", label: "Thunder Atlas" },
   { href: "/playground", label: "Playground" },
-  { href: "/roadmap", label: "Roadmap" },
 ];
+
+export const OPENTHUNDER_URL = "https://openthunder.dev";
 
 // Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
 export const learnNav: NavItem[] = [
+  { href: "/install", label: "Install" },
+  { href: "/learn", label: "Tutorial" },
+  { href: "/vision", label: "Vision" },
+  { href: "/architecture", label: "Architecture" },
+  { href: "/docs/thunder-vocabulary", label: "Thunder vocabulary" },
+  { href: "/atlas", label: "Intent Atlas (missions)" },
   { href: "/docs", label: "Docs" },
+  { href: "/roadmap", label: "Roadmap" },
   { href: "/examples", label: "Examples" },
   { href: "/articles", label: "Articles" },
   { href: "/blog", label: "Blog" },
@@ -54,6 +62,9 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
   {
     title: "Language",
     items: [
+      { href: "/learn", label: "Tutorial" },
+      { href: "/read", label: "Thunder Code" },
+      { href: "/map", label: "Thunder Atlas" },
       { href: "/vision", label: "Vision" },
       { href: "/architecture", label: "Architecture" },
       { href: "/docs", label: "Documentation" },
@@ -65,6 +76,8 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
   {
     title: "Project",
     items: [
+      { href: "https://github.com/SkillsTechTalk/thunderlang", label: "Source on GitHub" },
+      { href: "https://openthunder.dev", label: "OpenThunder, the IDE for Thunder" },
       { href: "/roadmap", label: "Roadmap" },
       { href: "/proof", label: "Proof matrix" },
       { href: "/blog", label: "Blog" },

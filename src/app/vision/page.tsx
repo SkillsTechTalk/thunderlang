@@ -1,5 +1,6 @@
 import { PageHero, Section, Card, DraftNote, CTAButtons } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
+import { DeeperSections } from "@/components/DeeperSections";
 
 export const metadata = pageMeta({
   title: "Vision",
@@ -78,6 +79,8 @@ export default function VisionPage() {
           ))}
         </div>
       </Section>
+
+      <DeeperSections />
 
       <Section>
         <div className="mx-auto max-w-prose">

@@ -8,7 +8,7 @@
 // Usage: node scripts/pack-smoke.mjs   (or: npm run pack:smoke)
 
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -102,6 +102,15 @@ try {
   if (runRes.status !== 0 || !runRes.stdout.includes('Yes')) die('CLI `thunder run` failed', (runRes.stdout || '') + (runRes.stderr || ''));
   const testRes = run(process.execPath, [bin, 'test', join(tmp, 'smoke.thunder')], tmp);
   if (testRes.status !== 0 || !testRes.stdout.includes('1/1 passed')) die('CLI `thunder test` failed', (testRes.stdout || '') + (testRes.stderr || ''));
+
+  // Exercise the new command from the installed tarball, not the checkout.
+  writeFileSync(join(tmp, 'refund.thunder-human'), readFileSync(join(HERE, '..', 'examples', 'human', 'RefundReview.thunder-human'), 'utf8'));
+  const humanRes = run(process.execPath, [bin, 'human', join(tmp, 'refund.thunder-human'), '--json'], tmp);
+  if (humanRes.status !== 0) die('CLI `thunder human` failed', humanRes.stderr);
+  const preview = JSON.parse(humanRes.stdout);
+  if (preview.tests.passed !== 5 || preview.application !== 'not_checked') die('Human preview misreported evidence');
+  const humanApi = run(process.execPath, ['--input-type=module', '-e', `import { previewHumanContract } from '@skillstech/thunderlang/core'; if (typeof previewHumanContract !== 'function') process.exit(1);`], tmp);
+  if (humanApi.status !== 0) die('Installed /core human API failed', humanApi.stderr);
 
   ok = true;
   console.log(`pack:smoke OK , tarball ${tgz} installs clean; main API, /core subpath, and the intent CLI all work from the installed package.`);

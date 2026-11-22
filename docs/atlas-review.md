@@ -2,7 +2,7 @@
 
 Before an agent changes code, give it a contract and an evidence gap it can address. After the change, run the same contract cases and inspect what moved.
 
-The [Atlas workspace](/atlas#review-atlas) runs the compiler locally in your browser. Open `.thunder`, `.tl`, or `.intent` files, inspect claims and cases, edit a contract, and download a review brief. Contract contents are not uploaded. The page starts with real agent permission, spending, and research workflow examples. “Break budget boundary” changes `<=` to `<`; the exact-budget case fails.
+The [Evidence review page](/review) runs the compiler locally in your browser. Open `.thunder`, `.tl`, or `.intent` files, inspect claims and cases, edit a contract, and download a review brief. Contract contents are not uploaded. The page starts with real agent permission, spending, and research workflow examples. “Break budget boundary” changes `<=` to `<`; the exact-budget case fails.
 
 ## Review a repository
 

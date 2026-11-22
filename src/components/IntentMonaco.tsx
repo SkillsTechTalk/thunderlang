@@ -1,6 +1,7 @@
 "use client";
 
 import Editor from "@monaco-editor/react";
+import { THUNDER_KEYWORDS, THUNDER_LOGIC } from "@/lib/thunder-tokens";
 
 /**
  * Monaco editor for ThunderLang. Syntax highlighting + a dark theme, and inline
@@ -8,14 +9,9 @@ import Editor from "@monaco-editor/react";
  * The compiler is the single source of truth; this component only renders it.
  */
 
-const KEYWORDS = [
-  "mission", "goal", "why", "because", "requires", "input", "output", "guarantees",
-  "guarantee", "never", "constraints", "assumptions", "risks", "target", "style",
-  "implementation", "verify", "test", "observe", "secure", "explain", "ownership",
-  "owner", "architecture", "dependencies", "service", "api", "event", "database",
-  "field", "proof", "note", "method", "path", "errors", "owns", "consumes",
-  "publishes", "publishedBy", "consumedBy", "payload", "given", "when", "then",
-];
+// Same vocabulary and palette as the site-wide highlighter (src/lib/thunder-tokens.ts).
+const KEYWORDS = [...THUNDER_KEYWORDS];
+const LOGIC = [...THUNDER_LOGIC];
 
 let registered = false;
 
@@ -27,12 +23,20 @@ function registerIntent(monaco: any) {
 
   monaco.languages.setMonarchTokensProvider("intent", {
     keywords: KEYWORDS,
+    logic: LOGIC,
     tokenizer: {
       root: [
-        [/#.*$/, "comment"],
-        [/[A-Z][A-Za-z0-9_()]*/, "type"],
-        [/[a-zA-Z_][\w]*/, { cases: { "@keywords": "keyword", "@default": "identifier" } }],
-        [/[<>(),.:]/, "delimiter"],
+        [/^\s*(#|\/\/).*$/, "comment"],
+        [/"(?:[^"\\]|\\.)*"?/, "string"],
+        [/[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+/, "id"],
+        [/->|=>|>=|<=|==|!=|[<>=]/, "operator"],
+        [/-?\d+(?:\.\d+)?/, "number"],
+        [/\b(true|false)\b/, "number"],
+        [/^\s*[a-zA-Z_]\w*/, { cases: { "@keywords": "keyword", "@logic": "logic", "@default": "identifier" } }],
+        [/[a-zA-Z_]\w*(?=\s*:)/, "field"],
+        [/[A-Z][A-Za-z0-9_]*/, "type"],
+        [/[a-zA-Z_]\w*/, { cases: { "@keywords": "keyword.soft", "@logic": "logic", "@default": "identifier" } }],
+        [/[(),.:]/, "delimiter"],
       ],
     },
   });
@@ -42,8 +46,15 @@ function registerIntent(monaco: any) {
     inherit: true,
     rules: [
       { token: "comment", foreground: "6B778D", fontStyle: "italic" },
-      { token: "keyword", foreground: "F5C97A" },
-      { token: "type", foreground: "8FD3C4" },
+      { token: "keyword", foreground: "C4B5FD", fontStyle: "bold" },
+      { token: "keyword.soft", foreground: "A78BFA" },
+      { token: "logic", foreground: "F9A8D4", fontStyle: "bold" },
+      { token: "operator", foreground: "F472B6" },
+      { token: "type", foreground: "67E8F9" },
+      { token: "field", foreground: "93C5FD" },
+      { token: "id", foreground: "FCD34D" },
+      { token: "number", foreground: "FDBA74" },
+      { token: "string", foreground: "BEF264" },
       { token: "identifier", foreground: "C7D1E2" },
       { token: "delimiter", foreground: "6B778D" },
     ],
@@ -51,9 +62,9 @@ function registerIntent(monaco: any) {
       "editor.background": "#080B14",
       "editorLineNumber.foreground": "#3A4459",
       "editorLineNumber.activeForeground": "#9AA6BD",
-      "editor.selectionBackground": "#F5C97A33",
+      "editor.selectionBackground": "#9A7CF759",
       "editor.lineHighlightBackground": "#ffffff08",
-      "editorCursor.foreground": "#F5C97A",
+      "editorCursor.foreground": "#EAF0FA",
       "editorIndentGuide.background": "#ffffff10",
     },
   });

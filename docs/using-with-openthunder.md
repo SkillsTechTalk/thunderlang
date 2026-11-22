@@ -62,7 +62,7 @@ For generated code, use the supported conformance tools to compare declared case
 
 ## 6. Make the next change easier to review
 
-The [Atlas review workspace](/atlas#review-atlas) accepts your contracts and the JSON output of `openthunder intent prove`. It reruns the contracts locally, compares source hashes and compiler versions, and exports an agent brief with failed cases and unresolved claims. See [Atlas review for AI changes](/docs/atlas-review) for CLI, MCP, CI, and release compatibility details. A matching imported snapshot describes declared intent; it does not turn application behavior into verified evidence.
+The [Evidence review page](/review) accepts your contracts and the JSON output of `openthunder intent prove`. It reruns the contracts locally, compares source hashes and compiler versions, and exports an agent brief with failed cases and unresolved claims. See [Atlas review for AI changes](/docs/atlas-review) for CLI, MCP, CI, and release compatibility details. A matching imported snapshot describes declared intent; it does not turn application behavior into verified evidence.
 
 Keep the contract, implementation tests, and result in the same change review. When the limit changes, reviewers can see the old and new rule, the newly relevant cases, and any checks that did not run. Never silently update an expected result just to make the test pass.
 

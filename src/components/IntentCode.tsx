@@ -1,116 +1,10 @@
-import { Fragment } from "react";
+import { HighlightedLine } from "@/lib/highlight";
 
 /**
  * Lightweight, dependency-free highlighter for ThunderLang's (pre-1.0) syntax.
  * Intentionally simple (keyword + comment + string tinting) for display only; the
  * canonical grammar lives in the compiler (@skillstech/thunderlang), not here.
  */
-
-// Canonical ThunderLang keywords are lowercase and mostly line-leading.
-const KEYWORDS = new Set([
-  // Mission-level
-  "mission",
-  "goal",
-  "why",
-  "because",
-  "requires",
-  "input",
-  "output",
-  "guarantees",
-  "guarantee",
-  "never",
-  "constraints",
-  "assumptions",
-  "risks",
-  "target",
-  "style",
-  "implementation",
-  "verify",
-  "test",
-  "observe",
-  "secure",
-  "explain",
-  "ownership",
-  "owner",
-  "architecture",
-  "dependencies",
-  "contract",
-  "plan",
-  "proof",
-  "field",
-  "note",
-  // Architecture / API / Event
-  "service",
-  "owns",
-  "consumes",
-  "publishes",
-  "database",
-  "api",
-  "method",
-  "path",
-  "errors",
-  "event",
-  "publishedBy",
-  "consumedBy",
-  "payload",
-  // Testing
-  "given",
-  "when",
-  "then",
-  // connective words
-  "is",
-  "not",
-  "use",
-  "and",
-  "for",
-  "to",
-  "of",
-]);
-
-function highlightLine(line: string, key: number) {
-  // Whole-line comment
-  const commentMatch = line.match(/^(\s*)(#|\/\/)(.*)$/);
-  if (commentMatch) {
-    return (
-      <span key={key} className="tok-comment">
-        {line}
-      </span>
-    );
-  }
-
-  const tokens = line.split(/(\s+|[(),.:>-])/);
-  return (
-    <Fragment key={key}>
-      {tokens.map((tok, i) => {
-        if (tok === "") return null;
-        if (/^\s+$/.test(tok)) return <Fragment key={i}>{tok}</Fragment>;
-        if (KEYWORDS.has(tok)) {
-          return (
-            <span key={i} className="tok-key">
-              {tok}
-            </span>
-          );
-        }
-        // Capitalised identifiers → treated as types/entities
-        if (/^[A-Z][A-Za-z0-9_]+$/.test(tok)) {
-          return (
-            <span key={i} className="tok-type">
-              {tok}
-            </span>
-          );
-        }
-        if (/^[(),.:>-]$/.test(tok)) {
-          return (
-            <span key={i} className="tok-punc">
-              {tok}
-            </span>
-          );
-        }
-        return <Fragment key={i}>{tok}</Fragment>;
-      })}
-    </Fragment>
-  );
-}
 
 export function IntentCode({
   code,
@@ -134,14 +28,14 @@ export function IntentCode({
         </span>
       </div>
       <pre className="overflow-x-auto p-5 text-[13px] leading-relaxed">
-        <code className="font-mono">
+        <code className="font-mono text-haze-200">
           {lines.map((line, i) => (
             <div key={i} className="table-row">
               <span className="table-cell select-none pr-5 text-right text-haze-500">
                 {i + 1}
               </span>
               <span className="table-cell whitespace-pre">
-                {highlightLine(line, i)}
+                <HighlightedLine line={line} />
               </span>
             </div>
           ))}

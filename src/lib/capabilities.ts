@@ -45,8 +45,11 @@ export const CAPABILITIES: Capability[] = [
   { key: "atlasCli", name: "Intent Atlas (CLI)", status: "available", blurb: "Navigate many missions with thunder atlas / index. No AI." },
   { key: "editor", name: "Editor + Language Server", status: "available", blurb: "thunder lsp gives diagnostics, completion, and hover over LSP, with a VS Code extension in editors/vscode." },
   { key: "mcp", name: "MCP server for AI agents", status: "available", blurb: "thunder mcp exposes check, lift, verify-diff, prove, conform, and drift so an agent can drive the verify-real-code loop." },
+  { key: "thunderVisual", name: "Thunder visual decisions", status: "experimental", blurb: "Read, ask, and change a decision as a Thunder picture at /try; every edit reruns its examples. One decision per contract for now." },
+  { key: "thunderedRead", name: "Thunder read (Thundered code)", status: "experimental", blurb: "Read a file or folder of TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby in Thunder at /read. The original code stays the source of truth." },
   { key: "codeToIntent", name: "Code to candidate intent", status: "experimental", blurb: "thunder lift infers a humble .thunder draft from 14 languages (TypeScript, Python, Java, C#, Go, Rust, Kotlin, Scala, Elixir, and more); always human-reviewed." },
   { key: "visualAtlas", name: "Visual Intent Atlas", status: "experimental", blurb: "An interactive map ships at /atlas (lifted-intent + proof-status views); the CLI graph (thunder atlas / index) is available today." },
+  { key: "thunderedEdit", name: "Thunder write", status: "planned", blurb: "Change a rule visually in Thunder and get a checked patch to the original TypeScript or Python file, verified by OpenThunder. Until then, the action is Propose rule change." },
   { key: "intentEngine", name: "Intent Engine (AI assist)", status: "planned", blurb: "Optional, traced, human-approved prompt-to-intent and generation. Deterministic core needs no model." },
 ];
 

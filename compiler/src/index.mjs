@@ -187,3 +187,9 @@ export { startLspServer } from "./lsp.mjs";
 export { formatSource, isFormatted } from "./format.mjs";
 
 export { resolveObligations } from './obligations.mjs';
+// Read code you don't know: one file, a whole repository, files from disk, and promotion of a recovered decision
+// into a contract with edge-case examples.
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from "./read.mjs";
+export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from "./read-repo.mjs";
+export { collectReadableFiles } from "./read-repo-fs.mjs";
+export { promoteDecision, PROMOTE_SCHEMA } from "./promote.mjs";

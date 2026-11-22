@@ -10,6 +10,7 @@ import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { siteConfig } from "@/lib/site";
+import { EcosystemHandoff } from "@/components/EcosystemHandoff";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "ThunderLang | Intent-Oriented Programming for the AI era",
+    default: "Thunder | Programming, made human",
     template: "%s | ThunderLang",
   },
   description: siteConfig.description,
@@ -41,12 +42,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteConfig.url,
     siteName: "ThunderLang",
-    title: "ThunderLang | Intent-Oriented Programming for the AI era",
+    title: "Thunder | Programming, made human",
     description: siteConfig.description,
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThunderLang | Intent-Oriented Programming for the AI era",
+    title: "Thunder | Programming, made human",
     description: siteConfig.description,
     creator: siteConfig.twitter,
   },
@@ -93,6 +94,7 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', '${GA_ID}');`}
         </Script>
+        <EcosystemHandoff />
       </body>
     </html>
   );

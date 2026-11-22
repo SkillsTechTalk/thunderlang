@@ -18,8 +18,8 @@ export function Footer() {
         <div className="max-w-sm">
           <Logo />
           <p className="mt-4 text-sm leading-relaxed text-haze-300">
-            {siteConfig.tagline}. An early but serious language project by{" "}
-            {siteConfig.builtBy} for the AI era.
+            {siteConfig.tagline}. The Thunder™ programming language (also called ThunderLang™) is open source; OpenThunder is the IDE for it. An early but serious project by{" "}
+            {siteConfig.builtBy}.
           </p>
           <p className="mt-4 text-xs text-haze-400">
             Pre-1.0 syntax and forward-looking statements throughout. The compiler
@@ -76,7 +76,7 @@ export function Footer() {
             Skills Tech Talk project.
           </p>
           <p className="flex items-center gap-4">
-            <span>Structured. Declarative. Verifiable. Composable.</span>
+            <span>AI writes the code. Humans understand the logic.</span>
           </p>
         </div>
       </div>

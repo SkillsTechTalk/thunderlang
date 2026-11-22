@@ -7,6 +7,8 @@
 // The canonical hash (byte-identical to node:crypto).
 export { sha256, sha256hex } from './index';
 export { runTests, TEST_SCHEMA, TestReport, resolveObligations, ObligationResolution } from './index';
+export { HumanContractPreview, compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
+export { PLAIN_SCHEMA, PlainModel, PlainPreview, PlainExplanation, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 
 // Parser + graph + in-memory compile.
 export {
@@ -99,3 +101,15 @@ export {
 export {
   analyzeStyle, styleDiagnostics, toDesignTokens, toCss, STYLE_SCHEMA, DESIGN_TOKENS_SCHEMA,
 } from './index';
+
+// Decisions -> readable typed source in six languages.
+export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
+export type { TranslateLanguage } from './translate.mjs';
+
+// Read code you don't know.
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
+export type { Reading, ReadItem, ReadKind } from './read.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
+export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
+export type { Promotion } from './promote.mjs';

@@ -11,7 +11,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "intent:check": "node scripts/intent-check.mjs",
-    "intent:test": "node --test compiler/test/*.test.mjs",
+    "intent:test": "node --test --test-concurrency=2 compiler/test/*.test.mjs",
     "intent:prove": "node scripts/intent-prove.mjs",
     "docs:check": "node scripts/docs-check.mjs",
     "pack:smoke": "node scripts/pack-smoke.mjs",

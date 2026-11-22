@@ -5,10 +5,17 @@
 export const PROJECT_FACTS: { value: string; label: string; href?: string }[] = [
   // The living version of this claim: /proof is generated from the repo's own
   // missions by the shipped compiler at build time, and CI gates it (intent:prove).
-  { value: "Open source", label: "Apache 2.0 compiler", href: "/license" },
-  { value: "Live evidence", label: "example tests and unresolved claims", href: "/proof" },
-  { value: "No API key", label: "deterministic policy tests", href: "/docs/intent-tests" },
-  { value: "Pre-1.0", label: "check installed version with thunder --version", href: "/docs/getting-started" },
+  { value: "775+", label: "compiler tests, all passing", href: "/proof" },
+  { value: "42", label: "canonical Intent Graph node types" },
+  { value: "80+", label: "explainable diagnostics", href: "/docs/diagnostics" },
+  { value: "39", label: "worked examples", href: "/examples" },
+  { value: "14", label: "languages lifted to intent", href: "/docs/language-support-matrix" },
+  { value: "10", label: "export formats (DMN, BPMN, OpenAPI, ...)" },
+  { value: "v0.5.1", label: "pre-1.0, deterministic, no AI required" },
 ];
 
 export const NPM_PACKAGE = "@skillstech/thunderlang";
+
+// The version npm installs today. Update this when a new release is published, so the install page
+// never promises a command people can't run yet.
+export const PUBLISHED_VERSION = "0.5.2";
