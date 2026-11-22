@@ -34,20 +34,23 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
-  { href: "/learn", label: "Tutorial" },
   { href: "/read", label: "Read in Thunder" },
   { href: "/try", label: "Try it" },
+  { href: "/map", label: "Map" },
   { href: "/atlas", label: "Atlas" },
   { href: "/playground", label: "Playground" },
-  { href: "/roadmap", label: "Roadmap" },
 ];
+
+export const OPENTHUNDER_URL = "https://openthunder.dev";
 
 // Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
 export const learnNav: NavItem[] = [
   { href: "/learn", label: "Tutorial" },
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
+  { href: "/docs/thunder-vocabulary", label: "Thunder vocabulary" },
   { href: "/docs", label: "Docs" },
+  { href: "/roadmap", label: "Roadmap" },
   { href: "/examples", label: "Examples" },
   { href: "/articles", label: "Articles" },
   { href: "/blog", label: "Blog" },
@@ -72,6 +75,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Project",
     items: [
       { href: "https://github.com/SkillsTechTalk/thunderlang", label: "Source on GitHub" },
+      { href: "https://openthunder.dev", label: "OpenThunder, the IDE for Thunder" },
       { href: "/roadmap", label: "Roadmap" },
       { href: "/proof", label: "Proof matrix" },
       { href: "/blog", label: "Blog" },

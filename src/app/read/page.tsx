@@ -1,6 +1,7 @@
 import { PageHero, Section } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
 import { ReadClient } from "./ReadClient";
+import { OpenThunderLink } from "@/components/OpenThunderLink";
 
 export const metadata = pageMeta({
   title: "Read any code in Thunder",
@@ -18,6 +19,7 @@ export default function ReadPage() {
       />
       <Section>
         <ReadClient />
+        <div className="mt-10"><OpenThunderLink title="Read your whole repository in OpenThunder" body="OpenThunder is the IDE for Thunder: open a repo, read it in Thunder, and verify every change. Visual reading of whole repositories is rolling out." cta="Open OpenThunder" /></div>
       </Section>
     </>
   );

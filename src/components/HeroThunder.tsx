@@ -27,7 +27,8 @@ export function HeroThunder({ source, children }: { source: string; children: Re
     <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
       {children}
       <div className="animate-fade-up min-w-0 [animation-delay:120ms]">
-        <div className="rounded-2xl border border-white/15 bg-ink-900/80 p-6 shadow-panel">
+        <div className="rounded-[1.35rem] bg-gradient-to-b from-gold-300/50 via-white/10 to-white/5 p-px shadow-[0_30px_120px_-40px_rgba(167,139,250,0.55)]">
+        <div className="rounded-[1.3rem] bg-ink-900/95 p-7">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">Read in Thunder</p>
             {edited && <button type="button" onClick={() => setModel(initial)} className="text-xs text-haze-300 underline-offset-4 hover:underline">Reset</button>}
@@ -51,9 +52,10 @@ export function HeroThunder({ source, children }: { source: string; children: Re
               : `All ${preview.tests.total} examples pass. Click a highlighted word to change the rule.`}
           </p>
         </div>
+        </div>
       </div>
     </div>
-    <div className="mx-auto mt-14 max-w-4xl">
+    <div className="mx-auto mt-16 max-w-4xl">
       <p className="mb-3 text-center text-sm font-medium text-haze-100">The Thunder compiler writes the same rule in your language. Change the card above and this follows.</p>
       <LanguageOutput idPrefix="hero-out" code={compiled.code} active={lang} onActive={setLang} stale={false} maxHeight="max-h-[260px]" />
     </div>

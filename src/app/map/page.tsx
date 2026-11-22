@@ -4,6 +4,7 @@ import { PageHero, Section } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
 import { buildThunderMap } from "@/lib/thunder-map";
 import { ThunderMap } from "./ThunderMap";
+import { OpenThunderLink } from "@/components/OpenThunderLink";
 
 export const metadata = pageMeta({
   title: "Thunder map: read a whole app in Thunder",
@@ -22,6 +23,7 @@ export default function MapPage() {
       intro="A small shop with three services in TypeScript and Python, read in Thunder: the big picture first, then each service, then every rule. Start with “Look here first”: Thunder found two services that disagree about the same refund." />
     <Section className="!pt-0">
       <ThunderMap map={map} />
+      <div className="mt-8"><OpenThunderLink soon title="This map, for your own app" body="OpenThunder will build this map from your repository, keep it current with every commit, and let you learn and change your app from it." cta="Follow OpenThunder" /></div>
       <p className="mt-8 max-w-3xl text-xs leading-relaxed text-haze-400">
         Prototype. Rules come from the real Thunder code reader. Services, files, and outside connections are found with simple,
         visible patterns in this sample; in OpenThunder they come from full repository discovery. Everything here is read from

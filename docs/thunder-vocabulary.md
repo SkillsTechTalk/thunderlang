@@ -16,6 +16,9 @@ should change, whatever language the software is written in.
 | **OpenThunder** | The IDE for Thunder: open your app, read it in Thunder, navigate it in the Atlas, change it, and verify every change | "Open the repo in OpenThunder and read the Thundered TypeScript." |
 | `thunder` | The command-line tool | `thunder plain RefundApproval.thunder-plain` |
 
+Thunder is the language; [OpenThunder](https://openthunder.dev) is where you use it on your app. The
+Thunder compiler is open source and also runs on its own in your browser and terminal.
+
 In the product, the action is **Read in Thunder**. The result is labeled with its source:
 **Thundered Python**, **Thundered C#**, **Thundered Java**, and **View original** stays one click away.
 

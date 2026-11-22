@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { HighlightedCode, HighlightedPlainPhrase, HighlightedSource } from "@/lib/highlight";
 import { HeroThunder } from "@/components/HeroThunder";
+import { ServiceGlyph } from "@/app/try/Glyphs";
 import { RulePictureStatic } from "@/app/try/RuleVisual";
 import { readCode } from "../../compiler/src/read.mjs";
 import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
@@ -77,6 +78,15 @@ const compilerSteps = [
   },
 ];
 
+// The five things you do with Thunder in OpenThunder. Status is honest: only "Available" ships today.
+const OT_MODES = [
+  { title: "Read", status: "Preview", body: "See your app's rules as Thunder pictures: Thundered TypeScript, Python, and more.", href: "/read", try: "Try reading code" },
+  { title: "Navigate", status: "Prototype", body: "Zoom from the whole app to one rule. See where to look first.", href: "/map", try: "See the map" },
+  { title: "Learn", status: "Planned", body: "Memorize your app with questions built from its real rules.", href: "/docs/thunder-vocabulary", try: "How it works" },
+  { title: "Change", status: "Planned", body: "Change a rule in the picture; OpenThunder writes and checks the code.", href: "/try", try: "Try changing a rule" },
+  { title: "Verify", status: "Available", body: "Every change, by a person or an AI, is checked against your rules before it merges.", href: "/docs/getting-started", try: "Gate an AI change" },
+];
+
 const steps = [
   {
     n: "1",
@@ -137,14 +147,12 @@ export default function HomePage() {
                 secondary={{ href: "/read", label: "Read your code in Thunder" }}
               />
             </div>
-            <p className="mt-6 max-w-lg text-sm leading-relaxed text-haze-400">
-              Not just a picture: Thunder (also called ThunderLang) has a{" "}
-              <a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-300 hover:text-gold-200">real, open-source compiler</a>.
-              It runs in your browser, your terminal, and{" "}
-              <a href="#compiler" className="font-medium text-gold-300 hover:text-gold-200">OpenThunder, the IDE for Thunder</a>.
-              Deterministic: no AI and no key needed. New here?{" "}
-              <Link href="/learn" className="font-medium text-gold-300 hover:text-gold-200">Take the 10-minute tutorial</Link>.
-            </p>
+            <ul className="mt-7 flex flex-wrap gap-2 text-xs text-haze-300">
+              {["Open-source compiler", "Browser, terminal, and OpenThunder", "Deterministic: no AI, no key"].map(t => (
+                <li key={t} className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1">{t}</li>
+              ))}
+              <li><Link href="/learn" className="inline-block rounded-full px-3 py-1 font-medium text-gold-300 hover:text-gold-200">10-minute tutorial →</Link></li>
+            </ul>
           </div>
         </HeroThunder>
         </div>
@@ -194,6 +202,32 @@ export default function HomePage() {
           <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your code in Thunder →</Link>
           <Link href="/docs/thunder-vocabulary" className="font-medium text-gold-300 hover:text-gold-200">Thunder, ThunderLang, and Thundered code →</Link>
         </p>
+      </Section>
+
+      {/* Thunder + OpenThunder: the language and the place you use it. */}
+      <Section id="openthunder" className="border-y border-white/8 bg-ink-900/40">
+        <SectionHeading
+          eyebrow="Thunder + OpenThunder"
+          title="Thunder is the language. OpenThunder is where you use it on your app."
+          intro="OpenThunder is the IDE for Thunder. Open your repository, read it in Thunder, find your way around it, learn it, change it, and verify every change. The Thunder compiler is built in."
+        />
+        <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {OT_MODES.map((m, i) => (
+            <li key={m.title} className="group flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-transparent p-6 transition duration-300 hover:-translate-y-0.5 hover:border-gold-300/40 hover:shadow-[0_20px_60px_-30px_rgba(167,139,250,0.6)]">
+              <span className="flex items-center justify-between text-xs text-haze-400">
+                <span className="grid h-7 w-7 place-items-center rounded-full border border-gold-300/50 text-xs font-semibold text-gold-200">{i + 1}</span>
+                <span className={`rounded-full border px-2 py-0.5 ${m.status === "Available" ? "border-white/20 text-haze-200" : "border-dashed border-white/25 text-haze-300"}`}>{m.status}</span>
+              </span>
+              <h3 className="mt-4 text-xl font-semibold tracking-tight text-white">{m.title}</h3>
+              <p className="mt-1 flex-1 text-sm leading-relaxed text-haze-300">{m.body}</p>
+              <Link href={m.href} className="mt-4 text-sm font-medium text-gold-300 hover:text-gold-200">{m.try} →</Link>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-6">
+          <a href="https://openthunder.dev" className="btn-primary inline-flex items-center gap-2"><ServiceGlyph className="text-ink-950" />Open your app in OpenThunder ↗</a>
+          <p className="text-sm text-haze-400">Thunder stays open source and works without OpenThunder, in your browser and terminal.</p>
+        </div>
       </Section>
 
       {/* Why it exists. */}
@@ -493,11 +527,11 @@ function ThunderedPreview() {
   const lifted = plainFromReading(readCode(PYTHON, { language: "python" }).items[0]) as PlainModel | null;
   return (
     <div className="mt-10 grid gap-4 lg:grid-cols-2">
-      <figure className="min-w-0 rounded-2xl border border-white/10 bg-ink-850/40 p-5">
+      <figure className="min-w-0 rounded-2xl border border-white/10 bg-ink-850/40 p-6">
         <figcaption className="text-sm font-semibold text-white">Original Python</figcaption>
         <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-4 font-mono text-[12px] leading-6 text-haze-200"><code><HighlightedCode source={PYTHON} lang="python" /></code></pre>
       </figure>
-      <figure className="min-w-0 rounded-2xl border border-gold-300/30 bg-ink-850/40 p-5">
+      <figure className="min-w-0 rounded-2xl border border-gold-300/40 bg-gradient-to-b from-gold-400/[0.07] to-transparent p-6 shadow-[0_30px_100px_-50px_rgba(167,139,250,0.6)]">
         <figcaption className="flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-white">Thundered Python
           <span className="flex flex-wrap gap-2 text-xs font-normal">
             <span className="rounded-full border border-white/20 px-2 py-0.5 text-haze-200">Read in Thunder: yes</span>
