@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Section, SectionHeading, Eyebrow, Pill, CTAButtons } from "@/components/ui";
+import { Section, SectionHeading, Eyebrow, CTAButtons } from "@/components/ui";
 import { StarMark } from "@/components/StarMark";
 import fs from "node:fs";
 import path from "node:path";
@@ -105,13 +105,18 @@ export default function HomePage() {
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-grid-faint bg-[size:44px_44px] opacity-30" />
         <div className="pointer-events-none absolute left-1/2 top-[-10%] h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[120px]" />
-        <div className="container-x relative grid gap-12 py-16 sm:py-20 lg:grid-cols-[1fr_1.05fr] lg:items-center">
+        <div className="container-x relative py-16 sm:py-20">
+        <HeroThunder source={PLAIN}>
           <div className="animate-fade-up">
             <div className="flex items-center gap-3">
-              <StarMark className="h-6 w-6 animate-twinkle" />
-              <Pill>Introducing Thunder</Pill>
+              <StarMark className="h-8 w-8 animate-twinkle" />
+              <p className="text-base font-semibold tracking-tight text-haze-100 sm:whitespace-nowrap sm:text-lg">
+                Introducing the{" "}
+                <span className="text-gradient-gold text-xl font-bold sm:text-2xl">Thunder<sup className="ml-0.5 align-super text-[0.5em] font-semibold">™</sup></span>{" "}
+                programming language
+              </p>
             </div>
-            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+            <h1 className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
               Programming,{" "}
               <span className="text-gradient-gold">made human.</span>
             </h1>
@@ -133,21 +138,19 @@ export default function HomePage() {
               />
             </div>
             <p className="mt-6 max-w-lg text-sm leading-relaxed text-haze-400">
-              Not just a picture: Thunder has a{" "}
-              <a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-300 hover:text-gold-200">real, open-source compiler</a>{" "}
-              (ThunderLang). It runs in your browser, your terminal, and{" "}
+              Not just a picture: Thunder (also called ThunderLang) has a{" "}
+              <a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-300 hover:text-gold-200">real, open-source compiler</a>.
+              It runs in your browser, your terminal, and{" "}
               <a href="#compiler" className="font-medium text-gold-300 hover:text-gold-200">OpenThunder, the IDE for Thunder</a>.
               Deterministic: no AI and no key needed. New here?{" "}
               <Link href="/learn" className="font-medium text-gold-300 hover:text-gold-200">Take the 10-minute tutorial</Link>.
             </p>
           </div>
-          <div className="animate-fade-up min-w-0 [animation-delay:120ms]">
-            <HeroThunder source={PLAIN} />
-          </div>
+        </HeroThunder>
         </div>
       </section>
 
-      {/* The compiler: ThunderLang is compiled, and OpenThunder ships the compiler. */}
+      {/* The compiler: Thunder is compiled, and OpenThunder ships the compiler. */}
       <Section id="compiler" className="border-t border-white/8">
         <SectionHeading
           eyebrow="The Thunder compiler"
@@ -187,6 +190,7 @@ export default function HomePage() {
         />
         <ThunderedPreview />
         <p className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <Link href="/map" className="font-medium text-gold-300 hover:text-gold-200">See a whole app in Thunder →</Link>
           <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your code in Thunder →</Link>
           <Link href="/docs/thunder-vocabulary" className="font-medium text-gold-300 hover:text-gold-200">Thunder, ThunderLang, and Thundered code →</Link>
         </p>

@@ -6,8 +6,9 @@ should change, whatever language the software is written in.
 
 | Word | What it means | How you would say it |
 | --- | --- | --- |
-| **Thunder** | The visual language people read and change rules in | "I read the refund rule in Thunder." |
-| **ThunderLang** | The formal language, its specification, and the compiler | "The ThunderLang spec defines `at most` as `<=`." |
+| **Thunder** | The Thunder programming language: the visual language people read and change rules in | "I read the refund rule in Thunder." |
+| **ThunderLang** | Another name for Thunder, the way Go is also called Golang. Used for the website, the package, the repository, and search | "Search for ThunderLang", thunderlang.dev, `@skillstech/thunderlang` |
+| **Thunder compiler** | The open-source compiler: checks rules, runs examples, generates code | `thunder test`, `thunder gen` |
 | **Thundered** | Existing code shown in Thunder | "This is our Python refund service, Thundered so Product can review it." |
 | **Thundering** | Turning existing code into Thunder | "Thunder the billing folder and look for the $100 limit." |
 | **Thunder read** | Reading code visually, in Thunder | "Thunder read shows exactly where $100 is decided." |
@@ -26,7 +27,7 @@ action you can actually take on it, and nothing is transformed silently.
 | Level | What it means | Status |
 | --- | --- | --- |
 | **Thunder read** (Thundered read) | See existing code's routes, rules, and checks in Thunder. The original code stays the source of truth. | Available on [Read in Thunder](/read) and [the refund demo](/try) for TypeScript, JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, and Ruby |
-| **Thunder native** | Write the rule in Thunder; it compiles to ThunderLang and generates code. Thunder is the source of truth. | Available for decisions and examples (experimental `.thunder-plain` and `.thunder-human`) |
+| **Thunder native** | Write the rule in Thunder; the Thunder compiler checks it and generates code. Thunder is the source of truth. | Available for decisions and examples (experimental `.thunder-plain` and `.thunder-human`) |
 | **Thunder write** (Thundered edit) | Change a Thundered rule visually and get a checked patch to the original TypeScript or Python file | **Not available yet.** Until it is, the action is called **Propose rule change**, never **Update code** |
 
 Parts that Thunder cannot read stay visible as "not read", with the original source line. Thunder

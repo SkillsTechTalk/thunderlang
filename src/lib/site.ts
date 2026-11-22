@@ -14,7 +14,7 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://thunderlang.dev",
   description:
-    "Thunder. Programming, made human. AI can write the code; humans should understand it. Thunder makes software rules visual and readable: read a rule, understand why it decides, change it, and ship it in the language you use. ThunderLang is its open-source spec and compiler, by SkillsTech.",
+    "Thunder. Programming, made human. AI can write the code; humans should understand it. Thunder makes software rules visual and readable: read a rule, understand why it decides, change it, and ship it in the language you use. The Thunder programming language, also called ThunderLang, is open source, by SkillsTech.",
   promise:
     "Write what your software should do. Let AI and the compiler help determine how to build it, verify it, and keep it understandable.",
   twitter: "@skillstech",

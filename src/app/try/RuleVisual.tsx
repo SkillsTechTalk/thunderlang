@@ -23,8 +23,8 @@ export function AnswerView({ model, values, explanation, context }: { model: Pla
       {rules.flatMap(r => r.checks.map((c, i) => <li key={`${r.outcome}-${i}`} className="flex gap-2">
         <span aria-hidden="true" className={c.ok ? "text-emerald-300" : "text-red-300"}>{c.ok ? "✓" : "✗"}</span>
         <span className={c.ok ? "" : "font-medium"}>
-          <span className="sr-only">{c.ok ? "True: " : "Not true: "}</span>
-          <HighlightedPlainPhrase context={context} phrase={c.text} />
+          <span className="sr-only">{c.ok ? "True:" : "Not true:"}</span>{" "}
+          <HighlightedPlainPhrase context={context || renderContext(model)} phrase={c.text} />
           {model.inputs.find(x => x.id === c.input)?.kind !== "yesno" && <span className="text-haze-400"> (it is {c.actual})</span>}
         </span>
       </li>))}

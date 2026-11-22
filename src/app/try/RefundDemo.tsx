@@ -106,7 +106,7 @@ export function RefundDemo({ initialSource }: { initialSource: string }) {
     </div>
     <details className="rounded-xl border border-white/10 p-5">
       <summary className="cursor-pointer font-medium text-white">Keep the source or explore the full language</summary>
-      <p className="mt-3 text-sm text-haze-300">The shorthand lowers to ordinary ThunderLang. Existing contracts, runtime, code generators, Atlas, and Playground remain available.</p>
+      <p className="mt-3 text-sm text-haze-300">The shorthand lowers to ordinary Thunder source. Existing contracts, runtime, code generators, Atlas, and Playground remain available.</p>
       {(dirty || error) && <p className="mt-2 text-sm text-haze-300">Run the examples successfully to enable the compiled contract download.</p>}
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className={button} onClick={() => download(source, "RefundReview.thunder-human")}>Download edited source</button>

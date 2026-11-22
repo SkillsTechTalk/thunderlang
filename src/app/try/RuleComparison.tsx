@@ -51,7 +51,7 @@ export function RuleComparison({ compact, plain }: { compact: string; plain: str
       </figure>
     </div>
 
-    <p aria-label="Code in any language is Thundered into a picture. The picture is stored as Thunder text and compiled by ThunderLang into code in any language." className="mt-6 flex flex-wrap items-center gap-2 text-sm">
+    <p aria-label="Code in any language is Thundered into a picture. The picture is stored as Thunder text and compiled by the Thunder compiler into code in any language." className="mt-6 flex flex-wrap items-center gap-2 text-sm">
       {["Python · C# · Java · Go …", "Thunder", "Thunder text", "Python · C# · Java · Go …"].map((step, i) => <span key={i} className="flex items-center gap-2">
         {i > 0 && <span aria-hidden="true" className="text-haze-400">→</span>}
         <span className={`rounded-md border px-2 py-1 ${step === "Thunder" ? "border-gold-300/50 font-semibold text-white" : "border-white/15 text-haze-300"}`}>{step}</span>
