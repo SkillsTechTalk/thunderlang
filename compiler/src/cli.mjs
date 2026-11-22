@@ -19,6 +19,7 @@ import { previewHumanContract, renderHumanContract } from './human-contract.mjs'
 import { previewPlainContract } from './plain-contract.mjs';
 import { thunderRepo, renderThunderRepo } from './thunder-repo.mjs';
 import { anchorReport } from './anchor.mjs';
+import { writeRule } from './write.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
@@ -270,6 +271,8 @@ function parseArgs(argv) {
     else if (a === '--inputs') args.inputs = argv[++i];
     else if (a === '--events') args.events = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--decision') args.decision = argv[++i];
+    else if (a === '--rule') args.rule = argv[++i];
+    else if (a === '--when') args.when = argv[++i];
     else if (a === '--to') args.to = argv[++i];
     else if (a === '--force') args.force = true;
     else if (a === '--write' || a === '-w') args.write = true;
@@ -434,6 +437,9 @@ Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   --version                 print the Thunder compiler version
   anchor <file> [--json]    show every Thunder step with its exact place in the file, and line coverage
+  write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
+                            Thunder write: change a number, comparison, text value, or answer in a recovered rule;
+                            previews the exact code change and the cases whose answer changes; --write saves it
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
@@ -515,6 +521,33 @@ function main() {
         for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
       }
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'write') {
+    try {
+      if (!file || !args.decision || !args.rule || (args.when == null && args.answer == null)) throw new Error('Use thunder write <file> --decision <name> --rule <n|otherwise> --when "<condition>" | --answer <Outcome> [--write].');
+      const source = readFileSync(file, 'utf8');
+      const r = writeRule({ source, language: args.from, file: basename(file), decision: args.decision, rule: args.rule === 'otherwise' ? 'otherwise' : Number(args.rule), when: args.when ?? null, answer: args.answer ?? null });
+      if (r.ok && args.write) writeFileSync(file, r.source);
+      if (args.json) { const { source: _s, ...rest } = r; console.log(JSON.stringify({ ...rest, written: !!(r.ok && args.write) }, null, 2)); if (!r.ok) process.exitCode = 1; return; }
+      if (!r.ok) {
+        console.error(`Not changed. ${file} is untouched.`);
+        for (const p of r.problems) console.error(`  ${p}`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(`${r.decision}, rule ${r.rule}`);
+      console.log(`  was: ${r.before}`);
+      console.log(`  now: ${r.after}`);
+      console.log('\nCode change (only these characters):');
+      for (const c of r.change) console.log(`  line ${c.line}, column ${c.column}: ${c.before}  ->  ${c.after}`);
+      console.log('\nChecked by reading the file again: this rule reads as intended; every other rule and function reads exactly as before.');
+      console.log(`\n${r.cases.note}`);
+      const names = r.cases.changed[0] ? Object.keys(r.cases.changed[0].inputs) : [];
+      for (const c of r.cases.changed.slice(0, 8)) console.log(`  ${names.map((n) => `${n} ${JSON.stringify(c.inputs[n])}`).join(', ')}: ${c.before} -> ${c.after}`);
+      if (r.cases.changed.length > 8) console.log(`  ...and ${r.cases.changed.length - 8} more (use --json for all).`);
+      console.log(args.write ? `\nSaved ${file}. Run your tests before you commit.` : '\nPreview only; nothing was saved. Add --write to save the change.');
+    } catch (e) { console.error(`thunder write: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'anchor') {

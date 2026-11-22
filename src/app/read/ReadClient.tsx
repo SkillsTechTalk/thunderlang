@@ -75,6 +75,8 @@ function FileReader({ know }: { know: CodeLang }) {
   const [partialOnly, setPartialOnly] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Thunder write: the last applied change, so it can be undone and shown in the code.
+  const [written, setWritten] = useState<{ prev: string; lines: number[]; summary: string } | null>(null);
 
   const { reading, error } = useMemo((): { reading: Reading | null; error: string } => {
     if (!source.trim()) return { reading: null, error: "" };
@@ -90,9 +92,25 @@ function FileReader({ know }: { know: CodeLang }) {
     [reading, query, kinds, partialOnly],
   );
   const highlighted = useMemo(() => {
+    if (written) return new Set(written.lines);
     const it = reading?.items.find((i) => i.id === selected);
     return new Set(it ? linesOf(it) : []);
-  }, [reading, selected]);
+  }, [reading, selected, written]);
+  const writeTarget = reading ? {
+    source,
+    language: reading.language,
+    file,
+    apply: (next: string, info: { lines: number[]; summary: string }) => { setWritten({ prev: source, ...info }); setSource(next); setEditing(false); },
+    undo: written ? () => { setSource(written.prev); setWritten(null); } : null,
+    download: () => {
+      const url = URL.createObjectURL(new Blob([source], { type: "text/plain" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file || `changed-code.${reading.language === "python" ? "py" : "txt"}`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+  } : undefined;
 
   function pickSample(key: string) {
     const s = READ_SAMPLES.find((x) => x.key === key)!;
@@ -104,9 +122,11 @@ function FileReader({ know }: { know: CodeLang }) {
     setKinds([]);
     setPartialOnly(false);
     setSelected(null);
+    setWritten(null);
   }
   function showInCode(item: ReadItem) {
     setEditing(false);
+    setWritten(null);
     setSelected(item.id);
   }
   // One simple choice instead of many chips: everything, the rules Thunder drew, or what a person must read.
@@ -179,7 +199,7 @@ function FileReader({ know }: { know: CodeLang }) {
               <textarea
                 id="read-source"
                 value={source}
-                onChange={(e) => { setSource(e.target.value); setSample(""); setFile(""); setSelected(null); }}
+                onChange={(e) => { setSource(e.target.value); setSample(""); setFile(""); setSelected(null); setWritten(null); }}
                 spellCheck={false}
                 wrap="off"
                 rows={22}
@@ -191,7 +211,12 @@ function FileReader({ know }: { know: CodeLang }) {
             ) : (
               <SourceView source={source} highlighted={highlighted} label="Code with line numbers" language={reading?.language} />
             )}
-            {highlighted.size > 0 && !editing && (
+            {written && !editing ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-emerald-300/20 bg-emerald-300/[0.05] px-4 py-2 text-xs text-emerald-100">
+                <span>Changed by Thunder write: {written.summary}</span>
+                <button type="button" onClick={() => { setSource(written.prev); setWritten(null); }} className="ml-auto rounded-md border border-white/20 px-2 py-0.5 font-medium text-white hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">Undo</button>
+              </div>
+            ) : highlighted.size > 0 && !editing && (
               <p className="border-t border-white/10 px-4 py-2 text-xs text-haze-400">Highlighted: the lines behind your selection.</p>
             )}
           </div>
@@ -222,7 +247,7 @@ function FileReader({ know }: { know: CodeLang }) {
               {shown.length === 0 && <p className="text-sm text-haze-300">Nothing here. {query ? "Try fewer words." : "Choose Everything."}</p>}
               <ul className="space-y-4">
                 {shown.map((it) => (
-                  <ReadCard key={it.id} item={it} know={know} selected={selected === it.id} onShow={() => showInCode(it)} />
+                  <ReadCard key={it.id} item={it} know={know} selected={selected === it.id} onShow={() => showInCode(it)} write={writeTarget} />
                 ))}
               </ul>
               {extras.length > 0 && (
