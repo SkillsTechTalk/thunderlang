@@ -19,6 +19,23 @@ should change, whatever language the software is written in.
 Thunder is the language; [OpenThunder](https://openthunder.dev) is where you use it on your app. The
 Thunder compiler is open source and also runs on its own in your browser and terminal.
 
+## Ways to see your software in Thunder
+
+Agreed with OpenThunder, from the big picture down:
+
+| View | What you see |
+| --- | --- |
+| **Thunder Atlas** | The zoomable view: product, then areas, then parts, then a rule card, then the code |
+| **Thunder Map** | How the code is built: packages, services, integrations, dependencies |
+| **Thunder Code** | Any file or folder, every function read in Thunder; readable decisions become cards, the rest dashed cards with the original code |
+| **Thunder Trace** | One user action, followed from start to data |
+| **Thunder Brief** | The big picture and summary |
+| **Thunder Focus** | Areas worth focusing on, each with its reason |
+| **Thunder Learn / Practice** | Walk and memorize your app: challenges, flashcards, drills |
+| **Thunder Review** | A pull request as before-and-after pictures (later) |
+
+A **Thunder card** is the picture of one rule; it appears inside Thunder Code and Thunder Atlas.
+
 In the product, the action is **Read in Thunder**. The result is labeled with its source:
 **Thundered Python**, **Thundered C#**, **Thundered Java**, and **View original** stays one click away.
 

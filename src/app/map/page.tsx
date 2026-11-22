@@ -7,7 +7,7 @@ import { ThunderMap } from "./ThunderMap";
 import { OpenThunderLink } from "@/components/OpenThunderLink";
 
 export const metadata = pageMeta({
-  title: "Thunder map: read a whole app in Thunder",
+  title: "Thunder Atlas: read a whole app in Thunder",
   description: "A sample app read in the Thunder programming language, from services and integrations down to each rule, with a ranked list of where to look first.",
   path: "/map",
 });
@@ -19,8 +19,8 @@ export default function MapPage() {
     .map(file => ({ path: `${dir}/${file}`, source: fs.readFileSync(path.join(ROOT, dir, file), "utf8") })));
   const map = buildThunderMap("Acme Shop", files);
   return <>
-    <PageHero eyebrow="Thunder map · Prototype" title="Read a whole app in Thunder."
-      intro="A small shop with three services in TypeScript and Python, read in Thunder: the big picture first, then each service, then every rule. Start with “Look here first”: Thunder found two services that disagree about the same refund." />
+    <PageHero eyebrow="Thunder Atlas · Prototype" title="Read a whole app in Thunder."
+      intro="A small shop with three services in TypeScript and Python, read in Thunder. The Thunder Brief gives the big picture, the Thunder Map shows how it is built, Thunder Focus says where to look first, and every rule opens as Thunder Code. Start with Focus: two services disagree about the same refund." />
     <Section className="!pt-0">
       <ThunderMap map={map} />
       <div className="mt-8"><OpenThunderLink soon title="This map, for your own app" body="OpenThunder will build this map from your repository, keep it current with every commit, and let you learn and change your app from it." cta="Follow OpenThunder" /></div>

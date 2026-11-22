@@ -34,10 +34,9 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
-  { href: "/read", label: "Read in Thunder" },
+  { href: "/read", label: "Thunder Code" },
   { href: "/try", label: "Try it" },
-  { href: "/map", label: "Map" },
-  { href: "/atlas", label: "Atlas" },
+  { href: "/map", label: "Thunder Atlas" },
   { href: "/playground", label: "Playground" },
 ];
 
@@ -49,6 +48,7 @@ export const learnNav: NavItem[] = [
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
   { href: "/docs/thunder-vocabulary", label: "Thunder vocabulary" },
+  { href: "/atlas", label: "Intent Atlas (missions)" },
   { href: "/docs", label: "Docs" },
   { href: "/roadmap", label: "Roadmap" },
   { href: "/examples", label: "Examples" },
@@ -62,7 +62,8 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Language",
     items: [
       { href: "/learn", label: "Tutorial" },
-      { href: "/read", label: "Read in Thunder" },
+      { href: "/read", label: "Thunder Code" },
+      { href: "/map", label: "Thunder Atlas" },
       { href: "/vision", label: "Vision" },
       { href: "/architecture", label: "Architecture" },
       { href: "/docs", label: "Documentation" },

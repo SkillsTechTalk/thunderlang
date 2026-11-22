@@ -43,9 +43,9 @@ One color per kind of word, everywhere: **facts** yellow, **comparisons** pink, 
 *not established yet*. Four shapes: a **square** is a contract, a **diamond** is a decision, a **rounded label**
 is an outcome, a **ticket** is an example you can run.
 
-## Thundered code: read the code you already have
+## Thunder Code: read the code you already have
 
-Thunder reads existing TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, and Ruby and draws the rules it finds.
+Thunder reads existing Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, and Ruby (all 10 languages the code reader supports today) and draws the rules it finds.
 That is **Thundered code**: "Thundered Python", "Thundered TypeScript". Your code stays the source of truth;
 Thunder shows what it does today, so a person can say whether that is what the team wants.
 
@@ -60,15 +60,14 @@ becomes a Thunder card: *Approve when the amount is at least 0, the amount is at
 window; otherwise Review*, labeled **read from code** until a person confirms what it should mean.
 [Read your code in Thunder →](https://thunderlang.dev/read)
 
-## The Thunder map: a whole app, from the big picture to one rule
+## Thunder Atlas: a whole app, from the big picture to one rule
 
 <p align="center">
   <img src="docs/assets/screenshots/thunder-map.png" alt="The Thunder map of a sample shop: three services (billing in Python, checkout and notifications in TypeScript) drawn as areas with their rules, outside connections (Stripe, the refunds table, the refund.issued event, an email provider), and a ranked 'Look here first' list starting with a disagreement between billing and checkout." width="100%">
 </p>
 
-The map reads a whole app in Thunder: a one-paragraph summary, services as areas, outside connections (clouds for
-APIs, cylinders for databases, envelopes for events), colors you can click to light up every place a fact or
-outcome is used, and a ranked **Look here first** list: disagreements, money, personal data, unconfirmed rules,
+The Thunder Atlas reads a whole app in Thunder: a **Thunder Brief** (one-paragraph summary), a **Thunder Map** of how it is built (services as areas, outside connections: clouds for APIs, cylinders for databases, envelopes for events), colors you can click to light up every place a fact or
+outcome is used, and **Thunder Focus**, a ranked "look here first" list: disagreements, money, personal data, unconfirmed rules,
 and code Thunder can't read yet. Zoom into any rule:
 
 <p align="center">
@@ -76,7 +75,7 @@ and code Thunder can't read yet. Zoom into any rule:
 </p>
 
 In the sample, Thunder finds that **checkout approves exactly $100 but billing sends it to review**, and asks the
-only question that matters: *which one does the business want?* [See the map →](https://thunderlang.dev/map)
+only question that matters: *which one does the business want?* [See the Thunder Atlas →](https://thunderlang.dev/map)
 (prototype: the rules come from the real code reader; service connections use simple patterns that OpenThunder's
 discovery replaces).
 
@@ -156,6 +155,11 @@ events, and an outcome contract is judged against a result. Start with
 | **Thundered code** | Existing code shown in Thunder: Thundered Python, Thundered TypeScript |
 | **Thunder read / Thunder write** | Reading code visually / changing code visually, verified (write is planned) |
 | **OpenThunder™** | The IDE for Thunder: read, navigate, learn, change, and verify your app |
+
+Ways to see your software in Thunder (agreed with OpenThunder): **Thunder Atlas** (zoom from product to rule to
+code), **Thunder Map** (how the code is built), **Thunder Code** (every function in a file or folder), **Thunder
+Trace** (one user action, start to data), **Thunder Brief** (the big picture), **Thunder Focus** (where to look
+first), **Thunder Learn / Practice** (memorize your app), and **Thunder Review** (a pull request as pictures, later).
 
 More: [Thunder vocabulary](./docs/thunder-vocabulary.md) · [Language principles](./docs/language-principles.md)
 

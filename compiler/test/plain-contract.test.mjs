@@ -88,3 +88,12 @@ test('the code reader can "thunder" plain Python into the same picture, marked f
   // Mixed and/or is not guessed.
   assert.equal(plainFromReading({ kind: 'decision', name: 'X', inputs: [{ name: 'a', type: 'number' }], rules: [{ when: 'a > 1 and a < 3 or a == 9', result: 'Yes' }], otherwise: { result: 'No' } }), null);
 });
+
+test('untyped languages are thundered with inferred types, and the inference is flagged for review', async () => {
+  const { readCode } = await import('../src/read.mjs');
+  const { plainFromReading } = await import('../src/plain-contract.mjs');
+  const js = 'function refund(amount, withinWindow) {\n  if (amount >= 0 && amount <= 100 && withinWindow) {\n    return "Approve";\n  }\n  return "Review";\n}\n';
+  const m = plainFromReading(readCode(js, { language: 'javascript' }).items.find(i => i.kind === 'decision'));
+  assert.deepEqual(m.inputs.map(i => i.kind), ['number', 'yesno']);
+  assert.ok(m.needsReview.some(n => /inferred/.test(n)));
+});

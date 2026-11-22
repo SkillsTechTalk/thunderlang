@@ -68,7 +68,7 @@ export function ThunderMap({ map }: { map: TMap }) {
       </div>
 
       {!zoom.service && <section aria-labelledby="app-level">
-        <h2 id="app-level" className="text-lg font-semibold text-white">Your app on a page</h2>
+        <h2 id="app-level" className="text-lg font-semibold text-white">Thunder Brief <span className="font-normal text-haze-400">· your app on a page</span></h2>
         <p className="mt-1 text-haze-300">{map.summary}</p>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
           {map.services.map(s => {
@@ -84,7 +84,7 @@ export function ThunderMap({ map }: { map: TMap }) {
             </div>;
           })}
         </div>
-        <h3 className="mt-6 text-sm font-semibold text-white">How the services connect</h3>
+        <h3 className="mt-6 text-sm font-semibold text-white">Thunder Map <span className="font-normal text-haze-400">· how the services connect</span></h3>
         <ul className="mt-2 space-y-1 text-sm text-haze-200">{map.edges.map(e => <li key={e.label} className="flex items-center gap-2">
           {e.kind === "event" ? <EnvelopeGlyph /> : <CloudGlyph />}<span className="font-medium text-white">{e.from}</span><span aria-hidden="true" className="text-haze-400">→</span><span className="font-medium text-white">{e.to}</span><span className="text-haze-400">({e.label})</span></li>)}</ul>
       </section>}
@@ -105,7 +105,7 @@ export function ThunderMap({ map }: { map: TMap }) {
 
     {/* Focus: where a person should look first. */}
     <aside aria-labelledby="focus" className="h-fit rounded-2xl border border-white/10 p-4 lg:sticky lg:top-20">
-      <h2 id="focus" className="font-semibold text-white">Look here first</h2>
+      <h2 id="focus" className="font-semibold text-white">Thunder Focus <span className="font-normal text-haze-400">· look here first</span></h2>
       <p className="mt-1 text-xs text-haze-400">Ranked: disagreements, money, personal data, unconfirmed rules, code Thunder can&apos;t read.</p>
       <ol className="mt-3 space-y-2">{map.focus.map(f => <li key={`${f.rank}`}>
         <button type="button" onClick={() => open(f.itemId)} className={`w-full rounded-lg border border-white/10 p-2.5 text-left text-sm hover:bg-white/[0.05] ${zoom.item === f.itemId ? "border-gold-300/60" : ""} ${focusRing}`}>
@@ -136,7 +136,7 @@ function ItemView({ map, item, onOpen }: { map: TMap; item: MapItem; onOpen: (id
   return <section aria-labelledby="item-level" className="space-y-4">
     <div className={`rounded-2xl border p-5 ${card ? "border-white/15 bg-ink-850/60" : "border-dashed border-white/30"}`}>
       <p className="flex flex-wrap items-center gap-2 text-xs text-haze-400">
-        <span className="rounded-full border border-white/20 px-2 py-0.5">Thundered {item.file.endsWith(".py") ? "Python" : "TypeScript"}</span>
+        <span className="rounded-full border border-white/20 px-2 py-0.5">Thunder Code · Thundered {item.file.endsWith(".py") ? "Python" : "TypeScript"}</span>
         <span className="rounded-full border border-dashed border-white/25 px-2 py-0.5">Read from code: no person has confirmed this rule</span>
       </p>
       <h2 id="item-level" className="mt-3 flex items-center gap-2 text-xl font-semibold text-white"><ContractGlyph className="h-5 w-5" />{item.readable.replace(/^./, c => c.toUpperCase())}</h2>
