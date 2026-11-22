@@ -5,7 +5,7 @@ import Link from "next/link";
 import { readCode, searchReading, type ReadItem, type Reading } from "../../../compiler/src/read.mjs";
 import { READ_SAMPLES } from "./samples.mjs";
 import type { CodeLang } from "@/lib/code-tokens";
-import { KNOW, ReadCard, SourceView, field, linesOf, isDrawable, type ReadFacet } from "./parts";
+import { KNOW, ReadCard, SourceView, field, linesOf, isDrawable, hasSteps, type ReadFacet } from "./parts";
 import { FolderReader } from "./FolderReader";
 
 const LANGS: { key: string; label: string }[] = [
@@ -110,12 +110,13 @@ function FileReader({ know }: { know: CodeLang }) {
     setSelected(item.id);
   }
   // One simple choice instead of many chips: everything, the rules Thunder drew, or what a person must read.
-  const [view, setView] = useState<"all" | "rules" | "person">("all");
+  const [view, setView] = useState<"all" | "rules" | "steps" | "person">("all");
   const main = items.filter((it) => it.kind === "decision" || it.kind === "function");
   const extras = items.filter((it) => it.kind === "error" || it.kind === "test");
   const rulesDrawn = main.filter(isDrawable);
-  const forPerson = main.filter((it) => !isDrawable(it));
-  const shown = view === "rules" ? rulesDrawn : view === "person" ? forPerson : main;
+  const asSteps = main.filter(hasSteps);
+  const forPerson = main.filter((it) => !isDrawable(it) && !hasSteps(it));
+  const shown = view === "rules" ? rulesDrawn : view === "steps" ? asSteps : view === "person" ? forPerson : main;
   void kinds; void setKinds; void partialOnly; void setPartialOnly;
 
   return (
@@ -204,12 +205,13 @@ function FileReader({ know }: { know: CodeLang }) {
           {reading && (
             <>
               <p id="read-summary" role="status" aria-live="polite" className="text-haze-100">
-                Thunder drew <strong className="text-white">{rulesDrawn.length} rule{rulesDrawn.length === 1 ? "" : "s"}</strong>.{" "}
+                Thunder drew <strong className="text-white">{rulesDrawn.length} rule{rulesDrawn.length === 1 ? "" : "s"}</strong>
+                {asSteps.length > 0 && <> and read <strong className="text-white">{asSteps.length} function{asSteps.length === 1 ? "" : "s"}</strong> as steps</>}.{" "}
                 {forPerson.length > 0 ? <><strong className="text-white">{forPerson.length}</strong> {forPerson.length === 1 ? "function needs" : "functions need"} a person to read.</> : "Nothing else needs a person."}
               </p>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div role="radiogroup" aria-label="Show" className="inline-flex rounded-lg border border-white/12 p-0.5">
-                  {([["all", "Everything", main.length], ["rules", "Rules", rulesDrawn.length], ["person", "Needs a person", forPerson.length]] as const).map(([k, label, n]) => (
+                  {([["all", "Everything", main.length], ["rules", "Rules", rulesDrawn.length], ["steps", "Steps", asSteps.length], ["person", "Needs a person", forPerson.length]] as const).map(([k, label, n]) => (
                     <button key={k} type="button" role="radio" aria-checked={view === k} onClick={() => setView(k)}
                       className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300 ${view === k ? "bg-white/12 font-medium text-white" : "text-haze-300 hover:text-white"}`}>{label} <span className="text-haze-400">{n}</span></button>
                   ))}

@@ -15,6 +15,7 @@ export interface MapItem {
   id: string; service: string; file: string; name: string; readable: string; line: number;
   kind: "decision" | "function" | "error" | "test" | "route"; status: string; says: string;
   card: PlainModel | null; facts: string[]; outcomes: string[]; unread: Array<{ line: number; text: string; reason: string }>;
+  steps: Array<{ kind: string; says: string; code?: string; line?: number; children?: unknown[] }> | null; stepsMore: number;
 }
 export interface MapModule { file: string; language: string; items: string[]; integrations: Integration[]; summary: string }
 export interface MapService { name: string; languages: string[]; modules: MapModule[]; integrations: Integration[]; summary: string }
@@ -98,6 +99,8 @@ export function buildThunderMap(app: string, files: Array<{ path: string; source
       facts: (it.inputs ?? []).filter(i => i.type === "number" || i.type === "boolean").map(i => readable(i.name)),
       outcomes: [...new Set([...(it.rules ?? []).map(r => r.result), ...(it.otherwise ? [it.otherwise.result] : [])])].filter(o => /^[A-Z][A-Za-z]*$/.test(o)),
       unread: it.unread ?? [],
+      steps: (it as { steps?: MapItem["steps"]; stepsReadable?: number }).steps && ((it as { stepsReadable?: number }).stepsReadable ?? 0) >= 0.5 ? (it as { steps?: MapItem["steps"] }).steps! : null,
+      stepsMore: (it as { stepsMore?: number }).stepsMore ?? 0,
     };
   }
   const integrations = files.flatMap(f => findIntegrations(f.path, f.source));
@@ -145,13 +148,13 @@ export function buildThunderMap(app: string, files: Array<{ path: string; source
   for (const it of Object.values(items)) {
     const ints = integrations.filter(i => i.file === it.file && i.kind === "external");
     const fileText = files.find(f => f.path === it.file)?.source ?? "";
-    if (it.kind === "function" && ints.some(i => i.target === "Stripe")) focus.push({ kind: "money", itemId: it.id, title: `${it.readable} moves money`, reason: "Calls Stripe. Thunder can't fully read this function yet, so read the code." });
+    if (it.kind === "function" && ints.some(i => i.target === "Stripe")) focus.push({ kind: "money", itemId: it.id, title: `${it.readable} moves money`, reason: it.steps ? "Calls Stripe. Its steps are read from code; a person should confirm them." : "Calls Stripe. Thunder can't fully read this function yet, so read the code." });
     else if (it.kind === "function" && PERSONAL.test(fileText) && ints.length) focus.push({ kind: "personal-data", itemId: it.id, title: `${it.readable} sends personal data`, reason: `Uses a customer's email and calls ${ints.map(i => i.target).join(", ")}.` });
   }
   for (const it of decisions) if (it.facts.some(f => MONEY.test(f)) && !disagreements.some(d => d.items.includes(it.id))) {
     focus.push({ kind: "unconfirmed", itemId: it.id, title: `${it.readable} decides about money`, reason: "Read from code only: no examples, and no person has confirmed this is what the business wants." });
   }
-  for (const it of Object.values(items)) if (it.kind === "function" && it.status !== "read" && !focus.some(f => f.itemId === it.id)) {
+  for (const it of Object.values(items)) if (it.kind === "function" && !it.steps && !focus.some(f => f.itemId === it.id)) {
     focus.push({ kind: "unreadable", itemId: it.id, title: `Thunder can't fully read ${it.readable}`, reason: "Shown as a dashed card. A person should read this code." });
   }
   const order = ["disagreement", "money", "personal-data", "unconfirmed", "unreadable"];

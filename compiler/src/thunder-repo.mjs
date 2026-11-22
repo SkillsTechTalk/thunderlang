@@ -49,7 +49,8 @@ export function thunderRepo(target, { maxFiles = 3000, keep = false, exampleLimi
       catch (e) { errors.push({ file: d.file, name: d.name, error: e instanceof Error ? e.message : String(e) }); }
     }
     const functions = reading.items.filter((i) => i.kind === 'function');
-    const unread = [...decisions.filter((d) => d.status !== 'read'), ...functions.filter((f) => f.status !== 'read')];
+    const asSteps = functions.filter((f) => f.steps?.length && (f.stepsReadable ?? 0) >= 0.5);
+    const unread = [...decisions.filter((d) => !cards.some((c) => c.item === d)), ...functions.filter((f) => !asSteps.includes(f))];
     const money = cards.filter((c) => c.model.inputs.some((i) => MONEY.test(i.id)));
     const examples = [...money, ...cards.filter((c) => !money.includes(c))].slice(0, exampleLimit).map(({ item, model }) => ({
       file: item.file, name: item.name, line: item.line,
@@ -63,7 +64,7 @@ export function thunderRepo(target, { maxFiles = 3000, keep = false, exampleLimi
       languages: reading.languages,
       files: reading.files.length,
       skipped: reading.skipped.length,
-      counts: { ...reading.counts, cards: cards.length, decisionsNotDrawn: decisions.length - cards.length, unreadFunctions: unread.length, readerErrors: errors.length },
+      counts: { ...reading.counts, cards: cards.length, decisionsNotDrawn: decisions.length - cards.length, functionsAsSteps: asSteps.length, functionsAsStepsMostly: functions.filter((f) => (f.stepsReadable ?? 0) >= 0.8).length, unreadFunctions: unread.length, readerErrors: errors.length },
       focus: [
         ...money.slice(0, 5).map(({ item }) => ({ kind: 'money', file: item.file, name: item.name, line: item.line, reason: 'Decides about money; read from code only, so a person should confirm it.' })),
         ...unread.slice(0, 5).map((i) => ({ kind: 'unreadable', file: i.file, name: i.name, line: i.line, reason: 'Thunder cannot fully read this yet: read the code.' })),
@@ -83,7 +84,7 @@ export function renderThunderRepo(r) {
   const out = [
     `Thunder Brief: ${r.source}${r.commit ? ` @ ${r.commit.slice(0, 10)}` : ''}`,
     `${r.files} files read (${langs || 'none'})${r.skipped ? `, ${r.skipped} skipped` : ''}, in ${r.seconds}s. Read-only: nothing was executed.`,
-    `${c.decision} decisions found; ${c.cards} drawn as Thunder cards, ${c.decisionsNotDrawn} shown as dashed cards. ${c.function} other functions (${c.unreadFunctions} not fully read). ${c.route ?? 0} routes, ${c.guarded ?? 0} guarded functions.`,
+    `${c.decision} decisions found, ${c.cards} drawn as Thunder rule cards. ${c.function} other functions, ${c.functionsAsSteps} read as Thunder steps (${c.functionsAsStepsMostly} at least 80% readable). ${c.unreadFunctions} need a person. ${c.route ?? 0} routes.`,
   ];
   if (r.examples.length) {
     out.push('', 'Rules read in Thunder (read from code; confirm with a person):');

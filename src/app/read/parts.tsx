@@ -11,6 +11,7 @@ import { plainFromReading } from "../../../compiler/src/plain-contract.mjs";
 import type { PlainModel } from "../../../compiler/src/plain-contract.d.mts";
 import { RulePictureStatic } from "@/app/try/RuleVisual";
 import { AskIt } from "@/components/AskIt";
+import { StepsView, type Step } from "@/app/try/StepsView";
 
 export const KNOW: { key: CodeLang; label: string }[] = [
   { key: "typescript", label: "TypeScript" },
@@ -49,6 +50,12 @@ const KIND_BADGE: Record<ReadKind, { label: string; tone: string }> = {
   error: { label: "Error", tone: FACETS[4].tone },
   test: { label: "Test", tone: FACETS[5].tone },
 };
+
+/** True when a function reads well as steps (most of its statements recognized). */
+export function hasSteps(item: ReadItem): boolean {
+  const it = item as ReadItem & { steps?: Step[]; stepsReadable?: number };
+  return item.kind === "function" && !!it.steps?.length && (it.stepsReadable ?? 0) >= 0.5;
+}
 
 /** True when Thunder can draw this item as a Thunder card. */
 export function isDrawable(item: ReadItem): boolean {
@@ -110,7 +117,9 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
     if (item.kind !== "decision") return null;
     try { return plainFromReading(item) as (PlainModel & { needsReview?: string[]; partial?: boolean }) | null; } catch { return null; }
   }, [item]);
-  const dashed = item.kind === "function" || (item.kind === "decision" && !card);
+  const stepItem = item as ReadItem & { steps?: Step[]; stepsMore?: number };
+  const steps = hasSteps(item) ? stepItem.steps! : null;
+  const dashed = !card && !steps;
   const guards = item.guards ?? [];
   const [promoting, setPromoting] = useState(false);
   const [asking, setAsking] = useState(false);
@@ -124,7 +133,9 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
         className="flex w-full items-center gap-2 rounded-lg text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">
         {card
           ? <><span aria-hidden="true" className="text-[#7FB2FF]">◇</span><span className="min-w-0 text-base font-semibold tok-fn">{card.question}</span></>
-          : <><span aria-hidden="true" className="text-haze-400">▭</span><span className="min-w-0 truncate text-base font-semibold text-white">{readable(item.name)}</span></>}
+          : steps
+            ? <span className="min-w-0 text-base font-semibold text-white">What <span className="tok-id">{readable(item.name).toLowerCase()}</span> does</span>
+            : <><span aria-hidden="true" className="text-haze-400">▭</span><span className="min-w-0 truncate text-base font-semibold text-white">{readable(item.name)}</span></>}
         {item.route && <span className={`rounded-full border px-2 py-0.5 text-[11px] ${FACETS[0].tone}`}>{item.route.method} {item.route.path}</span>}
         {(item.status === "partial" || card?.partial) && <span className="rounded-full border border-dashed border-white/30 px-2 py-0.5 text-[11px] text-haze-300">partly read</span>}
         <span className="ml-auto shrink-0 font-mono text-xs text-haze-400">{card || item.name !== readable(item.name) ? `${item.name} · ` : ""}line {item.line}</span>
@@ -134,11 +145,13 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
           <RulePictureStatic model={card} hideQuestion />
           {asking && !compact && <div className="mt-4 border-t border-white/10 pt-4"><AskIt model={card} /></div>}
         </div>
+      ) : steps ? (
+        <div className="mt-3"><StepsView steps={steps} more={stepItem.stepsMore ?? 0} /></div>
       ) : (
         <p className="mt-2 text-sm leading-relaxed text-haze-300">Thunder can&apos;t draw this yet. {guards.length ? item.says.replace(/ It checks \d+ conditions? first:.*$/, "").replace(/ Its body does more than choose between fixed answers, so no rules are shown\./, "") : ""}</p>
       )}
 
-      {guards.length > 0 && (
+      {guards.length > 0 && !steps && (
         <div className="mt-3">
           <p className="text-xs font-medium text-haze-400">It checks first</p>
           <ul className="mt-1 space-y-1 text-sm text-haze-200">
