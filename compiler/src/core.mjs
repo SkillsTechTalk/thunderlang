@@ -7,6 +7,8 @@
 // AI-implementation helpers (unchanged , keeps existing /core consumers working).
 export * from './ai-core.mjs';
 export { compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
+export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
+export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
 export { PLAIN_SCHEMA, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 
 // Classification model (observed/inferred/proposed/... + isFactual). Node-free.

@@ -18,6 +18,7 @@ import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
 import { previewPlainContract } from './plain-contract.mjs';
 import { thunderRepo, renderThunderRepo } from './thunder-repo.mjs';
+import { anchorReport } from './anchor.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
@@ -432,6 +433,7 @@ Real code vs intent (drift)
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   --version                 print the Thunder compiler version
+  anchor <file> [--json]    show every Thunder step with its exact place in the file, and line coverage
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
@@ -513,6 +515,19 @@ function main() {
         for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
       }
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'anchor') {
+    try {
+      if (!file) throw new Error('Use thunder anchor <file> [--json].');
+      const r = anchorReport(readFileSync(file, 'utf8'), { language: args.from, file: basename(file) });
+      if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
+      console.log(`${basename(file)} (${r.language}): ${Math.round(r.coverage * 1000) / 10}% of code lines are anchored to a Thunder step.`);
+      for (const f of r.functions) {
+        console.log(`\n${f.name} (line ${f.line}) ${Math.round(f.coverage * 100)}% anchored${f.missing.length ? `; not yet anchored: line ${f.missing.join(', ')}` : ''}`);
+        for (const s of f.steps) console.log(`  ${s.path.padEnd(5)} ${s.span.startLine === s.span.endLine ? `L${s.span.startLine}` : `L${s.span.startLine}-${s.span.endLine}`}`.padEnd(18) + `${s.kind.padEnd(7)} ${s.says}`);
+      }
+    } catch (e) { console.error(`thunder anchor: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'repo') {
