@@ -13,7 +13,7 @@ should change, whatever language the software is written in.
 | **Thundered** | Existing code shown in Thunder | "This is our Python refund service, Thundered so Product can review it." |
 | **Thundering** | Turning existing code into Thunder | "Thunder the billing folder and look for the $100 limit." |
 | **Thunder read** | Reading code visually, in Thunder | "Thunder read shows exactly where $100 is decided." |
-| **Thunder write** | Changing code visually: edit the Thunder picture and the original code is updated and checked | "Use Thunder write to change the limit to $75." (planned) |
+| **Thunder write** | Changing code visually: edit the Thunder picture and the original code is updated and checked | "Use Thunder write to change the limit to $75." (command line today; visual editing next) |
 | **OpenThunder** | The IDE for Thunder: open your app, read it in Thunder, navigate it in the Atlas, change it, and verify every change | "Open the repo in OpenThunder and read the Thundered TypeScript." |
 | `thunder` | The command-line tool | `thunder plain RefundApproval.thunder-plain` |
 
@@ -49,7 +49,7 @@ action you can actually take on it, and nothing is transformed silently.
 | --- | --- | --- |
 | **Thunder read** (Thundered read) | See existing code's routes, rules, and checks in Thunder. The original code stays the source of truth. | Available on [Read in Thunder](/read) and [the refund demo](/try) for TypeScript, JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, and Ruby |
 | **Thunder native** | Write the rule in Thunder; the Thunder compiler checks it and generates code. Thunder is the source of truth. | Available for decisions and examples (experimental `.thunder-plain` and `.thunder-human`) |
-| **Thunder write** (Thundered edit) | Change a Thundered rule visually and get a checked patch to the original TypeScript or Python file | **Not available yet.** Until it is, the action is called **Propose rule change**, never **Update code** |
+| **Thunder write** (Thundered edit) | Change a Thundered rule and get a checked patch to the original code | **Experimental, command line and API:** [`thunder write`](/docs/thunder-write) changes a number, comparison, text value, or answer in a decision, in all ten languages above, and checks it by reading the file again. Visual editing is not available yet; until it is, the action in the picture is called **Propose rule change**, never **Update code** |
 
 Parts that Thunder cannot read stay visible as "not read", with the original source line. Thunder
 never draws a guess to make a picture look complete.

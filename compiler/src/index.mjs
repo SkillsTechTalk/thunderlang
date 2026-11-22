@@ -193,3 +193,5 @@ export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } 
 export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from "./read-repo.mjs";
 export { collectReadableFiles } from "./read-repo-fs.mjs";
 export { promoteDecision, PROMOTE_SCHEMA } from "./promote.mjs";
+// Thunder write: change a recovered rule and write exactly those characters back, verified by re-reading.
+export { WRITE_SCHEMA, writeRule, changedCases } from "./write.mjs";

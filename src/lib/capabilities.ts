@@ -49,7 +49,7 @@ export const CAPABILITIES: Capability[] = [
   { key: "thunderedRead", name: "Thunder read (Thundered code)", status: "experimental", blurb: "Read a file or folder of TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby in Thunder at /read. The original code stays the source of truth." },
   { key: "codeToIntent", name: "Code to candidate intent", status: "experimental", blurb: "thunder lift infers a humble .thunder draft from 14 languages (TypeScript, Python, Java, C#, Go, Rust, Kotlin, Scala, Elixir, and more); always human-reviewed." },
   { key: "visualAtlas", name: "Visual Intent Atlas", status: "experimental", blurb: "An interactive map ships at /atlas (lifted-intent + proof-status views); the CLI graph (thunder atlas / index) is available today." },
-  { key: "thunderedEdit", name: "Thunder write", status: "planned", blurb: "Change a rule visually in Thunder and get a checked patch to the original TypeScript or Python file, verified by OpenThunder. Until then, the action is Propose rule change." },
+  { key: "thunderedEdit", name: "Thunder write", status: "experimental", blurb: "thunder write changes a number, comparison, text value, or answer in a recovered rule, writes only those characters back, and checks the result by reading the file again. Command line and API today; editing in the picture is next, and until then that action is Propose rule change." },
   { key: "intentEngine", name: "Intent Engine (AI assist)", status: "planned", blurb: "Optional, traced, human-approved prompt-to-intent and generation. Deterministic core needs no model." },
 ];
 

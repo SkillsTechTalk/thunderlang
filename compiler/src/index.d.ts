@@ -745,3 +745,5 @@ export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.m
 export function collectReadableFiles(root: string, options?: { maxFiles?: number; maxFileBytes?: number }): Array<{ path: string; source: string; size?: number }>;
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
 export type { Promotion } from './promote.mjs';
+export { WRITE_SCHEMA, writeRule, changedCases } from './write.mjs';
+export type { ChangedCase, ChangedCases, WriteChange } from './write.mjs';

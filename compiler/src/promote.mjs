@@ -72,19 +72,21 @@ function assignments(inputs, values, cap = 4096) {
 const lit = (v) => (typeof v === 'string' ? JSON.stringify(v) : String(v));
 
 /**
- * Turn a decision item from readCode/readRepo into a readable contract.
- * Returns { ok: true, source, name, examples, notes } or { ok: false, reason }.
+ * The recovered rule as something that can run: plain input names, candidate values on both sides of every
+ * threshold, and an evaluator. `extraConditions` widens the candidate values (Thunder write uses the edited
+ * rule's conditions, so the before and after versions are checked on the same inputs).
+ * Returns { ok: true, notes, refs, renames, names, types, values, rules, decisionName, canonical, run, all }
+ * or { ok: false, reason }.
  */
-export function promoteDecision(item, { file = item.file || '' } = {}) {
+export function recoverModel(item, { extraConditions = [] } = {}) {
   if (!item || item.kind !== 'decision' || !item.rules?.length || !item.otherwise) return { ok: false, reason: 'Only decisions (functions that choose between fixed answers) can become a contract.' };
   const results = [...item.rules.map((r) => r.result), item.otherwise.result];
   const bad = results.find((r) => !OUTCOME.test(r));
   if (bad) return { ok: false, reason: `The answer ${bad} is not a name. Contracts answer with names such as Approve or Review.` };
-
   // Flatten field paths (order.total -> orderTotal) so every input is a plain name.
   const notes = [];
   const renames = new Map();
-  const conditions = item.rules.map((r) => r.when);
+  const conditions = [...item.rules.map((r) => r.when), ...extraConditions];
   const refs = usage(conditions, new Set((item.inputs || []).map((p) => p.name)));
   for (const path of refs.keys()) if (path.includes('.')) { renames.set(path, flat(path)); notes.push(`${flat(path)} stands for ${path} in the code.`); }
   const rewrite = (cond) => tokenize(cond).map((t) => {
@@ -114,6 +116,18 @@ export function promoteDecision(item, { file = item.file || '' } = {}) {
     ...rules.flatMap((r, i) => [`  rule r${i + 1}`, `    when ${r.when}`, `    return ${r.result}`]), '  default', `    return ${item.otherwise.result}`].join('\n')).decisions[0];
   const run = (a) => evaluateDecision(canonical, a);
   const all = assignments(names, values).map((a) => ({ a, r: run(a) }));
+  return { ok: true, notes, refs, renames, names, types, values, rules, decisionName, canonical, run, all };
+}
+
+/**
+ * Turn a decision item from readCode/readRepo into a readable contract.
+ * Returns { ok: true, source, name, examples, notes } or { ok: false, reason }.
+ */
+export function promoteDecision(item, { file = item.file || '' } = {}) {
+  const model = recoverModel(item);
+  if (!model.ok) return model;
+  const { notes, refs, renames, names, types, rules, decisionName, run, all } = model;
+  const results = [...item.rules.map((r) => r.result), item.otherwise.result];
   const chosen = [];
   const key = (a) => names.map((n) => lit(a[n])).join('|');
   const add = (a, label) => {

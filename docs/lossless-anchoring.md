@@ -58,5 +58,5 @@ On the eleven public repositories in [the results](/docs/thunder-repo-results) (
 - It anchors steps, not meaning. A step that reads "Calls Stripe" is linked to its exact code; it is not yet an
   executable Thunder construct. Turning steps into executable Thunder, layer by layer, is the next part of the
   language work.
-- Rule cards (decisions) are anchored by line; column-exact anchoring of a single comparison (for "at most" to
-  "under" edits) comes with Thunder write in OpenThunder.
+- Rule cards (decisions) are anchored by line. Changing a single comparison or number inside a rule ("at most"
+  to "under", 100 to 75) is [Thunder write](/docs/thunder-write), which finds those exact characters itself.
