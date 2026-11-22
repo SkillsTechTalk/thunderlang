@@ -219,7 +219,7 @@ export default function HomePage() {
             <p className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
               <a href="https://openthunder.dev" className="font-medium text-gold-300 hover:text-gold-200">Open OpenThunder ↗</a>
               <Link href="/roadmap" className="font-medium text-gold-300 hover:text-gold-200">See exactly what works today →</Link>
-              <Link href="/docs/getting-started" className="font-medium text-gold-300 hover:text-gold-200">Install the CLI →</Link>
+              <Link href="/install" className="font-medium text-gold-300 hover:text-gold-200">Install Thunder →</Link>
             </p>
           </div>
         </div>

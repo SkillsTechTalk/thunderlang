@@ -140,3 +140,12 @@ test('thunder repo reads a local folder read-only and reports cards and focus', 
   assert.equal(parseGitHub('https://evil.example.com/x/y'), null);
   assert.equal(parseGitHub('owner/repo; rm -rf /'), null);
 });
+
+test('thunder --version prints the compiler version', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { fileURLToPath } = await import('node:url');
+  const { COMPILER_VERSION } = await import('../src/index.mjs');
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL('../src/cli.mjs', import.meta.url)), '--version'], { encoding: 'utf8' });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, new RegExp(`^thunder ${COMPILER_VERSION.replace(/\./g, '\\.')} `));
+});

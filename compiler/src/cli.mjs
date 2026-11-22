@@ -458,6 +458,7 @@ Real code vs intent (drift)
 
 Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
+  --version                 print the Thunder compiler version
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
@@ -489,6 +490,10 @@ function main() {
   const [cmd, ...restArgv] = process.argv.slice(2);
   const args = parseArgs(restArgv);
   const file = args._[0];
+  if (cmd === '--version' || cmd === '-v' || cmd === 'version') {
+    console.log(`thunder ${COMPILER_VERSION} (the Thunder compiler, also called ThunderLang)`);
+    return;
+  }
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
     process.exit(cmd ? 0 : 2);
