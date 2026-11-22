@@ -148,7 +148,7 @@ export default function HomePage() {
               />
             </div>
             <ul className="mt-7 flex flex-wrap gap-2 text-xs text-haze-300">
-              {["Open-source compiler", "Browser, terminal, and OpenThunder", "Deterministic: no AI, no key"].map(t => (
+              {["Also called ThunderLang™", "Open-source compiler", "Deterministic: no AI, no key"].map(t => (
                 <li key={t} className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1">{t}</li>
               ))}
               <li><Link href="/learn" className="inline-block rounded-full px-3 py-1 font-medium text-gold-300 hover:text-gold-200">10-minute tutorial →</Link></li>
