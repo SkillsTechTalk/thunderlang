@@ -20,19 +20,20 @@ fails with), with one level of nesting. A statement Thunder does not recognize s
 
 | Language | Repository | Files | Rule cards (of decisions found) | Functions read as steps, at least 80% readable | Reader errors |
 | --- | --- | --- | --- | --- | --- |
-| Kotlin + Java | [JakeWharton/timber](https://github.com/JakeWharton/timber) | 12 | 0 of 3 | 193 of 243 (79%) | 0 |
-| JavaScript | [expressjs/express](https://github.com/expressjs/express) | 142 | 3 of 3 | 416 of 447 (93%) | 0 |
-| Java | [google/gson](https://github.com/google/gson) | 268 | 4 of 17 | 3382 of 3677 (92%) | 0 |
-| PHP | [guzzle/guzzle](https://github.com/guzzle/guzzle) | 147 | 10 of 17 | 2535 of 2616 (97%) | 0 |
-| C# | [jbogard/MediatR](https://github.com/jbogard/MediatR) | 161 | 3 of 4 | 770 of 862 (89%) | 0 |
-| Python | [psf/requests](https://github.com/psf/requests) | 37 | 3 of 3 | 582 of 632 (92%) | 0 |
-| Rust | [rust-lang/log](https://github.com/rust-lang/log) | 13 | 0 of 1 | 351 of 449 (78%) | 0 |
-| Ruby | [sinatra/sinatra](https://github.com/sinatra/sinatra) | 147 | 19 of 25 | 674 of 895 (75%) | 0 |
-| TypeScript | [sindresorhus/ky](https://github.com/sindresorhus/ky) | 98 | 0 of 1 | 1012 of 1370 (74%) | 0 |
-| Go | [spf13/cobra](https://github.com/spf13/cobra) | 36 | 2 of 2 | 511 of 587 (87%) | 0 |
-| **Total** | | **1061** | **44 of 76** | **10426 of 11778 (89%)** | **0** |
+| Kotlin + Java | [JakeWharton/timber](https://github.com/JakeWharton/timber) | 12 | 0 of 3 | 194 of 243 (80%) | 0 |
+| JavaScript | [expressjs/express](https://github.com/expressjs/express) | 142 | 3 of 3 | 427 of 447 (96%) | 0 |
+| Java | [google/gson](https://github.com/google/gson) | 268 | 4 of 17 | 3462 of 3677 (94%) | 0 |
+| PHP | [guzzle/guzzle](https://github.com/guzzle/guzzle) | 147 | 10 of 17 | 2544 of 2616 (97%) | 0 |
+| TypeScript (React) | [jaredpalmer/formik](https://github.com/jaredpalmer/formik) | 120 | 2 of 3 | 218 of 233 (94%) | 0 |
+| C# | [jbogard/MediatR](https://github.com/jbogard/MediatR) | 161 | 3 of 4 | 830 of 862 (96%) | 0 |
+| Python | [psf/requests](https://github.com/psf/requests) | 37 | 3 of 3 | 599 of 632 (95%) | 0 |
+| Rust | [rust-lang/log](https://github.com/rust-lang/log) | 13 | 0 of 1 | 396 of 449 (88%) | 0 |
+| Ruby | [sinatra/sinatra](https://github.com/sinatra/sinatra) | 147 | 19 of 25 | 684 of 895 (76%) | 0 |
+| TypeScript | [sindresorhus/ky](https://github.com/sindresorhus/ky) | 98 | 0 of 1 | 1338 of 1370 (98%) | 0 |
+| Go | [spf13/cobra](https://github.com/spf13/cobra) | 36 | 2 of 2 | 551 of 587 (94%) | 0 |
+| **Total** | | **1181** | **46 of 79** | **11243 of 12011 (94%)** | **0** |
 
-Reading all ten repositories takes about 7 seconds. Example, from this repository's sample shop:
+Reading all eleven repositories takes under 10 seconds. Example, from this repository's sample shop:
 
 ```text
 What issue refund does
@@ -51,8 +52,12 @@ What issue refund does
   Thunder can show in plain words from under 1% to 89%.
 - **Steps are read from code, not rules.** They say what the code does in order; they do not say what it was
   meant to do, and they are labeled that way. Rule cards remain the only views you can ask questions of.
-- **Weakest today:** TypeScript (74%), Ruby (75%), Rust (78%), Kotlin (79%): chained expressions, closures,
-  and DSL-style calls are often kept as original code.
+- **TypeScript pass (2026-11-22):** object literals, destructuring, and JSX no longer split statements; casts,
+  non-null and optional chaining, private fields, counters, inner classes, and collection chains
+  (`map`/`filter`/`find`/`some`/`every`/`reduce`, LINQ, Rust iterators, Java streams) read as plain steps.
+  Newline-terminated statements (Go, Kotlin, JavaScript without semicolons) are split correctly.
+- **Weakest today:** Ruby (76%) and Kotlin (80%, mostly in tests): blocks, DSL-style calls, and heredocs are often
+  kept as original code.
 
 ## Next compiler steps (in order of expected coverage gain)
 

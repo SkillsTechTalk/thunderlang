@@ -880,6 +880,15 @@ function splitStatements(body, baseLine) {
       else if (c === '{') {
         const close = matchClose(src, i);
         if (close < 0) { i = src.length; break; }
+        // A brace after a block header (if/for/else/try/=>/a closing paren …) is a code block and ends the
+        // statement. Any other brace is part of an expression (an object literal, destructuring, a struct
+        // literal, JSX): keep reading to the end of the statement.
+        const prefix = src.slice(start, i).trim();
+        const blockHeader = !prefix
+          || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
+          || (/(?:\)|=>|\belse|\btry|\bdo|\bfinally|\bloop|\bunsafe|\bdefer)\s*$/.test(prefix) && !/^(?:return|throw|yield)\b/.test(prefix) && !/[=:]\s*\w*\s*\(/.test(prefix.replace(/=>\s*$/, '')) )
+          || (/=>\s*$/.test(prefix));
+        if (depth === 0 && !blockHeader) { i = close; continue; }
         i = close;
         if (depth === 0) {
           // An if/else chain continues past a closing brace.
@@ -887,6 +896,13 @@ function splitStatements(body, baseLine) {
           if (!rest) { i++; break; }
         }
       } else if (c === ';' && depth === 0) { i++; break; }
+      else if (c === '\n' && depth === 0) {
+        // Newline-terminated statements (Go, Kotlin, JavaScript without semicolons): a complete line
+        // ends the statement unless the next line continues it.
+        const before = src.slice(start, i).trimEnd();
+        const after = src.slice(i + 1).trimStart();
+        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
+      }
     }
     const text = src.slice(start, i).trim();
     if (text) out.push({ text, line: baseLine + lineAt(src, start) - 1 });
