@@ -21,7 +21,7 @@ const OTHER = "__other__";
 
 /** Thunder write on the page: change one rule's number, comparison, text, or answer; see the exact code change first. */
 export function WritePanel({ item, target }: { item: ReadItem; target: WriteTarget }) {
-  const rules = item.rules ?? [];
+  const rules = useMemo(() => item.rules ?? [], [item.rules]);
   const answers = useMemo(() => [...new Set([...rules.map((r) => r.result), item.otherwise?.result].filter(Boolean) as string[])], [rules, item.otherwise]);
   const [pick, setPick] = useState<number | "otherwise" | null>(null);
   const [draft, setDraft] = useState<Draft[]>([]);
