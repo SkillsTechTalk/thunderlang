@@ -141,13 +141,15 @@ function findFunctions(src, language) {
       if (!m) return;
       const indent = m[1].length;
       const body = [];
-      if (m[5].trim()) body.push({ text: m[5].trim(), line: i + 1, indent: indent + 4 });
+      if (pyNoComment(m[5]).trim()) body.push({ text: pyNoComment(m[5]).trim(), line: i + 1, indent: indent + 4 });
       for (let j = i + 1; j < lines.length; j++) {
         const t = lines[j];
         if (!t.trim() || /^\s*#/.test(t)) continue;
         const ind = t.match(/^\s*/)[0].length;
         if (ind <= indent) break;
-        body.push({ text: t.trim(), line: j + 1, indent: ind });
+        const code = pyNoComment(t).trim();
+        if (!code) continue;
+        body.push({ text: code, line: j + 1, indent: ind });
       }
       fns.push({ name: m[2], line: i + 1, params: parseParams(m[3], language), returns: m[4]?.trim() || null, pyBody: body });
     });
@@ -1183,8 +1185,18 @@ function readPythonBody(body, inputs) {
 
 const RB_OPENER = /^(if|unless|while|until|case|begin|for|def|class|module)\b/;
 const rbCodeOnly = (l) => l.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""').replace(/(^|\s)#.*$/, '$1');
+/** A Python line without its trailing # comment. Outside a string, # always starts a comment in Python. */
+export function pyNoComment(l) {
+  for (let i = 0; i < l.length; i++) {
+    const c = l[i];
+    if (c === '"' || c === '\'') { i = skipString(l, i); continue; }
+    if (c === '#') return l.slice(0, i).replace(/\s+$/, '');
+  }
+  return l;
+}
+
 /** A Ruby line without its trailing # comment (strings kept as written). */
-function rbNoComment(l) {
+export function rbNoComment(l) {
   for (let i = 0; i < l.length; i++) {
     const c = l[i];
     if (c === '"' || c === '\'') { i = skipString(l, i); continue; }

@@ -53,3 +53,15 @@ test('an edit that breaks the function is rejected and the original is returned 
   assert.ok(bad.problems.length > 0);
   assert.equal(replaceSpan('abc', { startLine: 1, endLine: 1, start: 1, end: 2, exact: 'offset' }, 'X'), 'aXc');
 });
+
+test('a step edit keeps the line\'s trailing # comment unless the replacement brings its own', () => {
+  const src = 'def g(x):\n    y = x + 1  # bump\n    if y > 3:  # big\n        notify(y)  # side effect\n    return y\n';
+  const keep = editStep({ source: src, language: 'python', functionName: 'g', path: [0], replacement: 'y = x + 2' });
+  assert.ok(keep.ok, keep.problems?.[0]);
+  assert.equal(keep.source.split('\n')[1], '    y = x + 2  # bump');
+  const own = editStep({ source: src, language: 'python', functionName: 'g', path: [1, 0], replacement: 'notify(y, loud=True)  # louder' });
+  assert.equal(own.source.split('\n')[3], '        notify(y, loud=True)  # louder');
+  const rb = editStep({ source: 'def g(x)\n  y = x + 1 # bump\n  y\nend\n', language: 'ruby', functionName: 'g', path: [0], replacement: 'y = x + 2' });
+  assert.ok(rb.ok, rb.problems?.[0]);
+  assert.equal(rb.source.split('\n')[1], '  y = x + 2 # bump');
+});
