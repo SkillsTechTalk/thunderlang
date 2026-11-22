@@ -216,22 +216,27 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
 }
 
 /** Steps for a function body. `statements` are top-level [{ text, line, inner? }]. */
+const spanOf = (s) => ({ startLine: s.line, endLine: s.endLine ?? s.line, ...(s.start != null && s.end != null ? { start: s.start, end: s.end } : {}) });
+
 export function stepsFrom(statements) {
   const steps = [];
+  const skipped = [];
   for (const s of statements) {
+    if (s.text && /^(?:else\b|elsif\b|end\b|\}|except\b|catch\b|finally\b|rescue\b|ensure\b|pass$|break$|continue$)/.test(s.text.trim())) { skipped.push(spanOf(s)); continue; }
     if (!s.text || /^(?:else\b|elsif\b|end\b|\}|except\b|catch\b|finally\b|rescue\b|ensure\b|pass$|break$|continue$|#)/.test(s.text.trim())) continue;
     const t = s.text.trim();
-    if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t)) continue; // docstrings and doc comments
-    if (/^[)\]}]+[):;,]*$/.test(t) || /^\.\.\.$/.test(t) || /^\.[A-Za-z_]/.test(t) || /^@\w+(?:\(.*\))?$/.test(t) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t) || /^:(?:param|rtype|return|raises|type)\b/.test(t)) continue;
-    const step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line };
+    if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments
+    if (/^[)\]}]+[):;,]*$/.test(t) || /^\.\.\.$/.test(t) || /^\.[A-Za-z_]/.test(t) || /^@\w+(?:\(.*\))?$/.test(t) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t) || /^:(?:param|rtype|return|raises|type)\b/.test(t)) { skipped.push(spanOf(s)); continue; }
+    const step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line, span: spanOf(s) };
     if (s.children?.length && ['branch', 'loop', 'try'].includes(step.kind)) {
-      const kids = stepsFrom(s.children.map(({ children, ...rest }) => rest)).steps.slice(0, 6);
+      const kids = stepsFrom(s.children.map(({ children, ...rest }) => rest)).steps;
       if (kids.length) { step.children = kids; step.says = step.says.replace(/ \(\d+ steps? inside\)$/, ''); }
     }
     steps.push(step);
   }
+  // Every step is kept (anchoring needs all of them); `more` tells a view how many to fold away.
   const more = Math.max(0, steps.length - MAX_STEPS);
-  return { steps: steps.slice(0, MAX_STEPS), more, readable: steps.length ? steps.filter((x) => x.kind !== 'other').length / steps.length : 0 };
+  return { steps, more, skipped, readable: steps.length ? steps.filter((x) => x.kind !== 'other').length / steps.length : 0 };
 }
 
 /** Top-level statements for a brace-language body, with the number of inner statements of each block. */
@@ -246,8 +251,9 @@ export function braceStatements(stmts, split = null) {
       body = end > open ? s.text.slice(open + 1, end) : '';
     }
     const inner = body ? body.split(/;|\n/).filter((l) => l.trim() && !/^[{}]$/.test(l.trim())).length : 0;
-    const children = body && split ? split(body, s.line).map((c) => ({ text: c.text, line: c.line })) : [];
-    return { text: s.text, line: s.line, inner, children };
+    const base = s.start != null && open >= 0 ? s.start + open + 1 : null;
+    const children = body && split ? split(body, s.line).map((c) => ({ text: c.text, line: c.line, endLine: c.endLine, ...(base != null && c.start != null ? { start: base + c.start, end: base + c.end } : {}) })) : [];
+    return { text: s.text, line: s.line, endLine: s.endLine, start: s.start, end: s.end, inner, children };
   });
 }
 
@@ -256,12 +262,13 @@ export function indentStatements(body, { depthKey = 'indent' } = {}) {
   if (!body?.length) return [];
   // Drop multi-line docstrings first: everything between an opening and closing triple quote.
   const kept = [];
-  let inDoc = null;
+  let inDoc = null, docEntry = null;
   for (const l of body) {
     const t = l.text.trim();
-    if (inDoc) { if (t.includes(inDoc)) inDoc = null; continue; }
+    if (inDoc) { docEntry.endLine = l.line; if (t.includes(inDoc)) inDoc = null; continue; }
     const q = (t.match(/^[rbuf]{0,2}("""|''')/) || [])[1];
-    if (q) { if (t.slice(t.indexOf(q) + 3).includes(q) === false) inDoc = q; continue; }
+    // Docstrings are kept as one entry so they count as read (skipped as documentation, not dropped).
+    if (q) { const doc = { ...l, text: q, endLine: l.line }; kept.push(doc); if (t.slice(t.indexOf(q) + 3).includes(q) === false) { inDoc = q; docEntry = doc; } continue; }
     kept.push(l);
   }
   body = kept;
@@ -274,13 +281,17 @@ export function indentStatements(body, { depthKey = 'indent' } = {}) {
     let inner = 0;
     const children = [];
     let childDepth = null;
+    let last = l.endLine ?? l.line;
     for (let k = i + 1; k < body.length && (body[k][depthKey] ?? 0) > base; k++) {
       inner++;
       const d = body[k][depthKey] ?? 0;
       if (childDepth === null) childDepth = d;
       if (d === childDepth) children.push({ text: body[k].text, line: body[k].line });
+      last = body[k].line;
     }
-    out.push({ text: l.text, line: l.line, inner, children });
+    // A child statement runs until the line before the next child (or the end of the block).
+    children.forEach((c, n) => { const next = children[n + 1]; const nextIdx = next ? body.findIndex((x) => x.line === next.line) : -1; const until = next ? body[nextIdx - 1]?.line ?? c.line : last; c.endLine = Math.max(c.line, until); });
+    out.push({ text: l.text, line: l.line, endLine: last, inner, children });
   }
   return out;
 }
