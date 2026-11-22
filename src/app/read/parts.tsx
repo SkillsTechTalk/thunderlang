@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useEffect, useState } from "react";
 import { PromotePanel } from "./PromotePanel";
+import { WritePanel, type WriteTarget } from "./WritePanel";
 import type { ReadItem, ReadKind } from "../../../compiler/src/read.mjs";
 import { parseIntent } from "../../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../../compiler/src/translate.mjs";
@@ -101,7 +102,7 @@ export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560
   );
 }
 
-export function ReadCard({ item, know, selected, onShow, compact = false }: { item: ReadItem & { route?: { method: string; path: string } }; know: CodeLang; selected: boolean; onShow: () => void; compact?: boolean }) {
+export function ReadCard({ item, know, selected, onShow, compact = false, write }: { item: ReadItem & { route?: { method: string; path: string } }; know: CodeLang; selected: boolean; onShow: () => void; compact?: boolean; write?: WriteTarget }) {
   const kind = KIND_BADGE[item.kind];
   const rewritten = useMemo(() => {
     if (!item.thunder) return "";
@@ -122,6 +123,8 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
   const dashed = !card && !steps;
   const guards = item.guards ?? [];
   const [promoting, setPromoting] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const canWrite = !!write && item.kind === "decision" && !!item.rules?.length && !!item.otherwise;
   const [asking, setAsking] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [showUnread, setShowUnread] = useState(false);
@@ -173,6 +176,7 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
       {!compact && (
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-sm">
           {card && <button type="button" aria-expanded={asking} onClick={() => setAsking((v) => !v)} className={`rounded-lg border px-3 py-1.5 font-medium ${asking ? "border-gold-300/60 text-white" : "border-white/20 text-haze-100 hover:bg-white/10"} focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300`}>{asking ? "Hide Ask it" : "Ask it"}</button>}
+          {canWrite && <button type="button" aria-expanded={changing} onClick={() => setChanging((v) => !v)} className={`rounded-lg border px-3 py-1.5 font-medium ${changing ? "border-gold-300/60 text-white" : "border-white/20 text-haze-100 hover:bg-white/10"} focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300`}>{changing ? "Hide Change a rule" : "Change a rule"}</button>}
           {item.kind === "decision" && <button type="button" aria-expanded={promoting} onClick={() => setPromoting((v) => !v)} className="rounded-lg px-3 py-1.5 text-haze-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">{promoting ? "Hide the contract" : "Turn into a contract"}</button>}
           {!!card?.needsReview?.length && <button type="button" aria-expanded={reviewing} onClick={() => setReviewing((v) => !v)} className="rounded-lg px-3 py-1.5 text-haze-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">{card.needsReview.length} to confirm</button>}
           {!!item.unread?.length && <button type="button" aria-expanded={showUnread} onClick={() => setShowUnread((v) => !v)} className="rounded-lg px-3 py-1.5 text-haze-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300">{item.unread.length} line{item.unread.length === 1 ? "" : "s"} not read</button>}
@@ -187,6 +191,7 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
           {item.unread.map((u, i) => <li key={i} className="text-haze-300"><span className="text-haze-400">Line {u.line}:</span> <code className="font-mono text-haze-200">{u.text}</code> {u.reason}</li>)}
         </ul>
       )}
+      {changing && canWrite && write && <WritePanel item={item} target={write} />}
       {promoting && <div className="mt-3"><PromotePanel item={item} file={(item as ReadItem & { file?: string }).file} /></div>}
       {hood && item.thunder && (
         <div className="mt-3 space-y-3">

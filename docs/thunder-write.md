@@ -74,5 +74,14 @@ if (r.ok) save(r.source); else console.log(r.problems);
 `r.change` lists each edited position (`line`, `column`, `before`, `after`). `r.cases` holds the inputs whose
 answer changes. When `ok` is false, `r.source` is the original and `r.problems` explains why.
 
+## On the page
+
+On [Read in Thunder](/read), open a rule card and choose **Change a rule**. Pick a rule, then change its number,
+comparison, text value, or answer. Only those parts are editable; names, "and", and "or" are shown as fixed text.
+Before anything changes you see the before-and-after code line, the old and new rule in words, and the answers
+that change. **Apply to the code on this page** changes the page's copy of the code and highlights the changed
+line; **Undo** puts it back, and **Download the changed file** saves it. Your own files are never touched by the
+page.
+
 Thunder write builds on [lossless anchoring](/docs/lossless-anchoring), which links every Thunder step to its
-exact code. Changing a rule by clicking it in the Thunder picture comes next, in OpenThunder and on this site.
+exact code. Change a rule in OpenThunder comes next.

@@ -238,3 +238,26 @@ export function changedCases(before, after) {
   }
   return { checked: a.all.length, changed, note: `Checked ${a.all.length} boundary input${a.all.length === 1 ? '' : 's'}; ${changed.length} now get${changed.length === 1 ? 's' : ''} a different answer. These are the values on each side of every limit, not every possible input.` };
 }
+
+const CMP_WORDS = { '<=': 'at most', '<': 'less than', '>=': 'at least', '>': 'more than', '==': 'is', '!=': 'is not' };
+/** The comparisons a person can choose between, in plain words. */
+export const COMPARISON_CHOICES = Object.entries(CMP_WORDS).map(([op, words]) => ({ op, words }));
+
+/**
+ * A rule's condition split into the parts a person sees: names and words stay fixed; numbers, comparisons, and
+ * text values can change. Joining the parts back with `joinRuleParts` gives a condition `writeRule` accepts.
+ */
+export function ruleParts(when) {
+  return tokenize(when).map((t) => {
+    if (t.t === 'num') return { kind: 'number', value: t.v };
+    if (t.t === 'str') return { kind: 'text', value: t.v };
+    if (t.t === 'op' && CMP.has(t.v)) return { kind: 'comparison', value: t.v, words: CMP_WORDS[t.v] };
+    if (t.t === 'bool') return { kind: 'fixed', value: String(t.v), words: String(t.v) };
+    if (t.t === 'kw') return { kind: 'fixed', value: t.v, words: t.v };
+    return { kind: 'fixed', value: String(t.v), words: String(t.v) };
+  });
+}
+
+export function joinRuleParts(parts) {
+  return parts.map((p) => (p.kind === 'text' ? JSON.stringify(String(p.value)) : String(p.value))).join(' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+}

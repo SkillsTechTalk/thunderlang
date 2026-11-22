@@ -194,4 +194,4 @@ export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, 
 export { collectReadableFiles } from "./read-repo-fs.mjs";
 export { promoteDecision, PROMOTE_SCHEMA } from "./promote.mjs";
 // Thunder write: change a recovered rule and write exactly those characters back, verified by re-reading.
-export { WRITE_SCHEMA, writeRule, changedCases } from "./write.mjs";
+export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from "./write.mjs";

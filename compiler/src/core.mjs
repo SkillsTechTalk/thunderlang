@@ -8,7 +8,7 @@
 export * from './ai-core.mjs';
 export { compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
-export { WRITE_SCHEMA, writeRule, changedCases } from './write.mjs';
+export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
 export { PLAIN_SCHEMA, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 

@@ -99,3 +99,17 @@ test('other functions in the file are checked too, and stay byte-identical', () 
   assert.ok(r.source.endsWith('export function shipping(weight: number): string {\n  if (weight > 100) return "Freight";\n  return "Parcel";\n}\n'));
   assert.deepEqual(r.change.map((c) => c.line), [3, 3]);
 });
+
+test('ruleParts shows only numbers, comparisons, and text as changeable, and joins back to a condition', async () => {
+  const { ruleParts, joinRuleParts, COMPARISON_CHOICES } = await import('../src/write.mjs');
+  const parts = ruleParts('total >= 50 or member');
+  assert.deepEqual(parts.map((p) => p.kind), ['fixed', 'comparison', 'number', 'fixed', 'fixed']);
+  assert.equal(parts[1].words, 'at least');
+  assert.equal(joinRuleParts(parts), 'total >= 50 or member');
+  const edited = parts.map((p) => (p.kind === 'number' ? { ...p, value: 75 } : p));
+  const r = writeRule({ source: 'func ShippingFee(total float64, member bool) string {\n\tif total >= 50 || member {\n\t\treturn "Free"\n\t}\n\treturn "Standard"\n}\n', language: 'go', decision: 'ShippingFee', rule: 1, when: joinRuleParts(edited) });
+  assert.ok(r.ok, r.problems?.join(' '));
+  assert.match(r.source, /if total >= 75 \|\| member \{/);
+  assert.equal(joinRuleParts(ruleParts('tier == "gold"')), 'tier == "gold"');
+  assert.deepEqual(COMPARISON_CHOICES.map((c) => c.words), ['at most', 'less than', 'at least', 'more than', 'is', 'is not']);
+});
