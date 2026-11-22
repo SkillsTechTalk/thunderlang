@@ -1408,6 +1408,37 @@ function decisionSource(name, inputs, rules, otherwise) {
  * Read source code into a searchable list of items: each function, the decision rules it makes
  * (as ThunderLang and plain English), the errors it raises, and the tests that exist.
  */
+const BOOL_RETURN = /^(bool|boolean|Boolean|bool\?|Boolean\?|kotlin\.Boolean|System\.Boolean)$/;
+const LOGIC_OR_COMPARE = /(&&|\|\||[<>]=?|[!=]==?|\band\b|\bor\b|\bnot\b|^\s*!)/;
+/** Read a one-expression boolean body as a decision rule, or return null. Never guesses past one expression. */
+function readPredicate(fn, lang, names, code) {
+  let expr = null, line = fn.line;
+  if (lang === 'python') {
+    const body = (fn.pyBody || []).filter((l) => !/^(?:[rbuf]{0,2})(?:"""|\'\'\'|"|')/.test(l.text)); // drop docstrings
+    if (body.length !== 1) return null;
+    const m = body[0].text.match(/^return\s+(.+)$/);
+    if (!m) return null;
+    expr = m[1]; line = body[0].line;
+  } else if (lang === 'ruby') {
+    const body = (fn.rbBody || []).filter((l) => l.text && !/^#/.test(l.text) && l.text !== 'end');
+    if (body.length !== 1) return null;
+    expr = body[0].text.replace(/^return\s+/, ''); line = body[0].line;
+    if (/^(if|unless|case|while|until)\b|\bthen\b/.test(expr)) return null;
+  } else {
+    if (typeof fn.body !== 'string') return null;
+    const body = stripComments(fn.body).trim();
+    let m = body.match(/^return\s+([^;{}]+?);?\s*$/s);
+    if (!m && lang === 'rust') m = body.match(/^([^;{}]+?)\s*$/s);
+    if (!m) return null;
+    expr = m[1].replace(/\s+/g, ' ').trim();
+    if (fn.bodyStart != null) line = lineAt(code, fn.bodyStart + Math.max(0, fn.body.indexOf(m[1].trim().slice(0, 12))));
+  }
+  if (!expr || /^(true|false|True|False)$/.test(expr)) return null;
+  if (!(BOOL_RETURN.test(String(fn.returns || '').trim()) || LOGIC_OR_COMPARE.test(expr) || /\?$/.test(fn.name))) return null;
+  const when = toThunderCondition(expr.replace(/\?$/, ''), names);
+  return when ? { rule: { when, result: 'true', line } } : null;
+}
+
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
@@ -1425,6 +1456,12 @@ export function readCode(source, { language, file = '' } = {}) {
       : lang === 'ruby'
         ? readRubyBody(fn.rbBody, names)
         : readBraceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), lang, names);
+    // Predicates: a body that is only `return <true/false expression>` (Rust: a tail expression; Ruby:
+    // an implicit last value) reads as "true when <expression>, otherwise false".
+    if (!read.rules.length && !read.otherwise) {
+      const pred = readPredicate(fn, lang, names, code);
+      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; }
+    }
     const isDecision = read.rules.length > 0 && !!read.otherwise;
     const guards = read.guards || [];
     // In a function that is not a pure decision, early fixed returns are still rules worth reading.

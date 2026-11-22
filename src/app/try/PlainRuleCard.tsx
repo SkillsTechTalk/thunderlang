@@ -25,7 +25,7 @@ const control = "rounded-md border border-white/25 bg-white/[0.06] px-2 py-1 fon
 const button = "rounded-lg border border-white/20 px-3 py-2 text-sm font-semibold transition hover:bg-white/10 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300";
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const clone = (m: PlainModel): PlainModel => JSON.parse(JSON.stringify(m));
-const values = (m: PlainModel, v: Record<string, number | boolean>) => m.inputs.map(i => formatValue(i, v[i.id])).join(", ");
+const values = (m: PlainModel, v: Record<string, number | boolean | string>) => m.inputs.map(i => formatValue(i, v[i.id])).join(", ");
 
 /** A number box that only commits finite numbers, so typing "-" or clearing never corrupts the rule. */
 function NumberBox({ value, dollars, label, onCommit }: { value: number; dollars: boolean; label: string; onCommit: (n: number) => void }) {
@@ -66,7 +66,7 @@ export function PlainRuleCard({ initialSource, breadcrumb }: { initialSource: st
   const [view, setView] = useState<View>("picture");
   const [text, setText] = useState(initialSource);
   const [textError, setTextError] = useState("");
-  const [probe, setProbe] = useState<Record<string, number | boolean>>(() => ({ ...initial.examples[1]?.values ?? {} }));
+  const [probe, setProbe] = useState<Record<string, number | boolean | string>>(() => ({ ...initial.examples[1]?.values ?? {} }));
   const [notice, setNotice] = useState("");
   const [open, setOpen] = useState(false);
   const ids = useId();

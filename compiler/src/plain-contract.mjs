@@ -32,6 +32,7 @@ const RESERVED = new Set(['and', 'or', 'not', 'in', 'true', 'false', 'case', 'ex
 /** Format a number for a reader: dollar inputs get a $ sign, negatives read -$1. */
 export function formatValue(input, value) {
   if (input.kind === 'yesno') return value ? input.yes : input.no;
+  if (input.kind === 'text') return value === '' ? 'empty' : JSON.stringify(String(value));
   if (input.kind === 'dollars') return `${value < 0 ? '-' : ''}$${Math.abs(value)}`;
   return String(value);
 }
@@ -173,6 +174,7 @@ export function conditionText(model, c) {
   const input = model.inputs.find(i => i.id === c.input);
   if (!input) return '(unknown input)';
   if (input.kind === 'yesno') return `it is ${c.value ? input.yes : input.no}`;
+  if (input.kind === 'text') return `${input.label} is ${c.op === '!=' ? 'not ' : ''}${formatValue(input, c.value)}`;
   return `${input.label} is ${opWord(c.op)} ${formatValue(input, c.value)}`;
 }
 
@@ -200,6 +202,7 @@ export function renderPlainContract(model) {
 function conditionExpr(model, c) {
   const input = model.inputs.find(i => i.id === c.input);
   if (input.kind === 'yesno') return `${input.id} == ${c.value}`;
+  if (input.kind === 'text') return `${input.id} ${c.op === '!=' ? '!=' : '=='} ${JSON.stringify(String(c.value))}`;
   return `${input.id} ${c.op} ${c.value}`;
 }
 
@@ -280,12 +283,27 @@ export function plainFromReading(item) {
   });
   const inputs = typed.map(i => (i.type === 'boolean'
     ? { id: i.name, kind: 'yesno', label: `it is ${spaced(i.name)}`, yes: spaced(i.name), no: `not ${spaced(i.name)}` }
-    : i.type === 'number' ? { id: i.name, kind: 'number', label: `the ${spaced(i.name)}` } : null));
-  if (inputs.some(i => !i)) return null;
+    : i.type === 'number' ? { id: i.name, kind: 'number', label: `the ${spaced(i.name)}` }
+    : { id: i.name, kind: 'other', label: `the ${spaced(i.name)}` }));
   const model = { schema: PLAIN_SCHEMA, title: spaced(item.name).replace(/^./, c => c.toUpperCase()), why: '',
     question: `How is ${spaced(item.name)} decided?`, inputs, rules: [], otherwise: '', examples: [],
     provenance: 'inferred-from-code', needsReview: [] };
-  const outcome = t => (OUTCOME.test(t) ? t : null);
+  const outcome = t => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(t) || /^-?\d+(\.\d+)?$/.test(t) ? t : null);
+  const stateFacts = [];
+  const input = id => inputs.find(i => i.id === id);
+  // A bare name or path the function reads that is not a parameter (a field, a method with no
+  // arguments): shown as a yes/no fact and flagged, because it comes from the code's state.
+  const factFor = path => {
+    const id = path.replace(/[^A-Za-z0-9_]/g, '_');
+    let f = input(id);
+    if (!f) {
+      const word = spaced(path.split('.').pop());
+      f = { id, kind: 'yesno', label: `it is ${word}`, yes: word, no: `not ${word}`, fromState: true };
+      if (inputs.some(i => i.kind === 'yesno' && (i.yes === f.yes || i.no === f.yes))) return null;
+      inputs.push(f); stateFacts.push(path);
+    }
+    return f;
+  };
   for (const r of item.rules) {
     const when = r.when.trim();
     const join = / or /.test(when) ? 'any' : 'all';
@@ -296,6 +314,13 @@ export function plainFromReading(item) {
       const input = id => inputs.find(i => i.id === id);
       if ((m = t.match(/^(not\s+|!)?([A-Za-z_]\w*)$/)) && input(m[2])?.kind === 'yesno') conditions.push({ input: m[2], op: 'is', value: !m[1] });
       else if ((m = t.match(/^([A-Za-z_]\w*)\s*(>=|<=|<|>|==)\s*(-?\d+(?:\.\d+)?)$/)) && input(m[1])?.kind === 'number') conditions.push({ input: m[1], op: m[2], value: Number(m[3]) });
+      else if ((m = t.match(/^([A-Za-z_][\w.]*)\s*(==|!=)\s*"([^"]*)"$/))) {
+        let f = input(m[1]);
+        if (!f) { const id = m[1].replace(/[^A-Za-z0-9_]/g, '_'); f = { id, kind: 'text', label: `the ${spaced(m[1].split('.').pop())}` }; if (m[1].includes('.')) stateFacts.push(m[1]); inputs.push(f); }
+        if (f.kind === 'yesno' || f.kind === 'number') return null;
+        f.kind = 'text'; conditions.push({ input: f.id, op: m[2], value: m[3] });
+      }
+      else if ((m = t.match(/^(not\s+|!)?([A-Za-z_][\w.]*)$/)) && !input(m[2])) { const f = factFor(m[2]); if (!f) return null; conditions.push({ input: f.id, op: 'is', value: !m[1] }); }
       else return null;
     }
     if (!outcome(r.result)) return null;
@@ -306,6 +331,8 @@ export function plainFromReading(item) {
   for (const i of inputs) {
     model.needsReview.push(i.kind === 'yesno' ? `What does "${i.yes}" mean in business words?` : `Is ${i.label} money, a count, or something else?`);
   }
+  for (const path of stateFacts) model.needsReview.push(`${spaced(path.split('.').pop())} comes from the code's own state, not from an input.`);
+  if (item.status === 'partial') { model.partial = true; model.needsReview.unshift(`Thunder could not read ${item.unread?.length || 'some'} line(s) of this function, so the picture may be incomplete.`); }
   for (const name of inferred) model.needsReview.push(`The code does not declare a type for ${spaced(name)}; Thunder inferred it from how the rule uses it.`);
   model.needsReview.push('Why does this rule exist? Code shows what happens, not why.', 'No examples yet: add cases before relying on it.');
   return model;

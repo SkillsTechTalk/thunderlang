@@ -97,3 +97,46 @@ test('untyped languages are thundered with inferred types, and the inference is 
   assert.deepEqual(m.inputs.map(i => i.kind), ['number', 'yesno']);
   assert.ok(m.needsReview.some(n => /inferred/.test(n)));
 });
+
+test('one-expression boolean functions are read as decisions in every brace and indent language', async () => {
+  const { readCode } = await import('../src/read.mjs');
+  const cases = {
+    python: 'def eligible(age: int, active: bool) -> bool:\n    """Adults who are active."""\n    return age >= 18 and active\n',
+    typescript: 'function eligible(age: number, active: boolean): boolean {\n  return age >= 18 && active;\n}\n',
+    go: 'func Eligible(age int, active bool) bool {\n\treturn age >= 18 && active\n}\n',
+    rust: 'fn eligible(age: u32, active: bool) -> bool {\n    age >= 18 && active\n}\n',
+    ruby: 'def eligible?(age, active)\n  age >= 18 && active\nend\n',
+    java: 'static boolean eligible(int age, boolean active) {\n    return age >= 18 && active;\n}\n',
+  };
+  for (const [language, src] of Object.entries(cases)) {
+    const d = readCode(src, { language }).items.find(i => i.kind === 'decision');
+    assert.ok(d, `${language}: a decision`);
+    assert.equal(d.rules[0].result, 'true', language);
+    assert.equal(d.otherwise.result, 'false', language);
+    assert.match(d.rules[0].when, /age >= 18 and active/, language);
+  }
+});
+
+test('cards accept real outcomes, text comparisons, and facts from the code state, and flag them', async () => {
+  const { plainFromReading, conditionText } = await import('../src/plain-contract.mjs');
+  const m = plainFromReading({ kind: 'decision', name: 'IsAvailable', status: 'read', inputs: [{ name: 'region', type: 'string' }],
+    rules: [{ when: 'c.Runnable and region == "domestic"', result: 'true' }], otherwise: { result: 'false' } });
+  assert.deepEqual(m.rules[0].conditions.map(c => conditionText(m, c)), ['it is runnable', 'the region is "domestic"']);
+  assert.ok(m.needsReview.some(n => /code's own state/.test(n)));
+  const partial = plainFromReading({ kind: 'decision', name: 'x', status: 'partial', unread: [{}, {}], inputs: [{ name: 'a', type: 'boolean' }], rules: [{ when: 'a', result: 'Yes' }], otherwise: { result: 'No' } });
+  assert.equal(partial.partial, true);
+  assert.match(partial.needsReview[0], /could not read 2 line/);
+});
+
+test('thunder repo reads a local folder read-only and reports cards and focus', async () => {
+  const { thunderRepo, parseGitHub } = await import('../src/thunder-repo.mjs');
+  const { fileURLToPath } = await import('node:url');
+  const r = thunderRepo(fileURLToPath(new URL('../../examples/thunder-map/acme-shop', import.meta.url)));
+  assert.equal(r.schema, 'thunder-repo-v1');
+  assert.equal(r.readOnly, true);
+  assert.equal(r.counts.cards, 4);
+  assert.ok(r.focus.some(f => f.kind === 'money'));
+  assert.deepEqual(parseGitHub('psf/requests'), { owner: 'psf', repo: 'requests', url: 'https://github.com/psf/requests.git' });
+  assert.equal(parseGitHub('https://evil.example.com/x/y'), null);
+  assert.equal(parseGitHub('owner/repo; rm -rf /'), null);
+});

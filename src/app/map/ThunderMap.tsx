@@ -127,7 +127,7 @@ function ItemView({ map, item, onOpen }: { map: TMap; item: MapItem; onOpen: (id
     const lits = card.rules.flatMap(r => r.conditions).filter(c => c.input === i.id && typeof c.value === "number").map(c => c.value as number);
     return [i.id, i.kind === "yesno" ? true : (lits.length ? Math.max(...lits) : 0)];
   })) : {}, [card]);
-  const [values, setValues] = useState<Record<string, number | boolean>>(initial);
+  const [values, setValues] = useState<Record<string, number | boolean | string>>(initial);
   const source = map.sources[item.file] ?? "";
   const lines = source.split("\n");
   const end = (() => { const next = Object.values(map.items).filter(i => i.file === item.file && i.line > item.line).map(i => i.line).sort((a, b) => a - b)[0]; return (next ?? lines.length + 1) - 1; })();

@@ -5,7 +5,7 @@ import { OpenThunderLink } from "@/components/OpenThunderLink";
 
 export const metadata = pageMeta({
   title: "Thunder Code: read any code in Thunder",
-  description: "Thunder a file or a whole repository in TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby: routes, rules, and checks in plain English, searchable and filterable, rewritten in a language you know.",
+  description: "AI wrote the code; read, understand, and review it visually. Thunder a file or a whole repository in TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby: routes, rules, and checks in plain English, searchable and filterable, rewritten in a language you know.",
   path: "/read",
 });
 
@@ -14,8 +14,8 @@ export default function ReadPage() {
     <>
       <PageHero
         eyebrow="Thunder Code · No install · No AI"
-        title="Read any code in Thunder."
-        intro="Paste a file or open a whole folder of TypeScript, JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby and see it Thundered: its routes, the rules it makes, and the checks it runs, in plain English. Search and filter everything, and see each rule rewritten in a language you know."
+        title="AI wrote the code. Now see what it does."
+        intro="Paste a file or open a folder of Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, or Ruby. Every rule Thunder can read becomes a picture you can ask questions; everything else is marked for a person to read. A quick, visual way to read, understand, and review code, including code AI wrote."
       />
       <Section>
         <ReadClient />

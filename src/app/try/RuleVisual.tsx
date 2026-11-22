@@ -6,12 +6,12 @@ import { HighlightedPlainPhrase } from "@/lib/highlight";
 import { DecisionGlyph, Outcome } from "./Glyphs";
 
 /** "$100, on time" with each value in its color. */
-export function RequestWords({ model, values }: { model: PlainModel; values: Record<string, number | boolean> }) {
+export function RequestWords({ model, values }: { model: PlainModel; values: Record<string, number | boolean | string> }) {
   return <span>{model.inputs.map((input, i) => <span key={input.id}>{i > 0 && ", "}<span className={input.kind === "yesno" ? "tok-id" : "tok-num"}>{formatValue(input, values[input.id])}</span></span>)}</span>;
 }
 
 /** The answer to one request, and the checks that decided it, as readable sentences. */
-export function AnswerView({ model, values, explanation, context }: { model: PlainModel; values: Record<string, number | boolean>; explanation: PlainExplanation; context: string }) {
+export function AnswerView({ model, values, explanation, context }: { model: PlainModel; values: Record<string, number | boolean | string>; explanation: PlainExplanation; context: string }) {
   const decided = explanation.ruleIndex >= 0;
   const rules = decided ? [explanation.rules[explanation.ruleIndex]] : explanation.rules;
   return <div>

@@ -7,6 +7,10 @@ import { parseIntent } from "../../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../../compiler/src/translate.mjs";
 import { HighlightedCode, HighlightedSource } from "@/lib/highlight";
 import type { CodeLang } from "@/lib/code-tokens";
+import { plainFromReading } from "../../../compiler/src/plain-contract.mjs";
+import type { PlainModel } from "../../../compiler/src/plain-contract.d.mts";
+import { RulePictureStatic } from "@/app/try/RuleVisual";
+import { AskIt } from "@/components/AskIt";
 
 export const KNOW: { key: CodeLang; label: string }[] = [
   { key: "typescript", label: "TypeScript" },
@@ -90,11 +94,17 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
     }
   }, [item.thunder, know]);
   const knowLabel = KNOW.find((k) => k.key === know)?.label ?? know;
+  // The picture is the product: a decision Thunder can draw becomes a Thunder card.
+  const card = useMemo(() => {
+    if (item.kind !== "decision") return null;
+    try { return plainFromReading(item) as (PlainModel & { needsReview?: string[]; partial?: boolean }) | null; } catch { return null; }
+  }, [item]);
+  const dashed = item.kind === "function" || (item.kind === "decision" && !card);
   const guards = item.guards ?? [];
   const [promoting, setPromoting] = useState(false);
 
   return (
-    <li className={`rounded-2xl border transition ${compact ? "p-4" : "p-5"} ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : "border-white/10 bg-ink-850/40"}`}>
+    <li className={`rounded-2xl border transition ${compact ? "p-4" : "p-5"} ${dashed ? "border-dashed" : ""} ${selected ? "border-gold-300/60 bg-gold-400/[0.05]" : dashed ? "border-white/20" : "border-white/10 bg-ink-850/40"}`}>
       <div className="flex flex-wrap items-center gap-2">
         {item.route ? (
           <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${FACETS[0].tone}`}>Route</span>
@@ -112,7 +122,20 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
           {selected ? `Showing line ${item.line}` : `Show line ${item.line} in the code`}
         </button>
       </div>
-      <p className="mt-3 leading-relaxed text-haze-100">{guards.length ? item.says.replace(/ It checks \d+ conditions? first:.*$/, "") : item.says}</p>
+      {card ? (
+        <div className="mt-4 space-y-4">
+          <RulePictureStatic model={card} />
+          {!compact && <div className="border-t border-white/10 pt-4"><AskIt model={card} /></div>}
+          {!!card.needsReview?.length && (
+            <ul className="space-y-0.5 rounded-lg border border-dashed border-white/20 p-3 text-xs text-haze-300">
+              <li className="font-medium text-haze-200">Read from code, so a person still decides:</li>
+              {card.needsReview.map((n) => <li key={n}>• {n}</li>)}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <p className="mt-3 leading-relaxed text-haze-100">{guards.length ? item.says.replace(/ It checks \d+ conditions? first:.*$/, "") : item.says}</p>
+      )}
 
       {guards.length > 0 && (
         <div className="mt-3">
@@ -132,7 +155,7 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
         </div>
       )}
 
-      {item.rules && item.otherwise && (
+      {!card && item.rules && item.otherwise && (
         <table className="mt-4 w-full text-left text-sm">
           <caption className="sr-only">Rules for {item.name}, checked top to bottom</caption>
           <thead className="text-xs uppercase tracking-wide text-haze-400">
@@ -154,9 +177,11 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
       )}
 
       {item.thunder && (
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
+        <details className="mt-4 rounded-lg border border-white/10 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-haze-300">Under the hood: Thunder source and {knowLabel}</summary>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">
           <div className="min-w-0">
-            <p className="mb-1 text-xs font-medium text-haze-400">In ThunderLang</p>
+            <p className="mb-1 text-xs font-medium text-haze-400">Thunder source</p>
             <pre className="overflow-x-auto rounded-lg bg-black/40 p-3 font-mono text-xs leading-5 text-haze-200"><HighlightedSource source={item.thunder} /></pre>
           </div>
           {rewritten && (
@@ -166,6 +191,7 @@ export function ReadCard({ item, know, selected, onShow, compact = false }: { it
             </div>
           )}
         </div>
+        </details>
       )}
 
       {item.kind === "decision" && (
