@@ -182,7 +182,7 @@ function FileReader({ know }: { know: CodeLang }) {
                 style={{ colorScheme: "dark" }}
               />
             ) : (
-              <SourceView source={source} highlighted={highlighted} label="Code with line numbers" />
+              <SourceView source={source} highlighted={highlighted} label="Code with line numbers" language={reading?.language} />
             )}
             {highlighted.size > 0 && !editing && (
               <p className="border-t border-white/10 px-4 py-2 text-xs text-haze-400">Highlighted: the lines behind your selection.</p>

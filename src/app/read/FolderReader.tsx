@@ -227,7 +227,7 @@ export function FolderReader({ know }: { know: CodeLang }) {
                   {selected ? <span className="font-mono text-haze-100">{selected.file}</span> : <span className="text-haze-300">Choose &ldquo;Show line&rdquo; on any item to see its code here.</span>}
                 </div>
                 {selected && sources.get(selected.file) != null && (
-                  <SourceView source={sources.get(selected.file)!} highlighted={highlighted} label={`Code of ${selected.file}`} maxHeight="max-h-[70vh]" />
+                  <SourceView source={sources.get(selected.file)!} highlighted={highlighted} label={`Code of ${selected.file}`} maxHeight="max-h-[70vh]" language={selected.language} />
                 )}
               </div>
             </div>

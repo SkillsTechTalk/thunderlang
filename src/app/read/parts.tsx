@@ -6,7 +6,7 @@ import type { ReadItem, ReadKind } from "../../../compiler/src/read.mjs";
 import { parseIntent } from "../../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../../compiler/src/translate.mjs";
 import { HighlightedCode, HighlightedSource } from "@/lib/highlight";
-import type { CodeLang } from "@/lib/code-tokens";
+import { readLang, tokenizeCode, type CodeLang } from "@/lib/code-tokens";
 import { plainFromReading } from "../../../compiler/src/plain-contract.mjs";
 import type { PlainModel } from "../../../compiler/src/plain-contract.d.mts";
 import { RulePictureStatic } from "@/app/try/RuleVisual";
@@ -61,7 +61,10 @@ export function linesOf(item: ReadItem): number[] {
 }
 
 /** Source with line numbers; highlighted lines scroll into view when they change. */
-export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560px]" }: { source: string; highlighted: Set<number>; label: string; maxHeight?: string }) {
+export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560px]", language = "typescript" }: { source: string; highlighted: Set<number>; label: string; maxHeight?: string; language?: string }) {
+  const lang = readLang(language);
+  // Editor colors, line by line, in the site's shared palette (same as every code block).
+  const colored = useMemo(() => source.split("\n").map((l) => tokenizeCode(l, lang)), [source, lang]);
   const refs = useRef(new Map<number, HTMLElement>());
   const first = useMemo(() => Math.min(...highlighted), [highlighted]);
   useEffect(() => {
@@ -76,7 +79,7 @@ export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560
           className={`flex ${highlighted.has(i + 1) ? "bg-gold-400/15 text-white" : ""}`}
         >
           <span className="w-12 shrink-0 select-none pr-4 text-right text-haze-500">{i + 1}</span>
-          <span className="whitespace-pre pr-4">{l || " "}</span>
+          <span className="whitespace-pre pr-4">{l ? colored[i].map((t, k) => (t.cls ? <span key={k} className={t.cls}>{t.text}</span> : <span key={k}>{t.text}</span>)) : " "}</span>
         </div>
       ))}
     </pre>
