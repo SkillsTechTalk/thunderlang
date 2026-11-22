@@ -1,0 +1,48 @@
+# area: Agent safety
+mission AgentToolAuthorization
+
+goal
+  Decide whether an agent may call a tool within an approved permission scope.
+
+why
+  A model proposal must pass the same permission check as a human action.
+
+guarantee tool access requires a valid permission scope
+  verify test ToolAccess
+
+never allow a write without explicit approval
+  verify test ToolAccess
+
+decision ToolAccess
+  inputs
+    scopeAllowed
+    isWrite
+    approved
+  rule read within scope
+    when scopeAllowed == true and isWrite == false
+    return Allow
+  rule approved write within scope
+    when scopeAllowed == true and isWrite == true and approved == true
+    return Allow
+  default
+    return Deny
+
+test ToolAccess
+  case scoped read
+    given scopeAllowed true, isWrite false, approved false
+    expect Allow
+  case unapproved write
+    given scopeAllowed true, isWrite true, approved false
+    expect Deny
+  case approved write
+    given scopeAllowed true, isWrite true, approved true
+    expect Allow
+  case out of scope read
+    given scopeAllowed false, isWrite false, approved false
+    expect Deny
+  case approval cannot expand scope
+    given scopeAllowed false, isWrite true, approved true
+    expect Deny
+
+note security
+  Enforce this decision in the tool host before execution. These cases do not install a runtime permission boundary.

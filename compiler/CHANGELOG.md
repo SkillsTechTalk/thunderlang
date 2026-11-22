@@ -1,3 +1,12 @@
+# Unreleased
+
+Evidence review, with stricter test evidence. Pre-1.0: the stricter rules intentionally change some earlier permissive results.
+
+- **Review Atlas for AI changes.** `thunder atlas --review` executes contract cases, preserves invalid files, ranks evidence gaps, and exports `intent-review-atlas-v1`. `--agent-brief` produces bounded review context; `--strict` exits 2 for incomplete evidence and 1 for evaluated failures. `--openthunder <report.json>` compares source hashes and compiler versions without promoting imported claims. The browser-safe `buildReviewAtlas`, `renderReviewBrief`, and `reviewAtlasExitCode` API and `intent_atlas` MCP tool share this policy. Original graph navigation is unchanged.
+- **Strict named evidence.** CLI, MCP, and embedding products share `resolveObligations`. References must match a complete, case-sensitive target (`verify Target` or `verify test Target`). Previously fuzzy references such as `verify Target test` remain declared until rewritten. All references must resolve and pass; one passing subset cannot verify a claim. This intentionally changes permissive earlier results.
+- **Fail closed on invalid tests.** Evaluation errors cannot pass through a matching fallback. Cases need assertions, empty test blocks fail, and lifecycle paths must be valid unless explicitly asserted invalid. Files with no test blocks still report zero cases; zero cases do not establish verified behavior.
+- **Browser-safe evidence API.** `/core` now exports `runTests`, `TEST_SCHEMA`, and `resolveObligations` with public types. Passing results cover the declared cases, not arbitrary inputs or repository implementation.
+
 # 0.5.3
 
 - Export the code reader from the package: `readCode`, `readRepo`, `searchRepo`, `groupByFile`, `readableLanguage`, and `promoteDecision` (turn a recovered decision into a contract with edge-case examples) from both the main entry and the browser-safe `/core` entry, plus `collectReadableFiles` (read a folder on disk) from the main entry. Tools such as OpenThunder can now import them directly instead of going through the MCP tool interface. Additive; no behavior changes.

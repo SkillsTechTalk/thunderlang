@@ -79,6 +79,7 @@ export { toFinding, universalPack, RISK_CATEGORIES, FABLE_SCHEMA } from './fable
 export { VIEW_SCHEMA, VIEWS, coverageView, unverifiedView, gapsView, risksView, unknownsView, contradictionsView } from './scan-queries.mjs';
 // Intent Atlas (whole-system map) + navigation primitives.
 export { buildAtlas, atlasNode, expandNode, searchAtlas, ATLAS_SCHEMA } from './intent-atlas.mjs';
+export { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode, REVIEW_ATLAS_SCHEMA } from './review-atlas.mjs';
 // Intent Lens: Intent Scope + Focus Graph + Intent Brief (a focused subgraph of the Atlas).
 export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, intentBrief } from './focus.mjs';
 // Comprehension Contract: the C0..C7 understanding level (browser-safe; every product reads it).
@@ -94,6 +95,9 @@ export { TWELVE_FACTOR_SCHEMA, twelveFactorReport, twelveFactorSummary } from '.
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 // Graph -> source (native round-trip) so a browser editor can regenerate .intent.
 export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
+
+export { resolveObligations } from './obligations.mjs';
+export { runTests, TEST_SCHEMA } from './testing.mjs';
 // Decisions -> readable typed source in six languages (browser-safe; same translators as the targets).
 export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 // Read code you don't know: decisions recovered from six languages as ThunderLang + plain English.

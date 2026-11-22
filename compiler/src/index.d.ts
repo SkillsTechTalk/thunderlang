@@ -204,6 +204,7 @@ export interface IntentGraph {
 export function buildIntentGraph(ast: IntentAst): IntentGraph;
 
 // Intent Atlas (whole-system navigable map over the graph)
+export { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode, REVIEW_ATLAS_SCHEMA, ReviewFile, ReviewStatus, ReviewAtlasRow, ReviewAtlas } from './review-atlas.mjs';
 export const ATLAS_SCHEMA: string;
 export interface IntentAtlas {
   schema: string; product: string | null;
@@ -460,6 +461,17 @@ export interface TestReport {
   results: Array<{ target: string | null; case: string; kind: string; expected?: unknown; actual?: unknown; valid?: boolean; expectValid?: boolean | null; pass: boolean; error?: string; note?: string }>;
 }
 export function runTests(ast: IntentAst): TestReport;
+export interface ObligationResolution {
+  kind: 'guarantee' | 'prohibition'; id?: string; text: string;
+  status: 'verified' | 'failed' | 'declared' | 'unverified';
+  verify: string[]; kinds: string[]; provenBy: string | null;
+  evidence: Array<{ name: string; pass: boolean | null; cases: number }>;
+  unresolved: string[];
+}
+export function resolveObligations(ast: IntentAst): {
+  obligations: ObligationResolution[]; tests: TestReport;
+  verified: number; failed: number; declared: number; unverified: number;
+};
 
 // Outcome contracts (executable commitments)
 export const OUTCOME_SCHEMA: string;

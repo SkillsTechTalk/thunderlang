@@ -5,9 +5,8 @@ import path from "path";
 // It runs server-side with no AI. See src/compiler.d.ts for the type shape.
 import { parseIntent } from "../../../../compiler/src/parse.mjs";
 import { semanticDiagnostics, buildProof } from "../../../../compiler/src/emit.mjs";
-import { runTests } from "../../../../compiler/src/testing.mjs";
+import { resolveObligations } from "../../../../compiler/src/obligations.mjs";
 import { sha256 } from "../../../../compiler/src/hash.mjs";
-import { claimStatuses, type ClaimStatus, type ObligationAst } from "@/lib/self-proof";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,11 +15,11 @@ const EXAMPLES_DIR = path.join(process.cwd(), "examples");
 
 // Same status mapping `thunder prove` folds into the artifact, so the download
 // carries real per-claim verdicts, not just planned/needs_verification.
-const CLAIM_MAP: Record<ClaimStatus, string> = {
+const CLAIM_MAP = {
   verified: "verified",
   failed: "failed",
   declared: "planned",
-  needsVerification: "needs_verification",
+  unverified: "needs_verification",
 };
 
 /**
@@ -53,7 +52,7 @@ export async function GET(request: Request) {
     const source = fs.readFileSync(path.join(EXAMPLES_DIR, filename), "utf8");
     const ast = parseIntent(source) as ReturnType<typeof parseIntent> & { targets?: string[] };
     const diagnostics = semanticDiagnostics(ast);
-    const tests = runTests(ast);
+    const { tests, obligations } = resolveObligations(ast);
     const proof = buildProof(ast, {
       sourceFile: filename,
       sourceHash: sha256(source),
@@ -64,11 +63,10 @@ export async function GET(request: Request) {
     });
     // Fold per-claim verdicts into the proof (guarantees first, then never
     // rules, matching the AST order the statuses were computed in).
-    const statuses = claimStatuses(ast as ObligationAst, tests.results);
     const all = [...proof.guarantees, ...proof.neverRules];
     all.forEach((claim, i) => {
-      const s = statuses[i];
-      if (s) claim.status = CLAIM_MAP[s];
+      const obligation = obligations[i];
+      if (obligation) claim.status = CLAIM_MAP[obligation.status];
     });
     const proofId = `proof-${proof.sourceHash.replace("sha256:", "").slice(0, 6)}`;
     return NextResponse.json(

@@ -1,5 +1,7 @@
 # Mission Atlas
 
+For an executable review queue, local contract uploads, agent briefs, and OpenThunder snapshot comparisons, use the [Atlas review workflow](/docs/atlas-review) and [Evidence review page](/review). The `mission-index-v1` inventory described below remains declaration-only; the new review report is a separate `intent-review-atlas-v1` artifact.
+
 A **Mission Atlas** is a semantic map of many ThunderLang missions. It lets a team
 understand a large change without opening every `.thunder` file.
 

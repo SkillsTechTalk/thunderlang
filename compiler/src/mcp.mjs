@@ -15,6 +15,8 @@ import { sha256 } from './hash.mjs';
 import { verifyDiff } from './verify-diff.mjs';
 import { liftSource, SUPPORTED_LANGUAGES } from './lift.mjs';
 import { runTests } from './testing.mjs';
+import { resolveObligations } from './obligations.mjs';
+import { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from './review-atlas.mjs';
 import { evaluateDecision } from './runtime.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildConformance } from './conformance.mjs';
@@ -33,38 +35,6 @@ const PROTOCOL_VERSION = '2024-11-05';
 // Versions this server can speak; it answers with the client's requested version when listed.
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const str = { type: 'string' };
-
-// ── prove helpers ────────────────────────────────────────────────────────────
-// Per-claim resolution , mirrors resolveObligations in cli.mjs (shared there by `thunder test
-// --contracts` and `thunder prove`) so the MCP proof and the CLI proof agree claim for claim.
-// States: verified (proven by a passing named test), failed (its test fails), declared (a
-// verification is named but not runnable in-file), unverified (nothing).
-function resolveObligations(ast) {
-  const t = runTests(ast);
-  const testPass = new Map();
-  for (const res of (t.results || [])) {
-    const cur = testPass.get(res.target);
-    testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
-  }
-  const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-  const matchTest = (verifyText) => {
-    const v = norm(verifyText); if (!v) return null;
-    for (const [name, pass] of testPass) { const n = norm(name); if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass }; }
-    return null;
-  };
-  const build = (kind, o) => {
-    const verify = o.verify || [];
-    let status = 'unverified', provenBy = null;
-    if (verify.length) {
-      let m = null;
-      for (const vt of verify) { const x = matchTest(vt); if (x) { m = x; if (!x.pass) break; } }
-      if (m) { status = m.pass ? 'verified' : 'failed'; provenBy = m.name; } else status = 'declared';
-    }
-    return { kind, id: o.id, status, provenBy };
-  };
-  const obligations = [...ast.guarantees.map((g) => build('guarantee', g)), ...ast.neverRules.map((n) => build('prohibition', n))];
-  return { obligations, tests: t, failed: obligations.filter((o) => o.status === 'failed').length };
-}
 
 // Freshness tuple , the (intent, implementation, dependencies, compiler, environment) binding
 // `thunder verify` recomputes later to mark a proof STALE. Mirrors freshnessFor in cli.mjs;
@@ -90,6 +60,23 @@ function proofFreshness(proof, environment) {
 
 // Each tool is a pure function of its arguments. `run` returns a JSON-able value or a string.
 const TOOLS = [
+  {
+    name: 'intent_atlas',
+    description: 'Review multiple ThunderLang contracts before an AI change. Runs declared cases, ranks failed and unresolved claims, and returns source hashes plus a bounded agent brief. Optional OpenThunder intent prove JSON snapshots are compared by source hash and compiler; imported status never promotes a claim. Does not test application code.',
+    inputSchema: {
+      type: 'object', required: ['files'], properties: {
+        files: { type: 'array', maxItems: 100, items: { type: 'object', required: ['path', 'source'], properties: { path: str, source: str } } },
+        evidence: { type: 'object', description: 'Optional OpenThunder intent prove --json report' },
+        strict: { type: 'boolean', description: 'Require cases in every file and no unresolved evidence' },
+      },
+    },
+    run: ({ files, evidence, strict = false }) => {
+      if (!Array.isArray(files) || files.length > 100 || files.reduce((n, f) => n + (typeof f?.source === 'string' ? f.source.length : 0), 0) > 1000000) throw new Error('Provide up to 100 files and 1 MB of source.');
+      const atlas = buildReviewAtlas(files, { evidence });
+      const exitCode = reviewAtlasExitCode(atlas, { strict });
+      return { ok: exitCode === 0, exitCode, atlas, brief: renderReviewBrief(atlas) };
+    },
+  },
   {
     name: 'intent_check',
     description: 'Run ThunderLang semantic diagnostics on .intent source. Returns the diagnostics (codes, severity, messages) , the deterministic checks that catch missing verification, secrets on the bus, contradictions, and more.',

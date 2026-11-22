@@ -1,5 +1,7 @@
 # ThunderLang for AI agents (MCP)
 
+For multi-file review, `intent_atlas` runs contract cases, ranks unresolved claims, and returns a bounded agent brief with source hashes. It also compares optional OpenThunder snapshots without promoting their claims. See [Atlas review for AI changes](/docs/atlas-review) for the input shape and CI policy.
+
 AI writes code faster than a human can review it. ThunderLang closes that gap deterministically, and it plugs straight into your coding agent over the Model Context Protocol (MCP). The compiler ships an MCP server that exposes the whole verify-real-code loop as tools an agent can call, so the agent can prove its own change against your intent before it ships. No AI runs inside the check; the answer is a deterministic PASS or BLOCK.
 
 ## Install in one line

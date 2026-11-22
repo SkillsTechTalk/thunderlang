@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IntentCode } from "./IntentCode";
 
 type Mission = { mission: string; fn: string; line: number; confidence: string; intent: string };
@@ -43,17 +43,17 @@ const NODE_H = 32, XGAP = 268, YGAP = 44, PAD_L = 12, STRIPE = 4, MAXW = 220, MI
 const LABEL_FONT = '520 12.5px ui-sans-serif, system-ui, sans-serif';
 
 let measurer: CanvasRenderingContext2D | null = null;
-function textW(str: string, font = LABEL_FONT) {
-  if (typeof document === "undefined") return str.length * 7;
+function textW(str: string, measured: boolean) {
+  if (!measured || typeof document === "undefined") return str.length * 7;
   if (!measurer) measurer = document.createElement("canvas").getContext("2d");
   if (!measurer) return str.length * 7;
-  measurer.font = font;
+  measurer.font = LABEL_FONT;
   return measurer.measureText(str).width;
 }
-function truncate(str: string, max: number) {
-  if (textW(str) <= max) return str;
+function truncate(str: string, max: number, measured: boolean) {
+  if (textW(str, measured) <= max) return str;
   let s = str;
-  while (s.length > 1 && textW(s + "…") > max) s = s.slice(0, -1);
+  while (s.length > 1 && textW(s + "…", measured) > max) s = s.slice(0, -1);
   return s + "…";
 }
 
@@ -70,12 +70,12 @@ function buildTree(projects: Project[], totals: Totals): TNode {
   };
 }
 
-function nodeWidth(n: TNode, widthCache: Map<string, number>) {
-  const inner = truncate(n.label, MAXW - PAD_L - STRIPE - 16);
+function nodeWidth(n: TNode, widthCache: Map<string, number>, measured: boolean) {
+  const inner = truncate(n.label, MAXW - PAD_L - STRIPE - 16, measured);
   n._display = inner;
   const cached = widthCache.get(n.id);
   if (cached) return cached;
-  let w = STRIPE + PAD_L + textW(inner) + 16;
+  let w = STRIPE + PAD_L + textW(inner, measured) + 16;
   if (n.children && n.children.length) w += 22;
   w = Math.max(MINW, Math.min(MAXW, w));
   widthCache.set(n.id, w);
@@ -91,6 +91,10 @@ function confRollup(p: Project) {
 export function AtlasMap({ projects, totals }: { projects: Project[]; totals: Totals }) {
   const root = useRef(buildTree(projects, totals)).current;
   const widthCache = useRef(new Map<string, number>()).current;
+  // Hydrate using the server's estimates, then measure actual glyphs. Measuring
+  // on the first browser render produces different SVG edges from the server.
+  const [measured, setMeasured] = useState(false);
+  useEffect(() => { widthCache.clear(); setMeasured(true); }, [widthCache]);
   // Start with every project collapsed so the map opens as 13 legible project nodes.
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () => new Set(root.children!.map((c) => c.id))
@@ -107,7 +111,7 @@ export function AtlasMap({ projects, totals }: { projects: Project[]; totals: To
   let rowCounter = 0;
   (function walk(n: TNode, depth: number, parent: TNode | null) {
     n._depth = depth;
-    n._w = nodeWidth(n, widthCache);
+    n._w = nodeWidth(n, widthCache, measured);
     const kids = n.children && !collapsed.has(n.id) ? n.children : [];
     if (!kids.length) { n._y = rowCounter * YGAP; rowCounter++; }
     else { kids.forEach((k) => walk(k, depth + 1, n)); n._y = (kids[0]._y! + kids[kids.length - 1]._y!) / 2; }

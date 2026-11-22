@@ -1,7 +1,5 @@
-// First-class tests , make a .intent file SELF-VERIFYING. A `test <target>` block declares
-// cases (for a decision) or scenarios (for a lifecycle) right next to the intent they check.
-// `runTests` executes them through the deterministic Intent Runtime: no AI, no code, the
-// spec proves itself. This is what lets intent be trustworthy , the behavior is asserted.
+// Execute declared cases against the intent runtime. Passing cases are evidence for
+// those inputs, not a proof of every input or of the application's implementation.
 
 import { slug } from './parse.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
@@ -36,18 +34,23 @@ export function runTests(ast) {
   for (const t of ast.tests || []) {
     const dec = decisions.find((d) => slug(d.name) === slug(t.name || ''));
     const lc = lifecycles.find((l) => slug(l.name) === slug(t.name || ''));
-    for (const c of t.cases) {
+    if (!t.cases?.length) {
+      results.push({ target: t.name, case: '(empty test)', kind: 'unknown', pass: false, error: 'test block has no cases' });
+    }
+    for (const c of t.cases || []) {
       const label = { target: t.name, case: c.name || `case ${results.length + 1}` };
       if (dec) {
         const inputs = coerce(c.given);
         const run = evaluateDecision(dec, inputs);
-        const pass = c.expect == null || String(run.result) === String(c.expect);
-        results.push({ ...label, kind: 'decision', expected: c.expect, actual: run.result, matched: run.matched, pass, ...(run.ok ? {} : { note: 'a condition failed to evaluate' }) });
+        const error = !run.ok ? 'a condition failed to evaluate' : c.expect == null ? 'decision case needs an expect assertion' : null;
+        const pass = !error && String(run.result) === String(c.expect);
+        results.push({ ...label, kind: 'decision', expected: c.expect, actual: run.result, matched: run.matched, pass, ...(error ? { error, note: error } : {}) });
       } else if (lc) {
         const sim = simulateLifecycle(lc, c.events || []);
         const passState = c.expect == null || sim.finalState === c.expect;
-        const passValid = c.expectValid == null || sim.valid === c.expectValid;
-        results.push({ ...label, kind: 'lifecycle', expected: c.expect, actual: sim.finalState, valid: sim.valid, expectValid: c.expectValid, pass: passState && passValid });
+        const hasAssertion = c.expect != null || c.expectValid != null;
+        const passValid = sim.valid === (c.expectValid ?? true);
+        results.push({ ...label, kind: 'lifecycle', expected: c.expect, actual: sim.finalState, valid: sim.valid, expectValid: c.expectValid, pass: hasAssertion && passState && passValid, ...(!hasAssertion ? { error: 'scenario needs an expect, valid, or invalid assertion' } : {}) });
       } else {
         results.push({ ...label, kind: 'unknown', pass: false, error: `no decision or lifecycle named "${t.name}"` });
       }

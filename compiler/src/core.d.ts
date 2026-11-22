@@ -6,6 +6,7 @@
 
 // The canonical hash (byte-identical to node:crypto).
 export { sha256, sha256hex } from './index';
+export { runTests, TEST_SCHEMA, TestReport, resolveObligations, ObligationResolution } from './index';
 export { HumanContractPreview, compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
@@ -37,6 +38,7 @@ export {
 } from './index';
 
 // Intent Atlas + navigation.
+export { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode, REVIEW_ATLAS_SCHEMA, ReviewFile, ReviewStatus, ReviewAtlasRow, ReviewAtlas } from './review-atlas.mjs';
 export {
   ATLAS_SCHEMA, IntentAtlas, buildAtlas, atlasNode, expandNode, searchAtlas,
 } from './index';

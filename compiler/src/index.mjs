@@ -64,6 +64,7 @@ export { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 export { buildIntentGraph, INTENT_GRAPH_SCHEMA } from './intent-graph.mjs';
 // Intent Atlas , the navigable/searchable whole-system map over the graph (directive #4)
 export { buildAtlas, atlasNode, expandNode, searchAtlas, ATLAS_SCHEMA } from './intent-atlas.mjs';
+export { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode, REVIEW_ATLAS_SCHEMA } from './review-atlas.mjs';
 export { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 export { CLASSIFICATIONS, CONFIDENCE, UNSETTLED, classify, isFactual, BLOCKABLE_PHASES } from './classification.mjs';
 export { composeConstraints, detectConflicts } from './conflict.mjs';
@@ -185,6 +186,7 @@ export { startLspServer } from "./lsp.mjs";
 // Formatter , canonical .intent formatting (whitespace only)
 export { formatSource, isFormatted } from "./format.mjs";
 
+export { resolveObligations } from './obligations.mjs';
 // Read code you don't know: one file, a whole repository, files from disk, and promotion of a recovered decision
 // into a contract with edge-case examples.
 export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from "./read.mjs";

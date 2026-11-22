@@ -77,17 +77,17 @@ function DecisionCard({ d }: { d: DecisionRun }) {
         <span
           className={
             "shrink-0 rounded-md px-2 py-0.5 font-mono text-[12px] font-semibold " +
-            (d.undecided
+            (!d.ok ? "border border-red-400/30 bg-red-400/10 text-red-200" : d.undecided
               ? "border border-amber-400/30 bg-amber-400/[0.08] text-amber-200"
               : "border border-emerald-400/30 bg-emerald-400/[0.10] text-emerald-200")
           }
         >
-          {d.result ?? "undecided"}
+          {!d.ok ? "Evaluation error" : d.result ?? "undecided"}
         </span>
       </div>
 
       <div className="px-4 py-3">
-        {d.undecided ? (
+        {!d.ok ? <p className="mb-2.5 text-[12px] text-red-200">A condition could not be evaluated. Check the inputs and trace below; the fallback is not a reliable result.</p> : d.undecided ? (
           <p className="mb-2.5 text-[12px] text-amber-200/90">No rule matched and no default is declared.</p>
         ) : (
           <p className="mb-2.5 text-[12px] text-haze-400">

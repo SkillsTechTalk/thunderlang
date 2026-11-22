@@ -50,6 +50,7 @@ import { buildMissionIndex } from './atlas.mjs';
 import { parseSelection, regionMetrics, selectCandidate } from './select.mjs';
 import { buildIntentGraph, safeGraph } from './intent-graph.mjs';
 import { buildAtlas, searchAtlas, expandNode } from './intent-atlas.mjs';
+import { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from './review-atlas.mjs';
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
 import { twelveFactorReport } from './twelve-factor.mjs';
@@ -109,6 +110,7 @@ function runLiveTarget(ast, target) {
 }
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
+import { resolveObligations } from './obligations.mjs';
 import { toEvidenceEvents, verifyDiffToEvidence, conformToEvidence, driftToEvidence } from './evidence.mjs';
 import { evaluateOutcomes } from './outcome.mjs';
 import { analyzeStyle } from './style.mjs';
@@ -195,43 +197,6 @@ function collectIntents(root, acc = []) {
   return acc;
 }
 
-// Resolve every guarantee/never obligation against the SPECIFIC test that verifies it.
-// Shared by `thunder test --contracts` and `thunder prove` so both agree per-claim.
-// States: verified (proven by a passing named test), failed (its test fails), declared
-// (a verification is named/classified but not runnable in-file), unverified (nothing).
-function resolveObligations(ast) {
-  const t = runTests(ast);
-  const testPass = new Map();
-  for (const res of (t.results || [])) {
-    const cur = testPass.get(res.target);
-    testPass.set(res.target, cur === undefined ? !!res.pass : cur && !!res.pass);
-  }
-  const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-  const matchTest = (verifyText) => {
-    const v = norm(verifyText); if (!v) return null;
-    for (const [name, pass] of testPass) { const n = norm(name); if (n && (n === v || n.includes(v) || v.includes(n))) return { name, pass }; }
-    return null;
-  };
-  const build = (kind, o) => {
-    const verify = o.verify || [];
-    const kinds = [...new Set((o.verifications || []).map((v) => v.kind).filter((k) => k && k !== 'unclassified'))];
-    let status, provenBy = null;
-    if (!verify.length) status = 'unverified';
-    else {
-      let m = null;
-      for (const vt of verify) { const x = matchTest(vt); if (x) { m = x; if (!x.pass) break; } }
-      if (m) { status = m.pass ? 'verified' : 'failed'; provenBy = m.name; } else status = 'declared';
-    }
-    return { kind, id: o.id, text: o.statement, status, verify, kinds, provenBy };
-  };
-  const obligations = [
-    ...ast.guarantees.map((g) => build('guarantee', g)),
-    ...ast.neverRules.map((n) => build('prohibition', n)),
-  ];
-  const count = (s) => obligations.filter((o) => o.status === s).length;
-  return { obligations, tests: t, verified: count('verified'), declared: count('declared'), unverified: count('unverified'), failed: count('failed') };
-}
-
 // Proof freshness: a proof is valid only for a specific (intent, implementation, dependencies,
 // compiler, environment) tuple. These helpers capture that tuple so `verify` can mark a proof STALE.
 const gitCmd = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null; } catch { return null; } };
@@ -278,6 +243,12 @@ function parseArgs(argv) {
     else if (a === '--by') args.by = argv[++i];
     else if (a === '--at') args.at = argv[++i];
     else if (a === '--json') args.json = true;
+    else if (a === '--review') args.review = true;
+    else if (a === '--agent-brief') args.agentBrief = true;
+    else if (a === '--openthunder') {
+      if (!argv[i + 1] || argv[i + 1].startsWith('--')) throw new Error('--openthunder requires a JSON report path');
+      args.openthunder = argv[++i];
+    }
     else if (a === '--targets') args.targets = (argv[++i] || '').split(',').filter(Boolean);
     else if (a === '--product') args.product = argv[++i];
     else if (a === '--allow-pending') args.allowPending = true;
@@ -422,6 +393,8 @@ Inspect
   docs <file> [--lens <lens>] [--out <dir>]   render a mission as Markdown docs (per-audience with --lens)
   index <dir>                the Mission Atlas inventory
   atlas <dir> [--search q | --expand id]   the whole-system Atlas
+  atlas <dir> --review [--json | --agent-brief] [--openthunder report.json] [--strict]
+                            execute contract cases, rank review gaps, compare OpenThunder snapshots
 
 Run & test
   run <file> --inputs '<json>'   execute the decision(s) deterministically
@@ -1910,6 +1883,15 @@ test Example
   // Intent Atlas: the navigable/searchable whole-system map over the Intent Graph.
   if (cmd === 'atlas') {
     const root = file || '.';
+    if (args.review || args.agentBrief || args.openthunder) {
+      if (args.search || args.expand) throw new Error('Review mode cannot be combined with graph search or expansion.');
+      const files = collectIntents(root).map((f) => ({ path: relative(root, f) || basename(f), source: readFileSync(f, 'utf8') }));
+      const evidence = args.openthunder ? JSON.parse(readFileSync(args.openthunder, 'utf8')) : undefined;
+      const review = buildReviewAtlas(files, { product: args.product, evidence });
+      console.log(args.json ? JSON.stringify(review, null, 2) : renderReviewBrief(review));
+      process.exitCode = reviewAtlasExitCode(review, { strict: args.strict });
+      return;
+    }
     const graphs = collectIntents(root).map((f) => buildIntentGraph(parseIntent(readFileSync(f, 'utf8'))));
     const atlas = buildAtlas(graphs, { product: args.product });
     if (args.search) {
