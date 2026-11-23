@@ -22,6 +22,7 @@ const COMMANDS: Array<{ cmd: string; what: string; since: string }> = [
   { cmd: "thunder --version", what: "Check which version you have", since: "0.5.3" },
   { cmd: "thunder text RefundApproval.thunder-plain", what: "Run a Thunder Text rule", since: "0.5.3" },
   { cmd: "thunder repo psf/requests", what: "Thunder a whole GitHub repository, read-only", since: "0.5.3" },
+  { cmd: "thunder anchor checkout.py", what: "See each step of a file in Thunder, pinned to its exact place in the code", since: "0.5.4" },
 ];
 
 const newer = (a: string, b: string) => {
