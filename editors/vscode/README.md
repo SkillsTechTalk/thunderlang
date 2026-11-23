@@ -58,7 +58,7 @@ from the repo's `examples/` directory.
 npx vsce package
 ```
 
-This produces `thunderlang-0.4.1.vsix`, which you can install locally via the
+This produces `thunderlang-0.5.4.vsix`, which you can install locally via the
 Extensions view: "..." menu, then "Install from VSIX".
 
 ## Publish (maintainers only)
