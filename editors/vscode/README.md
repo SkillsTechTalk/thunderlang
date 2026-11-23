@@ -69,11 +69,10 @@ Extensions view: "..." menu, then "Install from VSIX".
 
 ## Publish (maintainers only)
 
-Publishing to the VS Code Marketplace is a maintainer step and requires a personal
-access token for the `openthunder` publisher:
+Releases publish automatically. When a new version in `package.json` lands on `main`, the
+[Release workflow](../../.github/workflows/release.yml) publishes it to the Marketplace under the
+`openthunder` publisher through trusted publishing (no stored token). Keep the version in step with
+`compiler/package.json`.
 
-```bash
-npx vsce publish
-```
-
-Do not publish from feature branches; publish from a tagged release.
+To publish by hand instead: `npx vsce package` (Node 20 or newer), then upload the `.vsix` at
+marketplace.visualstudio.com/manage/publishers/openthunder.
