@@ -7,9 +7,21 @@ export type Post = {
   tag: string;
   excerpt: string;
   body: string[];
+  /** True when the post has its own page (src/app/blog/<slug>/page.tsx) with illustrations. */
+  custom?: boolean;
 };
 
 export const posts: Post[] = [
+  {
+    slug: "why-i-created-thunder",
+    title: "Why I Created Thunder: Programming, Made Human",
+    date: "2026-11-23",
+    tag: "Essay",
+    excerpt:
+      "We taught humans to write languages computers could understand. It's time to create a language humans can understand. Why Thunder exists, and why understanding software matters more when AI writes it.",
+    body: [],
+    custom: true,
+  },
   {
     slug: "feature-flag-gate-case-study",
     title: "A feature-flag gate, proven across four languages",
