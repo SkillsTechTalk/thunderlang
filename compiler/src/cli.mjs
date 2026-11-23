@@ -508,7 +508,7 @@ function main() {
       if (!items.length) console.log('\nNothing matches. Try fewer words or remove --kind.');
       for (const it of items) {
         console.log(`\n[${it.kind}${it.status === 'partial' ? ', partly read' : ''}] ${it.name}  (line ${it.line})`);
-        if (it.doc) console.log(`  The author says: "${it.doc}"`);
+        if (it.doc) console.log(`  Author's note: "${it.doc}"`);
         console.log(`  ${it.says}`);
         if (it.thunder) {
           console.log('');

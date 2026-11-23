@@ -1,5 +1,19 @@
 # Unreleased
 
+**Thunder V1: the Thunder Programming Language.** Thunder is a human-native programming language: people work
+with the meaning of software while machines handle most of the implementation. Specified in `docs/spec.md`,
+which replaces the mission specification draft v0.2 (kept as `docs/spec-v0.2.md`).
+
+- **`thunder-visual-v1`**, the visual grammar as data, exported from `/core` and the root: `THUNDER_VISUAL`
+  (zoom levels shared with the Thunder Atlas, color roles with green/red reserved for checks that ran, step marks,
+  elements with honest status, provenance, the eleven languages with SQL marked planned, and the rules every view
+  follows), `visualFor(item)` (how to draw any reader item), `visualForStep(step)`, and `thunderText(item)` (the
+  same item as Thunder Text). The picture and the text are rendered from the same reading, so they cannot disagree.
+  A decision's docstring becomes its Thunder Text `Why:` line.
+- Yes/no properties read as sentences: `if order.refunded` is "If order is refunded"; `!user.isAdmin` is "user is
+  not admin". Other property paths are left as they are.
+- A test keeps `docs/spec.md` naming every element, step, and language in the grammar.
+
 Read a whole app, not just its decisions: every Python endpoint is found, the author's docstring is kept as the
 function's meaning, and steps that only restate code are no longer counted as read.
 

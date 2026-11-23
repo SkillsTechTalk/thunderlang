@@ -3,7 +3,7 @@
 > A tour of the language. ThunderLang has a deterministic reference compiler
 > (`@skillstech/thunderlang`, the `thunder` CLI; `intent` is a legacy alias) that implements everything here, with no
 > AI required. For the exhaustive grammar and every keyword, see the
-> [language specification](/docs/spec); this page is the friendly overview.
+> [language specification](/docs/spec-v0-2); this page is the friendly overview.
 
 ThunderLang files use the `.thunder` extension and are UTF-8 text.
 

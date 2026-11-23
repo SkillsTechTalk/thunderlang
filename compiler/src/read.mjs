@@ -1650,7 +1650,9 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   }
   for (const st of r.steps) {
     if (st.kind !== 'branch' || !st.cond) continue;
-    const cond = toThunderCondition(st.cond, names);
+    // A bare yes/no property (`order.refunded`) already reads as a sentence from the step itself; keep it.
+    const bareProperty = /^(not\s+|!)?(?:self\.|this\.)?\w+\.\w+(\(\))?$/.test(st.cond.trim()) && !/\./.test(st.says.replace(/\(\d+ steps? inside\)$/, ''));
+    const cond = bareProperty ? null : toThunderCondition(st.cond, names);
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${sayCondition(cond).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
     delete st.cond; delete st.negate;
   }
