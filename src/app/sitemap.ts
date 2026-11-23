@@ -1,57 +1,43 @@
 import type { MetadataRoute } from "next";
-import { siteConfig, absoluteUrl } from "@/lib/site";
+import { absoluteUrl } from "@/lib/site";
+import { discoverRoutes, priorityOf } from "@/lib/site-map";
 import { posts } from "./blog/posts";
 import { getDocSlugs, getExampleList } from "@/lib/docs";
 
+/**
+ * sitemap.xml. Pages are discovered from src/app at build time (see src/lib/site-map.ts), so every page is listed
+ * without anyone remembering to add it. Docs, examples, and blog posts come from their own sources.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = [
-    "/",
-    "/language",
-    "/vision",
-    "/docs",
-    "/examples",
-    "/learn",
-    "/read",
-    "/playground",
-    "/try",
-    "/proof",
-    "/roadmap",
-    "/blog",
-    "/articles",
-    "/community",
-    "/waitlist",
-  ];
-
-  const staticEntries = routes.map((route) => ({
+  const built = new Date();
+  const pages = discoverRoutes().map((route) => ({
     url: absoluteUrl(route),
-    lastModified: new Date(),
+    lastModified: built,
     changeFrequency: "weekly" as const,
-    priority: route === "/" ? 1 : 0.7,
+    priority: priorityOf(route),
   }));
 
   const postEntries = posts.map((post) => ({
     url: absoluteUrl(`/blog/${post.slug}`),
     lastModified: new Date(post.date),
     changeFrequency: "monthly" as const,
-    priority: 0.5,
+    priority: priorityOf(`/blog/${post.slug}`) === 0.7 ? 0.5 : priorityOf(`/blog/${post.slug}`),
   }));
 
   const docEntries = getDocSlugs().map((slug) => ({
     url: absoluteUrl(`/docs/${slug}`),
-    lastModified: new Date(),
+    lastModified: built,
     changeFrequency: "monthly" as const,
-    priority: 0.6,
+    priority: priorityOf(`/docs/${slug}`) === 0.7 ? 0.6 : priorityOf(`/docs/${slug}`),
   }));
 
   const exampleEntries = getExampleList().map((e) => ({
     url: absoluteUrl(`/examples/${e.slug}`),
-    lastModified: new Date(),
+    lastModified: built,
     changeFrequency: "monthly" as const,
     priority: 0.5,
   }));
 
-  // Reference siteConfig so the base URL is obviously the source of truth.
-  void siteConfig.url;
-
-  return [...staticEntries, ...postEntries, ...docEntries, ...exampleEntries];
+  const seen = new Set<string>();
+  return [...pages, ...postEntries, ...docEntries, ...exampleEntries].filter((e) => !seen.has(e.url) && seen.add(e.url));
 }
