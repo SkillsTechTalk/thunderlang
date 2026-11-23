@@ -1,7 +1,7 @@
 {
   "name": "thunderlang",
   "displayName": "ThunderLang",
-  "description": "Syntax highlighting, diagnostics, completion, and hover for ThunderLang via the ThunderLang Language Server.",
+  "description": "Read and check ThunderLang rules in VS Code: highlighting, live errors, completion, and hover from the same compiler that checks AI changes against your rules. Runs locally, no AI involved.",
   "version": "0.5.4",
   "publisher": "openthunder",
   "license": "Apache-2.0",
@@ -27,7 +27,9 @@
     "intent",
     "intent-oriented programming",
     "specification",
-    "verification"
+    "verification",
+    "business rules",
+    "ai code review"
   ],
   "activationEvents": [
     "onLanguage:thunder"

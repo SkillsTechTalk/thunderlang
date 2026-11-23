@@ -1,6 +1,12 @@
 # ThunderLang for VS Code
 
-Language support for ThunderLang (`.thunder`, `.tl`, `.intent` files):
+AI can write the code. You should still be able to read its rules. ThunderLang writes a
+program's decisions and business rules (refunds, access, pricing, eligibility) in a form
+people can read, and its compiler checks every change, including AI changes, against
+them. See [thunderlang.dev](https://thunderlang.dev).
+
+This extension lets you read and edit those rules in VS Code (`.thunder`, `.tl`,
+`.intent` files). Everything runs on your machine:
 
 - **Syntax highlighting** via a TextMate grammar (`source.thunder`).
 - **Diagnostics, completion, and hover** via the ThunderLang Language Server, the same
@@ -64,7 +70,7 @@ Extensions view: "..." menu, then "Install from VSIX".
 ## Publish (maintainers only)
 
 Publishing to the VS Code Marketplace is a maintainer step and requires a personal
-access token for the `skillstech` publisher:
+access token for the `openthunder` publisher:
 
 ```bash
 npx vsce publish
