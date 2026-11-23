@@ -6,7 +6,7 @@ import { pageMeta } from "@/lib/seo";
 import { posts, getPost } from "../posts";
 
 export function generateStaticParams() {
-  return posts.map((p) => ({ slug: p.slug }));
+  return posts.filter((p) => !p.custom).map((p) => ({ slug: p.slug })); // custom posts have their own page
 }
 
 export function generateMetadata({
