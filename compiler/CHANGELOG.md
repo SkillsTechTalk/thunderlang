@@ -1,3 +1,32 @@
+# Unreleased
+
+Read a whole app, not just its decisions: every Python endpoint is found, the author's docstring is kept as the
+function's meaning, and steps that only restate code are no longer counted as read.
+
+**Behavior changes**
+- **Stricter `stepsReadable`.** A step that only puts the code's syntax into English ("Works out actives", "Returns
+  the result of any", "Calls set") is marked `restates: true` and does not count as read. Scores drop where steps
+  only restated code. The eleven-repository benchmark is now 78% of 12,087 functions at least 80% readable (was
+  94% under the old rule); see `docs/thunder-repo-results.md`.
+
+**Read code in Thunder**
+- **Python headers that span lines.** Functions whose parameters run over several lines (FastAPI `Depends(...)`
+  one per line, wrapped return types) were skipped; they are read now, with their decorators. Multi-line route
+  decorators (`@router.get(\n "/x",\n response_model=...)`) give the route. On a 111-file FastAPI backend: 516 of
+  516 functions read (was 254), 234 endpoints recognized (was 19). psf/requests: 708 functions (was 632).
+- **The author's words: `doc`.** Each function or decision carries `doc`, the first paragraph of its docstring or
+  doc comment (Python docstrings, JSDoc `/** */`, `///`, Go `//`, Ruby `#`), without Args/Returns sections. It is
+  the author's statement, kept apart from the reading inferred from code. `thunder read` shows it as "The author
+  says".
+- **Steps that explain.** Python comprehensions and `any`/`all`/`sum`/`min`/`max`/`len` read as what they produce
+  ("the items in rules where active", "whether any item in actives matches"); common shapes read as what they are
+  in every language: a new object (`&Command{`, `Server::new(`), a value by key (`headers.get("content-type")`),
+  text built from parts, a copy, a conversion, JSON in or out, a boolean result ("Returns whether …"), several
+  returned values, `seen[k] = …` ("Records k in seen"), `.set("Key", v)`, `.append(x)`.
+- Types: `ReadItem.doc`, `ReadItem.steps`, `ReadStep` (with `restates`) in `read.d.mts`.
+
+Not yet: identifiers in other languages (French names, for example) are still turned into English-looking words.
+
 # 0.5.4
 
 Read code in Thunder, change a rule safely, and review AI changes against stricter evidence. Pre-1.0: the stricter

@@ -13,6 +13,18 @@ export interface ReadItem {
   rules?: ReadRule[]; otherwise?: { result: string; line: number } | null;
   thunder?: string; unread?: ReadUnread[]; guards?: ReadGuard[];
   route?: { method: string; path: string };
+  /** The author's own words for what the function means (docstring or doc comment), first paragraph only. Not inferred. */
+  doc?: string;
+  steps?: ReadStep[]; stepsMore?: number;
+  /** Share of steps that explain the code: not `other` and not `restates`. */
+  stepsReadable?: number;
+}
+/** One plain step of a function (thunder-steps-v1). */
+export interface ReadStep {
+  kind: 'check' | 'branch' | 'loop' | 'set' | 'call' | 'return' | 'fail' | 'try' | 'other';
+  says: string; code: string; line: number; callee?: string; children?: ReadStep[];
+  /** The wording only restates the code's syntax ("Works out actives"); show the code, do not count it as read. */
+  restates?: true;
 }
 export interface Reading {
   schema: 'thunder-reading-v1'; language: string; detected: boolean; items: ReadItem[];
