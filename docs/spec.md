@@ -18,11 +18,12 @@ pictures, and the same meaning as plain, precise words, whatever language the so
 | --- | --- | --- |
 | **Thunder** | Pictures of what software does: cards, steps, maps | Anyone who needs to understand the software |
 | **Thunder Text** | The same meaning in plain, precise words | Anyone who wants the detail |
+| The meaning | The one reading both views are made from: actions, rules, steps, failures, evidence | Tools (the Thunder compiler, OpenThunder) |
 | High-level languages | Java, Python, TypeScript, C#, SQL | Developers |
 | Machine code | Instructions for one kind of processor | Compilers and specialists |
 | Bits | 0 and 1 | Hardware |
 
-The top two levels are human-native. Everything below them still exists and still runs, and AI now writes much of
+The top two levels are human-native, and both are views of the meaning beneath them. Everything below them still exists and still runs, and AI now writes much of
 it. Thunder does not replace the code; it lets people read it, question it, and change it.
 
 | Paradigm | The question it answers |
@@ -48,6 +49,7 @@ software stays real code in a real language, and that code stays the source of t
 | **Thunder compiler** | The open-source compiler (`thunder`) that reads code into Thunder, checks rules, and generates code. Runs in the browser, the terminal, and VS Code. |
 | **OpenThunder** | **The IDE for Thunder.** Where you use Thunder on a whole application: read it, find your way in the Atlas, change it, and check every change. |
 | **Thundered Python** (C#, Java, …) | Existing code shown in Thunder. |
+| **Read in Thunder** | The action that shows code in Thunder, and OpenThunder's front door (App > File > Action > Rule > Original). |
 
 ### The bar
 
@@ -63,18 +65,18 @@ must pass on paper first.
 2. **Read before write.** Thunder works on the code people already have. Nobody rewrites anything to start.
 3. **One meaning, two views.** The picture and Thunder Text are two views of the same reading, produced from the
    same data. Switching between them loses nothing.
-4. **Truth before simplicity.** What Thunder cannot read is shown as *not read*, dashed, with the original code.
+4. **Truth before simplicity.** What Thunder cannot read is shown as *Not read yet*, dashed, with the original code.
    Thunder never draws a guess to make a picture look complete.
 5. **People stay in charge.** AI can write most of the code. People read what it does and decide what it should do,
    and every change is checked before it ships.
 
-## 2. One meaning, three forms
+## 2. One meaning, two views
 
 ```
                  original code  (Python, TypeScript, Go, … SQL)
                         │  read exactly by the Thunder compiler, no AI
                         ▼
-                 the reading  (read-v1 items: endpoints, decisions, functions, steps, failures, tests)
+                 the meaning  (read-v1 items: actions, decisions, functions, steps, failures, tests)
               ┌─────────┴──────────┐
      visualFor(item)          thunderText(item)
               ▼                    ▼
@@ -87,45 +89,45 @@ must pass on paper first.
 | **Thunder Text** | Detail | Reads closely, reviews, stores, diffs |
 | **Original code** | Evidence | Checks exactly which lines Thunder read (View original, always one click away) |
 
-The picture and the text are not translated from each other. Both are rendered from the same reading, so they
-cannot disagree.
+The picture and the text are not translated from each other. Both are rendered from the same meaning, so they
+cannot disagree. An AI coding agent can change the original code, and both views update from the new reading.
 
 ## 3. Zoom levels
 
-Thunder has five zoom levels, shared with the Thunder Atlas in OpenThunder. There are two ways in. People start from
-meaning, and engineers start from code. The two meet at the Thunder card.
+**Read in Thunder** walks five levels, from the whole app to the exact lines (OpenThunder ADR 0035). The Thunder
+Atlas (ADR 0033) adds **Area** between App and File for large apps.
 
-| Level | From meaning | From code | Element |
+| Level | What you see | Example | Atlas |
 | --- | --- | --- | --- |
-| 0 | Product | Repository | App |
-| 1 | Feature area | Service, package, or folder | Area |
-| 2 | Mission | File, module, or class | File |
-| 3 | **Thunder card** | Endpoint or function | Thunder card, Steps card |
-| 4 | Source | The original lines | Original code |
+| App | The app's folders or areas, with counts of actions and rules | `billing-service` | Z0 |
+| Area | A feature area, service, package, or folder (Atlas; optional in Read in Thunder) | `Refunds` | Z1 |
+| File | What you can do here: the file's actions and functions | `refunds.py` | Z2 |
+| **Action** | A door into the app (an endpoint or a screen) and what its handler does | `POST /refunds` | Z3 |
+| **Rule** | One decision as a Thunder card, or a function's steps | "When do we approve a refund?" | Z3 |
+| Original | The exact lines in the original language | lines 12 to 16 | Z4 |
 
 ## 4. Elements
 
-Every element shows where it came from (section 8).
+Every element shows where it came from (section 8). Levels are the zoom levels in section 3.
 
 | Element | Zoom | Picture | Thunder Text | Status |
 | --- | --- | --- | --- | --- |
-| **App** | 0 | A map of its areas, with counts of endpoints, decisions, functions, and what could not be read | `App <name>` | works today (`thunder repo`) |
+| **App** | 0 | A map of its folders or areas, with counts of actions, decisions, functions, and what could not be read yet | `App <name>` | works today (`thunder repo`) |
 | **Area** | 1 | A region of the map: a folder, package, or service | `Area <name>` | works today |
-| **File** | 2 | A stack of its endpoints and functions, in order | `File <path>` | works today |
+| **File** | 2 | What you can do here: its actions and functions, in order | `File <path>` | works today |
 | **Data shape** | 2 | A table card: fields, their kinds, allowed values | `A <Name> has` then one field per line | planned |
-| **Endpoint** | 3 | A steps card with a route badge (`POST /refunds`) | `When someone calls POST /refunds` | works today |
-| **Thunder card** | 3 | One decision: its question, the facts it reads, each rule, the outcome otherwise, examples you can ask | Thunder Text contract (section 6) | works today |
-| **Steps card** | 3 | What a function does, as steps with one level of nesting | `What <name> does` then `- <step>` lines | works today |
-| **Not-read card** | 3 | Dashed card with the original code | `` - `code` (code, not explained) `` | works today |
-| **Failure** | 3 | A chip marked ✕ | `Can fail with <Name>` | works today |
-| **Test** | 3 | A chip marked ⚑; green or red only once it has run | `Test: <name>` | works today |
+| **Action** | 3 | A steps card with a route badge (`POST /refunds`): a door into the app and what its handler does | `When someone calls POST /refunds` | works today for endpoints; screens planned |
+| **Thunder card** | 4 | One decision: its question, the facts it reads, each rule, the outcome otherwise, examples you can ask | Thunder Text contract (section 6) | works today |
+| **Steps card** | 4 | What a function does, as steps with one level of nesting | `What <name> does` then `- <step>` lines | works today |
+| **Not-read-yet card** | 4 | Dashed card with the original code | `` - `code` (code, not explained) `` | works today |
+| **Failure** | 4 | A chip marked ✕ | `Can fail with <Name>` | works today |
+| **Test** | 4 | A chip marked ⚑; green or red only once it has run | `Test: <name>` | works today |
 | **Trigger** | 3 | A steps card with a "when" badge: a database trigger, message handler, or schedule | `When <event>, it` then steps | planned |
-| **Original code** | 4 | The exact lines, highlighted | (the code itself) | works today |
+| **Original code** | 5 | The exact lines, highlighted | (the code itself) | works today |
 
-**The author's words.** When code has a docstring or doc comment, Thunder shows its first paragraph as
-**"The author says: …"**, kept apart from what the code does. The author describes what they meant, while Thunder's
-reading shows what the code actually does, and a reader should see both. In a Thunder Text contract it becomes the
-`Why:` line.
+**Author's note.** When code has a docstring or doc comment, Thunder shows its first paragraph, verbatim, as an
+**Author's note**, kept apart from what the code does. The author describes what they meant, while Thunder's reading
+shows what the code actually does, and a reader should see both. In a Thunder Text contract it becomes the `Why:` line.
 
 ## 5. Steps
 
@@ -143,12 +145,12 @@ first and color second. Every step has a mark, so color is never the only signal
 | fail | ✕ | Fails | failure | `Fails with AlreadyRefunded: "This order was already refunded"` |
 | try | ⛉ | Tries | structure | `Tries the next steps and handles any error` |
 | *restates* | · | Code | unread, dashed | the original code, quoted |
-| *other* | · | Not read | unread, dashed | the original code, quoted |
+| *other* | · | Not read yet | unread, dashed | the original code, quoted |
 
 **A step that would only restate the code shows the code instead.** "Works out actives" or "Returns the result of
 any" tells a reader nothing the code did not, so Thunder marks such steps `restates`, shows the original code dashed,
 and does not count them as read. A function is drawn as a steps card when at least half its steps explain something.
-Otherwise it is a not-read card.
+Otherwise it is a not-read-yet card.
 
 ## 6. Thunder cards and the Thunder Text contract
 
@@ -208,19 +210,22 @@ read, partly read, an AI summary, or not yet run.
 
 ## 8. Where each piece came from
 
-| Provenance | Label | Line | Meaning |
-| --- | --- | --- | --- |
-| read-from-code | Read from code | solid | Read exactly by the Thunder compiler, with no AI |
-| confirmed | Confirmed | solid | A person confirmed this is what the software should do |
-| author-says | The author says | solid | The author's own words. A statement, not a reading |
-| ai-summary | AI summary | dashed | Written by AI to explain. Never a source of truth; always shown above the exact reading it summarizes |
-| not-read | Not read | dashed | Thunder could not read this; the original code is shown instead |
+Every element carries one provenance chip. The words are shared with OpenThunder (ADR 0035). Chips are neutral grey
+with a solid or dashed outline, and never borrow a word role's color, so yellow always means a fact.
+
+| Chip | Line | Meaning |
+| --- | --- | --- |
+| **From code** | solid | Read exactly by the Thunder compiler, with no AI |
+| **Confirmed** | solid | A person confirmed this is what the software should do |
+| **Author's note** | solid | The author's own words (docstring or doc comment), verbatim. A statement, not a reading |
+| **AI summary** | dashed | Written by AI to explain. Never evidence; always shown above the exact reading it summarizes |
+| **Not read yet** | dashed | Thunder could not read this yet; the original code is shown instead |
 
 The AI summary layer belongs to OpenThunder. This specification defines only how a summary looks and where it sits.
 
 ## 9. Languages
 
-| Language | Reading | Endpoints | Decisions | Author's words | Data shapes (planned) |
+| Language | Reading | Actions (endpoints) | Decisions | Author's note | Data shapes (planned) |
 | --- | --- | --- | --- | --- | --- |
 | Python | works today | FastAPI `@router.post`, Flask `@app.route` | a `def` that returns fixed answers | docstring | `@dataclass`, pydantic, `Enum` |
 | TypeScript | works today | NestJS `@Get`/`@Post`, Express `router.post(…)` | a function that returns fixed answers | JSDoc | `interface`, `type`, `enum` |
@@ -249,11 +254,11 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 A view that breaks one of these is wrong, however good it looks.
 
 1. Show the picture first, Thunder Text second, and the original code one click away.
-2. Never draw a guess. What Thunder cannot read is shown as *not read*, dashed, with the original code.
+2. Never draw a guess. What Thunder cannot read is shown as *Not read yet*, dashed, with the original code.
 3. Green and red mean only a check that ran and passed or failed.
-4. Every element shows where it came from.
+4. Every element shows where it came from: From code, Confirmed, Author's note, AI summary, or Not read yet.
 5. An AI summary is labeled, dashed, and always sits above the exact reading it summarizes, never instead of it.
-6. The author's words are shown as their statement, separate from what the code does.
+6. An Author's note is shown verbatim as the author's statement, separate from what the code does.
 7. Say the action that is really possible: **Propose rule change** until a change is written back and checked; never
    **Update code**.
 8. Use the reader's words: plain names, no syntax. A step that would only restate the code shows the code instead.
@@ -267,7 +272,7 @@ import { readCode, visualFor, visualForStep, thunderText, THUNDER_VISUAL } from 
 
 const { items } = readCode(source, { language: 'python' });
 for (const item of items) {
-  const v = visualFor(item);     // { element: 'endpoint', shape: 'steps-card', line: 'solid', title, badge, provenance, doc }
+  const v = visualFor(item);     // { element: 'action', shape: 'steps-card', line: 'solid', title, badge, provenance, doc }
   const text = thunderText(item); // the same meaning as Thunder Text
   for (const step of item.steps ?? []) visualForStep(step); // { mark: '◇', label: 'If', color: 'question', show: 'words' }
 }
@@ -276,13 +281,22 @@ THUNDER_VISUAL.colors.pass.hex;   // '#34D399', for checks that passed and nothi
 
 ## 12. What comes next
 
-- **Data shapes:** records, classes, enums, and SQL tables, in all eleven languages.
-- **SQL:** reading as described in section 9.
-- **Triggers:** event handlers, schedules, and database triggers.
-- **Other human languages in code:** identifiers in French and other languages are still split as if they were
-  English words.
-- **Thunder write beyond decisions:** today a change to a number, comparison, text value, or answer in a decision is
-  written back and checked; other changes are proposals.
+In the order OpenThunder needs them for Read in Thunder:
+
+1. **Actions everywhere:** routes on every handler, including routes registered in another file
+   (`r.Post("/orders", h.CreateOrder)`), Go and Rust frameworks, Rails routes, and screens.
+2. **Data shapes:** records, classes, enums, ORM models (Pydantic, dataclasses, SQLAlchemy, TypeORM, Entity Framework,
+   Go structs, Java records), and SQL tables, using the same table and column names as OpenThunder's architecture map
+   so a step's query links to its table.
+3. **State machines:** states and transitions drawn as one element.
+4. **Other human languages in code:** keep identifiers such as French names as they are, instead of splitting them as
+   English words, with a slot for a gloss.
+5. **Events and services:** publish/subscribe, queues, and named external calls (Stripe, HTTP, database, email) as
+   step kinds.
+6. **A file's purpose:** the module docstring as the file's Author's note.
+7. **SQL:** reading as described in section 9, starting with PostgreSQL and migrations.
+8. **Thunder write beyond decisions:** today a change to a number, comparison, text value, or answer in a decision is
+   written back and checked; other changes are proposals.
 
 Thunder versions its grammar (`thunder-visual-v1`), its reading (`read-v1`, `thunder-steps-v1`), and its contracts
 (`thunder-plain-v1`) separately. A new version adds; it does not silently change what an existing element means.

@@ -52,6 +52,7 @@ const decisionText = thunderText(decision).trimEnd() + "\n" + PERSON_EXAMPLES;
 const LADDER = [
   { level: "Thunder", what: "Pictures of what software does: cards, steps, maps", reader: "Anyone who needs to understand the software", human: true },
   { level: "Thunder Text", what: "The same meaning in plain, precise words", reader: "Anyone who wants the detail", human: true },
+  { level: "The meaning", what: "The one reading both views are made from", reader: "The Thunder compiler and OpenThunder", human: false },
   { level: "High-level languages", what: "Java, Python, TypeScript, C#, SQL", reader: "Developers", human: false },
   { level: "Machine code", what: "Instructions for one kind of processor", reader: "Compilers and specialists", human: false },
   { level: "Bits", what: "0 and 1", reader: "Hardware", human: false },
@@ -68,7 +69,7 @@ const PRINCIPLES = [
   { title: "Meaning before syntax", body: "You see what the software does (who can get a refund, what happens next), not brackets, types, and keywords." },
   { title: "Read before write", body: "Thunder works on the code you already have, in ten languages. You do not rewrite anything to start understanding it." },
   { title: "One meaning, two views", body: "The picture and Thunder Text are two views of the same reading, made from the same data. Switch between them and nothing is lost." },
-  { title: "Truth before simplicity", body: "What Thunder cannot read is shown as not read, with the original code. It never draws a guess to make a picture look complete." },
+  { title: "Truth before simplicity", body: "What Thunder cannot read is shown as Not read yet, with the original code. It never draws a guess to make a picture look complete." },
   { title: "People stay in charge", body: "AI can write most of the code. People read what it does, decide what it should do, and every change is checked before it ships." },
 ];
 
@@ -129,8 +130,8 @@ export default function LanguagePage() {
           ))}
         </ol>
         <p className="mx-auto mt-4 max-w-3xl text-sm text-haze-400">
-          The two highlighted rows are human-native. Everything below them still exists and still runs; AI writes much of it,
-          and Thunder lets people see what it does.
+          The two highlighted rows are human-native, and both are views of the same meaning. Everything below still exists
+          and still runs; AI writes much of it, and Thunder lets people see what it does.
         </p>
       </Section>
 
@@ -190,7 +191,7 @@ export default function LanguagePage() {
             <div className="rounded-2xl border border-white/10 bg-ink-850/40 p-5">
               {endpointVisual.badge && <p className="text-xs font-semibold uppercase tracking-wider text-[#FCD34D]">{endpointVisual.badge.text}</p>}
               <p className="mt-1 text-base font-semibold text-white">{endpointVisual.title}</p>
-              {endpoint.doc && <p className="mt-2 text-sm text-haze-300"><span className="text-haze-400">The author says:</span> “{endpoint.doc}”</p>}
+              {endpoint.doc && <p className="mt-2 text-sm text-haze-300"><span className="text-haze-400">Author&apos;s note:</span> “{endpoint.doc}”</p>}
               <div className="mt-4"><StepsView steps={(endpoint.steps ?? []) as Step[]} /></div>
             </div>
             <div>

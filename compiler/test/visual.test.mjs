@@ -53,12 +53,12 @@ def helper(x):
     return x + 1
 `;
 
-test('each reader item maps to one element: endpoint, Thunder card, dashed not-read card, failure chip', () => {
+test('each reader item maps to one element: action, Thunder card, dashed not-read card, failure chip', () => {
   const items = readCode(PY, { language: 'python' }).items;
   const v = Object.fromEntries(items.map((i) => [i.name, visualFor(i)]));
-  assert.equal(v.create_refund.element, 'endpoint');
+  assert.equal(v.create_refund.element, 'action');
   assert.equal(v.create_refund.title, 'When someone calls POST /refunds');
-  assert.deepEqual(v.create_refund.doc, { text: 'Start a refund for an order.', provenance: 'author-says' });
+  assert.deepEqual(v.create_refund.doc, { text: 'Start a refund for an order.', provenance: 'authors-note' });
   assert.equal(v.refund_decision.element, 'decision');
   assert.equal(v.refund_decision.shape, 'card');
   assert.equal(v.helper.element, 'not-read');
@@ -77,7 +77,7 @@ test('Thunder Text says the same thing as the picture, quoting code it cannot ex
   const byName = (n) => items.find((i) => i.name === n);
   const endpoint = thunderText(byName('create_refund'));
   assert.match(endpoint, /^When someone calls POST \/refunds\n/);
-  assert.match(endpoint, /The author says: "Start a refund for an order\."/);
+  assert.match(endpoint, /Author's note: "Start a refund for an order\."/);
   assert.match(endpoint, /- If amount is at most 0\n {4}- Fails with ValueError: "amount must be positive"/);
   assert.match(thunderText(byName('refund_decision')), /Approve when/);
   assert.match(thunderText({ ...byName('refund_decision'), doc: 'Small refunds are approved.' }), /^Why: Small refunds are approved\.$/m);
