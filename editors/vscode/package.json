@@ -3,7 +3,7 @@
   "displayName": "ThunderLang",
   "description": "Syntax highlighting, diagnostics, completion, and hover for ThunderLang via the ThunderLang Language Server.",
   "version": "0.5.4",
-  "publisher": "skillstech",
+  "publisher": "openthunder",
   "license": "Apache-2.0",
   "icon": "icon.png",
   "homepage": "https://thunderlang.dev",
