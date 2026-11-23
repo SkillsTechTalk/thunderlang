@@ -114,6 +114,28 @@ export default function LanguagePage() {
         </div>
       </Section>
 
+      {/* The whole stack at a glance (founder's wording, 2026-11-23). */}
+      <Section className="!pt-0">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-white/10 p-6">
+          <p className="text-center text-2xl font-semibold text-white">Thunder</p>
+          <p className="text-center text-haze-300">Programming, made human.</p>
+          <dl className="mt-5 divide-y divide-white/8 text-sm">
+            {[
+              ["Paradigm", "Human-Native Programming", "/language"],
+              ["Visual interface", "Thunder", "/read"],
+              ["Text representation", "Thunder Text", "/docs/spec"],
+              ["Underlying method", "Intent-Oriented Programming", "/docs/intent-oriented-programming"],
+              ["Development platform", "OpenThunder, the IDE", OPENTHUNDER_URL],
+            ].map(([term, value, href]) => (
+              <div key={term} className="grid grid-cols-[11rem_1fr] gap-4 py-2.5">
+                <dt className="text-haze-400">{term}</dt>
+                <dd>{href.startsWith("http") ? <a href={href} className="font-medium text-white hover:text-gold-200">{value} ↗</a> : <Link href={href} className="font-medium text-white hover:text-gold-200">{value}</Link>}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </Section>
+
       <Section className="border-t border-white/8">
         <SectionHeading
           eyebrow="Why a new paradigm"
@@ -195,7 +217,7 @@ export default function LanguagePage() {
               <div className="mt-4"><StepsView steps={(endpoint.steps ?? []) as Step[]} /></div>
             </div>
             <div>
-              <PlainRuleCard initialSource={decisionText} breadcrumb={["Refunds", "refund_decision"]} />
+              <PlainRuleCard ask="What happens to this refund?" initialSource={decisionText} breadcrumb={["Refunds", "refund_decision"]} />
               <p className="mt-2 text-xs text-haze-400">The examples were added by a person to check the rule. Code has no examples; the rule itself was read from the code.</p>
             </div>
           </div>

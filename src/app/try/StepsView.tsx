@@ -1,6 +1,6 @@
 // The Steps card: any function, read as plain steps. Decisions become rules (the rule picture);
 // everything else becomes steps. Shape and color say the kind of step; words say what it does.
-export type Step = { kind: string; says: string; code?: string; line?: number; children?: Step[] };
+export type Step = { kind: string; says: string; code?: string; line?: number; children?: Step[]; restates?: boolean };
 
 const MARK: Record<string, { mark: string; cls: string; label: string }> = {
   check: { mark: "✓", cls: "text-[#F472B6] border-[#F472B6]/40", label: "Check" },
@@ -11,12 +11,14 @@ const MARK: Record<string, { mark: string; cls: string; label: string }> = {
   return: { mark: "⇥", cls: "text-[#67E8F9] border-[#67E8F9]/40", label: "Return" },
   fail: { mark: "✕", cls: "text-[#FDBA74] border-[#FDBA74]/40", label: "Fail" },
   try: { mark: "⛉", cls: "text-[#C4B5FD] border-[#C4B5FD]/40", label: "Try" },
-  other: { mark: "·", cls: "text-haze-400 border-dashed border-white/25", label: "Not read" },
+  other: { mark: "·", cls: "text-haze-400 border-dashed border-white/25", label: "Not read yet" },
 };
 
 function StepRow({ s, onLine }: { s: Step; onLine?: (line: number) => void }) {
-  const m = MARK[s.kind] ?? MARK.other;
-  const body = s.kind === "other"
+  // A step whose words would only restate the code shows the code instead, dashed (Thunder V1, section 5).
+  const asCode = s.kind === "other" || !!s.restates;
+  const m = asCode ? MARK.other : MARK[s.kind] ?? MARK.other;
+  const body = asCode
     ? <code className="font-mono text-[12.5px] text-haze-300">{s.code ?? s.says}</code>
     : <span className="text-haze-100">{s.says}</span>;
   return (

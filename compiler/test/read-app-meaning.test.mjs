@@ -116,6 +116,16 @@ test('a yes/no property reads as a sentence; other property paths stay as they a
   assert.equal(sayCodeCondition('not order.refunded'), 'order is not refunded');
   assert.equal(sayCodeCondition('!user.isAdmin'), 'user is not admin');
   assert.equal(sayCodeCondition('user.hasAccess'), 'user has access');
-  assert.equal(sayCodeCondition('self.cart.items'), 'self.cart.items');
+  assert.equal(sayCodeCondition('self.cart.items'), 'cart has items', 'a collection used as a condition means it has items');
+  assert.equal(sayCodeCondition('not order.items'), 'order has no items');
+  assert.equal(sayCodeCondition('order.status'), 'order.status', 'status is not a plural');
   assert.equal(sayCodeCondition('x.y()'), 'x.y()');
+});
+
+test('arithmetic in parentheses is a computed value, not an object; += says what it adds', async () => {
+  const { classifyStatement } = await import('../src/steps.mjs');
+  assert.equal(classifyStatement('return (dough.thickness * 17 + 220) % 300').says, 'Returns a computed value');
+  assert.equal(classifyStatement('return ({ a: 1 })').says, 'Returns an object');
+  assert.equal(classifyStatement('total += item.price').says, 'Adds item price to total');
+  assert.equal(classifyStatement('count += 1').says, 'Adds 1 to count');
 });

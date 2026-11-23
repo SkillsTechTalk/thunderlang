@@ -13,6 +13,11 @@ which replaces the mission specification draft v0.2 (kept as `docs/spec-v0.2.md`
 - Yes/no properties read as sentences: `if order.refunded` is "If order is refunded"; `!user.isAdmin` is "user is
   not admin". Other property paths are left as they are.
 - A test keeps `docs/spec.md` naming every element, step, and language in the grammar.
+- **Learn Thunder** (thunderlang.dev/learn), the Thunder V1 tutorial: seven lessons on reading software in Thunder,
+  built on one pizza-delivery app and produced by this compiler at build time. `test/learn-thunder.test.mjs` proves
+  each lesson shows what it teaches, including identical Thunder for one rule in Python, TypeScript, Java, and Go.
+- Wording: a collection used as a condition reads "order has items" / "order has no items"; `total += item.price`
+  reads "Adds item price to total"; a parenthesized calculation is a computed value, not "an object".
 
 Read a whole app, not just its decisions: every Python endpoint is found, the author's docstring is kept as the
 function's meaning, and steps that only restate code are no longer counted as read.
