@@ -846,7 +846,10 @@ function main() {
     const code = generate(ast);
     if (args.outExplicit) {
       const ext = target.startsWith('ts') || target === 'typescript' ? 'ts' : target === 'python' ? 'py' : target === 'csharp' ? 'cs' : target;
-      const p = writeText(args.out, `${slug(subjectName(ast) || 'intent')}.${ext}`, code.endsWith('\n') ? code : code + '\n');
+      // Java requires a public class to live in a file of exactly its name (RefundDecision.java).
+      const subject = subjectName(ast) || 'intent';
+      const fileName = ext === 'java' ? `${(subject[0].toUpperCase() + subject.slice(1)).replace(/[^A-Za-z0-9]/g, '')}.java` : `${slug(subject)}.${ext}`;
+      const p = writeText(args.out, fileName, code.endsWith('\n') ? code : code + '\n');
       console.log(`wrote ${p.replace(process.cwd() + '/', '')}`);
       return;
     }

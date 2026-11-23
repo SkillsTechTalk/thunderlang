@@ -28,13 +28,47 @@ export function buildCases(ast) {
   return cases;
 }
 
-// Infer one type per input for a decision, scanning every case that targets it. Numeric usage
-// wins (a relational comparison must compile), then boolean, else string. Falls back to 'string'.
+// A declared input type (`amount: number`, `Money`, `Flag`) as number, bool, or string; null when none.
+const NUMBER_TYPES = /^(number|int|integer|long|short|float|double|decimal|Money|Percentage|Count|Duration)$/i;
+const BOOL_TYPES = /^(boolean|bool|Flag)$/i;
+export function declaredInputType(raw) {
+  const m = String(raw).match(/:\s*([A-Za-z][\w<>]*)\s*$/);
+  if (!m) return null;
+  if (NUMBER_TYPES.test(m[1])) return 'number';
+  if (BOOL_TYPES.test(m[1])) return 'bool';
+  return 'string';
+}
+
+// How each input is used in the decision's rules: compared with a number, compared with text, or on its own (a yes/no).
+function usageTypes(dec, names) {
+  const out = {};
+  const NUM = /^-?\d+(\.\d+)?$/, STR = /^"[^"]*"$|^'[^']*'$/, CMP = /^(<|<=|>|>=|==|!=)$/;
+  for (const r of dec.rules || []) {
+    const toks = String(r.when || '').match(/"[^"]*"|'[^']*'|[A-Za-z_][\w.]*|-?\d+(?:\.\d+)?|<=|>=|==|!=|[<>()]/g) || [];
+    toks.forEach((t, i) => {
+      if (!names.includes(t)) return;
+      const op = CMP.test(toks[i + 1] || '') ? toks[i + 1] : CMP.test(toks[i - 1] || '') ? toks[i - 1] : null;
+      const other = op === toks[i + 1] ? toks[i + 2] : op ? toks[i - 2] : null;
+      if (op && NUM.test(other || '')) out[t] = 'number';
+      else if (op && /^[<>]=?$/.test(op) && names.includes(other || '')) out[t] = out[t] ?? 'number';
+      else if (op && STR.test(other || '') && out[t] !== 'number') out[t] = 'string';
+      else if (!op && out[t] == null) out[t] = 'bool';
+    });
+  }
+  return out;
+}
+
+// Infer one type per input for a decision. A declared type wins; then the values the decision's examples give
+// (numeric wins, so a relational comparison compiles, then boolean); then how the rules use the input.
+// Falls back to 'string'.
 export function inferInputTypes(ast, dec) {
   const names = inputNames(dec);
+  const declared = Object.fromEntries((dec.inputs || []).map((raw) => [String(raw).split(':')[0].trim(), declaredInputType(raw)]));
+  const usage = usageTypes(dec, names);
   const types = {};
   for (const n of names) {
-    let t = 'string';
+    if (declared[n]) { types[n] = declared[n]; continue; }
+    let t = null;
     for (const test of (ast.tests || []).filter((x) => x.name === dec.name)) {
       for (const c of test.cases || []) {
         const raw = (c.given || {})[n];
@@ -42,10 +76,11 @@ export function inferInputTypes(ast, dec) {
         const cv = coerceVal(raw);
         if (typeof cv === 'number') { t = 'number'; break; }
         if (typeof cv === 'boolean' && t !== 'number') t = 'bool';
+        if (typeof cv === 'string' && t == null) t = 'string';
       }
       if (t === 'number') break;
     }
-    types[n] = t;
+    types[n] = t ?? usage[n] ?? 'string';
   }
   return types;
 }

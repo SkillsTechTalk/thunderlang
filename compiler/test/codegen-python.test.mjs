@@ -50,7 +50,7 @@ test('generated Python has the provenance header, dataclasses, decision logic, a
   assert.match(py, /generated from ThunderLang/);
   assert.match(py, /Deterministic, no AI/);
   assert.match(py, /@dataclass\nclass CreateInvoiceInput:\n    email: str\n    amount: float/);
-  assert.match(py, /def can_reset\(tokenAgeMinutes, attempts\) -> str:/); // snake_case fn, verbatim inputs
+  assert.match(py, /def can_reset\(tokenAgeMinutes: float, attempts: float\) -> str:/); // snake_case fn, verbatim input names, typed from how the rules use them
   assert.match(py, /if \(tokenAgeMinutes > 15\):\n        return "Denied"  # rule expired/);
   assert.match(py, /return "Denied"  # default/);
   assert.match(py, /# GUARANTEE: it holds/);
