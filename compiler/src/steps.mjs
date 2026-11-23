@@ -24,6 +24,8 @@ export function sayCodeCondition(cond) {
   while (c.startsWith('(') && matchingClose(c, 0) === c.length - 1) c = c.slice(1, -1).trim();
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
   const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
+  const plural = (w, call) => !call && !/ /.test(w) && /[^sui]s$/.test(w) && w.length > 3;
+  if (prop && plural(words(prop[3]), !!prop[4])) return `${words(prop[2])} ${prop[1] ? 'has no' : 'has'} ${words(prop[3])}`;
   const yesNo = (w, call) => /^(is|has|can|should|was) /.test(w) || (!call && (/ed$/.test(w) || /^(active|valid|open|empty|ready|visible|available|enabled|required|admin|public|private|paid|due|overdue|eligible|blocked)$/.test(w)));
   if (prop && yesNo(words(prop[3]), !!prop[4])) {
     const neg = !!prop[1];
@@ -208,7 +210,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     }
     const chain = sayChain(expr);
     if (chain) return { kind: 'return', says: `Returns ${chain}`, code };
-    if (/^[({]/.test(expr) || /^\{/.test(expr)) return { kind: 'return', says: /^\(?\s*</.test(expr) ? 'Returns what to show on screen' : 'Returns an object', code };
+    if (/^\(?\s*\{/.test(expr)) return { kind: 'return', says: 'Returns an object', code };
     if (/^\(?\s*</.test(expr)) return { kind: 'return', says: 'Returns what to show on screen', code };
     const v = sayValue(expr) || sayWhether(expr);
     return { kind: 'return', says: v ? `Returns ${v}` : 'Returns a computed value', code, ...(v ? {} : { value: clip(expr, 60) }) };
@@ -286,7 +288,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
       return { kind: 'set', says: `Works out ${target} from ${lastWords(c)}`, code, callee: c };
     }
     if (!value) return { kind: 'set', says: `Works out ${target}`, code };
-    if (m[2] === '+=' || m[2] === '-=') return { kind: 'set', says: `${m[2] === '+=' ? 'Adds to' : 'Subtracts from'} ${target}`, code };
+    if (m[2] === '+=' || m[2] === '-=') { const what = /^[\w.]+$/.test(value) ? `${value.split('.').filter((p) => !/^(self|this)$/.test(p)).slice(-2).map(words).join(' ')} ` : /^-?\d+(\.\d+)?$/.test(value) ? `${value} ` : ''; return { kind: 'set', says: what ? `${m[2] === '+=' ? 'Adds' : 'Subtracts'} ${what}${m[2] === '+=' ? 'to' : 'from'} ${target}` : `${m[2] === '+=' ? 'Adds to' : 'Subtracts from'} ${target}`, code }; }
     const v = sayValue(value);
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
   }

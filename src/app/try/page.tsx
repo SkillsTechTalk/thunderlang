@@ -16,7 +16,7 @@ export default function TryPage() {
   const plain = read("RefundApproval.thunder-plain");
   return <><PageHero eyebrow="Start here · No install" title="Read your software’s rules in Thunder."
     intro="See why a refund is approved, change one condition, and find out which cases are affected. Start with a question: a customer asks for exactly $100, on time. Approve or review?" />
-    <Section className="!pt-0"><div className="mx-auto max-w-3xl"><PlainRuleCard initialSource={plain} breadcrumb={["Commerce", "Refunds"]} /></div></Section>
+    <Section className="!pt-0"><div className="mx-auto max-w-3xl"><PlainRuleCard ask="What happens to this refund?" initialSource={plain} breadcrumb={["Commerce", "Refunds"]} /></div></Section>
     <Section className="!pt-0">
       <SectionHeading eyebrow="Thundered Python" title="Your Python, read in Thunder." intro="On the left, a refund rule in Python. On the right, the same Python Thundered: Thunder read it and drew it. Thundering also works for TypeScript, Java, C#, Go and more." />
       <div className="mt-8"><OpenThunderLink soon title="Change a rule in your own code" body="In OpenThunder, changing “at most” to “under” in the picture will write the matching change to your TypeScript or Python and check it against your examples." cta="Follow OpenThunder" /></div>

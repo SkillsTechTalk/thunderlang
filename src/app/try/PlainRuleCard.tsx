@@ -59,7 +59,7 @@ export function ConditionRow({ model, c, onChange }: { model: PlainModel; c: Pla
   </li>;
 }
 
-export function PlainRuleCard({ initialSource, breadcrumb }: { initialSource: string; breadcrumb: string[] }) {
+export function PlainRuleCard({ initialSource, breadcrumb, ask = "What does the rule answer here?" }: { initialSource: string; breadcrumb: string[]; ask?: string }) {
   const initial = useMemo(() => parsePlainContract(initialSource), [initialSource]);
   const [model, setModel] = useState<PlainModel>(initial);   // applied rule
   const [draft, setDraft] = useState<PlainModel>(initial);   // rule with unapplied edits
@@ -115,7 +115,7 @@ export function PlainRuleCard({ initialSource, breadcrumb }: { initialSource: st
 
     <section aria-labelledby="{`${ids}-ask`}" className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
       <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">1 · Ask the rule</p>
-      <h4 id={`${ids}-ask`} className="mt-1 flex items-center gap-2 font-semibold text-white"><ExampleGlyph />What happens to this refund? {pending && <span className="text-xs font-normal text-haze-400">(using your unapplied change)</span>}</h4>
+      <h4 id={`${ids}-ask`} className="mt-1 flex items-center gap-2 font-semibold text-white"><ExampleGlyph />{ask} {pending && <span className="text-xs font-normal text-haze-400">(using your unapplied change)</span>}</h4>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {draft.inputs.map(input => input.kind === "yesno"
           ? <fieldset key={input.id} className="flex rounded-lg border border-white/15 p-0.5">
