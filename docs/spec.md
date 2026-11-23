@@ -1,6 +1,6 @@
 # The Thunder Programming Language: specification V1
 
-> **Status:** V1, 2026-11-23. Replaces the [mission specification draft v0.2](/docs/spec-v0.2).
+> **Status:** V1, 2026-11-23. Replaces the [mission specification draft v0.2](/docs/spec-v0-2).
 > The machine-readable form of this specification is `thunder-visual-v1`, exported by the Thunder compiler
 > (`THUNDER_VISUAL`, `visualFor`, `thunderText` from `@skillstech/thunderlang/core`). Where this page and that data
 > disagree, the data is right and this page has a bug. Each element below is marked **works today**, **some

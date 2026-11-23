@@ -122,7 +122,7 @@ via the shipped grammar.
 - **Drive the loop from your agent**: [ThunderLang for AI agents (MCP)](/docs/mcp).
 - **Executable intent**: the [Intent Runtime](/docs/intent-runtime) and [first-class tests](/docs/intent-tests).
 - **Interop**: [export](/docs/export-adapters) to DMN/BPMN/JSON-Schema/OpenAPI and [import](/docs/import-adapters) back.
-- **The whole language**: the [syntax overview](/docs/syntax-overview) and the [specification](/docs/spec-v0.2).
+- **The whole language**: the [syntax overview](/docs/syntax-overview) and the [specification](/docs/spec-v0-2).
 - **Already have a codebase?** [Adopt ThunderLang on it](/docs/adopting-thunderlang): lift, review, check, gate, and keep in sync, one mission at a time.
 
 The whole loop, author, run, test, gate, in one deterministic toolchain. That is what beyond prompt
