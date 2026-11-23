@@ -136,13 +136,26 @@ function findFunctions(src, language) {
   const fns = [];
   if (language === 'python') {
     const lines = src.split('\n');
-    lines.forEach((l, i) => {
-      const m = l.match(/^(\s*)(?:async\s+)?def\s+(\w+)\s*\((.*)\)\s*(?:->\s*([^:]+))?:\s*(.*)$/);
-      if (!m) return;
-      const indent = m[1].length;
+    let decorators = [];
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      // Decorators: `@router.get(` can run over several lines (FastAPI keyword arguments); keep each one whole.
+      if (/^\s*@/.test(l)) {
+        const { text, end } = pyBalanced(lines, i, l.indexOf('@'));
+        decorators.push(text.replace(/\s+/g, ' ').trim());
+        i = end;
+        continue;
+      }
+      const start = l.match(/^(\s*)(?:async\s+)?def\s+(\w+)\s*\(/);
+      if (!start) { if (l.trim() && !/^\s*#/.test(l)) decorators = []; continue; }
+      // The header can span lines: parameters one per line (FastAPI `Depends(...)`), a wrapped return type.
+      const head = pyHeader(lines, i, start[0].length - 1);
+      if (!head) { decorators = []; continue; }
+      const indent = start[1].length;
       const body = [];
-      if (pyNoComment(m[5]).trim()) body.push({ text: pyNoComment(m[5]).trim(), line: i + 1, indent: indent + 4 });
-      for (let j = i + 1; j < lines.length; j++) {
+      const inline = pyNoComment(head.after).trim();
+      if (inline) body.push({ text: inline, line: head.endLine + 1, indent: indent + 4 });
+      for (let j = head.endLine + 1; j < lines.length; j++) {
         const t = lines[j];
         if (!t.trim() || /^\s*#/.test(t)) continue;
         const ind = t.match(/^\s*/)[0].length;
@@ -151,8 +164,10 @@ function findFunctions(src, language) {
         if (!code) continue;
         body.push({ text: code, line: j + 1, indent: ind });
       }
-      fns.push({ name: m[2], line: i + 1, params: parseParams(m[3], language), returns: m[4]?.trim() || null, pyBody: body });
-    });
+      const doc = inline ? null : pyDocstring(lines, head.endLine + 1);
+      fns.push({ name: start[2], line: i + 1, params: parseParams(head.params, language), returns: head.returns, pyBody: body, ...(decorators.length ? { decorators } : {}), ...(doc ? { doc } : {}) });
+      decorators = [];
+    }
     annotateRoutes(fns, src);
     return fns;
   }
@@ -264,13 +279,121 @@ function findFunctions(src, language) {
   return fns.sort((a, b) => a.line - b.line);
 }
 /** Mark functions that a decorator or annotation binds to an HTTP route. */
+// ── Python helpers: balanced text across lines, multi-line `def` headers, docstrings ─────────────────
+/** Text from lines[i] at column `col` until brackets balance (strings skipped). Returns { text, end } (end line index). */
+function pyBalanced(lines, i, col) {
+  let depth = 0, text = '', quote = null;
+  for (let j = i; j < lines.length; j++) {
+    const l = j === i ? lines[j].slice(col) : lines[j];
+    for (let k = 0; k < l.length; k++) {
+      const c = l[k];
+      if (quote) { if (c === '\\') k++; else if (c === quote) quote = null; continue; }
+      if (c === '"' || c === "'") quote = c;
+      else if (c === '#') break;
+      else if ('([{'.includes(c)) depth++;
+      else if (')]}'.includes(c)) depth--;
+    }
+    text += (j === i ? '' : '\n') + l;
+    quote = null; // Python strings do not span lines without triple quotes; triple-quoted args are rare in headers
+    if (depth <= 0) return { text, end: j };
+  }
+  return { text, end: lines.length - 1 };
+}
+
+/** A `def name(` header starting at lines[i], `open` = column of `(`. Returns { params, returns, after, endLine } or null. */
+function pyHeader(lines, i, open) {
+  let depth = 0, quote = null, params = '', closed = false, tail = '';
+  for (let j = i; j < lines.length && j < i + 80; j++) {
+    const l = lines[j];
+    for (let k = j === i ? open : 0; k < l.length; k++) {
+      const c = l[k];
+      if (!closed) {
+        if (quote) { params += c; if (c === '\\') { params += l[k + 1] ?? ''; k++; } else if (c === quote) quote = null; continue; }
+        if (c === '#') break;
+        if (c === '"' || c === "'") { quote = c; params += c; continue; }
+        if (c === '(') { if (depth++ === 0) continue; }
+        else if (c === ')') { if (--depth === 0) { closed = true; continue; } }
+        params += c;
+        continue;
+      }
+      // After the parameter list: `-> type` (brackets may wrap lines), then the header's own colon.
+      if (c === '#' && depth === 0) break;
+      if ('([{'.includes(c)) depth++;
+      else if (')]}'.includes(c)) depth--;
+      if (c === ':' && depth === 0) {
+        const ret = tail.trim().replace(/^->\s*/, '').replace(/\s+/g, ' ').trim();
+        return { params: params.replace(/\s+/g, ' ').trim(), returns: ret || null, after: l.slice(k + 1), endLine: j };
+      }
+      tail += c;
+    }
+    if (!closed) params += ' ';
+    else tail += ' ';
+  }
+  return null;
+}
+
+/** The function's docstring (first statement), as plain text: its first paragraph, without Args/Returns sections. */
+function pyDocstring(lines, from) {
+  let j = from;
+  while (j < lines.length && (!lines[j].trim() || /^\s*#/.test(lines[j]))) j++;
+  const first = lines[j]?.trim();
+  const m = first?.match(/^([rRuU]?)("""|\'\'\'|"|')/);
+  if (!m) return null;
+  const q = m[2];
+  let text = first.slice(m[0].length);
+  if (text.includes(q)) text = text.slice(0, text.indexOf(q));
+  else {
+    if (q.length === 1) return null;
+    for (let k = j + 1; k < lines.length && k < j + 60; k++) {
+      const at = lines[k].indexOf(q);
+      if (at >= 0) { text += '\n' + lines[k].slice(0, at); break; }
+      text += '\n' + lines[k];
+    }
+  }
+  return cleanDoc(text);
+}
+
+/** First paragraph of a doc comment, whitespace collapsed, without parameter sections. Null when empty. */
+function cleanDoc(text) {
+  const para = [];
+  for (const raw of String(text).split('\n')) {
+    const t = raw.replace(/^\s*(\*|\/\/\/?|#)?\s?/, '').trim();
+    if (/^(@\w+|:(param|return|rtype|raises|type)\b|(Args|Arguments|Parameters|Returns|Raises|Yields|Example|Examples|Note|Notes)\s*:|<\/?(summary|param|returns)\b)/i.test(t)) break;
+    if (!t) { if (para.length) break; continue; }
+    para.push(t.replace(/<\/?summary>/g, ''));
+  }
+  const s = para.join(' ').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  return s.length > 300 ? `${s.slice(0, 299)}…` : s;
+}
+
+// A doc comment directly above a function (a /** block, /// lines, Go // lines, Ruby # lines), skipping annotations.
+function leadingDoc(lines, fnLine, language) {
+  let k = fnLine - 2;
+  while (k >= 0 && /^\s*(@|#\[|\[[A-Z])/.test(lines[k])) k--; // annotations and attributes
+  if (k < 0) return null;
+  if (/\*\/\s*$/.test(lines[k])) {
+    const end = k;
+    while (k >= 0 && !/\/\*\*/.test(lines[k])) k--;
+    if (k < 0) return null;
+    return cleanDoc(lines.slice(k, end + 1).join('\n').replace(/^\s*\/\*\*/, '').replace(/\*\/\s*$/, ''));
+  }
+  const lineDoc = language === 'go' ? /^\s*\/\/(?!\/)/ : language === 'ruby' ? /^\s*#(?![!{])/ : /^\s*\/\/\//;
+  const got = [];
+  while (k >= 0 && lineDoc.test(lines[k])) got.unshift(lines[k--]);
+  return got.length ? cleanDoc(got.join('\n')) : null;
+}
+
 function annotateRoutes(fns, src) {
   // Decorated handlers: @app.get("/x") / @router.post (Python), @GetMapping (Spring), [HttpGet] (ASP.NET), @Get() (NestJS).
   const lines = src.split('\n');
   for (const fn of fns) {
     if (fn.route) continue;
-    for (let k = fn.line - 2; k >= Math.max(0, fn.line - 6); k--) {
-      const l = lines[k].trim();
+    // Python collects whole decorators (they can span lines); other languages look at the few lines above.
+    const above = fn.decorators
+      ? [...fn.decorators].reverse()
+      : lines.slice(Math.max(0, fn.line - 6), Math.max(0, fn.line - 1)).reverse().map((x) => x.trim());
+    for (const l of above) {
       let m;
       if ((m = l.match(/^@\w+\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/i))) { fn.route = { method: m[1].toUpperCase(), path: m[2] }; break; }
       if ((m = l.match(/^@\w+\.route\(\s*['"]([^'"]*)['"](?:.*methods\s*=\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'GET').toUpperCase(), path: m[1] }; break; }
@@ -1544,6 +1667,7 @@ export function readCode(source, { language, file = '' } = {}) {
   const code = lang === 'php' ? normalizePhp(src) : src;
   const items = [];
   const srcLines = src.split('\n');
+  const codeLines = code.split('\n');
   for (const fn of findFunctions(code, lang)) {
     const inputs = fn.params;
     const names = inputs.map((p) => p.name);
@@ -1566,9 +1690,13 @@ export function readCode(source, { language, file = '' } = {}) {
       guards.sort((a, b) => a.line - b.line);
     }
     const guardNote = guards.length ? ` It checks ${guards.length} condition${guards.length === 1 ? '' : 's'} first: ${guards.map((g) => g.says.replace(/\.$/, '')).join('; ')}.` : '';
+    // The author's own words for what the function means (docstring or doc comment), kept apart from the
+    // reading inferred from the code so a view can show both and say which is which.
+    const doc = fn.doc ?? (lang === 'python' ? null : leadingDoc(codeLines, fn.line, lang));
     const base = {
       id: `${fn.name}:${fn.line}`, name: fn.name, line: fn.line, inputs, returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
+      ...(doc ? { doc } : {}),
       provenance: 'inferred-from-code',
     };
     if (isDecision) {

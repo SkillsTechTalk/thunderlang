@@ -62,7 +62,11 @@ function firstArgs(text) {
 }
 
 function sayValue(expr) {
-  const e = stripTail(expr);
+  const e = stripTail(expr).replace(/\s+as\s+[\w.<>\[\]|, ]+$/, '');
+  const py = sayPython(e);
+  if (py) return py;
+  const common = sayCommon(e);
+  if (common) return common;
   if (/^["'`].*["'`]$/.test(e)) return `"${clip(e.slice(1, -1), 40)}"`;
   if (/^-?\d+(\.\d+)?$/.test(e) || /^(true|false|True|False|nil|null|None|undefined)$/.test(e)) return e;
   const c = callee(e);
@@ -72,6 +76,77 @@ function sayValue(expr) {
   }
   if (/^[A-Za-z_$][\w$.]*$/.test(e)) return words(e.split('.').pop());
   return null;
+}
+
+/** Python comprehensions and the builtins that summarize a collection, said as what they produce. */
+const PY_SUMMARY = [
+  { re: /^any$/, say: (src, cond) => `whether any item in ${src}${cond ? ` where ${cond}` : ''} matches` },
+  { re: /^all$/, say: (src, cond) => `whether every item in ${src}${cond ? ` where ${cond}` : ''} matches` },
+  { re: /^sum$/, say: (src) => `a total over ${src}` },
+  { re: /^min$/, say: (src) => `the smallest in ${src}` },
+  { re: /^max$/, say: (src) => `the largest in ${src}` },
+  { re: /^(?:sorted)$/, say: (src) => `${src}, sorted` },
+];
+const lastSeg = (x) => words(String(x).trim().replace(/\(\)$/, '').split('.').pop());
+/** "[r for r in rules if r.active]" -> "the items in rules where active"; "any(x.ok for x in xs)" -> "whether any item in xs matches". */
+function sayPython(value) {
+  const e = String(value).trim();
+  let m = e.match(/^\[\s*(.+?)\s+for\s+([\w, ()]+?)\s+in\s+(.+?)(?:\s+if\s+(.+?))?\s*\]$/);
+  if (m) {
+    const [, expr, v, src, cond] = m;
+    const vars = v.replace(/[()]/g, '').split(/\s*,\s*/);
+    const condSaid = cond ? sayCodeCondition(cond).replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '') : null;
+    if (vars.includes(expr.trim())) return condSaid ? `the items in ${lastSeg(src)} where ${condSaid}` : `the items in ${lastSeg(src)}`;
+    return `one ${lastSeg(expr.replace(/\(.*$/, ''))} for each item in ${lastSeg(src)}${condSaid ? ` where ${condSaid}` : ''}`;
+  }
+  if ((m = e.match(/^\{\s*(.+?)\s*:\s*.+?\s+for\s+[\w, ()]+?\s+in\s+(.+?)(?:\s+if\s+.+?)?\s*\}$/))) return `a lookup by ${lastSeg(m[1])} built from ${lastSeg(m[2])}`;
+  if ((m = e.match(/^len\(\s*([\w.]+)\s*\)$/))) return `how many ${lastSeg(m[1])}`;
+  if ((m = e.match(/^(\w+)\(\s*(.+?)\s+for\s+([\w, ()]+?)\s+in\s+(.+?)(?:\s+if\s+(.+?))?\s*\)$/))) {
+    const hit = PY_SUMMARY.find((k) => k.re.test(m[1]));
+    if (hit) {
+      const vars = m[3].replace(/[()]/g, '').split(/\s*,\s*/);
+      const condSaid = m[5] ? sayCodeCondition(m[5]).replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '') : null;
+      return hit.say(lastSeg(m[4]), condSaid);
+    }
+  }
+  if ((m = e.match(/^(any|all|sum|min|max|sorted)\(\s*([\w.]+)\s*\)$/))) return PY_SUMMARY.find((k) => k.re.test(m[1])).say(lastSeg(m[2]));
+  return null;
+}
+
+/**
+ * Everyday value shapes said as what they are, the same in every language: a new object, a value looked up by
+ * key, text built from parts, a conversion. Null when the shape is not one of these.
+ */
+function sayCommon(value) {
+  const e = String(value).trim().replace(/\s+as\s+[\w.<>\[\]|, ]+$/, '');
+  let m;
+  if ((m = e.match(/^&?([A-Z]\w*)(?:::new\s*\(|\s*\{)/)) || (m = e.match(/^(?:[\w.]+\.)?([A-Z]\w*)\{/))) return `a new ${m[1]}`;
+  if ((m = e.match(/^new\s*\(\s*(?:[\w]+\.)?([A-Z]\w*)\s*\)$/))) return `a new ${m[1]}`;
+  if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
+  if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return `the ${lastSeg(m[2])} entry in ${lastSeg(m[1])}`;
+  if (/["'`]\s*\+|\+\s*["'`]/.test(e) && !/[<>=!&|]/.test(e)) return 'text built from its parts';
+  if ((m = e.match(/^[A-Za-z_][\w.]*(\s*,\s*[A-Za-z_][\w.]*)+$/))) return e.split(/\s*,\s*/).map(lastSeg).join(' and ');
+  if ((m = e.match(/^make\(\s*(\[\]|map\[)/))) return m[1] === '[]' ? 'an empty list' : 'an empty lookup table';
+  if (/^(?:f|rf|fr)["']/.test(e) || /^`[^`]*\$\{/.test(e) || /^\$"/.test(e) || /^(?:fmt\.Sprintf|String\.format|format!)\(/.test(e)) return 'text built from its parts';
+  if ((m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
+  if ((m = e.match(/^([\w.]+)\[\s*["'`]([\w.\-: ]{1,40})["'`]\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
+  if ((m = e.match(/^([\w.]+)\.split\(\s*["'`]([^"'`]{0,10})["'`]/))) return `${lastSeg(m[1])} split at "${m[2]}"`;
+  if ((m = e.match(/^([\w.]+?)(?:\.copy|\.clone|\.Clone|\.dup)\(\)$/))) return `a copy of ${lastSeg(m[1])}`;
+  if ((m = e.match(/^(?:str|String|string)\(\s*([\w.]+)\s*\)$/)) || (m = e.match(/^([\w.]+)\.(?:toString|to_s|ToString)\(\)$/))) return `${lastSeg(m[1])} as text`;
+  if ((m = e.match(/^(?:int|float|Number|parseInt|parseFloat|strconv\.Atoi|Integer\.parseInt|int\.Parse)\(\s*([\w.]+)/))) return `${lastSeg(m[1])} as a number`;
+  if ((m = e.match(/^(?:JSON\.parse|json\.loads|json\.load|JsonSerializer\.Deserialize\w*)\(\s*([\w.]+)/))) return `${lastSeg(m[1])} read as JSON`;
+  if ((m = e.match(/^(?:JSON\.stringify|json\.dumps|JsonSerializer\.Serialize)\(\s*([\w.]+)/))) return `${lastSeg(m[1])} written as JSON`;
+  if (/^(?:dict|Map|HashMap|map)\(\s*\)$|^\{\s*\}$|^new (?:Map|HashMap|Dictionary)\b/.test(e)) return 'an empty lookup table';
+  if (/^(?:list|Array|ArrayList|vec!?)\(?\s*\)?$|^\[\s*\]$|^new (?:ArrayList|List)\b/.test(e)) return 'an empty list';
+  if ((m = e.match(/^len\(\s*([\w.]+)\s*\)$/)) || (m = e.match(/^([\w.]+)\.(?:length|size\(\)|Count|count\(\)|len\(\))$/))) return `how many ${lastSeg(m[1])}`;
+  return null;
+}
+/** A boolean expression (comparison or logic), said as a yes/no question. */
+const LOGIC = /(&&|\|\||[<>]=?|[!=]==?|\band\b|\bor\b|\bnot\b|\bis\b|^\s*!)/;
+function sayWhether(expr) {
+  const e = String(expr).trim();
+  if (!LOGIC.test(e) || /=>|\blambda\b|\?.*:/.test(e) || e.length > 90) return null;
+  return `whether ${sayCodeCondition(e)}`;
 }
 
 /** Classify one statement (its first line or header). Returns { kind, says, code } where code is the original text. */
@@ -125,7 +200,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (chain) return { kind: 'return', says: `Returns ${chain}`, code };
     if (/^[({]/.test(expr) || /^\{/.test(expr)) return { kind: 'return', says: /^\(?\s*</.test(expr) ? 'Returns what to show on screen' : 'Returns an object', code };
     if (/^\(?\s*</.test(expr)) return { kind: 'return', says: 'Returns what to show on screen', code };
-    const v = sayValue(expr);
+    const v = sayValue(expr) || sayWhether(expr);
     return { kind: 'return', says: v ? `Returns ${v}` : 'Returns a computed value', code, ...(v ? {} : { value: clip(expr, 60) }) };
   }
   // Loops
@@ -187,8 +262,12 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
     const target = m[1].split(/\s*,\s*/).map(targetWords).join(', ');
     const value = stripTail(m[3]);
-    const chain = value ? sayChain(value) : null;
+    const chain = value ? (sayPython(value) || sayChain(value)) : null;
     if (chain) return { kind: 'set', says: `Works out ${target}: ${chain}`, code };
+    const common = value ? sayCommon(m[3].trim().replace(/;$/, '')) || sayCommon(value) : null;
+    if (common) return { kind: 'set', says: `Sets ${target} to ${common}`, code };
+    const keyed = m[2] === '=' && m[1].match(/^([\w$.]+)\[\s*([^\]]+?)\s*\]$/);
+    if (keyed) return { kind: 'set', says: `Records ${words(keyed[2].replace(/["'`]/g, ''))} in ${targetWords(keyed[1])}`, code };
     const c = callee(value);
     if (c) {
       const known = sayCall(c, firstArgs(value));
@@ -202,6 +281,8 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
   }
   // Calls
+  if ((m = head.match(/^([\w$.]+)\.(?:set|Set|put|setdefault|Add)\(\s*["'`]([\w.\-: ]{1,40})["'`]\s*,/))) return { kind: 'call', says: `Sets "${m[2]}" on ${lastSeg(m[1])}`, code, callee: `${m[1]}.set` };
+  if ((m = head.match(/^([\w$.]+)\.(?:append|push|add|Add|insert|appendleft|extend)\(/)) && !/^(?:db|session|repo|conn|cursor)\b/.test(m[1])) return { kind: 'call', says: `Adds to ${lastSeg(m[1])}`, code, callee: m[1] };
   const c = callee(head);
   if (c) {
     const known = sayCall(c, firstArgs(head));
@@ -236,8 +317,27 @@ export function stepsFrom(statements) {
   }
   // Every step is kept (anchoring needs all of them); `more` tells a view how many to fold away.
   const more = Math.max(0, steps.length - MAX_STEPS);
-  return { steps, more, skipped, readable: steps.length ? steps.filter((x) => x.kind !== 'other').length / steps.length : 0 };
+  for (const st of steps) if (restates(st)) st.restates = true;
+  return { steps, more, skipped, readable: readableShare(steps) };
 }
+
+/**
+ * A step that only puts the code's syntax into English ("Works out actives", "Returns the result of any") tells a
+ * reader nothing the code did not. It is kept, but marked `restates` and not counted as read.
+ */
+const GENERIC_CALLS = /^(?:get|set|run|do|call|apply|handle|process|execute|exec|make|build|create|new|init|load|fetch|parse|convert|to|from|str|int|float|bool|list|dict|set|tuple|len|any|all|map|filter|next|iter|super|format|join|split|strip|copy|update|value|values|items|keys)$/;
+function restates(st) {
+  const s = st.says || '';
+  if (st.kind === 'other') return false;
+  if (/^Works out [^:]+$/.test(s) && !/ from /.test(s)) return true;
+  const same = s.match(/^Works out (.+) from (.+)$/);
+  if (same && same[1].trim() === same[2].trim()) return true; // "Works out licence from licence"
+  if (/^(Returns a computed value|Returns a value|Sets .+ to a computed value)$/.test(s)) return true;
+  const via = s.match(/(?:the result of|from|^Calls) ([\w ]+?)$/);
+  if (via && GENERIC_CALLS.test(via[1].trim())) return true;
+  return false;
+}
+const readableShare = (steps) => steps.length ? steps.filter((x) => x.kind !== 'other' && !x.restates).length / steps.length : 0;
 
 /** Top-level statements for a brace-language body, with the number of inner statements of each block. */
 export function braceStatements(stmts, split = null) {

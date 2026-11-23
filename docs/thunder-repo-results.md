@@ -11,27 +11,36 @@ thunder repo https://github.com/spf13/cobra --json
 thunder repo ./my-service
 ```
 
-## One public repository per supported language (2026-11-22)
+## One public repository per supported language (2026-11-23)
 
 Thunder reads a function in one of two ways. A **decision** (a function that chooses between fixed answers)
 becomes a Thunder rule card you can ask questions. **Every other function** is read as Thunder **steps**: a short
 plain list of what it does (checks, branches, loops, values it works out, services it calls, what it returns or
 fails with), with one level of nesting. A statement Thunder does not recognize stays as its original code.
 
+A step counts as read only when it explains something. A step that just puts the code's syntax into English
+("Works out actives", "Returns the result of any") is marked `restates` and does not count.
+
 | Language | Repository | Files | Rule cards (of decisions found) | Functions read as steps, at least 80% readable | Reader errors |
 | --- | --- | --- | --- | --- | --- |
-| Kotlin + Java | [JakeWharton/timber](https://github.com/JakeWharton/timber) | 12 | 0 of 3 | 194 of 243 (80%) | 0 |
-| JavaScript | [expressjs/express](https://github.com/expressjs/express) | 142 | 3 of 3 | 427 of 447 (96%) | 0 |
-| Java | [google/gson](https://github.com/google/gson) | 268 | 4 of 17 | 3462 of 3677 (94%) | 0 |
-| PHP | [guzzle/guzzle](https://github.com/guzzle/guzzle) | 147 | 10 of 17 | 2544 of 2616 (97%) | 0 |
-| TypeScript (React) | [jaredpalmer/formik](https://github.com/jaredpalmer/formik) | 120 | 2 of 3 | 218 of 233 (94%) | 0 |
-| C# | [jbogard/MediatR](https://github.com/jbogard/MediatR) | 161 | 3 of 4 | 830 of 862 (96%) | 0 |
-| Python | [psf/requests](https://github.com/psf/requests) | 37 | 3 of 3 | 599 of 632 (95%) | 0 |
-| Rust | [rust-lang/log](https://github.com/rust-lang/log) | 13 | 0 of 1 | 396 of 449 (88%) | 0 |
-| Ruby | [sinatra/sinatra](https://github.com/sinatra/sinatra) | 147 | 19 of 25 | 684 of 895 (76%) | 0 |
-| TypeScript | [sindresorhus/ky](https://github.com/sindresorhus/ky) | 98 | 0 of 1 | 1338 of 1370 (98%) | 0 |
-| Go | [spf13/cobra](https://github.com/spf13/cobra) | 36 | 2 of 2 | 551 of 587 (94%) | 0 |
-| **Total** | | **1181** | **46 of 79** | **11243 of 12011 (94%)** | **0** |
+| Kotlin + Java | [JakeWharton/timber](https://github.com/JakeWharton/timber) | 12 | 0 of 3 | 187 of 243 (77%) | 0 |
+| JavaScript | [expressjs/express](https://github.com/expressjs/express) | 142 | 3 of 3 | 306 of 447 (68%) | 0 |
+| Java | [google/gson](https://github.com/google/gson) | 268 | 4 of 17 | 2865 of 3677 (78%) | 0 |
+| PHP | [guzzle/guzzle](https://github.com/guzzle/guzzle) | 147 | 10 of 17 | 2014 of 2616 (77%) | 0 |
+| TypeScript (React) | [jaredpalmer/formik](https://github.com/jaredpalmer/formik) | 120 | 2 of 3 | 192 of 233 (82%) | 0 |
+| C# | [jbogard/MediatR](https://github.com/jbogard/MediatR) | 161 | 3 of 4 | 634 of 862 (74%) | 0 |
+| Python | [psf/requests](https://github.com/psf/requests) | 37 | 3 of 3 | 554 of 708 (78%) | 0 |
+| Rust | [rust-lang/log](https://github.com/rust-lang/log) | 13 | 0 of 1 | 336 of 449 (75%) | 0 |
+| Ruby | [sinatra/sinatra](https://github.com/sinatra/sinatra) | 147 | 19 of 25 | 511 of 895 (57%) | 0 |
+| TypeScript | [sindresorhus/ky](https://github.com/sindresorhus/ky) | 98 | 0 of 1 | 1277 of 1370 (93%) | 0 |
+| Go | [spf13/cobra](https://github.com/spf13/cobra) | 36 | 2 of 2 | 506 of 587 (86%) | 0 |
+| **Total** | | **1181** | **46 of 79** | **9382 of 12087 (78%)** | **0** |
+
+**Why these numbers are lower than the 2026-11-22 run (94%).** That run counted every recognized step as read,
+including steps that only restated syntax. Steps that only restate code no longer count. The reader also improved
+in the same change: Python functions whose parameters span several lines (most FastAPI endpoints) were skipped
+before and are read now (psf/requests: 632 functions found, now 708). Common shapes are said as what they are,
+such as a new object, a value looked up by key, text built from parts, a comprehension, or `any`/`all`.
 
 Reading all eleven repositories takes under 10 seconds. Example, from this repository's sample shop:
 
