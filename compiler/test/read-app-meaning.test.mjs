@@ -109,3 +109,13 @@ test('everyday value shapes are said as what they are', () => {
   assert.equal(says('return request.url is not None and request.method is not None'), 'Returns whether request.url is set and request.method is set');
   assert.equal(says('return host_params, pool_kwargs'), 'Returns host params and pool kwargs');
 });
+
+test('a yes/no property reads as a sentence; other property paths stay as they are', async () => {
+  const { sayCodeCondition } = await import('../src/steps.mjs');
+  assert.equal(sayCodeCondition('order.refunded'), 'order is refunded');
+  assert.equal(sayCodeCondition('not order.refunded'), 'order is not refunded');
+  assert.equal(sayCodeCondition('!user.isAdmin'), 'user is not admin');
+  assert.equal(sayCodeCondition('user.hasAccess'), 'user has access');
+  assert.equal(sayCodeCondition('self.cart.items'), 'self.cart.items');
+  assert.equal(sayCodeCondition('x.y()'), 'x.y()');
+});

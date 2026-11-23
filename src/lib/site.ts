@@ -34,6 +34,7 @@ export const siteConfig = {
 export type NavItem = { href: string; label: string };
 
 export const mainNav: NavItem[] = [
+  { href: "/language", label: "The language" },
   { href: "/read", label: "Thunder Code" },
   { href: "/try", label: "Try it" },
   { href: "/map", label: "Thunder Atlas" },
@@ -44,6 +45,7 @@ export const OPENTHUNDER_URL = "https://openthunder.dev";
 
 // Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
 export const learnNav: NavItem[] = [
+  { href: "/language", label: "The Thunder language" },
   { href: "/install", label: "Install" },
   { href: "/learn", label: "Tutorial" },
   { href: "/vision", label: "Vision" },

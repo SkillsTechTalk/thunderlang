@@ -6,7 +6,9 @@ should change, whatever language the software is written in.
 
 | Word | What it means | How you would say it |
 | --- | --- | --- |
+| **Human-native programming** | The paradigm: people work with the meaning of software while machines handle most of the implementation. Thunder is a human-native language | "Thunder is human-native: you read what the code means, not the code." |
 | **Thunder** | The Thunder programming language: the visual language people read and change rules in | "I read the refund rule in Thunder." |
+| **The Thunder Programming Language** | Thunder's full name. Specified in [Thunder V1](/docs/spec) | "The Thunder Programming Language, V1" |
 | **ThunderLang** | Another name for Thunder, the way Go is also called Golang. Used for the website, the package, the repository, and search | "Search for ThunderLang", thunderlang.dev, `@skillstech/thunderlang` |
 | **Thunder compiler** | The open-source compiler: checks rules, runs examples, generates code | `thunder test`, `thunder gen` |
 | **Thunder Text** | The interim written form: a Thunder picture in readable, structured words, stored and reviewed like code | `RefundApproval.thunder-plain`, `thunder text` |
@@ -17,7 +19,7 @@ should change, whatever language the software is written in.
 | **OpenThunder** | The IDE for Thunder: open your app, read it in Thunder, navigate it in the Atlas, change it, and verify every change | "Open the repo in OpenThunder and read the Thundered TypeScript." |
 | `thunder` | The command-line tool | `thunder plain RefundApproval.thunder-plain` |
 
-Thunder is the language; [OpenThunder](https://openthunder.dev) is where you use it on your app. The
+**Thunder is the language. [OpenThunder](https://openthunder.dev) is the IDE**, where you use it on your whole app. The
 Thunder compiler is open source and also runs on its own in your browser and terminal.
 
 ## Ways to see your software in Thunder

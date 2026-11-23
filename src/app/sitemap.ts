@@ -6,6 +6,7 @@ import { getDocSlugs, getExampleList } from "@/lib/docs";
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "/",
+    "/language",
     "/vision",
     "/docs",
     "/examples",

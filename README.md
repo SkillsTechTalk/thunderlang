@@ -175,7 +175,7 @@ More: [Thunder vocabulary](./docs/thunder-vocabulary.md) · [Language principles
 - **`src/`, `docs/`, `examples/`**: the [thunderlang.dev](https://thunderlang.dev) website (including the visual
   Thunder card and the Thunder map), the docs, and worked examples. Working on the website: [WEBSITE.md](./WEBSITE.md).
 
-Read more: [Spec](./docs/spec.md) · [Manifesto](./docs/manifesto.md) · [Editor support](./docs/editor-support.md)
+Read more: [Thunder V1 spec](./docs/spec.md) · [Manifesto](./docs/manifesto.md) · [Editor support](./docs/editor-support.md)
 
 ## Status
 

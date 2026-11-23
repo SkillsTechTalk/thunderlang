@@ -22,6 +22,15 @@ const KNOWN_CALLS = [
 export function sayCodeCondition(cond) {
   let c = String(cond).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
   while (c.startsWith('(') && matchingClose(c, 0) === c.length - 1) c = c.slice(1, -1).trim();
+  // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
+  const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
+  const yesNo = (w, call) => /^(is|has|can|should|was) /.test(w) || (!call && (/ed$/.test(w) || /^(active|valid|open|empty|ready|visible|available|enabled|required|admin|public|private|paid|due|overdue|eligible|blocked)$/.test(w)));
+  if (prop && yesNo(words(prop[3]), !!prop[4])) {
+    const neg = !!prop[1];
+    const w = words(prop[3]).replace(/^(is|has|can|should|was) /, (m) => m);
+    const verb = /^(is|was) /.test(w) ? w.replace(/^(is|was) /, neg ? '$1 not ' : '$1 ') : /^(has|can|should) /.test(w) ? (neg ? `does not ${w.replace(/^has /, 'have ')}` : w).replace(/^does not can /, 'cannot ').replace(/^does not should /, 'should not ') : `is ${neg ? 'not ' : ''}${w}`;
+    return `${words(prop[2])} ${verb}`;
+  }
   return clip(c
     .replace(/\s*(===|==)\s*(nil|null|None|undefined|""|'')(?=\s|\)|$)/g, ' is empty')
     .replace(/\s*(!==|!=)\s*(""|'')(?=\s|\)|$)/g, ' is not empty')
@@ -95,7 +104,7 @@ function sayPython(value) {
   if (m) {
     const [, expr, v, src, cond] = m;
     const vars = v.replace(/[()]/g, '').split(/\s*,\s*/);
-    const condSaid = cond ? sayCodeCondition(cond).replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '') : null;
+    const condSaid = cond ? sayCodeCondition(cond.replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '')) : null;
     if (vars.includes(expr.trim())) return condSaid ? `the items in ${lastSeg(src)} where ${condSaid}` : `the items in ${lastSeg(src)}`;
     return `one ${lastSeg(expr.replace(/\(.*$/, ''))} for each item in ${lastSeg(src)}${condSaid ? ` where ${condSaid}` : ''}`;
   }
@@ -105,7 +114,7 @@ function sayPython(value) {
     const hit = PY_SUMMARY.find((k) => k.re.test(m[1]));
     if (hit) {
       const vars = m[3].replace(/[()]/g, '').split(/\s*,\s*/);
-      const condSaid = m[5] ? sayCodeCondition(m[5]).replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '') : null;
+      const condSaid = m[5] ? sayCodeCondition(m[5].replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '')) : null;
       return hit.say(lastSeg(m[4]), condSaid);
     }
   }
@@ -123,6 +132,7 @@ function sayCommon(value) {
   if ((m = e.match(/^&?([A-Z]\w*)(?:::new\s*\(|\s*\{)/)) || (m = e.match(/^(?:[\w.]+\.)?([A-Z]\w*)\{/))) return `a new ${m[1]}`;
   if ((m = e.match(/^new\s*\(\s*(?:[\w]+\.)?([A-Z]\w*)\s*\)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
+  if ((m = e.match(/^[\w.]+\.(?:get|get_or_404|find|Find|findById|find_by_id)\(\s*([A-Z]\w*)\s*,\s*([\w.]+)\s*\)$/))) return `the ${m[1]} with ${lastSeg(m[2])}`;
   if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return `the ${lastSeg(m[2])} entry in ${lastSeg(m[1])}`;
   if (/["'`]\s*\+|\+\s*["'`]/.test(e) && !/[<>=!&|]/.test(e)) return 'text built from its parts';
   if ((m = e.match(/^[A-Za-z_][\w.]*(\s*,\s*[A-Za-z_][\w.]*)+$/))) return e.split(/\s*,\s*/).map(lastSeg).join(' and ');

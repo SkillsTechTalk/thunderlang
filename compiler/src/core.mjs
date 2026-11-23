@@ -10,6 +10,7 @@ export { compileHumanContract, previewHumanContract, renderHumanContract, render
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
+export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from './visual.mjs';
 export { PLAIN_SCHEMA, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 
 // Classification model (observed/inferred/proposed/... + isFactual). Node-free.

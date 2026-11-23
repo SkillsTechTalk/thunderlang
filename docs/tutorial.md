@@ -197,7 +197,7 @@ trust is earned. `thunder graph` emits the Intent Graph; `thunder source` regene
 ## Where to go next
 
 - The [syntax overview](/docs/syntax-overview) for the full construct tour.
-- The [language specification](/docs/spec) for the exhaustive grammar.
+- The [language specification](/docs/spec-v0.2) for the exhaustive grammar.
 - The [Intent Runtime](/docs/intent-runtime) and [first-class tests](/docs/intent-tests)
   for executable intent in depth.
 - The [examples](/examples) directory for complete missions.

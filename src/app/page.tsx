@@ -9,6 +9,7 @@ import { readCode } from "../../compiler/src/read.mjs";
 import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
 import type { PlainModel } from "../../compiler/src/plain-contract.d.mts";
 import { PROJECT_FACTS } from "@/lib/facts";
+import { OPENTHUNDER_URL } from "@/lib/site";
 import { THUNDERED_SAMPLES } from "@/lib/thundered-samples";
 import { ThunderedTabs, type ThunderedSample } from "@/components/ThunderedTabs";
 
@@ -91,9 +92,15 @@ export default function HomePage() {
               decisions, and change its rules. The Thunder compiler turns them into the code you ship and checks every AI
               change against them.
             </p>
+            <p className="mt-4 max-w-xl text-base text-haze-200">
+              <Link href="/language" className="font-semibold text-gold-200 hover:text-gold-100">Thunder is the language.</Link>{" "}
+              <a href={OPENTHUNDER_URL} className="font-semibold text-gold-200 hover:text-gold-100">OpenThunder is the IDE.</a>{" "}
+              Together they are <Link href="/language" className="text-gold-300 underline decoration-gold-300/40 underline-offset-4 hover:text-gold-200">human-native programming</Link>:
+              people work with what software means, and machines handle most of the code.
+            </p>
             <p className="mt-3 max-w-xl text-sm text-haze-400">
-              Today Thunder covers decisions and business rules: refunds, access, pricing, eligibility. It is not yet a
-              general-purpose programming language.
+              Today Thunder reads code in ten languages and draws its decisions as cards you can question. Writing whole
+              programs in Thunder is not available yet.
             </p>
             <div className="mt-8">
               <CTAButtons
