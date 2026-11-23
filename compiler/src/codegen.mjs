@@ -9,6 +9,15 @@
 
 import { exprToJs, exprToCSharp, exprToJava, exprToPython } from './expr.mjs';
 import { subjectName } from './parse.mjs';
+import { inputNames, inferInputTypes } from './target-types.mjs';
+
+// Decision inputs as plain names with one type each (declared, else from the examples, else from how the rules use
+// them), so generated code type-checks: `amount >= 0` needs a number, not unknown or Object.
+const decisionParams = (ast, d) => { const names = inputNames(d); const types = inferInputTypes(ast, d); return names.map((name) => ({ name, type: types[name] })); };
+const TS_PARAM = { number: 'number', bool: 'boolean', string: 'string' };
+const CS_PARAM = { number: 'double', bool: 'bool', string: 'string' };
+const JAVA_PARAM = { number: 'double', bool: 'boolean', string: 'String' };
+const PY_PARAM = { number: 'float', bool: 'bool', string: 'str' };
 
 export const CODEGEN_SCHEMA = 'intent-codegen-v1';
 
@@ -60,8 +69,9 @@ export function toTypeScript(ast) {
 
   // Decisions , real, first-hit logic (the intent already executes these).
   for (const d of ast.decisions || []) {
-    const inputs = d.inputs || [];
-    const params = inputs.map((i) => `${i}: unknown`).join(', ');
+    const ps = decisionParams(ast, d);
+    const inputs = ps.map((x) => x.name);
+    const params = ps.map((x) => `${x.name}: ${TS_PARAM[x.type]}`).join(', ');
     L.push(`// decision ${d.name} , first matching rule wins.`);
     L.push(`export function ${lower(pascal(d.name))}(${params}): string {`);
     for (const r of d.rules || []) {
@@ -78,7 +88,10 @@ export function toTypeScript(ast) {
   const inName = (ast.inputs || []).length ? `${subject}Input` : 'void';
   const outName = (ast.outputs || []).length ? `${subject}Output` : 'void';
   const arg = inName === 'void' ? '' : `input: ${inName}`;
-  L.push(`export function ${lower(subject)}(${arg}): ${outName} {`);
+  // A decision often shares the mission's name (RefundDecision); the mission function is then `run`, as in Java and Python.
+  const decisionFns = new Set((ast.decisions || []).map((d) => lower(pascal(d.name))));
+  const missionFn = decisionFns.has(lower(subject)) ? 'run' : lower(subject);
+  L.push(`export function ${missionFn}(${arg}): ${outName} {`);
   for (const r of ast.requires || []) L.push(`  // precondition: ${r}  , TODO: validate`);
   for (const n of ast.neverRules || []) L.push(`  // NEVER: ${n.statement}  , your code must not do this`);
   for (const g of ast.guarantees || []) L.push(`  // GUARANTEE: ${g.statement}  , your code must uphold this${g.verify?.length ? ` (verify: ${g.verify.join(', ')})` : ''}`);
@@ -133,9 +146,12 @@ export function toCSharp(ast) {
   if ((ast.outputs || []).length) L.push(...rec(`${subject}Output`, ast.outputs));
   L.push(`public static class ${subject}`, '{');
   for (const d of ast.decisions || []) {
-    const inputs = d.inputs || [];
+    const ps = decisionParams(ast, d);
+    const inputs = ps.map((x) => x.name);
+    // A C# member cannot share its class's name (CS0542): a decision named like the mission becomes Decide.
+    const method = pascal(d.name) === subject ? 'Decide' : pascal(d.name);
     L.push(`  // decision ${d.name} , first matching rule wins.`);
-    L.push(`  public static string ${pascal(d.name)}(${inputs.map((i) => `dynamic ${i}`).join(', ')})`);
+    L.push(`  public static string ${method}(${ps.map((x) => `${CS_PARAM[x.type]} ${x.name}`).join(', ')})`);
     L.push('  {');
     for (const r of d.rules || []) {
       let cond; try { cond = exprToCSharp(r.when, { inputs }); } catch { cond = `false /* TODO: could not translate "${r.when}" */`; }
@@ -189,9 +205,10 @@ export function toJava(ast) {
   if ((ast.inputs || []).length) L.push(...rec(`${subject}Input`, ast.inputs));
   if ((ast.outputs || []).length) L.push(...rec(`${subject}Output`, ast.outputs));
   for (const d of ast.decisions || []) {
-    const inputs = d.inputs || [];
+    const ps = decisionParams(ast, d);
+    const inputs = ps.map((x) => x.name);
     L.push(`  // decision ${d.name} , first matching rule wins.`);
-    L.push(`  public static String ${lower(pascal(d.name))}(${inputs.map((i) => `Object ${i}`).join(', ')}) {`);
+    L.push(`  public static String ${lower(pascal(d.name))}(${ps.map((x) => `${JAVA_PARAM[x.type]} ${x.name}`).join(', ')}) {`);
     for (const r of d.rules || []) {
       let cond; try { cond = exprToJava(r.when, { inputs }); } catch { cond = `false /* TODO: could not translate "${r.when}" */`; }
       L.push(`    if (${cond}) return ${JSON.stringify(r.result)}; // rule ${r.name}`);
@@ -247,9 +264,10 @@ export function toPython(ast) {
   if ((ast.inputs || []).length) L.push(...cls(`${subject}Input`, ast.inputs));
   if ((ast.outputs || []).length) L.push(...cls(`${subject}Output`, ast.outputs));
   for (const d of ast.decisions || []) {
-    const inputs = d.inputs || [];
+    const ps = decisionParams(ast, d);
+    const inputs = ps.map((x) => x.name);
     L.push(`# decision ${d.name} , first matching rule wins.`);
-    L.push(`def ${snake(d.name)}(${inputs.join(', ')}) -> str:`);
+    L.push(`def ${snake(d.name)}(${ps.map((x) => `${x.name}: ${PY_PARAM[x.type]}`).join(', ')}) -> str:`);
     for (const r of d.rules || []) {
       let cond, note = '';
       try { cond = exprToPython(r.when, { inputs }); }
