@@ -1,0 +1,105 @@
+# Publishes ThunderLang whenever a version bump lands on main, so npm and the VS Code Marketplace never fall
+# behind the repository. Nothing is published unless the version in package.json is new.
+#
+# No tokens are stored. Both registries trust this workflow file directly (OIDC trusted publishing):
+#   npm:          npmjs.com > @skillstech/thunderlang > Settings > Trusted Publisher
+#                 (GitHub Actions, owner SkillsTechTalk, repository thunderlang, workflow release.yml)
+#   Marketplace:  marketplace.visualstudio.com/manage/publishers/openthunder > Trusted Publishing
+#                 (repository SkillsTechTalk/thunderlang, workflow release.yml)
+#
+# To release: bump the version (compiler/package.json, CHANGELOG.md, COMPILER_VERSION in compiler/src/emit.mjs,
+# and editors/vscode/package.json to match), merge to main. Then update PUBLISHED_VERSION in src/lib/facts.ts.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - compiler/package.json
+      - editors/vscode/package.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # lets each registry verify this workflow instead of a stored token
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  npm:
+    name: npm (@skillstech/thunderlang)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: compiler
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Is this version already on npm?
+        id: check
+        run: |
+          V=$(node -p "require('./package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if npm view "@skillstech/thunderlang@$V" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::@skillstech/thunderlang $V is already on npm. Nothing to publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install
+        if: steps.check.outputs.publish == 'true'
+        run: npm ci
+
+      - name: Publish (builds and runs the full test suite first)
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          npm install -g npm@^11.5.1   # trusted publishing needs npm 11.5.1 or newer
+          npm publish --access public
+          echo "::notice::Published @skillstech/thunderlang ${{ steps.check.outputs.version }} to npm."
+
+  vscode:
+    name: VS Code Marketplace (openthunder.thunderlang)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Is this version already on the Marketplace?
+        id: check
+        run: |
+          V=$(node -p "require('./package.json').version")
+          ID=$(node -p "const p=require('./package.json'); p.publisher + '.' + p.name")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          LIVE=$(npx --yes @vscode/vsce@^4.1.1 show "$ID" --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).versions[0].version)}catch{console.log('')}})")
+          echo "Marketplace has: ${LIVE:-nothing}. Repository has: $V."
+          if [ "$LIVE" = "$V" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$ID $V is already on the Marketplace. Nothing to publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install
+        if: steps.check.outputs.publish == 'true'
+        run: npm ci
+
+      - name: Publish
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          npx --yes @vscode/vsce@^4.1.1 publish --oidc
+          echo "::notice::Published the ThunderLang extension ${{ steps.check.outputs.version }} to the VS Code Marketplace."
