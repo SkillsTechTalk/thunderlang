@@ -4,13 +4,14 @@ import { readCode } from "../../../compiler/src/read.mjs";
 import { thunderText, visualFor } from "../../../compiler/src/visual.mjs";
 import { thunderModel, modelText } from "../../../compiler/src/model.mjs";
 import type { ThunderModel } from "../../../compiler/src/model.d.mts";
-import { READ_LESSONS } from "./read-lessons.mjs";
+import { READ_LESSONS } from "../../../compiler/src/learn-lessons.mjs";
+import { learnThunder } from "../../../compiler/src/learn.mjs";
 import { LearnThunder, type BuiltLesson } from "./LearnThunder";
 
 export const metadata = pageMeta({
   title: "Learn Thunder",
   description:
-    "Eleven short lessons on reading software in Thunder, the human-native programming language: steps, rule cards, actions, Thunder Text, and the same meaning in any language. No install, no programming experience needed.",
+    "Twelve short lessons on reading software in Thunder, the human-native programming language: steps, rule cards, actions, Thunder Text, and the same meaning in any language. No install, no programming experience needed.",
   path: "/learn",
 });
 
@@ -21,7 +22,26 @@ const squash = (s: string) => s.replace(/[_\s]/g, "").toLowerCase();
  * it teaches fails the build instead of shipping a wrong picture.
  */
 function build(): BuiltLesson[] {
-  return READ_LESSONS.map((lesson) => {
+  // The quick-check answers come from @skillstech/thunderlang/learn: worked out by the compiler, and the build fails
+  // if any lesson disagrees with it.
+  const quizOf = new Map(learnThunder().lessons.map((l) => [l.slug, l.questions]));
+  return READ_LESSONS.map((lesson) => ({ ...buildOne(lesson), quiz: quizOf.get(lesson.slug) ?? [] }));
+}
+
+function buildOne(lesson: (typeof READ_LESSONS)[number]): Omit<BuiltLesson, "quiz"> {
+  {
+    if (lesson.show === "openthunder") {
+      const file = lesson.files[0];
+      const items = readCode(file.code, { language: file.language }).items;
+      const rule = items.find((i) => i.kind === "decision");
+      if (!rule) throw new Error(`Lesson "${lesson.slug}": the app has no rule.`);
+      return { slug: lesson.slug, title: lesson.title, idea: lesson.idea, picture: lesson.picture, show: lesson.show, questions: lesson.questions, views: [],
+        app: {
+          name: "Pizza shop", file: "orders.py", code: file.code,
+          actions: items.filter((i) => i.route).map((i) => ({ route: `${i.route!.method} ${i.route!.path}`, label: i.label ?? i.name, doc: i.doc ?? null, steps: (i.steps ?? []) as BuiltLesson["views"][number]["steps"] })),
+          rule: { label: rule.label ?? rule.name, doc: rule.doc ?? null, text: thunderText(rule) },
+        } };
+    }
     // Lessons drawn from the model (a whole Thing, or one member's flow) rather than from one reading.
     if (lesson.show === "shapes" || lesson.show === "howto" || lesson.show === "thing" || lesson.show === "flow") {
       const model = lesson.files.length ? (thunderModel(lesson.files.map((f) => ({ path: `lesson.${f.language === "python" ? "py" : "ts"}`, source: f.code }))) as ThunderModel) : null;
@@ -49,14 +69,14 @@ function build(): BuiltLesson[] {
       throw new Error(`Lesson "${lesson.slug}": the languages do not give identical Thunder.`);
     }
     return { slug: lesson.slug, title: lesson.title, idea: lesson.idea, picture: lesson.picture, show: lesson.show, questions: lesson.questions, views };
-  });
+  }
 }
 
 export default function LearnPage() {
   return (
     <>
       <PageHero
-        eyebrow="Learn Thunder · Eleven short lessons · No install"
+        eyebrow="Learn Thunder · Twelve short lessons · No install"
         title="Read software in Thunder."
         intro="Thunder is a human-native programming language: it shows what software does as pictures and plain words. These lessons use one small pizza-delivery app. You don't need to know any programming language. Every picture here was made from real code by the Thunder compiler."
       />

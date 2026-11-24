@@ -1,3 +1,19 @@
+# Unreleased
+
+Entries that change what Thunder means or how it reads (the language itself) start with **Language:**. Courses and
+tools built on `@skillstech/thunderlang/learn` should re-check their lessons when one appears.
+
+**The Thunder tutorial ships with the compiler.**
+- **`@skillstech/thunderlang/learn`** (`learnThunder()`, ESM and CommonJS, browser-safe):
+  `{ schema: 'thunder-learn-v1', languageVersion, lessons }`. Each lesson has its idea, a picture to hold in mind, its
+  code, the Thunder Text the compiler gives for it, quick-check questions (`{ prompt, choices, answer, explain }`),
+  and open questions (`reflect`). **Every answer is worked out by the compiler from the lesson's code**; if it ever
+  differs from what the lesson expects, building the lessons throws, so a release cannot carry a lesson that
+  disagrees with its language. thunderlang.dev/learn and the Skills Tech Talk course are built from this export.
+- Twelve lessons: the last one became two, **Read a whole app in OpenThunder** (zoom App, File, Action, Rule on a
+  small two-door app; what the From code, Author's note, AI summary, and Not read yet labels mean) and **Study your
+  own app** (browser, terminal, OpenThunder, and checking a rewrite with `thunder same`).
+
 # 0.5.5
 
 **Complete behavior: every branch, at every depth, in every language.**
