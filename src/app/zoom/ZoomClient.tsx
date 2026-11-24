@@ -4,7 +4,7 @@
 // only lays it out. Nothing is drawn that the model does not contain.
 import { useMemo, useState, type ReactNode } from "react";
 import { thunderModel, modelText } from "../../../compiler/src/model.mjs";
-import type { ThunderModel, Member, Thing, Flow, FlowNode } from "../../../compiler/src/model.d.mts";
+import type { ThunderModel, Member, Thing, Flow, FlowNode, FlowBlock } from "../../../compiler/src/model.d.mts";
 import { THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
 import { explainPlain } from "../../../compiler/src/plain-contract.mjs";
 import { ZOOM_SAMPLES } from "./samples";
@@ -46,37 +46,7 @@ function Segmented<T extends string>({ label, value, options, onChange }: { labe
 
 // ── The flow, drawn as a path you can follow ─────────────────────────────────────────────────────────
 
-type Block = { node: FlowNode; side?: { label: string; blocks: Block[] }; next?: string };
-
-/** Follow the flow from its start: the main path down, each question's other side to the right. */
-function toBlocks(flow: Flow): Block[] {
-  const byId = new Map(flow.nodes.map((n) => [n.id, n]));
-  const outs = (id: string) => flow.edges.filter((e) => e.from === id);
-  const seen = new Set<string>();
-  const walk = (id: string | undefined, lane: number): Block[] => {
-    const out: Block[] = [];
-    while (id && !seen.has(id)) {
-      const n = byId.get(id)!;
-      seen.add(id);
-      if (n.kind === "end" && n.text === "Done") { out.push({ node: n }); break; }
-      if (n.kind === "decision" || n.kind === "loop") {
-        const es = outs(id);
-        const sideEdge = n.kind === "loop" ? es.find((e) => e.label === "each") : es.find((e) => (byId.get(e.to)?.lane ?? 0) > n.lane);
-        const mainEdge = es.find((e) => e !== sideEdge && e.label !== "next");
-        out.push({ node: n, side: sideEdge ? { label: sideEdge.label ?? "", blocks: walk(sideEdge.to, lane + 1) } : undefined, next: mainEdge?.label });
-        id = mainEdge?.to;
-        continue;
-      }
-      out.push({ node: n });
-      if (n.kind === "stop" || n.kind === "end") break;
-      id = outs(id).find((e) => e.label !== "next")?.to;
-    }
-    return out;
-  };
-  return walk(flow.nodes[0]?.id, 0);
-}
-
-const EDGE_WORDS: Record<string, string> = { yes: "Yes", no: "No", each: "For each", done: "When done" };
+type Block = FlowBlock;
 
 function FlowNodeCard({ n, onOpen, onLine, model }: { n: FlowNode; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel }) {
   const d = THUNDER_VISUAL.does[n.does] ?? THUNDER_VISUAL.does.do;
@@ -105,21 +75,34 @@ function FlowNodeCard({ n, onOpen, onLine, model }: { n: FlowNode; onOpen: (id: 
   );
 }
 
-function FlowBlocks({ blocks, ...p }: { blocks: Block[]; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel }): ReactNode {
+/** The flow tree from the model: questions with their Yes and No sides, loops, error handlers, and "always". */
+function FlowBlocks({ blocks, flow, ...p }: { blocks: Block[]; flow: Flow; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel }): ReactNode {
+  const node = (id: string) => flow.nodes.find((n) => n.id === id)!;
+  const Side = ({ label, items }: { label: string; items: Block[] }) => (
+    <div className="ml-6 mt-2 border-l-2 border-white/15 pl-5">
+      <p className="mb-2 text-sm font-semibold text-haze-300">{label}</p>
+      <FlowBlocks blocks={items} flow={flow} {...p} />
+    </div>
+  );
   return (
     <ol className="space-y-2">
-      {blocks.map((b) => (
-        <li key={b.node.id}>
-          <FlowNodeCard n={b.node} {...p} />
-          {b.side && (
-            <div className="ml-6 mt-2 border-l-2 border-white/15 pl-5">
-              <p className="mb-2 text-sm font-semibold text-haze-300">{EDGE_WORDS[b.side.label] ?? b.side.label}</p>
-              <FlowBlocks blocks={b.side.blocks} {...p} />
-            </div>
-          )}
-          {b.next && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">{EDGE_WORDS[b.next] ?? b.next} <span aria-hidden="true">↓</span></p>}
-        </li>
-      ))}
+      {blocks.map((b) => {
+        const n = node(b.id);
+        const yesEmpty = "yes" in b && !b.yes!.length, noEmpty = "no" in b && !b.no!.length;
+        return (
+          <li key={b.id}>
+            <FlowNodeCard n={n} {...p} />
+            {b.yes && b.yes.length > 0 && <Side label="Yes" items={b.yes} />}
+            {b.no && b.no.length > 0 && <Side label="No" items={b.no} />}
+            {b.each && <Side label="For each" items={b.each} />}
+            {b.body && b.body.length > 0 && <div className="ml-6 mt-2 border-l-2 border-white/10 pl-5"><FlowBlocks blocks={b.body} flow={flow} {...p} /></div>}
+            {(b.handlers ?? []).map((h) => <Side key={h.id} label={node(h.id).text.replace(/\?$/, "")} items={h.blocks} />)}
+            {b.always && <Side label="Always, at the end" items={b.always.blocks} />}
+            {(yesEmpty || noEmpty) && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">{yesEmpty ? "Yes" : "No"} <span aria-hidden="true">↓</span> continue</p>}
+            {b.each && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">When done <span aria-hidden="true">↓</span></p>}
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -280,7 +263,7 @@ export function ZoomClient() {
             {member.youGetBack && <div className="rounded-xl bg-white/[0.04] px-4 py-2.5"><span className="mr-2 text-xs font-semibold uppercase tracking-wider text-haze-400">You get back</span><span className="text-[#67E8F9]">{member.youGetBack}</span></div>}
           </div>
 
-          {depth === "flow" && <div className="mt-6"><FlowBlocks blocks={toBlocks(member.flow).filter((b) => b.node.kind !== "start")} onOpen={open} onLine={showLine} model={model} /></div>}
+          {depth === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} /></div>}
 
           {depth === "details" && (
             <div className="mt-6 grid gap-5 lg:grid-cols-2">

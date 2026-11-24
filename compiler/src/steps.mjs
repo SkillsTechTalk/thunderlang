@@ -18,6 +18,9 @@ const KNOWN_CALLS = [
   { re: /^(?:log|logger|console|logging|fmt|Log|System\.out|println|print|puts|echo|printf)\b/i, say: () => 'Writes a log or message' },
 ];
 
+/** entry['easy'] -> "the entry's easy"; $x->y -> "the x's y"; plain names as words. */
+const possessiveWords = (path) => { const parts = String(path).replace(/^\$/, '').replace(/\[\s*['"]?([\w$]+)['"]?\s*\]/g, '.$1').split(/\.|->/).filter((x) => x && !/^(self|this)$/.test(x)); return parts.length > 1 ? `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}` : words(parts[0] || path); };
+
 /** Enum values read as words: Status.ON_SHELF -> "on shelf", Color.RED -> "red". */
 export const plainEnums = (text) => String(text).replace(/\b[A-Z][A-Za-z0-9]*\.([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\b(?!\s*\()/g, (m, v) => (v.length > 1 && v === v.toUpperCase() ? words(v) : m));
 
@@ -36,6 +39,31 @@ export function sayCodeCondition(cond) {
     const verb = /^(is|was) /.test(w) ? w.replace(/^(is|was) /, neg ? '$1 not ' : '$1 ') : /^(has|can|should) /.test(w) ? (neg ? `does not ${w.replace(/^has /, 'have ')}` : w).replace(/^does not can /, 'cannot ').replace(/^does not should /, 'should not ') : `is ${neg ? 'not ' : ''}${w}`;
     return `${words(prop[2])} ${verb}`;
   }
+  // Ruby predicates: `running?` -> "it is running", `order.paid?` -> "order is paid".
+  let pred;
+  if ((pred = c.match(/^(!|not\s+)?(?:([\w$]+)\.)?([a-z_]\w*)\?$/))) return `${pred[2] ? words(pred[2]) : 'it'} is ${pred[1] ? 'not ' : ''}${words(pred[3])}`;
+  // How many: count($a) / len(a) / a.length / a.Count / a.size() -> "how many a".
+  c = c.replace(/\\?\b(?:count|len|sizeof)\(\s*\$?([\w$.\[\]'">-]+)\s*\)/g, (m0, x) => `how many ${possessiveWords(x)}`)
+    .replace(/\b([\w$]+(?:\.[\w$]+)*)\.(?:length|Length|Count|count\(\)|size\(\)|len\(\))(?![\w(])/g, (m0, x) => `how many ${possessiveWords(x)}`);
+  // PHP built-ins and yes/no calls: !empty($x) -> "x is not empty", isset($x) -> "x is set", isValid(x) -> "is valid".
+  c = c.replace(/\\(?=[a-z_]\w*\()/g, '');
+  let call;
+  if ((call = c.match(/^(!|not\s+)?(empty|isset|is_null)\(\s*\$?([\w$.\[\]'">-]+)\s*\)$/))) {
+    const neg = !!call[1] !== (call[2] === 'isset');
+    const what = possessiveWords(call[3]);
+    return call[2] === 'isset' || call[2] === 'is_null' ? `${what} is ${(call[2] === 'isset') === !call[1] ? '' : 'not '}set` : `${what} is ${neg ? 'not ' : ''}empty`;
+  }
+  if ((call = c.match(/^(!|not\s+)?(?:(?:self|this)\.)?((?:is|has|can|should|was|are|does)[A-Z_]\w*)\s*\([^()]*\)$/))) {
+    const w = words(call[2]);
+    return call[1] ? `not: ${w}` : w;
+  }
+  // A plain name or property path used as a yes/no: `if proxy` -> "proxy is set"; `not url.host` -> "the url's host is not set".
+  const bare = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)$/);
+  if (bare && !/^(true|false|True|False|None|null|nil)$/.test(bare[2])) {
+    const parts = bare[2].split('.');
+    const what = parts.length > 1 ? `the ${words(parts[0])}'s ${words(parts[1])}` : words(parts[0]);
+    return `${what} is ${bare[1] ? 'not ' : ''}set`;
+  }
   return clip(c
     .replace(/\s*(===|==)\s*(nil|null|None|undefined|""|'')(?=\s|\)|$)/g, ' is empty')
     .replace(/\s*(!==|!=)\s*(""|'')(?=\s|\)|$)/g, ' is not empty')
@@ -43,6 +71,8 @@ export function sayCodeCondition(cond) {
     .replace(/\bis not None\b/g, 'is set').replace(/\bis None\b/g, 'is empty')
     .replace(/\s*(===|==)\s*/g, ' is ').replace(/\s*(!==|!=)\s*/g, ' is not ')
     .replace(/\s*&&\s*/g, ' and ').replace(/\s*\|\|\s*/g, ' or ')
+    // Comparisons as words; `->` and `=>` are never comparisons.
+    .replace(/\s+<=\s+/g, ' is at most ').replace(/\s+>=\s+/g, ' is at least ').replace(/\s+<\s+/g, ' is less than ').replace(/(?<![-=])\s+>\s+/g, ' is more than ')
     .replace(/(^|[\s(])!(?=[\w(])/g, '$1not ').replace(/\s+/g, ' '), 70);
 }
 function matchingClose(str, open) {
@@ -53,13 +83,13 @@ function matchingClose(str, open) {
 const lastWords = (path) => words(String(path).split('.').pop());
 /** "cmd.commandCalledAs.called" -> "called on command called as"; "this.count" -> "count". */
 function targetWords(path) {
-  const parts = String(path).replace(/^@+/, '').replace(/#/g, '').replace(/\[.*$/, '').split('.').filter((p) => !/^(this|self)$/.test(p));
+  const parts = String(path).replace(/^[@$]+/, '').replace(/#/g, '').replace(/\[.*$/, '').split('.').filter((p) => !/^(this|self)$/.test(p));
   if (parts.length <= 1) return words(parts[0] || path);
   return `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}`;
 }
 
 function callee(text) {
-  const m = String(text).match(/^(?:await\s+|try\s+|yield\s+|void\s+)?(?:new\s+)?([A-Za-z_$#@][\w$#]*(?:<[^()]*?>)?(?:(?:\.|::|->)[A-Za-z_$#][\w$#]*(?:<[^()]*?>)?(?:\(\))?)*)!?\s*\(/);
+  const m = String(text).replace(/\[[^\]]*\]/g, '').match(/^(?:await\s+|try\s+|yield\s+|void\s+)?(?:new\s+)?([A-Za-z_$#@][\w$#]*(?:<[^()]*?>)?(?:(?:\.|::|->)[A-Za-z_$#][\w$#]*(?:<[^()]*?>)?(?:\(\))?)*)!?\s*\(/);
   return m ? m[1].replace(/<[^()]*?>/g, '').replace(/\(\)/g, '').replace(/::|->/g, '.').replace(/#/g, '') : null;
 }
 function sayCall(name, args) {
@@ -89,7 +119,8 @@ function sayValue(expr) {
     if (/^new\s/.test(e)) return `a new ${c.split('.').pop()}`;
     return `the result of ${lastWords(c)}`;
   }
-  if (/^[A-Za-z_$][\w$.]*$/.test(e)) return words(e.split('.').pop());
+  if (/^[A-Za-z_$][\w$.]*$/.test(e)) return words(e.replace(/^\$/, '').split('.').pop());
+  if (/^\$?[A-Za-z_][\w$]*(?:\[\s*['"]?\w+['"]?\s*\]|->\w+|\.\w+)+$/.test(e)) return possessiveWords(e);
   return null;
 }
 
@@ -110,7 +141,8 @@ function sayPython(value) {
   if (m) {
     const [, expr, v, src, cond] = m;
     const vars = v.replace(/[()]/g, '').split(/\s*,\s*/);
-    const condSaid = cond ? sayCodeCondition(cond.replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '')) : null;
+    const bareCond = cond && cond.replace(new RegExp(`\\b(?:${vars.join('|')})\\.`, 'g'), '');
+    const condSaid = cond ? (/^\w+$/.test(bareCond) ? words(bareCond) : sayCodeCondition(bareCond)) : null;
     if (vars.includes(expr.trim())) return condSaid ? `the items in ${lastSeg(src)} where ${condSaid}` : `the items in ${lastSeg(src)}`;
     return `one ${lastSeg(expr.replace(/\(.*$/, ''))} for each item in ${lastSeg(src)}${condSaid ? ` where ${condSaid}` : ''}`;
   }
@@ -135,6 +167,10 @@ function sayPython(value) {
 function sayCommon(value) {
   const e = String(value).trim().replace(/\s+as\s+[\w.<>\[\]|, ]+$/, '');
   let m;
+  // cond ? a : b  ->  "a if cond, otherwise b" (not TypeScript optional types or labels).
+  const side = (x) => sayValue(x) ?? possessiveWords(x.trim());
+  if ((m = e.match(/^(.+?)\s+\?\s+([^:?]+?)\s+:\s+([^:?]+)$/)) && !/^(?:[\w$]+\??\s*:)/.test(e)) return `${side(m[2])} if ${sayCodeCondition(m[1])}, otherwise ${side(m[3])}`;
+  if ((m = e.match(/^(.+?)\s+if\s+(.+?)\s+else\s+(.+)$/))) return `${side(m[1])} if ${sayCodeCondition(m[2])}, otherwise ${side(m[3])}`;
   if ((m = e.match(/^&?([A-Z]\w*)(?:::new\s*\(|\s*\{)/)) || (m = e.match(/^(?:[\w.]+\.)?([A-Z]\w*)\{/))) return `a new ${m[1]}`;
   if ((m = e.match(/^new\s*\(\s*(?:[\w]+\.)?([A-Z]\w*)\s*\)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
@@ -147,7 +183,7 @@ function sayCommon(value) {
   if ((m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
   if ((m = e.match(/^([\w.]+)\[\s*["'`]([\w.\-: ]{1,40})["'`]\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
   if ((m = e.match(/^([\w.]+)\.split\(\s*["'`]([^"'`]{0,10})["'`]/))) return `${lastSeg(m[1])} split at "${m[2]}"`;
-  if ((m = e.match(/^([\w.]+?)(?:\.copy|\.clone|\.Clone|\.dup)\(\)$/))) return `a copy of ${lastSeg(m[1])}`;
+  if ((m = e.match(/^@?([\w.]+?)(?:\.copy|\.clone|\.Clone|\.dup)(?:\(\))?$/))) return `a copy of ${lastSeg(m[1])}`;
   if ((m = e.match(/^(?:str|String|string)\(\s*([\w.]+)\s*\)$/)) || (m = e.match(/^([\w.]+)\.(?:toString|to_s|ToString)\(\)$/))) return `${lastSeg(m[1])} as text`;
   if ((m = e.match(/^(?:int|float|Number|parseInt|parseFloat|strconv\.Atoi|Integer\.parseInt|int\.Parse)\(\s*([\w.]+)/))) return `${lastSeg(m[1])} as a number`;
   if ((m = e.match(/^(?:JSON\.parse|json\.loads|json\.load|JsonSerializer\.Deserialize\w*)\(\s*([\w.]+)/))) return `${lastSeg(m[1])} read as JSON`;
@@ -189,15 +225,34 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
   const head = text.split('\n')[0].trim()
-    .replace(/\(\s*([\w$#.]+)\s+as\s+[^)]+\)/g, '$1').replace(/([\w$\])])!(?=[.(\[])/g, '$1').replace(/\?\.(?=[\w(\[])/g, '.').replace(/\.\(/g, '(').replace(/^\(\*+(self|this)\)\./, '$1.');
+    .replace(/\(\s*([\w$#.]+)\s+as\s+[^)]+\)/g, '$1').replace(/([\w$\])])!(?=[.(\[])/g, '$1').replace(/\?\.(?=[\w(\[])/g, '.').replace(/\.\(/g, '(').replace(/^\(\*+(self|this)\)\./, '$1.')
+    // Java/C# casts: ((JsonTreeReader) reader).promote() -> reader.promote(); (int) x -> x
+    .replace(/\(\(\s*[A-Z][\w.<>\[\]?, ]*\s*\)\s*([\w$.]+)\s*\)/g, '$1').replace(/^(\w[\w.]*\s*=\s*)\(\s*[A-Z][\w.<>\[\]?]*\s*\)\s*/, '$1');
   const code = clip(head, 90);
   let m;
   const innerNote = inner ? ` (${inner} step${inner === 1 ? '' : 's'} inside)` : '';
+  // One-line ifs: `if (x) return y;` and Ruby/Perl modifiers `return unless running?`, `notify if late`.
+  let inl;
+  if ((inl = head.match(/^(if|else\s+if)\s*\((.+?)\)\s*((?:return|throw|break|continue|yield)\b.*|[\w$.]+\(.*\);?)$/)) && balanced(inl[2])) {
+    return { kind: 'branch', says: `If ${sayCodeCondition(inl[2])}`, cond: inl[2], code, inline: inl[3] };
+  }
+  if ((inl = head.match(/^(.+?)\s+(if|unless)\s+(.+)$/)) && !/\belse\b/.test(head) && !/^(?:if|unless|elsif|while|until|for|return\s+\S+\s+if\s+.+\s+else)\b/.test(head) && !/[=(]\s*$/.test(inl[1]) && !/^(?:[\w$.\[\]]+\s*=)/.test(inl[1])) {
+    const cond = sayCodeCondition(inl[3]);
+    return { kind: 'branch', says: inl[2] === 'unless' ? `If not: ${cond}` : `If ${cond}`, cond: inl[3], negate: inl[2] === 'unless', code, inline: inl[1] };
+  }
+  // A name declared with no value yet: `let sizeError: Error | undefined;` -> "Starts with no size error yet".
+  if ((inl = head.match(/^(?:let|var|const)\s+([A-Za-z_$][\w$]*)\s*(?::\s*[^=]+)?;?$/))) return { kind: 'set', says: `Starts with no ${words(inl[1])} yet`, code };
+  // A function stored under a name: `ky.create = (opts) => ...` -> "Defines how ky's create works".
+  if ((inl = head.match(/^([\w$.]+)\s*=\s*(?:async\s+)?(?:function\b|\([^()]*\)\s*(?::\s*[^=]+)?=>|[\w$]+\s*=>)/))) return { kind: 'set', says: `Defines how ${targetWords(inl[1])} works`, code };
+  // switch cases: `case X:` / `case X ->` read as "When it is X"; `default:` as "Otherwise".
+  if ((m = head.match(/^case\s+(.+?)\s*(?::|->)\s*(.*)$/))) return { kind: 'check', says: `When it is ${/^[A-Z][A-Z0-9_]+$/.test(m[1].replace(/^[A-Z]\w*\./, '')) ? words(m[1].replace(/^[A-Z]\w*\./, '')) : sayCodeCondition(plainEnums(m[1]))}`, code, caseLabel: true };
+  if (/^default\s*(?::|->)/.test(head)) return { kind: 'check', says: 'Otherwise', code, caseLabel: true };
   // Failures
   if ((m = head.match(/^(?:throw|raise)\s+(?:new\s+)?([A-Za-z_][\w.]*)?/)) || /^panic!?\s*\(/.test(head)) {
     const name = m?.[1] ? m[1].split('.').pop() : null;
     const msg = (head.match(/["'`]([^"'`]{1,60})["'`]/) || [])[1];
-    return { kind: 'fail', says: `Fails${name ? ` with ${name}` : ''}${msg ? `: "${msg}"` : ''}`, code };
+    const said = name && /^[a-z]/.test(name) ? `the error made by ${words(name)}` : name;
+    return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code };
   }
   // Returns (Go/Rust error returns read as failures)
   if ((m = head.match(/^return\b\s*(.*)$/))) {
@@ -220,7 +275,16 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'return', says: v ? `Returns ${v}` : 'Returns a computed value', code, ...(v ? {} : { value: clip(expr, 60) }) };
   }
   // Loops
-  if ((m = head.match(/^for\s*\(?\s*(?:const|let|var|val|final|auto|[\w<>\[\],? ]+?\s)?\s*\(?([\w$, _]+?)\)?\s+(?:of|in|:)\s+(.+?)\)?\s*(?:\{|:|do)?\s*$/))) {
+  // Counted loops: for i := 0; i < n; i++ (Go) and for (int i = 0; i < n; i++) (C-style): "Counts i from 0 while i is less than n".
+  if ((m = head.match(/^for\b\s*\(?\s*(?:(?:var|let|const|int|long|size_t|auto|\$)\s*)?\$?(\w+)\s*:?=\s*([^;]+?)\s*;\s*([^;]*?)\s*;\s*[^)]*?\)?\s*\{?\s*$/))) {
+    return { kind: 'loop', says: `Counts ${words(m[1])} from ${clip(m[2], 20)}${m[3] ? ` while ${sayCodeCondition(m[3])}` : ''}${innerNote}`, code };
+  }
+  // Pairs unpacked in a loop: for (const [key, value] of entries) / for key, value in items.items() / foreach ($a as $k => $v)
+  if ((m = head.match(/^for\b\s*\(?\s*(?:const|let|var|val)?\s*[\[{(]?\s*([\w$]+)\s*,\s*([\w$]+)\s*[\]})]?\s+(?:of|in)\s+(.+?)\)?\s*(?:\{|:|do)?\s*$/))) {
+    const src = stripTail(m[3]).replace(/\($/, '()').replace(/^Object\.entries\((.+)\)$/, '$1').replace(/\.(?:items|entries)\(\)$/, '');
+    return { kind: 'loop', says: `For each ${words(m[1])} and ${words(m[2])} in ${words(src.split('.').pop())}${innerNote}`, code };
+  }
+  if ((m = head.match(/^for\b\s*\(?\s*(?:const|let|var|val|final|auto|[\w<>\[\],? ]+?\s)?\s*\(?([\w$, _]+?)\)?\s+(?:of|in|:)\s+(.+?)\)?\s*(?:\{|:|do)?\s*$/))) {
     return { kind: 'loop', says: `For each ${words(m[1].split(',').pop().trim())} in ${words(stripTail(m[2]).split('.').pop().replace(/\(\)$/, ''))}${innerNote}`, code };
   }
   if ((m = head.match(/^for\s+[\w, _]+\s*:=\s*range\s+(.+?)\s*\{?$/))) return { kind: 'loop', says: `For each item in ${words(stripTail(m[1]).split('.').pop())}${innerNote}`, code };
@@ -228,8 +292,11 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^foreach\s*\(\s*(.+?)\s+as\s+(?:\w+\s*=>\s*)?(\w+)\s*\)\s*\{?$/))) return { kind: 'loop', says: `For each ${words(m[2])} in ${words(m[1].split('.').pop())}${innerNote}`, code };
   if ((m = head.match(/^([\w.]+)\.each(?:_with_index)?\s+do\s*\|(\w+)/))) return { kind: 'loop', says: `For each ${words(m[2])} in ${words(m[1].split('.').pop())}${innerNote}`, code };
   if ((m = head.match(/^([\w.]+)\.(?:forEach|each|map|filter|for_each)\s*[({]/))) return { kind: 'loop', says: `For each item in ${words(m[1].split('.').pop())}${innerNote}`, code };
-  if ((m = head.match(/^(?:while|until|loop)\b\s*\(?(.*?)\)?\s*(?:\{|:|do)?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${clip(m[1], 50)}${innerNote}` : `Repeats${innerNote}`, code };
+  if ((m = head.match(/^(?:while|until|loop)\b\s*\(?(.*?)\)?\s*(?:\{|:|do)?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${sayCodeCondition(m[1])}${innerNote}` : `Repeats${innerNote}`, code };
   // Branches
+  // Go: `if err := open(); err != nil` -> "If open fails"; `if v, ok := m[k]; ok` -> "If k is in m".
+  if ((m = head.match(/^(?:if|else\s+if)\s+(?:[\w]+\s*,\s*)?err\s*:?=\s*([\w.]+)\(.*\);\s*err\s*!=\s*nil\s*\{?\s*$/))) return { kind: 'branch', says: `If ${lastWords(m[1])} fails${innerNote}`, code };
+  if ((m = head.match(/^(?:if|else\s+if)\s+[^;{]*:=[^;{]*;\s*(.+?)\s*\{?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${cond}${innerNote}`, cond: m[1], code }; }
   if ((m = head.match(/^(?:if|elif|else\s+if|unless|when)\b\s*(.*?)\s*(?:\{|:|then)?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${/^unless\b/.test(head) ? 'not: ' : ''}${cond}${innerNote}`, cond: m[1].replace(/^\((.*)\)$/, '$1'), code, negate: /^unless\b/.test(head) }; }
   if ((m = head.match(/^(?:switch|match|case|select)\b\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
   if (/^(?:try|begin)\b/.test(head)) return { kind: 'try', says: `Tries the next steps and handles any error${innerNote}`, code };
@@ -265,6 +332,8 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:final\s+|static\s+|readonly\s+)*([A-Z][\w.]*(?:<[^=]*>)?(?:\[\])?|int|long|double|float|boolean|bool|char|byte|short|string|decimal|var|auto)\s+([a-zA-Z_$][\w$]*)\s*=(?!=)\s*(.*)$/))) {
     const value = stripTail(m[3]); const target = words(m[2]);
     const c = value ? callee(value) : null;
+    const everyday = value ? sayPython(value) || sayCommon(value) : null;
+    if (everyday) return { kind: 'set', says: `Sets ${target} to ${everyday}`, code };
     if (c) {
       const known = sayCall(c, firstArgs(value));
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
@@ -275,9 +344,11 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
   }
   // Assignment (not comparisons)
-  if ((m = head.match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
-    const target = m[1].split(/\s*,\s*/).map(targetWords).join(', ');
+  if ((m = head.replace(/^(?:final\s+)?(?!return\b|throw\b|yield\b|await\b|new\b)[A-Z][\w.]*(?:<[^=;]*?>)?(?:\[\])*\??\s+(?=[a-z_]\w*\s*=[^=])/, '').match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
+    const target = m[1].split(/\s*,\s*/).filter((t) => t !== '_').map(targetWords).join(', ') || targetWords(m[1]);
     const value = stripTail(m[3]);
+    // A yes/no value: `ok = proxy and scheme != "https"` -> "Works out ok: whether proxy and scheme is not https".
+    if (m[2] === '=' && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
     // self.max_books = max_books: the Thing keeps what it was given.
     if (m[2] === '=' && /^[A-Za-z_]\w*$/.test(value) && m[1].split('.').pop() === value && /^(self|this)\./.test(m[1])) return { kind: 'set', says: `Keeps the ${words(value)} it is given`, code };
     const chain = value ? (sayPython(value) || sayChain(value)) : null;
@@ -304,7 +375,8 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     // "student.books.append(book)" -> "Adds book to student's books"
     const owner = m[1].split('.').filter((p) => !/^(self|this)$/.test(p));
     const where = owner.length > 1 ? `${words(owner[owner.length - 2])}'s ${words(owner[owner.length - 1])}` : words(owner[0] || m[1]);
-    return { kind: 'call', says: m[2] && /^[A-Za-z_][\w$]*$/.test(m[2]) ? `Adds ${words(m[2])} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
+    const added = /^new\s+([A-Z]\w*)/.exec(head.slice(head.indexOf('(') + 1))?.[1];
+    return { kind: 'call', says: added ? `Adds a new ${words(added)} to ${where}` : m[2] && /^[A-Za-z_][\w$]*$/.test(m[2]) && m[2] !== 'new' ? `Adds ${words(m[2])} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
   }
   const c = callee(head);
   if (c) {
@@ -314,7 +386,8 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^([a-z_][\w.]*[?!]?)\s+(?![=<>!+\-*/%]|and\b|or\b|if\b|unless\b)(.+)$/)) && !/^(?:if|for|while|return|else|elsif|when|case|def|class|module|end|not|const|let|var|val|new|await|typeof|delete|void|in|of|throw|import|export|from|as|is)$/.test(m[1])) {
     if (/^assert/.test(m[1])) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
     const known = sayCall(m[1], m[2]);
-    return { kind: 'call', says: known || `Calls ${lastWords(m[1])}`, code, callee: m[1] };
+    const named = /^[:'"]([\w ]+)['"]?/.exec(m[2].trim())?.[1];
+    return { kind: 'call', says: known || (named ? `Calls ${lastWords(m[1])}: ${words(named)}` : `Calls ${lastWords(m[1])}`), code, callee: m[1] };
   }
   return { kind: 'other', says: clip(head, 70), code };
 }
@@ -322,22 +395,94 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
 /** Steps for a function body. `statements` are top-level [{ text, line, inner? }]. */
 const spanOf = (s) => ({ startLine: s.line, endLine: s.endLine ?? s.line, ...(s.start != null && s.end != null ? { start: s.start, end: s.end } : {}) });
 
+const BARE_CALL = /^[a-z_][\w.]*[?!]?$/;
+const balanced = (x) => { let d = 0; for (const ch of x) { if (ch === '(') d++; else if (ch === ')' && --d < 0) return false; } return d === 0; };
+function asCall(list, i) {
+  const st = list[i];
+  if (st?.kind === 'return' && BARE_CALL.test(st.code || '') && !/^(?:self|nil|true|false|null|none)$/i.test(st.code)) {
+    list[i] = { ...st, kind: 'call', says: `Calls ${lastWords(st.code)}`, callee: st.code };
+  }
+}
+
+const CLAUSE = /^(?:elif\b|elsif\b|else\s+if\b|else\b|except\b|catch\b|rescue\b|finally\b|ensure\b)/;
+
+/** Turn a clause (else, elif, except, catch, finally) into what it means for the step it belongs to. */
+function attachClause(step, clause) {
+  const kw = clause.kind;
+  const kids = stepsFrom(clause.children || []).steps;
+  // Chains: the next clause belongs to the innermost else-if.
+  let target = step;
+  while (target.otherwise?.length === 1 && target.otherwise[0].elseIf) target = target.otherwise[0];
+  if (kw === 'elif') {
+    const head = clause.head.replace(/^(?:elif|elsif|else\s+if)\b/, 'if');
+    const branch = { ...classifyStatement(head), line: clause.line, span: { startLine: clause.line, endLine: clause.endLine ?? clause.line }, elseIf: true };
+    if (kids.length) branch.children = kids;
+    target.otherwise = [branch];
+  } else if (kw === 'else') {
+    target.otherwise = kids;
+    target.otherwiseLine = clause.line;
+  } else if (kw === 'catch') {
+    const what = (clause.head.replace(/\\/g, '.').replace(/\(\s*\./, '(').match(/^(?:except|catch|rescue)\s*\(?\s*(?:[\w.]+\s+)?\(?\.?([A-Z][\w.:]*(?:\s*[,|]\s*\.?[A-Z][\w.:]*)*)/) || [])[1]?.replace(/::/g, '.');
+    (step.handlers ||= []).push({ says: what ? `If ${what.split(/\s*[,|]\s*/).map((x) => x.split('.').pop()).join(' or ')} goes wrong` : 'If anything goes wrong', line: clause.line, steps: kids });
+  } else if (kw === 'finally') {
+    // Code that always runs at the end is never the value given back.
+    for (let i = 0; i < kids.length; i++) asCall(kids, i);
+    step.always = { line: clause.line, steps: kids };
+  }
+}
+
 export function stepsFrom(statements) {
   const steps = [];
   const skipped = [];
+  // After a clause written without its own block (Ruby: a method-level `rescue` or `ensure`), the statements that
+  // follow belong to that clause until the next clause.
+  let into = null, intoAlways = false;
   for (const s of statements) {
-    if (s.text && /^(?:else\b|elsif\b|end\b|\}|except\b|catch\b|finally\b|rescue\b|ensure\b|pass$|break$|continue$)/.test(s.text.trim())) { skipped.push(spanOf(s)); continue; }
-    if (!s.text || /^(?:else\b|elsif\b|end\b|\}|except\b|catch\b|finally\b|rescue\b|ensure\b|pass$|break$|continue$|#)/.test(s.text.trim())) continue;
-    const t = s.text.trim();
-    if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments
-    if (/^[)\]}]+[):;,]*$/.test(t) || /^\.\.\.$/.test(t) || /^\.[A-Za-z_]/.test(t) || /^@\w+(?:\(.*\))?$/.test(t) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t) || /^:(?:param|rtype|return|raises|type)\b/.test(t)) { skipped.push(spanOf(s)); continue; }
+    const t0 = (s.text || '').trim();
+    if (into && !CLAUSE.test(t0) && t0 && !/^(?:end\b|#)/.test(t0)) {
+      const st = stepsFrom([s]).steps;
+      into.push(...st);
+      // Earlier lines of a handler are calls; nothing in `ensure` is the value given back.
+      for (let i = 0; i < into.length - (intoAlways ? 0 : 1); i++) asCall(into, i);
+      continue;
+    }
+    // A clause belongs to the step before it (indent languages write it as a sibling line).
+    if (CLAUSE.test(t0)) {
+      const prev = steps[steps.length - 1];
+      if (/^(?:rescue|ensure|except|finally)\b/.test(t0) && steps.length && !(prev && prev.kind === 'try')) {
+        // Ruby: `def x ... rescue ... end` with no `begin`: everything before the rescue is what is tried.
+        const tried = steps.splice(0, steps.length);
+        for (let i = 0; i < tried.length - 1; i++) asCall(tried, i);
+        steps.push({ kind: 'try', says: 'Tries these steps and handles any error', code: '(the whole method)', line: tried[0].line, span: { startLine: tried[0].span.startLine, endLine: tried[tried.length - 1].span.endLine }, children: tried });
+      }
+      const prev2 = steps[steps.length - 1];
+      if (prev2 && (prev2.kind === 'branch' || prev2.kind === 'try')) {
+        const prev = prev2;
+        const kw = /^(?:elif|elsif|else\s+if)\b/.test(t0) ? 'elif' : /^else\b/.test(t0) ? 'else' : /^(?:finally|ensure)\b/.test(t0) ? 'finally' : 'catch';
+        attachClause(prev, { kind: kw, head: t0.replace(/:\s*$/, ''), line: s.line, endLine: s.endLine, children: s.children || [] });
+        intoAlways = kw === 'finally';
+        into = s.children?.length ? null : kw === 'catch' ? prev.handlers?.[prev.handlers.length - 1]?.steps ?? null : kw === 'finally' ? prev.always?.steps ?? null : null;
+        prev.span = { ...prev.span, endLine: Math.max(prev.span.endLine, s.endLine ?? s.line) };
+        continue;
+      }
+      skipped.push(spanOf(s));
+      continue;
+    }
+    if (!t0 || /^(?:end\b|\}|pass$|break$|continue$|#)/.test(t0)) { if (t0 && !/^#/.test(t0)) skipped.push(spanOf(s)); continue; }
+    if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t0)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments
+    if (/^[)\]}]+[):;,]*$/.test(t0) || /^\.\.\.$/.test(t0) || /^\.[A-Za-z_]/.test(t0) || /^@\w+(?:\(.*\))?$/.test(t0) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t0) || /^:(?:param|rtype|return|raises|type)\b/.test(t0)) { skipped.push(spanOf(s)); continue; }
     const step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line, span: spanOf(s) };
     if (s.children?.length && ['branch', 'loop', 'try'].includes(step.kind)) {
-      const kids = stepsFrom(s.children.map(({ children, ...rest }) => rest)).steps;
+      const kids = stepsFrom(s.children).steps;
       if (kids.length) { step.children = kids; step.says = step.says.replace(/ \(\d+ steps? inside\)$/, ''); }
     }
+    if (step.inline && !step.children) { const kid = classifyStatement(step.inline); step.children = [{ ...kid, line: s.line, span: spanOf(s) }]; delete step.inline; }
+    else delete step.inline;
+    for (const c of s.clauses || []) attachClause(step, c);
     steps.push(step);
   }
+  // A bare word is only a returned value when it is the last statement; before that it is a call (Ruby: `rollback`).
+  for (let i = 0; i < steps.length - 1; i++) asCall(steps, i);
   // Every step is kept (anchoring needs all of them); `more` tells a view how many to fold away.
   const more = Math.max(0, steps.length - MAX_STEPS);
   for (const st of steps) if (restates(st)) st.restates = true;
@@ -362,21 +507,55 @@ function restates(st) {
 }
 const readableShare = (steps) => steps.length ? steps.filter((x) => x.kind !== 'other' && !x.restates).length / steps.length : 0;
 
-/** Top-level statements for a brace-language body, with the number of inner statements of each block. */
+const blockEnd = (text, open) => {
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"' || c === "'" || c === '`') { for (i++; i < text.length && text[i] !== c; i++) if (text[i] === '\\') i++; continue; }
+    if (c === '{') depth++; else if (c === '}' && --depth === 0) return i;
+  }
+  return -1;
+};
+
+/**
+ * Statements of a brace body, each with its whole block read (every depth), and every clause that follows the first
+ * block: else if, else, catch, finally. Nothing is summarized away.
+ */
 export function braceStatements(stmts, split = null) {
   return stmts.map((s) => {
-    const open = s.text.indexOf('{');
-    // Only the first block (the "then" part of an if, the body of a loop); else-chains stay summarized.
-    let body = '';
+    const text = s.text;
+    const open = text.indexOf('{');
+    const lineAtPos = (pos) => s.line + (text.slice(0, pos).match(/\n/g) || []).length;
+    const read = (o, e) => {
+      const body = e > o ? text.slice(o + 1, e) : '';
+      const base = s.start != null ? s.start + o + 1 : null;
+      if (!body || !split) return [];
+      const kids = split(body, lineAtPos(o + 1)).map((c) => ({ text: c.text, line: c.line, endLine: c.endLine, ...(base != null && c.start != null ? { start: base + c.start, end: base + c.end } : {}) }));
+      return braceStatements(kids, split);
+    };
+    let children = [], inner = 0;
+    const clauses = [];
     if (open >= 0) {
-      let depth = 0, end = -1;
-      for (let i = open; i < s.text.length; i++) { if (s.text[i] === '{') depth++; else if (s.text[i] === '}' && --depth === 0) { end = i; break; } }
-      body = end > open ? s.text.slice(open + 1, end) : '';
+      const end = blockEnd(text, open);
+      const body = end > open ? text.slice(open + 1, end) : '';
+      inner = body ? body.split(/;|\n/).filter((l) => l.trim() && !/^[{}]$/.test(l.trim())).length : 0;
+      children = read(open, end);
+      let pos = end + 1;
+      while (end >= 0) {
+        const rest = text.slice(pos);
+        const m = rest.match(/^\s*(else\s+if\b|elseif\b|elsif\b|else\b|catch\b|rescue\b|finally\b|ensure\b)/);
+        if (!m) break;
+        const kw = m[1].replace(/\s+/g, ' ');
+        const o = text.indexOf('{', pos + m[0].length);
+        if (o < 0) break;
+        const e = blockEnd(text, o);
+        const clauseHead = text.slice(pos + m[0].length - m[1].length, o).trim();
+        clauses.push({ kind: /^(else if|elseif|elsif)$/.test(kw) ? 'elif' : kw === 'else' ? 'else' : kw === 'finally' || kw === 'ensure' ? 'finally' : 'catch', head: clauseHead, line: lineAtPos(pos + rest.indexOf(m[1])), children: read(o, e) });
+        if (e < 0) break;
+        pos = e + 1;
+      }
     }
-    const inner = body ? body.split(/;|\n/).filter((l) => l.trim() && !/^[{}]$/.test(l.trim())).length : 0;
-    const base = s.start != null && open >= 0 ? s.start + open + 1 : null;
-    const children = body && split ? split(body, s.line).map((c) => ({ text: c.text, line: c.line, endLine: c.endLine, ...(base != null && c.start != null ? { start: base + c.start, end: base + c.end } : {}) })) : [];
-    return { text: s.text, line: s.line, endLine: s.endLine, start: s.start, end: s.end, inner, children };
+    return { text, line: s.line, endLine: s.endLine, start: s.start, end: s.end, inner, children, ...(clauses.length ? { clauses } : {}) };
   });
 }
 
@@ -401,20 +580,13 @@ export function indentStatements(body, { depthKey = 'indent' } = {}) {
   for (let i = 0; i < body.length; i++) {
     const l = body[i];
     if ((l[depthKey] ?? 0) !== base) continue;
-    let inner = 0;
-    const children = [];
-    let childDepth = null;
-    let last = l.endLine ?? l.line;
-    for (let k = i + 1; k < body.length && (body[k][depthKey] ?? 0) > base; k++) {
-      inner++;
-      const d = body[k][depthKey] ?? 0;
-      if (childDepth === null) childDepth = d;
-      if (d === childDepth) children.push({ text: body[k].text, line: body[k].line });
-      last = body[k].line;
-    }
-    // A child statement runs until the line before the next child (or the end of the block).
-    children.forEach((c, n) => { const next = children[n + 1]; const nextIdx = next ? body.findIndex((x) => x.line === next.line) : -1; const until = next ? body[nextIdx - 1]?.line ?? c.line : last; c.endLine = Math.max(c.line, until); });
-    out.push({ text: l.text, line: l.line, endLine: last, inner, children });
+    let k = i + 1;
+    while (k < body.length && (body[k][depthKey] ?? 0) > base) k++;
+    const block = body.slice(i + 1, k);
+    // Every depth is kept: the block's own statements, each with its own block (no level is folded away).
+    const children = block.length ? indentStatements(block, { depthKey }) : [];
+    out.push({ text: l.text, line: l.line, endLine: block.length ? block[block.length - 1].line : (l.endLine ?? l.line), inner: block.length, children });
   }
   return out;
 }
+

@@ -93,13 +93,18 @@ test('the `thunder lsp` CLI command starts a working server over real stdio', as
   const chunks = [];
   proc.stdout.on('data', (c) => chunks.push(c));
   const frame = (obj) => { const p = Buffer.from(JSON.stringify(obj), 'utf8'); proc.stdin.write(`Content-Length: ${p.length}\r\n\r\n`); proc.stdin.write(p); };
-  frame({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
-  await new Promise((r) => setTimeout(r, 300));
-  const out = Buffer.concat(chunks).toString('utf8');
-  assert.match(out, /"serverInfo"/);
-  assert.match(out, /thunderlang-lsp/);
-  frame({ jsonrpc: '2.0', id: 2, method: 'shutdown', params: {} });
-  frame({ jsonrpc: '2.0', method: 'exit', params: {} });
-  await new Promise((r) => { proc.on('exit', r); setTimeout(r, 500); });
-  proc.kill();
+  try {
+    frame({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
+    // Wait for the answer instead of a fixed delay: a busy machine can take seconds to start the server.
+    const deadline = Date.now() + 10000;
+    while (!/"serverInfo"/.test(Buffer.concat(chunks).toString('utf8')) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 25));
+    const out = Buffer.concat(chunks).toString('utf8');
+    assert.match(out, /"serverInfo"/);
+    assert.match(out, /thunderlang-lsp/);
+    frame({ jsonrpc: '2.0', id: 2, method: 'shutdown', params: {} });
+    frame({ jsonrpc: '2.0', method: 'exit', params: {} });
+    await new Promise((r) => { proc.on('exit', r); setTimeout(r, 500); });
+  } finally {
+    proc.kill(); // never leave the server running: a live child keeps the whole test run from finishing
+  }
 });

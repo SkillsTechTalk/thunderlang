@@ -187,6 +187,13 @@ export function thunderText(item) {
       const pad = '  '.repeat(depth + 1);
       out.push(s.show === 'code' ? `${pad}- \`${s.text}\` (code, not explained)` : `${pad}- ${s.text}`);
       if (st.children?.length) lines(st.children, depth + 1);
+      // Every branch is printed: the other side of an If, each error handler, and what always runs at the end.
+      if (st.otherwise?.length) {
+        out.push(`${pad}  Otherwise:`);
+        lines(st.otherwise, depth + 2);
+      }
+      for (const h of st.handlers || []) { out.push(`${pad}  ${h.says}:`); lines(h.steps, depth + 2); }
+      if (st.always) { out.push(`${pad}  Always, at the end:`); lines(st.always.steps, depth + 2); }
     }
   };
   if (steps.length) lines(steps, 0);

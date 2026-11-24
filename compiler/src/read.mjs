@@ -85,6 +85,7 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:
 // ── Function discovery ──────────────────────────────────────────────────────────────────────
 
 function parseParams(raw, language) {
+  raw = String(raw).replace(/#\[[^\]]*\]\s*/g, '').replace(/\[\w+(?:\([^)]*\))?\]\s*/g, ''); // #[SensitiveParameter], [FromBody]
   const parts = [];
   let depth = 0, cur = '';
   for (const ch of raw) {
@@ -1020,7 +1021,11 @@ function splitStatements(body, baseLine) {
           const rest = src.slice(i + 1).match(/^\s*else\b/);
           if (!rest) { i++; break; }
         }
-      } else if (c === ';' && depth === 0) { i++; break; }
+      } else if (c === ';' && depth === 0) {
+        // Go: `if err := open(); err != nil {` and `for i := 0; i < n; i++ {` keep their header together.
+        if (/^\s*(?:if|for|switch|else\s+if)\b/.test(src.slice(start, i)) && !src.slice(start, i).includes('{') && /\{/.test(src.slice(i, src.indexOf('\n', i) < 0 ? undefined : src.indexOf('\n', i)))) continue;
+        i++; break;
+      }
       else if (c === '\n' && depth === 0) {
         // Newline-terminated statements (Go, Kotlin, JavaScript without semicolons): a complete line
         // ends the statement unless the next line continues it.
@@ -1625,7 +1630,8 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   let stmts = [];
   try {
     if (lang === 'python') stmts = indentStatements(fn.pyBody, { depthKey: 'indent' });
-    else if (lang === 'ruby') stmts = indentStatements(fn.rbBody, { depthKey: 'depth' });
+    // For steps, elsif / else / rescue / ensure sit beside their if or begin (the rule reader keeps the raw depth).
+    else if (lang === 'ruby') stmts = indentStatements(fn.rbBody.map((l) => (/^(elsif|else|rescue|ensure)\b/.test(l.text) ? { ...l, depth: Math.max(0, l.depth - 1) } : l)), { depthKey: 'depth' });
     else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
   } catch { return null; }
   if (!stmts.length) return null;

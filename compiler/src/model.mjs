@@ -202,7 +202,8 @@ export function askAsQuestion(step, ruleLabel) {
   if (/^not: /.test(c)) { c = c.slice(5); flip = true; }
   if (ruleLabel) {
     const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*if\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
-    return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated !== flip };
+    // The negation is read from the code alone; the step's wording may already say "not" for the same reason.
+    return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated };
   }
   let m;
   if ((m = c.match(/^not (.+)$/))) { c = m[1]; flip = !flip; }
@@ -231,7 +232,12 @@ export function ruleFlow(item, start) {
     const o = node('end', answerWords(item.otherwise.result), { lane: 0, line: item.otherwise.line, does: 'answer', answer: true, otherwise: true, value: item.otherwise.result });
     edges.push({ from: prev, to: o, ...(label ? { label } : {}) });
   }
-  return { nodes, edges };
+  // As a tree: each question's Yes gives its answer, its No asks the next question (or gives the fallback).
+  const decisions = nodes.filter((x) => x.kind === 'decision');
+  const answers = nodes.filter((x) => x.answer && !x.otherwise);
+  const fallback = nodes.find((x) => x.otherwise);
+  const chain = (i) => (i < decisions.length ? [{ id: decisions[i].id, yes: [{ id: answers[i].id }], no: chain(i + 1) }] : fallback ? [{ id: fallback.id }] : []);
+  return { nodes, edges, blocks: chain(0) };
 }
 
 /** Turn steps into nodes and edges. Deterministic; nothing is added that the steps do not say. */
@@ -248,7 +254,11 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
     }
     return null;
   };
+  // walk returns { open, blocks }: open = edges still waiting for the next node; blocks = the same nodes as a tree
+  // (each question with its yes and no sides, loops with their body, try with its handlers and always), which is
+  // what the picture and Thunder Text are drawn from. The edges are the same flow as a graph, for other tools.
   const walk = (list, open, lane) => {
+    const blocks = [];
     for (const st of list) {
       const does = stepDoes(st);
       const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}) };
@@ -258,36 +268,70 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         const d = node('decision', text, base);
         connect(open, d);
         const inside = walk(st.children || [], [{ id: d, label: into }], lane + 1);
-        open = [{ id: d, label: past }, ...inside];
+        // The other side of the question: its else (or else-if chain) when the code has one.
+        const other = st.otherwise?.length ? walk(st.otherwise, [{ id: d, label: past }], lane + 1) : { open: [{ id: d, label: past }], blocks: [] };
+        blocks.push({ id: d, [into]: inside.blocks, [past]: other.blocks });
+        open = [...other.open, ...inside.open];
       } else if (st.kind === 'loop') {
         const l = node('loop', st.says, base);
         connect(open, l);
         const body = walk(st.children || [], [{ id: l, label: 'each' }], lane + 1);
-        for (const b of body) edges.push({ from: b.id, to: l, label: 'next' });
+        for (const b of body.open) edges.push({ from: b.id, to: l, label: 'next' });
+        blocks.push({ id: l, each: body.blocks });
         open = [{ id: l, label: 'done' }];
       } else if (st.kind === 'fail') {
-        const s = node('stop', st.says.replace(/^Fails with /, 'Stop: '), base);
-        connect(open, s);
+        const sn = node('stop', st.says.replace(/^Fails with /, 'Stop: '), base);
+        connect(open, sn);
+        blocks.push({ id: sn });
         open = [];
       } else if (st.kind === 'return') {
         const e = node('end', st.restates ? st.code : st.says.replace(/^Returns /, 'Gives back '), { ...base, ...(st.restates ? { code: true } : {}) });
         connect(open, e);
+        blocks.push({ id: e });
         open = [];
+      } else if (st.kind === 'try') {
+        // Try: the normal path; each "If X goes wrong" handler beside it; "Always, at the end" after both.
+        const t = node('step', st.says, base);
+        connect(open, t);
+        const body = walk(st.children || [], [{ id: t }], lane);
+        let after = body.open;
+        const handlers = [];
+        for (const h of st.handlers || []) {
+          const hn = node('decision', `${h.says}?`, { line: h.line, lane: lane + 1, does: 'decide', handler: true });
+          edges.push({ from: t, to: hn, label: 'error' });
+          const hw = walk(h.steps, [{ id: hn, label: 'yes' }], lane + 1);
+          handlers.push({ id: hn, blocks: hw.blocks });
+          after = [...after, ...hw.open];
+        }
+        let always = null;
+        if (st.always) {
+          const an = node('step', 'Always, at the end', { line: st.always.line, lane, does: 'do', always: true });
+          connect(after, an);
+          const aw = walk(st.always.steps, [{ id: an }], lane);
+          always = { id: an, blocks: aw.blocks };
+          after = aw.open;
+        }
+        blocks.push({ id: t, body: body.blocks, ...(handlers.length ? { handlers } : {}), ...(always ? { always } : {}) });
+        open = after;
       } else {
         const k = node(does === 'code' ? 'code' : 'step', does === 'code' ? st.code ?? st.says : st.says, base);
         connect(open, k);
         open = [{ id: k }];
-        if (st.children?.length) open = walk(st.children, open, lane + 1);
+        if (st.children?.length) {
+          const inner = walk(st.children, open, lane + 1);
+          blocks.push({ id: k, body: inner.blocks });
+          open = inner.open;
+        } else blocks.push({ id: k });
       }
     }
-    return open;
+    return { open, blocks };
   };
   const s0 = node('start', start, { lane: 0, does: 'start' });
-  const open = walk(steps || [], [{ id: s0 }], 0);
+  const { open, blocks } = walk(steps || [], [{ id: s0 }], 0);
   if (open.length) connect(open, node('end', 'Done', { lane: 0, does: 'answer' }));
   // Rows: order of first appearance, so the picture reads top to bottom like the code.
   nodes.forEach((x, i) => { x.row = i; });
-  return { nodes, edges };
+  return { nodes, edges, blocks };
 }
 
 // ── The model ──────────────────────────────────────────────────────────────────────────────────────────
@@ -354,38 +398,31 @@ export function thunderModel(files, { name = 'app' } = {}) {
 
 // ── Thunder Text, projected from the model (the picture is projected from the same nodes) ──────────────
 
-const LABEL_WORDS = { yes: 'Yes', no: 'No', each: 'For each', done: 'When done' };
-
-/** Walk a flow from its start as indented lines: questions with their Yes/No sides, steps in order. */
+/** Thunder Text lines from a flow's blocks: the same tree the picture is drawn from. */
 function flowLines(flow, depth = 1) {
-  const out = [];
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
-  const from = (id) => flow.edges.filter((e) => e.from === id);
-  const seen = new Set();
+  const out = [];
   const pad = (d) => '  '.repeat(d);
-  const say = (n) => (n.kind === 'code' ? `\`${n.text}\` (code, not explained)` : n.kind === 'stop' ? n.text : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
-  const go = (id, d) => {
-    while (id && !seen.has(id)) {
-      const n = byId.get(id);
-      seen.add(id);
-      if (n.kind === 'start') { id = from(id)[0]?.to; continue; }
-      if (n.kind === 'end' && n.text === 'Done') return;
-      if (n.kind === 'decision' || n.kind === 'loop') {
-        out.push(`${pad(d)}- ${n.kind === 'loop' ? n.text : `Ask: ${n.text}`}${n.line ? `  (line ${n.line})` : ''}`);
-        const outs = from(id);
-        const side = outs.find((e) => e.label === (n.kind === 'loop' ? 'each' : outs.find((x) => byId.get(x.to)?.lane > n.lane)?.label));
-        const main = outs.find((e) => e !== side && e.label !== 'next');
-        if (side) { out.push(`${pad(d + 1)}${LABEL_WORDS[side.label] || side.label}:`); go(side.to, d + 2); }
-        if (main && main.label) out.push(`${pad(d + 1)}${LABEL_WORDS[main.label] || main.label}: continue`);
-        id = main?.to;
-        continue;
+  const at = (n) => (n.line ? `  (line ${n.line})` : '');
+  const say = (n) => (n.kind === 'code' ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' ? `Ask: ${n.text}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
+  const go = (blocks, d) => {
+    for (const b of blocks || []) {
+      const n = byId.get(b.id);
+      out.push(`${pad(d)}- ${say(n)}${at(n)}`);
+      if (n.kind === 'decision') {
+        for (const side of ['yes', 'no']) {
+          if (!(side in b)) continue;
+          if (b[side].length) { out.push(`${pad(d + 1)}${side === 'yes' ? 'Yes' : 'No'}:`); go(b[side], d + 2); }
+          else out.push(`${pad(d + 1)}${side === 'yes' ? 'Yes' : 'No'}: continue`);
+        }
       }
-      out.push(`${pad(d)}- ${say(n)}${n.line ? `  (line ${n.line})` : ''}`);
-      if (n.kind === 'stop' || n.kind === 'end') return;
-      id = from(id).find((e) => e.label !== 'next')?.to;
+      if (b.each) { out.push(`${pad(d + 1)}For each:`); go(b.each, d + 2); }
+      if (b.body) go(b.body, d + 1);
+      for (const h of b.handlers || []) { out.push(`${pad(d + 1)}${byId.get(h.id).text.replace(/\?$/, '')}:`); go(h.blocks, d + 2); }
+      if (b.always) { out.push(`${pad(d + 1)}Always, at the end:`); go(b.always.blocks, d + 2); }
     }
   };
-  go(flow.nodes[0]?.id, depth);
+  go(flow.blocks, depth);
   return out;
 }
 

@@ -1,5 +1,19 @@
 # Unreleased
 
+**Complete behavior: every branch, at every depth, in every language.**
+- **Fix (serious):** `else`, `elif`/`else if`/`elsif`, `except`/`catch`/`rescue`, and `finally`/`ensure` were
+  dropped from steps while the reading still claimed 100% anchored (OpenThunder found it on a real app; the language
+  audit found 0% of these branches shown in eleven open-source repositories). They are now read at every depth and
+  attached to their `if`/`try`: `otherwise`, `handlers` ("If DatabaseError goes wrong"), `always` ("Always, at the
+  end"). Steps are no longer folded below one level. Thunder Text, the model's flow (`blocks` tree plus graph),
+  and `modelText` all show them.
+- **`scripts/language-audit.mjs`** reads one open-source repository per language and reports branches shown, steps
+  explained, and fully explained functions; results in `docs/language-audit.md` (branches shown: 0% → 52–95%).
+- Wording fixes found by reading real code: Go `if err := f(); err != nil` ("If f fails"), counted loops, switch
+  cases, casts, typed declarations, `foreach`, one-line ifs, Ruby modifiers, predicates, bare-word calls and
+  method-level `rescue`, PHP attributes, `isset`/`empty`/`count`, ternaries, comparisons as words, plain names as
+  set / not set, declarations without a value, functions stored under a name, pairs in loops.
+
 **Semantic Zoom: one model, read from the big picture down to one decision.**
 - **`thunder-model-v1`** (`thunderModel(files)`, `/core`): the one meaning every Thunder view is drawn from.
   Things (classes: what they know and how they start, what they can do), Data (records and choices, from
