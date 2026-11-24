@@ -523,7 +523,60 @@ on the command line, `thunder runtime <folder> --traces … --stack … --logs �
    run should not be given twice (as a record and as its stack trace).
 5. Colors follow section 7: a Stop's count is a fact about a Stop, not a failed check.
 
-## 14. What comes next
+## 14. Review in Thunder
+
+A change is approved by what it does, not by how its text moved. `thunderReview(oldFiles, newFiles)` reads both
+versions into the Thunder model, pairs each action, rule, and function with its other version, and says what changed
+in meaning, in short sentences, most important first. `thunder review <base-ref> [head-ref]` does the same for two git
+commits (the working tree when `head-ref` is left out) and prints Markdown for a pull request comment, or `--json`.
+It runs only git and the compiler: nothing is fetched or executed, and no AI is used.
+
+**Pairing.** By file and name first (in any naming convention), then by a name used once on each side (a moved file),
+then a route handler by its file, method, and code (a new address), then by meaning (a renamed function whose code is
+the same apart from its name, or a rule with the same answers). What has no partner is new or removed.
+
+**What is compared, and how it is said.**
+
+| Change | Said as | Severity |
+| --- | --- | --- |
+| A new Stop | "Now stops with 403 Forbidden ("forbidden") when the x-admin-secret header is not the ADMIN_SECRET setting." | meaning |
+| A Stop removed | "No longer stops with 403 … Check that this is no longer needed." | risk |
+| A Stop on a different path, or a new message | "Stops with 404 Not Found under different conditions: now when … (was when …)." | risk / meaning |
+| A rule's limit | "Late fee: the limit between Small fee and Big fee moved from 7 to 10 days late", with a case run on both: 8 days late gave Big fee, now Small fee | meaning |
+| A rule's answers | "Can now answer Medium fee." / "No longer answers …" / "when books out is 3 …, it now gives Yes (was No)." | meaning |
+| Inputs | "Now also takes coupon (in the address)." / "No longer takes …" | meaning |
+| What it gives back | "Now also gives back …" / "No longer gives back …" | meaning |
+| What it changes or reaches | "Now also creates a Stripe charge." (another service, a payment, an email, stored data) | risk |
+| What it relies on | "Now also relies on Can borrow?" | meaning |
+| An address | "The address changed: GET /price is now GET /prices." | risk |
+| Records and choices | "Book now also knows times borrowed (0 at first)." / "Status can now also be lost." | meaning |
+| New, removed, renamed, moved | "New action: …", "Removed function: …", "Renamed from Late fee to Overdue fee.", "Moved from app/fees.py to billing/fees.py." | meaning / form |
+| Code outside every action and rule | "Changed in code Thunder did not read as an action or rule (in or near …): check the before and after." | meaning |
+| Code Thunder cannot read, infrastructure, pipelines | "Thunder cannot read this yet, and its code changed: check the code itself." | risk |
+
+Each item is `{ kind, severity, subject, where: { file, line }, says, evidence }`; the evidence is the case that was
+run on both versions, or the before and after Thunder lines (code lines, for code Thunder does not explain).
+
+**Honest by design.** "Only the form changed" is said only when it is shown:
+
+- the code is the same apart from spacing, line breaks, and comments (Python indentation counts as code);
+- or only names the function declares itself (its inputs and the values it works out) were renamed, consistently,
+  and nothing else changed (a field, a key, a named argument, or a setting from outside never counts as a rename);
+- or a rule gives the same answer on every edge case, run on both versions.
+
+Thunder's words leave some details out (a call's arguments, some values), so when the words read the same but the code
+differs, the review says "Changed, check: Thunder reads the same, but the code differs in details Thunder's words
+leave out", with the code before and after. It never says "safe", and never "same" without one of the proofs above.
+
+**In a pull request.** The GitHub Action in `.github/actions/thunder-review` runs `thunder review` on the pull
+request's base and head and keeps one comment up to date (found by `<!-- thunder-review -->`). It posts with the
+adopting repository's own `GITHUB_TOKEN`. See [Review in Thunder](/docs/review-in-thunder).
+
+**Not yet.** Infrastructure (Terraform, Bicep, Kubernetes, Compose) and pipelines are flagged for a person to check,
+not read; reordered steps are shown as changed steps, not proven independent; a function changed beyond its address
+or name is shown as removed and new rather than paired.
+
+## 15. What comes next
 
 In the order OpenThunder needs them for Read in Thunder (the whole-application formats in section 12 follow
 their own order there):

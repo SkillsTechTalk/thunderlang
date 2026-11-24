@@ -164,6 +164,24 @@ only a run writes `member.completeness.level = 'executed'` (`markExecuted`). Pyt
   if the database said those words (it is now described, not quoted).
 - Decision nodes carry `whenTrue` ('yes' | 'no'): the side the code takes when its condition holds.
 
+**Language: review in Thunder** (`compiler/src/review.mjs`, `thunder review`, spec section 14). A pull request is
+shown by what it changed in meaning, in plain sentences, so it can be reviewed without reading the code diff.
+`thunderReview(oldFiles, newFiles)` (exported from `/core`) pairs each action, rule, and function with its other
+version (by file and name, by a name used once, by a route's code, or by meaning) and compares the ways it stops and
+when ("Now stops with 403 Forbidden ("forbidden") when the x-admin-secret header is not the ADMIN_SECRET setting"),
+rules by running both versions on every edge case ("the limit between Small fee and Big fee moved from 7 to 10 days
+late", with the case 8 days late as evidence), inputs, what it gives back, what it changes or reaches (another
+service, a payment, stored data), what it relies on, addresses, records and choices, new, removed, renamed, and moved
+functions, imports, and code outside every function. Items are ordered risk, meaning, form, each with the before and
+after. "Only the form changed" is said only when it is shown (same code apart from spacing and comments, consistent
+renames of names the function declares, or a rule with the same answers on every edge case); when Thunder's words
+read the same but the code differs, it says "Changed, check". Infrastructure and pipeline files are flagged to check,
+not read. `thunder review <base-ref> [head-ref] [--json] [--out file]` reads both versions from git (no network) and
+prints Markdown for a pull request comment; `.github/actions/thunder-review` posts and updates one comment with the
+adopting repository's own token (not enabled on this repository). Decision nodes in the model now carry `holds` (each
+side of a yes/no question as a statement) and Details' `when` entries a `says`, so sentences read "when the header is
+not the setting" rather than quoting the question. /zoom shows a sample review computed by the compiler.
+
 **Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
 review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
 misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep

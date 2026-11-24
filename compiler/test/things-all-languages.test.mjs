@@ -57,6 +57,6 @@ test('Details: what comes after a guard that can stop only happens on the other 
   const SRC = "fastify.get('/orgs/:slug', async (request, reply) => {\n  const { slug } = request.params as { slug: string };\n  const org = await store.getOrg(slug);\n  if (!org) return reply.code(404).send({ error: 'Org not found.' });\n  const repos = await store.repos(org.id);\n  return { org, repos, avg: average(repos), failing: repos.filter((r) => r.failing) };\n});";
   const m = thunderModel([{ path: 'r.ts', source: SRC }]);
   const d = readLevel(m, 'details', m.members[0].id);
-  assert.deepEqual(d.givesBack, [{ text: 'Gives back org, repos, avg, and failing', line: 6, when: [{ question: 'Is org set?', answer: 'Yes' }] }]);
-  assert.deepEqual(d.stops[0].when, [{ question: 'Is org set?', answer: 'No' }]);
+  assert.deepEqual(d.givesBack, [{ text: 'Gives back org, repos, avg, and failing', line: 6, when: [{ question: 'Is org set?', answer: 'Yes', says: 'org is set' }] }]);
+  assert.deepEqual(d.stops[0].when, [{ question: 'Is org set?', answer: 'No', says: 'org is not set' }]);
 });
