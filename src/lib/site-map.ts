@@ -38,7 +38,7 @@ const SECTIONS: MapSection[] = [
     links: [
       { href: "/", label: "Home", says: "Thunder. Programming, made human." },
       { href: "/language", label: "The Thunder Programming Language", says: "Human-native programming, and why. Thunder is the language; OpenThunder is the IDE." },
-      { href: "/learn", label: "Learn Thunder", says: "Eleven short lessons on reading software in Thunder. No install." },
+      { href: "/learn", label: "Learn Thunder", says: "Twelve short lessons on reading software in Thunder, ending with a whole app in OpenThunder. No install." },
       { href: "/install", label: "Install", says: "The open-source Thunder compiler for your terminal and VS Code." },
     ],
   },

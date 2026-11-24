@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readCode } from '../src/read.mjs';
 import { thunderText, visualFor, visualForStep } from '../src/visual.mjs';
 import { previewPlainContract } from '../src/plain-contract.mjs';
-import { READ_LESSONS } from '../../src/app/learn/read-lessons.mjs';
+import { READ_LESSONS } from '../src/learn-lessons.mjs';
 import { thunderModel, modelText } from '../src/model.mjs';
 
 const squash = (s) => s.replace(/[_\s]/g, '').toLowerCase();
@@ -16,7 +16,7 @@ const flat = (steps) => steps.flatMap((s) => [s, ...flat(s.children || [])]);
 const MODEL_LESSONS = new Set(['shapes', 'thing', 'flow', 'howto']);
 
 test('every lesson has an idea, a picture, two questions with answers, and code that contains what it teaches', () => {
-  assert.equal(READ_LESSONS.length, 11);
+  assert.equal(READ_LESSONS.length, 12);
   for (const l of READ_LESSONS) {
     assert.ok(l.idea && l.picture, l.slug);
     assert.ok(l.questions.length >= 2 && l.questions.every((q) => q.q && q.a), l.slug);

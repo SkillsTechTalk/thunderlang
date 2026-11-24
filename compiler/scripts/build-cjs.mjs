@@ -31,6 +31,7 @@ const common = {
 const entries = [
   { in: join(root, 'src/index.mjs'), out: join(dist, 'index.cjs') },
   { in: join(root, 'src/core.mjs'), out: join(dist, 'core.cjs') },
+  { in: join(root, 'src/learn.mjs'), out: join(dist, 'learn.cjs') },
 ];
 
 for (const e of entries) {
