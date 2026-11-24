@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.6
 
 Entries that change what Thunder means or how it reads (the language itself) start with **Language:**. Courses and
 tools built on `@skillstech/thunderlang/learn` should re-check their lessons when one appears.
