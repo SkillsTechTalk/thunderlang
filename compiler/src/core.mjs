@@ -12,6 +12,8 @@ export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPAR
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
+export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
+export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
 export { PLAIN_SCHEMA, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 
 // Classification model (observed/inferred/proposed/... + isFactual). Node-free.

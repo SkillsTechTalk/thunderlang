@@ -21,7 +21,7 @@ export function parseGitHub(target) {
   return { owner: m[1], repo: m[2], url: `https://github.com/${m[1]}/${m[2]}.git` };
 }
 
-function cloneGitHub(gh, { timeoutMs = 120000 } = {}) {
+export function cloneGitHub(gh, { timeoutMs = 120000 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'thunder-repo-'));
   const res = spawnSync('git', ['clone', '--depth', '1', '--quiet', '--no-tags', gh.url, join(dir, 'repo')], {
     timeout: timeoutMs, encoding: 'utf8', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },

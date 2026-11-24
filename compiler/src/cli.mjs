@@ -13,11 +13,13 @@
 // --no-ai is the default and only mode today; the flag is accepted for forward-compatibility.
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { basename, join, relative, dirname } from 'node:path';
+import { basename, join, relative, dirname, resolve } from 'node:path';
 import { parseIntent, slug, subjectName, KNOWN_LENSES } from './parse.mjs';
 import { previewHumanContract, renderHumanContract } from './human-contract.mjs';
 import { previewPlainContract } from './plain-contract.mjs';
-import { thunderRepo, renderThunderRepo } from './thunder-repo.mjs';
+import { thunderRepo, renderThunderRepo, parseGitHub, cloneGitHub } from './thunder-repo.mjs';
+import { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
+import { sameMeaning, renderSame } from './same.mjs';
 import { anchorReport } from './anchor.mjs';
 import { writeRule } from './write.mjs';
 import { readCode, searchReading } from './read.mjs';
@@ -441,6 +443,8 @@ Graph & IR
                             Thunder write: change a number, comparison, text value, or answer in a recovered rule;
                             previews the exact code change and the cases whose answer changes; --write saves it
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
+  thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
+  same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
@@ -571,6 +575,44 @@ function main() {
       console.log(args.json ? JSON.stringify(report, null, 2) : renderThunderRepo(report));
       process.exitCode = report.errors.length ? 1 : 0;
     } catch (e) { console.error(`thunder repo: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'thunderize') {
+    let cleanup = () => {};
+    try {
+      if (!file) throw new Error('Use thunder thunderize <folder | owner/repo> [--out <dir>] [--json].');
+      let root = file, name = basename(resolve(file));
+      const gh = !existsSync(file) && parseGitHub(file);
+      if (gh) { const c = cloneGitHub(gh); root = c.root; cleanup = c.cleanup; name = `${gh.owner}/${gh.repo}`; }
+      else if (!existsSync(file) || !statSync(file).isDirectory()) throw new Error(`${file} is not a folder or a GitHub repository.`);
+      const app = thunderizeFiles(collectReadableFiles(root), { name });
+      if (args.out) {
+        for (const f of app.files) { const dest = join(args.out, f.out); mkdirSync(dirname(dest), { recursive: true }); writeFileSync(dest, f.text); }
+        mkdirSync(args.out, { recursive: true });
+        writeFileSync(join(args.out, `APP${THUNDER_TEXT_EXT}`), app.index);
+      }
+      if (args.json) console.log(JSON.stringify(app, null, 2));
+      else {
+        process.stdout.write(app.index);
+        if (args.out) console.log(`\nWrote ${app.files.length + 1} Thunder Text files to ${args.out} (start with APP${THUNDER_TEXT_EXT}).`);
+        else console.log(`\nAdd --out <dir> to write every file's Thunder Text.`);
+      }
+    } catch (e) { console.error(`thunder thunderize: ${e.message}`); process.exitCode = 2; }
+    finally { cleanup(); }
+    return;
+  }
+  if (cmd === 'same') {
+    try {
+      const [a, b] = args._;
+      if (!a || !b) throw new Error('Use thunder same <old> <new> [--json]. Each can be a file or a folder, in any language Thunder reads.');
+      const load = (p) => {
+        if (!existsSync(p)) throw new Error(`${p} does not exist.`);
+        return statSync(p).isDirectory() ? collectReadableFiles(p) : [{ path: basename(p), source: readFileSync(p, 'utf8') }];
+      };
+      const r = sameMeaning(load(a), load(b));
+      console.log(args.json ? JSON.stringify(r, null, 2) : renderSame(r).trimEnd());
+      process.exitCode = r.verdict === 'same' ? 0 : 1;
+    } catch (e) { console.error(`thunder same: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'plain' || cmd === 'text') {

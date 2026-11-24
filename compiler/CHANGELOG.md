@@ -36,6 +36,17 @@
   book to student's books".
 - Site: `/zoom`, Semantic Zoom (preview): How deep (Big picture, Flow, Details) and Show as (Thunder, Thunder Text,
   Original), breadcrumbs, the symbols, Try the rule (runs the rule as read), and line links to the original.
+**A whole app in Thunder Text, and proof that a conversion kept its meaning.**
+- **`thunder thunderize <folder | owner/repo> [--out dir]`**: every readable file becomes `<file>.thunder-text`
+  beside a mirror of its path, plus `APP.thunder-text`, which reads the app top-down (areas, files, actions,
+  rules). Files Thunder cannot read are listed, never dropped. `/core`: `thunderizeFiles`, `thunderizeFile`.
+- **`thunder same <old> <new>`**: does new code mean the same as old code, in any languages Thunder reads?
+  Functions pair by file stem and name in any convention (`delivery_fee` ↔ `deliveryFee`), falling back to a
+  unique name when a file was renamed. Rules are compared by running both on every edge case either one
+  mentions, so reordered conditions count as the same and a changed limit is caught with a counterexample in
+  plain words ("the total 20, the distance km 0: Free before, Standard after"). Steps are compared in order.
+  Code Thunder cannot read is never counted as the same: the verdict is then `partly-checked`. Exit 0 only when
+  the meaning is the same. `/core`: `sameMeaning`, `compareRules`, `renderSame`. Docs: `docs/converting-code.md`.
 
 **Thunder V1: the Thunder Programming Language.** Thunder is a human-native programming language: people work
 with the meaning of software while machines handle most of the implementation. Specified in `docs/spec.md`,
