@@ -81,8 +81,12 @@ function start() {
         let type = l.type || 'statement';
         if (l.type === 'call') {
           if (conditionAt.has(l.columnNumber)) type = `condition:${conditionAt.get(l.columnNumber)}`;
-          else if (startsStatement(text, l.columnNumber)) type = 'statement';
-          else continue; // a call inside a statement: not a step of its own
+          else if (startsStatement(text, l.columnNumber)) {
+            // A chain continued from the lines above (`body = body\n  .replace(…)`): the statement starts there.
+            let from = ln;
+            while (from > 0 && (/^\s*[.?]/.test(lines[from]) || /(?:[=(,+\-*/?:]|&&|\|\|)\s*$/.test(lines[from - 1].replace(/\/\/.*$/, ''))) && from > ln - 8) from--;
+            type = from === ln ? 'statement' : `statement:${from}`;
+          } else continue; // a call inside a statement: not a step of its own
         }
         types.set(`${ln}:${l.columnNumber}`, type);
         try { post('Debugger.setBreakpoint', { location: l }); } catch { /* not every position takes one */ }
@@ -107,7 +111,8 @@ function start() {
     if (!s) return;
     meta.pauses++;
     const loc = top.location;
-    const line = loc.lineNumber + 1;
+    const where = s.types.get(`${loc.lineNumber}:${loc.columnNumber}`) || 'statement';
+    const line = (where.startsWith('statement:') ? Number(where.slice(10)) : loc.lineNumber) + 1;
     const key = keyOf(callFrames);
     const defLine = (top.functionLocation?.lineNumber ?? loc.lineNumber) + 1;
     let at = offsetOf(s, loc);

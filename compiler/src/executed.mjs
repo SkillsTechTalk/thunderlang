@@ -82,7 +82,7 @@ export function compareRun(model, trace, { languages = null } = {}) {
   const questions = members.reduce((a, x) => a + x.questions.drawn, 0);
   const checked = members.reduce((a, x) => a + x.questions.checked, 0);
   const summary = {
-    members: members.length, run: members.filter((x) => x.runs > 0).length,
+    members: members.length, run: members.filter((x) => x.status !== 'not run').length,
     executed: count('executed'), contradicted: count('contradicted'), notChecked: count('not checked'), notRun: count('not run'),
     questions, questionsChecked: checked,
     claims: { matched: members.reduce((a, x) => a + x.matched, 0), mismatched: members.reduce((a, x) => a + x.mismatches.length, 0), notDrawn: members.reduce((a, x) => a + x.notDrawn, 0) },
@@ -110,7 +110,6 @@ function judgeMember(m, t, model) {
   const decisions = [], mismatches = [];
   let matched = 0, notDrawn = 0;
   const nodesAt = (line) => flow.nodes.filter((n) => n.line === line);
-  const drawn = (line) => flow.nodes.some((n) => n.line === line);
   // A rule's answer is drawn on its question's line; the `return` that gives it is on that line or below it, before the
   // next question. Python's recorder says which `if` / `case` holds each return (encl); otherwise the nearest answer above.
   const answers = flow.nodes.filter((n) => n.kind === 'end' && n.answer && n.line != null);
@@ -136,7 +135,10 @@ function judgeMember(m, t, model) {
   const miss = (x) => { if (!mismatches.some((y) => y.line === x.line && y.side === x.side && y.observed === x.observed)) mismatches.push(x); };
 
   // ── Questions, loops, cases, handlers ──
-  const obsAt = new Map(Object.entries(t?.decisions || {}).map(([l, d]) => [Number(l), d]).filter(([l]) => l >= m.lines[0] && l <= m.lines[1]));
+  // (A function inside this one that Thunder draws as its own member — a getter passed to defineProperty, a callback —
+  // is judged there, not here.)
+  const inner = model.members.filter((x) => x !== m && x.file === m.file && x.lines[0] > m.lines[0] && x.lines[1] <= m.lines[1]);
+  const obsAt = new Map(Object.entries(t?.decisions || {}).map(([l, d]) => [Number(l), d]).filter(([l]) => l >= m.lines[0] && l <= m.lines[1] && !inner.some((x) => l >= x.lines[0] && l <= x.lines[1] && !flow.nodes.some((n) => n.line === l))));
   // A `match` Thunder drew as a chain of questions (a rule) is checked question by question: case P taken = the
   // question at line P answered Yes.
   for (const [L, d] of [...obsAt]) {
@@ -269,10 +271,11 @@ function judgeMember(m, t, model) {
     }
     if (fn.fellOff) {
       // Reaching the end of the body matches "Done", or an ending drawn on the last line that ran (a web handler's
-      // `res.send(…)` is how it answers: Thunder draws it as the ending).
+      // `res.send(…)` is how it answers: Thunder draws it as the ending)
       const done = flow.nodes.find((n) => n.kind === 'end' && n.line == null);
       const lastLines = Object.keys(fn.fellOffAt || {}).map(Number);
-      const endedThere = lastLines.length && lastLines.every((l) => flow.nodes.some((n) => n.kind === 'end' && n.line === l));
+      // (or a Stop: Express's `next(err)` hands the error on, and that is how the path ends.)
+      const endedThere = lastLines.length && lastLines.every((l) => flow.nodes.some((n) => (n.kind === 'end' || n.kind === 'stop') && n.line === l));
       const ok = !!done || !!endedThere;
       if (ok) matched += fn.fellOff;
       else miss({ line: lastLines[0] ?? m.lines[1], question: null, side: 'ending', expected: 'Thunder: every path ends with an answer or a Stop', observed: `the run reached the end of the function without giving anything back${lastLines.length ? ` (after line ${lastLines.join(', ')})` : ''}`, times: fn.fellOff });
