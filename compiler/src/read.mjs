@@ -1931,7 +1931,8 @@ function sayDecision(rules, otherwise) {
 }
 
 function decisionSource(name, inputs, rules, otherwise) {
-  const L = [`decision ${name}`, '  inputs'];
+  // A function with no name of its own ("format › callback at line 579") is written under a name a card can hold.
+  const L = [`decision ${/^[A-Za-z_$][\w$]*$/.test(name) ? name : String(name).replace(/[^\w$]+/g, "_").replace(/^_+|_+$/g, "") || "callback"}`, "  inputs"];
   for (const p of inputs) L.push(`    ${p.name}${['number', 'boolean', 'string'].includes(p.type) ? `: ${p.type}` : ''}`);
   rules.forEach((r, i) => L.push(`  rule rule_${i + 1}`, `    when ${r.when}`, `    return ${r.result}`));
   if (otherwise) L.push('  default', `    return ${otherwise.result}`);

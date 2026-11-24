@@ -15,6 +15,7 @@ export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, r
 export type { Expr } from './meaning.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
+export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
 export type { ColorRole, ElementKind, Provenance as VisualProvenance, Visual } from './visual.mjs';

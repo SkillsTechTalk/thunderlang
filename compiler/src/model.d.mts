@@ -3,7 +3,7 @@ import type { Does } from './visual.mjs';
 import type { Expr } from './meaning.mjs';
 export const MODEL_SCHEMA: 'thunder-model-v1';
 export const THING_LANGUAGES: string[];
-export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true;
+export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; /** Set when `uses` is a member in another file (calls across files). */ usesFile?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true;
   /** The step's full meaning (thunder-expr-v1). */ expr?: Expr;
   /** What the short words leave out, one level down: "with: order, { validate: false }". Shown in Details and the full Thunder Text. */ detail?: string }
 export interface FlowEdge { from: string; to: string; label?: 'yes' | 'no' | 'each' | 'next' | 'done' | 'error' | 'case' | 'nested'; /** On a 'case' edge: the case it takes ("When it is from 90 to 100", "Otherwise", "None of these"). */ text?: string }
@@ -15,8 +15,23 @@ export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; ea
 /** nodes/edges: the flow as a graph. blocks: the same nodes as a tree, which views draw from. */
 export interface Flow { nodes: FlowNode[]; edges: FlowEdge[]; blocks: FlowBlock[] }
 export interface Thing { id: string; kind: 'thing' | 'record' | 'choices'; name: string; label: string; doc?: string; file: string; lines: [number, number]; knows: { name: string; label: string; kind: string | null; start: string | null; line: number | null }[]; choices: string[]; can: string[] }
-export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read'; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
-export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string }[]; things: Thing[]; members: Member[]; links: { from: string; to: string; kind: 'uses'; node: string }[]; unknowns: { id?: string; file: string; line: number; why: string }[] }
+export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read'; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string;
+  /** JS/TS: what the function is assigned to (`exports.normalizeType`, `View.prototype.lookup`, `res.json`). */ assignedTo?: string;
+  /** JS/TS: an anonymous function passed to a call (named `<parent> › callback at line N`); `passedTo` is the call. */ callback?: true; passedTo?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
+/**
+ * A link from a member's flow node to another member. 'uses': a call (in the same file, or with `crossFile` through an
+ * import, a declared type, or the same package). 'sends-to': an HTTP request to the route that handles its method and
+ * path (`method`, `path`, `route`), an event or queue message to its listener (`event`), or a task to its worker (`task`).
+ */
+export interface ModelLink { from: string; to: string; kind: 'uses' | 'sends-to'; node: string; /** The target's file. */ file?: string; /** The calling step's line. */ line?: number | null; crossFile?: true; method?: string; path?: string; route?: string; event?: string; task?: string }
+/** A call, request, event, or import worth linking that was not linked, and why (dynamic import, computed URL, external package, two routes match, an interface). */
+export interface NotLinked { from?: string; node?: string; file: string | null; line: number | null; call?: string; import?: string; why: string; /** For an external package: how many imports of it. */ files?: number }
+export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string }[]; things: Thing[]; members: Member[]; links: ModelLink[]; unknowns: { id?: string; file: string; line: number; why: string }[]; notLinked?: NotLinked[] }
+/** Which areas (folders, two levels deep) call which, from cross-file and service links. */
+export interface AreaCalls { from: string; to: string; calls: number; sends: number; examples: { from: string; to: string; says: string }[] }
+/** Where a link goes, as views show it. */
+export interface LinkFacts { kind?: 'sends-to'; file?: string; crossFile?: true; line?: number; service?: string; route?: string }
+/** Files may include go.mod, package.json, and tsconfig/jsconfig.json: they say which imports are this repo's own. */
 export function thunderModel(files: { path: string; source: string }[], options?: { name?: string }): ThunderModel;
 export function flowOf(steps: unknown[], options?: { start?: string; memberIndex?: Map<string, string>; memberLabel?: Map<string, string> }): Flow;
 export function ruleFlow(item: unknown, start: string): Flow;
@@ -37,8 +52,10 @@ export interface LevelView {
   purpose?: string; things?: { id: string; label: string; doc?: string; knows: { label: string; start?: string }[]; can: LevelItem[] }[];
   data?: { id: string; label: string; symbol: string; choices?: string[]; knows: string[] }[];
   actions?: LevelItem[]; rules?: LevelItem[]; loose?: LevelItem[]; unknowns?: ThunderModel['unknowns'];
+  /** Big Picture, whole app: which areas call which (the app's map), and what could not be linked. */
+  calls?: AreaCalls[]; notLinked?: NotLinked[];
   route?: string; doc?: string; owner?: { id: string; label: string }; youGive?: string[]; youGetBack?: string;
-  uses?: { id: string; label: string }[]; usedBy?: { id: string; label: string }[];
+  uses?: ({ id: string; label: string } & LinkFacts)[]; usedBy?: ({ id: string; label: string } & LinkFacts)[];
   // Flow
   flow?: Flow;
   // Details
@@ -55,7 +72,7 @@ export interface LevelView {
   /** Details: what it gives back, and when. */
   givesBack?: { text: string; line: number | null; when: When[] }[];
   /** Details: each action or rule it relies on, summarized. */
-  reliesOn?: { id: string; label: string; symbol: string; says: string }[];
+  reliesOn?: ({ id: string; label: string; symbol: string; says: string } & LinkFacts)[];
   /** Details, for a rule: its answers in words, in order (the last may be "otherwise"). */
   answers?: { answer: string; when: string }[];
   /** Details, for a rule with one whole-number fact: its exact limits, found by running it. from/to null = "or less"/"or more". */

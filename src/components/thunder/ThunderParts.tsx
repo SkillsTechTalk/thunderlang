@@ -52,7 +52,7 @@ export function FlowNodeCard({ n, onOpen, onLine, model }: { n: FlowNode; onOpen
       <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-sm font-semibold" style={{ color: HEX[d.color], borderColor: `${HEX[d.color]}66` }}>{d.mark}</span>
       <span className="sr-only">{d.label}: </span>
       <span className="text-[16px] text-haze-100">{n.text}</span>
-      {target && <button type="button" onClick={() => onOpen(target.id)} className={`rounded-lg border border-white/20 px-2.5 py-1 text-sm text-haze-200 hover:text-white ${focus}`}>Open →</button>}
+      {target && <button type="button" onClick={() => onOpen(target.id)} className={`rounded-lg border border-white/20 px-2.5 py-1 text-sm text-haze-200 hover:text-white ${focus}`}>{n.usesFile ? `Open in ${n.usesFile.split("/").pop()} →` : "Open →"}</button>}
       {line}
     </div>
   );

@@ -1217,7 +1217,7 @@ function nestedStep(s, base) {
     else if ((m = text.match(/^(?:window\.|globalThis\.)?(setTimeout|setInterval)\(/))) {
       const ms = (s.fn.after.match(/^\s*,\s*(\d+)\s*\)/) || [])[1];
       said = m[1] === 'setTimeout' ? (ms ? `After ${ms} milliseconds` : 'After a wait') : (ms ? `Every ${ms} milliseconds` : 'Again and again, with a wait in between');
-    } else if ((m = text.match(/\.(addEventListener|on|once)\(\s*['"`]([\w:.-]+)['"`]\s*,/))) {
+    } else if ((m = (s.fn.before ?? text).match(/\.(addEventListener|on|once)\(\s*['"`]([\w:.-]+)['"`]\s*,/))) {
       said = m[1] === 'once' ? `The first time "${m[2]}" happens` : `Whenever "${m[2]}" happens`;
     } else if (thenSays(text)) {
       said = thenSays(text);
@@ -1796,7 +1796,7 @@ export function braceStatements(stmts, split = null) {
         pos = e + 1;
       }
     }
-    return { text, line: s.line, endLine: s.endLine, start: s.start, end: s.end, inner, children, ...(clauses.length ? { clauses } : {}), ...(lit ? { fn: { depth: lit.depth, after: text.slice(lit.close + 1) } } : {}) };
+    return { text, line: s.line, endLine: s.endLine, start: s.start, end: s.end, inner, children, ...(clauses.length ? { clauses } : {}), ...(lit ? { fn: { depth: lit.depth, after: text.slice(lit.close + 1), before: text.slice(0, lit.open) } } : {}) };
   });
 }
 

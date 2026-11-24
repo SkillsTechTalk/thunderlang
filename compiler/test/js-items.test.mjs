@@ -108,7 +108,9 @@ test('prototype methods and methods given to an object belong to their Thing; id
   assert.equal(lookup.owner, view.id);
   assert.equal(lookup.id, 'lib/app.js##lookup#46');
   const app = model.things.find((t) => t.name === 'app');
-  assert.deepEqual(app.can.map((id) => model.members.find((m) => m.id === id).name), ['init', 'use', 'enabled']);
+  assert.deepEqual(app.can.map((id) => model.members.find((m) => m.id === id)).filter((m) => !m.callback).map((m) => m.name), ['init', 'use', 'enabled']);
+  // A callback written inside one of its methods belongs to it too, as it would inside a class.
+  assert.equal(model.members.find((m) => m.name === 'use › callback at line 13').owner, app.id);
   // `exports` is the module, not a Thing.
   assert.ok(!model.things.some((t) => t.name === 'exports'));
   // Callbacks are reached from the step that passes them, not listed on their own in the Big Picture.
