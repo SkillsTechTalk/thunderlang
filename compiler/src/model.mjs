@@ -306,8 +306,14 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
           cases.push({ label, line: arm.line, blocks: w.blocks });
           after = [...after, ...w.open];
         }
+        // An else after the cases (Ruby `case … else`) is the last case.
+        if (st.otherwise?.length) {
+          const w = walk(st.otherwise, [{ id: d, label: 'case', text: 'Otherwise' }], lane + 1);
+          cases.push({ label: 'Otherwise', line: st.otherwiseLine ?? st.otherwise[0].line, blocks: w.blocks });
+          after = [...after, ...w.open];
+        }
         // With no "Otherwise", a value that matches no case carries straight on.
-        if (!arms.some((a) => /^(Otherwise|If none is ready yet|Default)\b/i.test(a.says))) after.push({ id: d, label: 'case', text: 'None of these' });
+        if (!st.otherwise?.length && !arms.some((a) => /^(Otherwise|If none is ready yet|Default)\b/i.test(a.says))) after.push({ id: d, label: 'case', text: 'None of these' });
         blocks.push({ id: d, cases });
         open = after;
         continue;

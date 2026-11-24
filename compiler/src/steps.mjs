@@ -29,6 +29,41 @@ function wholeValueCall(value) {
   return !rest || /^(?:\.|\?\.|!\.|\)|\.Error\b)/.test(rest) && !/(?:&&|\|\||\s\?\s|[=!<>]=|\s[<>]\s)/.test(rest.replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, 'Q'));
 }
 
+/**
+ * `a || b` / `a or b` / `a ?? b` as a value: "a, or b when that has no value". Null when the value is not a
+ * fallback; false when it is one whose parts cannot all be said (it must then be shown as code, never as just a).
+ */
+function fallbackWords(value) {
+  const v = String(value).trim();
+  if (!/\|\||\bor\b|\?\?/.test(v)) return null;
+  const parts = splitFallback(v);
+  if (!parts) return null;
+  const said = parts.terms.map((t) => sayValue(t) ?? sayArithmetic(t) ?? (/^\$?[\w$]+(?:\.[\w$]+)*$/.test(t) ? possessiveWords(t) : null));
+  if (said.some((x) => x == null)) return false;
+  return said.reduce((acc, x, i) => (i ? `${acc}, or ${x} when that has no value` : x), '');
+}
+function splitFallback(v) {
+  const out = [];
+  let d = 0, from = 0, op = null;
+  for (let i = 0; i < v.length; i++) {
+    const c = v[i];
+    if (c === '"' || c === "'" || c === '`') { const q = c; for (i++; i < v.length && v[i] !== q; i++) if (v[i] === '\\') i++; continue; }
+    if ('([{'.includes(c)) d++; else if (')]}'.includes(c)) d--;
+    if (d) continue;
+    let len = 0;
+    if ((c === '|' && v[i + 1] === '|') || (c === '?' && v[i + 1] === '?')) len = 2;
+    else if (c === ' ' && /^ or (?=\S)/.test(v.slice(i, i + 5))) len = 4;
+    else if (c === '&' && v[i + 1] === '&') return null;
+    else if (c === ' ' && /^ and /.test(v.slice(i, i + 5))) return null;
+    else if (c === '?' && v[i + 1] === ' ') return null;
+    else if (/[=!<>]/.test(c) && (v[i + 1] === '=' || /[<>]/.test(c))) return null;
+    if (len) { out.push(v.slice(from, i).trim()); from = i + len; i += len - 1; op = true; }
+  }
+  if (!op) return null;
+  out.push(v.slice(from).trim());
+  return out.every(Boolean) ? { terms: out } : null;
+}
+
 /** Top-level arguments of a call's argument text: "a, f(b, c), d" -> ['a', 'f(b, c)', 'd']. */
 function splitTopArgs(t) {
   const out = [];
@@ -649,6 +684,9 @@ function libraryStep(head) {
   }
   // Stored: const user = await prisma.user.findUnique(...) / user = session.query(...).first() / err := db.Create(&u).Error
   if ((m = h.match(/^(?:(?:const|let|var|val|final|auto)\s+)?(?:[A-Za-z_$][\w$<>[\],.?]*\s+)?([@$]{0,2}[A-Za-z_][\w$.]*|\{[^}]*\}|\[[^\]]*\])\s*(?::\s*[^=]+?)?\s*:?=(?!=)\s*(.+)$/)) && !/^(if|while|for|return)\b/.test(h)) {
+    // (A value that goes on past the library call — `a.get("x") or b`, `f() ? a : b` — is not just that call.)
+    const parts = splitLogic(m[2]);
+    if (!parts || parts.terms.length > 1 || /\?\?/.test(m[2])) return null;
     const lib = sayLibraryCall(m[2].replace(/\.Error$/, ''));
     if (!lib) return null;
     const target = words(m[1].replace(/^[@$]+/, '').replace(/^[{[]\s*|\s*[}\]]$/g, '').split('.').pop());
@@ -851,6 +889,13 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^assert(?:_\w+|That|Equals|True|False|NotNull|Null)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
   // Sinatra / Rack `halt`: the request stops here, with what follows sent back.
   if (/^halt\b/.test(head) && FN_CONTEXT?.language === 'ruby') return { kind: 'fail', says: `Fails with halt: the request stops here${/^halt\s*$/.test(head) ? '' : ', sending back what follows'}`, error: 'halt', code };
+  // Kotlin `require(x) { "msg" }` / `requireNotNull(x)` / `check(x)`: stops with an error when it does not hold.
+  if (FN_CONTEXT?.language === 'kotlin' && (m = head.match(/^(require|requireNotNull|check|checkNotNull)\s*\((.*)\)\s*(?:\{\s*(["'])(.*)\3\s*\})?\s*;?$/)) && balancedText(m[2])) {
+    const cond = m[1].endsWith('NotNull') ? `${m[2].trim()} != null` : m[2].trim();
+    const c = sayCodeCondition(cond);
+    const err = m[1].startsWith('require') ? 'IllegalArgumentException' : 'IllegalStateException';
+    return { kind: 'check', says: `Checks that ${c}; otherwise stops with ${err}${m[4] ? `: "${clip(m[4], 60)}"` : ''}`, code };
+  }
   // Go tests: t.Fatal stops the test as failed; t.Error marks it failed and carries on.
   if ((m = head.match(/^t\.(Fatal|Fatalf|Error|Errorf|FailNow|Fail)\s*\(/))) {
     const msg = firstText(head);
@@ -896,6 +941,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'set', says: `Takes ${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''} from ${from}`, code };
   }
   if ((m = head.match(/^(?:var|const)\s*\($/))) return { kind: 'set', says: 'Declares some values', code };
+  if ((m = head.match(/^(?:final\s+)?(?:int|long|double|float|boolean|bool|char|byte|short|string|String|decimal|[A-Z][\w.]*(?:<[^=;()]*>)?(?:\[\])*\??)\s+([a-z_]\w*(?:\s*,\s*[a-z_]\w*)*)\s*;$/))) return { kind: 'set', says: `Declares ${m[1].split(/\s*,\s*/).map(words).join(', ')}`, code };
   if ((m = head.match(/^var\s+([\w, ]+?)\s+[\w.*\[\]]+$/))) return { kind: 'set', says: `Declares ${m[1].split(/\s*,\s*/).map(words).join(', ')}`, code };
   // Typed declaration: Type name = value (Java, C#, C++); the value may continue on the next line.
   if ((m = head.match(/^(?:final\s+|static\s+|readonly\s+)*([A-Z][\w.]*(?:<[^=]*>)?(?:\[\])?|int|long|double|float|boolean|bool|char|byte|short|string|decimal|var|auto)\s+([a-zA-Z_$][\w$]*)\s*=(?!=)\s*(.*)$/))) {
@@ -921,6 +967,10 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const chained = m[2] === '=' && value.match(/^([@$]?[A-Za-z_][\w$.]*)\s*=(?!=)\s*(.+)$/);
     if (chained) { also = ` (and as ${targetWords(chained[1])})`; value = chained[2]; }
     const valueWords = (v) => sayValue(v) ?? sayArithmetic(v);
+    // A value with a fallback (`rel or url`, `options || null`, `a ?? b`): both parts, or the code.
+    const fb = /[=!<>]=|\bnot\b|!(?!=)|\s[<>]\s|\bis\b/.test(value.replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, 'Q')) ? null : fallbackWords(value);
+    if (fb === false) return { kind: 'other', says: clip(head, 70), code };
+    if (fb && m[2] === '=' && !/\[/.test(m[1])) return { kind: 'set', says: `Sets ${target} to ${fb}${also}`, code };
     // A value stored under a key keeps the key: `headers[key] = v` -> "Stores v under key in headers", never
     // "Sets headers to ..." (that would say the whole container was replaced).
     // Go `xs = append(xs, v)`: v is added to the end of xs.
@@ -945,7 +995,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (m[2] === '.=') { const v = valueWords(value); return { kind: 'set', says: v ? `Adds ${v} to the end of ${target}` : `Adds to the end of ${target}`, code }; }
     if (m[2] === '%=' || m[2] === '&&=') return { kind: 'other', says: clip(head, 70), code };
     // A yes/no value: `ok = proxy and scheme != "https"` -> "Works out ok: whether proxy and scheme is not https".
-    if (m[2] === '=' && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
+    if (m[2] === '=' && fb == null && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
     // self.max_books = max_books: the Thing keeps what it was given.
     if (m[2] === '=' && /^[A-Za-z_]\w*$/.test(value) && m[1].split('.').pop() === value && /^(self|this)\./.test(m[1])) return { kind: 'set', says: `Keeps the ${words(value)} it is given`, code };
     const chain = value ? (sayPython(value) || sayChain(value)) : null;

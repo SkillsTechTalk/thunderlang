@@ -115,3 +115,14 @@ test('#242 Ruby: the last value of a yes/no method is its answer, with every par
   assert.doesNotMatch(t, /Calls fnmatch/);
   assert.match(t, /Gives back whether File\.fnmatch\(entry, self\) and matches_params\?\(entry\.params\)/);
 });
+
+test('#200 a value with a fallback keeps both parts: `rel or url` is never just "rel"', () => {
+  assert.equal(classifyStatement('key = link.get("rel") or link.get("url")').says, 'Sets key to the "rel" value from link, or the "url" value from link when that has no value');
+  assert.equal(classifyStatement('key = a or b').says, 'Sets key to a, or b when that has no value');
+});
+
+test('#25 Kotlin require / requireNotNull say that they stop when the check fails', () => {
+  const t = thunderText('T.kt', 'class Forest {\n  fun plant(vararg trees: Tree) {\n    for (tree in trees) {\n      requireNotNull(tree) { "trees contained null" }\n      require(tree !== this) { "Cannot plant Timber into itself." }\n    }\n  }\n}\n');
+  assert.match(t, /Checks that tree is set; otherwise stops with IllegalArgumentException: "trees contained null"/);
+  assert.match(t, /Checks that tree is not this; otherwise stops with IllegalArgumentException: "Cannot plant Timber into itself\."/);
+});
