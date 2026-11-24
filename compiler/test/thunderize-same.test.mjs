@@ -123,3 +123,15 @@ test('both are exported from /core (browser-safe)', () => {
   assert.equal(typeof core.sameMeaning, 'function');
   assert.equal(core.SAME_SCHEMA, 'thunder-same-v1');
 });
+
+test('same: matching words are not proof; different code under the same words is never called "same"', () => {
+  const py = (op) => [{ path: 'm.py', source: `def f(a, b):\n    x = a ${op} b\n    save(x)\n    return x\n` }];
+  const r = sameMeaning(py('+'), py('-'));
+  assert.notEqual(r.verdict, 'same');
+  assert.equal(r.items[0].status, 'cannot-check');
+  assert.match(r.items[0].reason, /`x = a \+ b` before, `x = a - b` after/);
+  const g = (field) => [{ path: 'g.py', source: `def g(o):\n    total = compute(o.${field})\n    return total\n` }];
+  assert.notEqual(sameMeaning(g('items'), g('lines')).verdict, 'same');
+  // A real conversion across languages and naming conventions is still proven the same.
+  assert.equal(sameMeaning([{ path: 'g.py', source: 'def g(order_items):\n    total = compute(order_items)\n    return total\n' }], [{ path: 'g.ts', source: 'function g(orderItems) {\n  const total = compute(orderItems);\n  return total;\n}\n' }]).verdict, 'same');
+});
