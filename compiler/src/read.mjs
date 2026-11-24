@@ -17,7 +17,7 @@ import { extractFacts, languageForFile } from './lift.mjs';
 export const READ_SCHEMA = 'thunder-reading-v1';
 export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql'];
 const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
-const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
+const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
 /** Best-effort language guess for pasted code (a file name, when known, is more reliable). */
 export function detectLanguage(source, file = '') {
@@ -553,7 +553,7 @@ function kotlinTerminate(body) {
     else if (')]}'.includes(c)) depth--;
     else if (c === '\n' && depth === 0) {
       const line = src.slice(src.lastIndexOf('\n', i - 1) + 1, i);
-      const next = src.slice(i + 1);
+      const next = src.slice(i + 1, i + 400); // only the start of the next line matters
       if (line.trim() && !/[{;]\s*$/.test(line) && !KT_CONTINUES_LINE.test(line) && !KT_CONTINUES_NEXT.test(next)) {
         out += src.slice(last, i) + ';';
         last = i;
@@ -1127,9 +1127,11 @@ function splitStatements(body, baseLine) {
         if (depth === 0 && !blockHeader) { i = close; continue; }
         i = close;
         if (depth === 0) {
-          // An if/else chain continues past a closing brace.
-          const rest = src.slice(i + 1).match(/^\s*else\b/);
-          if (!rest) { i++; break; }
+          // An if/else chain continues past a closing brace, and so do `do { … } while (…)` and a Go function
+          // called where it is written (`go func() { … }()`). Only the next few characters matter.
+          const next = src.slice(i + 1, i + 40);
+          const goes = /^\s*else\b/.test(next) || (/^do\b/.test(prefix) && /^\s*while\b/.test(next)) || (/^\(/.test(next) && /^(?:go\s+|defer\s+)?func\s*\(/.test(prefix));
+          if (!goes) { i++; break; }
         }
       } else if (c === ';' && depth === 0) {
         // Go: `if err := open(); err != nil {` and `for i := 0; i < n; i++ {` keep their header together.
@@ -1144,7 +1146,9 @@ function splitStatements(body, baseLine) {
         let j = i + 1;
         while (j < src.length && (src[j] === ' ' || src[j] === '\t' || src[j] === '\n' || src[j] === '\r')) j++;
         const after = src.slice(j, j + 24);
-        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
+        // A switch label (`case 'a':`, `default:`) is a statement of its own: what follows it is the case's first step.
+        if (/^(?:case\b[^\n]*|default\s*):$/.test(before)) { i++; break; }
+        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
       }
     }
     const raw = src.slice(start, i);

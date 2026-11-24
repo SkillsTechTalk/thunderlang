@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHero, Section, SectionHeading, Card, CTAButtons } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
+import { HighlightedCode } from "@/lib/highlight";
 import { OPENTHUNDER_URL } from "@/lib/site";
 import { StepsView, type Step } from "@/app/try/StepsView";
 import { PlainRuleCard } from "@/app/try/PlainRuleCard";
@@ -212,7 +213,7 @@ export default function LanguagePage() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <div>
             <p className="mb-2 text-sm font-medium text-haze-300">The original code (Python)</p>
-            <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-haze-100"><code>{PYTHON}</code></pre>
+            <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-haze-200"><code><HighlightedCode source={PYTHON} lang="python" /></code></pre>
           </div>
           <div className="space-y-6">
             <div className="rounded-2xl border border-white/10 bg-ink-850/40 p-5">

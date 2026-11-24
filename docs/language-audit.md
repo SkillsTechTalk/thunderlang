@@ -54,9 +54,49 @@ No reader errors in any repository.
   size error yet"), functions stored under a name ("Defines how ky's create works"), pairs in loops ("For each key
   and value in params").
 
+## Reading gaps filled (2026-11-24, second pass)
+
+The four known gaps from the first audit are now read. Same eleven repositories, same counting (a Kotlin
+`else ->` arm shown as "Otherwise" now counts as its else branch shown):
+
+| Repository | Branches shown, before → after | Steps explained, before → after | Fully explained functions, before → after |
+| --- | --- | --- | --- |
+| psf/requests | 95% → **99%** | 92% → 92% | 80% → 80% |
+| sindresorhus/ky | 79% → **93%** | 91% → 92% | 85% → **88%** |
+| jaredpalmer/formik | 52% → **91%** | 83% → **87%** | 60% → **63%** |
+| expressjs/express | 92% → **96%** | 87% → **89%** | 72% → **74%** |
+| spf13/cobra | 64% → **81%** | 96% → 96% | 90% → 91% |
+| rust-lang/log | 95% → **100%** | 84% → **88%** | 74% → 75% |
+| jbogard/MediatR | 71% → **76%** | 92% → 92% | 75% → 75% |
+| google/gson | 87% → **92%** | 87% → **89%** | 75% → 76% |
+| JakeWharton/timber | 73% → **91%** | 93% → **95%** | 88% → **92%** |
+| guzzle/guzzle | 74% → **78%** | 84% → 85% | 66% → 67% |
+| sinatra/sinatra | 80% → **91%** | 77% → 77% | 62% → **64%** |
+
+(The "before" column is the reader just before this pass on the same checkouts, so a few numbers differ slightly
+from the first table. gson now has 1202 functions instead of 1209: `synchronized (x) { … }` blocks were being read
+as functions named "synchronized".)
+
+- **Functions inside functions** show their own steps: `useEffect` ("When this first shows on screen, and whenever
+  user id changes"; cleanup "When this is taken off the screen, cleans up"), `useMemo` ("Works out full name and
+  remembers it until user changes"), `useCallback` ("Defines how handle save works"), inner functions and Python
+  inner `def`s, Go `go func()` / `defer func()` / function values, Java and C# lambdas, Rust closures, Kotlin
+  trailing lambdas (`user?.let { … }` reads "If user is set"), Ruby `do` blocks, timers, events and promise
+  callbacks ("When load is done"). Python `with` blocks and Java `synchronized` blocks show their steps too.
+- **`if`, `match` and `when` as values** read like ternaries on one line ("Sets bonus to 5 if score is more than
+  90, otherwise 0") and as the question over several lines, each side ending in "Sets label to …". The arms of a
+  Rust `match`, Kotlin `when`, C# `switch` expression and PHP `match` read one by one ("When it is from 0 to 49").
+- **`do … while`** reads "Runs once, then repeats while …".
+- **Go `select`** reads "Waits for whichever of these is ready first" ("When msg arrives from ch", "When ctx is
+  cancelled or times out", "When 5 seconds have passed"); with a `default` it "Checks which of these is ready,
+  without waiting". `fallthrough` reads "Carries on into the next case too"; `switch {` reads "Checks these cases
+  in order". A `case` label no longer swallows the first step of its case.
+
 ## Known gaps
 
-- **Functions inside functions** (React hooks, callbacks passed to `useCallback`, lambdas with their own `if`) are
-  not opened yet; their branches are the main gap in formik.
-- **Expression-valued `if`** (Ruby `x = if … else … end`, Kotlin `val x = if (…) … else …`) and `do … while`.
-- Go's remaining misses are mostly `switch` cases with `fallthrough` and `select`.
+- Only the first function written in a statement is opened (`.then(onDone, onError)` shows `onDone` only), and
+  functions inside object literals or JSX props (`onClick={() => …}`) are not opened.
+- A `return` inside a function inside a function is read as that inner function's return, but the picture's
+  Details still list it with the outer function's answers (the model does not yet treat `nested` steps as their own
+  flow).
+- Rust patterns that unpack values (`Some(n)`, `Inner::U64(v)`) are shown as written.

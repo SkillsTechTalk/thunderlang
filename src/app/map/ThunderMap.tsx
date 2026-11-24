@@ -175,7 +175,7 @@ function ItemView({ map, item, onOpen }: { map: TMap; item: MapItem; onOpen: (id
     </div>
     {showSource && <figure className="rounded-2xl border border-white/10 p-4">
       <figcaption className="font-mono text-xs text-haze-400">{item.file} · from line {item.line}</figcaption>
-      <pre className="mt-2 overflow-x-auto rounded-lg bg-black/40 p-4 font-mono text-[12px] leading-6 text-haze-200"><code><HighlightedCode source={snippet} lang={item.file.endsWith(".py") ? "python" : "typescript"} /></code></pre>
+      <pre className="mt-2 overflow-x-auto rounded-lg bg-black/40 p-4 font-mono text-[12px] leading-6 text-haze-200"><code><HighlightedCode source={snippet} lang={item.file} /></code></pre>
     </figure>}
   </section>;
 }
