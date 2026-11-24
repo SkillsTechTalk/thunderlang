@@ -336,11 +336,12 @@ func pick(ch chan string, ctx context.Context, out chan int) error {
   const p = byName(readCode(src, { language: 'go' }), 'pick');
   assert.equal(p.steps[0].says, 'Waits for whichever of these is ready first');
   assert.deepEqual(said(p.steps[0].children.filter((c) => c.caseLabel)), ['When msg arrives from ch', 'When ctx is cancelled or times out', 'When 5 seconds have passed', 'When 1 can be sent to out']);
-  // What a case does is its own step, no longer folded into the case line.
-  assert.deepEqual(said(p.steps[0].children.filter((c) => !c.caseLabel)), ['Calls handle', 'Returns the result of err', 'Returns err timeout', 'Writes a log or message: sent']);
+  // What a case does is its own step under that case, no longer folded into the case line.
+  assert.deepEqual(p.steps[0].children.map((c) => said(c.children || [])), [['Calls handle'], ['Returns the result of err'], ['Returns err timeout'], ['Writes a log or message: sent']]);
   assert.equal(p.steps[1].says, 'Checks which of these is ready, without waiting');
   assert.deepEqual(said(p.steps[1].children.filter((c) => c.caseLabel)), ['When msg arrives from ch (or ch is closed)', 'If none is ready yet']);
-  assert.deepEqual(said(p.steps[2].children), ['When it is 1', 'Writes a log or message: one', 'Carries on into the next case too', 'When it is 2', 'Writes a log or message: one or two']);
+  assert.deepEqual(said(p.steps[2].children), ['When it is 1', 'When it is 2']);
+  assert.deepEqual(said(p.steps[2].children[0].children), ['Writes a log or message: one', 'Carries on into the next case too']);
   assert.equal(p.steps[3].says, 'Checks these cases in order');
   assert.equal(p.steps[3].children[0].says, 'When age is more than 65');
 });
@@ -363,5 +364,8 @@ test('a case label is its own statement in C-like switches, so the case\'s first
 }
 `;
   const k = byName(readCode(src, { language: 'javascript' }), 'kind');
-  assert.deepEqual(said(k.steps[0].children), ["When it is 'string'", 'Writes a log or message: text', "When it is 'number'", "When it is 'bigint'", 'Writes a log or message: number', 'Otherwise', 'Writes a log or message: other']);
+  // Each case's steps sit under its label (cases with no steps of their own share the next one's), and the break
+  // that ends a case is not a step: a switch is one question with one side per case, never a flat list.
+  assert.deepEqual(said(k.steps[0].children), ["When it is 'string'", "When it is 'number' or 'bigint'", 'Otherwise']);
+  assert.deepEqual(k.steps[0].children.map((c) => said(c.children || [])), [['Writes a log or message: text'], ['Writes a log or message: number'], ['Writes a log or message: other']]);
 });

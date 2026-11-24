@@ -10,7 +10,7 @@
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
 import { sqlItems } from './sql.mjs';
-import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
+import { stepsFrom, braceStatements, indentStatements, plainEnums, withFunctionContext } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
@@ -1150,6 +1150,9 @@ function splitStatements(body, baseLine) {
         const after = src.slice(j, j + 24);
         // A switch label (`case 'a':`, `default:`) is a statement of its own: what follows it is the case's first step.
         if (/^(?:case\b[^\n]*|default\s*):$/.test(before)) { i++; break; }
+        // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
+        if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
+        if (/^(?:\}\s*)?else$/.test(before)) continue;
         if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
       }
     }
@@ -1163,6 +1166,18 @@ function splitStatements(body, baseLine) {
     if (text) out.push({ text, line: baseLine + lineAt(src, start) - 1, endLine: baseLine + lineAt(src, Math.max(start, end - 1)) - 1, start, end });
   }
   return out;
+}
+/** `if (a && b)` with its parentheses closed and nothing after them: a header still waiting for its statement. */
+function headerClosed(before) {
+  const o = before.indexOf('(');
+  let d = 0;
+  for (let k = o; k < before.length; k++) {
+    const c = before[k];
+    if (c === '"' || c === '\'' || c === '`') { k = skipString(before, k); continue; }
+    if (c === '(') d++;
+    else if (c === ')' && --d === 0) return !before.slice(k + 1).trim();
+  }
+  return false;
 }
 const stripCommentsKeepLayout = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:])\/\/.*$/gm, '$1');
 
@@ -1757,7 +1772,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
   } catch { return null; }
   if (!stmts.length) return null;
-  const r = stepsFrom(stmts);
+  const r = withFunctionContext({ params: fn.params || [], language: lang }, () => stepsFrom(stmts));
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
@@ -1786,7 +1801,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     const idiom = /\b(?:req|request|ctx|c)\s*\.\s*(?:headers|header|query|params|body|searchParams)\b|\bprocess\s*\.\s*env\b|\bos\s*\.\s*(?:environ|getenv)\b|getenv|GetEnvironmentVariable/.test(st.cond);
     const cond = bareProperty || bareName || idiom ? null : toThunderCondition(st.cond, names);
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
-    delete st.cond; delete st.negate;
+    delete st.negate;
   }
   return r;
 }

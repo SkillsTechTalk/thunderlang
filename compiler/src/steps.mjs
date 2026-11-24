@@ -1,4 +1,5 @@
 import { sayLibraryCall } from './libraries.mjs';
+import { splitLogic, wrapped, accountsFor, asCodeWords, isCodeWords, closeOf, balancedText } from './faithful.mjs';
 // Steps: read any function as a short list of plain steps (check, branch, loop, set, call, return, fail).
 // Decisions become rules; everything else becomes steps. Deterministic and pattern-based, like the rest of
 // the reader: a statement it does not recognize is kept as `other` with its original text, never guessed.
@@ -50,7 +51,48 @@ export function requestIdioms(text) {
     .replace(/\b(?:System\.getenv|Environment\.GetEnvironmentVariable|os\.Getenv|std::env::var|ENV\.fetch)\(\s*["']([^"']+)["'][^)]*\)|\bENV\[\s*["']([^"']+)["']\s*\]/g, (m, a, b) => `the ${a || b} setting`);
 }
 
+/**
+ * A code condition in words, checked by the faithfulness gate: split at its top-level and / or, each part said on
+ * its own, and each part's words must keep that part's negations and comparisons. When they do not, the whole
+ * condition is given back as code in backticks (`isCodeWords`), which every view shows as "not explained".
+ */
 export function sayCodeCondition(cond) {
+  const raw = String(cond).replace(/\s+/g, ' ').trim().replace(/\s*(\{|:|\bthen|\bdo)\s*$/, '').trim();
+  const said = sayLogic(raw, 0);
+  if (said == null || said.length > 170) return asCodeWords(raw);
+  return said;
+}
+
+function sayLogic(text, depth) {
+  let t = String(text).trim();
+  while (wrapped(t)) t = t.slice(1, -1).trim();
+  if (!t || depth > 6) return null;
+  const parts = splitLogic(t);
+  if (!parts) return null;
+  if (parts.terms.length === 1) return sayAtom(t);
+  const said = [];
+  for (const term of parts.terms) {
+    const inner = wrapped(term) && splitLogic(term.slice(1, -1))?.terms.length > 1 ? sayLogic(term, depth + 1) : sayAtom(term);
+    if (inner == null) return null;
+    said.push(wrapped(term) && splitLogic(term.slice(1, -1))?.terms.length > 1 ? `(${inner})` : inner);
+  }
+  return said.reduce((acc, s, i) => (i ? `${acc} ${parts.ops[i - 1]} ${s}` : s), '');
+}
+
+/** One condition with no top-level and / or, in words, or null when the words would not keep what the code says. */
+function sayAtom(atom) {
+  const a = String(atom).trim();
+  if (/^(?:!|not\s+)\s*\(/.test(a) && wrapped(a.replace(/^(?:!|not\s+)\s*/, ''))) {
+    // not (a or b): the group in words, with "not" in front of it.
+    const inner = sayLogic(a.replace(/^(?:!|not\s+)\s*/, ''), 1);
+    return inner == null ? null : `not (${inner})`;
+  }
+  const said = sayAtomWords(a);
+  if (said == null || isCodeWords(said) || !accountsFor(a, said)) return null;
+  return said;
+}
+
+function sayAtomWords(cond) {
   // Keep request and settings names exactly as written (x-admin-secret, ADMIN_SECRET) while the rest becomes words.
   const kept = [];
   const keep = (t) => `\u0000${kept.push(t) - 1}\u0000`;
@@ -60,9 +102,21 @@ export function sayCodeCondition(cond) {
   return sayCodeConditionInner(cond);
 }
 
+// `typeof x === 'string'` -> "x is text": what a reader means by each JavaScript type name.
+const TYPEOF_WORDS = { string: 'text', number: 'a number', boolean: 'true or false', function: 'a function', object: 'an object', undefined: 'undefined', bigint: 'a big number', symbol: 'a symbol' };
+// PHP's type checks: is_string($x) -> "x is text".
+const PHP_IS = { is_string: 'text', is_array: 'an array', is_int: 'a whole number', is_integer: 'a whole number', is_float: 'a decimal number', is_numeric: 'a number', is_bool: 'true or false', is_object: 'an object', is_callable: 'callable', is_resource: 'a resource', is_iterable: 'iterable', is_scalar: 'a single value' };
+
 function sayCodeConditionInner(cond) {
   let c = plainEnums(String(cond)).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
   while (c.startsWith('(') && matchingClose(c, 0) === c.length - 1) c = c.slice(1, -1).trim();
+  let ty;
+  if ((ty = c.match(/^typeof\s+([\w$.]+)\s*(===?|!==?)\s*["'](\w+)["']$/)) && TYPEOF_WORDS[ty[3]]) return `${possessiveWords(ty[1])} is ${/^!/.test(ty[2]) ? 'not ' : ''}${TYPEOF_WORDS[ty[3]]}`;
+  if ((ty = c.match(/^(!|not\s+)?\\?(is_\w+)\(\s*\$?([\w$.\[\]'">-]+)\s*\)$/)) && PHP_IS[ty[2]]) return `${possessiveWords(ty[3])} is ${ty[1] ? 'not ' : ''}${PHP_IS[ty[2]]}`;
+  // `x instanceof Foo` / `x is Foo` (Kotlin, C#) / isinstance(x, Foo): "x is a Foo".
+  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.]+)\s+instanceof\s+([\w$.\\]+)\s*\)?$/))) return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}a ${ty[3].split(/[.\\]/).pop()}`;
+  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/))) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}a ${ty[3].split('.').pop()}`;
+  if ((ty = c.match(/^(not\s+)?isinstance\(\s*([\w.]+)\s*,\s*\(?\s*([\w.]+(?:\s*,\s*[\w.]+)*)\s*\)?\s*\)$/))) { const kinds = ty[3].split(/\s*,\s*/).map((x) => x.split('.').pop()); return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${kinds.length > 1 ? `one of ${kinds.join(', ')}` : `a ${kinds[0]}`}`; }
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
   const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
   const plural = (w, call) => !call && !/ /.test(w) && /[^sui]s$/.test(w) && w.length > 3;
@@ -76,7 +130,8 @@ function sayCodeConditionInner(cond) {
   }
   // Ruby predicates: `running?` -> "it is running", `order.paid?` -> "order is paid".
   let pred;
-  if ((pred = c.match(/^(!|not\s+)?(?:([\w$]+)\.)?([a-z_]\w*)\?$/))) return `${pred[2] ? words(pred[2]) : 'it'} is ${pred[1] ? 'not ' : ''}${words(pred[3])}`;
+  // A name that is itself negative (`not_found?`) keeps its words joined, so "not found" is never flipped into "found".
+  if ((pred = c.match(/^(!|not\s+)?(?:([\w$]+)\.)?([a-z_]\w*)\?$/))) return `${pred[2] ? words(pred[2]) : 'it'} is ${pred[1] ? 'not ' : ''}${words(pred[3]).replace(/^(not|no|non) /, '$1-')}`;
   // How many: count($a) / len(a) / a.length / a.Count / a.size() -> "how many a".
   c = c.replace(/\\?\b(?:count|len|sizeof)\(\s*\$?([\w$.\[\]'">-]+)\s*\)/g, (m0, x) => `how many ${possessiveWords(x)}`)
     .replace(/\b([\w$]+(?:\.[\w$]+)*)\.(?:length|Length|Count|count\(\)|size\(\)|len\(\))(?![\w(])/g, (m0, x) => `how many ${possessiveWords(x)}`);
@@ -86,7 +141,12 @@ function sayCodeConditionInner(cond) {
   if ((call = c.match(/^(!|not\s+)?(empty|isset|is_null)\(\s*\$?([\w$.\[\]'">-]+)\s*\)$/))) {
     const neg = !!call[1] !== (call[2] === 'isset');
     const what = possessiveWords(call[3]);
-    return call[2] === 'isset' || call[2] === 'is_null' ? `${what} is ${(call[2] === 'isset') === !call[1] ? '' : 'not '}set` : `${what} is ${neg ? 'not ' : ''}empty`;
+    if (call[2] === 'is_null') return `${what} is ${call[1] ? 'not ' : ''}null`;
+    return call[2] === 'isset' ? `${what} is ${call[1] ? 'not ' : ''}set` : `${what} is ${neg ? 'not ' : ''}empty`;
+  }
+  // isObject(x) -> "x is object"; !isRequest(options.request) -> "the options's request is not request".
+  if ((call = c.match(/^(!|not\s+)?(?:(?:self|this)\.)?is_?([A-Z]\w*)\s*\(\s*([\w$.]+)\s*\)$/)) && !/^(?:Empty|Set|Null)$/.test(call[2])) {
+    return `${possessiveWords(call[3])} is ${call[1] ? 'not ' : ''}${words(call[2])}`;
   }
   if ((call = c.match(/^(!|not\s+)?(?:(?:self|this)\.)?((?:is|has|can|should|was|are|does)[A-Z_]\w*)\s*\([^()]*\)$/))) {
     const w = words(call[2]);
@@ -99,8 +159,10 @@ function sayCodeConditionInner(cond) {
     const what = parts.length > 1 ? `the ${words(parts[0])}'s ${words(parts[1])}` : words(parts[0]);
     return `${what} is ${bare[1] ? 'not ' : ''}set`;
   }
-  return clip(c
-    .replace(/\s*(===|==)\s*(nil|null|None|undefined|""|'')(?=\s|\)|$)/g, ' is empty')
+  return c
+    // Strict equality keeps null and undefined apart (a reader must be able to tell `=== null` from `=== undefined`).
+    .replace(/\s*===\s*(null|undefined)(?=\s|\)|$)/g, ' is $1').replace(/\s*!==\s*(null|undefined)(?=\s|\)|$)/g, ' is not $1')
+    .replace(/\s*(?<!!)(===|==)\s*(nil|null|None|undefined|""|'')(?=\s|\)|$)/g, ' is empty')
     .replace(/\s*(!==|!=)\s*(""|'')(?=\s|\)|$)/g, ' is not empty')
     .replace(/\s*(!==|!=)\s*(nil|null|None|undefined)\b/g, ' is set')
     .replace(/\bis not None\b/g, 'is set').replace(/\bis None\b/g, 'is empty')
@@ -110,7 +172,7 @@ function sayCodeConditionInner(cond) {
     .replace(/\s+not\s+in\s+/g, ' is not in ').replace(/(?<!\bis(?: not)?)\s+in\s+(?=[\w$])/g, ' is in ')
     // Comparisons as words; `->` and `=>` are never comparisons.
     .replace(/\s+<=\s+/g, ' is at most ').replace(/\s+>=\s+/g, ' is at least ').replace(/\s+<\s+/g, ' is less than ').replace(/(?<![-=])\s+>\s+/g, ' is more than ')
-    .replace(/(^|[\s(])!(?=[\w(])/g, '$1not ').replace(/\s+/g, ' '), 70);
+    .replace(/(^|[\s(])!(?=[\w(])/g, '$1not ').replace(/\s+/g, ' ').trim();
 }
 function matchingClose(str, open) {
   let depth = 0;
@@ -216,13 +278,20 @@ function sayCommon(value) {
   const e = String(value).trim().replace(/\s+as\s+[\w.<>\[\]|, ]+$/, '');
   let m;
   // cond ? a : b  ->  "a if cond, otherwise b" (not TypeScript optional types or labels).
-  const side = (x) => sayValue(x) ?? sayArithmetic(x) ?? possessiveWords(x.trim());
-  if ((m = e.match(/^(.+?)\s+\?\s+([^:?]+?)\s+:\s+([^:?]+)$/)) && !/^(?:[\w$]+\??\s*:)/.test(e)) return `${side(m[2])} if ${sayCodeCondition(m[1])}, otherwise ${side(m[3])}`;
-  if ((m = e.match(/^(.+?)\s+if\s+(.+?)\s+else\s+(.+)$/)) && !/^(?:if|unless)\b/.test(e)) return `${side(m[1])} if ${sayCodeCondition(m[2])}, otherwise ${side(m[3])}`;
+  // Each side must be said in full (a value, simple arithmetic, or a plain name or path); anything else and the
+  // whole choice is left unsaid rather than half-said.
+  const side = (x) => { const t = x.trim(); return sayValue(t) ?? sayArithmetic(t) ?? (/^\$?[\w$]+(?:\.[\w$]+)*$/.test(t) ? possessiveWords(t) : null); };
+  const choice = (yes, cond, no) => {
+    if (![yes, cond, no].every((x) => balancedText(x))) return null;
+    const a = side(yes), b = side(no), c = sayCodeCondition(cond);
+    return a != null && b != null && !isCodeWords(c) ? `${a} if ${c}, otherwise ${b}` : null;
+  };
+  if ((m = e.match(/^(.+?)\s+\?\s+([^:?]+?)\s+:\s+([^:?]+)$/)) && !/^(?:[\w$]+\??\s*:)/.test(e)) return choice(m[2], m[1], m[3]);
+  if ((m = e.match(/^(.+?)\s+if\s+(.+?)\s+else\s+(.+)$/)) && !/^(?:if|unless)\b/.test(e)) return choice(m[1], m[2], m[3]);
   // An `if` used as a value, said like a ternary: Kotlin `if (a) b else c`, Rust `if a { b } else { c }`,
   // Ruby `if a then b else c end`.
   const ifValue = ifAsValue(e);
-  if (ifValue) return `${side(ifValue.yes)} if ${sayCodeCondition(ifValue.cond)}, otherwise ${side(ifValue.no)}`;
+  if (ifValue) return choice(ifValue.yes, ifValue.cond, ifValue.no);
   if ((m = e.match(/^&?([A-Z]\w*)(?:::new\s*\(|\s*\{)/)) || (m = e.match(/^(?:[\w.]+\.)?([A-Z]\w*)\{/))) return `a new ${m[1]}`;
   if ((m = e.match(/^new\s*\(\s*(?:[\w]+\.)?([A-Z]\w*)\s*\)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
@@ -265,8 +334,34 @@ function ifAsValue(e) {
 const LOGIC = /(&&|\|\||[<>]=?|[!=]==?|\band\b|\bor\b|\bnot\b|\bis\b|^\s*!)/;
 function sayWhether(expr) {
   const e = String(expr).trim();
-  if (!LOGIC.test(e) || /=>|\blambda\b|\?.*:/.test(e) || e.length > 90) return null;
-  return `whether ${sayCodeCondition(e)}`;
+  if (!LOGIC.test(e) || /=>|\blambda\b|\s\?\s.*:/.test(e)) return null;
+  const said = sayCodeCondition(e);
+  return isCodeWords(said) ? null : `whether ${said}`;
+}
+
+// ── What the function around a statement is: its inputs, so `next(…)` can be told apart from a local helper ──
+let FN_CONTEXT = null;
+/** Read steps with the function's inputs known ({ params: [{ name, type }], language }). */
+export function withFunctionContext(ctx, fn) {
+  const before = FN_CONTEXT;
+  FN_CONTEXT = ctx;
+  try { return fn(); } finally { FN_CONTEXT = before; }
+}
+/**
+ * What `next` is in this function: 'middleware' (Express/Koa/Fastify style `(req, res, next)` or a NextFunction),
+ * 'pipeline' (a .NET handler delegate: calling it runs the rest of the pipeline and gives its answer), or null
+ * (a local helper named next, or no such input): then `next(x)` is an ordinary call.
+ */
+function nextKind() {
+  const ps = FN_CONTEXT?.params || [];
+  const p = ps.find((x) => x.name === 'next');
+  if (!p) return null;
+  if (/RequestHandlerDelegate|Delegate\b|Func</.test(String(p.type || ''))) return 'pipeline';
+  if (/NextFunction|Next\b/.test(String(p.type || ''))) return 'middleware';
+  const names = ps.map((x) => x.name);
+  const i = names.indexOf('next');
+  if (i >= 1 && /^(?:req|request|res|response|reply|ctx|context|c|err|error|e)$/.test(names[i - 1] || '')) return 'middleware';
+  return null;
 }
 
 /** Classify one statement (its first line or header). Returns { kind, says, code } where code is the original text. */
@@ -492,23 +587,43 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
   let first = text.split('\n')[0].trim();
   if (/^(?:if|else\s+if|while|for|switch)\s*\($/.test(first.replace(/\s*\{$/, '')) || (/^(?:if|else\s+if|while)\s*\(/.test(first) && !bracketsClosed(first.replace(/\{\s*$/, '')))) {
-    const o = text.indexOf('('), c = matchingClose(text, o);
+    const o = text.indexOf('('), c = closeOf(text, o);
     if (c > 0 && c < 2000) first = `${text.slice(0, c + 1)}${text.slice(c + 1).split('\n')[0]}`.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').trim();
+  }
+  // A brace-less `if (x)` whose one statement is on the next line(s): `if (a)\n  throw new E(…);` is one step.
+  if (/^(?:if|else\s+if)\s*\(/.test(text) && text.includes('\n')) {
+    const o = text.indexOf('('), c = closeOf(text, o);
+    const rest = c > 0 ? text.slice(c + 1).trim() : '';
+    if (rest && !rest.startsWith('{') && !text.slice(c + 1).split('\n')[0].trim()) first = `${text.slice(0, c + 1).replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')} ${rest.replace(/\s+/g, ' ')}`.trim();
+  }
+  // A statement written over several lines (`return a\n  && b`, `x =\n  cond ? y : z`, `return (\n  <div>…`) is read
+  // whole, so a value is never cut to its first line.
+  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && !/[{:]\s*$/.test(first) && !/=>\s*\{?\s*$/.test(first) && balancedText(text) && text.length < 2000 && !/\{\s*$/.test(text.split('\n')[0])) {
+    const lines = text.split('\n');
+    const joined = lines.map((l) => l.trim()).join(' ');
+    if (!bracketsClosed(first) || /(?:[-+*/%&|^=<>?:.,(\[]|\b(?:and|or|not|in))\s*$/.test(first) || /^\s*(?:[-+*/%&|^=<>?:.)\]]|&&|\|\||\b(?:and|or)\b)/.test(lines[1] || '')) first = joined;
   }
   // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
   const head = first
     .replace(/(^|[^\w$\])])\(\s*([\w$#.]+)\s+as\s+[^()]+\)/g, '$1$2').replace(/([\w$\])])\(\s*([\w$#.]+)\s+as\s+[^()]+\)/g, '$1($2)').replace(/([\w$\])])!(?=[.(\[])/g, '$1').replace(/\?\.(?=[\w(\[])/g, '.').replace(/\.\(/g, '(').replace(/^\(\*+(self|this)\)\./, '$1.')
     // Java/C# casts: ((JsonTreeReader) reader).promote() -> reader.promote(); (int) x -> x
-    .replace(/\(\(\s*[A-Z][\w.<>\[\]?, ]*\s*\)\s*([\w$.]+)\s*\)/g, '$1').replace(/^(\w[\w.]*\s*=\s*)\(\s*[A-Z][\w.<>\[\]?]*\s*\)\s*/, '$1');
+    .replace(/\(\(\s*[A-Z][\w.<>\[\]?, ]*\s*\)\s*([\w$.]+)\s*\)/g, '$1').replace(/^(\w[\w.]*\s*=\s*)\(\s*[A-Z][\w.<>\[\]?]*\s*\)\s*/, '$1')
+    // .NET: `.ConfigureAwait(false)` only says which thread carries on; it changes nothing a reader needs.
+    .replace(/\.ConfigureAwait\(\s*(?:false|true)\s*\)/g, '');
   const code = clip(head, 90);
   let m;
   const innerNote = inner ? ` (${inner} step${inner === 1 ? '' : 's'} inside)` : '';
   // One-line ifs: `if (x) return y;` and Ruby/Perl modifiers `return unless running?`, `notify if late`.
   let inl;
-  if ((inl = head.match(/^(if|else\s+if)\s*\((.+?)\)\s*((?:return|throw|break|continue|yield)\b.*|[\w$.]+\(.*\);?|[\w$.]+(?:\+\+|--);?|(?:\+\+|--)[\w$.]+;?)$/)) && balanced(inl[2])) {
-    return { kind: 'branch', says: `If ${sayCodeCondition(inl[2])}`, cond: inl[2], code, inline: inl[3] };
+  if ((inl = head.match(/^(if|else\s+if)\s*\(/))) {
+    const c = closeOf(head, head.indexOf('('));
+    const body = c > 0 ? head.slice(c + 1).trim() : '';
+    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && !/^(?:&&|\|\||and\b|or\b|[-+*/%<>=!?.])/.test(body)) {
+      const cond = head.slice(head.indexOf('(') + 1, c);
+      return { kind: 'branch', says: `If ${sayCodeCondition(cond)}`, cond, code, inline: body };
+    }
   }
-  if ((inl = head.match(/^(.+?)\s+(if|unless)\s+(.+)$/)) && !/\belse\b/.test(head) && bracketsClosed(inl[1]) && !/^(?:if|unless|elsif|while|until|for|return\s+\S+\s+if\s+.+\s+else)\b/.test(head) && !/[=(]\s*$/.test(inl[1]) && !/^(?:[\w$.\[\]]+\s*=)/.test(inl[1])) {
+  if ((inl = head.match(/^(.+?)\s+(if|unless)\s+(.+)$/)) && !/\belse\b/.test(head) && bracketsClosed(inl[1]) && !/^(?:if|unless|elsif|while|until|for|return\s+\S+\s+if\s+.+\s+else)\b/.test(head) && !/[=(]\s*$/.test(inl[1]) && !/\[[^\]]*\bfor\b/.test(head)) {
     const cond = sayCodeCondition(inl[3]);
     return { kind: 'branch', says: inl[2] === 'unless' ? `If not: ${cond}` : `If ${cond}`, cond: inl[3], negate: inl[2] === 'unless', code, inline: inl[1] };
   }
@@ -561,8 +676,12 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if (lib) return { ...lib, code };
   // Middleware handing on: `next()` lets the request go on to the next step; `next(err)` passes an error on.
   let nx;
-  if ((nx = head.match(/^(?:return\s+)?(?:await\s+)?next\s*\(\s*(.*?)\s*\)\s*;?$/))) {
-    return nx[1] && !/^(undefined|null)$/.test(nx[1]) ? { kind: 'fail', says: `Fails with ${/^new\s+(\w+)/.exec(nx[1])?.[1] ?? 'the error'}: passes it on`, error: /^new\s+(\w+)/.exec(nx[1])?.[1] ?? 'an error', code } : { kind: 'return', says: 'Lets the request go on to the next step', code, passes: true };
+  const nk = nextKind();
+  if (nk === 'pipeline' && (nx = head.match(/^(return\s+)?(?:await\s+)?next\s*\(\s*(.*?)\s*\)\s*;?$/))) {
+    return nx[1] ? { kind: 'return', says: 'Returns the answer of the next handler in the pipeline', code, passes: true } : { kind: 'call', says: 'Runs the next handler in the pipeline', code };
+  }
+  if (nk === 'middleware' && (nx = head.match(/^(?:return\s+)?(?:await\s+)?next\s*\(\s*(.*?)\s*\)\s*;?$/))) {
+    return nx[1] && !/^(undefined|null)$/.test(nx[1]) ? (/^['"]route['"]$/.test(nx[1]) ? { kind: 'return', says: 'Skips to the next route', code, passes: true } : { kind: 'fail', says: `Fails with ${/^new\s+(\w+)/.exec(nx[1])?.[1] ?? 'the error'}: passes it on`, error: /^new\s+(\w+)/.exec(nx[1])?.[1] ?? 'an error', code }) : { kind: 'return', says: 'Lets the request go on to the next step', code, passes: true };
   }
   // A redirect sends the person somewhere else: "Sends the person to the Google auth URL".
   const redirect = redirectOf(head);
@@ -579,6 +698,12 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (/^(Err|Error)\s*\(/.test(expr) || /\berrors\.New\(|fmt\.Errorf\(/.test(expr)) {
       const msg = (expr.match(/["'`]([^"'`]{1,60})["'`]/) || [])[1];
       return { kind: 'fail', says: `Returns an error${msg ? `: "${msg}"` : ''}`, code };
+    }
+    const terms = splitLogic(expr);
+    if (terms && terms.terms.length > 1) {
+      // `return a && b`: every part is said, or the code is shown; never only the first part.
+      const w = sayWhether(expr);
+      return w ? { kind: 'return', says: `Returns ${w}`, code } : { kind: 'return', says: 'Returns a computed value', code, value: clip(expr, 60) };
     }
     const chain = sayChain(expr);
     if (chain) return { kind: 'return', says: `Returns ${chain}`, code };
@@ -677,9 +802,33 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
   }
   // Assignment (not comparisons)
-  if ((m = head.replace(/^(?:final\s+)?(?!return\b|throw\b|yield\b|await\b|new\b)[A-Z][\w.]*(?:<[^=;]*?>)?(?:\[\])*\??\s+(?=[a-z_]\w*\s*=[^=])/, '').match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
+  if ((m = head.replace(/^(?:final\s+)?(?!return\b|throw\b|yield\b|await\b|new\b)[A-Z][\w.]*(?:<[^=;]*?>)?(?:\[\])*\??\s+(?=[a-z_]\w*\s*=[^=])/, '').match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|\.=|%=|&&=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
     const target = m[1].split(/\s*,\s*/).filter((t) => t !== '_').map(targetWords).join(', ') || targetWords(m[1]);
-    const value = stripTail(m[3]);
+    let value = stripTail(m[3]);
+    // `a = b = x`: both names get x.
+    let also = '';
+    const chained = m[2] === '=' && value.match(/^([@$]?[A-Za-z_][\w$.]*)\s*=(?!=)\s*(.+)$/);
+    if (chained) { also = ` (and as ${targetWords(chained[1])})`; value = chained[2]; }
+    const valueWords = (v) => sayValue(v) ?? sayArithmetic(v);
+    // A value stored under a key keeps the key: `headers[key] = v` -> "Stores v under key in headers", never
+    // "Sets headers to ..." (that would say the whole container was replaced).
+    const keyedAt = m[1].indexOf('[');
+    if (keyedAt > 0 && /\]$/.test(m[1]) && !/,/.test(m[1])) {
+      const container = targetWords(m[1].slice(0, keyedAt));
+      const keys = [...m[1].slice(keyedAt).matchAll(/\[\s*([^\]]*?)\s*\]/g)].map((k) => k[1]);
+      const keyWords = (k) => (/^["'`].*["'`]$/.test(k) ? `"${k.slice(1, -1)}"` : /^:\w+$/.test(k) ? `"${k.slice(1)}"` : /^[\w$.]+$/.test(k) ? possessiveWords(k) : `\`${k}\``);
+      const v = value ? valueWords(value) : null;
+      const what = v ?? 'a value';
+      const where = keys.length === 1 ? `under ${keyWords(keys[0])} in ${container}` : `at ${keys.map(keyWords).join(', then ')} in ${container}`;
+      if (m[2] === '=') return { kind: 'set', says: `Stores ${what} ${where}${also}`, code };
+      if (m[2] === '||=' || m[2] === '??=') return { kind: 'set', says: `Stores ${what} ${where}, if nothing is there yet`, code };
+      if (m[2] === '+=' || m[2] === '.=') return { kind: 'set', says: `Adds ${what} to what is stored ${where}`, code };
+      return { kind: 'other', says: clip(head, 70), code };
+    }
+    if (m[2] === '*=' || m[2] === '/=') { const v = valueWords(value) ?? null; return v ? { kind: 'set', says: `${m[2] === '*=' ? 'Multiplies' : 'Divides'} ${target} by ${v}`, code } : { kind: 'other', says: clip(head, 70), code }; }
+    if (m[2] === '||=' || m[2] === '??=') { const v = valueWords(value); return { kind: 'set', says: v ? `Sets ${target} to ${v}, if it has no value yet` : `Sets ${target}, if it has no value yet`, code }; }
+    if (m[2] === '.=') { const v = valueWords(value); return { kind: 'set', says: v ? `Adds ${v} to the end of ${target}` : `Adds to the end of ${target}`, code }; }
+    if (m[2] === '%=' || m[2] === '&&=') return { kind: 'other', says: clip(head, 70), code };
     // A yes/no value: `ok = proxy and scheme != "https"` -> "Works out ok: whether proxy and scheme is not https".
     if (m[2] === '=' && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
     // self.max_books = max_books: the Thing keeps what it was given.
@@ -688,8 +837,6 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (chain) return { kind: 'set', says: `Works out ${target}: ${chain}`, code };
     const common = value ? sayCommon(m[3].trim().replace(/;$/, '')) || sayCommon(value) : null;
     if (common) return { kind: 'set', says: `Sets ${target} to ${common}`, code };
-    const keyed = m[2] === '=' && m[1].match(/^([\w$.]+)\[\s*([^\]]+?)\s*\]$/);
-    if (keyed) return { kind: 'set', says: `Records ${words(keyed[2].replace(/["'`]/g, ''))} in ${targetWords(keyed[1])}`, code };
     const c = callee(value);
     if (c) {
       const known = sayCall(c, firstArgs(value));
@@ -948,6 +1095,37 @@ function selectCaseSays(code) {
   return null;
 }
 
+/**
+ * A C-like switch writes each case's steps after its label, not inside it: `case A: case B: x(); break;`. Put each
+ * case's steps under its label (labels with no steps of their own share the next one's: "When it is A or B"), and
+ * drop the `break` that only ends the case. Left as it is when steps come before the first label.
+ */
+function groupCases(kids) {
+  if (!kids.length || !kids[0].caseLabel || kids.every((k) => k.caseLabel && k.children?.length)) return kids;
+  const out = [];
+  let cur = null;
+  for (const k of kids) {
+    if (k.caseLabel && !k.children?.length) {
+      if (cur && !cur.children.length && !cur.closed) {
+        const a = cur.says, b = k.says;
+        cur.says = /^When it is /.test(a) && /^When it is /.test(b) ? `${a} or ${b.slice(11)}` : b === 'Otherwise' ? 'Otherwise' : `${a}, or ${b.replace(/^When /, '')}`;
+        cur.span = { ...cur.span, endLine: k.span?.endLine ?? cur.span?.endLine };
+        continue;
+      }
+      cur = { ...k, children: [] };
+      out.push(cur);
+      continue;
+    }
+    if (k.caseLabel) { cur = null; out.push(k); continue; }
+    if (!cur) return kids;
+    if (cur.closed) continue; // after a break, nothing in this case runs
+    if (k.jump === 'break') { cur.closed = true; continue; }
+    cur.children.push(k);
+  }
+  for (const c of out) { delete c.closed; if (c.children && !c.children.length) delete c.children; }
+  return out;
+}
+
 export function stepsFrom(statements) {
   const steps = [];
   const skipped = [];
@@ -995,7 +1173,14 @@ export function stepsFrom(statements) {
       skipped.push(spanOf(s));
       continue;
     }
-    if (!t0 || /^(?:end\b|\}|pass$|break;?$|continue;?$|#)/.test(t0)) { if (t0 && !/^#/.test(t0)) skipped.push(spanOf(s)); continue; }
+    // Leaving a loop early is a step a reader must see: without it, "Yes: continue" would say the loop goes on.
+    let jump;
+    if ((jump = t0.match(/^(continue|break|next)(?:\s+([A-Za-z_]\w*))?;?$/)) && !(jump[1] === 'next' && jump[2])) {
+      const label = jump[2] && jump[2] !== 'if' ? ` (${jump[2]})` : '';
+      steps.push({ kind: 'call', says: jump[1] === 'break' ? `Leaves the loop${label}` : `Skips to the next one${label}`, code: t0, line: s.line, span: spanOf(s), jump: jump[1] === 'break' ? 'break' : 'continue' });
+      continue;
+    }
+    if (!t0 || /^(?:end\b|\}|pass$|#)/.test(t0)) { if (t0 && !/^#/.test(t0)) skipped.push(spanOf(s)); continue; }
     if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t0)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments
     if (/^[)\]}]+[):;,]*$/.test(t0) || /^\.\.\.$/.test(t0) || /^\.[A-Za-z_]/.test(t0) || /^@\w+(?:\(.*\))?$/.test(t0) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t0) || /^:(?:param|rtype|return|raises|type)\b/.test(t0)) { skipped.push(spanOf(s)); continue; }
     const head0 = headLine(s.text);
@@ -1039,7 +1224,8 @@ export function stepsFrom(statements) {
     // object being sent, not to a block, so read the statement after the condition instead of the braces' inside.
     if (step.inline && !/^\{/.test(step.inline.trim())) { const kid = classifyStatement(step.inline); step.children = [{ ...kid, line: s.line, span: spanOf(s) }]; delete step.inline; }
     else if (s.children?.length && (['branch', 'loop', 'try'].includes(step.kind) || (step.kind === 'check' && step.caseLabel) || /^(?:Defines a helper|Defines how|Opens |Uses )/.test(step.says))) {
-      const kids = stepsFrom(s.children).steps;
+      let kids = stepsFrom(s.children).steps;
+      if (step.kind === 'branch' && /^(?:Chooses by|Checks these cases)/.test(step.says)) kids = groupCases(kids);
       if (kids.length) { step.children = kids; step.says = step.says.replace(/ \(\d+ steps? inside\)$/, ''); if (/^Defines/.test(step.says)) step.nested = true; }
       // Go select: whichever channel is ready first (or, with a default, whichever is ready now).
       if (/^select\s*\{/.test(head0) && step.children) {
@@ -1049,6 +1235,8 @@ export function stepsFrom(statements) {
     }
     if (step.inline && !step.children) { const kid = classifyStatement(step.inline); step.children = [{ ...kid, line: s.line, span: spanOf(s) }]; delete step.inline; }
     else delete step.inline;
+    // A block with code in it that gave no step was not read: say so, never "Yes: continue" / an empty "For each".
+    if ((step.kind === 'branch' || step.kind === 'loop') && !step.children?.length && (s.inner > 0 || s.children?.length) && !(s.children || []).every((c) => /^(?:pass|\}|end)\b/.test(String(c.text || '').trim()))) step.unread = true;
     // An else belongs to a question; on a value already said in one line (`let x = if a { 1 } else { 2 }`) it is part of it.
     if (step.kind === 'branch' || step.kind === 'try') for (const c of s.clauses || []) attachClause(step, c);
     steps.push(step);
@@ -1219,12 +1407,37 @@ const ARMS_HEAD = /(?:^|=\s*|return\s+)(?:[\w.]+\s+(?=switch))?(?:match\b\s*[^{\
  * (`useEffect(() => { … })`, `go func() { … }()`) has its own body read as the statement's children, and the arms of
  * a match/when are read one by one.
  */
+/**
+ * Where a statement's own block starts. For `if (…)`, `for (…)`, `while (…)`: the brace right after the header's
+ * parentheses, or none (a brace-less body, whose braces belong to its one statement: `if (x) throw new E($"{a}")`).
+ * Otherwise the first brace outside quotes.
+ */
+function blockOpen(text, head0) {
+  if (/^(?:if|else\s+if|for|foreach|while|using|lock|fixed|switch|catch)\s*\(/.test(head0)) {
+    const o = text.indexOf('(');
+    const c = closeOf(text, o);
+    if (c < 0) return text.indexOf('{');
+    let j = c + 1;
+    while (j < text.length && /\s/.test(text[j])) j++;
+    if (text[j] === '{') return j;
+    if (/^(?:if|else\s+if|for|foreach|while|using|lock|fixed)\s*\(/.test(head0)) return -1;
+    return text.indexOf('{', j);
+  }
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "'") { const nl = text.indexOf('\n', i); const e = text.indexOf("'", i + 1); if (e < 0 || (nl >= 0 && e > nl)) continue; }
+    if (ch === '"' || ch === "'" || ch === '`') { const q = ch; for (i++; i < text.length && text[i] !== q; i++) if (text[i] === '\\') i++; continue; }
+    if (ch === '{') return i;
+  }
+  return -1;
+}
+
 export function braceStatements(stmts, split = null) {
   return stmts.map((s) => {
     const text = s.text;
     const head0 = headLine(text);
     const lit = BLOCK_HEAD.test(head0) && !/^func\s*\(/.test(head0) ? null : fnLiteral(text);
-    let open = lit?.open ?? text.indexOf('{');
+    let open = lit?.open ?? blockOpen(text, head0);
     const lineAtPos = (pos) => s.line + (text.slice(0, pos).match(/\n/g) || []).length;
     const read = (o, e) => {
       let from = o + 1;

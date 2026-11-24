@@ -8,6 +8,7 @@ import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
 import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
+import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
@@ -185,7 +186,7 @@ export function stepDoes(step) {
   if (step.kind === 'return') return 'answer';
   if (step.kind === 'check') return 'check';
   if (step.kind === 'branch') return 'decide';
-  if (/^Writes to the database|^(Records|Adds to|Removes)/.test(s)) return 'save';
+  if (/^Writes to the database|^(Records|Stores|Adds to|Removes)/.test(s)) return 'save';
   if (/^(Sends an email|Announces an event|Writes a log)/.test(s)) return 'send';
   if (/^(Calls another service|Calls Stripe)/.test(s)) return 'ask';
   if (/\b(filter|where|select|query|find|get|fetch|load|read|search|lookup|scalars|all)\b/i.test(c) || /the items in .* where|the first item in|the .* entry in|the .* with /.test(s)) return /\b(filter|where)\b/i.test(c) || / where /.test(s) ? 'keep-only' : 'find';
@@ -209,18 +210,31 @@ export function askAsQuestion(step, ruleLabel) {
   let c = String(step.says).replace(/^If /, '').replace(/ \(\d+ steps? inside\)$/, '').trim();
   let flip = false;
   if (/^not: /.test(c)) { c = c.slice(5); flip = true; }
+  // The faithfulness gate gave the code back: ask the code itself, Yes when it is true.
+  if (isCodeWords(c)) return { text: `${c}?`, flip, code: true };
   if (ruleLabel) {
     const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*if\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
     // The negation is read from the code alone; the step's wording may already say "not" for the same reason.
     return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated };
   }
   let m;
+  // A compound condition (a and b, a or not b) is asked as written: turning one part positive would flip the
+  // whole question and put the Stop on the wrong side.
+  if (compoundWords(c)) return { text: `${cap(possessive(c))}?`, flip };
+  if ((m = c.match(/^not \((.+)\)$/)) && closeOf(c, 4) === c.length - 1) return { text: `${cap(possessive(m[1]))}?`, flip: !flip };
   if ((m = c.match(/^not (.+)$/))) { c = m[1]; flip = !flip; }
+  if (compoundWords(c)) return { text: `Not ${possessive(c)}?`, flip: !flip };
   if ((m = c.match(/^(.+?) is not (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip: !flip };
   if ((m = c.match(/^(.+?) has no (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip: !flip };
   if ((m = c.match(/^(.+?) is (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip };
   if ((m = c.match(/^(.+?) has (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip };
   return { text: `${cap(possessive(c))}?`, flip };
+}
+
+/** True when words join two or more conditions with and / or outside brackets. */
+function compoundWords(c) {
+  const parts = splitLogic(String(c).replace(/`[^`]*`/g, 'Q').replace(/"[^"]*"/g, 'Q').replace(/'/g, ''));
+  return !parts || parts.terms.length > 1;
 }
 
 /** A rule's own picture: each rule asked in order, the first Yes gives its answer, otherwise the fallback. */
@@ -256,12 +270,20 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
   const node = (kind, text, extra = {}) => { const id = `n${n++}`; nodes.push({ id, kind, text, ...extra }); return id; };
   const connect = (open, to) => { for (const o of open) edges.push({ from: o.id, to, ...(o.label ? { label: o.label } : {}), ...(o.text ? { text: o.text } : {}) }); };
   // The first call in the step to another member of this file: self.can_borrow(...), delivery_fee(...), this.lateFee(...).
+  // A method called on some other object (`console.error(…)`, `other.fillBuffer(…)`) is not this file's member.
   const usesOf = (st) => {
-    for (const c of String(st.code || '').matchAll(/(?:\b(?:self|this)\.)?\b([A-Za-z_]\w*)\s*\(/g)) {
+    for (const c of String(st.code || '').matchAll(/(?:\b(?:self|this)\.|(?<![\w$.]))([A-Za-z_]\w*)\s*\(/g)) {
       const id = memberIndex.get(c[1].toLowerCase());
       if (id) return id;
     }
     return null;
+  };
+  // A question is asked by a rule's own name only when the condition is that call and nothing else
+  // (`if (!canBorrow(x))`), never when the call is one part of a bigger condition.
+  const askedByRule = (st) => {
+    const cond = String(st.cond ?? '').trim().replace(/^\((.*)\)$/, '$1');
+    const m = cond.match(/^(?:!\s*|not\s+)?(?:(?:self|this)\.)?[A-Za-z_]\w*\s*\(/);
+    return !!m && closeOf(cond, m[0].length - 1) === cond.length - 1;
   };
   // walk returns { open, blocks }: open = edges still waiting for the next node; blocks = the same nodes as a tree
   // (each question with its yes and no sides, loops with their body, try with its handlers and always), which is
@@ -272,7 +294,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       const does = stepDoes(st);
       const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}) };
       // A choice among several cases (switch, when, match, select): one question with one side per case.
-      const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check') ? st.children : null;
+      const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check' && c.caseLabel) ? st.children : null;
       if (arms) {
         const d = node('decision', st.says.replace(/\?$/, ''), { ...base, cases: true });
         connect(open, d);
@@ -291,15 +313,21 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         continue;
       }
       if (st.kind === 'branch') {
-        const { text, flip } = askAsQuestion(st, base.uses && memberLabel.get(base.uses));
+        const { text, flip, code } = askAsQuestion(st, base.uses && askedByRule(st) && memberLabel.get(base.uses));
         const [into, past] = flip ? ['no', 'yes'] : ['yes', 'no'];
-        const d = node('decision', text, base);
+        const d = node('decision', text, { ...base, ...(code || st.unread ? { code: true } : {}) });
         connect(open, d);
         const inside = walk(st.children || [], [{ id: d, label: into }], lane + 1);
         // The other side of the question: its else (or else-if chain) when the code has one.
         const other = st.otherwise?.length ? walk(st.otherwise, [{ id: d, label: past }], lane + 1) : { open: [{ id: d, label: past }], blocks: [] };
         blocks.push({ id: d, [into]: inside.blocks, [past]: other.blocks });
         open = [...other.open, ...inside.open];
+      } else if (st.kind === 'loop' && !st.children?.length) {
+        // A loop whose body was not read is shown as its code, not as an empty "For each".
+        const k = node('code', st.code ?? st.says, { ...base, does: 'code' });
+        connect(open, k);
+        open = [{ id: k }];
+        blocks.push({ id: k });
       } else if (st.kind === 'loop') {
         const l = node('loop', st.says, base);
         connect(open, l);
@@ -347,7 +375,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       } else {
         const k = node(does === 'code' ? 'code' : 'step', does === 'code' ? st.code ?? st.says : st.says, base);
         connect(open, k);
-        open = [{ id: k }];
+        open = st.jump ? [] : [{ id: k }];
         if (st.children?.length && st.nested) {
           // An inner function (a hook, a callback, go/defer, a closure) runs on its own: its steps are its own
           // sub-flow, and a return or stop inside it ends only that function. The outer flow carries on from here.
@@ -500,7 +528,7 @@ function flowLines(flow, depth = 1) {
   const out = [];
   const pad = (d) => '  '.repeat(d);
   const at = (n) => (n.line ? `  (line ${n.line})` : '');
-  const say = (n) => (n.kind === 'code' ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
+  const say = (n) => (n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
   const go = (blocks, d) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
@@ -560,7 +588,7 @@ const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setu
 function detailSteps(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
-  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' ? { notExplained: true } : {}) });
+  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' || n.code ? { notExplained: true } : {}) });
   // `via` (Yes, No, For each) labels only the first step of each path, the way Thunder Text writes "Yes:" once.
   const walk = (blocks, depth, via) => {
     for (const b of blocks || []) {
