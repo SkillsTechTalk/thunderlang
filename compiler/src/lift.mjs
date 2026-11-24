@@ -17,7 +17,23 @@ const SEMANTIC_TYPES = new Set([
 ]);
 const SENSITIVE = /password|token|jwt|secret|payment|credential|ssn|pii|email/i;
 
-const lineOf = (source, index) => source.slice(0, index).split('\n').length;
+// The line an index is on. Line starts are found once per source (the last few are kept), then searched: slicing and
+// splitting the source for every match was quadratic on large files.
+const LINE_STARTS = new Map();
+const lineOf = (source, index) => {
+  let starts = LINE_STARTS.get(source);
+  if (!starts) {
+    starts = [0];
+    for (let i = source.indexOf('\n'); i >= 0; i = source.indexOf('\n', i + 1)) starts.push(i + 1);
+    if (LINE_STARTS.size > 8) LINE_STARTS.delete(LINE_STARTS.keys().next().value);
+    LINE_STARTS.set(source, starts);
+  }
+  // (An index past the end counts the lines before it, as slice + split did.)
+  const at = Math.min(Math.max(index, 0), source.length);
+  let lo = 0, hi = starts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid] <= at) lo = mid; else hi = mid - 1; }
+  return lo + 1;
+};
 
 // ── Seeded lift (OT's intent-ir-v1 grounding) ────────────────────────────────
 // OT passes { seeds } so the lifted .intent references OT's EXACT node ids instead

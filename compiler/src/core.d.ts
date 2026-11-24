@@ -19,6 +19,7 @@ export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
 export type { RunEvent, RuntimeOverlay, MemberRun, NodeRun, ParsedStack, ErrorExplanation } from './running.mjs';
+export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
 export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';

@@ -10,6 +10,7 @@ import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
 import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
 import { detailParts } from './meaning.mjs';
+import { linkSystem, callsSummary } from './system.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
@@ -123,7 +124,10 @@ function braceEnd(src, open) {
   let depth = 0;
   for (let i = open; i < src.length; i++) {
     const c = src[i];
-    if (c === '"' || c === "'" || c === '`') { const q = c; for (i++; i < src.length && src[i] !== q; i++) if (src[i] === '\\') i++; continue; }
+    // Comments are skipped: an apostrophe in `// it's` is not the start of a string.
+    if (c === '/' && src[i + 1] === '/') { const e = src.indexOf('\n', i); if (e < 0) return -1; i = e; continue; }
+    if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); if (e < 0) return -1; i = e + 1; continue; }
+    if (c === '"' || c === "'" || c === '`') { const q = c; for (i++; i < src.length && src[i] !== q && (q === '`' || src[i] !== '\n'); i++) if (src[i] === '\\') i++; continue; }
     if (c === '{') depth++;
     else if (c === '}' && --depth === 0) return i;
   }
@@ -169,6 +173,41 @@ function tsThings(src, file) {
           else { const k = thing.knows.find((x) => x.name === a[1]); if (!k.start) k.start = startValue(a[2], params); }
         }
       }
+    }
+    out.push(thing);
+  }
+  return out;
+}
+
+/**
+ * JavaScript Things made by assignment rather than `class`: `Foo.prototype.bar = function` (with `function Foo()` as
+ * how a new Foo starts) and an object given two or more methods (`res.json = function`, `res.send = function` for
+ * `var res = Object.create(…)`). `exports`, `module`, `window`, and `this` are not Things.
+ */
+function jsAssignedThings(items, src, file, existing) {
+  const groups = new Map();
+  for (const it of items) {
+    const a = String(it.assignedTo || '').match(/^([A-Za-z_$][\w$]*)\.(?:prototype\.)?([A-Za-z_$][\w$]*)$/);
+    if (!a || /^(exports|module|window|global|globalThis|this|self|document|console|process)$/.test(a[1])) continue;
+    const g = groups.get(a[1]) ?? { proto: false, items: [] };
+    g.proto ||= /\.prototype\./.test(it.assignedTo);
+    g.items.push(it);
+    groups.set(a[1], g);
+  }
+  const out = [];
+  for (const [name, g] of groups) {
+    if (existing.some((t) => t.name === name)) continue;
+    const ctor = g.proto && items.find((it) => it.name === name && !it.assignedTo && !it.callback && (it.kind === 'function' || it.kind === 'decision'));
+    const declared = new RegExp(`(?:^|[^\\w$.])(?:var|let|const)\\s+${name.replace(/\$/g, '\\$')}\\s*=`).test(src);
+    if (!(g.proto ? true : g.items.length >= 2 && declared)) continue;
+    const lines = g.items.map((it) => it.line);
+    const from = ctor?.line ?? Math.min(...lines);
+    const thing = { kind: 'thing', name, file, lines: [from, Math.max(from, ...g.items.map((it) => it.anchor?.bodyLines?.[1] ?? it.line))], knows: [], choices: [], assigned: g.items.map((it) => `${it.name}:${it.line}`), spans: [...g.items, ...(ctor ? [ctor] : [])].map((it) => [it.line, it.anchor?.bodyLines?.[1] ?? it.line]), ...(ctor ? { ctor: `${ctor.name}:${ctor.line}` } : {}) };
+    // What a new one knows: `this.x = …` in the constructor function.
+    if (ctor?.anchor?.bodyLines) {
+      const body = src.split('\n').slice(ctor.anchor.bodyLines[0] - 1, ctor.anchor.bodyLines[1]).join('\n');
+      const params = Object.fromEntries((ctor.inputs || []).map((p) => [p.name, null]));
+      for (const a of body.matchAll(/\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)\s*([^;\n]+)/g)) if (!thing.knows.some((k) => k.name === a[1])) thing.knows.push({ name: a[1], label: words(a[1]), kind: null, start: startValue(a[2].trim(), params), line: null });
     }
     out.push(thing);
   }
@@ -513,7 +552,7 @@ function youGiveOf(item) {
     // Destructured parameters (React props `{ userId, name }`) give each name.
     // Destructured parameters (React props `{ userId, name }`, `{ route: { href }, onClick }: Props`) give each name.
     .flatMap((p) => (/^\{/.test(String(p.name).trim()) ? destructuredNames(String(p.name).trim()) : [p.name]))
-    .map((n) => words(n));
+    .map((n) => words(n)).filter(Boolean); // (`_`, a value the code ignores, is not something you give it)
   const codes = [];
   const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
   walk(item.steps);
@@ -584,6 +623,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     let fileThings = [];
     try { fileThings = infra ? infra.things.map((t) => ({ ...t, knows: t.knows.map((k) => ({ ...k })) })) : language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
+    if (language === 'typescript' || language === 'javascript') fileThings.push(...jsAssignedThings(reading.items, f.source, f.path, fileThings));
     if (!infra && !THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }
@@ -599,9 +639,14 @@ export function thunderModel(files, { name = 'app' } = {}) {
     }
 
     const fns = reading.items.filter((i) => i.kind === 'function' || i.kind === 'decision');
-    const declaredThing = (item) => fileThings.some((t) => t.name === item.name && t.lines[0] === item.line);
+    const declaredThing = (item) => fileThings.some((t) => !t.assigned && t.name === item.name && t.lines[0] === item.line);
     const fileMembers = fns.filter((item) => !declaredThing(item)).map((item) => {
-      const owner = infra ? undefined : fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0];
+      const inside = infra ? undefined : fileThings.filter((t) => !t.assigned && ((item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b))).sort((a, b) => b.lines[0] - a.lines[0])[0];
+      // A JavaScript method given to a Thing by assignment (`Foo.prototype.bar = function`) belongs to it; its id stays
+      // the one it had before it had an owner, so links and saved places still find it.
+      const key = `${item.name}:${item.line}`;
+      // (A callback or function written inside such a method belongs to the same Thing, as it would inside a class.)
+      const owner = infra ? undefined : inside ?? fileThings.find((t) => t.assigned && (t.assigned.includes(key) || t.ctor === key || (!item.assignedTo && t.spans.some(([a, b]) => item.line > a && item.line <= b))));
       const v = visualFor(item);
       const setup = (/^(__init__|constructor|init|New|__construct|initialize|new)$/.test(item.name) || (owner && item.name === owner.name)) && owner;
       const kind = language === 'github-actions' ? 'pipeline' : language === 'dockerfile' ? 'image-build' : setup ? 'setup' : v.element === 'action' ? 'action' : v.element === 'decision' ? 'rule' : v.element === 'not-read' ? 'not-read' : 'steps';
@@ -609,10 +654,11 @@ export function thunderModel(files, { name = 'app' } = {}) {
       let rule = null;
       if (kind === 'rule') { try { rule = plainFromReading(item); } catch { rule = null; } }
       const m = {
-        id: idOf(f.path, owner?.name ?? '', item.name, item.line), kind, name: item.name,
+        id: idOf(f.path, inside?.name ?? '', item.name, item.line), kind, name: item.name,
         label: setup ? `A new ${owner.label} starts with` : infra && item.label ? item.label : cap(words(item.name.replace(/^__|__$/g, ''))),
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}), ...(item.when ? { when: item.when } : {}),
+        ...(item.assignedTo ? { assignedTo: item.assignedTo } : {}), ...(item.callback ? { callback: true, ...(item.passedTo ? { passedTo: item.passedTo } : {}) } : {}),
         youGive: youGiveOf(item),
         // Each input's kind in words, when the code says it (days late: a number; request: a PingResource).
         ...(inputKindsOf(item) ? { inputKinds: inputKindsOf(item) } : {}),
@@ -623,6 +669,8 @@ export function thunderModel(files, { name = 'app' } = {}) {
         _steps: item.steps || [], _item: item,
       };
       if (owner) owner.can.push(m.id);
+      // How many values it takes (not shown; used to tell overloads apart when a call is linked across files).
+      Object.defineProperty(m, 'arity', { value: (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name)).length, enumerable: false });
       if (kind === 'not-read') unknowns.push({ id: m.id, file: f.path, line: item.line, why: 'Thunder cannot explain this function yet; its code is shown instead.' });
       return m;
     });
@@ -669,7 +717,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     const key = hits.length === 1 && `${t.id}>${hits[0].id}>uses>${im.line}`;
     if (key && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from: t.id, to: hits[0].id, kind: 'uses', file: t.file, line: im.line }); }
   }
-  for (const t of things) { delete t.memberRanges; delete t.images; delete t.podLabels; delete t.selects; } // only used while the model is made
+  for (const t of things) { delete t.memberRanges; delete t.images; delete t.podLabels; delete t.selects; delete t.assigned; delete t.ctor; delete t.spans; } // only used while the model is made
   // An empty class (no facts, nothing it can do) is not a Thing a person needs to see: an error type is already shown
   // where it stops a path, and any other empty class is a named record with no facts.
   const owners = new Set(members.map((x) => x.owner).filter(Boolean));
@@ -678,7 +726,10 @@ export function thunderModel(files, { name = 'app' } = {}) {
     if (t.kind !== 'thing' || t.knows.length || owners.has(t.id)) continue;
     if (/(Exception|Error)$/.test(t.name)) things.splice(i, 1); else t.kind = 'record';
   }
-  return { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns, permissions, settings, facts };
+  const model = { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns, permissions, settings, facts };
+  // The whole system: calls that go to another file, HTTP requests to this repo's routes, events to listeners.
+  try { linkSystem(model, files); } catch (e) { model.notLinked = [{ file: fileInfo[0]?.path ?? null, line: 1, why: `Calls across files could not be linked: ${e.message}` }]; }
+  return model;
 }
 
 // ── Thunder Text, projected from the model (the picture is projected from the same nodes) ──────────────
@@ -727,7 +778,8 @@ export function modelText(model, id, { note = null, full = false } = {}) {
     if (t.doc) lines.push(`  Author's note: ${t.doc}`);
     if (t.choices.length) lines.push(`  One of: ${t.choices.join(', ')}`);
     if (t.knows.length) { lines.push('  It knows'); for (const k of t.knows) lines.push(`    ${k.label}: ${[k.kind, k.start].filter(Boolean).join(', ') || 'a value'}`); }
-    if (t.can.length) { lines.push('  It can'); for (const c of t.can) lines.push(`    ${model.members.find((m) => m.id === c)?.label}`); }
+    const can = t.can.map((c) => model.members.find((m) => m.id === c)).filter((m) => m && !m.callback);
+    if (can.length) { lines.push('  It can'); for (const m of can) lines.push(`    ${m.label}`); }
     return `${lines.join('\n')}\n`;
   }
   const m = model.members.find((x) => x.id === id);
@@ -858,6 +910,17 @@ function ruleRanges(rule) {
   return { fact: rule.inputs[0].label.replace(/^the /, ''), ranges };
 }
 
+/** What a link adds to the member it points at: another file, or the request or event it sends. */
+function linkFacts(l, other, member) {
+  const out = {};
+  if (l.kind !== 'uses') out.kind = l.kind;
+  if (other && other.file !== member.file) { out.file = other.file; out.crossFile = true; }
+  if (l.line != null && l.crossFile) out.line = l.line;
+  if (l.kind === 'sends-to') out.service = l.method ? `${l.method} ${l.path}` : l.event ? `event ${l.event}` : l.task ? `task ${l.task}` : 'a message';
+  if (l.route) out.route = l.route;
+  return out;
+}
+
 function detailsFacts(model, member) {
   const paths = pathsOf(member.flow);
   const memberOf = (id) => model.members.find((m) => m.id === id);
@@ -875,13 +938,16 @@ function detailsFacts(model, member) {
     return { error: m ? m[1].trim() : p.node.text, ...(m?.[2] ? { message: m[2] } : {}), line: p.node.line ?? null, when: p.when };
   });
   const givesBack = paths.filter((p) => p.node.kind === 'end' || p.node.answer).map((p) => ({ text: p.node.answer ? answerWords(p.node.text) : p.node.text, line: p.node.line ?? null, when: p.node.otherwise ? [{ question: 'none of the above', answer: 'Otherwise' }] : p.when }));
-  const reliesOn = model.links.filter((l) => l.from === member.id).map((l) => memberOf(l.to)).filter(Boolean).map((t) => {
+  // Each link once per member and kind; a call to another file says which file, a request or event says what it sends.
+  const relied = new Map();
+  for (const l of model.links) if (l.from === member.id && !relied.has(`${l.to}|${l.kind}`)) relied.set(`${l.to}|${l.kind}`, l);
+  const reliesOn = [...relied.values()].map((l) => [l, memberOf(l.to)]).filter(([, t]) => t).map(([l, t]) => {
     const answers = t.rule ? ruleAnswers(t.rule) : null;
     const flowAnswers = [...new Set(t.flow.nodes.filter((n) => n.answer).map((n) => n.text))];
     const list = answers ? answers.map((a) => a.answer) : flowAnswers;
     const says = list.length ? `Answers ${list.join(', ').replace(/, ([^,]*)$/, list.length > 2 ? ', or $1' : ' or $1')}.`
       : t.youGetBack ? `Gives back ${t.youGetBack}.` : t.flow.nodes.some((n) => n.kind === 'stop') ? `Can stop with ${t.flow.nodes.filter((n) => n.kind === 'stop').map((n) => n.text.replace(/^Stop:\s*/, '').split(':')[0]).join(', ')}.` : `${t.flow.nodes.filter((n) => n.kind !== 'start').length} steps.`;
-    return { id: t.id, label: t.label + (t.yesNo ? '?' : ''), symbol: SYMBOL_OF[t.kind], says };
+    return { id: t.id, label: t.label + (t.yesNo ? '?' : ''), symbol: SYMBOL_OF[t.kind], says, ...linkFacts(l, t, member) };
   });
   const answers = member.rule ? ruleAnswers(member.rule) : null;
   const limits = member.rule ? ruleRanges(member.rule) : null;
@@ -908,8 +974,10 @@ export function readLevel(model, level, focus, { full = false } = {}) {
     ? { scope: 'member', id: member.id, title: member.label + (member.yesNo ? '?' : ''), symbol: SYMBOL_OF[member.kind], file: member.file, lines: member.lines }
     : thing ? { scope: 'thing', id: thing.id, title: thing.label, symbol: SYMBOL_OF[thing.kind], file: thing.file, lines: thing.lines }
     : { scope: 'app', id: null, title: model.name, symbol: 'app', file: model.files[0]?.path ?? null, lines: null };
-  const uses = member ? model.links.filter((l) => l.from === member.id).map((l) => ({ id: l.to, label: labelOf(l.to) })) : [];
-  const usedBy = member ? model.links.filter((l) => l.to === member.id).map((l) => ({ id: l.from, label: labelOf(l.from) })) : [];
+  const memberById = (id) => model.members.find((m) => m.id === id);
+  const once = (ls, key) => { const seen = new Set(); return ls.filter((l) => { const k = `${l[key]}|${l.kind}`; if (seen.has(k)) return false; seen.add(k); return true; }); };
+  const uses = member ? once(model.links.filter((l) => l.from === member.id), 'to').map((l) => ({ id: l.to, label: labelOf(l.to), ...linkFacts(l, memberById(l.to), member) })) : [];
+  const usedBy = member ? once(model.links.filter((l) => l.to === member.id), 'from').map((l) => ({ id: l.from, label: labelOf(l.from), ...linkFacts(l, memberById(l.from), member) })) : [];
 
   if (!member && (lv.id === 'flow' || lv.id === 'details')) {
     const inScope = model.members.filter((m) => m.kind !== 'setup' && (!thing || m.owner === thing.id));
@@ -925,7 +993,7 @@ export function readLevel(model, level, focus, { full = false } = {}) {
       knows: t.knows.map((k) => ({ label: k.label, value: k.kind, ...(k.computed ? { computed: true } : {}), ...(k.secret ? { secret: true } : {}), line: k.line })),
       links: (model.links || []).filter((l) => l.from === t.id || l.to === t.id).map((l) => ({ from: l.from, to: l.to, kind: l.kind, ...(l.line ? { line: l.line } : {}) })) });
     const resource = thing?.kind === 'resource' ? thing : null;
-    const thingCard = (t) => ({ id: t.id, label: t.label, ...(t.doc ? { doc: t.doc } : {}), knows: t.knows.map((k) => ({ label: k.label, ...(k.start ? { start: k.start } : {}) })), can: model.members.filter((m) => m.owner === t.id && m.kind !== 'setup').map(short) });
+    const thingCard = (t) => ({ id: t.id, label: t.label, ...(t.doc ? { doc: t.doc } : {}), knows: t.knows.map((k) => ({ label: k.label, ...(k.start ? { start: k.start } : {}) })), can: model.members.filter((m) => m.owner === t.id && m.kind !== 'setup' && !m.callback).map(short) });
     return { ...base, ...about,
       ...(thing?.doc ?? model.files[0]?.purpose ? { purpose: thing?.doc ?? model.files[0]?.purpose } : {}),
       things: (resource ? [] : thing ? [thing] : model.things.filter((t) => t.kind === 'thing')).map(thingCard),
@@ -934,14 +1002,19 @@ export function readLevel(model, level, focus, { full = false } = {}) {
       data: thing ? [] : model.things.filter((t) => t.kind !== 'thing' && t.kind !== 'resource').map((t) => ({ id: t.id, label: t.label, symbol: SYMBOL_OF[t.kind], ...(t.choices.length ? { choices: t.choices } : {}), knows: t.knows.map((k) => k.label) })),
       actions: model.members.filter((m) => inScope(m) && m.kind === 'action').map(short),
       rules: model.members.filter((m) => inScope(m) && m.kind === 'rule').map(short),
-      loose: thing ? [] : model.members.filter((m) => !m.owner && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
-      unknowns: thing ? [] : model.unknowns };
+      // (A callback is reached from the step that passes it, not listed on its own.)
+      loose: thing ? [] : model.members.filter((m) => !m.owner && !m.callback && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
+      unknowns: thing ? [] : model.unknowns,
+      // The app's map: which areas (folders) call which, and send requests or events to which.
+      ...(thing ? {} : { calls: callsSummary(model), notLinked: model.notLinked ?? [] }) };
   }
   if (lv.id === 'flow') return { ...base, ...about, flow: member.flow };
   if (lv.id === 'details') {
     const steps = detailSteps(member.flow);
     return { ...base, ...about, youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), ...(member.doc ? { doc: member.doc } : {}),
       ...detailsFacts(model, member), steps,
+      // Calls and requests worth linking that could not be, with the reason (never guessed).
+      notLinked: (model.notLinked ?? []).filter((x) => x.from === member.id),
       notExplained: steps.filter((s) => s.notExplained).length, uses, usedBy, tryable: !!member.rule, ...(member.rule ? { rule: member.rule } : {}),
       source: 'Read from code by the Thunder compiler, with no AI.' };
   }

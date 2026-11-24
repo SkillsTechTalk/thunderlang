@@ -204,6 +204,42 @@ adopting repository's own token (not enabled on this repository). Decision nodes
 side of a yes/no question as a statement) and Details' `when` entries a `says`, so sentences read "when the header is
 not the setting" rather than quoting the question. /zoom shows a sample review computed by the compiler.
 
+**Language: the whole system — calls across files and services** (`compiler/src/system.mjs`, in `/core`). The model
+now links a step's call to the member it calls in another file, and a request or event to the code that handles it
+(docs/spec.md, "The whole system"):
+- **Calls across files**: `links[]` gains `kind: 'uses'` entries with `crossFile: true`, the target's `file`, and the
+  calling step's `line`, resolved through imports: JS/TS ES modules, CommonJS, re-exports, tsconfig path aliases,
+  workspace packages; Python absolute and relative imports and packages; Go packages (by `go.mod`) and the same
+  package's other files; Java/Kotlin imports by class, C# `using`, PHP `use`, Ruby class names, Rust `use crate::`.
+  Methods are followed through declared types (fields, constructor parameters, Go receivers), and overloads by how
+  many values a call gives. The calling flow node gets `uses` and `usesFile`, so Open → opens the other file.
+- **Service calls**: `kind: 'sends-to'` links an HTTP request the library catalog recognizes to the route in this
+  repo with the same method and path (path parameters are wildcards; Next.js route files count), an event or queue
+  message to its listeners by name, and a Celery `delay()` to its task.
+- **Never guessed**: `model.notLinked` lists what was worth linking and could not be, with the reason (external
+  package, dynamic import, computed URL, another service's host, no or two matching routes, an interface).
+- **Views**: `readLevel(model, 'big-picture')` for the app adds `calls` (which areas call which, with examples) and
+  `notLinked`; `uses`/`usedBy` and Details' `reliesOn` say the file, service, and route; Details adds the member's
+  `notLinked`. The site shows "How the parts connect", "Open in orders.ts →", and the file of each link.
+- `collectReadableFiles(root, { manifests: true })` also returns go.mod, package.json, and tsconfig/jsconfig files.
+- On the eleven audit repositories, of calls whose name matches a function defined in another file, 47.8% are now
+  linked (55.5% where that name is defined only once in the repo; cobra 82%, gson 75%, formik 61%, requests 51%);
+  the rest are mostly calls on values whose type is not written down. Reading time is about 1.04× before overall.
+- A comment with an apostrophe (`// it's`) no longer stretches a TypeScript class or interface over the functions
+  after it (they were wrongly owned by it, so their ids lose that owner); `lift.mjs` finds line numbers without
+  re-splitting the file each time.
+
+**Language: JavaScript functions with no declaration of their own are items.** `exports.x = function`,
+`module.exports.x =`, `obj.method = function`, `Foo.prototype.bar = function`, functions inside functions (the inner
+`app` in Express's `createApplication`), object-literal methods, and anonymous callbacks (`app.use(function …)`,
+`.then(function …)`, block-bodied arrows) are now items, named by what they are assigned to or
+`<parent> › callback at line N` (items carry `assignedTo`, `callback`, `passedTo`). Prototype methods belong to their
+Thing, and `function Foo()` is how a new Foo starts; an object given two or more methods (`res.json`, `res.send` on
+`var res = Object.create(…)`) is a Thing. Declared functions keep their ids, and methods owned by assignment keep the
+id they had. Test bodies (`describe`/`it` callbacks) stay tests; Big Picture does not list callbacks on their own.
+On Express, the share of recorded executions Thunder can place on a member went from 71.9% to 99.7% (functions
+drawn in lib/: 76 to 109).
+
 **Language: no loss — every detail, one level down** (`compiler/src/meaning.mjs`, `compiler/src/round-trip.mjs`).
 Thunder's words stay short, and nothing in the code is lost: every step now carries `expr`, its full meaning as a
 small language-neutral tree (`thunder-expr-v1`): calls with their whole callee path and every argument, assignments

@@ -17,6 +17,7 @@ export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
 // The running system (browser-safe): runs, stack traces, logs, and spans placed on Thunder's flows.
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
+export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
 // Review in Thunder: what a change did to the meaning of the code, in plain sentences (pure; the CLI does the git work).

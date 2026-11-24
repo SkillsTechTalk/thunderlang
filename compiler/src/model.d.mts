@@ -3,12 +3,11 @@ import type { Does } from './visual.mjs';
 import type { Expr } from './meaning.mjs';
 export const MODEL_SCHEMA: 'thunder-model-v1';
 export const THING_LANGUAGES: string[];
-export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true; /** On a code branch: the side the code takes when its condition holds. */ whenTrue?: 'yes' | 'no';
+export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; /** Set when `uses` is a member in another file (calls across files). */ usesFile?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true; /** On a code branch: the side the code takes when its condition holds. */ whenTrue?: 'yes' | 'no';
   /** A yes/no question as a statement on each side, when it splits cleanly: { yes: "the x header is the KEY setting", no: "… is not …" }. */
   holds?: { yes: string; no: string };
   /** The step's full meaning (thunder-expr-v1). */ expr?: Expr;
   /** What the short words leave out, one level down: "with: order, { validate: false }". Shown in Details and the full Thunder Text. */ detail?: string }
-
 export interface FlowEdge { from: string; to: string; label?: 'yes' | 'no' | 'each' | 'next' | 'done' | 'error' | 'case' | 'nested'; /** On a 'case' edge: the case it takes ("When it is from 90 to 100", "Otherwise", "None of these"). */ text?: string }
 export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; each?: FlowBlock[]; body?: FlowBlock[];
   /** A choice among several cases (switch, when, match, select): one side per case, in order. The decision node has `cases: true`. */
@@ -31,9 +30,27 @@ export interface Setting { name: string; source: 'parameter' | 'variable' | 'sec
 /** What a file says, not advice; a tool decides how serious each one is. */
 export interface Fact { id: string; kind: 'write-all-permissions' | 'untrusted-trigger-with-secrets' | 'action-pinned-by-tag' | 'image-not-pinned' | 'runs-as-root' | 'secret-in-plain-env' | 'public-ingress' | 'storage-public' | 'secret-in-plain-config' | 'encryption-off' | 'wide-permission' | 'privileged-container' | 'no-resource-limits'; says: string; file: string; line: number; /** action-pinned-by-tag: an action made by GitHub itself. */ firstParty?: boolean }
 export type LinkKind = 'uses' | 'runs-in' | 'reads-from' | 'sends-to';
-export interface Link { from: string; to: string; kind: LinkKind; node?: string; file?: string; line?: number }
-export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow; /** Set by proof by running (executed.mjs markExecuted) only where a run proved the reading. */ completeness?: { level: 'executed'; reasons: string[] } }
-export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string; category: 'application' | 'infrastructure' | 'delivery'; /** Why this file could not be read. */ skipped?: string }[]; things: Thing[]; members: Member[]; links: Link[]; unknowns: { id?: string; file: string; line: number; why: string }[]; permissions: Permission[]; settings: Setting[]; facts: Fact[] }
+/**
+ * A link between two members, resources, or a member's flow node and another member. 'uses': a call (in the same file,
+ * or with `crossFile` through an import, a declared type, or the same package), or a resource that uses another.
+ * 'sends-to': an HTTP request to the route that handles its method and path (`method`, `path`, `route`), an event or
+ * queue message to its listener (`event`), a task to its worker (`task`), or a resource that sends to another.
+ * 'runs-in' and 'reads-from': infrastructure (spec section 12).
+ */
+export interface Link { from: string; to: string; kind: LinkKind; node?: string; /** The target's file (calls), or the file that states the link (infrastructure). */ file?: string; /** The calling step's line, or the line that states the link. */ line?: number | null; crossFile?: true; method?: string; path?: string; route?: string; event?: string; task?: string }
+/** The same as Link (the name the whole-system calls used). */
+export type ModelLink = Link;
+export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string;
+  /** JS/TS: what the function is assigned to (`exports.normalizeType`, `View.prototype.lookup`, `res.json`). */ assignedTo?: string;
+  /** JS/TS: an anonymous function passed to a call (named `<parent> › callback at line N`); `passedTo` is the call. */ callback?: true; passedTo?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow; /** Set by proof by running (executed.mjs markExecuted) only where a run proved the reading. */ completeness?: { level: 'executed'; reasons: string[] } }
+export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string; category: 'application' | 'infrastructure' | 'delivery'; /** Why this file could not be read. */ skipped?: string }[]; things: Thing[]; members: Member[]; links: Link[]; unknowns: { id?: string; file: string; line: number; why: string }[]; permissions: Permission[]; settings: Setting[]; facts: Fact[]; notLinked?: NotLinked[] }
+/** A call, request, event, or import worth linking that was not linked, and why (dynamic import, computed URL, external package, two routes match, an interface). */
+export interface NotLinked { from?: string; node?: string; file: string | null; line: number | null; call?: string; import?: string; why: string; /** For an external package: how many imports of it. */ files?: number }
+/** Which areas (folders, two levels deep) call which, from cross-file and service links. */
+export interface AreaCalls { from: string; to: string; calls: number; sends: number; examples: { from: string; to: string; says: string }[] }
+/** Where a link goes, as views show it. */
+export interface LinkFacts { kind?: 'sends-to'; file?: string; crossFile?: true; line?: number; service?: string; route?: string }
+/** Files may include go.mod, package.json, and tsconfig/jsconfig.json: they say which imports are this repo's own. */
 export function thunderModel(files: { path: string; source: string }[], options?: { name?: string }): ThunderModel;
 export function flowOf(steps: unknown[], options?: { start?: string; memberIndex?: Map<string, string>; memberLabel?: Map<string, string> }): Flow;
 export function ruleFlow(item: unknown, start: string): Flow;
@@ -59,8 +76,10 @@ export interface LevelView {
   resources?: { id: string; label: string; symbol: 'resource'; resourceType?: string; address?: string; file: string; knows: { label: string; value: string | null; computed?: true; secret?: true; line: number | null }[]; links: { from: string; to: string; kind: LinkKind; line?: number }[] }[];
   permissions?: Permission[]; settings?: Setting[]; facts?: Fact[];
   actions?: LevelItem[]; rules?: LevelItem[]; loose?: LevelItem[]; unknowns?: ThunderModel['unknowns'];
+  /** Big Picture, whole app: which areas call which (the app's map), and what could not be linked. */
+  calls?: AreaCalls[]; notLinked?: NotLinked[];
   route?: string; doc?: string; owner?: { id: string; label: string }; youGive?: string[]; youGetBack?: string;
-  uses?: { id: string; label: string }[]; usedBy?: { id: string; label: string }[];
+  uses?: ({ id: string; label: string } & LinkFacts)[]; usedBy?: ({ id: string; label: string } & LinkFacts)[];
   // Flow
   flow?: Flow;
   // Details
@@ -77,7 +96,7 @@ export interface LevelView {
   /** Details: what it gives back, and when. */
   givesBack?: { text: string; line: number | null; when: When[] }[];
   /** Details: each action or rule it relies on, summarized. */
-  reliesOn?: { id: string; label: string; symbol: string; says: string }[];
+  reliesOn?: ({ id: string; label: string; symbol: string; says: string } & LinkFacts)[];
   /** Details, for a rule: its answers in words, in order (the last may be "otherwise"). */
   answers?: { answer: string; when: string }[];
   /** Details, for a rule with one whole-number fact: its exact limits, found by running it. from/to null = "or less"/"or more". */

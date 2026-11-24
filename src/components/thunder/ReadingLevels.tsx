@@ -223,12 +223,13 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine, memberRu
               {view.reliesOn!.map((r) => (
                 <li key={r.id}><button type="button" onClick={() => open(r.id)} className={`flex w-full items-start gap-3 rounded-xl border border-white/10 bg-ink-850/60 px-3 py-2.5 text-left hover:border-white/30 ${focus}`}>
                   <Symbol id={r.symbol as SymbolId} size={22} />
-                  <span><span className="block font-medium text-white">{r.label}</span><span className="block text-sm text-haze-300">{r.says}</span></span>
+                  <span><span className="block font-medium text-white">{r.label}</span><span className="block text-sm text-haze-300">{r.says}</span>{(r.service || r.crossFile) && <span className="block text-xs text-haze-400">{r.service ? `Sends ${r.service}${r.route ? `, handled by ${r.route}` : ""}` : "Calls it"}{r.crossFile ? ` in ${r.file}` : ""}</span>}</span>
                 </button></li>
               ))}
             </ul>
-          ) : <p className="text-sm text-haze-300">Nothing else in this file.</p>}
-          {view.usedBy!.length > 0 && <p className="mt-3 text-sm text-haze-300">Used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</p>}
+          ) : <p className="text-sm text-haze-300">Nothing else Thunder could link.</p>}
+          {view.usedBy!.length > 0 && <p className="mt-3 text-sm text-haze-300">Used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button>{u.crossFile && <span className="text-haze-400"> (in {u.file})</span>}</span>)}.</p>}
+          {(view.notLinked?.length ?? 0) > 0 && <ul className="mt-3 space-y-1 text-sm text-haze-400">{view.notLinked!.map((x, i) => <li key={i}>Not linked{x.line ? `, line ${x.line}` : ""}: {x.call ? `${x.call}: ` : ""}{x.why}</li>)}</ul>}
         </Card>
 
         <Card title="How sure Thunder is">
@@ -350,6 +351,12 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
               </div>
             )}
             {view.data!.length > 0 && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{model.things.filter((t) => view.data!.some((d) => d.id === t.id)).map((t) => <DataCard key={t.id} t={t} />)}</div>}
+            {(view.calls?.length ?? 0) > 0 && (
+              <section aria-labelledby="lv-calls" className="rounded-3xl border border-white/12 p-6">
+                <h3 id="lv-calls" className="text-lg font-semibold text-white">How the parts connect</h3>
+                <ul className="mt-3 grid gap-2 text-[15px] text-haze-200">{view.calls!.map((c) => <li key={`${c.from}>${c.to}`}><span className="font-mono text-sm text-white">{c.from}</span> <span aria-hidden="true">→</span><span className="sr-only">calls into</span> <span className="font-mono text-sm text-white">{c.to}</span>: {[c.calls ? `${c.calls} call${c.calls === 1 ? "" : "s"}` : "", c.sends ? `${c.sends} request${c.sends === 1 ? "" : "s"} or event${c.sends === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")}{c.examples[0] && <span className="text-haze-400"> (for example, {c.examples[0].says})</span>}</li>)}</ul>
+              </section>
+            )}
             {view.unknowns!.length > 0 && <ul className="rounded-2xl border border-dashed border-white/25 p-4 text-sm text-haze-300">{view.unknowns!.map((u, i) => <li key={i}>Not read yet, line {u.line}: {u.why}</li>)}</ul>}
             <p className="text-sm text-haze-400">Choose anything it can do to see its Flow.</p>
           </div>
@@ -372,8 +379,8 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
 
             {level === "big-picture" && (
               <div className="mt-5 space-y-2 text-sm text-haze-200">
-                <p>{view.uses!.length ? <>It uses {view.uses!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</> : "It doesn't use anything else in this file."}</p>
-                <p>{view.usedBy!.length ? <>It is used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</> : "Nothing else in this file uses it."}</p>
+                <p>{view.uses!.length ? <>It uses {view.uses!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button>{u.service && <span className="text-haze-400"> ({u.service})</span>}{u.crossFile && <span className="text-haze-400"> (in {u.file})</span>}</span>)}.</> : "It doesn't use anything else Thunder could link."}</p>
+                <p>{view.usedBy!.length ? <>It is used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button>{u.crossFile && <span className="text-haze-400"> (in {u.file})</span>}</span>)}.</> : "Nothing else Thunder read uses it."}</p>
                 <button type="button" onClick={() => setLevel("flow")} className={`mt-2 min-h-11 rounded-xl border border-white/20 px-4 text-haze-100 hover:text-white ${focus}`}>See how it goes: Flow →</button>
               </div>
             )}

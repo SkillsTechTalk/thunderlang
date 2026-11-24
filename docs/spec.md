@@ -133,6 +133,51 @@ App and File for large apps. At every place, all five levels apply.
 | **Rule** | One decision as a Thunder card, or a function's steps | "When do we approve a refund?" | Z3 |
 | Original | The exact lines in the original language | lines 12 to 16 | Z4 |
 
+### The whole system: calls across files and services (works today)
+
+Software is many files and services, so the places are connected. When a step calls something in another file,
+sends an HTTP request to a route in the same repo, or publishes an event that something listens for, the model
+links the step to that member. Picture the App place as a map of areas with arrows between them; every arrow is
+made of real calls you can open.
+
+```
+  web/handlers ──3 calls──▶ core/orders ──1 call──▶ db
+       │                         ▲
+       └──"Sends a GET request to /api/orders/…"──▶ GET /api/orders/:id  (server/routes.js)
+```
+
+- **Calls across files** (`links[]` entries with `kind: 'uses'`, `crossFile: true`, the target's `file`, and the
+  calling step's `line`). A call is followed through the file's imports: JavaScript and TypeScript ES modules,
+  CommonJS `require` (and `exports.x =`), re-exports (`export * from`), tsconfig path aliases, and the repo's own
+  workspace packages; Python `import` and `from … import` (relative, packages, aliases, `__init__.py` re-imports);
+  Go packages by `go.mod` module path, and other files of the same package; Java and Kotlin imports by class (and the
+  same package), C# `using` namespaces, PHP `use`, Ruby class names (global, so linked when exactly one class has the
+  name), and Rust `use crate::…` paths. A method is linked through a declared type (`private readonly repo:
+  OrderRepo`, `OrderService service;`, `self.repo = OrderRepo()`, a Go receiver) and overloads are told apart by how
+  many values the call gives. The flow node that makes the call gets `uses` (and `usesFile`), so **Open →** opens
+  the member in the other file.
+- **Service calls** (`kind: 'sends-to'`). A step the library catalog reads as "Sends a POST request to …" (fetch,
+  axios, requests, httpx, HttpClient, RestTemplate, Go `net/http`) is linked to the route in this repo that handles
+  the same method and path. Path parameters match anything on both sides (`/api/orders/${id}` matches
+  `/api/orders/:id`, `{order_id}`, `<int:id>`, `[id]`); Next.js `app/**/route.ts` and `pages/api` files are routes. An
+  event (`emit`, `publish`) or queue message (`new Queue('emails')` then `.add`) is linked to the code that listens
+  for the same name (`.on`, `.subscribe`, `new Worker`, `@OnEvent`, `@KafkaListener`, …); a Celery `task.delay()` to
+  its task. Names every emitter uses (`error`, `close`, `data`) are never matched across files.
+- **Never a guess.** What cannot be linked exactly stays unlinked and, when it was worth linking, is listed in
+  `model.notLinked` with the reason: external package, standard library, dynamic import, computed URL (the address
+  is worked out when it runs), another service's host, no route or two routes match, an interface whose code is
+  chosen when it runs, several constructors. A call on a value whose type is not written down (`res.send` on a
+  framework's response) is not linked.
+- **In the views.** Big Picture for the whole app adds `calls`: which areas (folders, two deep) call which, with
+  counts and examples, so OpenThunder and the site can draw the app's map; for one member, `uses` and `usedBy` say
+  which file each is in. Details' **relies on** lists cross-file and service links (`file`, `service`, `route`) and
+  the member's own `notLinked`.
+- **Functions with no name of their own** are places too (JavaScript and TypeScript): `exports.x = function`,
+  `Foo.prototype.bar = function` (the method belongs to its Thing, and `function Foo()` is how a new one starts),
+  methods given to an object (`res.json = function`), functions inside functions, and anonymous callbacks, named
+  `<parent> › callback at line N`. A one-line arrow (`(x) => x.id`) stays part of its step, and test bodies
+  (`describe`, `it`) are tests.
+
 ## 4. Elements
 
 Every element shows where it came from (section 8). Levels are the zoom levels in section 3.
@@ -690,7 +735,8 @@ their own order there):
 4. **Other human languages in code:** keep identifiers such as French names as they are, instead of splitting them as
    English words, with a slot for a gloss.
 5. **Events and services:** publish/subscribe, queues, and named external calls (Stripe, HTTP, database, email) as
-   step kinds.
+   step kinds. (HTTP requests to this repo's routes and events to their listeners are linked today; see "The whole
+   system" in section 3. Routes registered under a prefix in another file, `app.use('/api', router)`, are next.)
 6. **A file's purpose:** the module docstring as the file's Author's note.
 7. **SQL:** reading as described in section 9, starting with PostgreSQL and migrations.
 8. **Thunder write beyond decisions:** today a change to a number, comparison, text value, or answer in a decision is
