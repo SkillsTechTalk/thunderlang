@@ -1219,9 +1219,16 @@ function headerClosed(before) {
  * Comments blanked to spaces (lines and offsets unchanged), outside strings only: `'… use \`//\` …'` and
  * `"https://…"` keep their text, so a string can never swallow the rest of a line. One pass, linear.
  */
+const INTERESTING = /["'`/]/g;
 function stripCommentsKeepLayout(s) {
+  if (!s.includes('/')) return s; // no comment can start without a slash
   let out = '', last = 0;
   for (let i = 0; i < s.length; i++) {
+    // Jump to the next quote or slash: nothing else matters here.
+    INTERESTING.lastIndex = i;
+    const hit = INTERESTING.exec(s);
+    if (!hit) break;
+    i = hit.index;
     const c = s[i];
     if (c === '"' || c === "'" || c === '`') {
       // A quote is a string only when it closes (on the same line, except template and raw strings).
