@@ -10,10 +10,13 @@ export { compileHumanContract, previewHumanContract, renderHumanContract, render
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
-export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from './visual.mjs';
+export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
+export { plainFromReading, conditionText } from './plain-contract.mjs';
+// Editor help (browser-safe): completions, hover, autocorrect, quick fixes, and the semantic type vocabulary.
+export { getCompletions, getHover, autocorrectSource, getCodeActions, SEMANTIC_TYPES } from './intellisense.mjs';
 export { PLAIN_SCHEMA, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 
 // Classification model (observed/inferred/proposed/... + isFactual). Node-free.
@@ -106,7 +109,7 @@ export { runTests, TEST_SCHEMA } from './testing.mjs';
 // Decisions -> readable typed source in six languages (browser-safe; same translators as the targets).
 export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 // Read code you don't know: decisions recovered from six languages as ThunderLang + plain English.
-export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, completenessOf, displayLabel } from './read.mjs';
 // Read a whole repository (pure: the caller passes file contents) and turn a recovered decision into a contract.
 export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';

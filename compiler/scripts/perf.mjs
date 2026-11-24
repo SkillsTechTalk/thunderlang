@@ -1,0 +1,67 @@
+#!/usr/bin/env node
+// Performance test: read a whole (large) repository with the Thunder compiler and time each stage.
+// Usage: node scripts/perf.mjs <folder> [--max-files n] [--json]
+// Stages: collect files, read every file (readCode), build the model (thunderModel), write the app as Thunder Text
+// (thunderizeFiles), and compare the app with itself (sameMeaning). Reports time, throughput, peak memory, and the
+// slowest files, so a regression shows up as a number.
+import { collectReadableFiles } from '../src/read-repo-fs.mjs';
+import { readableLanguage } from '../src/read-repo.mjs';
+import { readCode } from '../src/read.mjs';
+import { thunderModel } from '../src/model.mjs';
+import { thunderizeFiles } from '../src/thunderize.mjs';
+import { sameMeaning } from '../src/same.mjs';
+
+const args = process.argv.slice(2);
+const dir = args.find((a) => !a.startsWith('--'));
+const maxAt = args.indexOf('--max-files');
+const maxFiles = maxAt >= 0 ? Number(args[maxAt + 1]) : 100000;
+if (!dir) { console.error('Use node scripts/perf.mjs <folder> [--max-files n] [--json]'); process.exit(2); }
+
+let peak = 0;
+const sample = () => { peak = Math.max(peak, process.memoryUsage().rss); };
+const timer = setInterval(sample, 50);
+const time = (fn) => { const t = process.hrtime.bigint(); const r = fn(); sample(); return [r, Number(process.hrtime.bigint() - t) / 1e6]; };
+
+const [files, tCollect] = time(() => collectReadableFiles(dir, { maxFiles }));
+const loaded = files.filter((f) => f.source);
+const bytes = loaded.reduce((n, f) => n + f.source.length, 0);
+const lines = loaded.reduce((n, f) => n + f.source.split('\n').length, 0);
+
+// Read every file on its own, timing each, so the slowest files are visible.
+let functions = 0, decisions = 0, errors = 0;
+const perFile = [];
+const [, tRead] = time(() => {
+  for (const f of loaded) {
+    const language = readableLanguage(f.path);
+    const t = process.hrtime.bigint();
+    try {
+      const r = readCode(f.source, { language, file: f.path });
+      for (const it of r.items) { if (it.kind === 'function') functions++; if (it.kind === 'decision') decisions++; }
+    } catch { errors++; }
+    perFile.push([f.path, Number(process.hrtime.bigint() - t) / 1e6, f.source.length]);
+  }
+});
+const [model, tModel] = time(() => thunderModel(loaded));
+const [app, tThunderize] = time(() => thunderizeFiles(loaded, { name: dir }));
+const [same, tSame] = time(() => sameMeaning(loaded, loaded));
+clearInterval(timer);
+sample();
+
+const langs = {};
+for (const f of loaded) { const l = readableLanguage(f.path); langs[l] = (langs[l] || 0) + 1; }
+const slowest = perFile.sort((a, b) => b[1] - a[1]).slice(0, 5).map(([p, ms, size]) => ({ file: p, ms: Math.round(ms), kb: Math.round(size / 1024) }));
+const report = {
+  repo: dir, files: loaded.length, skipped: files.length - loaded.length, languages: langs, megabytes: +(bytes / 1048576).toFixed(1), lines,
+  functions, decisions, readerErrors: errors, things: model.things.length, members: model.members.length, unknowns: model.unknowns.length,
+  ms: { collect: Math.round(tCollect), read: Math.round(tRead), model: Math.round(tModel), thunderize: Math.round(tThunderize), same: Math.round(tSame) },
+  readThroughput: { filesPerSecond: Math.round(loaded.length / (tRead / 1000)), linesPerSecond: Math.round(lines / (tRead / 1000)) },
+  peakMemoryMB: Math.round(peak / 1048576), sameVerdict: same.verdict, thunderTextFiles: app.files.length, slowest,
+};
+if (args.includes('--json')) console.log(JSON.stringify(report, null, 2));
+else {
+  const s = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
+  console.log(`${dir}: ${report.files} files (${Object.entries(langs).map(([l, n]) => `${n} ${l}`).join(', ')}), ${report.megabytes} MB, ${lines.toLocaleString()} lines`);
+  console.log(`  read ${functions.toLocaleString()} functions, ${decisions} decisions, ${errors} reader errors; model: ${report.things} things, ${report.members} members`);
+  console.log(`  collect ${s(report.ms.collect)} · read ${s(report.ms.read)} (${report.readThroughput.filesPerSecond} files/s, ${report.readThroughput.linesPerSecond.toLocaleString()} lines/s) · model ${s(report.ms.model)} · thunderize ${s(report.ms.thunderize)} · same ${s(report.ms.same)}`);
+  console.log(`  peak memory ${report.peakMemoryMB} MB · slowest files: ${slowest.map((x) => `${x.file} ${x.ms} ms (${x.kb} KB)`).join('; ')}`);
+}

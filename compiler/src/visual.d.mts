@@ -37,3 +37,4 @@ export const THUNDER_VISUAL: {
   provenance: typeof PROVENANCE; steps: typeof STEP_MARKS; elements: typeof ELEMENTS; languages: typeof LANGUAGES; rules: string[];
   symbols: typeof SYMBOLS; does: typeof DOES; beginner: SymbolId[];
 };
+export function thunderTokens(line: string): { text: string; role: ColorRole | null }[];

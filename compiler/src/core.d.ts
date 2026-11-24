@@ -11,11 +11,18 @@ export { HumanContractPreview, compileHumanContract, previewHumanContract, rende
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
-export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from './visual.mjs';
+export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
 export type { ColorRole, ElementKind, Provenance as VisualProvenance, Visual } from './visual.mjs';
+export { plainFromReading } from './plain-contract.mjs';
+export function conditionText(model: unknown, condition: unknown): string;
+export function getCompletions(source: string, position: { line: number; column: number }): unknown;
+export function getHover(source: string, position: { line: number; column: number }): unknown;
+export function autocorrectSource(source: string): { source: string; changes: unknown[] };
+export function getCodeActions(source: string, diagnostics?: unknown[]): unknown[];
+export const SEMANTIC_TYPES: string[];
 export { PLAIN_SCHEMA, PlainModel, PlainPreview, PlainExplanation, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 
 // Parser + graph + in-memory compile.
@@ -117,6 +124,8 @@ export type { TranslateLanguage } from './translate.mjs';
 // Read code you don't know.
 export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
+export function completenessOf(item: unknown): { level: 'explained' | 'partly explained' | 'found' | 'executed'; reasons: string[] };
+export function displayLabel(name: string): string;
 export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';

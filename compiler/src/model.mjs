@@ -96,7 +96,8 @@ function pythonThings(src, file) {
         if (ln.trim() && ln.match(/^\s*/)[0].length <= initIndent) break;
         const a = ln.trim().match(/^self\.(\w+)\s*(?::\s*([^=]+))?=\s*(.+)$/);
         if (a && !thing.knows.some((x) => x.name === a[1])) {
-          const pType = (sig?.[1] || '').match(new RegExp(`\\b${a[3]}\\s*:\\s*([\\w\\[\\]. |]+)`))?.[1];
+          // The parameter's declared type, when the value is a plain parameter name (never code in a pattern).
+          const pType = /^\w+$/.test(a[3].trim()) ? (sig?.[1] || '').match(new RegExp(`\\b${a[3].trim()}\\s*:\\s*([\\w\\[\\]. |]+)`))?.[1] : undefined;
           thing.knows.push({ name: a[1], label: words(a[1]), kind: kindWords(a[2] || pType) ?? (/^\[/.test(a[3]) ? 'a list' : null), start: startValue(a[3], params), line: i + 2 + k });
         }
       }
@@ -349,7 +350,9 @@ export function thunderModel(files, { name = 'app' } = {}) {
     if (!language || !f.source) continue;
     let reading;
     try { reading = readCode(f.source, { language, file: f.path }); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
-    const fileThings = language === 'python' ? pythonThings(f.source, f.path) : THING_LANGUAGES.includes(language) ? tsThings(f.source, f.path) : [];
+    let fileThings = [];
+    try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : THING_LANGUAGES.includes(language) ? tsThings(f.source, f.path) : []; }
+    catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
     if (!THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }

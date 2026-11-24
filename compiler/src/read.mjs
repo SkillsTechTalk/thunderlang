@@ -36,7 +36,25 @@ export function detectLanguage(source, file = '') {
 
 // ── Lexing helpers ──────────────────────────────────────────────────────────────────────────
 
-const lineAt = (src, idx) => src.slice(0, idx).split('\n').length;
+// Line of a character offset. The line starts of the last few sources are kept, so each lookup is a binary search
+// instead of counting every newline from the top (which made large files quadratic).
+const lineStarts = new Map();
+function startsOf(src) {
+  let starts = lineStarts.get(src);
+  if (!starts) {
+    starts = [0];
+    for (let i = src.indexOf('\n'); i >= 0; i = src.indexOf('\n', i + 1)) starts.push(i + 1);
+    if (lineStarts.size > 8) lineStarts.delete(lineStarts.keys().next().value);
+    lineStarts.set(src, starts);
+  }
+  return starts;
+}
+const lineAt = (src, idx) => {
+  const starts = startsOf(src);
+  let lo = 0, hi = starts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid] <= idx) lo = mid; else hi = mid - 1; }
+  return lo + 1;
+};
 
 /** Index of the bracket that closes the one at `open`, skipping strings and comments. */
 function matchClose(src, open) {
@@ -276,10 +294,66 @@ function findFunctions(src, language) {
       fns.push({ name: `${method} ${m[2]}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method, path: m[2] } });
     }
   }
+  // Fastify: fastify.route({ method: 'POST', url: '/orders', handler: async (request, reply) => { ... } })
+  if (language === 'typescript' || language === 'javascript') {
+    const re = /\b\w+\.route\(\s*\{/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const objOpen = m.index + m[0].length - 1;
+      const objClose = matchClose(src, objOpen);
+      if (objClose < 0) continue;
+      const obj = src.slice(objOpen, objClose);
+      const method = (obj.match(/\bmethod\s*:\s*['"`](\w+)['"`]/) || [])[1];
+      const url = (obj.match(/\b(?:url|path)\s*:\s*['"`]([^'"`]+)['"`]/) || [])[1];
+      const h = obj.match(/\bhandler\s*:\s*(?:async\s*)?(?:function\s*\w*\s*)?\(/);
+      if (!method || !url || !h) continue;
+      const pOpen = objOpen + h.index + h[0].length - 1;
+      const pClose = matchClose(src, pOpen);
+      const brace = pClose < 0 ? -1 : src.indexOf('{', pClose);
+      if (brace < 0 || !/^\s*(=>\s*)?(:\s*[\w<>\[\]|. ]+)?\s*(=>\s*)?$/.test(src.slice(pClose + 1, brace))) continue;
+      const bc = matchClose(src, brace);
+      if (bc < 0) continue;
+      fns.push({ name: `${method.toUpperCase()} ${url}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method: method.toUpperCase(), path: url } });
+    }
+  }
   annotateRoutes(fns, src);
   return fns.sort((a, b) => a.line - b.line);
 }
-/** Mark functions that a decorator or annotation binds to an HTTP route. */
+// ── Labels, plumbing, and completeness: facts views need, so they never re-derive them ─────────────────
+
+/** A display name: late_fee -> "Late fee", deliveryFee -> "Delivery fee", __init__ -> "Init". */
+export function displayLabel(name) {
+  const w = String(name).replace(/^_+|_+$/g, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
+  return w ? w.charAt(0).toUpperCase() + w.slice(1) : String(name);
+}
+
+/** Inputs that are framework plumbing rather than something a person gives. */
+const PLUMBING = /^(self|this|cls|db|session|conn|connection|cursor|tx|transaction|request|req|res|response|ctx|context|c|w|r|next|logger|log|deps|container|di|cancellationToken|ct|ec|app|g)$/i;
+const PLUMBING_TYPE = /\b(Session|AsyncSession|DbContext|Connection|HttpRequest|HttpResponse|Request|Response|Context|ResponseWriter|CancellationToken|ILogger|Logger|NextFunction)\b/;
+
+const allSteps = (steps) => (steps || []).flatMap((s) => [s, ...allSteps(s.children), ...allSteps(s.otherwise), ...(s.handlers || []).flatMap((h) => allSteps(h.steps)), ...allSteps(s.always?.steps)]);
+
+/**
+ * How completely Thunder explains an item, with the reasons. "explained": every step says what it does and every
+ * branch is shown; "partly explained": something is shown as code or not read; "found": Thunder found the function
+ * but could not turn it into steps or rules. ("executed" is for a view that has also run it.)
+ */
+export function completenessOf(item) {
+  const reasons = [];
+  if (item.kind === 'decision') {
+    if (item.unread?.length) reasons.push(`${item.unread.length} line${item.unread.length === 1 ? '' : 's'} not read`);
+    return { level: reasons.length ? 'partly explained' : 'explained', reasons };
+  }
+  const steps = allSteps(item.steps);
+  if (!steps.length) return { level: 'found', reasons: ['No steps could be read; see the original code.'] };
+  const code = steps.filter((s) => s.kind === 'other').length;
+  const restated = steps.filter((s) => s.restates).length;
+  if (code) reasons.push(`${code} step${code === 1 ? '' : 's'} shown as code`);
+  if (restated) reasons.push(`${restated} step${restated === 1 ? '' : 's'} only restate the code`);
+  if (item.anchor && item.anchor.coverage < 1) reasons.push(`${item.anchor.missing.length ? `lines ${item.anchor.missing.join(', ')}` : 'some lines'} not tied to a step`);
+  return { level: reasons.length ? 'partly explained' : 'explained', reasons };
+}
+
 // ── Python helpers: balanced text across lines, multi-line `def` headers, docstrings ─────────────────
 /** Text from lines[i] at column `col` until brackets balance (strings skipped). Returns { text, end } (end line index). */
 function pyBalanced(lines, i, col) {
@@ -385,6 +459,7 @@ function leadingDoc(lines, fnLine, language) {
   return got.length ? cleanDoc(got.join('\n')) : null;
 }
 
+/** Mark functions that a decorator or annotation binds to an HTTP route. */
 function annotateRoutes(fns, src) {
   // Decorated handlers: @app.get("/x") / @router.post (Python), @GetMapping (Spring), [HttpGet] (ASP.NET), @Get() (NestJS).
   const lines = src.split('\n');
@@ -1702,7 +1777,9 @@ export function readCode(source, { language, file = '' } = {}) {
     // reading inferred from the code so a view can show both and say which is which.
     const doc = fn.doc ?? (lang === 'python' ? null : leadingDoc(codeLines, fn.line, lang));
     const base = {
-      id: `${fn.name}:${fn.line}`, name: fn.name, line: fn.line, inputs, returns: simpleType(fn.returns),
+      id: `${fn.name}:${fn.line}`, name: fn.name, label: displayLabel(fn.name), line: fn.line,
+      // Framework plumbing (a database session, the request, a context) is marked so views can leave it out of "You give it".
+      inputs: inputs.map((p) => (PLUMBING.test(p.name) || PLUMBING_TYPE.test(String(p.type ?? '')) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
       ...(doc ? { doc } : {}),
       provenance: 'inferred-from-code',
@@ -1721,6 +1798,9 @@ export function readCode(source, { language, file = '' } = {}) {
         ...base, kind: 'function', status: 'signature-only',
         ...(st ? { steps: st.steps, stepsMore: st.more, stepsReadable: Math.round(st.readable * 100) / 100, ...(st.anchor ? { anchor: st.anchor } : {}) } : {}),
         says: fn.route ? `Handles ${fn.route.method} ${fn.route.path || '(this controller\'s path)'}.${guardNote}` : `${fn.name} takes ${inputs.length ? inputs.map((p) => p.type && !/[<>\[\]]/.test(p.type) ? `${p.name} (${p.type})` : p.name).join(', ') : 'no inputs'}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}. ${guards.length ? '' : ' Its body does more than choose between fixed answers, so no rules are shown.'}${guardNote}`,
+        // The same facts as separate fields, so a view never has to cut sentences out of `says`.
+        headline: fn.route ? `Handles ${fn.route.method} ${fn.route.path || "(this controller's path)"}.` : `${displayLabel(fn.name)} takes ${inputs.length ? inputs.map((p) => p.name).join(', ') : 'no inputs'}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}.`,
+        ...(guards.length ? {} : { note: 'Its body does more than choose between fixed answers, so no rules are shown.' }),
         guards, unread: read.unread,
       });
     }
@@ -1730,6 +1810,7 @@ export function readCode(source, { language, file = '' } = {}) {
   for (const e of facts?.errors || []) items.push({ id: `error:${e.name}:${e.line}`, kind: 'error', name: e.name, line: e.line, status: 'read', says: /\s/.test(e.name) ? `Can fail with the error "${e.name}".` : `Raises ${e.name}.`, provenance: 'inferred-from-code' });
   for (const t of facts?.tests || []) items.push({ id: `test:${t.name}:${t.line}`, kind: 'test', name: t.name, line: t.line, status: 'read', says: `A test named "${t.name}".`, provenance: 'inferred-from-code' });
   items.sort((a, b) => a.line - b.line);
+  for (const it of items) if (it.kind === 'function' || it.kind === 'decision') it.completeness = completenessOf(it);
   const counts = { decision: 0, function: 0, error: 0, test: 0, partial: 0, guarded: 0, route: 0 };
   for (const it of items) { counts[it.kind]++; if (it.status === 'partial') counts.partial++; if (it.guards?.length) counts.guarded++; if (it.route) counts.route++; }
   return {
