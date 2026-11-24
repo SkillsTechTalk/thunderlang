@@ -141,6 +141,33 @@ function parseParams(raw, language) {
   return out;
 }
 
+/**
+ * A TypeScript signature head after ")": `: <type>` read with balanced <>, {}, (), [] (so `Promise<{ a: 1 }>` is whole),
+ * then the body marker (=>, { or ;). Returns a match-like array [whole, type, , , marker] or null when there is no
+ * ": type" (the regular pattern handles that).
+ */
+function balancedReturnHead(after) {
+  const lead = after.match(/^\s*:/);
+  if (!lead) return null;
+  let i = lead[0].length, depth = 0;
+  for (; i < after.length; i++) {
+    const c = after[i];
+    if (c === '=' && after[i + 1] === '>') { if (depth === 0) break; i++; continue; } // => ends the type, or is a function type's arrow
+    if (c === '<' || c === '(' || c === '[') depth++;
+    else if (c === '>' || c === ')' || c === ']') depth--;
+    else if (c === '{') { if (depth === 0) break; depth++; }
+    else if (c === '}') depth--;
+    else if (c === ';' && depth === 0) break;
+    else if (c === '"' || c === "'" || c === '`') { const q = c; i++; while (i < after.length && after[i] !== q) i++; }
+  }
+  const type = after.slice(lead[0].length, i).trim();
+  const tail = after.slice(i).match(/^\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/);
+  if (!type || !tail) return null;
+  const whole = after.slice(0, i) + tail[0];
+  const m = [whole, type, undefined, undefined, tail[1]];
+  return m;
+}
+
 function simpleType(t) {
   if (!t) return null;
   const s = String(t).trim().replace(/^&(mut\s+)?/, '');
@@ -215,12 +242,19 @@ function findFunctions(src, language) {
       if (KEYWORDS_NOT_FN.has(name) || open < 0) continue;
       const close = matchClose(src, open);
       if (close < 0) continue;
-      // After the parameter list: an optional return type / throws clause, then a body.
-      const after = src.slice(close + 1);
-      const head = language === 'kotlin'
+      // After the parameter list: an optional return type / throws clause, then a body. A signature's head is short,
+      // so look at a window, not the rest of the file (copying the rest per function made large files slow).
+      const after = src.slice(close + 1, close + 1 + 4000);
+      // TypeScript return types can hold braces and generics (`: Promise<{ ok: boolean }>`): read them balanced, so
+      // the body's "{" is the one after the type, not a brace inside it.
+      const typed = (language === 'typescript' || language === 'javascript') ? balancedReturnHead(after) : null;
+      const head = typed ?? (language === 'kotlin'
         ? after.match(/^\s*(?::\s*([^{=]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
-        : after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/);
+        : after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/));
       if (!head || head[4] === ';') continue;
+      // `const d = (await res.json()) as {...}` is a value, not a function: a const/let/var only declares a
+      // function when its parameter list is followed by `=>`.
+      if (/\(\?:const\|let\|var\)/.test(re.source) && head[4] !== '=>') continue;
       if (language === 'kotlin' && head[4] === '=') {
         // Kotlin expression body: fun f(x: Int) = when (x) { ... } / = if (...) "A" else "B" / = "A"
         const markerAt = close + 1 + head[0].length - 1;
@@ -1105,14 +1139,20 @@ function splitStatements(body, baseLine) {
         // Newline-terminated statements (Go, Kotlin, JavaScript without semicolons): a complete line
         // ends the statement unless the next line continues it.
         const before = src.slice(start, i).trimEnd();
-        const after = src.slice(i + 1).trimStart();
+        // Only the start of the next line matters; never copy the rest of the source (that made this quadratic).
+        let j = i + 1;
+        while (j < src.length && (src[j] === ' ' || src[j] === '\t' || src[j] === '\n' || src[j] === '\r')) j++;
+        const after = src.slice(j, j + 24);
         if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
       }
     }
     const raw = src.slice(start, i);
     const text = raw.trim();
     // Offsets are into the body as given (comments are blanked in place, so lengths are unchanged).
-    const end = start + raw.replace(/[\s;]+$/, '').length;
+    // Trim trailing whitespace and semicolons by scanning back (the /[\s;]+$/ regex is quadratic on long bodies).
+    let e = raw.length;
+    while (e > 0 && /[\s;]/.test(raw[e - 1])) e--;
+    const end = start + e;
     if (text) out.push({ text, line: baseLine + lineAt(src, start) - 1, endLine: baseLine + lineAt(src, Math.max(start, end - 1)) - 1, start, end });
   }
   return out;
