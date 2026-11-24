@@ -53,6 +53,177 @@ const Chip = ({ children, dashed = false }: { children: React.ReactNode; dashed?
   <span className={`rounded-full border px-2 py-0.5 text-xs text-haze-300 ${dashed ? "border-dashed border-white/30" : "border-white/25"}`}>{children}</span>
 );
 
+type When = { question: string; answer: string };
+
+/** The answers that lead to a step: "Is the book's status on shelf? → No". */
+function WhenList({ when }: { when: When[] }) {
+  if (!when.length) return <p className="mt-1 text-xs text-haze-400">Always, on the main path.</p>;
+  return (
+    <ul aria-label="When" className="mt-1.5 flex flex-wrap gap-1.5">
+      {when.map((w, i) => (
+        <li key={i} className="flex items-center gap-1.5 rounded-lg bg-white/[0.04] px-2 py-1 text-xs text-haze-300">
+          <span className="text-[#A9C9FF]">{w.question}</span><span aria-hidden="true" className="text-haze-500">→</span><span className="font-semibold text-white">{w.answer}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function LineButton({ line, showLine }: { line: number | null; showLine: (l: number) => void }) {
+  if (!line) return null;
+  return <button type="button" onClick={() => showLine(line)} className={`ml-auto shrink-0 rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`} aria-label={`Show line ${line} in the original code`}>line {line}</button>;
+}
+
+function Card({ title, children, tone }: { title: string; children: React.ReactNode; tone?: "stop" }) {
+  return (
+    <section className={`rounded-2xl border p-5 ${tone === "stop" ? "border-[#FDBA74]/30" : "border-white/10"}`}>
+      <h4 className="text-xs font-semibold uppercase tracking-wider text-haze-400">{title}</h4>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+const rangeText = (r: { from: number | null; to: number | null }) => (r.from === null ? `${r.to} or less` : r.to === null ? `${r.from} or more` : r.from === r.to ? `exactly ${r.from}` : `${r.from} to ${r.to}`);
+
+/** Details: a fact sheet of what you need to check before you trust or change an action or rule. */
+function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view: LevelView; member: { kind: string; lines: [number, number] }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void }) {
+  const isRule = !!view.answers || member.kind === "rule";
+  const stopColor = HEX[THUNDER_VISUAL.does.stop?.color ?? "failure"];
+  return (
+    <div className="mt-6 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <div className="space-y-5">
+        {view.answers && (
+          <Card title="Its answers, in order">
+            <ol className="space-y-2">
+              {view.answers.map((a, i) => (
+                <li key={i} className="flex flex-wrap items-baseline gap-2 text-[15px]">
+                  <span className="rounded-full border border-[#67E8F9]/50 px-2.5 py-0.5 font-medium text-[#67E8F9]">{a.answer}</span>
+                  <span className="text-haze-200">{a.when === "otherwise" ? "otherwise (when no rule above fits)" : `when ${a.when}`}</span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 text-xs text-haze-400">The first answer that fits wins.</p>
+          </Card>
+        )}
+        {view.limits && (
+          <Card title={`Exact limits for ${view.limits.fact}`}>
+            <ol aria-label={`Answers by ${view.limits.fact}`} className="flex overflow-hidden rounded-xl border border-white/15">
+              {view.limits.ranges.map((r, i) => (
+                <li key={i} className={`flex-1 px-3 py-3 text-center ${i ? "border-l border-white/15" : ""}`}>
+                  <p className="font-mono text-sm text-white">{rangeText(r)}</p>
+                  <p className="mt-1 text-sm font-medium text-[#67E8F9]">{r.answer}</p>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-3 text-xs text-haze-400">Found by running the rule on every whole number around each limit, not by reading the words.</p>
+          </Card>
+        )}
+        {view.tryable ? <TryRule rule={view.rule as { inputs: PlainInput[] }} /> : isRule && <p className="rounded-2xl border border-dashed border-white/25 p-4 text-sm text-haze-300">This rule can&apos;t be tried yet: it uses facts the {thingLabel ?? "code"} keeps for itself, which Thunder doesn&apos;t feed in yet.</p>}
+
+        {!view.answers && (
+          <Card title="Every way it can end" tone={view.stops?.length ? "stop" : undefined}>
+            <ul className="space-y-3">
+              {view.stops!.map((st, i) => (
+                <li key={`s${i}`}>
+                  <div className="flex items-start gap-2">
+                    <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]" style={{ color: stopColor, borderColor: `${stopColor}66` }}>■</span>
+                    <p className="text-[15px] text-white"><span className="font-semibold" style={{ color: stopColor }}>Stops: {st.error}</span>{st.message && <span className="text-haze-200">, and the person sees “{st.message}”</span>}</p>
+                    <LineButton line={st.line} showLine={showLine} />
+                  </div>
+                  <WhenList when={st.when} />
+                </li>
+              ))}
+              {view.givesBack!.map((g, i) => (
+                <li key={`g${i}`}>
+                  <div className="flex items-start gap-2">
+                    <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#67E8F9]/40 text-[11px] text-[#67E8F9]">⇥</span>
+                    <p className="text-[15px] text-white">{g.text}</p>
+                    <LineButton line={g.line} showLine={showLine} />
+                  </div>
+                  <WhenList when={g.when} />
+                </li>
+              ))}
+              {!view.givesBack!.some((g) => !g.when.length) && (
+                <li className="flex items-start gap-2 text-[15px] text-haze-200"><span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#86EFAC]/40 text-[11px] text-[#86EFAC]">✓</span>Finishes after its last step{view.stops!.length ? ", when none of the stops above happen" : ""}.</li>
+              )}
+            </ul>
+          </Card>
+        )}
+
+        {view.changes!.length > 0 && (
+          <Card title="What it changes">
+            <ul className="space-y-3">
+              {view.changes!.map((c, i) => (
+                <li key={i}>
+                  <div className="flex items-start gap-2"><span className="text-[15px] text-white">{c.text}</span><LineButton line={c.line} showLine={showLine} /></div>
+                  {c.when.length > 0 && <WhenList when={c.when} />}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+
+        {view.inputs!.length > 0 && (
+          <Card title="What goes in">
+            <ul className="space-y-2">
+              {view.inputs!.map((inp) => (
+                <li key={inp.label} className="flex flex-wrap items-center gap-2 text-[15px]">
+                  <span className="text-[#FCD34D]">{inp.label}</span>
+                  <span className="text-sm text-haze-400">{inp.lines.length ? <>used on {inp.lines.map((l, i) => <span key={l}>{i ? ", " : ""}<button type="button" onClick={() => showLine(l)} className={`rounded font-mono text-xs hover:text-white ${focus}`}>line {l}</button></span>)}</> : "not used in any step Thunder read"}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+      </div>
+
+      <div className="space-y-5">
+        <Card title="What it relies on">
+          {view.reliesOn!.length ? (
+            <ul className="space-y-2">
+              {view.reliesOn!.map((r) => (
+                <li key={r.id}><button type="button" onClick={() => open(r.id)} className={`flex w-full items-start gap-3 rounded-xl border border-white/10 bg-ink-850/60 px-3 py-2.5 text-left hover:border-white/30 ${focus}`}>
+                  <Symbol id={r.symbol as SymbolId} size={22} />
+                  <span><span className="block font-medium text-white">{r.label}</span><span className="block text-sm text-haze-300">{r.says}</span></span>
+                </button></li>
+              ))}
+            </ul>
+          ) : <p className="text-sm text-haze-300">Nothing else in this file.</p>}
+          {view.usedBy!.length > 0 && <p className="mt-3 text-sm text-haze-300">Used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</p>}
+        </Card>
+
+        <Card title="How sure Thunder is">
+          <p className="text-sm text-haze-200">{view.source} {file}, lines {member.lines[0]}–{member.lines[1]}.</p>
+          <p className="mt-2 text-sm text-haze-200">{view.notExplained ? `${view.notExplained} step(s) are shown as code because Thunder can't explain them yet.` : "Every step was explained; nothing is shown as raw code."}</p>
+          {view.openQuestions!.length > 0 && (
+            <>
+              <p className="mt-4 text-sm font-medium text-white">What the code can&apos;t tell you</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-haze-300">{view.openQuestions!.map((q) => <li key={q}>{q}</li>)}</ul>
+            </>
+          )}
+        </Card>
+
+        <details className="rounded-2xl border border-white/10 p-5">
+          <summary className={`cursor-pointer text-xs font-semibold uppercase tracking-wider text-haze-400 ${focus}`}>Every step ({view.steps!.length})</summary>
+          <ol aria-label="Every step" className="mt-3 space-y-1.5">
+            {view.steps!.map((s) => {
+              const color = HEX[THUNDER_VISUAL.does[s.does]?.color ?? "structure"];
+              return (
+                <li key={s.id} style={{ paddingLeft: `${s.depth * 1.1}rem` }} className="flex items-start gap-2 text-sm">
+                  {s.via && <span className="mt-0.5 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-haze-400">{s.via}</span>}
+                  <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px] font-semibold ${s.notExplained ? "border-dashed border-white/30 text-haze-400" : ""}`} style={s.notExplained ? undefined : { color, borderColor: `${color}66` }}>{s.mark}</span>
+                  <span className={s.notExplained ? "font-mono text-haze-300" : "text-haze-100"}>{s.text}</span>
+                  <LineButton line={s.line} showLine={showLine} />
+                </li>
+              );
+            })}
+          </ol>
+        </details>
+      </div>
+    </div>
+  );
+}
+
 export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, onSourceChange }: {
   source: string; file: string; name?: string;
   /** A member's name (e.g. return_book) to show at Flow, Details, Text, and Original until another is chosen. */
@@ -150,37 +321,7 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
 
             {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} /></div>}
 
-            {level === "details" && (
-              <div className="mt-6 grid gap-5 lg:grid-cols-[1.3fr_1fr]">
-                <ol aria-label="Every step" className="space-y-1.5">
-                  {view.steps!.map((s) => {
-                    const color = HEX[THUNDER_VISUAL.does[s.does]?.color ?? "structure"];
-                    return (
-                      <li key={s.id} style={{ paddingLeft: `${s.depth * 1.25}rem` }} className="flex items-start gap-2 text-[15px]">
-                        {s.via && <span className="mt-0.5 shrink-0 text-xs font-semibold uppercase tracking-wider text-haze-400">{s.via}</span>}
-                        <span aria-hidden="true" className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px] font-semibold ${s.notExplained ? "border-dashed border-white/30 text-haze-400" : ""}`} style={s.notExplained ? undefined : { color, borderColor: `${color}66` }}>{s.mark}</span>
-                        <span className={s.notExplained ? "font-mono text-sm text-haze-300" : "text-haze-100"}>{s.text}{s.notExplained && <span className="ml-2 align-middle"><Chip dashed>Not read yet</Chip></span>}</span>
-                        {s.line && <button type="button" onClick={() => showLine(s.line!)} className={`ml-auto shrink-0 rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`} aria-label={`Show line ${s.line} in the original code`}>line {s.line}</button>}
-                      </li>
-                    );
-                  })}
-                </ol>
-                <div className="space-y-4">
-                  {view.tryable ? <TryRule rule={view.rule as { inputs: PlainInput[] }} /> : member.kind === "rule" && <p className="rounded-2xl border border-dashed border-white/25 p-4 text-sm text-haze-300">This rule can&apos;t be tried yet: it uses facts the {thing?.label ?? "code"} keeps for itself, which Thunder doesn&apos;t feed in yet. Its steps are still exact.</p>}
-                  <div className="rounded-2xl border border-white/10 p-5 text-sm text-haze-200">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-haze-400">How sure Thunder is</h4>
-                    <p className="mt-2">{view.source} {file}, lines {member.lines[0]}–{member.lines[1]}.</p>
-                    <p className="mt-2">{view.notExplained ? `${view.notExplained} step(s) are shown as code because Thunder can't explain them yet.` : "Every step was explained; nothing is shown as raw code."}</p>
-                    <h4 className="mt-4 text-xs font-semibold uppercase tracking-wider text-haze-400">How it connects</h4>
-                    <ul className="mt-2 space-y-1">
-                      {view.uses!.map((u) => <li key={u.id}>Uses <button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></li>)}
-                      {view.usedBy!.map((u) => <li key={u.id}>Used by <button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></li>)}
-                      {!view.uses!.length && !view.usedBy!.length && <li className="text-haze-400">Nothing else in this file uses it, and it uses nothing else here.</li>}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
+            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} />}
           </article>
         )}
 

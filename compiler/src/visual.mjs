@@ -28,7 +28,7 @@ export const FORMS = [
 export const LEVELS = [
   { id: 'big-picture', name: 'Big Picture', question: 'What is it, and what can it do?', shows: 'The Things, what each knows and can do, its doors (actions), its rules, and its data. For one action or rule: what you give it, what you get back, and what it uses.', form: 'picture' },
   { id: 'flow', name: 'Flow', question: 'How does it go?', shows: 'One action or rule as a path: questions with Yes and No, repeats, the Stops, what happens if something goes wrong, and what always happens at the end.', form: 'picture' },
-  { id: 'details', name: 'Details', question: 'Exactly what happens, and how sure is Thunder?', shows: 'Every step with its line, what goes in and comes out, what it uses and what uses it, anything Thunder could not explain, and a rule you can try.', form: 'picture' },
+  { id: 'details', name: 'Details', question: 'Exactly what happens, and how sure is Thunder?', shows: 'A fact sheet: every way it can end (each Stop with its message, and what it gives back), the answers that lead there, what it changes, what goes in, what it relies on, a rule\'s answers and exact limits, and what the code cannot tell you.', form: 'picture' },
   { id: 'text', name: 'Text', question: 'What does it say, in words?', shows: 'Thunder Text: the same meaning in structured words, for reading closely, reviewing a change, and keeping a copy.', form: 'words' },
   { id: 'original', name: 'Original', question: 'Which code says so?', shows: 'The exact lines in the original language that Thunder read. The evidence, one click away.', form: 'evidence' },
 ];

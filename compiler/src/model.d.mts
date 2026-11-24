@@ -16,6 +16,8 @@ export function ruleFlow(item: unknown, start: string): Flow;
 export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean };
 export function stepDoes(step: unknown): Does;
 export function modelText(model: ThunderModel, id: string): string;
+/** One answer on the way to a step: the question, and Yes, No, For each, or Otherwise. */
+export interface When { question: string; answer: string }
 export type LevelId = 'big-picture' | 'flow' | 'details' | 'text' | 'original';
 export interface LevelItem { id: string; label: string; symbol: string; route?: string }
 export interface LevelView {
@@ -34,6 +36,22 @@ export interface LevelView {
   // Details
   steps?: { id: string; text: string; does: Does; mark: string; line: number | null; depth: number; via?: string; notExplained?: true }[];
   notExplained?: number; tryable?: boolean; rule?: unknown; source?: string;
+  /** Details: what goes in, and the lines where each fact is used. */
+  inputs?: { label: string; lines: number[] }[];
+  /** Details: the data it changes, what it saves or sends, and the answers that lead there. */
+  changes?: { text: string; line: number | null; does: Does; when: When[] }[];
+  /** Details: every way it can stop, with the error, the message people see, and the answers that lead there. */
+  stops?: { error: string; message?: string; line: number | null; when: When[] }[];
+  /** Details: what it gives back, and when. */
+  givesBack?: { text: string; line: number | null; when: When[] }[];
+  /** Details: each action or rule it relies on, summarized. */
+  reliesOn?: { id: string; label: string; symbol: string; says: string }[];
+  /** Details, for a rule: its answers in words, in order (the last may be "otherwise"). */
+  answers?: { answer: string; when: string }[];
+  /** Details, for a rule with one whole-number fact: its exact limits, found by running it. from/to null = "or less"/"or more". */
+  limits?: { fact: string; ranges: { from: number | null; to: number | null; answer: string }[] };
+  /** Details: questions the code can't answer (what a number means, why the rule exists). */
+  openQuestions?: string[];
   // Text
   text?: string;
   // Original

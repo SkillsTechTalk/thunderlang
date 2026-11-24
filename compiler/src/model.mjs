@@ -4,7 +4,7 @@
 // them may say more than the model does. Browser-safe: takes [{ path, source }].
 import { readCode } from './read.mjs';
 import { readableLanguage } from './read-repo.mjs';
-import { plainFromReading } from './plain-contract.mjs';
+import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
@@ -343,6 +343,27 @@ const idOf = (...parts) => parts.join('#').replace(/\s+/g, '');
  * Read files into the one Thunder model. Things come from classes in THING_LANGUAGES; every function in every
  * readable language becomes a member with its flow. Unknowns list what could not be read, so no view hides a gap.
  */
+/**
+ * What a person gives an action or function: its inputs, without framework plumbing (self, the request, a database
+ * session), plus the facts a handler unpacks from the request: `const { slug, name } = request.body`,
+ * `const { id } = req.params`, `{ email } = await request.json()`.
+ */
+function youGiveOf(item) {
+  const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing).map((p) => words(p.name));
+  const codes = [];
+  const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
+  walk(item.steps);
+  for (const c of codes) {
+    const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(?:body|query|params|json\(\))/);
+    if (!m) continue;
+    for (const part of m[1].split(',')) {
+      const name = part.split(/[:=]/)[0].replace(/^\.\.\./, '').trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(name) && !given.includes(words(name))) given.push(words(name));
+    }
+  }
+  return given;
+}
+
 export function thunderModel(files, { name = 'app' } = {}) {
   const things = [], members = [], links = [], unknowns = [], fileInfo = [];
   for (const f of files) {
@@ -374,7 +395,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
         label: setup ? `A new ${owner.label} starts with` : cap(words(item.name.replace(/^__|__$/g, ''))),
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
-        youGive: (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name)).map((p) => words(p.name)),
+        youGive: youGiveOf(item),
         ...(item.returns && kind !== 'rule' ? { youGetBack: kindWords(item.returns) ?? item.returns } : {}),
         ...(rule ? { rule, question: rule.question } : {}),
         // A yes/no rule is named as a question ("Can borrow?"); a rule with named answers is not ("Late fee").
@@ -481,6 +502,94 @@ function detailSteps(flow) {
   return out;
 }
 
+
+// ── Details: what you need to check before you trust or change an action or rule ─────────────────────────
+
+const CHANGES = /^(Sets|Adds|Removes|Subtracts|Clears|Marks|Saves|Deletes|Updates|Appends|Increases|Decreases|Sends|Records|Stores|Writes)\b/;
+
+/** Each step with the answers that lead to it: [{ question, answer }] from the top of the flow. */
+function pathsOf(flow) {
+  const byId = new Map(flow.nodes.map((n) => [n.id, n]));
+  const out = [];
+  const walk = (blocks, when) => {
+    for (const b of blocks || []) {
+      const n = byId.get(b.id);
+      if (n && n.kind !== 'start') out.push({ node: n, when });
+      const q = n?.text ?? '';
+      walk(b.yes, [...when, { question: q, answer: 'Yes' }]);
+      walk(b.no, [...when, { question: q, answer: 'No' }]);
+      walk(b.each, [...when, { question: q, answer: 'For each' }]);
+      walk(b.body, when);
+      for (const h of b.handlers || []) { const hn = byId.get(h.id); walk(h.blocks, [...when, { question: (hn?.text ?? '').replace(/\?$/, ''), answer: 'Yes' }]); }
+      if (b.always) walk(b.always.blocks, when);
+    }
+  };
+  walk(flow.blocks, []);
+  return out;
+}
+
+/** A rule's answers in words: [{ answer, when }] in order, then the otherwise answer. */
+function ruleAnswers(rule) {
+  const zero = Object.fromEntries(rule.inputs.map((i) => [i.id, i.kind === 'yesno' ? true : 0]));
+  let explained;
+  try { explained = explainPlain(rule, zero); } catch { return null; }
+  const answers = explained.rules.map((r) => ({ answer: answerWords(r.outcome), when: r.checks.map((c) => c.text).join(r.join === 'any' ? ' or ' : ' and ') }));
+  if (rule.otherwise) answers.push({ answer: answerWords(rule.otherwise), when: 'otherwise' });
+  return answers;
+}
+
+/**
+ * The exact limits of a rule with one number fact, found by running it on every whole number around each limit:
+ * [{ from, to, answer }] where from/to are null for "or less" / "or more". Only when every limit is a whole number,
+ * so the ranges are exact rather than approximate.
+ */
+function ruleRanges(rule) {
+  if (rule.inputs.length !== 1 || rule.inputs[0].kind === 'yesno') return null;
+  const id = rule.inputs[0].id;
+  const limits = rule.rules.flatMap((r) => r.conditions).filter((c) => c.input === id && typeof c.value === 'number').map((c) => c.value);
+  if (!limits.length || !limits.every(Number.isInteger)) return null;
+  const lo = Math.min(...limits) - 1, hi = Math.max(...limits) + 1;
+  const ranges = [];
+  for (let v = lo; v <= hi; v++) {
+    let outcome;
+    try { outcome = answerWords(explainPlain(rule, { [id]: v }).outcome); } catch { return null; }
+    const last = ranges.at(-1);
+    if (last && last.answer === outcome) last.to = v; else ranges.push({ from: v, to: v, answer: outcome });
+  }
+  ranges[0].from = null;
+  ranges.at(-1).to = null;
+  return { fact: rule.inputs[0].label.replace(/^the /, ''), ranges };
+}
+
+function detailsFacts(model, member) {
+  const paths = pathsOf(member.flow);
+  const memberOf = (id) => model.members.find((m) => m.id === id);
+  const inputs = member.youGive.map((label) => {
+    const re = new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    const lines = [...new Set(paths.filter((p) => re.test(p.node.text) && p.node.line).map((p) => p.node.line))];
+    return { label, lines };
+  });
+  const changes = paths.filter((p) => p.node.kind !== 'decision' && p.node.kind !== 'stop' && p.node.kind !== 'end' && (p.node.does === 'save' || p.node.does === 'send' || (CHANGES.test(p.node.text) && /'s\b|\bto\b|\bfrom\b/.test(p.node.text))))
+    .map((p) => ({ text: p.node.text, line: p.node.line ?? null, does: p.node.does, when: p.when }));
+  const stops = paths.filter((p) => p.node.kind === 'stop').map((p) => {
+    const m = p.node.text.match(/^Stop:\s*([^:]+?)(?::\s*"(.*)")?$/);
+    return { error: m ? m[1].trim() : p.node.text, ...(m?.[2] ? { message: m[2] } : {}), line: p.node.line ?? null, when: p.when };
+  });
+  const givesBack = paths.filter((p) => p.node.kind === 'end' || p.node.answer).map((p) => ({ text: p.node.answer ? answerWords(p.node.text) : p.node.text, line: p.node.line ?? null, when: p.node.otherwise ? [{ question: 'none of the above', answer: 'Otherwise' }] : p.when }));
+  const reliesOn = model.links.filter((l) => l.from === member.id).map((l) => memberOf(l.to)).filter(Boolean).map((t) => {
+    const answers = t.rule ? ruleAnswers(t.rule) : null;
+    const flowAnswers = [...new Set(t.flow.nodes.filter((n) => n.answer).map((n) => n.text))];
+    const list = answers ? answers.map((a) => a.answer) : flowAnswers;
+    const says = list.length ? `Answers ${list.join(', ').replace(/, ([^,]*)$/, list.length > 2 ? ', or $1' : ' or $1')}.`
+      : t.youGetBack ? `Gives back ${t.youGetBack}.` : t.flow.nodes.some((n) => n.kind === 'stop') ? `Can stop with ${t.flow.nodes.filter((n) => n.kind === 'stop').map((n) => n.text.replace(/^Stop:\s*/, '').split(':')[0]).join(', ')}.` : `${t.flow.nodes.filter((n) => n.kind !== 'start').length} steps.`;
+    return { id: t.id, label: t.label + (t.yesNo ? '?' : ''), symbol: SYMBOL_OF[t.kind], says };
+  });
+  const answers = member.rule ? ruleAnswers(member.rule) : null;
+  const limits = member.rule ? ruleRanges(member.rule) : null;
+  const openQuestions = (member.rule?.needsReview ?? []).filter((q) => !/^No examples yet/.test(q));
+  return { inputs, changes, stops, givesBack, reliesOn, ...(answers ? { answers } : {}), ...(limits ? { limits } : {}), openQuestions };
+}
+
 /**
  * What one reading level shows: `level` is a LEVELS id (big-picture, flow, details, text, original); `focus` is a
  * Thing or member id, or nothing for the whole model. Flow and Details need an action or rule; without one they
@@ -526,7 +635,8 @@ export function readLevel(model, level, focus) {
   if (lv.id === 'flow') return { ...base, ...about, flow: member.flow };
   if (lv.id === 'details') {
     const steps = detailSteps(member.flow);
-    return { ...base, ...about, youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), steps,
+    return { ...base, ...about, youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), ...(member.doc ? { doc: member.doc } : {}),
+      ...detailsFacts(model, member), steps,
       notExplained: steps.filter((s) => s.notExplained).length, uses, usedBy, tryable: !!member.rule, ...(member.rule ? { rule: member.rule } : {}),
       source: 'Read from code by the Thunder compiler, with no AI.' };
   }
