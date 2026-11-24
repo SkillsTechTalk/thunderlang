@@ -2,7 +2,7 @@
 // its path, and an index (APP.thunder-text) reads the app from the top: areas, files, actions, rules. Browser-safe:
 // it takes [{ path, source }] and returns text; the CLI writes the files.
 import { readCode } from './read.mjs';
-import { readableLanguage } from './read-repo.mjs';
+import { readableLanguage, readingOf } from './read-repo.mjs';
 import { thunderText, visualFor } from './visual.mjs';
 
 export const THUNDERIZE_SCHEMA = 'thunderize-v1';
@@ -11,8 +11,7 @@ export const THUNDER_TEXT_EXT = '.thunder-text';
 const LANGUAGE_NAMES = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', go: 'Go', rust: 'Rust', csharp: 'C#', java: 'Java', kotlin: 'Kotlin', php: 'PHP', ruby: 'Ruby' };
 
 /** One file in Thunder Text: a header, then every action, rule, and function in order, then how it can fail. */
-export function thunderizeFile(path, source, language = readableLanguage(path)) {
-  const reading = readCode(source, { language, file: path });
+export function thunderizeFile(path, source, language = readableLanguage(path), reading = readCode(source, { language, file: path })) {
   const main = reading.items.filter((i) => i.kind === 'decision' || i.kind === 'function');
   const failures = [...new Set(reading.items.filter((i) => i.kind === 'error').map((i) => i.name))];
   const counts = { actions: 0, rules: 0, functions: 0, notReadYet: 0, failures: failures.length };
@@ -47,7 +46,7 @@ export function thunderizeFiles(files, { name = 'app' } = {}) {
     const language = readableLanguage(f.path);
     if (!language) { skipped.push({ path: f.path, reason: 'not a language Thunder reads yet' }); continue; }
     if (!f.source) { skipped.push({ path: f.path, reason: f.size ? 'too large to read' : 'empty' }); continue; }
-    try { out.push(thunderizeFile(f.path, f.source, language)); }
+    try { out.push(thunderizeFile(f.path, f.source, language, readingOf(f, language))); }
     catch (e) { skipped.push({ path: f.path, reason: `could not be read: ${e.message}` }); }
   }
   out.sort((a, b) => a.path.localeCompare(b.path));

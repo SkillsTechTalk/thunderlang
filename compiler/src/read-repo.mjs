@@ -137,3 +137,23 @@ export function groupByFile(items) {
   }
   return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([file, list]) => ({ file, language: list[0].language, items: list }));
 }
+
+/**
+ * Read every file once. Whole-app stages (thunderModel, thunderizeFiles, sameMeaning) reuse `reading` when a file
+ * carries one, so a caller running several stages pays for reading only once: `const app = readFiles(files)`, then
+ * pass `app` to each. Files Thunder does not read are passed through unchanged.
+ */
+export function readFiles(files) {
+  return files.map((f) => {
+    const language = readableLanguage(f.path);
+    if (!language || !f.source || f.reading) return f;
+    try { return { ...f, reading: readCode(f.source, { language, file: f.path }) }; }
+    catch (e) { return { ...f, readError: e.message }; }
+  });
+}
+
+/** A file's reading: the one readFiles attached, or a fresh one. Throws the same error the reader would. */
+export function readingOf(f, language = readableLanguage(f.path)) {
+  if (f.readError) throw new Error(f.readError);
+  return f.reading ?? readCode(f.source, { language, file: f.path });
+}

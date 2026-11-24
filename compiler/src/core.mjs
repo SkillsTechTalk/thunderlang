@@ -111,5 +111,5 @@ export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 // Read code you don't know: decisions recovered from six languages as ThunderLang + plain English.
 export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, completenessOf, displayLabel } from './read.mjs';
 // Read a whole repository (pure: the caller passes file contents) and turn a recovered decision into a contract.
-export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
