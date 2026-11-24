@@ -479,7 +479,10 @@ export function stepsFrom(statements) {
     if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t0)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments
     if (/^[)\]}]+[):;,]*$/.test(t0) || /^\.\.\.$/.test(t0) || /^\.[A-Za-z_]/.test(t0) || /^@\w+(?:\(.*\))?$/.test(t0) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t0) || /^:(?:param|rtype|return|raises|type)\b/.test(t0)) { skipped.push(spanOf(s)); continue; }
     const step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line, span: spanOf(s) };
-    if (s.children?.length && ['branch', 'loop', 'try'].includes(step.kind)) {
+    // A one-line `if (x) return reply.code(400).send({ error: 'bad' })` is one statement: its braces belong to the
+    // object being sent, not to a block, so read the statement after the condition instead of the braces' inside.
+    if (step.inline && !/^\{/.test(step.inline.trim())) { const kid = classifyStatement(step.inline); step.children = [{ ...kid, line: s.line, span: spanOf(s) }]; delete step.inline; }
+    else if (s.children?.length && ['branch', 'loop', 'try'].includes(step.kind)) {
       const kids = stepsFrom(s.children).steps;
       if (kids.length) { step.children = kids; step.says = step.says.replace(/ \(\d+ steps? inside\)$/, ''); }
     }
