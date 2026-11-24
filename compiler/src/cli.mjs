@@ -526,7 +526,9 @@ function main() {
   }
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
-    process.exit(cmd ? 0 : 2);
+    // exitCode, not exit(): the help is longer than a pipe's buffer, and exit() would cut it off when piped.
+    process.exitCode = cmd ? 0 : 2;
+    return;
   }
   if (cmd === 'read') {
     try {

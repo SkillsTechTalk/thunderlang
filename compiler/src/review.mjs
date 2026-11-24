@@ -201,7 +201,9 @@ function bodyEnd(lines, start, language) {
 const stripLine = (l) => l.replace(/ {2}\(line \d+\)$/, '').replace(/\s+$/, '');
 
 function side(files) {
-  const model = thunderModel(files.filter((f) => readableLanguage(f.path)));
+  // Infrastructure and pipeline files are read by thunderModel now, but review does not compare Resources yet: they
+  // stay a risk for a person to check (below), never a change described in words.
+  const model = thunderModel(files.filter((f) => readableLanguage(f.path) && !isInfra(f.path)));
   const sources = new Map(files.map((f) => [f.path, String(f.source ?? '')]));
   const thingName = new Map(model.things.map((t) => [t.id, t.name]));
   const members = [], byKey = new Map(), seen = new Map();
@@ -562,7 +564,7 @@ export function thunderReview(oldFiles, newFiles) {
   for (const p of paths) {
     const before = A.sources.get(p), after = B.sources.get(p);
     if (before === after) continue;
-    const lang = readableLanguage(p);
+    const lang = !isInfra(p) && readableLanguage(p);
     if (!lang) {
       if (isInfra(p)) items.push(item('infrastructure', 'risk', p, { file: p, line: 1 }, `${before == null ? 'New' : after == null ? 'Removed' : 'Changed'} infrastructure or pipeline file. Thunder does not read these in this version, so check it yourself.`, before != null && after != null ? lineChanges(before.split('\n'), after.split('\n')) : null));
       else notRead.push({ path: p, status: before == null ? 'added' : after == null ? 'removed' : 'changed' });

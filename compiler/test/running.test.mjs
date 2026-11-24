@@ -120,7 +120,8 @@ test('a Python traceback: the failing step, in words, with the answers that led 
   const x = explainError(allModel(), read('py-traceback.txt'));
   assert.equal(x.matched, true);
   assert.equal(x.text, 'Failed in Borrow, at “Adds book to student\'s books” (line 42): AttributeError: \'tuple\' object has no attribute \'append\'; it got there because Is the book\'s status on shelf? was Yes and Can borrow? was Yes.');
-  assert.deepEqual(x.path, [{ question: "Is the book's status on shelf?", answer: 'Yes' }, { question: 'Can borrow?', answer: 'Yes' }]);
+  // Each answer also says what is true on that side when the question splits cleanly (from review in Thunder).
+  assert.deepEqual(x.path, [{ question: "Is the book's status on shelf?", answer: 'Yes', says: "the book's status is on shelf" }, { question: 'Can borrow?', answer: 'Yes' }]);
 });
 
 test('a Node stack: innermost frame Thunder read, and who called it', () => {
