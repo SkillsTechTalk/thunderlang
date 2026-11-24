@@ -296,8 +296,9 @@ test('reading stays fast on long comment, whitespace, and declaration runs (no b
   }
 });
 
-test('the C family switch grouping does not change how older readers show a classic switch', () => {
+test('a classic switch in an older reader is one question with each case holding its steps (the faithfulness gate)', () => {
   const r = readCode('function k(x) {\n  switch (x) {\n    case 1:\n      log("a");\n      break;\n  }\n}\n', { language: 'javascript' });
-  assert.deepEqual(said(byName(r, 'k').steps[0].children), ['When it is 1', 'Writes a log or message: a']);
+  assert.deepEqual(said(byName(r, 'k').steps[0].children), ['When it is 1']);
+  assert.deepEqual(said(byName(r, 'k').steps[0].children[0].children), ['Writes a log or message: a']);
   assert.ok(flat(byName(r, 'k').steps).length >= 3);
 });

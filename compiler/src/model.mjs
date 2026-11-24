@@ -8,6 +8,7 @@ import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
 import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
+import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
@@ -191,6 +192,7 @@ function tsThings(src, file) {
  */
 export function stepDoes(step) {
   const s = step.says || '', c = step.callee || '';
+  if (step.library && step.does) return step.does === 'calculate' ? 'calculate' : step.does === 'check' ? 'check' : step.does;
   if (step.restates || step.kind === 'other') return 'code';
   if (step.kind === 'fail') return 'stop';
   if (step.redirect) return 'redirect';
@@ -198,7 +200,7 @@ export function stepDoes(step) {
   if (step.kind === 'return') return 'answer';
   if (step.kind === 'check') return 'check';
   if (step.kind === 'branch') return 'decide';
-  if (/^Writes to the database|^(Records|Adds to|Removes)/.test(s)) return 'save';
+  if (/^Writes to the database|^(Records|Stores|Adds to|Removes)/.test(s)) return 'save';
   if (/^(Sends an email|Announces an event|Writes a log)/.test(s)) return 'send';
   if (/^(Calls another service|Calls Stripe)/.test(s)) return 'ask';
   if (/\b(filter|where|select|query|find|get|fetch|load|read|search|lookup|scalars|all)\b/i.test(c) || /the items in .* where|the first item in|the .* entry in|the .* with /.test(s)) return /\b(filter|where)\b/i.test(c) || / where /.test(s) ? 'keep-only' : 'find';
@@ -222,18 +224,31 @@ export function askAsQuestion(step, ruleLabel) {
   let c = String(step.says).replace(/^If /, '').replace(/ \(\d+ steps? inside\)$/, '').trim();
   let flip = false;
   if (/^not: /.test(c)) { c = c.slice(5); flip = true; }
+  // The faithfulness gate gave the code back: ask the code itself, Yes when it is true.
+  if (isCodeWords(c)) return { text: `${c}?`, flip, code: true };
   if (ruleLabel) {
     const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*if\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
     // The negation is read from the code alone; the step's wording may already say "not" for the same reason.
     return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated };
   }
   let m;
+  // A compound condition (a and b, a or not b) is asked as written: turning one part positive would flip the
+  // whole question and put the Stop on the wrong side.
+  if (compoundWords(c)) return { text: `${cap(possessive(c))}?`, flip };
+  if ((m = c.match(/^not \((.+)\)$/)) && closeOf(c, 4) === c.length - 1) return { text: `${cap(possessive(m[1]))}?`, flip: !flip };
   if ((m = c.match(/^not (.+)$/))) { c = m[1]; flip = !flip; }
+  if (compoundWords(c)) return { text: `Not ${possessive(c)}?`, flip: !flip };
   if ((m = c.match(/^(.+?) is not (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip: !flip };
   if ((m = c.match(/^(.+?) has no (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip: !flip };
   if ((m = c.match(/^(.+?) is (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip };
   if ((m = c.match(/^(.+?) has (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip };
   return { text: `${cap(possessive(c))}?`, flip };
+}
+
+/** True when words join two or more conditions with and / or outside brackets. */
+function compoundWords(c) {
+  const parts = splitLogic(String(c).replace(/`[^`]*`/g, 'Q').replace(/"[^"]*"/g, 'Q').replace(/'/g, ''));
+  return !parts || parts.terms.length > 1;
 }
 
 /** A rule's own picture: each rule asked in order, the first Yes gives its answer, otherwise the fallback. */
@@ -269,12 +284,20 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
   const node = (kind, text, extra = {}) => { const id = `n${n++}`; nodes.push({ id, kind, text, ...extra }); return id; };
   const connect = (open, to) => { for (const o of open) edges.push({ from: o.id, to, ...(o.label ? { label: o.label } : {}), ...(o.text ? { text: o.text } : {}) }); };
   // The first call in the step to another member of this file: self.can_borrow(...), delivery_fee(...), this.lateFee(...).
+  // A method called on some other object (`console.error(…)`, `other.fillBuffer(…)`) is not this file's member.
   const usesOf = (st) => {
-    for (const c of String(st.code || '').matchAll(/(?:\b(?:self|this)\.)?\b([A-Za-z_]\w*)\s*\(/g)) {
+    for (const c of String(st.code || '').matchAll(/(?:\b(?:self|this)\.|(?<![\w$.]))([A-Za-z_]\w*)\s*\(/g)) {
       const id = memberIndex.get(c[1].toLowerCase());
       if (id) return id;
     }
     return null;
+  };
+  // A question is asked by a rule's own name only when the condition is that call and nothing else
+  // (`if (!canBorrow(x))`), never when the call is one part of a bigger condition.
+  const askedByRule = (st) => {
+    const cond = String(st.cond ?? '').trim().replace(/^\((.*)\)$/, '$1');
+    const m = cond.match(/^(?:!\s*|not\s+)?(?:(?:self|this)\.)?[A-Za-z_]\w*\s*\(/);
+    return !!m && closeOf(cond, m[0].length - 1) === cond.length - 1;
   };
   // walk returns { open, blocks }: open = edges still waiting for the next node; blocks = the same nodes as a tree
   // (each question with its yes and no sides, loops with their body, try with its handlers and always), which is
@@ -285,7 +308,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       const does = stepDoes(st);
       const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}) };
       // A choice among several cases (switch, when, match, select): one question with one side per case.
-      const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check') ? st.children : null;
+      const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check' && c.caseLabel) ? st.children : null;
       if (arms) {
         const d = node('decision', st.says.replace(/\?$/, ''), { ...base, cases: true });
         connect(open, d);
@@ -297,22 +320,34 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
           cases.push({ label, line: arm.line, blocks: w.blocks });
           after = [...after, ...w.open];
         }
+        // An else after the cases (Ruby `case … else`) is the last case.
+        if (st.otherwise?.length) {
+          const w = walk(st.otherwise, [{ id: d, label: 'case', text: 'Otherwise' }], lane + 1);
+          cases.push({ label: 'Otherwise', line: st.otherwiseLine ?? st.otherwise[0].line, blocks: w.blocks });
+          after = [...after, ...w.open];
+        }
         // With no "Otherwise", a value that matches no case carries straight on.
-        if (!arms.some((a) => /^(Otherwise|If none is ready yet|Default)\b/i.test(a.says))) after.push({ id: d, label: 'case', text: 'None of these' });
+        if (!st.otherwise?.length && !arms.some((a) => /^(Otherwise|If none is ready yet|Default)\b/i.test(a.says))) after.push({ id: d, label: 'case', text: 'None of these' });
         blocks.push({ id: d, cases });
         open = after;
         continue;
       }
       if (st.kind === 'branch') {
-        const { text, flip } = askAsQuestion(st, base.uses && memberLabel.get(base.uses));
+        const { text, flip, code } = askAsQuestion(st, base.uses && askedByRule(st) && memberLabel.get(base.uses));
         const [into, past] = flip ? ['no', 'yes'] : ['yes', 'no'];
-        const d = node('decision', text, base);
+        const d = node('decision', text, { ...base, ...(code || st.unread ? { code: true } : {}) });
         connect(open, d);
         const inside = walk(st.children || [], [{ id: d, label: into }], lane + 1);
         // The other side of the question: its else (or else-if chain) when the code has one.
         const other = st.otherwise?.length ? walk(st.otherwise, [{ id: d, label: past }], lane + 1) : { open: [{ id: d, label: past }], blocks: [] };
         blocks.push({ id: d, [into]: inside.blocks, [past]: other.blocks });
         open = [...other.open, ...inside.open];
+      } else if (st.kind === 'loop' && !st.children?.length) {
+        // A loop whose body was not read is shown as its code, not as an empty "For each".
+        const k = node('code', st.code ?? st.says, { ...base, does: 'code' });
+        connect(open, k);
+        open = [{ id: k }];
+        blocks.push({ id: k });
       } else if (st.kind === 'loop') {
         const l = node('loop', st.says, base);
         connect(open, l);
@@ -325,6 +360,9 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         connect(open, sn);
         blocks.push({ id: sn });
         open = [];
+      } else if (st.kind === 'return' && !open.length && /^Stops here$/.test(st.says)) {
+        // `res.status(403).json(...); return` — the bare return only ends the path the Stop already ended.
+        continue;
       } else if (st.kind === 'return') {
         const e = node('end', st.restates ? st.code : st.says.replace(/^Returns /, 'Gives back '), { ...base, ...(st.restates ? { code: true } : {}) });
         connect(open, e);
@@ -357,7 +395,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       } else {
         const k = node(does === 'code' ? 'code' : 'step', does === 'code' ? st.code ?? st.says : st.says, base);
         connect(open, k);
-        open = [{ id: k }];
+        open = st.jump ? [] : [{ id: k }];
         if (st.children?.length && st.nested) {
           // An inner function (a hook, a callback, go/defer, a closure) runs on its own: its steps are its own
           // sub-flow, and a return or stop inside it ends only that function. The outer flow carries on from here.
@@ -393,20 +431,64 @@ const idOf = (...parts) => parts.join('#').replace(/\s+/g, '');
  * session), plus the facts a handler unpacks from the request: `const { slug, name } = request.body`,
  * `const { id } = req.params`, `{ email } = await request.json()`.
  */
+function inputKindsOf(item) {
+  const kinds = {};
+  for (const p of item.inputs || []) {
+    if (/^(self|this|cls)$/.test(p.name) || p.plumbing || !p.type) continue;
+    const k = kindWords(p.type) ?? (/^[A-Z]\w*$/.test(String(p.type).trim()) ? `a ${String(p.type).trim()}` : null);
+    if (k) kinds[words(p.name)] = k;
+  }
+  return Object.keys(kinds).length ? kinds : null;
+}
+
+/** The names a destructuring pattern takes: `{ a, b: { c, d }, ...rest }: T` -> a, c, d, rest. */
+function destructuredNames(text) {
+  const open = text.indexOf('{');
+  const close = closeOf(text, open);
+  if (close < 0) return [];
+  const inner = text.slice(open + 1, close);
+  const out = [];
+  let d = 0, from = 0;
+  const part = (x) => {
+    const t = x.trim();
+    if (!t) return;
+    // `...props`: everything else it is given, under one name.
+    if (/^\.\.\.[A-Za-z_$][\w$]*$/.test(t)) { out.push(t.slice(3)); return; }
+    const m = t.match(/^([A-Za-z_$][\w$]*)\s*:\s*(\{[\s\S]*\})\s*(?:=.*)?$/);
+    if (m) { out.push(...destructuredNames(m[2])); return; }
+    const n = t.split(/[:=]/)[0].trim();
+    if (/^[A-Za-z_$][\w$]*$/.test(n)) out.push(n);
+  };
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if ('{[('.includes(c)) d++; else if ('}])'.includes(c)) d--;
+    else if (c === ',' && d === 0) { part(inner.slice(from, i)); from = i + 1; }
+  }
+  part(inner.slice(from));
+  return out;
+}
+
 function youGiveOf(item) {
   const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing)
     // Destructured parameters (React props `{ userId, name }`) give each name.
-    .flatMap((p) => (/^\{.*\}$/.test(String(p.name).trim()) ? String(p.name).trim().slice(1, -1).split(',').map((x) => x.split(/[:=]/)[0].trim().replace(/^\.\.\./, '')).filter((x) => /^[A-Za-z_$][\w$]*$/.test(x)) : [p.name]))
+    // Destructured parameters (React props `{ userId, name }`, `{ route: { href }, onClick }: Props`) give each name.
+    .flatMap((p) => (/^\{/.test(String(p.name).trim()) ? destructuredNames(String(p.name).trim()) : [p.name]))
     .map((n) => words(n));
   const codes = [];
   const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
   walk(item.steps);
   for (const c of codes) {
-    const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(?:body|query|params|json\(\))/);
+    // Values read straight from the request: a header, a value in the address, or a field it was sent.
+    for (const r of c.matchAll(/\b(?:req|request|ctx\.request|c\.req)\s*\.\s*headers\s*(?:\[\s*['"`]([^'"`]+)['"`]\s*\]|\.\s*get\(\s*['"`]([^'"`]+)['"`]\s*\))/g)) { const h = `the ${r[1] || r[2]} header`; if (!given.includes(h)) given.push(h); }
+    // (Only in a web handler, where the request is plumbing; `request.body.locked` on a fetch Request is not a field.)
+    if ((item.inputs || []).some((p) => !p.plumbing && /^(?:req|request)$/.test(p.name))) continue;
+    for (const r of c.matchAll(/\b(?:req|request|ctx\.request|ctx|c\.req)\s*\.\s*(query|params|body)\s*(?:\.\s*([A-Za-z_][\w]*)|\[\s*['"`]([^'"`]+)['"`]\s*\])/g)) { const n = `${words(r[2] || r[3])} ${r[1] === 'body' ? '(sent in the request)' : '(in the address)'}`; if (!given.includes(n)) given.push(n); }
+    const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(body|query|params|json\(\))/);
+    const where = m ? (/^(query|params)$/.test(m[2]) ? ' (in the address)' : ' (sent in the request)') : '';
     if (!m) continue;
     for (const part of m[1].split(',')) {
       const name = part.split(/[:=]/)[0].replace(/^\.\.\./, '').trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(name) && !given.includes(words(name))) given.push(words(name));
+      if (/^[A-Za-z_$][\w$]*$/.test(name) && !given.includes(words(name) + where)) given.push(words(name) + where);
     }
   }
   return given;
@@ -452,6 +534,8 @@ export function thunderModel(files, { name = 'app' } = {}) {
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
         youGive: youGiveOf(item),
+        // Each input's kind in words, when the code says it (days late: a number; request: a PingResource).
+        ...(inputKindsOf(item) ? { inputKinds: inputKindsOf(item) } : {}),
         ...(item.returns && kind !== 'rule' ? { youGetBack: kindWords(item.returns) ?? item.returns } : {}),
         ...(rule ? { rule, question: rule.question } : {}),
         // A yes/no rule is named as a question ("Can borrow?"); a rule with named answers is not ("Late fee").
@@ -470,6 +554,15 @@ export function thunderModel(files, { name = 'app' } = {}) {
       m.flow = m.kind === 'rule' || (m._item.kind === 'decision' && m._item.rules?.length) ? ruleFlow(m._item, start) : flowOf(m._steps, { start, memberIndex: byName, memberLabel: labels });
       for (const nd of m.flow.nodes) if (nd.uses && nd.uses !== m.id) links.push({ from: m.id, to: nd.uses, kind: 'uses', node: nd.id });
       delete m._steps; delete m._item;
+      // An action's "You get back": every way it ends, from its flow (what it sends back, and the statuses it can stop
+      // with), rather than only a declared return type a web handler rarely has.
+      if (m.route && m.kind !== 'setup') {
+        // (An ending shown as code is not a value in words: it is not listed here, so code never poses as an answer.)
+        const ends = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'end' && !nd.code && !/^(?:Stops here|Done)$/.test(nd.text)).map((nd) => nd.text.replace(/^Gives back /, '')))];
+        const stopsWith = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'stop').map((nd) => (nd.text.match(/^Stop:\s*(\d{3})\b/) || [])[1] ?? nd.text.replace(/^Stop:\s*/, '').split(':')[0].trim()))];
+        const parts = [ends.length ? ends.join(', or ') : null, stopsWith.length ? `it stops with ${stopsWith.join(' or ')}` : null].filter(Boolean);
+        if (parts.length) m.youGetBack = parts.join('; or ');
+      }
       members.push(m);
     }
   }
@@ -508,7 +601,7 @@ function flowLines(flow, depth = 1) {
   const out = [];
   const pad = (d) => '  '.repeat(d);
   const at = (n) => (n.line ? `  (line ${n.line})` : '');
-  const say = (n) => (n.kind === 'code' ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
+  const say = (n) => (n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
   const go = (blocks, d) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
@@ -526,7 +619,7 @@ function flowLines(flow, depth = 1) {
       }
       if (b.each) { out.push(`${pad(d + 1)}For each:`); go(b.each, d + 2); }
       if (b.body) go(b.body, d + 1);
-      for (const h of b.handlers || []) { out.push(`${pad(d + 1)}${byId.get(h.id).text.replace(/\?$/, '')}:`); go(h.blocks, d + 2); }
+      for (const h of b.handlers || []) { const t = byId.get(h.id).text.replace(/\?$/, ''); if (h.blocks.length) { out.push(`${pad(d + 1)}${t}:`); go(h.blocks, d + 2); } else out.push(`${pad(d + 1)}${t}: nothing (the error is ignored)`); }
       if (b.always) { out.push(`${pad(d + 1)}Always, at the end:`); go(b.always.blocks, d + 2); }
     }
   };
@@ -568,7 +661,7 @@ const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setu
 function detailSteps(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
-  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' ? { notExplained: true } : {}) });
+  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' || n.code ? { notExplained: true } : {}) });
   // `via` (Yes, No, For each) labels only the first step of each path, the way Thunder Text writes "Yes:" once.
   const walk = (blocks, depth, via) => {
     for (const b of blocks || []) {
@@ -600,7 +693,10 @@ function pathsOf(flow) {
   const walk = (blocks, when) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
+      // Nothing after a Stop or an answer on the same path can happen: those steps are not endings.
+      if (out.ended?.has(blocks)) break;
       if (n && n.kind !== 'start') out.push({ node: n, when });
+      if (n && (n.kind === 'stop' || n.kind === 'end')) (out.ended ||= new Set()).add(blocks);
       const q = n?.text ?? '';
       walk(b.yes, [...when, { question: q, answer: 'Yes' }]);
       walk(b.no, [...when, { question: q, answer: 'No' }]);
@@ -662,7 +758,7 @@ function detailsFacts(model, member) {
   const inputs = member.youGive.map((label) => {
     const re = new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
     const lines = [...new Set(paths.filter((p) => re.test(p.node.text) && p.node.line).map((p) => p.node.line))];
-    return { label, lines };
+    return { label, lines, ...(member.inputKinds?.[label] ? { kind: member.inputKinds[label] } : {}) };
   });
   const changes = paths.filter((p) => p.node.kind !== 'decision' && p.node.kind !== 'stop' && p.node.kind !== 'end' && (p.node.does === 'save' || p.node.does === 'send' || (CHANGES.test(p.node.text) && /'s\b|\bto\b|\bfrom\b/.test(p.node.text))))
     .map((p) => ({ text: p.node.text, line: p.node.line ?? null, does: p.node.does, when: p.when }));

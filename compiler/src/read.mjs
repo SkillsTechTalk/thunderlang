@@ -11,7 +11,7 @@
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
 import { sqlItems } from './sql.mjs';
-import { stepsFrom, braceStatements, indentStatements, plainEnums, withLanguage, SWIFT_CLOSURE_PARAMS, VAPOR_STATUS } from './steps.mjs';
+import { stepsFrom, braceStatements, indentStatements, plainEnums, withLanguage, SWIFT_CLOSURE_PARAMS, VAPOR_STATUS, withFunctionContext, classifyStatement } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
@@ -303,7 +303,9 @@ function findFunctions(src, language) {
       // the body's "{" is the one after the type, not a brace inside it.
       const typed = (language === 'typescript' || language === 'javascript') ? balancedReturnHead(after) : null;
       const head = typed ?? (language === 'kotlin'
-        ? after.match(/^\s*(?::\s*([^{=]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
+        // (The return type stays on the signature's line: an abstract `fun f(): T` with no body never runs on into
+        // the next declarations.)
+        ? after.match(/^\s*(?::\s*([^{=\n]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
         : after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/));
       if (!head || head[4] === ';') continue;
       // `const d = (await res.json()) as {...}` is a value, not a function: a const/let/var only declares a
@@ -326,7 +328,8 @@ function findFunctions(src, language) {
       const fnLine = lineAt(src, m.index + m[0].lastIndexOf(name));
       if (seen.has(name + ':' + fnLine)) continue;
       seen.add(name + ':' + fnLine);
-      const returns = (head[1] || head[2] || head[3] || '').trim() || null;
+      // (A Rust `where` clause is a constraint on the types, not part of what comes back.)
+      const returns = (head[1] || head[2] || head[3] || '').replace(/\s+where\b[\s\S]*$/, '').trim() || null;
       const params = parseParams(src.slice(open + 1, close), language);
       const markerAt = close + 1 + head[0].length - head[4].length;
       if (head[4] === '=>') {
@@ -729,6 +732,18 @@ export function displayLabel(name) {
 
 /** Inputs that are framework plumbing rather than something a person gives. */
 const PLUMBING = /^(self|this|cls|db|session|conn|connection|cursor|tx|transaction|request|req|res|response|ctx|context|c|w|r|next|logger|log|deps|container|di|cancellationToken|ct|ec|app|g)$/i;
+/**
+ * Framework plumbing is left out of "You give it". A plain `Request` or `Response` (the fetch types, or a response
+ * a helper inspects) is plumbing only in a web handler: in `cancelBody(value: Response, keep?: Response)` or
+ * `streamRequest(request: Request, …)` it is the very thing the function works on.
+ */
+function isPlumbing(p, params, fn) {
+  if (/^(self|this|cls)$/i.test(p.name)) return true;
+  const web = !!fn.route || params.some((x) => /^(?:req|res|reply|ctx|c|w|r|next)$/.test(x.name) || /HttpRequest|HttpResponse|ResponseWriter|NextFunction|HttpContext|ServerRequest|FastifyRequest|FastifyReply|NextRequest|HttpServletRequest/.test(String(x.type || '')));
+  const t = String(p.type || '');
+  if (/^(?:request|response)$/i.test(p.name) || (t && /^(?:Request|Response)(?:\s*\|.*)?$|\|\s*(?:Request|Response)\b/.test(t) && !/Http|Servlet|Fastify|Next/.test(t))) return web;
+  return t ? PLUMBING_TYPE.test(t) : PLUMBING.test(p.name);
+}
 const PLUMBING_TYPE = /\b(Session|AsyncSession|DbContext|Connection|HttpRequest|HttpResponse|Request|Response|Context|ResponseWriter|CancellationToken|ILogger|Logger|NextFunction)\b/;
 
 const allSteps = (steps) => (steps || []).flatMap((s) => [s, ...allSteps(s.children), ...allSteps(s.otherwise), ...(s.handlers || []).flatMap((h) => allSteps(h.steps)), ...allSteps(s.always?.steps)]);
@@ -955,11 +970,28 @@ function mapCode(src, fn) {
 
 /** PHP reads like the other brace languages once `$name` is `name` and `->` is `.` (line numbers unchanged). */
 function normalizePhp(src) {
-  return mapCode(src.replace(/(^|[^\[])#(?!\[)/gm, '$1//'), (code) => code
+  return mapCode(phpHashComments(src), (code) => code
+    // `.` is PHP's text join (`$a.$b`, `'x'.$y`); spaced, it can never be read as `a.b` (a property) below.
+    .replace(/(?<![.\d])\.(?![.=\d])/g, ' . ')
     .replace(/\$this\s*->/g, 'this.')
     .replace(/\$(?=[A-Za-z_])/g, '')
     .replace(/(\w|\))\s*(?:\?)?->\s*(?=[A-Za-z_])/g, '$1.')
     .replace(/\belseif\b/g, 'else if'));
+}
+
+const stripRubyStrings = (t) => String(t).replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q');
+
+/** PHP `# comment` as `// comment`, outside strings (a `#` inside '[^:/?#]' is text). Attributes `#[…]` stay. */
+function phpHashComments(src) {
+  let out = '', last = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' || c === "'") { i = skipString(src, i); continue; }
+    if (c === '/' && src[i + 1] === '/') { const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; continue; }
+    if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 1; continue; }
+    if (c === '#' && src[i + 1] !== '[') { out += `${src.slice(last, i)}//`; last = i + 1; const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; }
+  }
+  return out + src.slice(last);
 }
 
 /** Kotlin `if (c) A else if (c2) B else C` used as a value. Returns false when the text is not one. */
@@ -1504,6 +1536,8 @@ function splitStatements(body, baseLine) {
         // statement. Any other brace is part of an expression (an object literal, destructuring, a struct
         // literal, JSX): keep reading to the end of the statement.
         const prefix = src.slice(start, i).trim();
+        // A Go composite literal (`[]string{…}`, `map[string]int{…}`) inside a header is a value: read past it.
+        if (/(?:\[\d*\][\w.*]+|map\[[^\]]+\][\w.*[\]]+)$/.test(prefix) && /^(?:for|if|switch)\b/.test(prefix)) { i = close; continue; }
         const blockHeader = !prefix
           || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|guard|repeat|extension|protocol|actor|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
           || (/(?:\)|=>|\belse|\btry|\bdo|\bfinally|\bloop|\bunsafe|\bdefer)\s*$/.test(prefix) && !/^(?:return|throw|yield)\b/.test(prefix) && !/[=:]\s*\w*\s*\(/.test(prefix.replace(/=>\s*$/, '')) )
@@ -1532,8 +1566,11 @@ function splitStatements(body, baseLine) {
         const after = src.slice(j, j + 24);
         // A switch label (`case 'a':`, `default:`) is a statement of its own: what follows it is the case's first step.
         if (/^(?:case\b[^\n]*|default\s*):$/.test(before)) { i++; break; }
-        // So is a C label (`cleanup:`), the place a goto jumps to.
+        // A loop label (`outer:`) is its own line, and so is a C label (`cleanup:`), the place a goto jumps to.
         if (/^[A-Za-z_]\w*\s*:$/.test(before) && !/^(?:public|private|protected|else)\s*:$/.test(before)) { i++; break; }
+        // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
+        if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
+        if (/^(?:\}\s*)?else$/.test(before)) continue;
         // (`do { … }` with its `while (…)` on the next line, Allman style, is one statement.)
         if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after) && !(/^(?:do|repeat)\b/.test(before) && /\}$/.test(before) && /^while\b/.test(after))) { i++; break; }
       }
@@ -1549,7 +1586,51 @@ function splitStatements(body, baseLine) {
   }
   return out;
 }
-const stripCommentsKeepLayout = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:])\/\/.*$/gm, '$1');
+/** `if (a && b)` with its parentheses closed and nothing after them: a header still waiting for its statement. */
+function headerClosed(before) {
+  const o = before.indexOf('(');
+  let d = 0;
+  for (let k = o; k < before.length; k++) {
+    const c = before[k];
+    if (c === '"' || c === '\'' || c === '`') { k = skipString(before, k); continue; }
+    if (c === '(') d++;
+    else if (c === ')' && --d === 0) return !before.slice(k + 1).trim();
+  }
+  return false;
+}
+/**
+ * Comments blanked to spaces (lines and offsets unchanged), outside strings only: `'… use \`//\` …'` and
+ * `"https://…"` keep their text, so a string can never swallow the rest of a line. One pass, linear.
+ */
+const INTERESTING = /["'`/]/g;
+function stripCommentsKeepLayout(s) {
+  if (!s.includes('/')) return s; // no comment can start without a slash
+  let out = '', last = 0;
+  for (let i = 0; i < s.length; i++) {
+    // Jump to the next quote or slash: nothing else matters here.
+    INTERESTING.lastIndex = i;
+    const hit = INTERESTING.exec(s);
+    if (!hit) break;
+    i = hit.index;
+    const c = s[i];
+    if (c === '"' || c === "'" || c === '`') {
+      // A quote is a string only when it closes (on the same line, except template and raw strings).
+      let j = i + 1;
+      for (; j < s.length; j++) { if (s[j] === '\\') { j++; continue; } if (s[j] === c || (s[j] === '\n' && c !== '`')) break; }
+      if (j < s.length && s[j] === c) i = j;
+      continue;
+    }
+    if (c === '/' && s[i + 1] === '/' && s[i - 1] !== ':') {
+      let e = s.indexOf('\n', i); if (e < 0) e = s.length;
+      out += s.slice(last, i) + ' '.repeat(e - i); last = i = e; i--; continue;
+    }
+    if (c === '/' && s[i + 1] === '*') {
+      let e = s.indexOf('*/', i + 2); e = e < 0 ? s.length : e + 2;
+      out += s.slice(last, i) + s.slice(i, e).replace(/[^\n]/g, ' '); last = e; i = e - 1; continue;
+    }
+  }
+  return out + s.slice(last);
+}
 
 /** Read `if ... else ...` / `return ...` statements into rules. Returns { rules, otherwise, unread }. */
 function readBraceStatements(stmts, language, inputs) {
@@ -2161,7 +2242,18 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   if (!stmts.length) return null;
   // A Swift body that is one expression gives it back without `return` (`var isEmpty: Bool { count == 0 }`).
   if (lang === 'swift' && stmts.length === 1 && !stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) stmts[0] = { ...stmts[0], implicitReturn: true };
-  const r = withLanguage(lang, () => stepsFrom(stmts));
+  const r = withLanguage(lang, () => withFunctionContext({ params: fn.params || [], language: lang, route: !!fn.route }, () => {
+    const out = stepsFrom(stmts);
+    // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or
+    // and/or, that value is the answer, not a call made for its effect.
+    const last = out.steps[out.steps.length - 1];
+    if (lang === 'ruby' && last && last.kind === 'call' && !last.jump && !last.library && (/\?$/.test(fn.name) || /&&|\|\||\band\b|\bor\b|[!=]=|[<>]/.test(stripRubyStrings(last.code || '')))) {
+      const v = classifyStatement(`return ${String(last.code || '').trim()}`);
+      if (v.kind === 'return') out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code, ...(/^Returns (?:a computed value|a value)$/.test(v.says) ? { restates: true } : {}) };
+      delete out.steps[out.steps.length - 1].callee;
+    }
+    return out;
+  }));
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
@@ -2186,9 +2278,11 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     const bareProperty = /^(not\s+|!)?(?:self\.|this\.)?\w+\.\w+(\(\))?$/.test(st.cond.trim()) && !/\./.test(st.says.replace(/\(\d+ steps? inside\)$/, ''));
     // A plain name used as a yes/no (`if (!slug)`) already reads as "slug is not set"; keep it rather than "not slug".
     const bareName = /^(not\s+|!)?(?:self\.|this\.)?\w+$/.test(st.cond.trim()) && /\bis (not )?set\b/.test(st.says);
-    const cond = bareProperty || bareName ? null : toThunderCondition(st.cond, names);
+    // Request and settings idioms (a header, a value in the address, a setting) already read as words; keep them.
+    const idiom = /\b(?:req|request|ctx|c)\s*\.\s*(?:headers|header|query|params|body|searchParams)\b|\bprocess\s*\.\s*env\b|\bos\s*\.\s*(?:environ|getenv)\b|getenv|GetEnvironmentVariable/.test(st.cond);
+    const cond = bareProperty || bareName || idiom ? null : toThunderCondition(st.cond, names);
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
-    delete st.cond; delete st.negate;
+    delete st.negate;
   }
   // C++ member names carry a mark that means nothing to a reader: items_ and m_items are both "items".
   if (lang === 'cpp') {
@@ -2225,9 +2319,11 @@ export function readCode(source, { language, file = '' } = {}) {
     // an implicit last value) reads as "true when <expression>, otherwise false".
     if (!read.rules.length && !read.otherwise) {
       const pred = readPredicate(fn, lang, names, code);
-      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; }
+      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; read.unread = []; }
     }
-    const isDecision = read.rules.length > 0 && !!read.otherwise;
+    // A rule is drawn only when every statement was read into it; a body with other steps (a loop, an assignment, a
+    // later check) is read as steps instead, so no check is silently left out of the picture.
+    const isDecision = read.rules.length > 0 && !!read.otherwise && !read.unread.length;
     const guards = read.guards || [];
     // In a function that is not a pure decision, early fixed returns are still rules worth reading.
     if (!isDecision) {
@@ -2241,7 +2337,9 @@ export function readCode(source, { language, file = '' } = {}) {
     const base = {
       id: `${fn.name}:${fn.line}`, name: fn.name, label: displayLabel(fn.name), line: fn.line,
       // Framework plumbing (a database session, the request, a context) is marked so views can leave it out of "You give it".
-      inputs: inputs.map((p) => (PLUMBING.test(p.name) || PLUMBING_TYPE.test(String(p.type ?? '')) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
+      // Plumbing (the framework's request, a database session, a context) by its type when it has one, else by name:
+      // `Handle(PingResource request, …)` takes a PingResource, which is the real input although it is named request.
+      inputs: inputs.map((p) => (isPlumbing(p, inputs, fn) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
       ...(doc ? { doc } : {}),
       // C++ `Library::lateFee` and Swift methods in `extension Library { … }`: the type they belong to, by name.
