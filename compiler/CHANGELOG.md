@@ -1,5 +1,44 @@
 # Unreleased
 
+**Language: the whole application, next two readers: Terraform and Bicep (spec section 12).**
+- **Terraform** (`*.tf`): each `resource` is a Resource (`resourceType` exactly as written, `address`
+  `azurerm_storage_account.main`) that knows its arguments in words: a value only when the file writes it
+  ("Account tier: Standard"), a reference as what it names ("the location of the resource group rg (worked out when
+  it is applied)", `computed: true`), nested blocks summed up in a line, `lifecycle { prevent_destroy }` as
+  "Protected: Terraform refuses to destroy it". `data` sources are looked up (`existing: true`, "Looks up an existing
+  subscription, made elsewhere"); a `module` is a Resource of its own ("Uses the module …"). `count`/`for_each` read
+  "One for each item in the setting names"; `count = x ? 1 : 0` reads "one, only when …".
+- **Bicep** (`*.bicep`): `resource` (`resourceType` 'Microsoft.Storage/storageAccounts', `address` the symbolic name),
+  nested resources (full type, `parent::child`), `existing`, `module`, `for` and `if (…)`, `targetScope`, and
+  `metadata description` as the file's purpose.
+- **Links** with `file` and `line`: references, `depends_on`/`dependsOn`, and `parent`, as `runs-in`
+  (`resource_group_name`, `service_plan_id`, `serverFarmId`, `parent`, …), `reads-from` (data sources, `existing`),
+  `sends-to` (workspaces, endpoints), or `uses`; one link per pair, the most exact kind kept. A reference to a resource
+  in another `.tf` file of the same folder is linked once the folder is read together.
+- **Flow**: one Steps card per file, the order things are created from those links ("Keeps what it made in an Azure
+  storage account", "Works in Azure", "Creates the resource group rg", "Creates the storage account main in the
+  resource group rg"), with a question for each conditional resource and "For each …" for repeated ones.
+- **Permissions** (`role?` added): `azurerm_role_assignment`, Key Vault access policies, AWS IAM (inline JSON,
+  `jsonencode`, `aws_iam_policy_document`, trust policies, policy attachments), `google_*_iam_member`/`_binding`,
+  and Bicep `roleAssignments` with 48 built-in Azure role ids named (checked against Azure Verified Modules: Owner,
+  Contributor, Reader, Storage Blob Data Reader, Key Vault Secrets User, AcrPull, …), followed through a `var`.
+  Wide: Owner/Contributor/User Access Administrator on a subscription or management group, `roles/owner` or
+  `roles/editor` on a project, IAM `"*"` actions or changes on `Resource: "*"`, AdministratorAccess.
+- **Settings** (`default?`, `type?`, `doc?`, `output?`, `from?`, `allowed?` added): `variable`/`param` (sensitive and
+  `@secure()` only named), `locals`/`var`, `output`. Text says "given when it is applied (westeurope unless told
+  otherwise)".
+- **Facts**, new kinds: `storage-public`, `secret-in-plain-config`, `encryption-off`, `wide-permission`; and
+  `public-ingress` for security groups, NSG rules, and firewalls open to `0.0.0.0/0`, `*`, or `Internet` beyond ports
+  80 and 443 (ICMP reads "ping").
+- Small HCL and Bicep parsers (no dependency, linear): strings with `${…}`, heredocs, for expressions, multi-line
+  calls and ternaries, safe access and non-null assertions, lambdas, spreads, union types, decorators. A block or
+  declaration that cannot be parsed is listed in `unknowns` with its line ("Not read yet: …"); the rest of the file
+  is read.
+- Read on real repositories: terraform-aws-vpc, terraform-aws-iam, terraform-google-network, two Azure Verified
+  Modules for Terraform, two Azure Samples, and all 1,880 Bicep files of the Azure Verified Modules: every file read.
+- thunderlang.dev/read has Terraform and Bicep in its picker, with a sample each; a Resource card says when it is
+  looked up rather than made, and settings show their default and whether they are secret.
+
 **Language: the whole application, first two readers: Dockerfiles and GitHub Actions workflows (spec section 12).**
 - **Dockerfile**: each build stage is a Steps card ("Image build", or "The build stage" for `AS build`), its
   instructions in words: "Starts from node:22-slim", "Starts from the build stage", "Copies package.json and

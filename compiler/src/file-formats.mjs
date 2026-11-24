@@ -11,11 +11,11 @@ const isYaml = (p) => /\.ya?ml$/i.test(p);
 export const FORMAT_FILES = [
   { format: 'dockerfile', reader: true, match: (p) => (/^(Dockerfile|Containerfile)(\.[\w.-]+)?$/i.test(base(p)) && !/\.(md|txt|dockerignore)$/i.test(p)) || /\.dockerfile$/i.test(p) },
   { format: 'github-actions', reader: true, match: (p) => /(^|\/)\.github\/workflows\/[^/]+\.ya?ml$/i.test(p) },
+  { format: 'terraform', reader: true, match: (p) => /\.tf$/i.test(p) },
+  { format: 'bicep', reader: true, match: (p) => /\.bicep$/i.test(p) },
   // Hooks for the next readers (not read yet):
   { format: 'azure-pipelines', reader: false, match: (p) => /(^|\/)azure-pipelines(\.[\w-]+)?\.ya?ml$/i.test(p) },
   { format: 'docker-compose', reader: false, match: (p) => /^(docker-)?compose(\.[\w-]+)?\.ya?ml$/i.test(base(p)) },
-  { format: 'terraform', reader: false, match: (p) => /\.tf$/i.test(p) },
-  { format: 'bicep', reader: false, match: (p) => /\.bicep$/i.test(p) },
   { format: 'helm', reader: false, match: (p) => /(^|\/)Chart\.ya?ml$/.test(p) },
   // Kubernetes YAML is known by its content: `apiVersion:` and `kind:` near the top.
   { format: 'kubernetes', reader: false, match: (p, head) => isYaml(p) && /^apiVersion:\s*\S/m.test(head) && /^kind:\s*\S/m.test(head) },

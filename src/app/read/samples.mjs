@@ -349,4 +349,122 @@ jobs:
 `,
     expect: { decisions: [], functions: ['test', 'deploy'] },
   },
+  {
+    key: 'terraform-web',
+    label: 'Terraform: a web app, its storage, and who can read it',
+    language: 'terraform',
+    file: 'main.tf',
+    source: `provider "azurerm" {
+  features {}
+}
+
+variable "location" {
+  type    = string
+  default = "westeurope"
+}
+
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+# Everything for the web app lives here.
+resource "azurerm_resource_group" "rg" {
+  name     = "web-rg"
+  location = var.location
+}
+
+resource "azurerm_storage_account" "files" {
+  name                     = "webfiles"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = azurerm_resource_group.rg.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_service_plan" "plan" {
+  name                = "web-plan"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type             = "Linux"
+  sku_name            = "B1"
+}
+
+resource "azurerm_linux_web_app" "web" {
+  name                = "web-app"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.plan.id
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  app_settings = {
+    FILES_URL   = azurerm_storage_account.files.primary_blob_endpoint
+    DB_PASSWORD = var.db_password
+  }
+}
+
+resource "azurerm_role_assignment" "web_reads_files" {
+  scope                = azurerm_storage_account.files.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_linux_web_app.web.identity[0].principal_id
+}
+`,
+    expect: { decisions: [], functions: ['apply'] },
+  },
+  {
+    key: 'bicep-web',
+    label: 'Bicep: a web app, its storage, and who can read it',
+    language: 'bicep',
+    file: 'main.bicep',
+    source: `param location string = resourceGroup().location
+
+@secure()
+param dbPassword string
+
+// Files the app reads.
+resource files 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: 'webfiles'
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+}
+
+resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
+  name: 'web-plan'
+  location: location
+  sku: {
+    name: 'B1'
+  }
+}
+
+resource web 'Microsoft.Web/sites@2023-01-01' = {
+  name: 'web-app'
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: plan.id
+    httpsOnly: true
+  }
+}
+
+resource webReadsFiles 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(files.id, web.id, 'reader')
+  scope: files
+  properties: {
+    principalId: web.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
+  }
+}
+
+output webUrl string = 'https://\${web.properties.defaultHostName}'
+`,
+    expect: { decisions: [], functions: ['deploy'] },
+  },
 ];

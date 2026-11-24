@@ -8,7 +8,7 @@ import { thunderText, visualFor } from './visual.mjs';
 export const THUNDERIZE_SCHEMA = 'thunderize-v1';
 export const THUNDER_TEXT_EXT = '.thunder-text';
 
-const LANGUAGE_NAMES = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', go: 'Go', rust: 'Rust', csharp: 'C#', java: 'Java', kotlin: 'Kotlin', php: 'PHP', ruby: 'Ruby', dockerfile: 'Dockerfile', 'github-actions': 'GitHub Actions' };
+const LANGUAGE_NAMES = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', go: 'Go', rust: 'Rust', csharp: 'C#', java: 'Java', kotlin: 'Kotlin', php: 'PHP', ruby: 'Ruby', dockerfile: 'Dockerfile', 'github-actions': 'GitHub Actions', terraform: 'Terraform', bicep: 'Bicep' };
 
 /** One file in Thunder Text: a header, then every action, rule, and function in order, then how it can fail. */
 export function thunderizeFile(path, source, language = readableLanguage(path), reading = readCode(source, { language, file: path })) {

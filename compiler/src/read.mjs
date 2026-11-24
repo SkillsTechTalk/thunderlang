@@ -12,15 +12,17 @@
 import { sqlItems } from './sql.mjs';
 import { readDockerfile } from './infra-docker.mjs';
 import { readWorkflow } from './infra-gha.mjs';
+import { readTerraform } from './infra-terraform.mjs';
+import { readBicep } from './infra-bicep.mjs';
 import { readableFormat } from './file-formats.mjs';
 import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'dockerfile', 'github-actions'];
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'dockerfile', 'github-actions', 'terraform', 'bicep'];
 /** Formats read as infrastructure and delivery (spec section 12), not as programming languages. */
-export const INFRA_LANGUAGES = ['dockerfile', 'github-actions'];
+export const INFRA_LANGUAGES = ['dockerfile', 'github-actions', 'terraform', 'bicep'];
 const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
@@ -30,6 +32,10 @@ export function detectLanguage(source, file = '') {
   const s = String(source);
   // A Dockerfile: its first instruction is FROM (or ARG before FROM), after comments and parser directives.
   if (/^\s*(?:#[^\n]*\n\s*)*(?:ARG\s[^\n]*\n\s*(?:#[^\n]*\n\s*)*)*FROM\s+\S/i.test(s) && /^(RUN|CMD|COPY|ENTRYPOINT|WORKDIR|EXPOSE)\s/m.test(s)) return 'dockerfile';
+  // Bicep: `resource name 'Microsoft.X/y@…'`, `module name './x.bicep'`, `param name type`, or `targetScope =`.
+  if (/^(?:resource|module)\s+\w+\s+'[^'\n]+'/m.test(s) || /^targetScope\s*=/m.test(s) || (/^param\s+\w+\s+(?:string|int|bool|object|array)\b/m.test(s) && !/^\s*(?:def|function|class)\b/m.test(s))) return 'bicep';
+  // Terraform: `resource "type" "name" {`, `variable "x" {`, `terraform {`, `locals {`.
+  if (/^(?:resource|data|module|variable|provider|output)\s+"[\w-]+"/m.test(s) || /^(?:terraform|locals)\s*\{/m.test(s)) return 'terraform';
   // A GitHub Actions workflow: top-level `on:` and `jobs:`.
   if (/^(?:on|"on"|'on'):/m.test(s) && /^jobs:\s*$/m.test(s)) return 'github-actions';
   // SQL: a file that starts with (or is mostly) schema statements.
@@ -1803,7 +1809,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions').replace(/^(tf|hcl|opentofu|tofu)$/, 'terraform');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
   // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
@@ -1919,17 +1925,18 @@ function sqlReading(src) {
  * the Resources it makes, Permissions, Settings (secrets named only), Facts, and the links between its items.
  */
 function infraReading(lang, src, file) {
-  const r = lang === 'dockerfile' ? readDockerfile(src, file || 'Dockerfile') : readWorkflow(src, file || 'workflow.yml');
+  const r = lang === 'dockerfile' ? readDockerfile(src, file || 'Dockerfile') : lang === 'terraform' ? readTerraform(src, file || 'main.tf') : lang === 'bicep' ? readBicep(src, file || 'main.bicep') : readWorkflow(src, file || 'workflow.yml');
   for (const it of r.items) it.completeness = completenessOf(it);
   const counts = { decision: 0, function: r.items.length, error: 0, test: 0, partial: 0, guarded: 0, route: r.items.filter((i) => i.route).length };
   return {
     schema: READ_SCHEMA, language: lang, detected: false, items: r.items, counts,
     ...(r.purpose ? { purpose: r.purpose } : {}),
-    infra: { things: r.things, permissions: r.permissions, settings: r.settings, facts: r.facts, links: r.links },
+    infra: { things: r.things, permissions: r.permissions, settings: r.settings, facts: r.facts, links: r.links, unknowns: r.unknowns ?? [] },
     limitations: [
       'Read from the file, not from what is running: the live system may differ.',
       'Secret values are never shown, only their names. Values worked out when it runs or is built say so; the original lines are one click away.',
       lang === 'dockerfile' ? 'Each build stage is a Steps card; RUN commands are read in words, and commands Thunder does not know are named as they are.'
+        : lang === 'terraform' || lang === 'bicep' ? `Each ${lang === 'bicep' ? 'resource and module' : 'resource, data source, and module'} is a Resource; the order they are created is one Steps card, from the references between them. Links to resources in other files of the same ${lang === 'bicep' ? 'deployment' : 'folder (module)'} are drawn when those files are read together.`
         : 'Each job is an Action with a "When" badge; well-known actions and common commands are read in words, others are named as they are.',
     ],
   };

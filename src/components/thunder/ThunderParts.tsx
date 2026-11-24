@@ -153,7 +153,7 @@ export function ResourceCard({ t, model, onLine }: { t: Thing; model: ThunderMod
     <section aria-labelledby={`r-${t.id}`} className="rounded-3xl border-2 border-[#FCD34D]/45 bg-[#FCD34D]/[0.03] p-6">
       <div className="flex items-center gap-4">
         <Symbol id="resource" size={44} label="Resource" />
-        <div><p className="text-xs font-semibold uppercase tracking-wider text-[#FCD34D]">A Resource{t.resourceType ? <span className="ml-2 font-mono normal-case tracking-normal text-haze-300">{t.resourceType}</span> : null}</p><h2 id={`r-${t.id}`} className="text-2xl font-bold text-white">{t.label}</h2></div>
+        <div><p className="text-xs font-semibold uppercase tracking-wider text-[#FCD34D]">{t.existing ? "Looked up, not made here" : "A Resource"}{t.resourceType ? <span className="ml-2 font-mono normal-case tracking-normal text-haze-300">{t.resourceType}</span> : null}</p><h2 id={`r-${t.id}`} className="text-2xl font-bold text-white">{t.label}</h2></div>
       </div>
       <p className="mt-3 text-sm text-haze-300">Read from {t.file}, not from what is running now.</p>
       {t.knows.length > 0 && (
@@ -163,7 +163,7 @@ export function ResourceCard({ t, model, onLine }: { t: Thing; model: ThunderMod
             <li key={`${k.name}-${i}`} className="flex flex-wrap items-baseline gap-x-2 text-[16px]">
               <span className="text-[#FCD34D]">{k.label}</span>
               <span className="text-haze-200">{k.kind}</span>
-              {k.computed && <Chip dashed>worked out when it runs</Chip>}
+              {k.computed && !/worked out/.test(k.kind ?? "") && <Chip dashed>worked out when it runs</Chip>}
               {k.secret && <Chip>secret, name only</Chip>}
               {k.line != null && onLine && <button type="button" onClick={() => onLine(k.line!)} aria-label={`Show line ${k.line} in the original`} className={`ml-auto rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`}>{k.line}</button>}
             </li>
@@ -199,7 +199,7 @@ export function SettingList({ settings }: { settings: Setting[] }) {
     <section aria-labelledby="set-h" className="rounded-2xl border border-white/12 p-5">
       <h3 id="set-h" className="text-lg font-semibold text-white">Settings it is given</h3>
       <ul className="mt-3 space-y-1.5">{settings.map((x) => (
-        <li key={`${x.file}-${x.name}-${x.source}`} className="text-[15px]"><span className="font-mono text-[#FCD34D]">{x.name}</span> <span className="text-haze-300">{SOURCE_WORDS[x.source]}</span></li>
+        <li key={`${x.file}-${x.name}-${x.source}-${x.line}`} className="text-[15px]"><span className="font-mono text-[#FCD34D]">{x.name}</span> <span className="text-haze-300">{x.output ? "given back once it is applied" : SOURCE_WORDS[x.source]}</span>{x.default != null && !x.secret && <span className="text-haze-300"> ({x.default} unless told otherwise)</span>}{x.secret && <> <Chip>secret, name only</Chip></>}</li>
       ))}</ul>
     </section>
   );

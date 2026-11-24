@@ -14,13 +14,16 @@ export interface Flow { nodes: FlowNode[]; edges: FlowEdge[]; blocks: FlowBlock[
 export interface Thing { id: string; kind: 'thing' | 'record' | 'choices' | 'resource'; name: string; label: string; doc?: string; file: string; lines: [number, number];
   knows: { name: string; label: string; kind: string | null; start: string | null; line: number | null; /** Worked out when it runs, is built, or is applied. */ computed?: true; /** A secret: named only, its value never shown. */ secret?: true; setting?: true }[]; choices: string[]; can: string[];
   /** Resources (spec section 12): the type exactly as written ('docker-image', 'azurerm_storage_account'). */ resourceType?: string;
-  /** Resources: a stable address that matches the same resource across versions ('image:api/Dockerfile'). */ address?: string }
+  /** Resources: a stable address that matches the same resource across versions ('image:api/Dockerfile'). */ address?: string;
+  /** Resources: looked up, not made by this file (a Terraform data source, a Bicep `existing` resource). */ existing?: true }
 /** Who can do what to which resource (spec section 12). `wide` and `why` are the compiler's call. */
-export interface Permission { id: string; who: string; can: string; on: string; wide: boolean; why?: string; says?: string; file: string; line: number }
+export interface Permission { id: string; who: string; can: string; on: string; wide: boolean; why?: string; says?: string; /** The role it gives, when the file names it ('Owner', 'Storage Blob Data Reader', 'roles/editor'). */ role?: string; file: string; line: number }
 /** A value the app or infrastructure is given, and where it comes from. Never a secret's value. */
-export interface Setting { name: string; source: 'parameter' | 'variable' | 'secret' | 'literal' | 'computed'; secret: boolean; computed?: true; file: string; line: number }
+export interface Setting { name: string; source: 'parameter' | 'variable' | 'secret' | 'literal' | 'computed'; secret: boolean; computed?: true; file: string; line: number;
+  /** Its default (or value) in words, when the file writes it; never for a secret. */ default?: string; /** Its type as written. */ type?: string; /** The author's description. */ doc?: string;
+  /** An output: a value the infrastructure gives back once applied. */ output?: true; /** What an output is worked out from, in words. */ from?: string[]; /** Values a parameter allows. */ allowed?: string[] }
 /** What a file says, not advice; a tool decides how serious each one is. */
-export interface Fact { id: string; kind: 'write-all-permissions' | 'untrusted-trigger-with-secrets' | 'action-pinned-by-tag' | 'image-not-pinned' | 'runs-as-root' | 'secret-in-plain-env' | 'public-ingress'; says: string; file: string; line: number; /** action-pinned-by-tag: an action made by GitHub itself. */ firstParty?: boolean }
+export interface Fact { id: string; kind: 'write-all-permissions' | 'untrusted-trigger-with-secrets' | 'action-pinned-by-tag' | 'image-not-pinned' | 'runs-as-root' | 'secret-in-plain-env' | 'public-ingress' | 'storage-public' | 'secret-in-plain-config' | 'encryption-off' | 'wide-permission'; says: string; file: string; line: number; /** action-pinned-by-tag: an action made by GitHub itself. */ firstParty?: boolean }
 export type LinkKind = 'uses' | 'runs-in' | 'reads-from' | 'sends-to';
 export interface Link { from: string; to: string; kind: LinkKind; node?: string; file?: string; line?: number }
 export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }

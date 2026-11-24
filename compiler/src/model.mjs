@@ -14,7 +14,7 @@ export const MODEL_SCHEMA = 'thunder-model-v1';
 export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql'];
 
 /** Which part of the whole application a file describes (spec section 12). */
-const CATEGORY = { dockerfile: 'infrastructure', 'github-actions': 'delivery' };
+const CATEGORY = { dockerfile: 'infrastructure', 'github-actions': 'delivery', terraform: 'infrastructure', bicep: 'infrastructure' };
 const categoryOf = (language) => CATEGORY[language] ?? 'application';
 
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
@@ -406,6 +406,7 @@ function youGiveOf(item) {
 
 export function thunderModel(files, { name = 'app' } = {}) {
   const things = [], members = [], links = [], unknowns = [], fileInfo = [], permissions = [], settings = [], facts = [];
+  const linkKeys = new Set(), pending = [];
   for (const f of files) {
     const language = readableLanguage(f.path);
     if (!language || !f.source) continue;
@@ -418,7 +419,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     if (!infra && !THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }
-    for (const t of fileThings) { t.id = idOf(f.path, t.name); t.label = cap(words(t.name)); t.can = []; things.push(t); }
+    for (const t of fileThings) { t.id = idOf(f.path, t.name); t.label = infra && t.label ? t.label : cap(words(t.name)); t.can = []; things.push(t); }
     const moduleDoc = language === 'python' ? (f.source.match(/^\s*(?:#.*\n|\s*\n)*[rRuU]?("""|''')([\s\S]*?)\1/)?.[2] ?? '').trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ') : '';
     const purpose = moduleDoc || reading.purpose || '';
     fileInfo.push({ path: f.path, language, category: categoryOf(language), ...(purpose ? { purpose } : {}) });
@@ -426,6 +427,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
       permissions.push(...infra.permissions.map((x) => ({ ...x })));
       settings.push(...infra.settings.map((x) => ({ ...x })));
       facts.push(...infra.facts.map((x) => ({ ...x })));
+      unknowns.push(...(infra.unknowns ?? []).map((x) => ({ ...x })));
     }
 
     const fns = reading.items.filter((i) => i.kind === 'function' || i.kind === 'decision');
@@ -471,8 +473,19 @@ export function thunderModel(files, { name = 'app' } = {}) {
       const byThing = new Map(fileThings.map((t) => [t.name, t.id]));
       for (const l of infra.links) {
         const from = byItem.get(l.from) ?? byThing.get(l.from), to = byItem.get(l.to) ?? byThing.get(l.to);
-        if (from && to && !links.some((x) => x.from === from && x.to === to && x.kind === l.kind && x.line === l.line)) links.push({ from, to, kind: l.kind, file: l.file, line: l.line });
+        const key = `${from}>${to}>${l.kind}>${l.line}`;
+        if (from && to && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from, to, kind: l.kind, file: l.file, line: l.line }); }
+        // A Terraform module is a folder: a reference to a resource in another file of it is drawn once all are read.
+        else if (from && !to && language === 'terraform') pending.push({ dir: f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '', from, l });
       }
+    }
+  }
+  if (pending.length) {
+    const byAddr = new Map(things.filter((t) => t.kind === 'resource' && t.address).map((t) => [`${t.file.includes('/') ? t.file.slice(0, t.file.lastIndexOf('/')) : ''}|${t.address}`, t.id]));
+    for (const p of pending) {
+      const to = byAddr.get(`${p.dir}|${p.l.to}`);
+      const key = `${p.from}>${to}>${p.l.kind}>${p.l.line}`;
+      if (to && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from: p.from, to, kind: p.l.kind, file: p.l.file, line: p.l.line }); }
     }
   }
   for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
@@ -553,6 +566,16 @@ export function modelText(model, id) {
 const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setup', 'not-read': 'not-read', thing: 'thing', record: 'record', choices: 'choices', pipeline: 'action', 'image-build': 'steps', resource: 'resource' };
 
 const SETTING_WORDS = { parameter: 'given when it starts or is built', variable: 'a variable kept outside the file', secret: 'a secret (only its name is shown)', literal: 'written in the file', computed: 'worked out when it runs' };
+const APPLIED_WORDS = { parameter: 'given when it is applied', computed: 'worked out when it is applied' };
+/** A setting in words: where it comes from, its default when the file writes one, and whether it is a secret. */
+function settingWords(x, model) {
+  const lang = model.files.find((f) => f.path === x.file)?.language;
+  const applied = lang === 'terraform' || lang === 'bicep';
+  if (x.output) return `given back once it is applied${x.from?.length ? `, from ${x.from.join(', ')}` : ''}${x.secret ? ' (a secret: only its name is shown)' : ''}`;
+  const base = (applied && APPLIED_WORDS[x.source]) || (SETTING_WORDS[x.source] ?? x.source);
+  if (x.secret && x.source !== 'secret') return `${base}, a secret (only its name is shown)`;
+  return `${base}${x.default != null && x.source === 'parameter' ? ` (${x.default} unless told otherwise)` : ''}`;
+}
 
 /** Every step of a flow in reading order, with how deep it sits and which path it is on (Yes, No, For each, …). */
 function detailSteps(flow) {
@@ -734,7 +757,7 @@ export function readLevel(model, level, focus) {
   if (lv.id === 'text') {
     const extra = [];
     if (!focus && model.permissions?.length) extra.push(`Permissions\n${model.permissions.map((p) => `  ${p.says ?? `${p.who} can ${p.can} ${p.on}`}${p.wide && !/\(wide\)/.test(p.says ?? '') ? ' (wide)' : ''}  (line ${p.line})`).join('\n')}\n`);
-    if (!focus && model.settings?.length) extra.push(`Settings\n${model.settings.map((x) => `  Setting ${x.name}: ${SETTING_WORDS[x.source] ?? x.source}  (line ${x.line})`).join('\n')}\n`);
+    if (!focus && model.settings?.length) extra.push(`Settings\n${model.settings.map((x) => `  Setting ${x.name}: ${settingWords(x, model)}  (line ${x.line})`).join('\n')}\n`);
     const text = focus ? modelText(model, focus) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id)), ...extra].join('\n');
     return { ...base, ...about, text };
   }

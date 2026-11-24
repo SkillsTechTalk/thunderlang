@@ -267,6 +267,8 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | **SQL** | **planned** | (reached through the app) | `CHECK` constraints, `CASE`, `IF` in procedures | `--` comment, `COMMENT ON` | `CREATE TABLE`, `CREATE VIEW` |
 | Dockerfile | works today (section 12) | (none: it packages the app) | (none) | `#` comment above `FROM` | the image it makes is a **Resource** |
 | GitHub Actions | works today (section 12) | each job, with a "When" badge | `if:` as a question | the workflow's `name:` | **Permissions** and **Settings** |
+| Terraform | works today (section 12) | (none: it describes what exists) | `count = cond ? 1 : 0` as a question | `#` comment above a block | each `resource`, `data`, and `module` is a **Resource**; role assignments and IAM policies are **Permissions** |
+| Bicep | works today (section 12) | (none: it describes what exists) | `if (…)` as a question | `//` comment or `@description` above | each `resource` (`existing` is looked up) and `module` is a **Resource**; role assignments are **Permissions** |
 
 ### SQL
 
@@ -330,8 +332,42 @@ whole of it without learning each format first.
 
 ### New elements
 
-**Status:** Dockerfile and GitHub Actions are read today (Image build, Pipeline, Resource for the image,
-Permission, Setting). The other formats in the table above are planned; Connection lines beyond `uses` are planned.
+**Status:** Dockerfile, GitHub Actions, Terraform (`.tf`), and Bicep are read today (Image build, Pipeline,
+Resource, Connection, Permission, Setting). Connections use all four kinds (`uses`, `runs-in`, `reads-from`,
+`sends-to`). Kubernetes, Docker Compose, Helm, Azure Pipelines, ARM JSON, CloudFormation, Ansible, and `.tf.json` are
+planned.
+
+Terraform and Bicep read the same way:
+
+- Each `resource` is a Resource with its type as written (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`)
+  and its address (`azurerm_storage_account.main`; in Bicep, the symbolic name). It **knows** its arguments in words,
+  a value only when the file writes it ("Account tier: Standard"); a reference reads as what it names ("the location
+  of the resource group rg (worked out when it is applied)"); nested blocks are summed up in a line.
+- A Terraform `data` source or a Bicep `existing` resource is looked up, not made ("Looks up an existing subscription,
+  made elsewhere"). A `module` is a Resource of its own ("Uses the module ./network").
+- `count`, `for_each`, and Bicep `for` read "One for each item in the setting names"; `count = x ? 1 : 0` and Bicep
+  `if (…)` read "Only when the setting enabled is on". `lifecycle { prevent_destroy = true }` reads "Protected:
+  Terraform refuses to destroy it".
+- `variable` and `param` are Settings given when it is applied (`sensitive = true` and `@secure()` are only named);
+  `locals` and `var` are written in the file or worked out; `output` is a Setting the infrastructure gives back.
+- References and `depends_on`/`dependsOn` are Connections with their lines: `resource_group_name`, `service_plan_id`,
+  `parent`, and similar keys are **runs in**; a data source or `existing` resource is **reads from**; workspace and
+  endpoint keys are **sends to**; the rest is **uses**. A reference to a resource in another `.tf` file of the same
+  folder is drawn when the folder is read together.
+- **Flow** is the order things are created, from those connections: "Works in Azure", "Creates the resource group
+  rg", "Creates the storage account main in the resource group rg", with a question for each conditional resource and
+  "For each …" for each repeated one.
+- **Permissions**: `azurerm_role_assignment`, Key Vault access policies, AWS IAM policies (inline JSON,
+  `jsonencode`, `aws_iam_policy_document`, trust policies, and policy attachments), `google_*_iam_member`/`_binding`,
+  and Bicep `Microsoft.Authorization/roleAssignments` (well-known role ids are named: Owner, Contributor, Reader,
+  Storage Blob Data Reader, Key Vault Secrets User, AcrPull, …). A permission is **wide** when it gives Owner,
+  Contributor, or User Access Administrator on a whole subscription or management group, `roles/owner` or
+  `roles/editor` on a project, or IAM `"*"` actions (or changes on `Resource: "*"`).
+- **Facts** (in addition to the Dockerfile and workflow ones): `public-ingress` (a security group, NSG rule, or
+  firewall that lets `0.0.0.0/0`, `*`, or `Internet` reach a port other than 80 or 443), `storage-public` (public blob
+  or bucket access), `secret-in-plain-config` (a secret-looking argument or default written in the file),
+  `encryption-off` (encryption or HTTPS turned off, or TLS 1.0/1.1 accepted, where the file says so), and
+  `wide-permission`.
 
 | Element | Shape | What it is | Where it comes from | Thunder Text |
 | --- | --- | --- | --- | --- |
