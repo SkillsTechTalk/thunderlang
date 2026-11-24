@@ -17,10 +17,10 @@ const maxAt = args.indexOf('--max-files');
 const maxFiles = maxAt >= 0 ? Number(args[maxAt + 1]) : 100000;
 if (!dir) { console.error('Use node scripts/perf.mjs <folder> [--max-files n] [--json]'); process.exit(2); }
 
-let peak = 0;
-const sample = () => { peak = Math.max(peak, process.memoryUsage().rss); };
-const timer = setInterval(sample, 50);
-const time = (fn) => { const t = process.hrtime.bigint(); const r = fn(); sample(); return [r, Number(process.hrtime.bigint() - t) / 1e6]; };
+// Peak memory is the operating system's high-water mark for this process (a timer cannot fire during synchronous work).
+// (macOS reports it in bytes, Linux and Windows in kilobytes.)
+const peakBytes = () => process.resourceUsage().maxRSS * (process.platform === 'darwin' ? 1 : 1024);
+const time = (fn) => { const t = process.hrtime.bigint(); const r = fn(); return [r, Number(process.hrtime.bigint() - t) / 1e6]; };
 
 const [files, tCollect] = time(() => collectReadableFiles(dir, { maxFiles }));
 const loaded = files.filter((f) => f.source);
@@ -41,21 +41,20 @@ const [, tRead] = time(() => {
     perFile.push([f.path, Number(process.hrtime.bigint() - t) / 1e6, f.source.length]);
   }
 });
-const [model, tModel] = time(() => thunderModel(loaded));
-const [app, tThunderize] = time(() => thunderizeFiles(loaded, { name: dir }));
-const [same, tSame] = time(() => sameMeaning(loaded, loaded));
-clearInterval(timer);
-sample();
+// Each stage's result is reduced to its counts before the next stage, as a real caller would let it go.
+const [modelCounts, tModel] = time(() => { const m = thunderModel(loaded); return { things: m.things.length, members: m.members.length, unknowns: m.unknowns.length }; });
+const [thunderTextFiles, tThunderize] = time(() => thunderizeFiles(loaded, { name: dir }).files.length);
+const [sameVerdict, tSame] = time(() => sameMeaning(loaded, loaded).verdict);
 
 const langs = {};
 for (const f of loaded) { const l = readableLanguage(f.path); langs[l] = (langs[l] || 0) + 1; }
 const slowest = perFile.sort((a, b) => b[1] - a[1]).slice(0, 5).map(([p, ms, size]) => ({ file: p, ms: Math.round(ms), kb: Math.round(size / 1024) }));
 const report = {
   repo: dir, files: loaded.length, skipped: files.length - loaded.length, languages: langs, megabytes: +(bytes / 1048576).toFixed(1), lines,
-  functions, decisions, readerErrors: errors, things: model.things.length, members: model.members.length, unknowns: model.unknowns.length,
+  functions, decisions, readerErrors: errors, ...modelCounts,
   ms: { collect: Math.round(tCollect), read: Math.round(tRead), model: Math.round(tModel), thunderize: Math.round(tThunderize), same: Math.round(tSame) },
   readThroughput: { filesPerSecond: Math.round(loaded.length / (tRead / 1000)), linesPerSecond: Math.round(lines / (tRead / 1000)) },
-  peakMemoryMB: Math.round(peak / 1048576), sameVerdict: same.verdict, thunderTextFiles: app.files.length, slowest,
+  peakMemoryMB: Math.round(peakBytes() / 1048576), sameVerdict, thunderTextFiles, slowest,
 };
 if (args.includes('--json')) console.log(JSON.stringify(report, null, 2));
 else {
