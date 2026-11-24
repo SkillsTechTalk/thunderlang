@@ -553,7 +553,7 @@ export function thunderReview(oldFiles, newFiles) {
   for (const [o, n] of pairs) if (compareMember(o, n, items) === 'unchanged') unchanged++;
   for (const o of leftA()) items.push(item('removed', 'meaning', subjectOf(o), whereOf(o), `Removed ${KIND_WORD[o.m.kind] ?? 'function'}: ${subjectOf(o)}.`, { before: o.text, after: null }));
   for (const n of leftB()) items.push(item('added', n.m.kind === 'not-read' ? 'risk' : 'meaning', subjectOf(n), whereOf(n),
-    n.m.kind === 'not-read' ? `New function Thunder cannot read yet: ${subjectOf(n)}. Check the code itself.` : `New ${KIND_WORD[n.m.kind] ?? 'function'}: ${subjectOf(n)}${summaryOf(n)}.`, { before: null, after: n.text }));
+    n.m.kind === 'not-read' ? "New function that Thunder cannot read yet: check the code itself." : `New ${KIND_WORD[n.m.kind] ?? 'function'}: ${subjectOf(n)}${summaryOf(n)}.`, { before: null, after: n.text }));
   compareThings(A, B, items);
 
   // Files: code outside every action and rule, files Thunder could not read, and files it does not read.
