@@ -51,7 +51,7 @@ export interface Reading {
 export const READ_SCHEMA: 'thunder-reading-v1';
 export const READ_LANGUAGES: string[];
 export function detectLanguage(source: string, file?: string): string;
-export function readCode(source: string, options?: { language?: string; file?: string }): Reading;
+export function readCode(source: string, options?: { language?: string; file?: string; /** Decisions also carry their steps. */ allSteps?: boolean }): Reading;
 export function searchReading(reading: Reading, filter?: { query?: string; kinds?: Array<ReadKind | 'route' | 'guard'>; status?: string[] }): ReadItem[];
 export function terminatorEffect(stmt: string, language: string): ReadGuard['effect'] | { kind: 'passes-error' } | null;
 export function toThunderCondition(text: string, inputs?: string[]): string | null;

@@ -1426,7 +1426,7 @@ export function parseStatementSpans(text, language = '') {
     const p = new Parser(src, language);
     p.spans = new Map();
     const tree = statement(p);
-    return { tree, textOf: (node) => { const sp = p.spans.get(node); return sp ? src.slice(sp[0], sp[1]) : null; } };
+    return { tree, textOf: (node) => { const sp = p.spans.get(node); return sp ? src.slice(sp[0], sp[1]) : null; }, rangeOf: (node) => p.spans.get(node) ?? null, source: src };
   } catch (e) { if (e instanceof Fail) return null; throw e; }
 }
 // The code of a statement that could not be read: all of it when it is one statement; the first line when it opens

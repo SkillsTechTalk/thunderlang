@@ -22,6 +22,7 @@ import { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
 import { sameMeaning, renderSame } from './same.mjs';
 import { anchorReport } from './anchor.mjs';
 import { writeRule } from './write.mjs';
+import { thunderWrite } from './write-steps.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
@@ -273,6 +274,11 @@ function parseArgs(argv) {
     else if (a === '--inputs') args.inputs = argv[++i];
     else if (a === '--events') args.events = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--decision') args.decision = argv[++i];
+    else if (a === '--edit') (args.edit ??= []).push(argv[++i]);
+    else if (a === '--apply') args.apply = true;
+    else if (a === '--test') args.test = argv[++i];
+    else if (a === '--candidate') args.candidate = argv[++i];
+    else if (a === '--also') (args.also ??= []).push(argv[++i]);
     else if (a === '--rule') args.rule = argv[++i];
     else if (a === '--when') args.when = argv[++i];
     else if (a === '--to') args.to = argv[++i];
@@ -439,6 +445,12 @@ Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   --version                 print the Thunder compiler version
   anchor <file> [--json]    show every Thunder step with its exact place in the file, and line coverage
+  write <file> --edit '<json>' [--edit …] [--also <file>] [--apply] [--test "<cmd>"] [--candidate <file>] [--json]
+                            Writing in Thunder: change a step, question, Stop, input, or function in Thunder; the code is
+                            written as a minimal patch (TS/JS, Python, Go) and proven (the edited steps mean exactly
+                            the edit; everything else means the same). Dry run by default; --apply saves; --test runs a
+                            command on the changed code. Other cases print an instruction for an AI coding agent;
+                            --candidate checks code it wrote (labeled AI-written).
   write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
                             Thunder write: change a number, comparison, text value, or answer in a recovered rule;
                             previews the exact code change and the cases whose answer changes; --write saves it
@@ -481,7 +493,8 @@ function main() {
   }
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
-    process.exit(cmd ? 0 : 2);
+    process.exitCode = cmd ? 0 : 2; // (not process.exit: a long help must be flushed to a pipe first)
+    return;
   }
   if (cmd === 'read') {
     try {
@@ -526,6 +539,52 @@ function main() {
         for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
       }
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'write' && args.edit) {
+    try {
+      if (!file) throw new Error('Use thunder write <file> --edit \'{"op":"setValue","member":"name","step":"line:12","to":10}\' [--apply] [--test "<cmd>"].');
+      const paths = [file, ...(args.also || [])];
+      const files = paths.map((p) => ({ path: p, source: readFileSync(p, 'utf8') }));
+      let edits;
+      try { edits = args.edit.flatMap((e) => { const j = JSON.parse(e); return Array.isArray(j) ? j : [j]; }); } catch (e) { throw new Error(`--edit must be JSON: ${e.message}`); }
+      const options = args.candidate ? { candidate: { [file]: readFileSync(args.candidate, 'utf8') } } : {};
+      const r = thunderWrite(files, edits, options);
+      // --test: run the command on the changed code (written to the files for the run, then put back unless --apply).
+      if (r.status === 'written' && args.test) {
+        const originals = new Map(files.map((f) => [f.path, f.source]));
+        for (const [p, src] of Object.entries(r.files)) writeFileSync(p, src);
+        const t0 = Date.now();
+        const run = spawnSync(args.test, { shell: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+        r.proof.run = { command: args.test, passed: run.status === 0, exit: run.status, seconds: Math.round((Date.now() - t0) / 100) / 10, output: `${run.stdout ?? ''}${run.stderr ?? ''}`.split('\n').slice(-20).join('\n') };
+        if (!args.apply) for (const [p] of Object.entries(r.files)) writeFileSync(p, originals.get(p));
+      }
+      const applied = r.status === 'written' && args.apply && (!r.proof?.run || r.proof.run.passed);
+      if (applied && !args.test) for (const [p, src] of Object.entries(r.files)) writeFileSync(p, src);
+      if (r.status === 'written' && args.apply && r.proof?.run && !r.proof.run.passed) for (const f of files) writeFileSync(f.path, f.source);
+      if (args.json) { const { files: _f, ...rest } = r; console.log(JSON.stringify({ ...rest, applied }, null, 2)); if (r.status !== 'written') process.exitCode = 1; return; }
+      if (r.status === 'refused') { console.error(`Not changed. ${r.says}`); process.exitCode = 1; return; }
+      if (r.status === 'needs-ai') {
+        console.log(r.says);
+        console.log('\n--- Instruction for an AI coding agent (nothing was changed) ---\n');
+        console.log(r.prompt);
+        process.exitCode = 1;
+        return;
+      }
+      if (r.before) { console.log('Thunder before:'); for (const l of r.before.split('\n')) console.log(`  ${l}`); }
+      if (r.after) { console.log('Thunder after:'); for (const l of r.after.split('\n')) console.log(`  ${l}`); }
+      console.log(`\n${r.author === 'ai' ? 'AI-written change (checked):' : 'Code change:'}\n`);
+      process.stdout.write(r.patch);
+      console.log('\nProof:');
+      for (const c of r.proof.edited.checks) console.log(`  edited     ${c.member}: ${c.result === 'exact' ? 'reads exactly as the edit says' : c.result}`);
+      const u = r.proof.unchanged;
+      console.log(`  unchanged  ${u.checked} other function${u.checked === 1 ? '' : 's'} in the changed file${Object.keys(r.files).length === 1 ? '' : 's'}: ${u.status === 'same' ? 'all mean the same' : u.status}`);
+      if (r.proof.run) console.log(`  run        ${r.proof.run.command}: ${r.proof.run.passed ? 'passed' : `failed (exit ${r.proof.run.exit})`}`);
+      if (r.proof.run && !r.proof.run.passed) console.log(r.proof.run.output);
+      console.log(`\n${r.says}`);
+      console.log(applied ? `\nSaved ${Object.keys(r.files).join(', ')}.` : r.proof?.run && !r.proof.run.passed ? '\nNot saved: the test command failed.' : '\nDry run; nothing was saved. Add --apply to save the change.');
+      if (r.proof?.run && !r.proof.run.passed) process.exitCode = 1;
+    } catch (e) { console.error(`thunder write: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'write') {

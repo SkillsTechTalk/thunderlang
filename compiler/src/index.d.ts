@@ -753,3 +753,5 @@ export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
 export type { Promotion } from './promote.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export type { ChangedCase, ChangedCases, WriteChange, RulePart } from './write.mjs';
+export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from './write-steps.mjs';
+export type { ThunderEdit, ThunderWriteResult, WriteProof } from './write-steps.mjs';

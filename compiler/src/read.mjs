@@ -1894,7 +1894,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   return r;
 }
 
-export function readCode(source, { language, file = '' } = {}) {
+export function readCode(source, { language, file = '', allSteps = false } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
   const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql');
@@ -1951,6 +1951,8 @@ export function readCode(source, { language, file = '' } = {}) {
         says: (fn.route ? `Handles ${fn.route.method} ${fn.route.path}. ` : '') + sayDecision(read.rules, read.otherwise) + guardNote, guards,
         thunder: decisionSource(fn.name, inputs, read.rules, read.otherwise),
         unread: read.unread,
+        // `allSteps`: a decision also carries its steps (for writing in Thunder, which edits any function by its steps).
+        ...(allSteps ? (() => { const st = functionSteps(fn, lang, code, names, srcLines); return st ? { steps: st.steps, ...(st.anchor ? { anchor: st.anchor } : {}) } : {}; })() : {}),
       });
     } else {
       const st = functionSteps(fn, lang, code, names, srcLines);

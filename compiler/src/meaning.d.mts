@@ -61,7 +61,7 @@ export function parseExpr(text: string, language?: string): Expr | null;
 /** A statement (a step's `expr`). For a statement that opens a block, only its head; never guessed. */
 export function parseStatement(text: string, language?: string): Expr;
 /** A statement with where each part came from (for running the original code of a part). */
-export function parseStatementSpans(text: string, language?: string): { tree: Expr; textOf(node: Expr): string | null } | null;
+export function parseStatementSpans(text: string, language?: string): { tree: Expr; textOf(node: Expr): string | null; /** [start, end) of a part in `source` (the trimmed text). */ rangeOf(node: Expr): [number, number] | null; source: string } | null;
 /** Index of the `}` closing the `{` at `open` (strings, templates, and comments skipped), or -1. */
 export function blockEnd(src: string, open: number, language?: string): number;
 /** Code for an expression in TypeScript/JavaScript, Python, or Go. Throws when the language cannot say it. */
