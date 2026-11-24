@@ -13,8 +13,10 @@ test('a one-line if that returns a response with an object keeps the return (not
   const item = readCode(SRC, { language: 'typescript', file: 'orgs.ts' }).items.find((i) => i.name === 'POST /api/orgs');
   const branch = item.steps.find((s) => s.kind === 'branch');
   assert.equal(branch.children.length, 1);
-  assert.equal(branch.children[0].kind, 'return');
+  // An HTTP error response is a Stop: the request is refused with a status and a message.
+  assert.equal(branch.children[0].kind, 'fail');
   assert.match(branch.children[0].code, /^return reply\.code\(400\)/);
+  assert.deepEqual([branch.children[0].error, branch.children[0].message], ['400 Bad Request', 'slug is required.']);
 });
 
 test('in the flow, that early return ends its path instead of running on into the next step', () => {

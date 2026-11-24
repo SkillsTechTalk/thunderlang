@@ -343,6 +343,27 @@ const idOf = (...parts) => parts.join('#').replace(/\s+/g, '');
  * Read files into the one Thunder model. Things come from classes in THING_LANGUAGES; every function in every
  * readable language becomes a member with its flow. Unknowns list what could not be read, so no view hides a gap.
  */
+/**
+ * What a person gives an action or function: its inputs, without framework plumbing (self, the request, a database
+ * session), plus the facts a handler unpacks from the request: `const { slug, name } = request.body`,
+ * `const { id } = req.params`, `{ email } = await request.json()`.
+ */
+function youGiveOf(item) {
+  const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing).map((p) => words(p.name));
+  const codes = [];
+  const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
+  walk(item.steps);
+  for (const c of codes) {
+    const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(?:body|query|params|json\(\))/);
+    if (!m) continue;
+    for (const part of m[1].split(',')) {
+      const name = part.split(/[:=]/)[0].replace(/^\.\.\./, '').trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(name) && !given.includes(words(name))) given.push(words(name));
+    }
+  }
+  return given;
+}
+
 export function thunderModel(files, { name = 'app' } = {}) {
   const things = [], members = [], links = [], unknowns = [], fileInfo = [];
   for (const f of files) {
@@ -374,7 +395,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
         label: setup ? `A new ${owner.label} starts with` : cap(words(item.name.replace(/^__|__$/g, ''))),
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
-        youGive: (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name)).map((p) => words(p.name)),
+        youGive: youGiveOf(item),
         ...(item.returns && kind !== 'rule' ? { youGetBack: kindWords(item.returns) ?? item.returns } : {}),
         ...(rule ? { rule, question: rule.question } : {}),
         // A yes/no rule is named as a question ("Can borrow?"); a rule with named answers is not ("Late fee").

@@ -1773,7 +1773,9 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     if (st.kind !== 'branch' || !st.cond) continue;
     // A bare yes/no property (`order.refunded`) already reads as a sentence from the step itself; keep it.
     const bareProperty = /^(not\s+|!)?(?:self\.|this\.)?\w+\.\w+(\(\))?$/.test(st.cond.trim()) && !/\./.test(st.says.replace(/\(\d+ steps? inside\)$/, ''));
-    const cond = bareProperty ? null : toThunderCondition(st.cond, names);
+    // A plain name used as a yes/no (`if (!slug)`) already reads as "slug is not set"; keep it rather than "not slug".
+    const bareName = /^(not\s+|!)?(?:self\.|this\.)?\w+$/.test(st.cond.trim()) && /\bis (not )?set\b/.test(st.says);
+    const cond = bareProperty || bareName ? null : toThunderCondition(st.cond, names);
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
     delete st.cond; delete st.negate;
   }

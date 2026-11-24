@@ -223,6 +223,25 @@ function sayChain(value) {
   return hit ? hit.c.say(words(src.split('.').pop().replace(/^#/, ''))) : null;
 }
 
+const HTTP_STATUS = { 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 409: 'Conflict', 410: 'Gone', 413: 'Payload Too Large', 415: 'Unsupported Media Type', 422: 'Unprocessable Content', 429: 'Too Many Requests', 500: 'Internal Server Error', 501: 'Not Implemented', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout' };
+
+/**
+ * An HTTP error response, returned or sent: Fastify `reply.code(400).send(...)`, Express `res.status(404).json(...)`,
+ * `new Response(..., { status: 403 })`, FastAPI `JSONResponse(..., status_code=422)`, Flask `return jsonify(...), 400`.
+ * Gives a fail step: { kind: 'fail', says, error: '400 Bad Request', message, status } or null.
+ */
+function httpErrorOf(head) {
+  const expr = head.replace(/^return\s+/, '').replace(/^await\s+/, '').replace(/;\s*$/, '').trim();
+  let m = expr.match(/^(?:reply|res|response|resp|ctx\.response)\s*\.\s*(?:code|status|statusCode)\s*\(\s*([45]\d\d)\s*\)/)
+    || expr.match(/^(?:new\s+)?(?:Response|NextResponse(?:\.json)?|HttpResponse|JSONResponse|PlainTextResponse|Response\.json)\s*\(.*\bstatus(?:_code)?\s*[:=]\s*([45]\d\d)\b/)
+    || (/^return\b/.test(head) ? expr.match(/^.+,\s*([45]\d\d)\s*$/) : null);
+  if (!m) return null;
+  const status = Number(m[1]);
+  const name = HTTP_STATUS[status] ?? (status >= 500 ? 'Server Error' : 'Client Error');
+  const msg = (expr.match(/\b(?:error|message|detail|msg)\s*[:=]\s*["'`]([^"'`]{1,80})["'`]/) || expr.match(/\.(?:send|json|end)\(\s*["'`]([^"'`]{1,80})["'`]/) || [])[1];
+  return { kind: 'fail', says: `Fails with ${status} ${name}${msg ? `: "${msg}"` : ''}`, error: `${status} ${name}`, ...(msg ? { message: msg } : {}), status };
+}
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
@@ -256,6 +275,9 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const said = name && /^[a-z]/.test(name) ? `the error made by ${words(name)}` : name;
     return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code, ...(name ? { error: name } : {}), ...(msg ? { message: msg } : {}) };
   }
+  // An HTTP error response (4xx/5xx) is a Stop: the request is refused, with a status and a message.
+  const httpFail = httpErrorOf(head);
+  if (httpFail) return { ...httpFail, code };
   // Returns (Go/Rust error returns read as failures)
   if ((m = head.match(/^return\b\s*(.*)$/))) {
     const expr = stripTail(m[1]);

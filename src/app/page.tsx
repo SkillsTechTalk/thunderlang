@@ -86,9 +86,9 @@ export default function HomePage() {
               Programming,{" "}
               <span className="text-gradient-gold">made human.</span>
             </p>
-            <p className="mt-5 text-xl font-medium text-white sm:text-2xl">AI can write the code. Humans should understand it.</p>
+            <p className="mt-5 text-xl font-medium text-white sm:text-2xl">Read any app, in any programming language, without struggling.</p>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-haze-300">
-              For decades, people learned to speak to computers. Now that AI writes software, programming should speak our
+              AI can write the code; humans should understand it. For decades, people learned to speak to computers. Now that AI writes software, programming should speak our
               language. Thunder makes software&apos;s rules visual and readable, so you can see what it does, question its
               decisions, and change its rules. The Thunder compiler turns them into the code you ship and checks every AI
               change against them.
@@ -105,9 +105,13 @@ export default function HomePage() {
             </p>
             <div className="mt-8">
               <CTAButtons
-                primary={{ href: "/try", label: "Try it on a refund rule" }}
-                secondary={{ href: "/read", label: "Read your code in Thunder" }}
+                primary={{ href: "/read", label: "Read code in Thunder" }}
+                secondary={{ href: `${OPENTHUNDER_URL}/#download`, label: "Read a whole app in OpenThunder ↗" }}
               />
+              <p className="mt-3 text-sm text-haze-400">
+                Thunder reads one file in your browser, free and with nothing to install. OpenThunder, the IDE for Thunder, reads
+                a whole repository on your machine. Or <Link href="/try" className="text-gold-300 hover:text-gold-200">try it on a refund rule</Link> first.
+              </p>
             </div>
             <ul className="mt-7 flex flex-wrap gap-2 text-xs text-haze-300">
               {["Also called ThunderLang™", "Open-source compiler", "Deterministic: no AI, no key"].map(t => (
