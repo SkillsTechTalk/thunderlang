@@ -1833,7 +1833,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
   } catch { return null; }
   if (!stmts.length) return null;
-  const r = withFunctionContext({ params: fn.params || [], language: lang }, () => {
+  const r = withFunctionContext({ params: fn.params || [], language: lang, route: !!fn.route }, () => {
     const out = stepsFrom(stmts);
     // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or
     // and/or, that value is the answer, not a call made for its effect.

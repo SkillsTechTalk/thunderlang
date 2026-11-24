@@ -125,7 +125,17 @@ function sayAtom(atom) {
   return said;
 }
 
+/** True when `request` here is a web framework's request (so `request.body.x` is a field it was sent). */
+function webRequest() {
+  const ps = FN_CONTEXT?.params;
+  if (!ps) return true;
+  if (FN_CONTEXT.route) return true;
+  if (!ps.some((p) => /^(?:req|request)$/.test(p.name))) return true;
+  return ps.some((p) => /^(?:res|reply|response|ctx|c|next)$/.test(p.name) || /HttpRequest|ServerRequest|FastifyRequest|NextRequest|HttpServletRequest|Express|Koa/.test(String(p.type || '')));
+}
+
 function sayAtomWords(cond) {
+  if (!webRequest()) return sayCodeConditionInner(cond);
   // Keep request and settings names exactly as written (x-admin-secret, ADMIN_SECRET) while the rest becomes words.
   const kept = [];
   const keep = (t) => `\u0000${kept.push(t) - 1}\u0000`;
@@ -346,7 +356,7 @@ function sayCommon(value) {
   if (/^(?:f|rf|fr)["']/.test(e) || /^`[^`]*\$\{/.test(e) || /^\$"/.test(e) || /^(?:fmt\.Sprintf|String\.format|format!)\(/.test(e)) return 'text built from its parts';
   if ((m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
   if ((m = e.match(/^([\w.]+)\[\s*["'`]([\w.\-: ]{1,40})["'`]\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
-  if ((m = e.match(/^@?([\w.]+)\[\s*:(\w+)\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
+  if (FN_CONTEXT?.language === 'ruby' && (m = e.match(/^@?([\w.]+)\[\s*:(\w+)\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
   if ((m = e.match(/^([\w.]+)\.split\(\s*["'`]([^"'`]{0,10})["'`]/))) return `${lastSeg(m[1])} split at "${m[2]}"`;
   if ((m = e.match(/^@?([\w.]+?)(?:\.copy|\.clone|\.Clone|\.dup)(?:\(\))?$/))) return `a copy of ${lastSeg(m[1])}`;
   if ((m = e.match(/^(?:str|String|string)\(\s*([\w.]+)\s*\)$/)) || (m = e.match(/^([\w.]+)\.(?:toString\(\)|to_s(?:\(\))?|ToString\(\))$/))) return `${lastSeg(m[1])} as text`;
@@ -633,7 +643,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
   let first = text.split('\n')[0].trim();
-  if (/^(?:if|else\s+if|while|for|switch)\s*\($/.test(first.replace(/\s*\{$/, '')) || (/^(?:if|else\s+if|while)\s*\(/.test(first) && !bracketsClosed(first.replace(/\{\s*$/, '')))) {
+  if (/^(?:if|else\s+if|while|for|switch)\s*\($/.test(first.replace(/\s*\{$/, '')) || (/^(?:if|else\s+if|while)\s*\(/.test(first) && !balancedText(first.replace(/\{\s*$/, '')))) {
     const o = text.indexOf('('), c = closeOf(text, o);
     if (c > 0 && c < 2000) first = `${text.slice(0, c + 1)}${text.slice(c + 1).split('\n')[0]}`.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').trim();
   }
@@ -897,7 +907,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (keyedAt > 0 && /\]$/.test(m[1]) && !/,/.test(m[1])) {
       const container = targetWords(m[1].slice(0, keyedAt));
       const keys = [...m[1].slice(keyedAt).matchAll(/\[\s*([^\]]*?)\s*\]/g)].map((k) => k[1]);
-      const keyWords = (k) => (/^["'`].*["'`]$/.test(k) ? `"${k.slice(1, -1)}"` : /^:\w+$/.test(k) ? `"${k.slice(1)}"` : /^[\w$.]+$/.test(k) ? possessiveWords(k) : `\`${k}\``);
+      const keyWords = (k) => (/^["'`].*["'`]$/.test(k) ? `"${k.slice(1, -1)}"` : /^:\w+$/.test(k) && FN_CONTEXT?.language === 'ruby' ? `"${k.slice(1)}"` : /^[\w$.]+$/.test(k) ? possessiveWords(k) : `\`${k}\``);
       const v = value ? valueWords(value) : null;
       const what = v ?? 'a value';
       const where = keys.length === 1 ? `under ${keyWords(keys[0])} in ${container}` : `at ${keys.map(keyWords).join(', then ')} in ${container}`;
