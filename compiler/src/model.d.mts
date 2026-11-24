@@ -2,7 +2,9 @@
 import type { Does } from './visual.mjs';
 export const MODEL_SCHEMA: 'thunder-model-v1';
 export const THING_LANGUAGES: string[];
-export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true }
+export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true;
+  /** A yes/no question as a statement on each side, when it splits cleanly: { yes: "the x header is the KEY setting", no: "… is not …" }. */
+  holds?: { yes: string; no: string } }
 export interface FlowEdge { from: string; to: string; label?: 'yes' | 'no' | 'each' | 'next' | 'done' | 'error' | 'case' | 'nested'; /** On a 'case' edge: the case it takes ("When it is from 90 to 100", "Otherwise", "None of these"). */ text?: string }
 export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; each?: FlowBlock[]; body?: FlowBlock[];
   /** A choice among several cases (switch, when, match, select): one side per case, in order. The decision node has `cases: true`. */
@@ -17,11 +19,11 @@ export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files:
 export function thunderModel(files: { path: string; source: string }[], options?: { name?: string }): ThunderModel;
 export function flowOf(steps: unknown[], options?: { start?: string; memberIndex?: Map<string, string>; memberLabel?: Map<string, string> }): Flow;
 export function ruleFlow(item: unknown, start: string): Flow;
-export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean };
+export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean; code?: true; holds?: { yes: string; no: string } };
 export function stepDoes(step: unknown): Does;
 export function modelText(model: ThunderModel, id: string): string;
 /** One answer on the way to a step: the question, and Yes, No, For each, or Otherwise. */
-export interface When { question: string; answer: string }
+export interface When { question: string; answer: string; /** What is true on this side, as a statement, when the question splits cleanly. */ says?: string }
 export type LevelId = 'big-picture' | 'flow' | 'details' | 'text' | 'original';
 export interface LevelItem { id: string; label: string; symbol: string; route?: string }
 export interface LevelView {

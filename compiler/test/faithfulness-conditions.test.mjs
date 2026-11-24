@@ -30,9 +30,9 @@ test('a condition the words cannot keep is given back as code, never half-said',
 });
 
 test('askAsQuestion asks a compound condition as written, so the Stop never changes side', () => {
-  assert.deepEqual(askAsQuestion({ says: 'If not body or response is body used' }), { text: 'Not body or response is body used?', flip: false });
-  assert.deepEqual(askAsQuestion({ says: 'If x is not y' }), { text: 'Is x y?', flip: true }, 'a single condition is still asked the positive way, with the flip');
-  assert.deepEqual(askAsQuestion({ says: 'If not: a and b' }), { text: 'A and b?', flip: true }, '`unless a && b`: the steps are on the No side');
+  assert.deepEqual(askAsQuestion({ says: 'If not body or response is body used' }), { text: 'Not body or response is body used?', flip: false, holds: { yes: 'not body or response is body used', no: 'it is not true that not body or response is body used' } });
+  assert.deepEqual(askAsQuestion({ says: 'If x is not y' }), { text: 'Is x y?', flip: true, holds: { yes: 'x is y', no: 'x is not y' } }, 'a single condition is still asked the positive way, with the flip');
+  assert.deepEqual(askAsQuestion({ says: 'If not: a and b' }), { text: 'A and b?', flip: true, holds: { yes: 'a and b', no: 'it is not true that a and b' } }, '`unless a && b`: the steps are on the No side');
   assert.deepEqual(askAsQuestion({ says: 'If `a ? b : c`' }), { text: '`a ? b : c`?', flip: false, code: true });
 });
 

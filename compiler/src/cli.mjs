@@ -59,13 +59,14 @@ import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS
 import { twelveFactorReport } from './twelve-factor.mjs';
 import { GENERATORS } from './codegen.mjs';
 import { changeReport } from './changes.mjs';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync, execFileSync, spawnSync } from 'node:child_process';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { runProperties } from './property.mjs';
 import { runMutations } from './mutate.mjs';
+import { thunderReview, renderReview } from './review.mjs';
 import { buildConformance } from './conformance.mjs';
 import { semanticCoverage } from './coverage.mjs';
 import { runTypescriptTarget } from './target-ts.mjs';
@@ -202,6 +203,38 @@ function collectIntents(root, acc = []) {
 
 // Proof freshness: a proof is valid only for a specific (intent, implementation, dependencies,
 // compiler, environment) tuple. These helpers capture that tuple so `verify` can mark a proof STALE.
+/**
+ * Read the files that changed between two commits (or a commit and the working tree, when head is null) and review
+ * them in Thunder. Only git is run (show, diff, ls-files): nothing is fetched and nothing is executed.
+ */
+function reviewGit(base, head) {
+  const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  try { git('rev-parse', '--is-inside-work-tree'); } catch { throw new Error('not inside a git repository.'); }
+  for (const ref of [base, head].filter(Boolean)) {
+    try { git('rev-parse', '--verify', '--quiet', `${ref}^{commit}`); } catch { throw new Error(`${ref} is not a commit in this repository (fetch it first, for example with fetch-depth: 0).`); }
+  }
+  const root = git('rev-parse', '--show-toplevel').trim();
+  const parts = git('diff', '--name-status', '-z', '-M', base, ...(head ? [head] : []), '--').split('\0');
+  const changes = [];
+  for (let i = 0; i < parts.length && parts[i];) {
+    const status = parts[i++];
+    if (/^[RC]/.test(status)) changes.push({ old: parts[i++], new: parts[i++] });
+    else if (status === 'A') changes.push({ old: null, new: parts[i++] });
+    else if (status === 'D') changes.push({ old: parts[i++], new: null });
+    else { const p = parts[i++]; changes.push({ old: p, new: p }); }
+  }
+  if (!head) for (const p of git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean)) changes.push({ old: null, new: p });
+  const text = (s) => (s == null || s.includes('\0') ? null : s); // binary files are not read
+  const at = (ref, p) => { try { return text(git('show', `${ref}:${p}`)); } catch { return null; } };
+  const disk = (p) => { try { return text(readFileSync(join(root, p), 'utf8')); } catch { return null; } };
+  const oldFiles = [], newFiles = [];
+  for (const c of changes) {
+    if (c.old) { const s = at(base, c.old); if (s != null) oldFiles.push({ path: c.old, source: s }); }
+    if (c.new) { const s = head ? at(head, c.new) : disk(c.new); if (s != null) newFiles.push({ path: c.new, source: s }); }
+  }
+  return { ...thunderReview(oldFiles, newFiles), base, head: head ?? 'working tree' };
+}
+
 const gitCmd = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null; } catch { return null; } };
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock', 'Cargo.lock', 'go.sum', 'Gemfile.lock', 'composer.lock'];
 function findLockfile(startDir) {
@@ -444,6 +477,9 @@ Graph & IR
                             previews the exact code change and the cases whose answer changes; --write saves it
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
+  review <base-ref> [head-ref] [--json] [--out <file>]
+                            review in Thunder: what changed in meaning between two git commits (head: the working tree
+                            when omitted), as Markdown for a pull request comment; read from git, no network
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
@@ -599,6 +635,17 @@ function main() {
       }
     } catch (e) { console.error(`thunder thunderize: ${e.message}`); process.exitCode = 2; }
     finally { cleanup(); }
+    return;
+  }
+  if (cmd === 'review') {
+    try {
+      const [base, head] = args._;
+      if (!base) throw new Error('Use thunder review <base-ref> [head-ref] [--json] [--out <file>]. Without head-ref, the working tree is the new side.');
+      const r = reviewGit(base, head ?? null);
+      const text = args.json ? JSON.stringify(r, null, 2) : renderReview(r, { footer: `<sub>\`thunder review ${base}${head ? ` ${head}` : ''}\` · Thunder compiler ${COMPILER_VERSION}</sub>` }).trimEnd();
+      if (args.outExplicit) { mkdirSync(dirname(resolve(args.out)), { recursive: true }); writeFileSync(args.out, `${text}\n`); console.log(`thunder review: ${r.says} Wrote ${args.out}.`); }
+      else console.log(text);
+    } catch (e) { console.error(`thunder review: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'same') {

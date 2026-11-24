@@ -193,6 +193,7 @@ export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } 
 export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from "./visual.mjs";
 export { thunderizeFiles, THUNDER_TEXT_EXT } from "./thunderize.mjs";
 export { sameMeaning, renderSame } from "./same.mjs";
+export { thunderReview, renderReview, REVIEW_SCHEMA } from "./review.mjs";
 export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from "./read-repo.mjs";
 export { collectReadableFiles } from "./read-repo-fs.mjs";
 export { promoteDecision, PROMOTE_SCHEMA } from "./promote.mjs";

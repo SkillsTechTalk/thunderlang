@@ -220,14 +220,18 @@ export function askAsQuestion(step, ruleLabel) {
   let m;
   // A compound condition (a and b, a or not b) is asked as written: turning one part positive would flip the
   // whole question and put the Stop on the wrong side.
-  if (compoundWords(c)) return { text: `${cap(possessive(c))}?`, flip };
+  if (compoundWords(c)) return { text: `${cap(possessive(c))}?`, flip, holds: { yes: possessive(c), no: `it is not true that ${possessive(c)}` } };
   if ((m = c.match(/^not \((.+)\)$/)) && closeOf(c, 4) === c.length - 1) return { text: `${cap(possessive(m[1]))}?`, flip: !flip };
   if ((m = c.match(/^not (.+)$/))) { c = m[1]; flip = !flip; }
   if (compoundWords(c)) return { text: `Not ${possessive(c)}?`, flip: !flip };
-  if ((m = c.match(/^(.+?) is not (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip: !flip };
-  if ((m = c.match(/^(.+?) has no (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip: !flip };
-  if ((m = c.match(/^(.+?) is (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip };
-  if ((m = c.match(/^(.+?) has (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip };
+  // `holds`: what is true on each side, as a statement ("the x header is not the KEY setting"), for sentences such
+  // as a review's "Now stops with 403 when …". Only where the question splits cleanly into a subject and the rest.
+  const is = (a, b) => ({ yes: `${possessive(a)} is ${possessive(b)}`, no: `${possessive(a)} is not ${possessive(b)}` });
+  const has = (a, b) => ({ yes: `${possessive(a)} has ${b}`, no: `${possessive(a)} has no ${b}` });
+  if ((m = c.match(/^(.+?) is not (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip: !flip, holds: is(m[1], m[2]) };
+  if ((m = c.match(/^(.+?) has no (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip: !flip, holds: has(m[1], m[2]) };
+  if ((m = c.match(/^(.+?) is (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip, holds: is(m[1], m[2]) };
+  if ((m = c.match(/^(.+?) has (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip, holds: has(m[1], m[2]) };
   return { text: `${cap(possessive(c))}?`, flip };
 }
 
@@ -319,9 +323,9 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         continue;
       }
       if (st.kind === 'branch') {
-        const { text, flip, code } = askAsQuestion(st, base.uses && askedByRule(st) && memberLabel.get(base.uses));
+        const { text, flip, code, holds } = askAsQuestion(st, base.uses && askedByRule(st) && memberLabel.get(base.uses));
         const [into, past] = flip ? ['no', 'yes'] : ['yes', 'no'];
-        const d = node('decision', text, { ...base, ...(code || st.unread ? { code: true } : {}) });
+        const d = node('decision', text, { ...base, ...(code || st.unread ? { code: true } : {}), ...(holds && !code && !st.unread ? { holds } : {}) });
         connect(open, d);
         const inside = walk(st.children || [], [{ id: d, label: into }], lane + 1);
         // The other side of the question: its else (or else-if chain) when the code has one.
@@ -662,8 +666,10 @@ function pathsOf(flow) {
       if (n && n.kind !== 'start') out.push({ node: n, when });
       if (n && (n.kind === 'stop' || n.kind === 'end')) (out.ended ||= new Set()).add(blocks);
       const q = n?.text ?? '';
-      walk(b.yes, [...when, { question: q, answer: 'Yes' }]);
-      walk(b.no, [...when, { question: q, answer: 'No' }]);
+      const yes = { question: q, answer: 'Yes', ...(n?.holds ? { says: n.holds.yes } : {}) };
+      const no = { question: q, answer: 'No', ...(n?.holds ? { says: n.holds.no } : {}) };
+      walk(b.yes, [...when, yes]);
+      walk(b.no, [...when, no]);
       walk(b.each, [...when, { question: q, answer: 'For each' }]);
       for (const c of b.cases || []) walk(c.blocks, [...when, { question: q, answer: c.label }]);
       // An inner function's steps end only that function: not one of this action's endings.
@@ -674,8 +680,8 @@ function pathsOf(flow) {
       // happens on the other side. "Gives back org" happens when "Is org set?" is Yes, not always.
       if (n?.kind === 'decision' && (b.yes || b.no)) {
         const yesEnds = ends(b.yes), noEnds = ends(b.no);
-        if (yesEnds && !noEnds) when = [...when, { question: q, answer: 'No' }];
-        else if (noEnds && !yesEnds) when = [...when, { question: q, answer: 'Yes' }];
+        if (yesEnds && !noEnds) when = [...when, no];
+        else if (noEnds && !yesEnds) when = [...when, yes];
       }
     }
   };

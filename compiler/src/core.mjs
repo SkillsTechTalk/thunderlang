@@ -13,7 +13,9 @@ export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
-export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
+export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
+// Review in Thunder: what a change did to the meaning of the code, in plain sentences (pure; the CLI does the git work).
+export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
 export { plainFromReading, conditionText } from './plain-contract.mjs';
 // Editor help (browser-safe): completions, hover, autocorrect, quick fixes, and the semantic type vocabulary.
 export { getCompletions, getHover, autocorrectSource, getCodeActions, SEMANTIC_TYPES } from './intellisense.mjs';
