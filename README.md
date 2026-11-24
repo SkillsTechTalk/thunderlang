@@ -8,6 +8,7 @@
   <a href="https://thunderlang.dev/try"><img alt="Try it in your browser" src="https://img.shields.io/badge/try%20it-in%20your%20browser-B49BFF"></a>
   <a href="https://thunderlang.dev/map"><img alt="See a whole app in Thunder" src="https://img.shields.io/badge/see-the%20Thunder%20map-FCD34D"></a>
   <a href="https://openthunder.dev"><img alt="Use it in OpenThunder" src="https://img.shields.io/badge/use%20it%20in-OpenThunder-34D399"></a>
+  <a href="https://app.skillstechtalk.com/learn/technology/t/thunderlang"><img alt="Learn ThunderLang: the full course" src="https://img.shields.io/badge/learn-the%20full%20course-F472B6"></a>
 </p>
 
 # Thunder™: programming, made human
@@ -18,6 +19,9 @@ change, and a real compiler checks it, runs its examples, and turns it into the 
 Golang: one language, two names.
 
 > **AI should handle the complexity of writing software. Humans should keep the clarity and control to understand it.**
+
+**Learn Thunder:** start with the [10-minute tutorial](https://thunderlang.dev/learn), then take the
+[full ThunderLang course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
 
 Today Thunder covers decisions and business rules (refunds, access, pricing, eligibility). It is not yet a
 general-purpose programming language.

@@ -3,6 +3,9 @@
 Five minutes from install to blocking a bad AI change on your own code. Everything here is
 deterministic and runs with no AI.
 
+Want to learn the language itself first? Take the [10-minute tutorial](https://thunderlang.dev/learn), then the
+[full ThunderLang course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
+
 ## Install
 
 ```bash
