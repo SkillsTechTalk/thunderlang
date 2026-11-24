@@ -179,6 +179,39 @@ any" tells a reader nothing the code did not, so Thunder marks such steps `resta
 and does not count them as read. A function is drawn as a steps card when at least half its steps explain something.
 Otherwise it is a not-read-yet card.
 
+### Every detail, one level down (works today)
+
+Thunder's words are short on purpose: "Calls save" is easier to read than the call. Nothing is lost by being short,
+because every step also carries its **meaning tree** (`expr`, schema `thunder-expr-v1`): a small, language-neutral
+tree of exactly what the statement says.
+
+| The code has | The tree keeps |
+| --- | --- |
+| a call | what is called (the whole path: `this.repo.save`) and every argument, named or not |
+| an assignment | the whole target (with its index or key), the operator, the value, a declared type |
+| a condition | every operand, every comparison, every `and` / `or`, every negation |
+| a value | its exact value (`0x1F` is 31, `"a\tb"` has a tab), text with values in it part by part |
+| an object, list, or JSX | every key and item; every tag, attribute, and child |
+| a function written inside | its parameters (and types); its body is the step's own children |
+| a return or a failure | the value; the error's type and its message |
+
+The tree is read from the code, never guessed: what Thunder cannot read exactly is kept as `{ kind: 'code', text }`.
+Three places show it:
+
+- **Details** gives each step its tree (`expr`) and what the short words leave out (`detail`): `Calls save` has the
+  detail `with: order, { validate: false }`, shown as **Calls save — with: order, { validate: false }**. A step whose
+  words already say everything has no detail.
+- **Thunder Text** stays short by default. The full form (`modelText(model, id, { full: true })`, or Text with
+  `{ full: true }`) adds every detail after the words on the same line, so nothing in the code is out of reach.
+- **The faithfulness gate** counts a condition's negations and comparisons from its tree, so a TypeScript non-null
+  `x!` is not mistaken for a negation, and an operator inside a string is never counted.
+
+**Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, each step's tree can be written back as code
+(`renderStatement`), read again, and compared (`stepRoundTrip`). Where a condition or value is made only of names,
+values, and operators, the original code and the code written back are also run on the same generated inputs and
+must give the same answers. `scripts/accuracy.mjs` reports the share of steps whose round trip is exact, and how many
+of the code's names a reader can see in the short words and in Details ([accuracy](./accuracy.md)).
+
 ## 6. Thunder cards and the Thunder Text contract
 
 A **decision** is a function that chooses between fixed answers. It is drawn as a **Thunder card** and written in

@@ -57,6 +57,14 @@ for (const f of ['c', 'py', 'rb', 'go', 'rs', 'kt', 'php']) {
     return true;
   });
 }
+// Operators by their first character, longest first, so the lexer tries only the few that can match.
+const OPS_BY_CHAR = {};
+for (const [f, list] of Object.entries(OPS_BY_FAMILY)) {
+  const m = new Map();
+  for (const o of list) { if (!m.has(o[0])) m.set(o[0], []); m.get(o[0]).push(o); }
+  for (const l of m.values()) l.sort((a, b) => b.length - a.length);
+  OPS_BY_CHAR[f] = m;
+}
 const opFamily = (lang) => (lang === 'kotlin' ? 'kt' : lang === 'php' ? 'php' : famOf(lang));
 
 const ID_START = /[A-Za-z_$\u00C0-\uFFFF]/;
@@ -67,7 +75,7 @@ const REGEX_AFTER_KW = /^(?:return|typeof|case|in|of|delete|void|throw|new|insta
 
 function makeLexer(src, lang) {
   const fam = famOf(lang);
-  const ops = OPS_BY_FAMILY[opFamily(lang)];
+  const ops = OPS_BY_CHAR[opFamily(lang)];
   const hashComment = fam === 'py' || fam === 'rb' || lang === 'php';
   const toks = [];
   let pos = 0;
@@ -224,7 +232,7 @@ function makeLexer(src, lang) {
       pos = j;
       return { t: 'regex', v: src.slice(s, j), s, e: j, nl, sp };
     }
-    for (const o of ops) {
+    for (const o of ops.get(c) || []) {
       if (src.startsWith(o, pos)) {
         // `?.5` is a ternary on a number, not optional chaining.
         if (o === '?.' && /[0-9]/.test(src[pos + 2] || '')) continue;
@@ -439,10 +447,11 @@ class Parser {
       const right = this.expr(op.key === '**' ? bp : bp + 0.01);
       if (LOGIC[op.key] && !(this.lang === 'kotlin' && /^(and|or)$/.test(op.key))) {
         const lop = LOGIC[op.key];
-        const operands = [...(left.kind === 'logic' && left.op === lop && !left.grouped ? left.operands : [left]), right];
+        // (and / or are associative: `(a && b) && c` and `a && b && c` mean the same, so they read the same.)
+        const operands = [...(left.kind === 'logic' && left.op === lop ? left.operands : [left]), right];
         left = { kind: 'logic', op: lop, operands };
       } else if (COMPARE.has(op.key)) {
-        if (this.fam === 'py' && (left.kind === 'compare' || left.kind === 'chain') && !left.grouped) {
+        if (this.fam === 'py' && (left.kind === 'compare' || left.kind === 'chain') && !GROUPED.has(left)) {
           // Python chains comparisons: a < b < c means a < b and b < c.
           const ch = left.kind === 'chain' ? left : { kind: 'chain', ops: [left.op], operands: [left.left, left.right] };
           left = { kind: 'chain', ops: [...ch.ops, op.key], operands: [...ch.operands, right] };
@@ -504,7 +513,7 @@ class Parser {
         // Python: -x ** 2 is -(x ** 2); elsewhere unary binds tighter than everything but postfix.
         const v = this.expr(fam === 'py' ? 15 : PREFIX_BP[opFamily(this.lang)] ?? 17);
         // A negative number is one literal (-1), as a reader would write it.
-        if (t.v === '-' && v.kind === 'literal' && v.type === 'number' && !v.grouped && this.L.src[t.e] !== ' ') return { ...v, value: v.value == null ? null : -v.value, raw: `-${v.raw}` };
+        if (t.v === '-' && v.kind === 'literal' && v.type === 'number' && !GROUPED.has(v) && this.L.src[t.e] !== ' ') return { ...v, value: v.value == null ? null : -v.value, raw: `-${v.raw}` };
         return { kind: 'unary', op: t.v, value: v };
       }
       if (t.v === '++' || t.v === '--') { this.next(); return { kind: 'unary', op: t.v, value: this.expr(17) }; }
@@ -948,7 +957,7 @@ class Parser {
       const items = [e];
       while (this.isOp(',')) { this.next(); if (this.isOp(')')) break; items.push(this.expr(0.6)); }
       e = { kind: 'array', form: 'tuple', items };
-    } else if (e && typeof e === 'object') e = { ...e, grouped: true };
+    } else if (e && typeof e === 'object') GROUPED.add(e);
     this.noBrace = saveBrace; this.noIf = saveIf;
     this.eat(')');
     return e;
@@ -1362,15 +1371,9 @@ function splitParams(text) {
 }
 const flatName = (n) => (n.kind === 'name' ? n.name : n.kind === 'member' ? (flatName(n.object) == null ? null : `${flatName(n.object)}${n.static ? '::' : '.'}${n.property}`) : n.kind === 'index' ? (flatName(n.object) == null ? null : `${flatName(n.object)}[${n.index.kind === 'name' ? n.index.name : '…'}]`) : null);
 
-/** Remove the `grouped` marks the parser uses while reading (a bracket changes reading order, which the tree keeps). */
-function clean(node) {
-  if (Array.isArray(node)) return node.map(clean);
-  if (!node || typeof node !== 'object') return node;
-  const out = {};
-  for (const k of Object.keys(node)) if (k !== 'grouped') out[k] = clean(node[k]);
-  return out;
-}
-
+// Nodes written in brackets, while reading: `(a < b) < c` is not a Python chain, `-(1)` not the literal -1. The
+// tree itself has no brackets (its shape is the reading order).
+const GROUPED = new WeakSet();
 // ── Public: expressions and statements ───────────────────────────────────────────────────────────────────────
 
 const CACHE = new Map();
@@ -1393,7 +1396,7 @@ export function parseExpr(text, language = '') {
       const e = p.expr(0);
       if (p.isOp(';')) p.next();
       if (p.peek().t !== 'eof') return null;
-      return clean(e);
+      return e;
     } catch (e) { if (e instanceof Fail) return null; throw e; }
   });
 }
@@ -1409,7 +1412,7 @@ export function parseStatement(text, language = '') {
   const src = String(text ?? '').trim();
   if (!src) return code('');
   return cached(`s\u0001${language}\u0001${src.length > 600 ? `${src.length}\u0001${src.slice(0, 300)}\u0001${src.slice(-300)}` : src}`, () => {
-    try { return clean(statement(new Parser(src, language))); } catch (e) { if (e instanceof Fail) return code(headOf(src)); throw e; }
+    try { return statement(new Parser(src, language)); } catch (e) { if (e instanceof Fail) return code(headOf(src)); throw e; }
   });
 }
 /**

@@ -15,7 +15,7 @@
 //      simple scan, compared with what Thunder's model draws: missing, misplaced (a method owned by the wrong Thing),
 //      or invented.
 //
-// Usage: node scripts/accuracy.mjs <folder>... [--json] [--samples out.md --per-language 30]
+// Usage: node scripts/accuracy.mjs <folder>... [--json] [--steps] [--samples out.md --per-language 30]
 import { writeFileSync } from 'node:fs';
 import { collectReadableFiles } from '../src/read-repo-fs.mjs';
 import { readableLanguage, readFiles } from '../src/read-repo.mjs';
@@ -35,7 +35,7 @@ if (!dirs.length) { console.error('Use: node scripts/accuracy.mjs <folder>... [-
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_\-.$]+/g, ' ').toLowerCase().trim();
 const flat = (steps) => (steps || []).flatMap((s) => [s, ...flat(s.children), ...flat(s.otherwise), ...(s.handlers || []).flatMap((h) => flat(h.steps)), ...flat(s.always?.steps)]);
 const TARGETS = TRANSLATE_LANGUAGES.map((l) => l.key);
-const KEYWORDS = new Set('if else elif for while do return const let var new await async function def fn func public private protected static final void int string bool boolean true false null nil none undefined this self try catch finally throw raise import from as in of is not and or the let mut pub use val fun class struct enum interface type when match switch case break continue yield lambda end then begin elsif unless puts echo print println printf console log with assert del pass global nonlocal except go defer range chan select fallthrough typeof instanceof delete void'.split(' '));
+const KEYWORDS = new Set('if else elif for while do return const let var new await async function def fn func public private protected static final void int string bool boolean true false null nil none undefined this self try catch finally throw raise import from as in of is not and or the let mut pub use val fun class struct enum interface type when match switch case break continue yield lambda end then begin elsif unless puts echo print println printf console log with assert del pass global nonlocal except go defer range chan select fallthrough typeof instanceof delete void foreach out ref params open override internal sealed abstract virtual readonly extends implements throws'.split(' '));
 // A line's comment is not code: `x = f(y)  # noqa: F811` has the names x, f, y.
 const withoutComment = (line) => String(line).replace(/\/\*.*?\*\/|\/\/.*$|(?:^|\s)#(?![[!{]).*$/, ' ');
 

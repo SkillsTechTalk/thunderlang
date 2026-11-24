@@ -1,5 +1,30 @@
 # Unreleased
 
+**Language: no loss — every detail, one level down** (`compiler/src/meaning.mjs`, `compiler/src/round-trip.mjs`).
+Thunder's words stay short, and nothing in the code is lost: every step now carries `expr`, its full meaning as a
+small language-neutral tree (`thunder-expr-v1`): calls with their whole callee path and every argument, assignments
+with their full target (index, keys) and value, conditions with every operand and negation, exact literals, object,
+list, and JSX contents, lambdas (their body is the step's children), returns and throws with value, error type, and
+message. What the reader cannot read exactly is `{ kind: 'code', text }`, never a guess.
+- **Details** gives each step its `expr` and `detail`, what the short words leave out ("Calls save — with: order,
+  { validate: false }"). **Thunder Text** stays short; `modelText(model, id, { full: true })` (and Text with
+  `{ full: true }`) shows every argument and value. On the eleven audit repositories, a reader can now see 97.4% of
+  each step's code names in Details, against 59.5% in the short words (58% before, counted the old way).
+- **Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, a step's tree is written back as code, read
+  again by the same reader, and compared: 99.4% of 9,965 steps come back exactly (every step that was read into a
+  tree; the rest are kept as code), none different. Conditions and values made of names and operators are also run
+  before and after on generated inputs (Node, Python): 1,069 run the same, none differently (Go is compared by tree
+  only). `scripts/accuracy.mjs` adds "names kept (Details)" and "steps round-trip exact" (and `--steps` to list
+  failures); 465 of 25,864 steps across all eleven repositories are still kept as code (docs/accuracy.md).
+- **The faithfulness gate reads the tree**: a condition's negations and comparisons are counted from `expr` when it
+  parses (a TypeScript non-null `x!` is no longer a negation; operators inside strings never count), and
+  `wordsAgree(step)` checks that every number, quoted text, and "Calls X" in the words is in the tree (no step on the
+  eleven repositories disagrees).
+- Reader fixes the tree found: `i++` at the end of a line (Go, JavaScript without semicolons) no longer swallows the
+  next statement; a one-line `if (x) { a(); }` no longer puts its block in its words; `case A: case B:` keeps both
+  labels in its tree; Kotlin `require(x) { "message" }` keeps its message.
+- No existing test changed.
+
 **Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
 review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
 misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep

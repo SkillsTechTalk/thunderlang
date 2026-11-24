@@ -264,11 +264,33 @@ export function ruleFlow(item, start) {
   return { nodes, edges, blocks: chain(0) };
 }
 
+// A node's `detail` (what the short words leave out) is worked out the first time it is read — by Details, the full
+// Thunder Text, or a serializer — not for every node of every flow. It is an ordinary enumerable field once read.
+const DETAIL_OF = Symbol('detail of');
+function lazyDetail(nd, step) {
+  Object.defineProperty(nd, 'detail', {
+    enumerable: true, configurable: true,
+    get() {
+      const parts = detailParts(step);
+      const value = parts.length ? parts.map((x) => `${x.label}: ${x.text}`).join('; ') : undefined;
+      Object.defineProperty(nd, 'detail', { value, enumerable: value !== undefined, writable: true, configurable: true });
+      return value;
+    },
+  });
+}
+
 /** Turn steps into nodes and edges. Deterministic; nothing is added that the steps do not say. */
 export function flowOf(steps, { start = 'Start', memberIndex = new Map(), memberLabel = new Map() } = {}) {
   const nodes = [], edges = [];
   let n = 0;
-  const node = (kind, text, extra = {}) => { const id = `n${n++}`; nodes.push({ id, kind, text, ...extra }); return id; };
+  const node = (kind, text, extra = {}) => {
+    const id = `n${n++}`;
+    const { [DETAIL_OF]: of, ...rest } = extra;
+    const nd = { id, kind, text, ...rest };
+    if (of) lazyDetail(nd, of);
+    nodes.push(nd);
+    return id;
+  };
   const connect = (open, to) => { for (const o of open) edges.push({ from: o.id, to, ...(o.label ? { label: o.label } : {}), ...(o.text ? { text: o.text } : {}) }); };
   // The first call in the step to another member of this file: self.can_borrow(...), delivery_fee(...), this.lateFee(...).
   // A method called on some other object (`console.error(…)`, `other.fillBuffer(…)`) is not this file's member.
@@ -295,8 +317,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       const does = stepDoes(st);
       // Every node keeps its step's meaning tree (`expr`) and, when the short words leave something out, `detail`:
       // the rest, one level down ("with: order, { validate: false }"). Details and the full Thunder Text show it.
-      const parts = detailParts(st);
-      const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}), ...(st.expr ? { expr: st.expr } : {}), ...(parts.length ? { detail: parts.map((x) => `${x.label}: ${x.text}`).join('; ') } : {}) };
+      const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}), ...(st.expr ? { expr: st.expr, [DETAIL_OF]: { says: st.says, kind: st.kind, code: st.code, restates: st.restates, expr: st.expr } } : {}) };
       // A choice among several cases (switch, when, match, select): one question with one side per case.
       const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check' && c.caseLabel) ? st.children : null;
       if (arms) {
