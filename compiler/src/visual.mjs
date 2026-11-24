@@ -250,6 +250,7 @@ export const DOES = {
   calculate: { label: 'Works out', mark: '=', color: 'fact' },
   save: { label: 'Saves', mark: '⤓', color: 'outcome' },
   send: { label: 'Tells someone', mark: '✉', color: 'outcome' },
+  redirect: { label: 'Sends the person to', mark: '↪', color: 'outcome' },
   ask: { label: 'Asks another part', mark: '⇄', color: 'outcome' },
   repeat: { label: 'For each', mark: '↻', color: 'structure' },
   answer: { label: 'Gives back', mark: '⇥', color: 'outcome' },

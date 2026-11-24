@@ -242,6 +242,34 @@ function httpErrorOf(head) {
   return { kind: 'fail', says: `Fails with ${status} ${name}${msg ? `: "${msg}"` : ''}`, error: `${status} ${name}`, ...(msg ? { message: msg } : {}), status };
 }
 
+/** Where a redirect goes, in words: '/login' stays a path, `${GOOGLE_AUTH_URL}?…` -> "the Google auth URL", url_for('home') -> "the home page". */
+function redirectTarget(arg) {
+  const a = String(arg || '').trim().replace(/^(?:url|to|location|redirect_to)\s*=\s*/, '');
+  let m;
+  if ((m = a.match(/^(?:new\s+URL\(\s*)?["'`](\/[^"'`$?#]*|https?:\/\/[^"'`$/?#]+[^"'`$?#]*)/))) return m[1];
+  if ((m = a.match(/^`\$\{\s*([A-Za-z_][\w.]*)\s*\}/))) return `the ${words(m[1].split('.').pop()).replace(/\burl\b/i, 'URL')}`;
+  if ((m = a.match(/\b(?:url_for|reverse|route|url)\(\s*["']([\w.:-]+)["']/))) return `the ${words(m[1].split(/[.:]/).pop())} page`;
+  if ((m = a.match(/^([A-Za-z_][\w.]*)$/))) return `the ${words(m[1].split('.').pop()).replace(/\burl\b/i, 'URL')}`;
+  return 'another page';
+}
+
+/**
+ * A redirect: Fastify/Express `reply.redirect(url)` / `res.redirect(302, url)`, `Response.redirect(url)`,
+ * `NextResponse.redirect(...)`, Flask/Django/Next `redirect(url)`, `HttpResponseRedirect(url)`,
+ * FastAPI `RedirectResponse(url)`, Laravel `redirect()->route('home')`. Gives a step that says where the person goes.
+ */
+function redirectOf(head) {
+  const isReturn = /^return\b/.test(head);
+  const expr = head.replace(/^return\s+/, '').replace(/^await\s+/, '').replace(/;\s*$/, '').trim();
+  let m = expr.match(/^(?:reply|res|response|resp|ctx|c)\s*\.\s*redirect\s*\(\s*(?:\d{3}\s*,\s*)?(.*)\)\s*$/)
+    || expr.match(/^(?:Response|NextResponse)\s*\.\s*redirect\s*\(\s*(.*?)\s*(?:,\s*\d{3}\s*)?\)\s*$/)
+    || expr.match(/^(?:HttpResponseRedirect|HttpResponsePermanentRedirect|RedirectResponse|redirect)\s*\(\s*(.*?)\s*(?:,\s*(?:\d{3}|status(?:_code)?\s*=\s*\d{3}|permanent\s*=\s*\w+)\s*)?\)\s*$/)
+    || expr.match(/^redirect\(\s*\)\s*->\s*(route\(.*\))\s*$/);
+  if (!m) return null;
+  const to = redirectTarget(m[1]);
+  return { kind: isReturn ? 'return' : 'call', says: `Sends the person to ${to}`, redirect: to };
+}
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
@@ -278,6 +306,9 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   // An HTTP error response (4xx/5xx) is a Stop: the request is refused, with a status and a message.
   const httpFail = httpErrorOf(head);
   if (httpFail) return { ...httpFail, code };
+  // A redirect sends the person somewhere else: "Sends the person to the Google auth URL".
+  const redirect = redirectOf(head);
+  if (redirect) return { ...redirect, code };
   // Returns (Go/Rust error returns read as failures)
   if ((m = head.match(/^return\b\s*(.*)$/))) {
     const expr = stripTail(m[1]);
