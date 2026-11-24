@@ -1,5 +1,27 @@
 # Unreleased
 
+**Language: writing in Thunder** (`compiler/src/write-steps.mjs`; `thunderWrite` in `/core`; `thunder write <file>
+--edit '<json>' [--apply] [--test "<cmd>"] [--candidate <file>]`). A person changes software in Thunder and the code is
+written for them, then proven.
+- **Thunder edits**, by function and step: `setValue`, `setCondition` (whole condition, comparison, one side,
+  negation, add or remove an `and`/`or` part), `addStep`, `removeStep`, `moveStep`, `addStop`, `removeStop`,
+  `addInput`, `removeInput`, `setGivesBack`, `rename` (an input, a name, or the function with its calls), and
+  `addFunction` (simple cases). Each is validated against the meaning tree; one that does not fit is refused with the
+  reason.
+- **Written deterministically** for TypeScript, JavaScript, Python, and Go as a minimal patch: only the touched lines
+  (often characters) change; comments, quotes, indentation, and formatting stay byte for byte.
+- **Otherwise `needs-ai`** with a self-contained instruction for an AI coding agent (the compiler makes no AI or
+  network call); code an AI wrote is checked by the same proof (`options.candidate`) and labeled **AI-written**.
+- **Proven** by reading the changed files again: the edited steps equal the intended steps tree for tree, and every
+  other function means the same (identical trees, and `thunder same`). A patch that fails its proof is never returned
+  as written. `--test` runs a command on the change; `--apply` saves only then.
+- On five audit repositories, 2,846 of 3,069 generated edits (92.7%) were written and proven, 210 needed AI, 13 were
+  refused (`scripts/write-sweep.mjs`).
+- `/zoom` Details has **Change this**: change a limit or add a Stop on the sample and see the Thunder edit, the code
+  change, and the proof, computed in the browser; nothing is saved.
+- `readCode(…, { allSteps: true })` also gives decisions their steps; `parseStatementSpans` gives each part's offsets.
+- Fix: `thunder --help` is flushed before exit, so a long help is never cut off in a pipe.
+
 **Fix (serious): `thunder same` could call different code "same".** It compared steps by their short words and
 ignored the code of steps shown as code, so `x = a + b` and `x = a - b`, or `compute(o.items)` and
 `compute(o.lines)`, were reported as the same. Steps are now also compared by a language-neutral signature of their

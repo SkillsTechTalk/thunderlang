@@ -9,6 +9,7 @@ import { LEVELS, THUNDER_VISUAL, thunderTokens } from "../../../compiler/src/vis
 import { explainPlain } from "../../../compiler/src/plain-contract.mjs";
 import { Symbol, ThingCard, DataCard, FlowBlocks, HEX, focus, type SymbolId } from "./ThunderParts";
 import { sourceLines } from "../../lib/source-tokens.mjs";
+import { ChangeThis } from "./ChangeThis";
 
 /** The same answer words the flow uses: BigFee -> Big fee, true -> Yes. */
 const answerWords = (r: string) => (/^true$/i.test(r) ? "Yes" : /^false$/i.test(r) ? "No" : ((w) => w.charAt(0).toUpperCase() + w.slice(1))(String(r).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase()));
@@ -87,7 +88,7 @@ function Card({ title, children, tone }: { title: string; children: React.ReactN
 const rangeText = (r: { from: number | null; to: number | null }) => (r.from === null ? `${r.to} or less` : r.to === null ? `${r.from} or more` : r.from === r.to ? `exactly ${r.from}` : `${r.from} to ${r.to}`);
 
 /** Details: a fact sheet of what you need to check before you trust or change an action or rule. */
-function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view: LevelView; member: { kind: string; lines: [number, number] }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void }) {
+function DetailsSheet({ view, member, thingLabel, file, open, showLine, change }: { view: LevelView; member: { kind: string; name: string; lines: [number, number] }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void; change?: { source: string; onUse?: (s: string) => void } }) {
   const isRule = !!view.answers || member.kind === "rule";
   const stopColor = HEX[THUNDER_VISUAL.does.stop?.color ?? "failure"];
   return (
@@ -204,6 +205,8 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
           )}
         </Card>
 
+        {change && <ChangeThis source={change.source} file={file} name={member.name} line={member.lines[0]} onUse={change.onUse} />}
+
         <details className="rounded-2xl border border-white/10 p-5">
           <summary className={`cursor-pointer text-xs font-semibold uppercase tracking-wider text-haze-400 ${focus}`}>Every step ({view.steps!.length})</summary>
           <ol aria-label="Every step" className="mt-3 space-y-1.5">
@@ -225,8 +228,10 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
   );
 }
 
-export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, onSourceChange }: {
+export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, canChange = false, onSourceChange }: {
   source: string; file: string; name?: string;
+  /** Details offers "Change this": write a change in Thunder and see the code and its proof (nothing is saved). */
+  canChange?: boolean;
   /** A member's name (e.g. return_book) to show at Flow, Details, Text, and Original until another is chosen. */
   initialFocus?: string; initialLevel?: LevelId; editable?: boolean; onSourceChange?: (s: string) => void;
 }) {
@@ -323,7 +328,7 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
 
             {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} /></div>}
 
-            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} />}
+            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} change={canChange ? { source, onUse: onSourceChange } : undefined} />}
           </article>
         )}
 

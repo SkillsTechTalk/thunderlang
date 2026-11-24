@@ -1202,10 +1202,6 @@ function applyEdit(state, edit) {
   }
   const m = findMember(state, edit.member);
   if (!m.item.steps) needsAi(`Thunder has no steps for ${m.item.name} (line ${m.item.line}), so the edit cannot be placed exactly.`);
-  if (!WRITE_STEPS_LANGUAGES.includes(m.language)) {
-    // Validate as far as the model allows, then hand over.
-    needsAi(`The deterministic writers cover TypeScript, JavaScript, Python, and Go; ${m.path} is ${langName(m.language)}.`);
-  }
   let source = m.source;
   const ctx = {
     state, language: m.language, item: m.item, steps: m.item.steps, path: m.path,
@@ -1231,7 +1227,9 @@ function applyEdit(state, edit) {
     },
     allNames() { const s = new Set(); for (const [p] of state.files) { const r = state.read(p); if (r) for (const it of membersOf(r.reading)) s.add(it.name); } return s; },
   };
-  const says = OPS[edit.op](ctx, edit);
+  const says = OPS[edit.op](ctx, edit); // validates the edit against the meaning tree (Refused when it does not fit)
+  // Other languages: the edit was checked against the model above; the code is handed to an AI coding agent.
+  if (!WRITE_STEPS_LANGUAGES.includes(m.language)) needsAi(`The deterministic writers cover TypeScript, JavaScript, Python, and Go; ${m.path} is ${langName(m.language)}.`);
   for (const t of ctx.treeEdits) source = writeStepTree(source, t.step, t.tree, m.language);
   if (ctx.goImport) source = addGoImport(source, ctx.goImport);
   const files = new Map(state.files);
