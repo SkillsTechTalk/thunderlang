@@ -18,7 +18,7 @@ const LANGUAGE = {
   name: "Thunder",
   alternateName: ["ThunderLang", "Thunder programming language", "Thunder language"],
   description:
-    "Thunder is a human-native programming language: it shows what software does as pictures and plain words, read exactly from code in fourteen languages (C, C++, Swift, and SQL included) by an open-source compiler. OpenThunder is its IDE.",
+    "Thunder is a human-native programming language: it shows what software does as pictures and plain words, read exactly from code in seventeen languages (C, C++, Swift, R, shell, PowerShell, and SQL included) by an open-source compiler. OpenThunder is its IDE.",
   url: `${URL}/language`,
   sameAs: [REPO, NPM],
 };

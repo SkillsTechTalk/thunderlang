@@ -265,7 +265,7 @@ message. What the reader cannot read exactly is `{ kind: 'code', text }`, never 
   labels in its tree; Kotlin `require(x) { "message" }` keeps its message.
 - No existing test changed.
 
-**Language: C, C++, and Swift.** Thunder now reads fourteen languages. `.c` is C; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh`/`.hxx`
+**Language: C, C++, and Swift.** Three more languages (with R, shell, and PowerShell below, seventeen in all). `.c` is C; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh`/`.hxx`
 are C++; a `.h` is C unless it uses classes, namespaces, templates, or `::` (C++ lines kept for C++ callers inside
 `#ifdef __cplusplus` do not count); `.swift` is Swift. Pasted code is recognized too.
 - **Functions.** C and C++ functions are found by walking scopes (file, namespaces, `extern "C"`, classes): return
@@ -294,8 +294,8 @@ are C++; a `.h` is C unless it uses classes, namespaces, templates, or `::` (C++
   takes the source to decide a `.h`.
 - thunderlang.dev says fourteen languages; /read has C, C++, and Swift samples, and the Original view colors them.
 
-**Language: C, C++, and Swift held to the faithfulness bar.** This branch now carries the faithfulness gate
-(merged from fix/faithfulness; `faithful.mjs` unchanged) and fixes every false or misleading reading found in a hand
+**Language: C, C++, and Swift held to the faithfulness bar.** The C, C++, and Swift readers pass the faithfulness
+gate (`faithful.mjs`, below) and fix every false or misleading reading found in a hand
 review of fmt, nlohmann/json, redis, Alamofire, and vapor (see docs/accuracy.md, "C, C++, and Swift"):
 - **Text with values inside** (docs/spec.md): `printf`/`fprintf`/`snprintf`, `fmt::print`, `cout <<`, and Swift
   interpolation keep every literal character and show each value as a «placeholder» (`"«dir»/alias «n»\n"`,

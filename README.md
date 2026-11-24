@@ -49,7 +49,7 @@ is an outcome, a **ticket** is an example you can run.
 
 ## Thunder Code: read the code you already have
 
-Thunder reads existing Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, and Ruby (all 10 languages the code reader supports today) and draws the rules it finds.
+Thunder reads existing Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, and PowerShell (all 17 languages the code reader supports today), plus Dockerfiles, GitHub Actions, Terraform, Bicep, Kubernetes YAML, and Docker Compose, and draws the rules it finds.
 That is **Thundered code**: "Thundered Python", "Thundered TypeScript". Your code stays the source of truth;
 Thunder shows what it does today, so a person can say whether that is what the team wants.
 

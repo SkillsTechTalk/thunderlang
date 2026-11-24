@@ -40,7 +40,7 @@ function Shapes() {
 function HowTo() {
   const ways = [
     { title: "Semantic Zoom", where: "In your browser", what: "Paste code and read it at three depths: big picture, flow, details.", href: "/zoom", cta: "Open Semantic Zoom" },
-    { title: "Thunder Code", where: "In your browser", what: "Paste a file in any of fourteen languages, C, C++, Swift, and SQL included, and read it in Thunder.", href: "/read", cta: "Open Thunder Code" },
+    { title: "Thunder Code", where: "In your browser", what: "Paste a file in any of seventeen languages, C, C++, Swift, R, shell, PowerShell, and SQL included, and read it in Thunder.", href: "/read", cta: "Open Thunder Code" },
     { title: "OpenThunder", where: "A whole app", what: "Open a repository and read it in Thunder, from the app down to one rule, then change it safely.", href: "https://openthunder.dev", cta: "Open OpenThunder ↗" },
   ];
   const commands = [

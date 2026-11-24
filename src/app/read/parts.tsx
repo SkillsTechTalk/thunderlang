@@ -26,7 +26,8 @@ export const KNOW: { key: CodeLang; label: string }[] = [
 
 export const LANG_LABEL: Record<string, string> = {
   typescript: "TypeScript", javascript: "JavaScript", python: "Python", go: "Go", rust: "Rust", csharp: "C#", java: "Java", kotlin: "Kotlin", php: "PHP", ruby: "Ruby",
-  sql: "SQL", r: "R", shell: "Shell (Bash)", powershell: "PowerShell",
+  sql: "SQL", c: "C", cpp: "C++", swift: "Swift", r: "R", shell: "Shell (Bash)", powershell: "PowerShell",
+  dockerfile: "Dockerfile", "github-actions": "GitHub Actions", terraform: "Terraform", bicep: "Bicep", kubernetes: "Kubernetes", "docker-compose": "Docker Compose",
 };
 
 /** Filter chips. "route" and "guard" match items that have a route or checks, whatever their kind. */

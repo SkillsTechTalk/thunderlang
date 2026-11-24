@@ -4,7 +4,7 @@ Thunder is only useful if it shows **everything** a piece of code does. The lang
 repository per language with the Thunder compiler and measures what a reader would miss. Run it yourself:
 
 ```sh
-cd compiler && node scripts/language-audit.mjs            # all eleven repositories
+cd compiler && node scripts/language-audit.mjs            # every repository in AUDIT_REPOS (seventeen)
 node scripts/language-audit.mjs psf/requests              # one repository
 ```
 
