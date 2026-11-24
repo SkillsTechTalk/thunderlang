@@ -2279,7 +2279,9 @@ function markBuildOnlySteps(steps, fn, lang, code, srcLines) {
   const stack = [];
   const clean = (t) => t.replace(/\s*\/[/*].*$/, '').replace(/\s+/g, ' ').trim();
   for (let l = range[0]; l <= range[1]; l++) {
-    const t = (srcLines[l - 1] ?? '').trim();
+    let t = (srcLines[l - 1] ?? '').trim();
+    // A directive continued with `\` takes its next lines.
+    while (/^#/.test(t) && /\\$/.test(t) && l < range[1]) t = `${t.slice(0, -1).trim()} ${(srcLines[l++] ?? '').trim()}`;
     let m;
     if ((m = t.match(/^#\s*(if|ifdef|ifndef)\b(.*)$/))) stack.push({ first: clean(`#${m[1]}${m[2]}`), label: clean(`#${m[1]}${m[2]}`) });
     else if ((m = t.match(/^#\s*(elif|elifdef|elifndef)\b(.*)$/)) && stack.length) stack[stack.length - 1].label = clean(`#${m[1]}${m[2]}`);

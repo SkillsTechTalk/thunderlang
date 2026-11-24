@@ -291,6 +291,12 @@ function sayCodeConditionInner(cond) {
     const what = parts.length > 1 ? `the ${words(parts[0])}'s ${words(parts[1])}` : words(parts[0]);
     return `${what} is ${bare[1] ? 'not ' : ''}set`;
   }
+  // (C, C++, Swift: quoted text is kept exactly while the operators around it become words: "lie in between" stays.)
+  const quotes = [];
+  if (C_FAMILY.has(LANG) || LANG === 'swift') c = c.replace(/"(?:\\.|[^"\\])*"/g, (q) => `\u0001${quotes.push(q) - 1}\u0001`);
+  return conditionOperatorWords(c).replace(/\u0001(\d+)\u0001/g, (m0, i) => quotes[Number(i)]);
+}
+function conditionOperatorWords(c) {
   return c
     // Strict equality keeps null and undefined apart (a reader must be able to tell `=== null` from `=== undefined`).
     .replace(/\s*===\s*(null|undefined)(?=\s|\)|$)/g, ' is $1').replace(/\s*!==\s*(null|undefined)(?=\s|\)|$)/g, ' is not $1')
@@ -1214,7 +1220,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const c = closeOf(head, head.indexOf('('));
     const body = c > 0 ? head.slice(c + 1).trim() : '';
     // (`if (x) ++q;` has a statement after its condition: `++q` is not the condition going on.)
-    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && (!/^(?:&&|\|\||and\b|or\b|is\b|in\b|not\b|instanceof\b|[-+*/%<>=!?.])/.test(body) || /^(?:\+\+|--)[A-Za-z_][\w.]*\s*;?$/.test(body)) && !/:\s*$/.test(body)) {
+    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && (!/^(?:&&|\|\||and\b|or\b|is\b|in\b|not\b|instanceof\b|[-+*/%<>=!?.])/.test(body) || /^(?:\+\+|--)[A-Za-z_][\w.]*\s*;?$/.test(body) || (C_FAMILY.has(LANG) && /^\*\s*[A-Za-z_][\w.]*(?:->\w+)*\s*=(?!=)/.test(body))) && !/:\s*$/.test(body)) {
       const cond = head.slice(head.indexOf('(') + 1, c);
       return { kind: 'branch', says: `If ${sayCodeCondition(cond)}`, cond, code, inline: body };
     }

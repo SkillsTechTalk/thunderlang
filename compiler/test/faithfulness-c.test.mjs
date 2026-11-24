@@ -84,3 +84,11 @@ test('redis#7: a block that starts with `prev->next = cur;` keeps the owner (it 
   const t = thunderText('a.c', 'void f(int *eb) {\n    if (previtem) {\n        previtem->next = curitem;\n    }\n}\n');
   assert.match(t, /Sets the previtem's next to curitem/);
 });
+
+test('redis (automatic check): quoted text inside a condition is kept exactly; `if (err) *err = …;` keeps its body', () => {
+  const t = thunderText('a.c', 'int f(sds *err, long limit) {\n    if (err) *err = sdsnew("Invalid engine in script shebang");\n    if (limit < 1 || x(c, "Limit has to lie in between 1 and 16384")) return 0;\n#if A >= 2 && \\\n    B\n    g();\n#endif\n    return 1;\n}\n');
+  assert.match(t, /"Limit has to lie in between 1 and 16384"/);
+  assert.doesNotMatch(t, /lie is in between|If \(err\)/);
+  assert.equal(sideOf(t, /Ask: Is err set\?/, /Writes the result of sdsnew where err points/), 'yes');
+  assert.match(t, /Calls g \(only in builds where `#if A >= 2 && B`\)/);
+});
