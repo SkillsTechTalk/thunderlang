@@ -36,7 +36,25 @@ export function detectLanguage(source, file = '') {
 
 // ── Lexing helpers ──────────────────────────────────────────────────────────────────────────
 
-const lineAt = (src, idx) => src.slice(0, idx).split('\n').length;
+// Line of a character offset. The line starts of the last few sources are kept, so each lookup is a binary search
+// instead of counting every newline from the top (which made large files quadratic).
+const lineStarts = new Map();
+function startsOf(src) {
+  let starts = lineStarts.get(src);
+  if (!starts) {
+    starts = [0];
+    for (let i = src.indexOf('\n'); i >= 0; i = src.indexOf('\n', i + 1)) starts.push(i + 1);
+    if (lineStarts.size > 8) lineStarts.delete(lineStarts.keys().next().value);
+    lineStarts.set(src, starts);
+  }
+  return starts;
+}
+const lineAt = (src, idx) => {
+  const starts = startsOf(src);
+  let lo = 0, hi = starts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid] <= idx) lo = mid; else hi = mid - 1; }
+  return lo + 1;
+};
 
 /** Index of the bracket that closes the one at `open`, skipping strings and comments. */
 function matchClose(src, open) {
