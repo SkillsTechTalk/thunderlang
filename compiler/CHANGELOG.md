@@ -265,6 +265,53 @@ message. What the reader cannot read exactly is `{ kind: 'code', text }`, never 
   labels in its tree; Kotlin `require(x) { "message" }` keeps its message.
 - No existing test changed.
 
+**Language: C, C++, and Swift.** Thunder now reads fourteen languages. `.c` is C; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh`/`.hxx`
+are C++; a `.h` is C unless it uses classes, namespaces, templates, or `::` (C++ lines kept for C++ callers inside
+`#ifdef __cplusplus` do not count); `.swift` is Swift. Pasted code is recognized too.
+- **Functions.** C and C++ functions are found by walking scopes (file, namespaces, `extern "C"`, classes): return
+  types on their own line, `static`/`inline`, macros, templates, attributes, constructors with initializer lists,
+  destructors ("Clean up"), operators, and `Type::method` definitions (with the type they belong to). Swift `func`,
+  `init`, subscripts, computed properties, and Vapor routes (`app.get("orders", ":id") { req in … }`,
+  `routes.post(…, use: handler)`, literal `grouped(…)` prefixes). Doc comments: C/C++ `/* … */`, `/** … */`, `//`;
+  Swift `///`.
+- **Steps.** C/C++: `malloc`/`calloc`/`new T[n]` ("Gets memory for 10 books as books"), `free`/`delete` ("Frees buf"),
+  `memcpy`/`strcpy`, `memset`, `strlen`, `strcmp(a, b) == 0` ("a is b"), `exit`/`abort`, `cout`/`printf`, `p->x`,
+  casts, declarations, designated initializers, labels and `goto`, `do … while` (also Allman style), endless loops,
+  range-for, `try`/`catch` by type, `throw;`, lambdas as their own sub-flow, `(void)x` skipped. A C/C++/Swift
+  `switch` is one question with one side per case; a C case without `break` says "then carries on into the next
+  case". Swift: `guard … else` ("If not: …" with the Stop inside), `if let`/`guard let` ("x is set"), `defer`,
+  `do`/`try`/`catch` by type, ranges (`0..<3` is "from 0 to 2"), enum cases (`.cancelled`), trailing closures,
+  one-expression bodies, `throw LibraryError.full`, Vapor `throw Abort(.notFound)` ("Fails with 404 Not Found").
+  C error returns stay what the code says ("Returns -1 early if fd is less than 0").
+- **Things.** C `struct`/`typedef struct` (Data, or a Thing when functions take it first or are named after it, with
+  the type's name left out of the label) and `enum` (shared prefixes dropped); C++ `class`/`struct`/`enum class`,
+  methods outside the class (also in another file), constructors, initializer lists, and default member initializers
+  as starting values; Swift `class`/`struct`/`actor`/`enum`, `extension` methods (also in another file), `init`, stored
+  properties with defaults; `protocol` is a contract, not a Thing.
+- Measured on redis (227 C files, 5,667 functions, 95% of steps explained), nlohmann/json and fmt (C++, 87–90%),
+  Alamofire and vapor (Swift, 92–96%), no reader errors; see the PR. The older readers are unchanged (the switch
+  grouping, `blockBrace`, and C/Swift wording run only for the new languages); `readableLanguage(path, source?)`
+  takes the source to decide a `.h`.
+- thunderlang.dev says fourteen languages; /read has C, C++, and Swift samples, and the Original view colors them.
+
+**Language: C, C++, and Swift held to the faithfulness bar.** This branch now carries the faithfulness gate
+(merged from fix/faithfulness; `faithful.mjs` unchanged) and fixes every false or misleading reading found in a hand
+review of fmt, nlohmann/json, redis, Alamofire, and vapor (see docs/accuracy.md, "C, C++, and Swift"):
+- **Text with values inside** (docs/spec.md): `printf`/`fprintf`/`snprintf`, `fmt::print`, `cout <<`, and Swift
+  interpolation keep every literal character and show each value as a «placeholder» (`"«dir»/alias «n»\n"`,
+  `«x as %5.2f»`); text whose values cannot be paired is shown as code.
+- C/C++: macros in front of a return type are dropped (`FMT_CONSTEXPR void` gives back nothing; `auto f() -> T`
+  gives back T); `using` is no step; `*p = v` "Writes v where p points"; `+=` of a call adds; bit operators,
+  statement ternaries, and multi-name declarations are code; brace-less `for`/`while`/`if` (also nested, `++q`,
+  `*err = …`, `[[unlikely]]`) keep their bodies on the right side; `events[i].mask` and `c->argv[j]->ptr` keep their
+  index; `p != nullptr` and `!strcmp(a, b)` pass the gate; steps under `#if`/`#elif`/`#else` say which build runs
+  them; a block starting `p->x = …` is no longer cut as a lambda parameter; goto labels keep their names.
+- Swift: a one-expression body (also a switch or if/else body, a trailing closure, a Vapor route closure) gives back
+  its value; `[Character]` parameters are inputs; a String property is never a yes/no rule; `Logger(…)` and Apple C
+  functions (`SecPolicyCreateSSL`) are not "writes a message"/"a new"; `guard case .x = event` asks about event;
+  `T.self is String.Type`; `for _ in xs`; code shown "not explained" is exactly as written.
+- Regression tests: `test/faithfulness-c.test.mjs`, `-cpp`, `-swift` (one per false or misleading sample).
+
 **Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
 review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
 misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep

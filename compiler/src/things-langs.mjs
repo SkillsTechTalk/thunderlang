@@ -50,6 +50,20 @@ function docAbove(src, idx) {
   return null;
 }
 
+/** C and C++ also document with a plain block comment (/* … *\/) on the lines right above. */
+function cDocAbove(src, idx) {
+  const before = src.slice(Math.max(0, idx - 1200), idx).trimEnd();
+  if (/\*\/$/.test(before) && !/\/\*\*[\s\S]*\*\/$/.test(before.slice(before.lastIndexOf('/*')))) {
+    const at = before.lastIndexOf('/*');
+    if (at >= 0 && /(?:^|\n)[ \t]*$/.test(before.slice(0, at))) {
+      const para = [];
+      for (const l of before.slice(at + 2, -2).split('\n')) { const t = l.replace(/^\s*\*?\s?/, '').trim(); if (!t) { if (para.length) break; continue; } para.push(t); }
+      return para.join(' ') || null;
+    }
+  }
+  return docAbove(src, idx);
+}
+
 /** The body of a brace block with nested blocks removed: the type's own declarations, not its methods' bodies. */
 function ownLevel(body) {
   let depth = 0, own = '';
@@ -342,7 +356,268 @@ export function makeThingReaders({ words, kindWords, startValue }) {
     return out;
   }
 
+  /**
+   * The members written at a type's own level, split where a declaration ends (`;`, or a newline for Swift) or where a
+   * brace block closes: [{ head, block, at }] where `block` is the inside of the braces that end it (or null) and `at`
+   * is the head's offset in `body`.
+   */
+  function members(raw, { newlines = false } = {}) {
+    // Comments blanked once (same length), so a `;` or `{` in a comment is never read as code.
+    const chars = raw.split('');
+    for (let i = 0; i < chars.length; i++) {
+      if (chars[i] === '/' && chars[i + 1] === '/') { while (i < chars.length && chars[i] !== '\n') chars[i++] = ' '; continue; }
+      if (chars[i] === '/' && chars[i + 1] === '*') { chars[i] = chars[i + 1] = ' '; i += 2; while (i < chars.length && !(chars[i] === '*' && chars[i + 1] === '/')) { if (chars[i] !== '\n') chars[i] = ' '; i++; } if (i < chars.length) { chars[i] = ' '; if (i + 1 < chars.length) chars[i + 1] = ' '; i++; } }
+    }
+    const body = chars.join('');
+    const out = [];
+    let from = 0, depth = 0;
+    const emit = (end, block) => { const head = body.slice(from, end); if (head.trim() || block != null) out.push({ head: head.trim(), block, at: from + (head.length - head.trimStart().length) }); };
+    for (let i = 0; i < body.length; i++) {
+      const c = body[i];
+      if (c === '"' || c === "'") { const q = c; for (i++; i < body.length && body[i] !== q && body[i] !== '\n'; i++) if (body[i] === '\\') i++; continue; }
+      if (c === '(' || c === '[') { depth++; continue; }
+      if (c === ')' || c === ']') { depth--; continue; }
+      if (depth) continue;
+      if (c === '{') {
+        const close = braceEnd(body, i);
+        if (close < 0) break;
+        emit(i, body.slice(i + 1, close));
+        from = close + 1; i = close;
+        continue;
+      }
+      if (c === ';' || (newlines && c === '\n')) { emit(i, null); from = i + 1; }
+    }
+    emit(body.length, null);
+    return out;
+  }
+
+  /** Drop a common prefix from enum values: STATUS_ON_SHELF, STATUS_BORROWED -> ON_SHELF, BORROWED; kOnShelf -> OnShelf. */
+  function enumNames(names) {
+    if (names.length > 1) {
+      const parts = names.map((n) => n.split('_'));
+      let k = 0;
+      while (parts.every((p) => p.length > k + 1 && p[k] === parts[0][k])) k++;
+      if (k) names = parts.map((p) => p.slice(k).join('_'));
+    }
+    if (names.length && names.every((n) => /^k[A-Z]/.test(n))) names = names.map((n) => n.slice(1));
+    return names;
+  }
+
+  /** C: struct, typedef struct, union, and enum. A struct is a record; the model makes it a Thing when functions take it. */
+  function cThings(src, file) {
+    const code = src.replace(/^[ \t]*#.*(?:\\\r?\n.*)*$/gm, (m) => m.replace(/[^\n]/g, ' '));
+    const lineAt = lineFinder(code);
+    const out = [];
+    for (const m of code.matchAll(/(?:^|\n)[ \t]*(typedef\s+)?(struct|union|enum)\b\s*(\w+)?\s*\{/g)) {
+      const at = m.index + (m[0].startsWith('\n') ? 1 : 0);
+      const open = m.index + m[0].length - 1;
+      const close = braceEnd(code, open);
+      if (close < 0) continue;
+      const alias = m[1] ? (code.slice(close + 1, close + 200).match(/^\s*(\w+)/) || [])[1] : null;
+      const name = alias || m[3];
+      if (!name) continue;
+      const doc = cDocAbove(code, at);
+      const t = { kind: m[2] === 'enum' ? 'choices' : 'record', name, ...(m[3] && m[3] !== name ? { tag: m[3] } : {}), file, lines: [lineAt(at), lineAt(close)], ...(doc ? { doc } : {}), knows: [], choices: [] };
+      const body = code.slice(open + 1, close);
+      if (m[2] === 'enum') {
+        t.choices = enumNames(splitParams(body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')).map((x) => (x.trim().match(/^(\w+)/) || [])[1]).filter(Boolean)).map((n) => words(n));
+      } else {
+        for (const { head } of members(body)) {
+          const fp = head.match(/\(\s*\*\s*(\w+)\s*\)\s*\(/); // a function pointer field: int (*compare)(int, int)
+          if (fp) { t.knows.push(know(fp[1], null, null, {})); continue; }
+          const d = head.replace(/\s*:\s*\d+\s*$/, '').match(/^((?:(?:const|unsigned|signed|struct|enum|union|volatile|long|short)\s+)*[A-Za-z_]\w*)\s*((?:\*\s*)*)(\w+)\s*((?:\[[^\]]*\]\s*)*)((?:,\s*\**\s*\w+\s*(?:\[[^\]]*\])*)*)$/);
+          if (!d) continue;
+          const type = (base, stars, arr) => `${base.replace(/\b(?:const|struct|enum|union|volatile)\s+/g, '').trim()}${stars ? '*' : ''}${arr ? '[]' : ''}`;
+          t.knows.push(know(d[3], cKind(type(d[1], d[2].trim(), d[4].trim())), null, {}));
+          for (const more of d[5].split(',').map((x) => x.trim()).filter(Boolean)) { const n = more.match(/^(\**)\s*(\w+)\s*(\[[^\]]*\])?/); if (n) t.knows.push(know(n[2], cKind(type(d[1], n[1], n[3])), null, {})); }
+        }
+      }
+      out.push(t);
+    }
+    // Starting values from a C constructor: Library library_new(int max) { Library lib = { .max_books = 3 }; … }
+    for (const t of out.filter((x) => x.kind === 'record')) {
+      const snake = words(t.name).replace(/ /g, '_');
+      const ctor = code.match(new RegExp(`\\b(?:${snake}_(?:new|create|init|make|alloc)|(?:new|create|init|make)_${snake})\\s*\\(([^)]*)\\)\\s*\\{`));
+      if (!ctor) continue;
+      const open = ctor.index + ctor[0].length - 1;
+      const fnBody = code.slice(open + 1, braceEnd(code, open));
+      const params = Object.fromEntries(splitParams(ctor[1]).map((p) => [(p.match(/(\w+)\s*(?:\[[^\]]*\])?\s*$/) || [])[1], null]).filter(([n]) => n && n !== 'void'));
+      for (const a of fnBody.matchAll(/(?:\.|->)\s*(\w+)\s*=\s*(\{[^{}]*\}|[^,;}\n]+)/g)) {
+        const k = t.knows.find((x) => x.name === a[1]);
+        if (k && !k.start) k.start = startValue(a[2].trim().replace(/^\{\s*0?\s*\}$/, '{}'), params);
+      }
+    }
+    return out;
+  }
+
+  /** C/C++ field types in the reader's terms: int, words (char *, std::string), yes or no, lists, or the type. */
+  function cKind(type) {
+    const t = String(type).replace(/\bstd::/g, '').replace(/\s+/g, ' ').trim();
+    if (/^(?:unsigned |signed )?char\*$|^(?:string|string_view|wstring|sds)$/.test(t)) return 'string';
+    if (/^(?:(?:unsigned|signed|long|short) )*(?:int|long|short|unsigned|signed)$|^(?:size_t|ssize_t|off_t|time_t|u?int\d+_t|float|double|long double|uint|uintptr_t|intptr_t)$/.test(t)) return 'int';
+    if (/^(?:bool|_Bool)$/.test(t)) return 'bool';
+    const list = t.match(/^(?:vector|list|deque|array|set|unordered_set|span)<\s*([\w:]+)\s*(?:,[^>]*)?>$/);
+    if (list) return `${list[1].split('::').pop()}[]`;
+    if (/^(?:map|unordered_map|multimap)</.test(t)) return 'Map<>';
+    if (/^(?:unique_ptr|shared_ptr|optional)<\s*([\w:]+)\s*>$/.test(t)) return t.replace(/^\w+<\s*([\w:]+)\s*>$/, '$1').split('::').pop();
+    return t.replace(/\*+$/, '');
+  }
+
+  /** C++: classes and structs (Things when they have methods, records otherwise), enums and enum classes (choices). */
+  function cppThings(src, file) {
+    const code = src.replace(/^[ \t]*#.*(?:\\\r?\n.*)*$/gm, (m) => m.replace(/[^\n]/g, ' '));
+    const lineAt = lineFinder(code);
+    const out = [];
+    const byName = new Map();
+    for (const m of code.matchAll(/(?:^|\n)[ \t]*(?:template\s*<[^>{;]*>\s*)?(?:(class|struct|union)\s+(?:alignas\([^)]*\)\s*)?(?:[A-Z_][A-Z0-9_]*\s+)*(\w+)(?:\s+final)?\s*(?::[^{;]*)?|enum(?:\s+(?:class|struct))?\s+(\w+)(?:\s*:\s*[\w:]+)?\s*)\{/g)) {
+      const at = m.index + (m[0].startsWith('\n') ? 1 : 0);
+      const open = m.index + m[0].length - 1;
+      const close = braceEnd(code, open);
+      if (close < 0) continue;
+      const name = m[2] || m[3];
+      const doc = cDocAbove(code, at);
+      const body = code.slice(open + 1, close);
+      if (m[3]) {
+        const vals = splitParams(body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')).map((x) => (x.trim().match(/^(\w+)/) || [])[1]).filter(Boolean);
+        out.push({ kind: 'choices', name, file, lines: [lineAt(at), lineAt(close)], ...(doc ? { doc } : {}), knows: [], choices: enumNames(vals).map((n) => words(n)) });
+        continue;
+      }
+      const t = { kind: 'record', name, file, lines: [lineAt(at), lineAt(close)], ...(doc ? { doc } : {}), knows: [], choices: [], memberRanges: [] };
+      let methods = false;
+      const inits = {}, params = {};
+      for (const mem of members(body)) {
+        const head = mem.head.replace(/^(?:(?:public|private|protected)\s*:\s*)+/, '').replace(/\[\[[^\]]*\]\]\s*/g, '').trim();
+        if (!head || /^(?:using|friend|typedef|static_assert|template|enum|class|struct|union|namespace|static|constexpr\s+static|inline\s+static|Q_OBJECT)\b/.test(head)) continue;
+        const sig = head.replace(/<[^<>]*(?:<[^<>]*>[^<>]*)*>/g, '<>');
+        const call = sig.split(/=(?!=)/)[0];
+        if (/\(/.test(call) && !/\(\s*\*\s*\w+\s*\)\s*\(/.test(call)) {
+          methods = true;
+          // The constructor: its parameters, member initializers (: max_(max)), and body assignments start the Thing.
+          const ctor = head.match(new RegExp(`^(?:explicit\\s+|constexpr\\s+|inline\\s+)*${name}\\s*\\(([^)]*)\\)\\s*(?:noexcept\\s*)?(?::\\s*([\\s\\S]+))?$`));
+          if (ctor) cppCtor(ctor[1], ctor[2], mem.block, params, inits);
+          continue;
+        }
+        let f = head.match(/^((?:(?:const|mutable|volatile|unsigned|signed|long|short|inline)\s+)*[\w:]+(?:<[^;]*>)?(?:\s*[*&]+)?)\s+[*&]*\s*(\w+)\s*(?:\[[^\]]*\])?\s*(?:=\s*([\s\S]+))?$/);
+        if (f) { t.knows.push(know(f[2].replace(/^m_/, ''), cKind(f[1].replace(/\b(?:const|mutable|volatile|inline)\s+/g, '').replace(/\s*[*&]+$/, '')), f[3] ? cppValue(f[3]) : mem.block != null ? cppValue(`{${mem.block}}`) : null, {})); t.knows[t.knows.length - 1].name = f[2]; continue; }
+        if ((f = head.match(/^((?:(?:const|mutable|unsigned|signed|long|short)\s+)*[\w:]+(?:<[^;]*>)?(?:\s*[*&]+)?)\s+[*&]*\s*(\w+)$/)) && mem.block != null) {
+          t.knows.push({ ...know(f[2].replace(/^m_/, ''), cKind(f[1]), cppValue(`{${mem.block}}`), {}), name: f[2] });
+        }
+      }
+      // Methods written outside the class (Library::lateFee) and an outside constructor (Library::Library(...) : …).
+      for (const d of code.matchAll(new RegExp(`\\b${name}::(~?\\w+)\\s*\\(`, 'g'))) {
+        const pOpen = d.index + d[0].length - 1;
+        let depth = 0, pClose = -1;
+        for (let k = pOpen; k < code.length && k < pOpen + 4000; k++) { if (code[k] === '(') depth++; else if (code[k] === ')' && --depth === 0) { pClose = k; break; } }
+        if (pClose < 0) continue;
+        const brace = code.indexOf('{', pClose), semi = code.indexOf(';', pClose);
+        if (brace < 0 || (semi >= 0 && semi < brace) || /[()]/.test(code.slice(pClose + 1, brace).replace(/:\s*[\s\S]*$/, ''))) continue;
+        methods = true;
+        const bClose = braceEnd(code, brace);
+        t.memberRanges.push([lineAt(d.index), lineAt(bClose >= 0 ? bClose : brace)]);
+        if (d[1] === name) cppCtor(code.slice(pOpen + 1, pClose), (code.slice(pClose + 1, brace).match(/^\s*(?:noexcept\s*)?:\s*([\s\S]+)$/) || [])[1], bClose > 0 ? code.slice(brace + 1, bClose) : '', params, inits);
+      }
+      for (const k of t.knows) {
+        const v = inits[k.name] ?? inits[k.name.replace(/^m_|_$/g, '')];
+        if (v != null) k.start = startValue(cppValue(v), params);
+      }
+      if (methods || m[1] === 'class') t.kind = 'thing';
+      out.push(t); byName.set(name, t);
+    }
+    return out;
+  }
+  /** A C++ starting value as the reader's words take it: {} or a std container is empty; nullptr is nothing. */
+  function cppValue(v) {
+    const s = String(v).trim().replace(/;$/, '');
+    if (/^\{\s*\}$|^\(\s*\)$|^(?:std::)?(?:vector|list|deque|map|unordered_map|set|unordered_set|string|array)\s*(?:<[^;]*>)?\s*(?:\{\s*\}|\(\s*\))$/.test(s)) return '{}';
+    if (/^\{\s*(.+?)\s*\}$/.test(s) && !/,/.test(s)) return s.slice(1, -1).trim();
+    return s.replace(/^(-?\d+(?:\.\d+)?)[uUlLfF]+$/, '$1').replace(/^nullptr$/, 'NULL');
+  }
+  function cppCtor(paramText, initText, bodyText, params, inits) {
+    for (const p of splitParams(paramText || '')) {
+      const pm = p.match(/(\w+)\s*(?:\[[^\]]*\])?\s*(?:=\s*(.+))?$/);
+      if (pm && pm[1] !== 'void') params[pm[1]] = pm[2] != null ? cppValue(pm[2]) : null;
+    }
+    for (const it of splitParams(String(initText || '').replace(/\{\s*$/, ''))) {
+      const im = it.trim().match(/^(\w+)\s*[({]([\s\S]*)[)}]$/);
+      if (im) inits[im[1]] = im[2].trim() || '{}';
+    }
+    for (const a of String(bodyText || '').matchAll(/(?:this->)?(\w+)\s*=\s*([^;\n]+);/g)) if (inits[a[1]] == null) inits[a[1]] = a[2];
+  }
+
+  /** Swift: class, struct, actor (Things or records), enum with case (choices), extension (methods that belong to the type). */
+  function swiftThings(src, file) {
+    const lineAt = lineFinder(src);
+    const out = [];
+    const byName = new Map();
+    for (const m of src.matchAll(/(?:^|\n)[ \t]*(?:@\w+(?:\([^)\n]*\))?\s+)*(?:(?:public|private|internal|fileprivate|open|final|indirect|nonisolated)\s+)*(class|struct|enum|actor|protocol)\s+(\w+)(?:<[^>{\n]*>)?[ \t]*(?::[ \t]*([^{\n]+?))?[ \t]*\{/g)) {
+      if (m[1] === 'protocol') continue; // a contract other types promise to keep, not a Thing
+      const at = m.index + (m[0].startsWith('\n') ? 1 : 0);
+      const open = m.index + m[0].length - 1;
+      const close = braceEnd(src, open);
+      if (close < 0) continue;
+      const doc = docAbove(src, at);
+      const body = src.slice(open + 1, close);
+      const t = { kind: m[1] === 'enum' ? 'choices' : 'record', name: m[2], file, lines: [lineAt(at), lineAt(close)], ...(doc ? { doc } : {}), knows: [], choices: [], memberRanges: [] };
+      const mems = members(body, { newlines: true });
+      if (m[1] === 'enum') {
+        for (const { head } of mems) {
+          const c = head.match(/^(?:indirect\s+)?case\s+([\s\S]+)$/);
+          if (!c) continue;
+          for (const part of splitParams(c[1])) {
+            const v = part.trim().match(/^(\w+)\s*(?:\([^)]*\))?\s*(?:=\s*(.+))?$/);
+            if (v) t.choices.push(v[2] && /^"/.test(v[2].trim()) ? v[2].trim().slice(1, -1) : words(v[1]));
+          }
+        }
+        out.push(t); byName.set(t.name, t);
+        continue;
+      }
+      let methods = mems.some((x) => /(?:^|\s)func\s/.test(x.head));
+      const params = {}, inits = {};
+      for (const { head, block } of mems) {
+        const h = head.replace(/^(?:@\w+(?:\([^)]*\))?\s+)+/, '');
+        if (/(?:^|\s)(?:static|class)\s+(?:let|var|func)\b/.test(h) || /^(?:case|typealias|associatedtype|subscript|deinit|#)/.test(h)) continue;
+        const init = h.match(/^(?:(?:public|private|internal|fileprivate|open|convenience|required|override|nonisolated)\s+)*init[?!]?\s*\(([\s\S]*)\)\s*(?:throws\s*)?$/);
+        if (init) {
+          for (const p of splitParams(init[1])) { const pm = p.match(/^(?:\w+\s+)?(\w+)\s*:\s*[^=]+?(?:=\s*(.+))?$/); if (pm) params[pm[1]] = pm[2] ?? null; }
+          for (const a of String(block || '').matchAll(/(?:self\.)?(\w+)\s*=\s*([^\n;]+)/g)) if (inits[a[1]] == null) inits[a[1]] = a[2].trim();
+          continue;
+        }
+        if (/(?:^|\s)func\s/.test(h)) { methods = true; continue; }
+        const p = h.match(/^(?:(?:public|private|internal|fileprivate|open|final|lazy|weak|unowned|override|nonisolated)(?:\((?:set|get)\))?\s+)*(let|var)\s+(\w+)\s*(?::\s*([^=]+?))?\s*(?:=\s*([\s\S]+))?$/);
+        if (!p) continue;
+        // A computed property (`var total: Int { … }`) is worked out each time: something it can do, not something it knows.
+        if (block != null && !p[4] && !/^\s*(?:willSet|didSet)\b/.test(block)) continue;
+        t.knows.push(know(p[2], p[3] ? swiftType(p[3]) : null, p[4] != null ? p[4].trim() : null, {}));
+      }
+      for (const k of t.knows) if (inits[k.name] != null && !k.start) k.start = startValue(inits[k.name], params);
+      if (methods || m[1] === 'class' || m[1] === 'actor') t.kind = 'thing';
+      out.push(t); byName.set(t.name, t);
+    }
+    // extension Library { … }: its methods belong to Library (a struct that can do things is a Thing).
+    for (const m of src.matchAll(/(?:^|\n)[ \t]*(?:(?:public|private|internal|fileprivate)\s+)?extension\s+([\w.]+)[^{\n]*\{/g)) {
+      const t = byName.get(m[1].split('.').pop());
+      if (!t) continue;
+      const at = m.index + (m[0].startsWith('\n') ? 1 : 0);
+      const close = braceEnd(src, m.index + m[0].length - 1);
+      if (close < 0) continue;
+      t.memberRanges.push([lineAt(at), lineAt(close)]);
+      if (t.kind === 'record' && /(?:^|\s)func\s/.test(src.slice(at, close))) t.kind = 'thing';
+    }
+    return out;
+  }
+  /** Swift types as the shared kind words read them: [Book] is a list, [String: Int] a lookup table, Int? optional. */
+  function swiftType(type) {
+    const t = String(type).trim();
+    let m;
+    if ((m = t.match(/^\[\s*([^:\]]+?)\s*\]$/))) return `${m[1]}[]`;
+    if (/^\[[^\]]*:[^\]]*\]$/.test(t)) return 'Map<>';
+    return t;
+  }
+
   return function thingsFor(language, src, file) {
+    if (language === 'c') return cThings(src, file);
+    if (language === 'cpp') return cppThings(src, file);
+    if (language === 'swift') return swiftThings(src, file);
     if (language === 'go') return goThings(src, file);
     if (language === 'rust') return rustThings(src, file);
     if (language === 'ruby') return rubyThings(src, file);

@@ -4,7 +4,7 @@
 // plus language, folder, kind, and how completely each item was read.
 // Pure and browser-safe: callers pass { path, source } pairs (the CLI reads them from disk, the
 // browser from a folder the person picks; nothing is uploaded). Deterministic, no AI.
-import { readCode } from './read.mjs';
+import { readCode, looksCpp } from './read.mjs';
 import { readableFormat } from './file-formats.mjs';
 
 export const READ_REPO_SCHEMA = 'thunder-repo-reading-v1';
@@ -23,6 +23,10 @@ const EXT_LANG = [
   [/\.php$/i, 'php'],
   [/\.rb$/i, 'ruby'],
   [/\.sql$/i, 'sql'],
+  [/\.c$/i, 'c'],
+  [/\.(cc|cpp|cxx|c\+\+|hpp|hh|hxx|ipp|tpp)$/i, 'cpp'],
+  [/\.h$/i, 'c'], // C unless its content is C++ (readableLanguage with the source decides)
+  [/\.swift$/i, 'swift'],
 ];
 
 /** Folders that hold dependencies, build output, or tooling state rather than the application. */
@@ -33,21 +37,22 @@ export const READ_SKIP_DIRS = new Set([
 ]);
 
 /**
- * The language or format the reader uses for a file, or null when it is not read. `head` (the first ~2 KB) lets a
- * format that is known by its content be recognized; infrastructure and delivery formats come from file-formats.mjs.
+ * The language or format the reader uses for a file, or null when it is not read. `source` (the whole file, or at
+ * least its first ~2 KB) lets a format that is known by its content be recognized (infrastructure and delivery formats
+ * come from file-formats.mjs), and makes a `.h` header C++ when it uses classes, namespaces, templates, or `::`.
  */
-export function readableFile(path, head = '') {
+export function readableFile(path, source = '') {
   const p = String(path).replace(/\\/g, '/');
   if (p.split('/').some((seg) => READ_SKIP_DIRS.has(seg))) return null;
-  const format = readableFormat(p, head);
+  const format = readableFormat(p, String(source ?? '').slice(0, 2048));
   if (format) return format;
-  for (const [re, lang] of EXT_LANG) if (re.test(p)) return lang;
+  for (const [re, lang] of EXT_LANG) if (re.test(p)) return lang === 'c' && /\.h$/i.test(p) && source && looksCpp(source) ? 'cpp' : lang;
   return null;
 }
 
-/** The language the reader uses for a path, or null when the file is not read. */
-export function readableLanguage(path, head = '') {
-  return readableFile(path, head);
+/** The language the reader uses for a path, or null when the file is not read (see readableFile for `source`). */
+export function readableLanguage(path, source = '') {
+  return readableFile(path, source);
 }
 
 /** Folders whose names start with a dot but hold files Thunder reads (workflows live in .github). */
@@ -76,7 +81,7 @@ export function readRepo(files, { maxFileBytes = 400000, maxFiles = 5000 } = {})
   let considered = 0;
   for (const f of files || []) {
     const path = String(f.path).replace(/\\/g, '/').replace(/^\.\//, '');
-    const language = readableLanguage(path, String(f.source ?? '').slice(0, 2048));
+    const language = readableLanguage(path, f.source);
     if (!language) continue; // not code this reader understands; not worth listing one by one
     considered++;
     if (considered > maxFiles) { skipped.push({ path, reason: `More than ${maxFiles} files; read a smaller folder to include this one.` }); continue; }
@@ -160,7 +165,7 @@ export function groupByFile(items) {
  */
 export function readFiles(files) {
   return files.map((f) => {
-    const language = readableLanguage(f.path, String(f.source ?? '').slice(0, 2048));
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source || f.reading) return f;
     try { return { ...f, reading: readCode(f.source, { language, file: f.path }) }; }
     catch (e) { return { ...f, readError: e.message }; }
@@ -168,7 +173,7 @@ export function readFiles(files) {
 }
 
 /** A file's reading: the one readFiles attached, or a fresh one. Throws the same error the reader would. */
-export function readingOf(f, language = readableLanguage(f.path, String(f.source ?? '').slice(0, 2048))) {
+export function readingOf(f, language = readableLanguage(f.path, f.source)) {
   if (f.readError) throw new Error(f.readError);
   return f.reading ?? readCode(f.source, { language, file: f.path });
 }

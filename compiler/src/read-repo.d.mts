@@ -15,9 +15,9 @@ export interface RepoReading {
 export interface RepoFilter { query?: string; kinds?: Array<ReadKind | 'route' | 'guard'>; status?: string[]; languages?: string[]; path?: string; answer?: string; input?: string }
 export const READ_REPO_SCHEMA: 'thunder-repo-reading-v1';
 export const READ_SKIP_DIRS: Set<string>;
-export function readableLanguage(path: string, head?: string): string | null;
-/** The language or format Thunder reads for a file, from its path and (when needed) its first ~2 KB. */
-export function readableFile(path: string, head?: string): string | null;
+export function readableLanguage(path: string, source?: string): string | null;
+/** The language or format Thunder reads for a file, from its path and (when needed) its source: its first ~2 KB for a format known by its content, and a `.h` header is C++ when it uses classes, namespaces, templates, or `::`. */
+export function readableFile(path: string, source?: string): string | null;
 export const READ_DOT_DIRS: Set<string>;
 export function readRepo(files: Array<{ path: string; source: string; size?: number }>, options?: { maxFileBytes?: number; maxFiles?: number }): RepoReading;
 export function searchRepo(index: RepoReading, filter?: RepoFilter): RepoItem[];

@@ -409,12 +409,54 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | PHP | works today | Symfony `#[Route]` | a function that returns fixed answers | PHPDoc | `class`, `enum` |
 | Ruby | works today | Sinatra `get`/`post` blocks (Rails routes planned) | a `def` that returns fixed answers | `#` comment above | `class`, `Struct` |
 | **SQL** | **planned** | (reached through the app) | `CHECK` constraints, `CASE`, `IF` in procedures | `--` comment, `COMMENT ON` | `CREATE TABLE`, `CREATE VIEW` |
+| C | works today | (none: reached through `main` or another program) | a function that returns fixed answers | `/* … */` or `//` above | `struct`, `typedef struct`, `enum` |
+| C++ | works today | not yet (Crow, Drogon planned) | a function or method that returns fixed answers | `/** … */`, `///`, `//` above | `class`, `struct`, `enum class` |
+| Swift | works today | Vapor `app.get("orders", ":id") { req in … }`, `routes.post(…, use: handler)` | a `func` with `switch`/`if` | `///` | `struct`, `class`, `enum` with `case`, `extension` |
 | Dockerfile | works today (section 12) | (none: it packages the app) | (none) | `#` comment above `FROM` | the image it makes is a **Resource** |
 | GitHub Actions | works today (section 12) | each job, with a "When" badge | `if:` as a question | the workflow's `name:` | **Permissions** and **Settings** |
 | Terraform | works today (section 12) | (none: it describes what exists) | `count = cond ? 1 : 0` as a question | `#` comment above a block | each `resource`, `data`, and `module` is a **Resource**; role assignments and IAM policies are **Permissions** |
 | Bicep | works today (section 12) | (none: it describes what exists) | `if (…)` as a question | `//` comment or `@description` above | each `resource` (`existing` is looked up) and `module` is a **Resource**; role assignments are **Permissions** |
 | Kubernetes | works today (section 12) | (none: it describes what runs) | (none) | `#` comment above a resource | each resource (`Deployment/api`) is a **Resource**; RBAC roles and bindings are **Permissions** |
 | Docker Compose | works today (section 12) | (none: it describes what runs) | `profiles:` as a question | the file's `name:` | each service, named volume, network, secret, and config is a **Resource** |
+
+### Text with values inside
+
+When quoted text has values inserted into it (string interpolation, format strings), Thunder keeps every literal character of the text exactly as the code writes it (escapes included) and shows each inserted value as a placeholder in guillemets: `«…»`. A plain variable shows its name exactly as the code spells it (`"${NVM_DIR}/alias"` → `"«NVM_DIR»/alias"`, Swift `"\(name)!"` → `"«name»!"`); anything else shows its code as written (`"$1"` → `"«$1»"`, `"${1-}"` → `"«${1-}»"`, `"$(cat)"` → `"«$(cat)»"`, `"\(a + b)"` → `"«a + b»"`). A format string pairs each conversion with its argument: `printf("%s/alias %d\n", dir, n)` → `"«dir»/alias «n»\n"`; a conversion with flags, width, or precision keeps it: `"%5.2f"` with `x` → `"«x as %5.2f»"`; `fmt::format("{}/{:>8}", a, b)` → `"«a»/«b as {:>8}»"`. Names are not turned into words inside quotes: the quote is what a person greps for. Guillemets do not occur in code, so a placeholder is never confused with literal braces, `%`, or `$`. When a quoted text is a single inserted value and nothing else, it is a value, not text, and reads in words like any other value. When the arguments cannot be paired with the conversions, the text is shown as code (not explained).
+
+### C, C++, and Swift
+
+Thunder reads `.c` as C; `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh`, `.hxx` as C++; `.h` as C unless it uses classes,
+namespaces, templates, or `::` (then C++); `.swift` as Swift. Preprocessor lines (`#include`, `#define`, `#if`) are
+not steps; both sides of an `#if` are read, and each step under `#if` / `#elif` / `#else` says which build runs it
+("Calls use epoll (only in builds where `#ifdef HAVE_EPOLL`)"), so alternatives are never read as one after another.
+
+- **Things.** A C `struct` (or `typedef struct`) is Data; it becomes a Thing when functions take it first
+  (`library_late_fee(const Library *lib, …)`) or are named after it (`library_new`), and the Thing's own name is left
+  out of the label ("Late fee"; `library_new` is how a new Library starts). A C `enum` is Choices, with a shared
+  prefix dropped (`STATUS_ON_SHELF` is "on shelf"). A C++ `class` is a Thing (a `struct` with only fields is Data);
+  `enum`/`enum class` is Choices; methods written outside the class (`Library::lateFee`, also in another file) belong
+  to it; constructors, member initializer lists (`: maxBooks_(maxBooks)`), and default member initializers
+  (`overflow_{}`) give the starting values. A Swift `class`/`actor` is a Thing, a `struct` is a Thing when it can do
+  something (its own `func`s or an `extension`, also in another file) and Data otherwise, an `enum` with `case` is
+  Choices, `init` is how it starts, stored properties with defaults (`var max = 3`, `let`) are what it knows, and
+  a `protocol` is a contract, not a Thing.
+- **Steps.** `if`/`else`, `for (;;)`, C++ range-for, `while`, `do … while` (Swift `repeat … while`), `switch` as one
+  question with a side per case (a C case without `break` says "then carries on into the next case"), `return`,
+  `goto` and labels ("Jumps to the "done" part"), C++ `throw` and `try`/`catch` (by type), lambdas and Swift closures
+  as their own sub-flow. Swift `guard cond else { … }` is "If not: …" with the else block as the Stop; `if let x = …`
+  and `guard let` are "If x is set"; `defer { … }` is "At the end, runs these steps"; `do`/`try`/`catch`; ranges
+  (`for i in 0..<3` counts "from 0 to 2"); Vapor `throw Abort(.notFound)` is "Fails with 404 Not Found".
+- **Memory in plain words.** `malloc`/`calloc`/`new T[n]` are "Gets memory for 10 books as list", `free`/`delete` are
+  "Frees buf", `memcpy`/`strcpy` are "Copies name into buf", `memset(…, 0, …)` is "Fills buf with zeros",
+  `strcmp(a, b) == 0` is "a is b". A pointer expression Thunder cannot say simply (`*op++ = *ip++`) stays as code.
+- **Exact statements.** `*out = v` is "Writes v where out points" (out itself does not change); `x += f(y)` adds;
+  bit and shift operators (`|=`, `<<`) and a statement that is a ternary are shown as code. What a function gives
+  back is its type without macros in front (`FMT_CONSTEXPR void` gives back nothing; `auto f() -> T` gives back T).
+  `using` declarations are not steps. A Swift body that is one expression gives back its value (`func f() -> T {
+  g(x) }` is "Gives back the result of g"). Messages with values inside (`printf`, `fprintf`, `fmt::print`, `cout
+  <<`, Swift `print("…\(x)")`) follow "Text with values inside" above.
+- **Honest returns.** C error returns stay what the code says: `if (fd < 0) return -1;` is "Returns -1 early if fd is
+  less than 0"; Thunder does not claim -1 means failure.
 
 ### SQL
 

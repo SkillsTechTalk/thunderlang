@@ -11,7 +11,7 @@ import { READ_SAMPLES } from '../../src/app/read/samples.mjs';
 test('every sample decision promotes to a contract whose examples all pass', () => {
   const idx = readRepo(READ_SAMPLES.map((s) => ({ path: s.file, source: s.source })));
   const decisions = idx.items.filter((i) => i.kind === 'decision');
-  assert.equal(decisions.length, 11);
+  assert.equal(decisions.length, 14); // 11, plus one each for C, C++, and Swift
   for (const d of decisions) {
     const p = promoteDecision(d);
     assert.ok(p.ok, `${d.name}: ${p.reason}`);

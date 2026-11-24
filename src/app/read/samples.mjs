@@ -286,6 +286,115 @@ $$ LANGUAGE plpgsql;
     expect: { decisions: [], functions: ['total_not_negative', 'big_paid_orders', 'pay_order'] },
   },
   {
+    key: 'c-thermostat',
+    label: 'C: thermostat',
+    language: 'c',
+    file: 'thermostat.c',
+    source: `#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Decide what the heater should do for the room. */
+const char *heater_mode(double temp, bool window_open) {
+    if (window_open) {
+        return "Off";
+    }
+    if (temp < 18.5) {
+        return "Heat";
+    }
+    return "Idle";
+}
+
+/* Keep a copy of the room's name. Returns NULL when out of memory. */
+char *copy_name(const char *name) {
+    if (name == NULL) return NULL;
+    size_t len = strlen(name);
+    char *buf = malloc(len + 1);
+    if (!buf) {
+        return NULL;
+    }
+    memcpy(buf, name, len + 1);
+    return buf;
+}
+`,
+    expect: { decisions: ['heater_mode'], functions: ['copy_name'] },
+  },
+  {
+    key: 'cpp-cart',
+    label: 'C++: shopping cart',
+    language: 'cpp',
+    file: 'cart.cpp',
+    source: `#include <stdexcept>
+#include <string>
+#include <vector>
+
+enum class Tier { Basic, Gold, Platinum };
+
+// Decide the discount a customer gets.
+std::string discount(Tier tier, double total) {
+    if (tier == Tier::Platinum) {
+        return "Big";
+    }
+    if (tier == Tier::Gold && total > 100.0) {
+        return "Medium";
+    }
+    return "None";
+}
+
+class Cart {
+public:
+    void add(const std::string& item);
+private:
+    std::vector<std::string> items_;
+};
+
+void Cart::add(const std::string& item) {
+    if (items_.size() >= 10) {
+        throw std::runtime_error("cart is full");
+    }
+    items_.push_back(item);
+}
+`,
+    expect: { decisions: ['discount'], functions: ['add'] },
+  },
+  {
+    key: 'swift-orders',
+    label: 'Swift: orders app (Vapor)',
+    language: 'swift',
+    file: 'Orders.swift',
+    source: `import Vapor
+
+enum Plan { case free, pro }
+
+/// Decide how fast an order ships.
+func shippingSpeed(plan: Plan, total: Double) -> String {
+    if plan == .pro {
+        return "NextDay"
+    }
+    if total >= 50 {
+        return "TwoDays"
+    }
+    return "Standard"
+}
+
+func routes(_ app: Application) throws {
+    app.get("orders", ":id", use: show)
+}
+
+/// Find one order, or refuse when it is missing.
+func show(req: Request) async throws -> Order {
+    guard let id = req.parameters.get("id") else {
+            throw Abort(.badRequest, reason: "Missing id")
+        }
+        guard let order = try await Order.find(id, on: req.db) else {
+            throw Abort(.notFound)
+        }
+    return order
+}
+`,
+    expect: { decisions: ['shippingSpeed'], functions: ['routes', 'show'] },
+  },
+  {
     key: 'dockerfile-web',
     label: 'Dockerfile: build and run a web app',
     language: 'dockerfile',

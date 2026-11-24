@@ -47,7 +47,7 @@ const SECTIONS: MapSection[] = [
     says: "Real code, read in Thunder in your browser.",
     links: [
       { href: "/zoom", label: "Semantic Zoom (preview)", says: "Big picture, flow, and details of a program, as Thunder, Thunder Text, or the original." },
-      { href: "/read", label: "Thunder Code", says: "Paste code in eleven languages, SQL included, and read it in Thunder." },
+      { href: "/read", label: "Thunder Code", says: "Paste code in fourteen languages, C, C++, Swift, and SQL included, and read it in Thunder." },
       { href: "/try", label: "Try it on a refund rule", says: "Ask a rule questions and change it safely." },
       { href: "/map", label: "Thunder Atlas", says: "Zoom from a whole product down to one rule." },
       { href: "/review", label: "Review", says: "See an AI change as before-and-after Thunder." },

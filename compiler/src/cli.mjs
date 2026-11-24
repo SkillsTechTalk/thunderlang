@@ -139,7 +139,7 @@ import { parseEventLog, serializeEventLog, recordEvent, timeline } from './ai-ev
 const LIFT_EXTS = [
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.pl', '.pm', '.t',
   '.py', '.pyi', '.java', '.cs', '.go', '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.c', '.h',
-  '.php', '.rb', '.kt', '.kts', '.scala', '.sc', '.ex', '.exs',
+  '.php', '.rb', '.kt', '.kts', '.scala', '.sc', '.ex', '.exs', '.swift',
 ];
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
 // ThunderLang source files. `.thunder` is the canonical public extension; `.tl` is an

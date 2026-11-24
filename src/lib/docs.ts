@@ -163,7 +163,7 @@ const DOC_BLURBS: Record<string, string> = {
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
   "intent-scanner": "Scan a project into Intent IR and explainable Fable findings grouped by risk.",
   "syntax-overview": "The keywords, three layers, types, and blocks.",
-  spec: "Thunder V1: human-native programming, every element as a picture and as Thunder Text, in eleven languages.",
+  spec: "Thunder V1: human-native programming, every element as a picture and as Thunder Text, in fourteen languages.",
   "spec-v0-2": "The earlier intent-oriented mission language (missions, profiles, outcome contracts). Replaced by Thunder V1.",
   tutorial: "Write your first mission, step by step.",
   "ai-age-best-practices": "Ten practices for building software with AI in the loop.",

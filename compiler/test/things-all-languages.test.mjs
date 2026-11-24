@@ -9,8 +9,8 @@ const DIR = new URL('./fixtures/things/', import.meta.url);
 const model = (f) => thunderModel([{ path: f, source: readFileSync(new URL(f, DIR), 'utf8') }]);
 const thing = (m, name) => m.things.find((t) => t.name === name);
 
-test('Things are drawn in all ten languages', () => {
-  assert.deepEqual([...THING_LANGUAGES].sort(), ['csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'python', 'ruby', 'rust', 'sql', 'typescript']);
+test('Things are drawn in every language Thunder reads', () => {
+  assert.deepEqual([...THING_LANGUAGES].sort(), ['c', 'cpp', 'csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'python', 'ruby', 'rust', 'sql', 'swift', 'typescript']);
 });
 
 for (const f of readdirSync(DIR)) {
@@ -30,7 +30,7 @@ for (const f of readdirSync(DIR)) {
 }
 
 test('choices: enums in every language that has them list their values in words', () => {
-  for (const f of ['Library.java', 'Library.cs', 'Library.kt', 'Library.php', 'library.go', 'library.rs']) {
+  for (const f of ['Library.java', 'Library.cs', 'Library.kt', 'Library.php', 'library.go', 'library.rs', 'library.c', 'library.cpp', 'Library.swift']) {
     const s = thing(model(f), 'Status');
     assert.equal(s.kind, 'choices', f);
     assert.deepEqual(s.choices.slice(0, 2), ['on shelf', 'borrowed'], f);
@@ -46,8 +46,8 @@ test('starting values and docs read the way each language writes them', () => {
   assert.equal(thing(model('library.rs'), 'Library').knows.find((k) => k.label === 'overflow').kind, 'a list of Books');
 });
 
-test('Big Picture of a Go or Rust file shows the Library with its methods, though they are written outside the type', () => {
-  for (const f of ['library.go', 'library.rs']) {
+test('Big Picture of a Go, Rust, C, C++, or Swift file shows the Library with its methods, though they are written outside the type', () => {
+  for (const f of ['library.go', 'library.rs', 'library.c', 'library.cpp', 'Library.swift']) {
     const big = readLevel(model(f), 'big-picture');
     assert.deepEqual(big.things.map((t) => [t.label, t.can.map((c) => c.label)]), [['Library', ['Late fee']]], f);
   }
