@@ -7,8 +7,11 @@ import { thunderModel, readLevel } from "../../../compiler/src/model.mjs";
 import type { ThunderModel, LevelId, LevelView } from "../../../compiler/src/model.d.mts";
 import { LEVELS, THUNDER_VISUAL, thunderTokens } from "../../../compiler/src/visual.mjs";
 import { explainPlain } from "../../../compiler/src/plain-contract.mjs";
-import { Symbol, ThingCard, DataCard, FlowBlocks, HEX, focus, type SymbolId } from "./ThunderParts";
+import { runtimeOverlay, fromTrace, explainError } from "../../../compiler/src/running.mjs";
+import type { RuntimeOverlay, MemberRun, ErrorExplanation } from "../../../compiler/src/running.d.mts";
+import { Symbol, ThingCard, DataCard, ResourceCard, PermissionList, SettingList, FlowBlocks, HEX, focus, runWords, type SymbolId } from "./ThunderParts";
 import { sourceLines } from "../../lib/source-tokens.mjs";
+import { ChangeThis } from "./ChangeThis";
 
 /** The same answer words the flow uses: BigFee -> Big fee, true -> Yes. */
 const answerWords = (r: string) => (/^true$/i.test(r) ? "Yes" : /^false$/i.test(r) ? "No" : ((w) => w.charAt(0).toUpperCase() + w.slice(1))(String(r).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase()));
@@ -84,10 +87,43 @@ function Card({ title, children, tone }: { title: string; children: React.ReactN
   );
 }
 
+/** A recorded run to show on the flows: what was run, and the record itself (thunder-executed-v1 trace). */
+export type RecordedRun = { label: string; trace: { files: Record<string, unknown> }; crash?: string };
+
+/** "What happened when it ran": the switch, and what the run says about this action or rule. */
+function RunPanel({ run, on, setOn, memberRun, label, crash }: { run: RecordedRun; on: boolean; setOn: (v: boolean) => void; memberRun?: MemberRun; label: string; crash: ErrorExplanation | null }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-white/10 bg-ink-850/40 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[15px] text-white">
+          <input type="checkbox" role="switch" aria-checked={on} checked={on} onChange={(e) => setOn(e.target.checked)} className={`h-5 w-5 accent-[#FCD34D] ${focus}`} />
+          What happened when it ran
+        </label>
+        <span aria-hidden="true" className="text-sm text-haze-400">{on ? "showing a sample run" : "off"}</span>
+      </div>
+      {on && (
+        <div aria-live="polite" className="mt-2 space-y-2 text-sm">
+          <p className="text-haze-300"><Chip dashed>Sample run</Chip> <span className="ml-1">{run.label}. Counts come only from this run; a step with no count was not observed, which is not the same as never.</span></p>
+          {memberRun?.says ? <p className="text-[15px] text-white">{memberRun.says}</p> : <p className="text-haze-300">This sample run never reached {label}.</p>}
+          {memberRun && memberRun.hotPath.length > 1 && <p className="text-haze-300"><span className="font-semibold text-haze-200">Most often: </span>{memberRun.hotPath.map((h) => (h.side ? `${h.text.replace(/\?$/, "")}? ${h.side}` : h.text)).join(" → ")}</p>}
+          {crash?.matched && <p className="rounded-xl border border-[#FDBA74]/40 px-3 py-2 text-haze-100"><span className="font-semibold text-[#FDBA74]">One run crashed (not one of its Stops):</span> {crash.text}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const rangeText = (r: { from: number | null; to: number | null }) => (r.from === null ? `${r.to} or less` : r.to === null ? `${r.from} or more` : r.from === r.to ? `exactly ${r.from}` : `${r.from} to ${r.to}`);
 
 /** Details: a fact sheet of what you need to check before you trust or change an action or rule. */
-function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view: LevelView; member: { kind: string; lines: [number, number] }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void }) {
+function DetailsSheet({ view, member, thingLabel, file, open, showLine, memberRun, change }: { view: LevelView; member: { kind: string; name: string; lines: [number, number]; flow: { nodes: { id: string; kind: string; line?: number; text: string }[] } }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void; memberRun?: MemberRun; change?: { source: string; onUse?: (s: string) => void } }) {
+  // What the run showed at a Stop or ending on this line (the sample run, when it is switched on).
+  const runAt = (kind: string, line: number | null, text?: string) => {
+    if (!memberRun) return null;
+    const n = member.flow.nodes.find((x) => x.kind === kind && (x.line ?? null) === line && (text == null || x.text === text || x.text === `Gives back ${text}`)) ?? member.flow.nodes.find((x) => x.kind === kind && (x.line ?? null) === line);
+    const w = n ? runWords(memberRun.nodes[n.id], memberRun.calls) : null;
+    return w ? <span className="ml-2 shrink-0 rounded-full border border-white/25 px-2.5 py-0.5 font-mono text-xs text-haze-200"><span className="sr-only">When it ran: </span>{w}</span> : null;
+  };
   const isRule = !!view.answers || member.kind === "rule";
   const stopColor = HEX[THUNDER_VISUAL.does.stop?.color ?? "failure"];
   return (
@@ -129,6 +165,7 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
                   <div className="flex items-start gap-2">
                     <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]" style={{ color: stopColor, borderColor: `${stopColor}66` }}>■</span>
                     <p className="text-[15px] text-white"><span className="font-semibold" style={{ color: stopColor }}>Stops: {st.error}</span>{st.message && <span className="text-haze-200">, and the person sees “{st.message}”</span>}</p>
+                    {runAt("stop", st.line)}
                     <LineButton line={st.line} showLine={showLine} />
                   </div>
                   <WhenList when={st.when} />
@@ -139,13 +176,14 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
                   <div className="flex items-start gap-2">
                     <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#67E8F9]/40 text-[11px] text-[#67E8F9]">⇥</span>
                     <p className="text-[15px] text-white">{g.text}</p>
+                    {runAt("end", g.line, g.text)}
                     <LineButton line={g.line} showLine={showLine} />
                   </div>
                   <WhenList when={g.when} />
                 </li>
               ))}
               {!view.givesBack!.some((g) => !g.when.length) && (
-                <li className="flex items-start gap-2 text-[15px] text-haze-200"><span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#86EFAC]/40 text-[11px] text-[#86EFAC]">✓</span>Finishes after its last step{view.stops!.length ? ", when none of the stops above happen" : ""}.</li>
+                <li className="flex items-start gap-2 text-[15px] text-haze-200"><span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#86EFAC]/40 text-[11px] text-[#86EFAC]">✓</span>Finishes after its last step{view.stops!.length ? ", when none of the stops above happen" : ""}.{runAt("end", null)}</li>
               )}
             </ul>
           </Card>
@@ -185,12 +223,13 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
               {view.reliesOn!.map((r) => (
                 <li key={r.id}><button type="button" onClick={() => open(r.id)} className={`flex w-full items-start gap-3 rounded-xl border border-white/10 bg-ink-850/60 px-3 py-2.5 text-left hover:border-white/30 ${focus}`}>
                   <Symbol id={r.symbol as SymbolId} size={22} />
-                  <span><span className="block font-medium text-white">{r.label}</span><span className="block text-sm text-haze-300">{r.says}</span></span>
+                  <span><span className="block font-medium text-white">{r.label}</span><span className="block text-sm text-haze-300">{r.says}</span>{(r.service || r.crossFile) && <span className="block text-xs text-haze-400">{r.service ? `Sends ${r.service}${r.route ? `, handled by ${r.route}` : ""}` : "Calls it"}{r.crossFile ? ` in ${r.file}` : ""}</span>}</span>
                 </button></li>
               ))}
             </ul>
-          ) : <p className="text-sm text-haze-300">Nothing else in this file.</p>}
-          {view.usedBy!.length > 0 && <p className="mt-3 text-sm text-haze-300">Used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</p>}
+          ) : <p className="text-sm text-haze-300">Nothing else Thunder could link.</p>}
+          {view.usedBy!.length > 0 && <p className="mt-3 text-sm text-haze-300">Used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button>{u.crossFile && <span className="text-haze-400"> (in {u.file})</span>}</span>)}.</p>}
+          {(view.notLinked?.length ?? 0) > 0 && <ul className="mt-3 space-y-1 text-sm text-haze-400">{view.notLinked!.map((x, i) => <li key={i}>Not linked{x.line ? `, line ${x.line}` : ""}: {x.call ? `${x.call}: ` : ""}{x.why}</li>)}</ul>}
         </Card>
 
         <Card title="How sure Thunder is">
@@ -203,6 +242,8 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
             </>
           )}
         </Card>
+
+        {change && <ChangeThis source={change.source} file={file} name={member.name} line={member.lines[0]} onUse={change.onUse} />}
 
         <details className="rounded-2xl border border-white/10 p-5">
           <summary className={`cursor-pointer text-xs font-semibold uppercase tracking-wider text-haze-400 ${focus}`}>Every step ({view.steps!.length})</summary>
@@ -225,8 +266,14 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
   );
 }
 
-export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, onSourceChange }: {
+export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, canChange = false, onSourceChange, run, runHidden }: {
   source: string; file: string; name?: string;
+  /** A recorded run of exactly this code: offers "What happened when it ran" at Flow and Details. */
+  run?: RecordedRun;
+  /** Why a recorded run is not offered right now (e.g. the code was edited after it was recorded). */
+  runHidden?: string;
+  /** Details offers "Change this": write a change in Thunder and see the code and its proof (nothing is saved). */
+  canChange?: boolean;
   /** A member's name (e.g. return_book) to show at Flow, Details, Text, and Original until another is chosen. */
   initialFocus?: string; initialLevel?: LevelId; editable?: boolean; onSourceChange?: (s: string) => void;
 }) {
@@ -237,6 +284,10 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
   const [level, setLevel] = useState<LevelId>(initialLevel);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<[number, number] | null>(null);
+  const [showRun, setShowRun] = useState(false);
+  // The running system: the recorded run placed on this model's flows (only evidence; nothing inferred).
+  const overlay = useMemo<RuntimeOverlay | null>(() => { try { return run && model ? runtimeOverlay(model, fromTrace(run.trace as never)) as RuntimeOverlay : null; } catch { return null; } }, [run, model]);
+  const crash = useMemo<ErrorExplanation | null>(() => { try { return run?.crash && model ? explainError(model, run.crash) as ErrorExplanation : null; } catch { return null; } }, [run, model]);
 
   if (!model) return <p className="text-haze-300">Thunder could not read this code. Check that it is complete.</p>;
   const exists = (id: string | null) => !!id && (model.members.some((m) => m.id === id) || model.things.some((t) => t.id === id));
@@ -292,7 +343,20 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
                 </section>
               )}
             </div>
+            {(view.resources ?? []).length > 0 && <div className="grid gap-5 lg:grid-cols-2">{model.things.filter((t) => view.resources!.some((r) => r.id === t.id)).map((t) => <ResourceCard key={t.id} t={t} model={model} onLine={showLine} />)}</div>}
+            {((view.permissions ?? []).length > 0 || (view.settings ?? []).length > 0) && (
+              <div className="grid gap-5 lg:grid-cols-2">
+                {(view.permissions ?? []).length > 0 && <PermissionList permissions={view.permissions!} onLine={showLine} />}
+                {(view.settings ?? []).length > 0 && <SettingList settings={view.settings!} />}
+              </div>
+            )}
             {view.data!.length > 0 && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{model.things.filter((t) => view.data!.some((d) => d.id === t.id)).map((t) => <DataCard key={t.id} t={t} />)}</div>}
+            {(view.calls?.length ?? 0) > 0 && (
+              <section aria-labelledby="lv-calls" className="rounded-3xl border border-white/12 p-6">
+                <h3 id="lv-calls" className="text-lg font-semibold text-white">How the parts connect</h3>
+                <ul className="mt-3 grid gap-2 text-[15px] text-haze-200">{view.calls!.map((c) => <li key={`${c.from}>${c.to}`}><span className="font-mono text-sm text-white">{c.from}</span> <span aria-hidden="true">→</span><span className="sr-only">calls into</span> <span className="font-mono text-sm text-white">{c.to}</span>: {[c.calls ? `${c.calls} call${c.calls === 1 ? "" : "s"}` : "", c.sends ? `${c.sends} request${c.sends === 1 ? "" : "s"} or event${c.sends === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")}{c.examples[0] && <span className="text-haze-400"> (for example, {c.examples[0].says})</span>}</li>)}</ul>
+              </section>
+            )}
             {view.unknowns!.length > 0 && <ul className="rounded-2xl border border-dashed border-white/25 p-4 text-sm text-haze-300">{view.unknowns!.map((u, i) => <li key={i}>Not read yet, line {u.line}: {u.why}</li>)}</ul>}
             <p className="text-sm text-haze-400">Choose anything it can do to see its Flow.</p>
           </div>
@@ -315,15 +379,19 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
 
             {level === "big-picture" && (
               <div className="mt-5 space-y-2 text-sm text-haze-200">
-                <p>{view.uses!.length ? <>It uses {view.uses!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</> : "It doesn't use anything else in this file."}</p>
-                <p>{view.usedBy!.length ? <>It is used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button></span>)}.</> : "Nothing else in this file uses it."}</p>
+                <p>{view.uses!.length ? <>It uses {view.uses!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button>{u.service && <span className="text-haze-400"> ({u.service})</span>}{u.crossFile && <span className="text-haze-400"> (in {u.file})</span>}</span>)}.</> : "It doesn't use anything else Thunder could link."}</p>
+                <p>{view.usedBy!.length ? <>It is used by {view.usedBy!.map((u, i) => <span key={u.id}>{i ? ", " : ""}<button type="button" onClick={() => open(u.id)} className={`rounded text-[#A9C9FF] hover:underline ${focus}`}>{u.label}</button>{u.crossFile && <span className="text-haze-400"> (in {u.file})</span>}</span>)}.</> : "Nothing else Thunder read uses it."}</p>
                 <button type="button" onClick={() => setLevel("flow")} className={`mt-2 min-h-11 rounded-xl border border-white/20 px-4 text-haze-100 hover:text-white ${focus}`}>See how it goes: Flow →</button>
               </div>
             )}
 
-            {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} /></div>}
+            {!overlay && runHidden && (level === "flow" || level === "details") && <p className="mt-5 text-sm text-haze-400">{runHidden}</p>}
+            {overlay && (level === "flow" || level === "details") && <RunPanel run={run!} on={showRun} setOn={setShowRun} memberRun={overlay.members[member.id]} label={view.title} crash={crash?.member?.id === member.id ? crash : null} />}
 
-            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} />}
+            {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} runs={showRun ? overlay?.members[member.id]?.nodes : undefined} calls={overlay?.members[member.id]?.calls} /></div>}
+            {level === "flow" && showRun && (() => { const done = member.flow.nodes.find((n) => n.kind === "end" && n.line == null); const w = done ? runWords(overlay?.members[member.id]?.nodes[done.id], overlay?.members[member.id]?.calls) : null; return w ? <p className="mt-3 text-sm text-haze-200"><span className="font-semibold text-[#67E8F9]">Done</span> (it finished after its last step): {w}</p> : null; })()}
+
+            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} memberRun={showRun ? overlay?.members[member.id] : undefined} change={canChange ? { source, onUse: onSourceChange } : undefined} />}
           </article>
         )}
 

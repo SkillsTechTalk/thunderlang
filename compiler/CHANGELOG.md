@@ -1,11 +1,437 @@
 # Unreleased
 
+**Language: writing in Thunder** (`compiler/src/write-steps.mjs`; `thunderWrite` in `/core`; `thunder write <file>
+--edit '<json>' [--apply] [--test "<cmd>"] [--candidate <file>]`). A person changes software in Thunder and the code is
+written for them, then proven.
+- **Thunder edits**, by function and step: `setValue`, `setCondition` (whole condition, comparison, one side,
+  negation, add or remove an `and`/`or` part), `addStep`, `removeStep`, `moveStep`, `addStop`, `removeStop`,
+  `addInput`, `removeInput`, `setGivesBack`, `rename` (an input, a name, or the function with its calls), and
+  `addFunction` (simple cases). Each is validated against the meaning tree; one that does not fit is refused with the
+  reason.
+- **Written deterministically** for TypeScript, JavaScript, Python, and Go as a minimal patch: only the touched lines
+  (often characters) change; comments, quotes, indentation, and formatting stay byte for byte.
+- **Otherwise `needs-ai`** with a self-contained instruction for an AI coding agent (the compiler makes no AI or
+  network call); code an AI wrote is checked by the same proof (`options.candidate`) and labeled **AI-written**.
+- **Proven** by reading the changed files again: the edited steps equal the intended steps tree for tree, and every
+  other function means the same (identical trees, and `thunder same`). A patch that fails its proof is never returned
+  as written. `--test` runs a command on the change; `--apply` saves only then.
+- On five audit repositories, 2,846 of 3,069 generated edits (92.7%) were written and proven, 210 needed AI, 13 were
+  refused (`scripts/write-sweep.mjs`).
+- `/zoom` Details has **Change this**: change a limit or add a Stop on the sample and see the Thunder edit, the code
+  change, and the proof, computed in the browser; nothing is saved.
+- `readCode(…, { allSteps: true })` also gives decisions their steps; `parseStatementSpans` gives each part's offsets.
+- Fix: `thunder --help` is flushed before exit, so a long help is never cut off in a pipe.
+
 **Fix (serious): `thunder same` could call different code "same".** It compared steps by their short words and
 ignored the code of steps shown as code, so `x = a + b` and `x = a - b`, or `compute(o.items)` and
 `compute(o.lines)`, were reported as the same. Steps are now also compared by a language-neutral signature of their
 code (names in any convention, operators, values); when the words match but the code does not, the answer is "cannot
 check: Thunder reads these the same, but the code differs at step N", with both lines. A faithful conversion across
 languages is still proven the same.
+
+**Language: the whole application, next two readers: Kubernetes YAML and Docker Compose (spec section 12).**
+- **Kubernetes** (`.yaml`/`.yml` known by `apiVersion:` and `kind:` in its first lines; multi-document files and
+  `kind: List`): each resource is a Resource (`resourceType` the kind as written, `address` `Deployment/api` or
+  `Service/shop/web` in a namespace). Workloads (Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod) know copies,
+  image, command, ports, settings (`secretKeyRef` only named), CPU and memory, health checks in words, the user they
+  run as, and their mounts; Services, Ingresses, ConfigMaps, Secrets (values never shown), PersistentVolumeClaims,
+  ServiceAccounts, NetworkPolicies (in words), autoscalers, Namespaces, and kustomizations are read too; other kinds
+  are still drawn, with their type as written.
+- **Docker Compose** (`docker-compose.yml`, `compose.yaml`, `*.compose.yml`, `docker-compose.<name>.yml`): services,
+  named volumes, networks, secrets, and configs are Resources (`compose-service`, `services.web`). A service knows its
+  image or build folder, published ports and to whom, settings (`${VAR}` computed; secret-looking literals not shown),
+  env files, volumes, what it starts after, networks, health check, restarts, user, limits, and profiles.
+- **Links** with file and line: a Service **sends to** the workloads its selector picks; an Ingress to its Services; a
+  setting that names a Service or Compose service exactly (`redis:6379`, `http://api:8080`) **sends to** it; ConfigMaps
+  and Secrets are **read from**; Namespaces and Compose networks are **run in**; service accounts, storage claims,
+  roles, `depends_on`, and named volumes are **used**. Links to resources in other files are drawn when the files are
+  read together (same folder first; another folder only when exactly one has it). A Compose `build:` is linked to that
+  folder's Dockerfile image by exact path, and a Kubernetes image to a Dockerfile whose folder has exactly its name.
+- **Flow**: "Applying shop.yaml" (the order things are made) and "Starting compose.yaml" (networks and volumes, then
+  each service after what it waits for: "Builds and starts api (from ./api), once db is healthy"; "Is the profile
+  monitoring turned on?").
+- **Permissions**: Role/ClusterRole rules ("can read (get, list, and watch) configmaps in the namespace shop") and
+  RoleBinding/ClusterRoleBinding ("The service account ci/deployer can do anything (cluster-admin) in the whole
+  cluster"), wide for `*` verbs or resources, cluster-admin, admin/edit cluster-wide, or a role given to everyone.
+- **Facts**, two new kinds: `privileged-container` (`privileged: true`, SYS_ADMIN/ALL, host network/PID/IPC, the
+  Docker socket or the node's root mounted) and `no-resource-limits`; and `runs-as-root`, `image-not-pinned`,
+  `public-ingress` (NodePort, LoadBalancer, Ingress, a Compose port published on every address),
+  `secret-in-plain-env`, `secret-in-plain-config`, and `wide-permission`.
+- Helm and other `{{ … }}` templates are listed as skipped with the reason, never read as YAML. The YAML reader has
+  `parseYamlDocs`: each document of a multi-document file parsed on its own, so one bad document does not hide the
+  rest. `readableFile(path, head)` is now given each file's first lines everywhere a repository is read.
+- Read on real repositories: kubernetes/examples, GoogleCloudPlatform/microservices-demo, docker/awesome-compose, and
+  dockersamples/example-voting-app.
+- thunderlang.dev/read has Kubernetes and Docker Compose in its picker, with a sample each.
+
+**Language: the whole application, next two readers: Terraform and Bicep (spec section 12).**
+- **Terraform** (`*.tf`): each `resource` is a Resource (`resourceType` exactly as written, `address`
+  `azurerm_storage_account.main`) that knows its arguments in words: a value only when the file writes it
+  ("Account tier: Standard"), a reference as what it names ("the location of the resource group rg (worked out when
+  it is applied)", `computed: true`), nested blocks summed up in a line, `lifecycle { prevent_destroy }` as
+  "Protected: Terraform refuses to destroy it". `data` sources are looked up (`existing: true`, "Looks up an existing
+  subscription, made elsewhere"); a `module` is a Resource of its own ("Uses the module …"). `count`/`for_each` read
+  "One for each item in the setting names"; `count = x ? 1 : 0` reads "one, only when …".
+- **Bicep** (`*.bicep`): `resource` (`resourceType` 'Microsoft.Storage/storageAccounts', `address` the symbolic name),
+  nested resources (full type, `parent::child`), `existing`, `module`, `for` and `if (…)`, `targetScope`, and
+  `metadata description` as the file's purpose.
+- **Links** with `file` and `line`: references, `depends_on`/`dependsOn`, and `parent`, as `runs-in`
+  (`resource_group_name`, `service_plan_id`, `serverFarmId`, `parent`, …), `reads-from` (data sources, `existing`),
+  `sends-to` (workspaces, endpoints), or `uses`; one link per pair, the most exact kind kept. A reference to a resource
+  in another `.tf` file of the same folder is linked once the folder is read together.
+- **Flow**: one Steps card per file, the order things are created from those links ("Keeps what it made in an Azure
+  storage account", "Works in Azure", "Creates the resource group rg", "Creates the storage account main in the
+  resource group rg"), with a question for each conditional resource and "For each …" for repeated ones.
+- **Permissions** (`role?` added): `azurerm_role_assignment`, Key Vault access policies, AWS IAM (inline JSON,
+  `jsonencode`, `aws_iam_policy_document`, trust policies, policy attachments), `google_*_iam_member`/`_binding`,
+  and Bicep `roleAssignments` with 48 built-in Azure role ids named (checked against Azure Verified Modules: Owner,
+  Contributor, Reader, Storage Blob Data Reader, Key Vault Secrets User, AcrPull, …), followed through a `var`.
+  Wide: Owner/Contributor/User Access Administrator on a subscription or management group, `roles/owner` or
+  `roles/editor` on a project, IAM `"*"` actions or changes on `Resource: "*"`, AdministratorAccess.
+- **Settings** (`default?`, `type?`, `doc?`, `output?`, `from?`, `allowed?` added): `variable`/`param` (sensitive and
+  `@secure()` only named), `locals`/`var`, `output`. Text says "given when it is applied (westeurope unless told
+  otherwise)".
+- **Facts**, new kinds: `storage-public`, `secret-in-plain-config`, `encryption-off`, `wide-permission`; and
+  `public-ingress` for security groups, NSG rules, and firewalls open to `0.0.0.0/0`, `*`, or `Internet` beyond ports
+  80 and 443 (ICMP reads "ping").
+- Small HCL and Bicep parsers (no dependency, linear): strings with `${…}`, heredocs, for expressions, multi-line
+  calls and ternaries, safe access and non-null assertions, lambdas, spreads, union types, decorators. A block or
+  declaration that cannot be parsed is listed in `unknowns` with its line ("Not read yet: …"); the rest of the file
+  is read.
+- Read on real repositories: terraform-aws-vpc, terraform-aws-iam, terraform-google-network, two Azure Verified
+  Modules for Terraform, two Azure Samples, and all 1,880 Bicep files of the Azure Verified Modules: every file read.
+- thunderlang.dev/read has Terraform and Bicep in its picker, with a sample each; a Resource card says when it is
+  looked up rather than made, and settings show their default and whether they are secret.
+
+**Language: the whole application, first two readers: Dockerfiles and GitHub Actions workflows (spec section 12).**
+- **Dockerfile**: each build stage is a Steps card ("Image build", or "The build stage" for `AS build`), its
+  instructions in words: "Starts from node:22-slim", "Starts from the build stage", "Copies package.json and
+  package-lock.json into the image", "Installs what it needs (npm ci)", "Sets NODE_ENV to production", "Opens port
+  3000", "Runs as the user node", "Checks its health with …", and "Starts with …" last. `RUN` chains are split into
+  steps; continuation lines, heredocs, `# escape=`, `--mount=type=secret` (named only) are read.
+- The image a Dockerfile makes is a **Resource** (`kind: 'resource'`, `resourceType: 'docker-image'`, `address:
+  'image:<path>'`) that knows what it starts from, its working folder, ports, user, start command, health check, and
+  its ENV settings (a value only when the file writes it; a secret-looking one is never shown).
+- **GitHub Actions**: each job is a pipeline member with a "When" badge (`route: { method: 'When', path }` and
+  `when`): "When someone pushes to main", "When a pull request is opened", "When someone starts it by hand", "On a
+  schedule: every day at 02:00 UTC" (else "On a schedule (cron …)"), several joined with "or". Steps: well-known
+  actions in words ("Gets the code", "Sets up Node 22", "Builds and pushes the image"), others "Uses owner/action";
+  `run:` one step per command ("Runs the tests", "Publishes the package to npm"; unknown commands "Runs `…`", kept
+  and counted as only named); `if:` as a question (steps sharing one share the question; `always()` is a note, not a
+  question); `needs:` as "After the Test job finishes"; a matrix as "For each …"; `environment:` as "Deploys to the
+  production environment (it may need someone's approval first)"; `exit 1` as a Stop; `continue-on-error` noted.
+  Shell `if`/`for`/`case`, `cmd || { …; exit 1; }`, `[ … ] && cmd`, heredocs, and quotes across lines are read.
+- **Permissions** (`model.permissions[]`: `{ id, who, can, on, wide, why?, says, file, line }`): "This workflow can
+  read the code"; `write-all` is wide: "can change everything in the repository (wide)".
+- **Settings** (`model.settings[]`: `{ name, source, secret, file, line }`): parameters, variables, secrets (named,
+  never shown), literals, and values worked out when it runs (`computed: true`). `${{ … }}` reads "worked out when it
+  runs"; `${{ secrets.X }}` reads "the secret X".
+- **Facts** (`model.facts[]`, what the file says, not advice): `write-all-permissions`, `untrusted-trigger-with-secrets`,
+  `action-pinned-by-tag` (GitHub's own actions marked `firstParty`), `image-not-pinned`, `runs-as-root`,
+  `secret-in-plain-env`.
+- Model, additive: `files[].category` ('application' | 'infrastructure' | 'delivery') and `files[].skipped` (why a
+  file could not be read); member kinds `pipeline` and `image-build`; links with `file` and `line`; Big Picture at app
+  scope has `resources`, `permissions`, `settings`, and `facts`; Text lists Permissions and Settings.
+- `readableFile(path, head?)` (read-repo and /core) says which language or format a file is; `Dockerfile`,
+  `Dockerfile.*`, `*.dockerfile`, `Containerfile`, and `.github/workflows/*.yml|yaml` are read, and folder reading
+  no longer skips `.github`. Hooks are in place for Terraform, Bicep, Compose, Azure Pipelines, Helm, and Kubernetes.
+- A small YAML reader (no dependency): block and flow collections, quoted and plain scalars, block scalars with
+  chomping, anchors, comments, and `${{ … }}` kept as text, line by line.
+- Grammar: symbols `resource` (a block) and `permission` (a key), a `when` mark, elements Resource, Permission,
+  Setting, Pipeline, and Image build, and Dockerfile and GitHub Actions in LANGUAGES. thunderlang.dev draws a
+  Resource card, who can do what, and the settings; /read has a Dockerfile and a workflow sample.
+
+**Language: the running system — what happened when it ran, on Thunder's pictures** (`compiler/src/running.mjs`,
+`thunder runtime <folder>`). Evidence of a run is placed on the flows Thunder draws, so nobody needs to read a stack
+trace or a log in the original language: per question, how many times each side was taken; per Stop, how many times
+it happened with the error and message as seen; per ending, how many times it was reached; per action or rule, its
+calls, failures, and average and slowest time, a Details sentence ("Ran 201 times; stopped with NotAvailable 117
+times (58%), when Is the book's status on shelf? was No"), and the most-taken way through it.
+- Sources, each an adapter to one event shape (`{ file, line, kind, side?, error?, message?, value?, durationMs?,
+  count? }`): proof by running's records (`fromTrace`), stack traces (`fromStack`: Python tracebacks and pytest
+  reports, Node/V8 stacks, Java with its causes, C#, Go panics), structured logs (`fromLogs`: JSON lines with a
+  file/line or function, including Python logging, Google Cloud's sourceLocation, ECS, zap's caller; an error's
+  stack in a log is read too), and OpenTelemetry spans (`fromOtlp`: OTLP/JSON with `code.filepath` / `code.lineno`
+  / `code.function` or the newer `code.file.path` / `code.line.number` / `code.function.name`, with the exception
+  event's stack).
+- `explainError(model, stack)`: "Failed in Borrow, at “Adds book to student's books” (line 42): AttributeError: …;
+  it got there because Is the book's status on shelf? was Yes and Can borrow? was Yes. Called from …". The answers
+  that led there come from the flow as drawn and are left out when it does not show them.
+- Honest by rule: counts only from evidence (no count is not zero); evidence that cannot be placed is listed as
+  **not matched** with the reason (spec section 13).
+- `thunder runtime <folder> --traces <file|dir> [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>]
+  [--top n] [--json]` prints the flows in Thunder Text with counts ("- Ask: Is the book's status on shelf?  (line
+  36)  (ran 201×: Yes 84, No 117)"), each error explained, and what was not matched.
+- Site: Semantic Zoom's School library (Python) example has "What happened when it ran" at Flow and Details, from a
+  recorded sample run (labeled as one), with counts beside each node and on each side.
+- `modelText(model, id, { note })` and `pathsOf(flow)` are exported for tools that draw their own overlays.
+
+**Language: proof by running — readings are checked against what the code actually does** (`compiler/src/executed.mjs`,
+`thunder verify --run <folder>`). Thunder runs real code (the project's own tests, and made-up inputs for functions
+that look free of side effects), records which way every question went and how every call ended, and compares that
+with the flow it drew: when a condition held, the side Thunder says it takes then must hold the next step that ran;
+a loop must reach its "For each" steps; a `return` must be one of Thunder's endings (and a rule's answer the value
+given back); a `raise` / `throw` must be a Stop of the error Thunder names; reaching the end needs a "Done". Each
+member is **executed**, **contradicted** (with the question, side, and line), ran with nothing to check, or not run;
+only a run writes `member.completeness.level = 'executed'` (`markExecuted`). Python uses `sys.monitoring` and `ast`
+(3.12+, no packages); JavaScript uses V8's own debugger in-process (`node:inspector`), no dependencies.
+- Release gate: `npm run accuracy:gate` (`compiler/scripts/accuracy-gate.mjs`, in CI) fails when a run contradicts
+  any reading of the fixtures (or configured repositories), when a step invents a value, or when a question's words
+  or Yes/No side disagree with the code's polarity (a new check in `scripts/accuracy.mjs`: 0 of 4,494 questions in
+  the eleven audit repositories).
+- On real code (docs/accuracy.md): requests, urllib3, and werkzeug run by requests' 619-test suite, and Express by
+  its own 1,290 tests. The runs found reader bugs, now fixed: Python `try … else:` and `for` / `while … else:`
+  bodies were dropped from the picture; `with self.lock:` (no `as`) read "Calls with" and dropped every step inside
+  it; JavaScript `else if` rules were all placed on the first `if`'s line; a SQL CHECK / UNIQUE refusal was quoted as
+  if the database said those words (it is now described, not quoted).
+- Decision nodes carry `whenTrue` ('yes' | 'no'): the side the code takes when its condition holds.
+
+**Language: review in Thunder** (`compiler/src/review.mjs`, `thunder review`, spec section 14). A pull request is
+shown by what it changed in meaning, in plain sentences, so it can be reviewed without reading the code diff.
+`thunderReview(oldFiles, newFiles)` (exported from `/core`) pairs each action, rule, and function with its other
+version (by file and name, by a name used once, by a route's code, or by meaning) and compares the ways it stops and
+when ("Now stops with 403 Forbidden ("forbidden") when the x-admin-secret header is not the ADMIN_SECRET setting"),
+rules by running both versions on every edge case ("the limit between Small fee and Big fee moved from 7 to 10 days
+late", with the case 8 days late as evidence), inputs, what it gives back, what it changes or reaches (another
+service, a payment, stored data), what it relies on, addresses, records and choices, new, removed, renamed, and moved
+functions, imports, and code outside every function. Items are ordered risk, meaning, form, each with the before and
+after. "Only the form changed" is said only when it is shown (same code apart from spacing and comments, consistent
+renames of names the function declares, or a rule with the same answers on every edge case); when Thunder's words
+read the same but the code differs, it says "Changed, check". Infrastructure and pipeline files are flagged to check,
+not read. `thunder review <base-ref> [head-ref] [--json] [--out file]` reads both versions from git (no network) and
+prints Markdown for a pull request comment; `.github/actions/thunder-review` posts and updates one comment with the
+adopting repository's own token (not enabled on this repository). Decision nodes in the model now carry `holds` (each
+side of a yes/no question as a statement) and Details' `when` entries a `says`, so sentences read "when the header is
+not the setting" rather than quoting the question. /zoom shows a sample review computed by the compiler.
+
+**Language: the whole system — calls across files and services** (`compiler/src/system.mjs`, in `/core`). The model
+now links a step's call to the member it calls in another file, and a request or event to the code that handles it
+(docs/spec.md, "The whole system"):
+- **Calls across files**: `links[]` gains `kind: 'uses'` entries with `crossFile: true`, the target's `file`, and the
+  calling step's `line`, resolved through imports: JS/TS ES modules, CommonJS, re-exports, tsconfig path aliases,
+  workspace packages; Python absolute and relative imports and packages; Go packages (by `go.mod`) and the same
+  package's other files; Java/Kotlin imports by class, C# `using`, PHP `use`, Ruby class names, Rust `use crate::`.
+  Methods are followed through declared types (fields, constructor parameters, Go receivers), and overloads by how
+  many values a call gives. The calling flow node gets `uses` and `usesFile`, so Open → opens the other file.
+- **Service calls**: `kind: 'sends-to'` links an HTTP request the library catalog recognizes to the route in this
+  repo with the same method and path (path parameters are wildcards; Next.js route files count), an event or queue
+  message to its listeners by name, and a Celery `delay()` to its task.
+- **Never guessed**: `model.notLinked` lists what was worth linking and could not be, with the reason (external
+  package, dynamic import, computed URL, another service's host, no or two matching routes, an interface).
+- **Views**: `readLevel(model, 'big-picture')` for the app adds `calls` (which areas call which, with examples) and
+  `notLinked`; `uses`/`usedBy` and Details' `reliesOn` say the file, service, and route; Details adds the member's
+  `notLinked`. The site shows "How the parts connect", "Open in orders.ts →", and the file of each link.
+- `collectReadableFiles(root, { manifests: true })` also returns go.mod, package.json, and tsconfig/jsconfig files.
+- On the eleven audit repositories, of calls whose name matches a function defined in another file, 47.8% are now
+  linked (55.5% where that name is defined only once in the repo; cobra 82%, gson 75%, formik 61%, requests 51%);
+  the rest are mostly calls on values whose type is not written down. Reading time is about 1.04× before overall.
+- A comment with an apostrophe (`// it's`) no longer stretches a TypeScript class or interface over the functions
+  after it (they were wrongly owned by it, so their ids lose that owner); `lift.mjs` finds line numbers without
+  re-splitting the file each time.
+
+**Language: JavaScript functions with no declaration of their own are items.** `exports.x = function`,
+`module.exports.x =`, `obj.method = function`, `Foo.prototype.bar = function`, functions inside functions (the inner
+`app` in Express's `createApplication`), object-literal methods, and anonymous callbacks (`app.use(function …)`,
+`.then(function …)`, block-bodied arrows) are now items, named by what they are assigned to or
+`<parent> › callback at line N` (items carry `assignedTo`, `callback`, `passedTo`). Prototype methods belong to their
+Thing, and `function Foo()` is how a new Foo starts; an object given two or more methods (`res.json`, `res.send` on
+`var res = Object.create(…)`) is a Thing. Declared functions keep their ids, and methods owned by assignment keep the
+id they had. Test bodies (`describe`/`it` callbacks) stay tests; Big Picture does not list callbacks on their own.
+On Express, the share of recorded executions Thunder can place on a member went from 71.9% to 99.7% (functions
+drawn in lib/: 76 to 109).
+
+**Language: no loss — every detail, one level down** (`compiler/src/meaning.mjs`, `compiler/src/round-trip.mjs`).
+Thunder's words stay short, and nothing in the code is lost: every step now carries `expr`, its full meaning as a
+small language-neutral tree (`thunder-expr-v1`): calls with their whole callee path and every argument, assignments
+with their full target (index, keys) and value, conditions with every operand and negation, exact literals, object,
+list, and JSX contents, lambdas (their body is the step's children), returns and throws with value, error type, and
+message. What the reader cannot read exactly is `{ kind: 'code', text }`, never a guess.
+- **Details** gives each step its `expr` and `detail`, what the short words leave out ("Calls save — with: order,
+  { validate: false }"). **Thunder Text** stays short; `modelText(model, id, { full: true })` (and Text with
+  `{ full: true }`) shows every argument and value. On the eleven audit repositories, a reader can now see 97.4% of
+  each step's code names in Details, against 59.5% in the short words (58% before, counted the old way).
+- **Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, a step's tree is written back as code, read
+  again by the same reader, and compared: 99.4% of 9,965 steps come back exactly (every step that was read into a
+  tree; the rest are kept as code), none different. Conditions and values made of names and operators are also run
+  before and after on generated inputs (Node, Python): 1,069 run the same, none differently (Go is compared by tree
+  only). `scripts/accuracy.mjs` adds "names kept (Details)" and "steps round-trip exact" (and `--steps` to list
+  failures); 465 of 25,864 steps across all eleven repositories are still kept as code (docs/accuracy.md).
+- **The faithfulness gate reads the tree**: a condition's negations and comparisons are counted from `expr` when it
+  parses (a TypeScript non-null `x!` is no longer a negation; operators inside strings never count), and
+  `wordsAgree(step)` checks that every number, quoted text, and "Calls X" in the words is in the tree (no step on the
+  eleven repositories disagrees).
+- Reader fixes the tree found: `i++` at the end of a line (Go, JavaScript without semicolons) no longer swallows the
+  next statement; a one-line `if (x) { a(); }` no longer puts its block in its words; `case A: case B:` keeps both
+  labels in its tree; Kotlin `require(x) { "message" }` keeps its message.
+- No existing test changed.
+
+**Language: C, C++, and Swift.** Three more languages (with R, shell, and PowerShell below, seventeen in all). `.c` is C; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh`/`.hxx`
+are C++; a `.h` is C unless it uses classes, namespaces, templates, or `::` (C++ lines kept for C++ callers inside
+`#ifdef __cplusplus` do not count); `.swift` is Swift. Pasted code is recognized too.
+- **Functions.** C and C++ functions are found by walking scopes (file, namespaces, `extern "C"`, classes): return
+  types on their own line, `static`/`inline`, macros, templates, attributes, constructors with initializer lists,
+  destructors ("Clean up"), operators, and `Type::method` definitions (with the type they belong to). Swift `func`,
+  `init`, subscripts, computed properties, and Vapor routes (`app.get("orders", ":id") { req in … }`,
+  `routes.post(…, use: handler)`, literal `grouped(…)` prefixes). Doc comments: C/C++ `/* … */`, `/** … */`, `//`;
+  Swift `///`.
+- **Steps.** C/C++: `malloc`/`calloc`/`new T[n]` ("Gets memory for 10 books as books"), `free`/`delete` ("Frees buf"),
+  `memcpy`/`strcpy`, `memset`, `strlen`, `strcmp(a, b) == 0` ("a is b"), `exit`/`abort`, `cout`/`printf`, `p->x`,
+  casts, declarations, designated initializers, labels and `goto`, `do … while` (also Allman style), endless loops,
+  range-for, `try`/`catch` by type, `throw;`, lambdas as their own sub-flow, `(void)x` skipped. A C/C++/Swift
+  `switch` is one question with one side per case; a C case without `break` says "then carries on into the next
+  case". Swift: `guard … else` ("If not: …" with the Stop inside), `if let`/`guard let` ("x is set"), `defer`,
+  `do`/`try`/`catch` by type, ranges (`0..<3` is "from 0 to 2"), enum cases (`.cancelled`), trailing closures,
+  one-expression bodies, `throw LibraryError.full`, Vapor `throw Abort(.notFound)` ("Fails with 404 Not Found").
+  C error returns stay what the code says ("Returns -1 early if fd is less than 0").
+- **Things.** C `struct`/`typedef struct` (Data, or a Thing when functions take it first or are named after it, with
+  the type's name left out of the label) and `enum` (shared prefixes dropped); C++ `class`/`struct`/`enum class`,
+  methods outside the class (also in another file), constructors, initializer lists, and default member initializers
+  as starting values; Swift `class`/`struct`/`actor`/`enum`, `extension` methods (also in another file), `init`, stored
+  properties with defaults; `protocol` is a contract, not a Thing.
+- Measured on redis (227 C files, 5,667 functions, 95% of steps explained), nlohmann/json and fmt (C++, 87–90%),
+  Alamofire and vapor (Swift, 92–96%), no reader errors; see the PR. The older readers are unchanged (the switch
+  grouping, `blockBrace`, and C/Swift wording run only for the new languages); `readableLanguage(path, source?)`
+  takes the source to decide a `.h`.
+- thunderlang.dev says fourteen languages; /read has C, C++, and Swift samples, and the Original view colors them.
+
+**Language: C, C++, and Swift held to the faithfulness bar.** The C, C++, and Swift readers pass the faithfulness
+gate (`faithful.mjs`, below) and fix every false or misleading reading found in a hand
+review of fmt, nlohmann/json, redis, Alamofire, and vapor (see docs/accuracy.md, "C, C++, and Swift"):
+- **Text with values inside** (docs/spec.md): `printf`/`fprintf`/`snprintf`, `fmt::print`, `cout <<`, and Swift
+  interpolation keep every literal character and show each value as a «placeholder» (`"«dir»/alias «n»\n"`,
+  `«x as %5.2f»`); text whose values cannot be paired is shown as code.
+- C/C++: macros in front of a return type are dropped (`FMT_CONSTEXPR void` gives back nothing; `auto f() -> T`
+  gives back T); `using` is no step; `*p = v` "Writes v where p points"; `+=` of a call adds; bit operators,
+  statement ternaries, and multi-name declarations are code; brace-less `for`/`while`/`if` (also nested, `++q`,
+  `*err = …`, `[[unlikely]]`) keep their bodies on the right side; `events[i].mask` and `c->argv[j]->ptr` keep their
+  index; `p != nullptr` and `!strcmp(a, b)` pass the gate; steps under `#if`/`#elif`/`#else` say which build runs
+  them; a block starting `p->x = …` is no longer cut as a lambda parameter; goto labels keep their names.
+- Swift: a one-expression body (also a switch or if/else body, a trailing closure, a Vapor route closure) gives back
+  its value; `[Character]` parameters are inputs; a String property is never a yes/no rule; `Logger(…)` and Apple C
+  functions (`SecPolicyCreateSSL`) are not "writes a message"/"a new"; `guard case .x = event` asks about event;
+  `T.self is String.Type`; `for _ in xs`; code shown "not explained" is exactly as written.
+- Regression tests: `test/faithfulness-c.test.mjs`, `-cpp`, `-swift` (one per false or misleading sample).
+
+**Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
+review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
+misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep
+everything the code says, and shows the code (marked "not explained") when they cannot:
+- Conditions are split at their top-level and / or, each part said on its own, and each part must keep its
+  negations (`!`, `not`, `!=`, `!==`, `is not`, `not in`, `unless`) and comparisons. Compound questions are asked as
+  written, so the Stop is always on the side the code takes (`!body || used` read "Body or used? No: stop"); only
+  `unless` flips a whole question. `=== null` and `=== undefined` are told apart, `typeof x === 'string'` reads "x
+  is text", PHP `is_string($x)` "x is text", `x instanceof Foo` "x is a Foo"; a question is asked by a rule's name
+  only when the condition is that call alone; `!==` before `null` no longer reads "! is empty".
+- Values keep what they are made of: `headers[key] = v` reads "Stores v under key in headers" (it read "Sets headers
+  to …"); a returned `a && b` / `a || !b` keeps every part; multi-line returns and assignments are read whole (JSX
+  `return (` reads "what to show on screen"); `a or b` keeps its fallback; `*=`, `??=`, `||=`, `.=`, Go `append`
+  and PHP `$a[] =` say what they do; a call names a value only when it is the whole value; a returned function is
+  shown with its steps.
+- Nothing is dropped or moved: a loop's `continue` / `break` are steps ("Skips to the next one", "Leaves the loop");
+  a brace-less `if (x)\n  stmt;` keeps its statement; a C-like switch is one question with each case's steps under
+  it; Go `t.Fatal` / `t.Errorf` and Rust `cfg!` chains are no longer "Checks: …: nothing"; PHP `foreach ($a as $k =>
+  $v)` is a loop; `//` or PHP `#` inside a string no longer cuts the body short; a loop whose body could not be read
+  is shown as code; a function is drawn as a rule only when every statement was read into it (partial rules hid
+  later checks).
+- `next(…)` passes an error on only in middleware (`(req, res, next)`, a route, a `NextFunction`); a .NET handler
+  delegate "returns the answer of the next handler"; a local helper named `next` is an ordinary call.
+- Smaller fixes: messages are no longer cut at an inner quote; PHP `$a.$b` joins text (it read "the a's b"); Go
+  `return out, err` gives both back; Kotlin `?: return null`, `require`, abstract `fun`s; Ruby implicit last values,
+  `unless`, one-line blocks, `case … else`, `halt`; Python continued lines and bare `self.x`; destructured inputs;
+  a fetch `Request` / `Response` is an input outside web handlers.
+- Tests updated where they encoded a lossy reading: "whether proxy and …" is now "whether proxy is set and …", a
+  keyed store reads "Stores True under arg in seen", a switch's cases hold their steps, and a value keeps its owner
+  ("otherwise the order's total", "Sets name to the user's name").
+
+**Language: common libraries, read as what they do** (`compiler/src/libraries.mjs`). Calls into well-known libraries
+read with their arguments instead of "Calls find unique": ORMs (Prisma, Mongoose, Sequelize, Django, SQLAlchemy,
+Spring Data incl. derived names like `findByEmailAndActive`, Entity Framework, GORM, `database/sql`, ActiveRecord,
+Eloquent and Laravel's query builder) say what they find, save, change, or remove and by what ("Finds the user whose
+email is email"); HTTP clients name the method and address ("Sends a POST request to …/orders"); tokens, passwords,
+caches, Stripe, email, background jobs, JSON, files, and the current time read in words. Go's `if err := <call>; err
+!= nil` says what could not be done ("If it cannot find the first user whose id is id").
+
+**Language: inputs and outputs, read accurately.** Measured on eleven open-source repositories with the new
+`scripts/accuracy.mjs` (see docs/accuracy.md):
+- What goes in says where it comes from: "the x-admin-secret header", "force (in the address)", "email (sent in the
+  request)"; Details gives each input's kind when the code says it ("days late: a number", "request: a
+  PingResource"). Plumbing is decided by type when there is one, so `Handle(PingResource request, …)` takes a request.
+- What comes back: an action's "You get back" lists every way it ends ("success (yes) and data (result); or it stops
+  with 403 or 500"); returned objects give their plain values; `yield` gives back one at a time; a redirect and
+  `next()` end the response ("Lets the request go on to the next step"); a bare `return` after a Stop is not a new
+  ending, and nothing after a Stop on the same path is listed as an ending.
+- Conditions: `!==` reads "is not" (it read as a stray "!"); request and settings idioms read as words with their
+  names kept exactly (`req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET`: "Is the x-admin-secret header
+  the ADMIN_SECRET setting?"); dynamic imports read "Loads … from ./lib/…".
+- Text inside quotes is never changed (it was: "charset_normalizer" became "charset normalizer").
+
+**Language: what a handler sends back.** A response sent to the caller reads as what the person gets back:
+`res.json(user)` reads "Returns user" (not "Calls json"), `res.status(201).json(order)` "Returns order (201 Created)",
+`res.sendStatus(204)` "Returns nothing (204 No Content)", `res.render('profile')` "Shows the profile page", across
+Express, Fastify, Koa, Gin, ASP.NET (`Ok`, `CreatedAtAction`, `NoContent`), Spring (`ResponseEntity`), Flask
+(`jsonify`), and FastAPI (`JSONResponse`). Their error forms (`NotFound(...)`, `ResponseEntity.notFound()`,
+`res.sendStatus(404)`, Gin `c.JSON(http.StatusNotFound, …)`) are Stops with their status. Details lists them under
+what it gives back and when.
+
+**Language: R, Bash/POSIX shell, and PowerShell.** Thunder reads three more languages, each by its own module
+(`rlang.mjs`, `shell.mjs`, `powershell.mjs`, with a shared phrasebook of command-line tools in `commands.mjs`) into
+the same items as every other language.
+- **R** (`.R`, `.r`): `name <- function(a, b = 3)` functions; `if`/`else if`/`else`, `return()` guards, and `switch()`
+  (with fall-through) as decisions; `for`/`while`/`repeat`, `stop()` as a Stop with its message, `warning()`,
+  `message()`, `tryCatch(error =, warning =, finally =)` as handlers and what always runs at the end, the implicit last
+  value; `library()` as setup; data-frame pipelines (`|>`, `%>%`) one verb at a time ("Keeps only the rows where total
+  is more than 100", "Groups the rows by region", "Sorts the rows by revenue, highest first"); `R6Class`,
+  `setRefClass`, and `setClass` as Things; roxygen `#'` as the author's note; plumber `#* @get /path` as actions;
+  testthat tests.
+- **Shell** (`.sh`, `.bash`, `.zsh`, `.ksh`, and extensionless files with a shell shebang): a linear lexer and parser
+  for words, quotes, `$(…)`, heredocs, pipes, `&&`/`||`, `if`/`elif`/`else`, `for`, `while`/`until`, `case`, and
+  functions. Tests in words ("the file … exists", "x is empty", "is at least"), `exit N` as a Stop with the message
+  echoed to stderr right before it, `set -euo pipefail` as a note, `trap … EXIT` as what runs at the end,
+  `cmd || { …; exit 1; }` as a question, and docker, kubectl, helm, az, aws, gcloud, git, npm, curl, and file commands
+  by what they do. The script's own top-level code is one item named after the file. Shell has no classes, so it has
+  no Things (it is left out of `THING_LANGUAGES` on purpose).
+- **PowerShell** (`.ps1`, `.psm1`): `function Verb-Noun` with `param()` inputs and their kinds, comment-based help
+  (`.SYNOPSIS`) as the author's note, `if`/`elseif`/`else` and `switch` as decisions, `foreach`, `ForEach-Object`,
+  `try`/`catch [Type]`/`finally`, `throw` as a Stop, `Write-Error` as a Stop only when errors are set to stop,
+  comparison operators in words, cmdlets by Verb-Noun ("Gets the Azure resource groups"), `class` and `enum` as Things
+  and Choices, Pode routes as actions, Pester tests.
+- `readableLanguage(path, source)` reads an extensionless file as shell when its first line is a shell shebang;
+  `collectReadableFiles` looks at the first bytes of extensionless files to find them.
+- Flows link a shell or PowerShell call to the function it runs (by the step's callee). Steps that write a message
+  or send an HTTP request get the "send" and "ask" shapes.
+- `/read` has R, Shell (Bash), and PowerShell in its language picker, a sample for each, and editor colors for them.
+- `scripts/language-audit.mjs` audits tidyverse/dplyr, nvm-sh/nvm, and PowerShell/PSScriptAnalyzer, and leaves a
+  script's own functions out of its top-level item's branch count. Spec section 9 updated.
+
+**Language: R, shell, and PowerShell held to the faithfulness bar.** A hand review of 112 samples (nvm, neofetch,
+posh-git, PSScriptAnalyzer, httr, dplyr) found 41 readings that stated something false (D) and 14 that misled (C);
+after this change the same samples have 0 D and 0 C (each fix has a regression test in
+`test/faithfulness-{shell,powershell,r}.test.mjs`).
+- **Text with values inside** (spec section 9): quoted text keeps every literal character as written, escapes included,
+  and each inserted value is a `«…»` placeholder: a plain variable by its exact name (`"${NVM_DIR}/alias"` →
+  `"«NVM_DIR»/alias"`), anything else by its code (`«$1»`, `«${1-}»`, `«$(cat)»`). printf, sprintf, glue/cli, and
+  PowerShell `-f` pair each conversion with its argument (`«n as %5d»`); when they cannot be paired the step is shown
+  as code. Names are no longer turned into words inside quotes ("{nvm dir}", "{all the inputs}"), and quoted text is
+  never rewritten by the possessive pass (`liblzma.so` was "the liblzma's so", `binfmt_misc` "binfmt misc").
+- **Shell**: `${x#p}`, `${x%%p}`, `${x/a/b}`, `${x:+w}`, `${#x[@]}`, `${x[0]}` say what they do (they read as the bare
+  variable before: "Sets version to version"); `${x:-d}` says "empty or not set", `${x-d}` "not set"; arithmetic
+  Thunder cannot say exactly (`?:`, commas inside conditions, `++` in a test) is shown as code; `a && b || c` runs `c`
+  when a or b failed (it was read as "only if a worked"); `test && a || b` is if/else only when `a` cannot fail; a bare
+  `return`/`exit` gives back the last command's code (it said "success"); `$1`…`$9` inside single quotes (awk) are not
+  inputs; `$(< file)` is the file's contents; case patterns are shown as written; `read -a … <<<`, `printf -v`.
+- **commands.mjs**: `curl` sends to its address (not to the value after `--max-time`); `wget --version` / `curl
+  --version` download nothing; `find` with `!`, `-prune`, `-links` shows those tests as code instead of dropping them;
+  `head`/`tail -1` keep their count; `git config name` reads the setting; `choco -s .` is a source, not a package.
+- **PowerShell**: conditions pass the faithfulness gate (`-not`, `-ne`, `-and`, `-or` counted like `!`, `!=`, `&&`,
+  `||`; otherwise the code is shown); arguments run to the next space (`-Color $s.X` no longer splits); `$_` in a catch
+  is "the error"; `$args[0]` is "the first input"; spaces inside quoted text are kept.
+- **R**: calls not put into words keep every argument; `names(x) <- v` is "Sets the names of x"; `if`/`switch` used as
+  a value sets the variable on each side; `is.null` says "is NULL"; `cat` keeps escapes and its separator;
+  `!(a && b)` is shown as code, not rewritten.
+- **Shared (ported from fix/faithfulness, identical code)**: `src/faithful.mjs`, `test/faithfulness-helpers.mjs`;
+  `askAsQuestion` asks a compound condition as written and a code condition as code, and asks by a rule's name only
+  when the condition is that call (`askedByRule`); words inside quotes, code, and placeholders are never the question's
+  verb ("^«COMMAND» is an alias for" is not split at "is"). `req`/`app` are plumbing only in web handlers.
 
 # 0.5.11
 

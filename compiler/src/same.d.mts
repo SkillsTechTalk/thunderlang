@@ -6,5 +6,6 @@ export interface SameItem { name: string; status: SameStatus; reason: string; ol
 export interface SameReport { schema: 'thunder-same-v1'; verdict: 'same' | 'different' | 'partly-checked'; counts: Record<SameStatus, number>; items: SameItem[]; unreadable: { path: string; reason: string }[] }
 export function nameKey(name: string): string;
 export function compareRules(oldItem: unknown, newItem: unknown): { same: boolean; tried: number; reason?: string; counterexample?: SameItem['counterexample'] } | null;
+export function comparePlainRules(a: unknown, b: unknown): { same: boolean; tried: number; reason?: string; counterexample?: SameItem['counterexample'] };
 export function sameMeaning(oldFiles: { path: string; source: string }[], newFiles: { path: string; source: string }[]): SameReport;
 export function renderSame(report: SameReport): string;

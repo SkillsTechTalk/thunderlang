@@ -100,7 +100,7 @@ export default function HomePage() {
               people work with what software means, and machines handle most of the code.
             </p>
             <p className="mt-3 max-w-xl text-sm text-haze-400">
-              Today Thunder reads code in eleven languages, SQL included, and draws its decisions as cards you can question. Writing whole
+              Today Thunder reads code in seventeen languages, from Python to C, C++, Swift, R, shell, PowerShell, and SQL, and draws its decisions as cards you can question. Writing whole
               programs in Thunder is not available yet.
             </p>
             <div className="mt-8">

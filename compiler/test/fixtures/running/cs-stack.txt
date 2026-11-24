@@ -1,0 +1,4 @@
+Unhandled exception. System.Collections.Generic.KeyNotFoundException: The given key 'Matilda' was not present in the dictionary.
+   at System.Collections.Generic.Dictionary`2.get_Item(TKey key)
+   at School.Library.Find(String title) in /home/ci/School/Program.cs:line 18
+   at School.Program.Main() in /home/ci/School/Program.cs:line 27

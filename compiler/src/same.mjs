@@ -28,7 +28,7 @@ function compact(it, key, file, language) {
 function readAll(files) {
   const items = new Map(), byName = new Map(), unreadable = [];
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source) continue;
     let reading;
     try { reading = readingOf(f, language); } catch (e) { unreadable.push({ path: f.path, reason: e.message }); continue; }
@@ -73,6 +73,11 @@ export function compareRules(oldItem, newItem) {
   let a, b;
   try { a = plainFromReading(oldItem); b = plainFromReading(newItem); } catch { a = b = null; }
   if (!a || !b) return null;
+  return comparePlainRules(a, b);
+}
+
+/** compareRules for two rules already drawn as cards (plainFromReading), such as a model member's `rule`. */
+export function comparePlainRules(a, b) {
   // Inputs are matched by meaning (their readable label), not by spelling: distance_km and distanceKm are one fact.
   const key = (i) => `${nameKey(i.label)}:${i.kind}`;
   const toA = new Map(a.inputs.map((i) => [key(i), i.id]));

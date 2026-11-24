@@ -17,7 +17,23 @@ const SEMANTIC_TYPES = new Set([
 ]);
 const SENSITIVE = /password|token|jwt|secret|payment|credential|ssn|pii|email/i;
 
-const lineOf = (source, index) => source.slice(0, index).split('\n').length;
+// The line an index is on. Line starts are found once per source (the last few are kept), then searched: slicing and
+// splitting the source for every match was quadratic on large files.
+const LINE_STARTS = new Map();
+const lineOf = (source, index) => {
+  let starts = LINE_STARTS.get(source);
+  if (!starts) {
+    starts = [0];
+    for (let i = source.indexOf('\n'); i >= 0; i = source.indexOf('\n', i + 1)) starts.push(i + 1);
+    if (LINE_STARTS.size > 8) LINE_STARTS.delete(LINE_STARTS.keys().next().value);
+    LINE_STARTS.set(source, starts);
+  }
+  // (An index past the end counts the lines before it, as slice + split did.)
+  const at = Math.min(Math.max(index, 0), source.length);
+  let lo = 0, hi = starts.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (starts[mid] <= at) lo = mid; else hi = mid - 1; }
+  return lo + 1;
+};
 
 // ── Seeded lift (OT's intent-ir-v1 grounding) ────────────────────────────────
 // OT passes { seeds } so the lifted .intent references OT's EXACT node ids instead
@@ -422,6 +438,25 @@ export function extractFactsKotlin(source, file = 'input.kt') {
   return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'kotlin', sourceRoot: file, functions, tests, errors };
 }
 
+// ── Swift adapter (func name(label name: Type) -> Ret, XCTest test* / @Test, Error types) ───────────
+export function extractFactsSwift(source, file = 'input.swift') {
+  let m; const functions = []; const tests = []; const seen = new Set();
+  const xctest = /:\s*XCTestCase\b/.test(source);
+  const fnRe = /(@Test\b[^\n]*\n\s*)?\bfunc\s+(?:`([^`]+)`|([A-Za-z_]\w*))\s*(?:<[^>\n]*>)?\s*\(([^)]*)\)[ \t]*(?:async[ \t]+)?(?:(?:re)?throws[ \t]+)?(?:->[ \t]*([^{\n]+))?/g;
+  while ((m = fnRe.exec(source))) {
+    const name = m[2] || m[3];
+    if (m[1] || (xctest && /^test/.test(name))) { if (!tests.some((t) => t.name === name)) tests.push({ name, file, line: lineOf(source, m.index + (m[1] || '').length) }); continue; }
+    if (seen.has(name)) continue; seen.add(name);
+    const parameters = splitTopLevel(m[4] || '', ',').map((p) => p.trim()).filter(Boolean).map((p) => { const q = p.replace(/=.*$/, '').match(/^(?:\w+\s+)?(\w+)\s*:\s*(.+)$/); return q ? { name: q[1], type: q[2].trim() } : { name: p, type: null }; });
+    functions.push({ name, file, line: lineOf(source, m.index), parameters, returnType: m[5] ? m[5].trim() : null, evidence: [{ kind: 'func', file, line: lineOf(source, m.index) }] });
+  }
+  const errors = []; const addErr = addErrOf(errors, new Set(), { _src: source, _file: file });
+  let mm; const ce = /\b(?:enum|struct|class)\s+(\w+)\s*:\s*(?:[\w, ]*\b)?(?:Error|LocalizedError)\b/g; while ((mm = ce.exec(source))) addErr(mm[1], mm.index);
+  // Vapor's Abort is an HTTP response (Fails with 404 Not Found), read as a step, not an error type.
+  const th = /\bthrow\s+([A-Z]\w*)\s*[.(]/g; while ((mm = th.exec(source))) if (mm[1] !== 'Abort') addErr(mm[1], mm.index);
+  return { schemaVersion: IR_SCHEMA_VERSION, sourceLanguage: 'swift', sourceRoot: file, functions, tests, errors };
+}
+
 // ── Scala adapter (def name(p: Type): Ret, ScalaTest, *Exception) ─────────────
 export function extractFactsScala(source, file = 'input.scala') {
   let m; const functions = []; const tests = []; const seen = new Set();
@@ -470,7 +505,9 @@ const ADAPTERS = {
   java: extractFactsJava,
   csharp: extractFactsCSharp, cs: extractFactsCSharp, 'c#': extractFactsCSharp,
   go: extractFactsGo, golang: extractFactsGo,
-  cpp: extractFactsCpp, 'c++': extractFactsCpp, c: extractFactsCpp, cc: extractFactsCpp,
+  cpp: extractFactsCpp, 'c++': extractFactsCpp, cc: extractFactsCpp,
+  c: (source, file) => ({ ...extractFactsCpp(source, file), sourceLanguage: 'c' }), h: (source, file) => ({ ...extractFactsCpp(source, file), sourceLanguage: 'c' }),
+  swift: extractFactsSwift,
   php: extractFactsPhp,
   ruby: extractFactsRuby, rb: extractFactsRuby,
   kotlin: extractFactsKotlin, kt: extractFactsKotlin, kts: extractFactsKotlin,
@@ -484,12 +521,12 @@ export function extractFacts(source, language, file) {
   return adapter ? adapter(String(source), file || `input.${LANG_EXT[key] || 'txt'}`) : null;
 }
 
-export const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'cpp', 'php', 'ruby', 'perl', 'kotlin', 'scala', 'elixir'];
+export const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'java', 'csharp', 'go', 'rust', 'c', 'cpp', 'swift', 'php', 'ruby', 'perl', 'kotlin', 'scala', 'elixir'];
 const DYNAMIC_LANGUAGES = new Set(['perl', 'javascript', 'python', 'ruby', 'php', 'elixir']);
 
 const LANG_DISPLAY = {
   typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', java: 'Java',
-  csharp: 'C#', go: 'Go', rust: 'Rust', cpp: 'C++', php: 'PHP', ruby: 'Ruby', perl: 'Perl',
+  csharp: 'C#', go: 'Go', rust: 'Rust', c: 'C', cpp: 'C++', swift: 'Swift', php: 'PHP', ruby: 'Ruby', perl: 'Perl',
   kotlin: 'Kotlin', scala: 'Scala', elixir: 'Elixir',
 };
 
@@ -635,13 +672,18 @@ export function languageForFile(file) {
   if (/\.java$/i.test(file)) return 'java';
   if (/\.cs$/i.test(file)) return 'csharp';
   if (/\.go$/i.test(file)) return 'go';
-  if (/\.(cpp|cc|cxx|hpp|hh|c|h)$/i.test(file)) return 'cpp';
+  if (/\.c$/i.test(file)) return 'c';
+  if (/\.(cpp|cc|cxx|c\+\+|hpp|hh|hxx|h)$/i.test(file)) return 'cpp'; // a .h is C or C++: the reader decides by its content
+  if (/\.swift$/i.test(file)) return 'swift';
   if (/\.php$/i.test(file)) return 'php';
   if (/\.rb$/i.test(file)) return 'ruby';
   if (/\.kts?$/i.test(file)) return 'kotlin';
   if (/\.(scala|sc)$/i.test(file)) return 'scala';
   if (/\.exs?$/i.test(file)) return 'elixir';
   if (/\.(mjs|cjs|jsx?)$/i.test(file)) return 'javascript';
+  if (/\.r$/i.test(file)) return 'r';
+  if (/\.(sh|bash|zsh|ksh)$/i.test(file)) return 'shell';
+  if (/\.(ps1|psm1)$/i.test(file)) return 'powershell';
   return 'typescript';
 }
 
@@ -725,7 +767,7 @@ export function liftRepo(files, { language } = {}) {
 // Default source file extension per language (for accurate source-map evidence in the draft).
 const LANG_EXT = {
   typescript: 'ts', javascript: 'js', python: 'py', java: 'java', csharp: 'cs',
-  go: 'go', rust: 'rs', cpp: 'cpp', php: 'php', ruby: 'rb', perl: 'pl',
+  go: 'go', rust: 'rs', c: 'c', cpp: 'cpp', swift: 'swift', php: 'php', ruby: 'rb', perl: 'pl',
   kotlin: 'kt', scala: 'scala', elixir: 'ex',
 };
 

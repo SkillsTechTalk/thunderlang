@@ -1,5 +1,5 @@
 // Editor-style syntax colors for ORIGINAL source code (Python, TypeScript, JavaScript, Java, C#, Go, Rust,
-// Kotlin, PHP, Ruby, SQL), so the Original level looks like the code does in an IDE.
+// Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell), so the Original level looks like the code does in an IDE.
 //
 // Small, dependency-free, and deterministic (a pure function of the text), so server-rendered pages hydrate
 // without mismatches. It is for display only: it colors what a reader expects (keywords, strings including
@@ -93,6 +93,53 @@ const SPECS = {
     consts: words("true false null"),
     types: words("int integer bigint smallint tinyint decimal numeric real float double precision varchar char text date time timestamp timestamptz boolean bool serial uuid json jsonb blob"),
   },
+  c: {
+    line: ["//"], block: ["/*", "*/"], quote1: "char", preproc: true,
+    decl: words("struct union enum typedef static const extern inline volatile register auto sizeof signed unsigned restrict _Bool _Noreturn _Static_assert"),
+    ctl: words(C_CTL),
+    consts: words("NULL true false EOF stdin stdout stderr"),
+    types: words("void int char short long float double bool size_t ssize_t off_t time_t ptrdiff_t intptr_t uintptr_t int8_t int16_t int32_t int64_t uint8_t uint16_t uint32_t uint64_t FILE va_list"),
+    defType: words("struct union enum"),
+  },
+  cpp: {
+    line: ["//"], block: ["/*", "*/"], quote1: "char", preproc: true, prefix: /(?:u8|u|U|L)?R(?=")|(?:u8|u|U|L)(?=["'])/y, rawIf: (p) => p.endsWith("R"),
+    decl: words("struct union enum typedef static const extern inline volatile register auto sizeof signed unsigned class namespace template typename using public private protected virtual override final explicit friend operator new delete this constexpr consteval constinit noexcept mutable decltype static_cast dynamic_cast reinterpret_cast const_cast concept requires co_await co_return co_yield thread_local alignas alignof static_assert"),
+    ctl: words(C_CTL),
+    consts: words("true false nullptr NULL"),
+    types: words("void int char short long float double bool size_t ssize_t wchar_t char8_t char16_t char32_t int8_t int16_t int32_t int64_t uint8_t uint16_t uint32_t uint64_t std string string_view vector map unordered_map set unordered_set array optional variant unique_ptr shared_ptr pair tuple"),
+    defType: words("class struct union enum namespace concept"),
+  },
+  swift: {
+    line: ["//"], block: ["/*", "*/"], triple: true, at: "decorator",
+    decl: words("func let var class struct enum protocol extension import init deinit self Self super static final private fileprivate internal public open override mutating nonmutating lazy weak unowned inout some any typealias associatedtype subscript convenience required actor async await throws rethrows where is as in get set willSet didSet nonisolated isolated"),
+    ctl: words("if else guard for while repeat switch case default break continue fallthrough return throw try catch do defer"),
+    consts: words("true false nil"),
+    types: words("Int Int8 Int16 Int32 Int64 UInt UInt8 UInt16 UInt32 UInt64 Double Float CGFloat Bool String Character Array Dictionary Set Optional Void Any AnyObject Error Result Data Date URL Never"),
+    defFn: words("func"), defType: words("class struct enum protocol extension actor typealias"),
+  },
+  r: {
+    line: ["#"],
+    decl: words("function library require source invisible"),
+    ctl: words("if else for while repeat break next return in switch stop tryCatch"),
+    consts: words("TRUE FALSE NULL NA NaN Inf T F NA_integer_ NA_real_ NA_character_"),
+    types: words("numeric character logical integer double list vector factor matrix"),
+  },
+  shell: {
+    line: ["#"], interpDouble: "$",
+    decl: words("function local export readonly declare typeset source alias unset set shift trap eval exec"),
+    ctl: words("if then elif else fi for while until do done case esac in return exit break continue select"),
+    consts: words("true false"),
+    types: words(""),
+    defFn: words("function"), sigil: /\$(?:\{[^}\n]*\}|[A-Za-z_]\w*|[0-9#?@*$!-])/y,
+  },
+  powershell: {
+    line: ["#"], block: ["<#", "#>"], ci: true, interpDouble: "$",
+    decl: words("function filter param begin process end class enum using hidden static workflow dynamicparam"),
+    ctl: words("if elseif else foreach for while do until switch break continue return throw try catch finally trap exit in"),
+    consts: words("true false null"),
+    types: words("string int bool object array hashtable datetime void switch"),
+    defFn: words("function filter"), defType: words("class enum"), sigil: /\$(?:\{[^}\n]*\}|[A-Za-z_][\w:]*|[_?^$])/y,
+  },
 };
 SPECS.javascript = SPECS.typescript;
 
@@ -101,6 +148,8 @@ const ALIASES = {
   javascript: "javascript", js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript",
   java: "java", csharp: "csharp", "c#": "csharp", cs: "csharp", go: "go", golang: "go", rust: "rust", rs: "rust",
   kotlin: "kotlin", kt: "kotlin", kts: "kotlin", php: "php", ruby: "ruby", rb: "ruby", sql: "sql",
+  c: "c", h: "c", cpp: "cpp", "c++": "cpp", cc: "cpp", cxx: "cpp", hpp: "cpp", hh: "cpp", hxx: "cpp", swift: "swift",
+  r: "r", shell: "shell", sh: "shell", bash: "shell", zsh: "shell", ksh: "shell", powershell: "powershell", ps1: "powershell", psm1: "powershell", pwsh: "powershell",
 };
 
 /**
@@ -111,9 +160,9 @@ export function sourceLang(hint) {
   if (!hint) return null;
   const h = String(hint).trim().toLowerCase();
   if (ALIASES[h]) return ALIASES[h];
-  const ext = h.match(/\.([a-z]+)\b(?!.*\.[a-z]+\b)/);
+  const ext = h.match(/\.([a-z][a-z0-9]*)\b(?!.*\.[a-z][a-z0-9]*\b)/);
   if (ext && ALIASES[ext[1]]) return ALIASES[ext[1]];
-  const first = h.match(/^[a-z#]+/);
+  const first = h.match(/^(?:c\+\+|[a-z#]+)/);
   return (first && ALIASES[first[0]]) || null;
 }
 
@@ -221,6 +270,14 @@ function scan(src, spec) {
     const wasLineStart = lineStart;
     lineStart = false;
 
+    // C and C++ preprocessor lines: the directive (#include, #define) is marked; an #include's <file> is text.
+    if (spec.preproc && wasLineStart && (m = at(/#[ \t]*[A-Za-z_]\w*/y, src, i))) {
+      push(m, "syn-dec");
+      i += m.length;
+      prev = "x";
+      if (/include|import/.test(m)) { const sp = at(/[ \t]*/y, src, i) || ""; push(sp); i += sp.length; const file = at(/<[^>\n]*>/y, src, i); if (file) { push(file, "syn-str"); i += file.length; } }
+      continue;
+    }
     // Attributes: Rust/PHP #[...], C# [Attribute] at the start of a line.
     if (spec.attrs === "hash" && (m = at(/#!?\[[^\]\n]*\]?/y, src, i))) { push(m, "syn-dec"); i += m.length; prev = "]"; continue; }
     if (spec.attrs === "brackets" && wasLineStart && (m = at(/\[[A-Z][\w.]*/y, src, i))) { push("[", "syn-punc"); push(m.slice(1), "syn-dec"); i += m.length; prev = "x"; continue; }

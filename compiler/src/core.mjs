@@ -10,10 +10,18 @@ export { compileHumanContract, previewHumanContract, renderHumanContract, render
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
+export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from './write-steps.mjs';
+// The meaning model under every step (thunder-expr-v1): parse, write back, and say every detail. Browser-safe.
+export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, renderStatement, sayFull, detailParts, detailOf, exprCounts, normalizeExpr, sameExpr, wordsAgree } from './meaning.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
-export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
+export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
+// The running system (browser-safe): runs, stack traces, logs, and spans placed on Thunder's flows.
+export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
+export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
-export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
+export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
+// Review in Thunder: what a change did to the meaning of the code, in plain sentences (pure; the CLI does the git work).
+export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
 export { plainFromReading, conditionText } from './plain-contract.mjs';
 // Editor help (browser-safe): completions, hover, autocorrect, quick fixes, and the semantic type vocabulary.
 export { getCompletions, getHover, autocorrectSource, getCodeActions, SEMANTIC_TYPES } from './intellisense.mjs';
@@ -109,7 +117,7 @@ export { runTests, TEST_SCHEMA } from './testing.mjs';
 // Decisions -> readable typed source in six languages (browser-safe; same translators as the targets).
 export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 // Read code you don't know: decisions recovered from six languages as ThunderLang + plain English.
-export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, completenessOf, displayLabel } from './read.mjs';
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, INFRA_LANGUAGES, completenessOf, displayLabel } from './read.mjs';
 // Read a whole repository (pure: the caller passes file contents) and turn a recovered decision into a contract.
-export { readRepo, searchRepo, groupByFile, readableLanguage, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';

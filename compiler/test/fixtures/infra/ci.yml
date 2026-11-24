@@ -1,0 +1,89 @@
+name: CI and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 2 * * *'   # nightly
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only pretend to deploy
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        node: [20, 22]
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/example/shop:latest
+
+  deploy:
+    needs: [test, image]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://shop.example.com
+    permissions: write-all
+    steps:
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Deploy
+        env:
+          API_TOKEN: hunter2-not-a-real-token
+        run: |
+          az webapp deploy --name shop --src-path dist.zip
+          if [ -z "$APP_URL" ]; then
+            echo "::error::No app address"
+            exit 1
+          fi
+          curl -fsS https://shop.example.com/health
+      - if: failure()
+        run: echo "Deploy failed" >> $GITHUB_STEP_SUMMARY
+      - if: always()
+        uses: some-org/notify-action@main
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK }}

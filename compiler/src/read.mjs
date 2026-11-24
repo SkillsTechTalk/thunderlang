@@ -1,5 +1,6 @@
 // Read code you don't know: recover the decision rules inside functions written in TypeScript /
-// JavaScript, Python, Go, Rust, C#, or Java, and show them as ThunderLang plus plain English.
+// JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, Ruby, SQL, C, C++, or Swift, and show them as ThunderLang
+// plus plain English.
 // Deterministic, no AI, browser-safe. Everything here is INFERRED from code: a reading says what
 // the code appears to decide, never what it was meant to decide, and anything it could not read
 // is listed rather than guessed.
@@ -10,31 +11,87 @@
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
 import { sqlItems } from './sql.mjs';
-import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
+import { readDockerfile } from './infra-docker.mjs';
+import { readWorkflow } from './infra-gha.mjs';
+import { readTerraform } from './infra-terraform.mjs';
+import { readBicep } from './infra-bicep.mjs';
+import { readKubernetes } from './infra-k8s.mjs';
+import { readCompose } from './infra-compose.mjs';
+import { readableFormat } from './file-formats.mjs';
+import { stepsFrom, braceStatements, indentStatements, plainEnums, withLanguage, SWIFT_CLOSURE_PARAMS, VAPOR_STATUS, withFunctionContext, classifyStatement } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
+import { shellReading, shellShebang, SHELL_TRIVIA } from './shell.mjs';
+import { powershellReading } from './powershell.mjs';
+import { rReading } from './rlang.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql'];
-const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'c', 'cpp', 'swift', 'r', 'shell', 'powershell', 'dockerfile', 'github-actions', 'terraform', 'bicep', 'kubernetes', 'docker-compose'];
+/** Formats read as infrastructure and delivery (spec section 12), not as programming languages. */
+export const INFRA_LANGUAGES = ['dockerfile', 'github-actions', 'terraform', 'bicep', 'kubernetes', 'docker-compose'];
+// Languages whose `if` condition needs no parentheses: `if a && b {` (a leading parenthesis may wrap only part of it).
+const BARE_IF = new Set(['go', 'rust', 'swift']);
+/** Languages read by their own module (shell.mjs, powershell.mjs, rlang.mjs) into the same reading shape. */
+const SCRIPT_READERS = { shell: shellReading, powershell: powershellReading, r: rReading };
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
 /** Best-effort language guess for pasted code (a file name, when known, is more reliable). */
 export function detectLanguage(source, file = '') {
-  if (file) return languageForFile(file);
   const s = String(source);
+  if (file) {
+    const format = readableFormat(file, s.slice(0, 2048));
+    if (format) return format;
+    // A file with no extension is a shell script when its first line says so (#!/bin/bash).
+    if (!/\.[^./\\]+$/.test(String(file)) && shellShebang(s)) return 'shell';
+    return /\.h$/i.test(file) ? (looksCpp(source) ? 'cpp' : 'c') : languageForFile(file);
+  }
+  if (shellShebang(s)) return 'shell';
+  // A Dockerfile: its first instruction is FROM (or ARG before FROM), after comments and parser directives.
+  if (/^\s*(?:#[^\n]*\n\s*)*(?:ARG\s[^\n]*\n\s*(?:#[^\n]*\n\s*)*)*FROM\s+\S/i.test(s) && /^(RUN|CMD|COPY|ENTRYPOINT|WORKDIR|EXPOSE)\s/m.test(s)) return 'dockerfile';
+  // Bicep: `resource name 'Microsoft.X/y@…'`, `module name './x.bicep'`, `param name type`, or `targetScope =`.
+  if (/^(?:resource|module)\s+\w+\s+'[^'\n]+'/m.test(s) || /^targetScope\s*=/m.test(s) || (/^param\s+\w+\s+(?:string|int|bool|object|array)\b/m.test(s) && !/^\s*(?:def|function|class)\b/m.test(s))) return 'bicep';
+  // Terraform: `resource "type" "name" {`, `variable "x" {`, `terraform {`, `locals {`.
+  if (/^(?:resource|data|module|variable|provider|output)\s+"[\w-]+"/m.test(s) || /^(?:terraform|locals)\s*\{/m.test(s)) return 'terraform';
+  // A GitHub Actions workflow: top-level `on:` and `jobs:`.
+  if (/^(?:on|"on"|'on'):/m.test(s) && /^jobs:\s*$/m.test(s)) return 'github-actions';
+  // Kubernetes YAML: top-level apiVersion: and kind:.
+  if (/^apiVersion:\s*\S/m.test(s) && /^kind:\s*\S/m.test(s)) return 'kubernetes';
+  // Docker Compose: top-level services: with a service that has an image: or build:.
+  if (/^services:\s*$/m.test(s) && /^\s+(?:image|build):/m.test(s)) return 'docker-compose';
+  // PowerShell: Verb-Noun functions, [CmdletBinding()], param blocks with [type]$name, -eq style operators.
+  if (/^\s*function\s+[A-Za-z]+-[A-Za-z]\w*/m.test(s) || /\[CmdletBinding\(/i.test(s) || /\bparam\s*\(\s*(?:\[[^\]]+\]\s*)*\$\w+/i.test(s) || /\$\w+\s+-(?:eq|ne|gt|ge|lt|le|like|match|contains)\b/i.test(s) || /^\s*(?:Write-Host|Get-[A-Z]\w+|Set-[A-Z]\w+|New-[A-Z]\w+)\b/m.test(s)) return 'powershell';
+  // R: name <- function(…), library(pkg), pipes with <-, R6Class, plumber annotations.
+  if (/[\w.]\s*<-\s*function\s*\(/.test(s) || /^\s*library\(\w+\)\s*$/m.test(s) || /\bR6Class\(|\bsetRefClass\(|^#\*\s*@(?:get|post)\s/m.test(s) || (/<-/.test(s) && /%>%|\|>/.test(s))) return 'r';
+  // Shell without a shebang: its own keywords (fi, done, esac, then) alongside $variables.
+  if ([/^\s*fi\s*$/m, /^\s*done\s*$/m, /;\s*then\s*$/m, /^\s*esac\s*$/m, /\[\[ .+ \]\]/, /^\s*set -[euo]/m].filter((re) => re.test(s)).length >= 2) return 'shell';
   // SQL: a file that starts with (or is mostly) schema statements.
   if (/^\s*(?:--[^\n]*\n\s*)*(?:CREATE|ALTER|INSERT\s+INTO|SELECT|WITH)\b/i.test(s) && /\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX)|SELECT\b[\s\S]*\bFROM)\b/i.test(s)) return 'sql';
   if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
   if (/\bfun\s+(<[^>]*>\s*)?[\w.]*\w+\s*\(/.test(s)) return 'kotlin';
+  // Swift before Go: both write `func`, but only Swift types its parameters with a colon or returns with `->`.
+  if (/^[ \t]*import[ \t]+(?:Foundation|UIKit|SwiftUI|Vapor|Combine|XCTest|AppKit|Fluent)\b/m.test(s) || /\bfunc\s+\w+\s*(?:<[^>]*>)?\s*\([^)]*\w\s*:\s*[^)]*\)|\bfunc\s+\w+\s*(?:<[^>]*>)?\s*\([^)]*\)\s*(?:async\s+)?(?:throws\s+)?->/.test(s)) return 'swift';
   if (/^\s*def\s+[\w.?!]+(\s*\(.*\))?\s*$/m.test(s) && /^\s*end\s*$/m.test(s)) return 'ruby';
   if (/^\s*package\s+\w+\s*$/m.test(s) || /\bfunc\s+(\([^)]*\)\s*)?\w+\s*\(/.test(s)) return 'go';
   if (/\bfn\s+\w+\s*(<[^>]*>)?\s*\(/.test(s) || /\blet\s+mut\b|->\s*&'static/.test(s)) return 'rust';
   if (/^\s*def\s+\w+\s*\(.*\)\s*(->\s*[^:]+)?:\s*$/m.test(s)) return 'python';
+  // C and C++: an #include, or C++ syntax (std::, templates, Type::method definitions), or a C function that uses
+  // pointers, NULL, or the C library.
+  const cSignature = /^[ \t]*(?:static[ \t]+|inline[ \t]+)*(?:const[ \t]+|unsigned[ \t]+|struct[ \t]+\w+[ \t]*)?(?:void|int|char|long|double|float|size_t|bool|u?int\d+_t)[ \t*]+\w+[ \t]*\([^)]*\)[ \t]*\{/m.test(s)
+    && /\bNULL\b|->|\bchar[ \t]*\*|\bprintf\(|\bmalloc\(|\bfree\(|\bsizeof\b|\btypedef\b|\bstruct[ \t]+\w+/.test(s) && !/\b(?:public|private|String|boolean|using)\b/.test(s);
+  if (cSignature || /^[ \t]*#[ \t]*(?:include|define|ifndef|pragma)\b/m.test(s) || /\bstd::\w|\btemplate[ \t]*<|\b\w+::~?\w+[ \t]*\([^;{)]*\)[ \t]*(?:const[ \t]*)?\{/.test(s)) return looksCpp(s) ? 'cpp' : 'c';
   if (/\bnamespace\s+[\w.]+|\busing\s+System\b|\bpublic\s+static\s+string\b|\bstring\s+\w+\s*[,)]/.test(s)) return 'csharp';
   if (/\bpublic\s+(static\s+)?(class|String|boolean|int|double|void)\b|\bString\s+\w+\s*[,)]|\bboolean\b/.test(s)) return 'java';
   if (/:\s*(number|string|boolean)\b|\binterface\s+\w+|\bexport\s+(function|const)\b/.test(s)) return 'typescript';
   return 'javascript';
+}
+
+/** True when C-family source uses C++ (classes, namespaces, templates, `::`, std), so a `.h` file is read as C++. */
+export function looksCpp(source) {
+  // A C header may hold a few lines for C++ callers (#ifdef __cplusplus … #endif); those do not make it C++.
+  const s = stripComments(String(source).slice(0, 200000)).replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/^[ \t]*#[ \t]*if(?:def)?[ \t]+(?:defined[ \t]*\(?[ \t]*)?__cplusplus[\s\S]*?^[ \t]*#[ \t]*(?:endif|else)\b/gm, '');
+  // C allows `template` and `typename` as names (const char *template), so they count only in their C++ shape.
+  return /\bclass[ \t]+\w+[ \t]*[:{]|\bnamespace[ \t]+\w*[ \t]*\{|\btemplate[ \t]*<|\btypename[ \t]+\w+[ \t]*[,>=]|^[ \t]*(?:public|private|protected)[ \t]*:|\bnullptr\b|\bconstexpr\b|\w::\w|\bstd::|#[ \t]*include[ \t]*<(?:iostream|string|vector|map|memory|utility|algorithm|functional|optional|cstdint|cstdio|cstdlib|cstring)>/m.test(s);
 }
 
 // ── Lexing helpers ──────────────────────────────────────────────────────────────────────────
@@ -79,6 +136,8 @@ let READING_RUST = false;
 
 function skipString(src, i) {
   const q = src[i];
+  // A multi-line string (triple quotes in Swift, Kotlin, Java, C#) runs to its closing triple quote.
+  if (q === '"' && src[i + 1] === '"' && src[i + 2] === '"') { const e = src.indexOf('"""', i + 3); return e < 0 ? src.length : e + 2; }
   if (q === '\'' && !READING_RUST) {
     for (let j = i + 1; j < src.length; j++) {
       if (src[j] === '\\') { j++; continue; }
@@ -106,7 +165,9 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:
 // ── Function discovery ──────────────────────────────────────────────────────────────────────
 
 function parseParams(raw, language) {
-  raw = String(raw).replace(/#\[[^\]]*\]\s*/g, '').replace(/\[\w+(?:\([^)]*\))?\]\s*/g, ''); // #[SensitiveParameter], [FromBody]
+  raw = String(raw).replace(/#\[[^\]]*\]\s*/g, ''); // #[SensitiveParameter]
+  // C# [FromBody] attributes (in Swift `[Character]` is an array type, not an attribute).
+  if (language !== 'swift') raw = raw.replace(/\[\w+(?:\([^)]*\))?\]\s*/g, '');
   const parts = [];
   let depth = 0, cur = '';
   for (const ch of raw) {
@@ -126,6 +187,23 @@ function parseParams(raw, language) {
       continue;
     }
     let name = p, type = null, m;
+    if (language === 'c' || language === 'cpp') {
+      const q = p.replace(/\[[^\]]*\]/g, '[]').replace(/\s+/g, ' ').trim();
+      if (/^(?:void|\.\.\.)$/.test(q)) continue;
+      const fp = q.match(/\(\s*[*&^]\s*(\w+)\s*\)\s*\(/); // a function pointer: int (*compare)(int, int)
+      if (fp) { out.push({ name: fp[1], type: 'function' }); continue; }
+      const cm = q.match(/^(.*[\s*&])(\w+)(\[\])?$/);
+      if (!cm) { if (/^[a-z_]\w*$/.test(q) && !C_TYPE_WORDS.test(q)) out.push({ name: q, type: null }); continue; } // unnamed parameters have only a type
+      if (/^(?:const|struct|enum|union|unsigned|signed)?\s*$/.test(cm[1])) { if (!C_TYPE_WORDS.test(cm[2])) out.push({ name: cm[2], type: null }); continue; }
+      out.push({ name: cm[2], type: cType(cm[1] + (cm[3] ? '[]' : '')) });
+      continue;
+    }
+    if (language === 'swift') {
+      const q = p.replace(/@\w+(?:\([^)]*\))?\s*/g, '').trim();
+      const sm = q.match(/^(?:(\w+)\s+)?(\w+)\s*:\s*(.+)$/);
+      if (sm) out.push({ name: sm[2], type: simpleType(sm[3].replace(/^(?:inout|borrowing|consuming|sending)\s+/, '').replace(/\.\.\.$/, '').trim()) });
+      continue;
+    }
     if (language === 'go') {
       m = p.match(/^(\w+)\s+(.+)$/);
       if (!m) { pendingGo.push(p); continue; }
@@ -171,11 +249,23 @@ function balancedReturnHead(after) {
   return m;
 }
 
+/** Type words that are never a C parameter's name (an unnamed parameter is only its type). */
+const C_TYPE_WORDS = /^(?:void|int|char|short|long|float|double|bool|_Bool|unsigned|signed|size_t|ssize_t|u?int\d+_t|wchar_t|auto|const)$/;
+/** A C or C++ parameter type in reader terms: numbers, text, yes/no, or the type itself (`Library*`, `Book`). */
+function cType(raw) {
+  let t = String(raw).replace(/\b(?:const|volatile|struct|enum|union|register|restrict|__restrict|typename|class)\b/g, ' ').replace(/\bstd::/g, '').replace(/\s+/g, ' ').trim();
+  if (/^(?:unsigned|signed)?\s*char\s*\*$|^(?:string|string_view|wstring|sds)\s*&?$/.test(t)) return 'string';
+  t = t.replace(/\s*([*&]+)\s*/g, '$1').replace(/&+$/, '').trim(); // a reference is the value itself
+  if (/^(?:(?:unsigned|signed|long|short)\s+)*(?:int|long|short|char|unsigned|signed)$|^(?:float|double|long double|size_t|ssize_t|off_t|ptrdiff_t|u?int\d+_t|u?int_fast\d+_t|intptr_t|uintptr_t|time_t)$/.test(t)) return 'number';
+  if (/^(?:bool|_Bool)$/.test(t)) return 'boolean';
+  return t || null;
+}
+
 function simpleType(t) {
   if (!t) return null;
   const s = String(t).trim().replace(/^&(mut\s+)?/, '');
-  if (/^(number|int|long|short|float|double|decimal|f32|f64|i\d+|u\d+|usize|isize|float64|float32|int\d*|uint\d*|Integer|Double|Long|BigDecimal|Int|Float|Short|Byte)$/.test(s)) return 'number';
-  if (/^(bool|boolean|Boolean)$/.test(s)) return 'boolean';
+  if (/^(number|int|long|short|float|double|decimal|f32|f64|i\d+|u\d+|usize|isize|float64|float32|int\d*|uint\d*|Integer|Double|Long|BigDecimal|Int|Float|Short|Byte|Int\d+|UInt\d*|CGFloat|Float\d+)$/.test(s)) return 'number';
+  if (/^(bool|boolean|Boolean|Bool)$/.test(s)) return 'boolean';
   if (/^(str|string|String|&str|char)$/.test(s)) return 'string';
   return s;
 }
@@ -221,6 +311,8 @@ function findFunctions(src, language) {
     return fns;
   }
   if (language === 'ruby') return findRubyFunctions(src);
+  if (language === 'c' || language === 'cpp') return findCFunctions(src, language);
+  if (language === 'swift') return findSwiftFunctions(src);
   const patterns = {
     typescript: [
       /(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*(?:<[^>]*>)?\s*\(/g,
@@ -252,7 +344,9 @@ function findFunctions(src, language) {
       // the body's "{" is the one after the type, not a brace inside it.
       const typed = (language === 'typescript' || language === 'javascript') ? balancedReturnHead(after) : null;
       const head = typed ?? (language === 'kotlin'
-        ? after.match(/^\s*(?::\s*([^{=]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
+        // (The return type stays on the signature's line: an abstract `fun f(): T` with no body never runs on into
+        // the next declarations.)
+        ? after.match(/^\s*(?::\s*([^{=\n]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
         : after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/));
       if (!head || head[4] === ';') continue;
       // `const d = (await res.json()) as {...}` is a value, not a function: a const/let/var only declares a
@@ -275,7 +369,8 @@ function findFunctions(src, language) {
       const fnLine = lineAt(src, m.index + m[0].lastIndexOf(name));
       if (seen.has(name + ':' + fnLine)) continue;
       seen.add(name + ':' + fnLine);
-      const returns = (head[1] || head[2] || head[3] || '').trim() || null;
+      // (A Rust `where` clause is a constraint on the types, not part of what comes back.)
+      const returns = (head[1] || head[2] || head[3] || '').replace(/\s+where\b[\s\S]*$/, '').trim() || null;
       const params = parseParams(src.slice(open + 1, close), language);
       const markerAt = close + 1 + head[0].length - head[4].length;
       if (head[4] === '=>') {
@@ -353,9 +448,510 @@ function findFunctions(src, language) {
       fns.push({ name: `${method.toUpperCase()} ${url}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method: method.toUpperCase(), path: url } });
     }
   }
+  if (language === 'typescript' || language === 'javascript') jsMoreFunctions(src, fns);
   annotateRoutes(fns, src);
   return fns.sort((a, b) => a.line - b.line);
 }
+
+// ── JavaScript / TypeScript: functions that have no declaration of their own ─────────────────────────────
+// `exports.x = function (…) {…}`, `res.json = function json(obj) {…}`, `Foo.prototype.bar = function`,
+// `var app = function (req, res) {…}` inside another function, `{ key: function () {…} }`, and anonymous callbacks
+// (`app.use(function (req, res, next) {…})`, `.then(function (x) {…})`, `items.forEach((x) => {…})`). Each is an item
+// of its own, so a run, a stack frame, or a link can land on it. A one-line arrow (`(x) => x.id`) stays part of the
+// step that uses it. Names: the name it is assigned to, else `<parent> › callback at line N`.
+
+/** What the code just before a function says about it: assigned to `lhs`, a key of an object, or an argument. */
+function jsContext(clean, at) {
+  // (Scanned backwards by hand: a regex anchored at the end of a long slice is slow on big files.)
+  const isSpace = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+  let i = at - 1;
+  while (i >= 0 && isSpace(clean[i])) i--;
+  if (clean.slice(i - 4, i + 1) === 'async' && !/[\w$]/.test(clean[i - 5] || '')) { i -= 5; while (i >= 0 && isSpace(clean[i])) i--; }
+  let m;
+  if (clean[i] === '=' && !/[=!<>+\-*/%&|^?]/.test(clean[i - 1] || '')) {
+    const seg = clean.slice(Math.max(0, i - 160), i);
+    if ((m = seg.match(/(?:^|[^\w$.])(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]{1,120})?$/))) return { kind: 'assign', lhs: m[1], local: true };
+    if ((m = seg.match(/([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*|\[[^\]\n]{1,60}\])*)\s*$/))) return { kind: 'assign', lhs: m[1].replace(/\s+/g, '') };
+  }
+  if (clean[i] === ':' && (m = clean.slice(Math.max(0, i - 80), i).match(/(?:^|[{,\s])([A-Za-z_$][\w$]*|'[^'\n]+'|"[^"\n]+")\s*$/))) return { kind: 'key', key: m[1].replace(/^['"]|['"]$/g, '') };
+  // An argument: find the call it is passed to (the unmatched "(" before it) and that call's name.
+  let depth = 0;
+  for (i = at - 1; i >= Math.max(0, at - 3000); i--) {
+    const c = clean[i];
+    if (c === ')' || c === ']' || c === '}') depth++;
+    else if (c === '(' || c === '[' || c === '{') {
+      if (depth === 0) {
+        if (c !== '(') return { kind: 'arg', callee: null };
+        const name = clean.slice(Math.max(0, i - 120), i).match(/([A-Za-z_$][\w$]*(?:\s*\??\.\s*[A-Za-z_$][\w$]*)*)\s*$/);
+        const callee = name ? name[1].replace(/\s+/g, '').replace(/\?\./g, '.') : null;
+        // A call on the result of another call (`fetch(x).then(…)`) is named by its last part (`then`).
+        // `const save = useCallback(() => {…})`: a wrapper that only keeps the function gives it its name.
+        const kept = callee && WRAPS_FUNCTION.test(callee) && clean.slice(Math.max(0, i - name[0].length - 120), i - name[0].length).match(/(?:^|[^\w$.])(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]{1,80})?=\s*(?:await\s+)?$/);
+        return { kind: 'arg', callee, ...(kept ? { kept: kept[1] } : {}) };
+      }
+      depth--;
+    }
+  }
+  return { kind: 'arg', callee: null };
+}
+
+const WRAPS_FUNCTION = /^(?:React\.)?(?:useCallback|useMemo|memo|forwardRef|useEvent|useEffectEvent)$|^(?:_\.|lodash\.)?(?:debounce|throttle|once|memoize)$/;
+const TEST_CALLS = /^(?:describe|it|test|context|suite|specify|before|after|beforeEach|afterEach|beforeAll|afterAll|setup|teardown|x?it|f?it|xdescribe|fdescribe|xtest|bench)(?:\.\w+)*$/;
+
+function jsMoreFunctions(src, fns) {
+  const clean = stripCommentsKeepLayout(src);
+  const known = new Set(fns.map((f) => f.bodyStart));
+  const found = [];
+  const add = (fnIdx, paramsOpen, paramsClose, arrowParam, bo) => {
+    if (known.has(bo + 1)) return null;
+    const bc = matchClose(src, bo);
+    if (bc < 0) return null;
+    known.add(bo + 1);
+    const line = lineAt(src, fnIdx);
+    const params = arrowParam != null ? parseParams(arrowParam, 'typescript') : parseParams(src.slice(paramsOpen + 1, paramsClose), 'typescript');
+    const f = { key: `fn@${fnIdx}`, line, params, returns: null, bodyStart: bo + 1, body: src.slice(bo + 1, bc), at: fnIdx, end: bc };
+    found.push(f);
+    return f;
+  };
+  // `function (…) {` and `function name(…) {` (a named one was found already; this gives it its assignment).
+  const fnRe = /(?<![\w$.])function\b\s*\*?\s*([A-Za-z_$][\w$]*)?\s*(?:<[^>()]*>)?\s*\(/g;
+  let m;
+  while ((m = fnRe.exec(clean))) {
+    const open = m.index + m[0].length - 1;
+    const close = matchClose(src, open);
+    if (close < 0) continue;
+    const after = clean.slice(close + 1, close + 400);
+    const typed = balancedReturnHead(after);
+    const head = typed ? typed[0] : (after.match(/^\s*\{/) || [''])[0];
+    if (!head.endsWith('{')) continue;
+    const bo = close + head.length;
+    const ctx = jsContext(clean, m.index);
+    if (m[1]) {
+      // Named: already an item; record what it is assigned to (`res.json = function json`, `Foo.prototype.bar = function bar`).
+      const f = fns.find((x) => x.bodyStart === bo + 1);
+      if (f && ctx.kind === 'assign' && !ctx.local) f.assignedTo = ctx.lhs;
+      continue;
+    }
+    const f = add(m.index, open, close, null, bo);
+    if (f) f.ctx = ctx;
+  }
+  // Arrow functions with a block body: `(req, res) => {`, `async x => {`.
+  const arrowRe = /=>\s*\{/g;
+  while ((m = arrowRe.exec(clean))) {
+    const bo = m.index + m[0].length - 1;
+    if (known.has(bo + 1)) continue;
+    // The parameters: `(…)` (with an optional `: Type` after it) or one bare name, just before the arrow.
+    let j = m.index - 1;
+    while (j >= 0 && /\s/.test(clean[j])) j--;
+    let start, paramText = null, pOpen = -1, pClose = -1;
+    if (clean[j] === ')' || /[\w$>\]]/.test(clean[j])) {
+      // Skip a return type: `(a: number): Promise<X> =>` — walk back to the ")" that closes the parameters.
+      let k = j;
+      if (clean[j] !== ')') {
+        const bare = clean.slice(Math.max(0, j - 80), j + 1).match(/([A-Za-z_$][\w$]*)$/);
+        const beforeBare = bare ? clean.slice(Math.max(0, j - bare[1].length - 40), j - bare[1].length + 1).replace(/\s+$/, '') : '';
+        if (bare && !/:$/.test(beforeBare) && clean[j] !== '>' && clean[j] !== ']') { start = j - bare[1].length + 1; paramText = bare[1]; }
+        else {
+          // A typed return: find the ":" at depth 0 going back, then the ")".
+          let d = 0;
+          for (k = j; k >= Math.max(0, j - 300); k--) {
+            const c = clean[k];
+            if (c === '>' || c === ']' || c === ')' || c === '}') d++;
+            else if (c === '<' || c === '[' || c === '(' || c === '{') d--;
+            else if (c === ':' && d === 0) break;
+          }
+          k--; while (k >= 0 && /\s/.test(clean[k])) k--;
+          if (clean[k] !== ')') continue;
+        }
+      }
+      if (paramText == null) {
+        let d = 0;
+        for (pClose = k; k >= Math.max(0, pClose - 2000); k--) {
+          if (clean[k] === ')') d++;
+          else if (clean[k] === '(' && --d === 0) break;
+        }
+        if (d !== 0 || k < 0) continue;
+        pOpen = k; start = k;
+      }
+    } else continue;
+    // `async` and type parameters (`<T,>(x: T) =>`) belong to the function.
+    let s = start;
+    const lead = clean.slice(Math.max(0, s - 60), s).match(/(?:\basync\s*)?(?:<[^<>()]*>\s*)?$/);
+    if (lead) s -= lead[0].length;
+    // A call written `fn(x) => {` is not an arrow function's parameters: the "(" must not follow a name.
+    if (pOpen >= 0) { const prev = clean.slice(Math.max(0, s - 40), s).replace(/\s+$/, ''); if (/[\w$]$/.test(prev) && !/\b(?:async|return|await|yield|default|in|of|case)$/.test(prev)) continue; }
+    const ctx = jsContext(clean, s);
+    // `const f = (…) => {` is already an item (found with its name).
+    if (ctx.kind === 'assign' && ctx.local && fns.some((x) => x.name === ctx.lhs && x.line === lineAt(src, s))) continue;
+    const f = add(s, pOpen, pClose, paramText, bo);
+    if (f) f.ctx = ctx;
+  }
+  if (!found.length) return;
+  // A test's body (`describe(…, function () {…})`, `it(…, () => {…})`) is a test, not part of the app: it and every
+  // function written inside it stay out (tests are listed as tests).
+  const tests = found.filter((f) => f.ctx.kind === 'arg' && TEST_CALLS.test(f.ctx.callee ?? ''));
+  if (tests.length) {
+    const inTest = (f) => tests.some((t) => t === f || (t.bodyStart <= f.at && f.at <= t.end));
+    for (let i = found.length - 1; i >= 0; i--) if (inTest(found[i])) found.splice(i, 1);
+  }
+  // Names. Every function's range, so a callback is named after the function it is written in.
+  const ranges = [...fns, ...found].filter((x) => x.bodyStart != null).map((x) => ({ x, from: x.bodyStart, to: x.end ?? x.bodyStart + (x.body?.length ?? 0) }));
+  const parentOf = (f) => {
+    let best = null;
+    for (const r of ranges) if (r.x !== f && r.x.name && !r.x.callback && r.from <= f.at && f.at <= r.to && (!best || r.from > best.from)) best = r;
+    return best?.x ?? null;
+  };
+  for (const f of found) {
+    const ctx = f.ctx;
+    if (ctx.kind === 'assign' && !/\]$/.test(ctx.lhs)) {
+      const seg = ctx.lhs.split('.').pop();
+      f.name = seg;
+      if (!ctx.local) f.assignedTo = ctx.lhs;
+    } else if (ctx.kind === 'key') f.name = ctx.key;
+    else if (ctx.kept) f.name = ctx.kept;
+    else f.callback = true;
+  }
+  // Callbacks are named once every assigned function has its name (a callback inside `exports.x = function` is "x › …").
+  for (const f of found) {
+    if (!f.callback) continue;
+    const parent = parentOf(f);
+    const via = f.ctx.kind === 'arg' && f.ctx.callee ? f.ctx.callee : f.ctx.kind === 'assign' ? f.ctx.lhs : null;
+    f.name = `${parent?.name ?? via ?? 'function'} › callback at line ${f.line}`;
+    if (via) f.passedTo = via;
+  }
+  for (const f of found) { delete f.ctx; delete f.at; fns.push(f); }
+}
+
+// ── C, C++, and Swift: function definitions ──────────────────────────────────────────────────────────
+
+/** C/C++ with every preprocessor line (and its `\` continuations) blanked to spaces, so offsets and lines stay put. */
+export function blankPreprocessor(src) {
+  const lines = String(src).split('\n');
+  let cont = false;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (!cont && !/^[ \t]*#/.test(l)) continue;
+    cont = /\\\r?$/.test(l);
+    lines[i] = ' '.repeat(l.length);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * The source with comments and the inside of strings and chars blanked (same length, same lines), so brackets can be
+ * counted without being fooled by a `{` in a string. Handles C++ raw strings R"x(…)x" and triple-quoted strings.
+ */
+function maskCode(src) {
+  const a = String(src).split('');
+  const n = a.length;
+  const blank = (from, to) => { for (let k = from; k < to && k < n; k++) if (a[k] !== '\n') a[k] = ' '; };
+  for (let i = 0; i < n; i++) {
+    const c = a[i];
+    if (c === '/' && a[i + 1] === '/') { let j = i; while (j < n && a[j] !== '\n') j++; blank(i, j); i = j; continue; }
+    if (c === '/' && a[i + 1] === '*') { let j = i + 2; while (j < n && !(a[j] === '*' && a[j + 1] === '/')) j++; blank(i, j + 2); i = j + 1; continue; }
+    if (c === '"' && a[i + 1] === '"' && a[i + 2] === '"') { const e = src.indexOf('"""', i + 3); const end = e < 0 ? n : e; blank(i + 3, end); i = end + 2; continue; }
+    if (c === '"' && a[i - 1] === 'R' && /(?:^|[^\w])(?:u8|u|U|L)?R$/.test(src.slice(Math.max(0, i - 4), i))) {
+      const paren = src.indexOf('(', i);
+      const delim = paren > i && paren - i < 18 ? src.slice(i + 1, paren) : null;
+      if (delim != null && /^[^\s()\\]*$/.test(delim)) {
+        const e = src.indexOf(`)${delim}"`, paren);
+        const end = e < 0 ? n : e;
+        blank(i + 1, end + delim.length + 1);
+        i = end + delim.length + 1;
+        continue;
+      }
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      for (; j < n; j++) {
+        if (a[j] === '\\') { if (a[j + 1] !== '\n') a[j + 1] = ' '; a[j] = ' '; j++; continue; }
+        if (a[j] === c || a[j] === '\n') break;
+        a[j] = ' ';
+      }
+      i = j;
+    }
+  }
+  return a.join('');
+}
+
+/** Index of the bracket closing the one at `open` in masked text (no strings or comments left to skip). */
+function closeIn(masked, open) {
+  const o = masked[open], c = { '{': '}', '(': ')', '[': ']' }[o];
+  let depth = 0;
+  for (let i = open; i < masked.length; i++) {
+    if (masked[i] === o) depth++;
+    else if (masked[i] === c && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** Blank `name(…)` groups (balanced) in a header, keeping its length. */
+function blankCalls(h, names) {
+  let out = h;
+  for (const m of h.matchAll(names)) {
+    const open = out.indexOf('(', m.index + m[0].length - 1);
+    if (open < 0) continue;
+    const close = closeIn(out, open);
+    if (close < 0) continue;
+    out = out.slice(0, m.index) + ' '.repeat(close + 1 - m.index) + out.slice(close + 1);
+  }
+  return out;
+}
+
+/** A C/C++ declaration header with access labels, templates, and attributes blanked (same length). */
+function cleanCHeader(header) {
+  let h = header.replace(/(?<![\w:])(?:public|private|protected|signals|slots|Q_SIGNALS|Q_SLOTS)\s*:(?!:)/g, (m) => ' '.repeat(m.length));
+  // template <…> (angle brackets balanced) and [[attributes]].
+  for (let at = h.indexOf('template'); at >= 0; at = h.indexOf('template', at + 1)) {
+    if (/\w/.test(h[at - 1] || '') || /\w/.test(h[at + 8] || '')) continue;
+    let j = at + 8;
+    while (/\s/.test(h[j] || '')) j++;
+    if (h[j] !== '<') continue;
+    let depth = 0, k = j;
+    for (; k < h.length; k++) { if (h[k] === '<') depth++; else if (h[k] === '>' && --depth === 0) break; }
+    if (k >= h.length) break;
+    h = h.slice(0, at) + ' '.repeat(k + 1 - at) + h.slice(k + 1);
+  }
+  for (let at = h.indexOf('[['); at >= 0; at = h.indexOf('[[', at + 2)) {
+    const e = h.indexOf(']]', at);
+    if (e < 0) break;
+    h = h.slice(0, at) + ' '.repeat(e + 2 - at) + h.slice(e + 2);
+  }
+  return blankCalls(h, /\b(?:__attribute__|__declspec|alignas|_Alignas|__THROW_?\w*|__nonnull|__wur)\s*\(/g);
+}
+
+const C_NOT_NAMES = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'sizeof', 'else', 'do', 'case', 'defined', 'alignof', 'decltype', 'static_assert', '_Static_assert', 'typeof', '__typeof__', 'asm', '__asm__', 'new', 'delete', 'throw', 'noexcept', 'requires', 'operator', 'using', 'typedef', 'goto']);
+const C_STORAGE = /\b(?:static|inline|extern|virtual|explicit|constexpr|consteval|constinit|friend|__inline|__inline__|__forceinline|register|thread_local|_Noreturn|_Thread_local)\b/g;
+
+/** After a parameter list: const, noexcept, override, `-> type`, macros, or a constructor's `: init(…)` list. */
+function cSuffixOk(s, language) {
+  let i = 0;
+  const n = s.length;
+  const skipParens = () => { if (s[i] === '(') { const c = closeIn(s, i); i = c < 0 ? n : c + 1; } };
+  for (let guard = 0; guard < 40; guard++) {
+    while (i < n && /\s/.test(s[i])) i++;
+    if (i >= n) return true;
+    const rest = s.slice(i, i + 40);
+    let m;
+    if ((m = rest.match(/^(?:const|volatile|override|final|mutable|noexcept|throw|try|&&|&)(?!\w)/))) { i += m[0].length; while (/\s/.test(s[i] || '')) i++; skipParens(); continue; }
+    if (s[i] === '-' && s[i + 1] === '>') return language === 'cpp'; // a trailing return type runs to the body
+    if (s[i] === ':' && s[i + 1] !== ':') return language === 'cpp'; // a constructor's member initializer list
+    if ((m = rest.match(/^requires\b/))) return language === 'cpp';
+    if ((m = rest.match(/^[A-Z_][A-Z0-9_]*(?!\w)/))) { i += m[0].length; while (/\s/.test(s[i] || '')) i++; skipParens(); continue; } // FMT_NOEXCEPT, __THROW
+    return false;
+  }
+  return false;
+}
+
+/**
+ * What a C/C++ function gives back, from the text before its name and the text after its parameters: macros in front
+ * of the type (`FMT_CONSTEXPR void`, `JSON_HEDLEY_ALWAYS_INLINE std::size_t`) are not part of it, `void` is nothing,
+ * and `auto f() -> T` gives back T.
+ */
+function cReturnType(prefix, after) {
+  const toks = String(prefix || '').trim().split(/\s+/).filter(Boolean);
+  // A leading all-caps word is a macro when a real type follows it (`FILE *` keeps FILE: only `*` follows).
+  while (toks.length > 1 && /^[A-Z_][A-Z0-9_]*$/.test(toks[0]) && toks.slice(1).some((t) => /[A-Za-z_]/.test(t))) toks.shift();
+  let t = toks.join(' ');
+  if (/^auto$/.test(t)) {
+    const tr = String(after || '').match(/->\s*([^{;]+?)\s*(?:requires\b[^{;]*)?$/);
+    const trail = tr ? tr[1].replace(/\s+/g, ' ').trim() : '';
+    if (trail && !/^decltype\b/.test(trail)) t = trail;
+  }
+  return t && !/^void$/.test(t) && !/^[A-Z_][A-Z0-9_]*$/.test(t) || /^[A-Z][A-Z0-9]*$/.test(t) ? t : null;
+}
+
+/** A function definition head (the text before a `{` at file, namespace, or class level), or null. */
+function cHead(header, language, container) {
+  const h = cleanCHeader(header);
+  const start = h.search(/\S/);
+  if (start < 0) return null;
+  let depth = 0;
+  for (let o = 0; o < h.length; o++) {
+    if (h[o] === ')') { depth--; continue; }
+    if (h[o] !== '(') continue;
+    if (depth++ !== 0) continue;
+    const c = closeIn(h, o);
+    if (c < 0) return null;
+    const before = h.slice(Math.max(0, o - 300), o);
+    const nm = before.match(/((?:[A-Za-z_]\w*(?:<[^<>()]*>)?\s*::\s*)*)(operator\s*(?:\(\s*\)|\[\s*\]|new\b|delete\b|[^\s\w()]+|[A-Za-z_][\w:<> ]*?)|~?[A-Za-z_]\w*)\s*$/);
+    if (!nm || C_NOT_NAMES.has(nm[2]) || !cSuffixOk(h.slice(c + 1), language)) { o = c; depth--; continue; }
+    const nameAt = o - nm[0].length + nm[1].length;
+    const prefix = blankCalls(h.slice(start, o - nm[0].length), /\b[A-Z_][A-Z0-9_]*\s*\(/g);
+    if (!/^[\w\s*&:<>,"~]*$/.test(prefix) || /(?:^|\s)(?:return|else|case|goto|new|delete|throw|typedef|using|co_return|co_await|co_yield|sizeof)\s*$/.test(prefix)) return null;
+    const qualifier = nm[1] ? nm[1].replace(/<[^<>]*>/g, '').split('::').map((x) => x.trim()).filter(Boolean).pop() : null;
+    const name = nm[2].replace(/\s+/g, ' ').trim();
+    const returns = prefix.replace(C_STORAGE, ' ').replace(/""/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!returns && language === 'c') return null;
+    // No return type: only a constructor or destructor has none (`TEST(A, B) {` is a macro, not a function).
+    const ctor = /^~/.test(name) || (qualifier && qualifier === name.replace(/^~/, '')) || (container && container === name.replace(/^~/, ''));
+    if (!returns && !ctor) return null;
+    return { name, nameAt, open: o, close: c, returns: ctor ? null : cReturnType(returns, h.slice(c + 1)), qualifier, startAt: start };
+  }
+  return null;
+}
+
+/** A class, struct, union, namespace, or extern "C" header whose braces hold more declarations. Gives its name ('' if none) or null. */
+function cContainer(header) {
+  let h = cleanCHeader(header);
+  for (let k = 0; k < 6 && /<[^<>]*>/.test(h); k++) h = h.replace(/<[^<>]*>/g, ' ');
+  // A macro may stand in front of the class (NLOHMANN_BASIC_JSON_TPL_DECLARATION class basic_json, FMT_EXPORT class …).
+  h = h.trim().replace(/^(?:[A-Z_][A-Z0-9_]*(?:\s*\([^()]*\))?\s+)+(?=(?:typedef\s+)?(?:class|struct|union|namespace|inline\s+namespace|extern)\b)/, '');
+  if (/^extern\s*""$/.test(h)) return '';
+  if (/^(?:inline\s+)?namespace\b[^()=;]*$/.test(h)) return '';
+  const m = h.match(/^(?:typedef\s+)?(?:class|struct|union)\b([^()=;]*)$/);
+  if (!m) return null;
+  const names = (m[1].split(/:(?!:)/)[0].match(/[A-Za-z_]\w*/g) || []).filter((w) => w !== 'final');
+  return names[names.length - 1] || '';
+}
+
+/** Lines that can carry the start of a C signature above the name: a return type, a template, a macro. */
+const C_SIG_LINE = /^\s*[\w<>:,*&\s]+$/;
+
+/** C and C++ function definitions, found by walking scopes: file, namespaces, extern "C", classes and structs. */
+function findCFunctions(code, language) {
+  const masked = maskCode(code);
+  const lines = code.split('\n');
+  const fns = [];
+  const stack = [];
+  let stmtStart = 0;
+  for (let i = 0; i < masked.length; i++) {
+    const ch = masked[i];
+    if (ch === ';') { stmtStart = i + 1; continue; }
+    if (ch === '}') { stack.pop(); stmtStart = i + 1; continue; }
+    if (ch !== '{') continue;
+    // Comments and #lines are blank in the mask: a header starts at its first real character (a long license
+    // comment above the first function must not make its header look too long to be one).
+    while (stmtStart < i && /\s/.test(masked[stmtStart])) stmtStart++;
+    const header = masked.slice(stmtStart, i);
+    const close = closeIn(masked, i);
+    const head = header.length < 4000 ? cHead(header, language, stack[stack.length - 1]) : null;
+    if (head && close > 0) {
+      const nameAt = stmtStart + head.nameAt;
+      const fnLine = lineAt(code, nameAt);
+      // The doc comment sits above the whole signature: a return type or template may be on the lines above the name.
+      let docLine = fnLine;
+      for (let k = 0; k < 3 && docLine >= 2 && lineAt(code, stmtStart + head.startAt) < docLine && C_SIG_LINE.test(lines[docLine - 2]) && lines[docLine - 2].trim(); k++) docLine--;
+      const doc = leadingDoc(lines, docLine, language);
+      fns.push({
+        key: `${head.name}@${nameAt}`, name: head.name, line: fnLine,
+        params: parseParams(code.slice(stmtStart + head.open + 1, stmtStart + head.close), language),
+        returns: head.returns ? cType(head.returns) : null, bodyStart: i + 1, body: code.slice(i + 1, close),
+        ...(head.qualifier ? { qualifier: head.qualifier } : {}), ...(doc ? { doc } : {}),
+      });
+      i = close; stmtStart = close + 1;
+      continue;
+    }
+    const container = cContainer(header);
+    if (container != null) { stack.push(container); stmtStart = i + 1; continue; }
+    if (close < 0) break;
+    i = close; // an initializer, an enum, a lambda: braces that hold no functions
+  }
+  return fns;
+}
+
+/** After a Swift parameter list: async, throws, `-> Type`, `where …`, then the body's `{`. Null for a bodiless requirement. */
+function swiftHead(after) {
+  const brace = after.indexOf('{');
+  if (brace < 0) return null;
+  const mid = after.slice(0, brace);
+  if (/[;}=]/.test(mid.replace(/->/g, '')) || /\n\s*(?:@|func\b|var\b|let\b|case\b|init\b|deinit\b|static\b|class\b|struct\b|enum\b|public\b|private\b|internal\b|fileprivate\b|open\b|mutating\b|override\b|subscript\b|typealias\b|associatedtype\b|convenience\b|required\b|final\b|#)/.test(mid)) return null;
+  let rest = mid.replace(/^\s*(?:async\s+)?(?:(?:re)?throws(?:\s*\([^)]*\))?\s*)?(?:async\s+)?/, '');
+  let returns = null;
+  if (/^->/.test(rest)) {
+    rest = rest.slice(2);
+    const where = rest.search(/\bwhere\b/);
+    returns = (where < 0 ? rest : rest.slice(0, where)).trim() || null;
+  } else if (rest.trim() && !/^where\b/.test(rest.trim())) return null;
+  return { returns, brace };
+}
+
+
+/** Swift functions: func, init, computed properties, and Vapor route closures (`app.get("orders", ":id") { req in … }`). */
+function findSwiftFunctions(src) {
+  const masked = maskCode(src);
+  const fns = [];
+  // extension Library { … }: the methods inside belong to Library, though they are written outside the type.
+  const exts = [];
+  for (const m of masked.matchAll(/(?:^|[\s;}])extension[ \t]+([\w.]+)[^{\n]*\{/g)) {
+    const open = m.index + m[0].length - 1, close = closeIn(masked, open);
+    if (close > 0) exts.push([open, close, m[1].split('.').pop()]);
+  }
+  const extOf = (at) => exts.find(([a, b]) => at > a && at < b)?.[2] ?? null;
+  const bodies = [];
+  const push = (fn, open, close) => { fns.push({ ...fn, bodyStart: open + 1, body: src.slice(open + 1, close) }); bodies.push([open, close]); };
+  for (const m of masked.matchAll(/(?:^|[^\w.])(?:func[ \t]+([A-Za-z_]\w*|`\w+`|[^\s(<\w`]+)|(init)[?!]?|(subscript))[ \t]*(?:<[^>{}()]*>)?[ \t]*\(/g)) {
+    const name = (m[1] || m[2] || m[3]).replace(/`/g, '');
+    const open = m.index + m[0].length - 1;
+    const close = closeIn(masked, open);
+    if (close < 0) continue;
+    const head = swiftHead(masked.slice(close + 1, close + 1 + 2000));
+    if (!head) continue;
+    const bo = close + 1 + head.brace, bc = closeIn(masked, bo);
+    if (bc < 0) continue;
+    const nameAt = m.index + m[0].indexOf(m[1] || m[2] || m[3]);
+    const qualifier = extOf(m.index);
+    // A subscript with get { … } set { … }: what it gives back is its getter.
+    const getter = name === 'subscript' ? masked.slice(bo + 1, bc).match(/^\s*get\s*\{/) : null;
+    if (getter) { const go = bo + 1 + getter[0].length - 1, gc = closeIn(masked, go); if (gc > 0) { push({ key: `${name}@${nameAt}`, name, line: lineAt(src, nameAt), params: parseParams(src.slice(open + 1, close), 'swift'), returns: head.returns, ...(qualifier ? { qualifier } : {}) }, go, gc); continue; } }
+    push({ key: `${name}@${nameAt}`, name, line: lineAt(src, nameAt), params: parseParams(src.slice(open + 1, close), 'swift'), returns: head.returns, ...(qualifier ? { qualifier } : {}) }, bo, bc);
+  }
+  // Computed properties read like a function with no inputs: var total: Int { … } (or its get { … }).
+  for (const m of masked.matchAll(/(?:^|[\s;{}])(?:@\w+(?:\([^()\n]*\))?[ \t]+)*(?:(?:public|private|internal|fileprivate|open|static|class|override|final|nonisolated)(?:\(set\))?[ \t]+)*var[ \t]+(\w+)[ \t]*:[ \t]*([^={}\n]+)\{/g)) {
+    let open = m.index + m[0].length - 1;
+    let close = closeIn(masked, open);
+    if (close < 0 || bodies.some(([a, b]) => open > a && open < b)) continue;
+    const inner = masked.slice(open + 1, close).trim();
+    if (/^(?:willSet|didSet|set|_read|_modify)\b/.test(inner) || /^get\s*(?:set\s*)?$|^get\s+(?:async|throws)/.test(inner)) continue;
+    const g = masked.slice(open + 1, close).match(/^\s*get\s*\{/);
+    if (g) { open = open + 1 + g[0].length - 1; close = closeIn(masked, open); if (close < 0) continue; }
+    const nameAt = masked.indexOf(m[1], m.index + m[0].lastIndexOf('var') + 3);
+    const qualifier = extOf(m.index);
+    push({ key: `${m[1]}@${nameAt}`, name: m[1], line: lineAt(src, nameAt), params: [], returns: m[2].trim(), computed: true, ...(qualifier ? { qualifier } : {}) }, open, close);
+  }
+  // Vapor routes. Literal path pieces only; grouped(...) prefixes are followed when they are literal too.
+  const literalPath = (args) => {
+    const pieces = [];
+    for (const raw of splitTop(args, ',').map((x) => x.trim()).filter(Boolean)) {
+      if (/^\w+\s*:/.test(raw)) continue; // named arguments (use:, body:)
+      let m;
+      if ((m = raw.match(/^"([^"\\]*)"$/))) pieces.push(m[1].replace(/^\/+|\/+$/g, ''));
+      else if (raw === '.catchall' || raw === '"**"') pieces.push('**');
+      else if (raw === '.anything') pieces.push('*');
+      else if (/^\.(?:GET|POST|PUT|PATCH|DELETE)$/.test(raw)) continue;
+      else return null;
+    }
+    return pieces.filter(Boolean).join('/');
+  };
+  const groups = new Map();
+  for (const m of src.matchAll(/\blet[ \t]+(\w+)[ \t]*=[ \t]*(\w+)\.grouped\(([^()\n]*)\)/g)) groups.set(m[1], { parent: m[2], path: literalPath(m[3]) });
+  const prefixOf = (v, depth = 0) => { const g = groups.get(v); if (!g || g.path == null || depth > 6) return g ? null : ''; const up = prefixOf(g.parent, depth + 1); return up == null ? null : [up, g.path].filter(Boolean).join('/'); };
+  const routeFor = new Map();
+  for (const m of masked.matchAll(/\b(\w+)\.(get|post|put|patch|delete|on)\(([^()]*?)\buse:[ \t]*(?:self\.)?(\w+)[ \t]*\)/g)) {
+    if (!(groups.has(m[1]) || /^(?:app|routes?|router|r|api|v\d+|\w*(?:[Rr]outes?|[Gg]roup|[Rr]outer))$/.test(m[1]))) continue;
+    const args = src.slice(m.index + m[0].indexOf('(') + 1, m.index + m[0].length - 1);
+    const method = m[2] === 'on' ? (args.match(/\.(GET|POST|PUT|PATCH|DELETE)\b/) || [])[1] : m[2].toUpperCase();
+    const path = literalPath(args.replace(/\buse:[\s\S]*$/, '')), prefix = prefixOf(m[1]);
+    if (method && path != null && prefix != null) routeFor.set(m[4], { method, path: `/${[prefix, path].filter(Boolean).join('/')}` });
+  }
+  for (const m of masked.matchAll(/\b(\w+)\.(get|post|put|patch|delete|on)\(([^()]*)\)[ \t]*\{/g)) {
+    const argsAt = m.index + m[0].indexOf('(') + 1;
+    const args = src.slice(argsAt, argsAt + m[3].length);
+    const method = m[2] === 'on' ? (args.match(/\.(GET|POST|PUT|PATCH|DELETE)\b/) || [])[1] : m[2].toUpperCase();
+    const path = literalPath(args), prefix = prefixOf(m[1]);
+    // Only a router registers routes (app, routes, a grouped(...) value): `cache.get("x") { … }` is a callback.
+    if (!method || path == null || prefix == null || !(groups.has(m[1]) || /^(?:app|routes?|router|r|api|v\d+|\w*(?:[Rr]outes?|[Gg]roup|[Rr]outer))$/.test(m[1]))) continue;
+    const bo = m.index + m[0].length - 1, bc = closeIn(masked, bo);
+    if (bc < 0) continue;
+    const params = src.slice(bo + 1, bc).match(SWIFT_CLOSURE_PARAMS);
+    if (!params) continue; // a route's handler always takes the request
+    const full = `/${[prefix, path].filter(Boolean).join('/')}`;
+    push({ name: `${method} ${full}`, line: lineAt(src, m.index), params: [], returns: null, route: { method, path: full } }, bo + params[0].length, bc);
+  }
+  for (const fn of fns) if (!fn.route && routeFor.has(fn.name)) fn.route = routeFor.get(fn.name);
+  return fns.sort((a, b) => a.line - b.line);
+}
+
 // ── Labels, plumbing, and completeness: facts views need, so they never re-derive them ─────────────────
 
 /** A display name: late_fee -> "Late fee", deliveryFee -> "Delivery fee", __init__ -> "Init". */
@@ -366,6 +962,18 @@ export function displayLabel(name) {
 
 /** Inputs that are framework plumbing rather than something a person gives. */
 const PLUMBING = /^(self|this|cls|db|session|conn|connection|cursor|tx|transaction|request|req|res|response|ctx|context|c|w|r|next|logger|log|deps|container|di|cancellationToken|ct|ec|app|g)$/i;
+/**
+ * Framework plumbing is left out of "You give it". A plain `Request` or `Response` (the fetch types, or a response
+ * a helper inspects) is plumbing only in a web handler: in `cancelBody(value: Response, keep?: Response)` or
+ * `streamRequest(request: Request, …)` it is the very thing the function works on.
+ */
+function isPlumbing(p, params, fn) {
+  if (/^(self|this|cls)$/i.test(p.name)) return true;
+  const web = !!fn.route || params.some((x) => /^(?:req|res|reply|ctx|c|w|r|next)$/.test(x.name) || /HttpRequest|HttpResponse|ResponseWriter|NextFunction|HttpContext|ServerRequest|FastifyRequest|FastifyReply|NextRequest|HttpServletRequest/.test(String(x.type || '')));
+  const t = String(p.type || '');
+  if (/^(?:request|response)$/i.test(p.name) || (t && /^(?:Request|Response)(?:\s*\|.*)?$|\|\s*(?:Request|Response)\b/.test(t) && !/Http|Servlet|Fastify|Next/.test(t))) return web;
+  return t ? PLUMBING_TYPE.test(t) : PLUMBING.test(p.name);
+}
 const PLUMBING_TYPE = /\b(Session|AsyncSession|DbContext|Connection|HttpRequest|HttpResponse|Request|Response|Context|ResponseWriter|CancellationToken|ILogger|Logger|NextFunction)\b/;
 
 const allSteps = (steps) => (steps || []).flatMap((s) => [s, ...allSteps(s.children), ...allSteps(s.otherwise), ...(s.handlers || []).flatMap((h) => allSteps(h.steps)), ...allSteps(s.always?.steps)]);
@@ -386,6 +994,8 @@ export function completenessOf(item) {
   const code = steps.filter((s) => s.kind === 'other').length;
   const restated = steps.filter((s) => s.restates).length;
   if (code) reasons.push(`${code} step${code === 1 ? '' : 's'} shown as code`);
+  const named = steps.filter((s) => s.unknownCommand).length;
+  if (named) reasons.push(`${named} command${named === 1 ? '' : 's'} only named, not explained`);
   if (restated) reasons.push(`${restated} step${restated === 1 ? '' : 's'} only restate the code`);
   if (item.anchor && item.anchor.coverage < 1) reasons.push(`${item.anchor.missing.length ? `lines ${item.anchor.missing.join(', ')}` : 'some lines'} not tied to a step`);
   return { level: reasons.length ? 'partly explained' : 'explained', reasons };
@@ -484,13 +1094,20 @@ function leadingDoc(lines, fnLine, language) {
   let k = fnLine - 2;
   while (k >= 0 && /^\s*(@|#\[|\[[A-Z])/.test(lines[k])) k--; // annotations and attributes
   if (k < 0) return null;
+  // C and C++ document with plain block comments (/* … */) as often as with /** … */.
+  if ((language === 'c' || language === 'cpp') && /\*\/\s*$/.test(lines[k])) {
+    const end = k;
+    while (k >= 0 && !/\/\*/.test(lines[k])) k--;
+    if (k < 0 || !/^\s*\/\*/.test(lines[k])) return null; // a comment at the end of a line of code is not a doc
+    return cleanDoc(lines.slice(k, end + 1).join('\n').replace(/^\s*\/\*+!?/, '').replace(/\*+\/\s*$/, ''));
+  }
   if (/\*\/\s*$/.test(lines[k])) {
     const end = k;
     while (k >= 0 && !/\/\*\*/.test(lines[k])) k--;
     if (k < 0) return null;
     return cleanDoc(lines.slice(k, end + 1).join('\n').replace(/^\s*\/\*\*/, '').replace(/\*\/\s*$/, ''));
   }
-  const lineDoc = language === 'go' ? /^\s*\/\/(?!\/)/ : language === 'ruby' ? /^\s*#(?![!{])/ : /^\s*\/\/\//;
+  const lineDoc = language === 'go' || language === 'c' || language === 'cpp' ? /^\s*\/\/(?!\/)|^\s*\/\/\/(?!\/)/ : language === 'ruby' ? /^\s*#(?![!{])/ : /^\s*\/\/\//;
   const got = [];
   while (k >= 0 && lineDoc.test(lines[k])) got.unshift(lines[k--]);
   return got.length ? cleanDoc(got.join('\n')) : null;
@@ -585,11 +1202,28 @@ function mapCode(src, fn) {
 
 /** PHP reads like the other brace languages once `$name` is `name` and `->` is `.` (line numbers unchanged). */
 function normalizePhp(src) {
-  return mapCode(src.replace(/(^|[^\[])#(?!\[)/gm, '$1//'), (code) => code
+  return mapCode(phpHashComments(src), (code) => code
+    // `.` is PHP's text join (`$a.$b`, `'x'.$y`); spaced, it can never be read as `a.b` (a property) below.
+    .replace(/(?<![.\d])\.(?![.=\d])/g, ' . ')
     .replace(/\$this\s*->/g, 'this.')
     .replace(/\$(?=[A-Za-z_])/g, '')
     .replace(/(\w|\))\s*(?:\?)?->\s*(?=[A-Za-z_])/g, '$1.')
     .replace(/\belseif\b/g, 'else if'));
+}
+
+const stripRubyStrings = (t) => String(t).replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q');
+
+/** PHP `# comment` as `// comment`, outside strings (a `#` inside '[^:/?#]' is text). Attributes `#[…]` stay. */
+function phpHashComments(src) {
+  let out = '', last = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' || c === "'") { i = skipString(src, i); continue; }
+    if (c === '/' && src[i + 1] === '/') { const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; continue; }
+    if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 1; continue; }
+    if (c === '#' && src[i + 1] !== '[') { out += `${src.slice(last, i)}//`; last = i + 1; const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; }
+  }
+  return out + src.slice(last);
 }
 
 /** Kotlin `if (c) A else if (c2) B else C` used as a value. Returns false when the text is not one. */
@@ -729,7 +1363,7 @@ export function toThunderCondition(text, inputs = []) {
         continue;
       }
       let path = t;
-      while (toks[i + 1] === '.' && /^[A-Za-z_$]/.test(toks[i + 2] || '')) {
+      while ((toks[i + 1] === '.' || toks[i + 1] === '->') && /^[A-Za-z_$]/.test(toks[i + 2] || '')) {
         if (/^(equals|Equals)$/.test(toks[i + 2]) && toks[i + 3] === '(') break;
         path += '.' + toks[i + 2];
         i += 2;
@@ -759,10 +1393,12 @@ export function toThunderCondition(text, inputs = []) {
         if (toks[i + 2] !== ')') return null;
         i += 2;
       }
-      if (/^(null|nil|None|undefined)$/.test(path)) return null;
+      if (/^(null|nil|None|undefined|NULL|nullptr)$/.test(path)) return null;
       out.push(path);
       continue;
     }
+    // Swift's implicit enum member: `status == .active` compares with the case `active`.
+    if (t === '.' && /^[a-z_]\w*$/.test(next || '') && (!out.length || ['==', '!=', '(', 'and', 'or', 'not'].includes(out[out.length - 1]))) { out.push(next); i++; continue; }
     return null;
   }
   for (let k = 0; k < out.length; k++) if (/^[<>]=?$/.test(out[k]) && (/^"/.test(out[k - 1] || '') || /^"/.test(out[k + 1] || ''))) return null; // text ordering differs by language
@@ -793,9 +1429,11 @@ function splitArgs(toks) {
 /** An answer a decision can return: a string, enum member, number, or boolean. Null otherwise. */
 export function toThunderOutcome(text) {
   let s = String(text).trim().replace(/;$/, '').trim();
+  let m0;
   s = s.replace(/^Ok\((.*)\)$/, '$1').replace(/\.(to_string|into|to_owned)\(\)$/, '').replace(/^String::from\((.*)\)$/, '$1').trim();
   // Absence is not an answer: None/null/nil/undefined are "returns nothing", handled as guards.
-  if (/^(None|null|nil|undefined|Nothing)$/.test(s)) return null;
+  if (/^(None|null|nil|undefined|Nothing|NULL|nullptr)$/.test(s)) return null;
+  if ((m0 = s.match(/^\.([a-z]\w*)$/))) return m0[1]; // Swift: return .premium
   let m;
   if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$|^`([^`$\\]*)`$/))) {
     // "#{x}" (Ruby) and "$x" / "${x}" (Kotlin, PHP) build the text from values: computed, not fixed.
@@ -840,8 +1478,9 @@ export function terminatorEffect(stmt, language) {
   const s = String(stmt).trim().replace(/;$/, '').trim();
   let m;
   if ((m = s.match(/^throw\s+new\s+([\w.$]+)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) };
-  if ((m = s.match(/^throw\s+([\w.$]+)$/))) return { kind: 'fails', name: lastSeg(m[1]) };
-  if ((m = s.match(/^throw\s+([A-Z][\w.$]*)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) }; // Kotlin: no `new`
+  if ((m = s.match(/^throw\s+([\w.$]+)$/))) return { kind: 'fails', name: /^[A-Z]\w*\.[a-z]\w*$/.test(m[1]) ? m[1] : lastSeg(m[1]) }; // Swift: throw LibraryError.full
+  if ((m = s.match(/^throw\s+Abort\(\s*\.(\w+)/)) && VAPOR_STATUS[m[1]]) return { kind: 'responds', name: String(VAPOR_STATUS[m[1]]) }; // Vapor
+  if ((m = s.match(/^throw\s+([A-Z][\w.$]*)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: /^[A-Z]\w*\.[a-z]\w*$/.test(m[1]) ? m[1] : lastSeg(m[1]), detail: firstString(m[2]) }; // Kotlin and Swift: no `new`
   if ((m = s.match(/^error\(([\s\S]*)\)$/)) && language === 'kotlin') return { kind: 'fails', name: 'IllegalStateException', detail: firstString(m[1]) };
   if ((m = s.match(/^abort\(\s*(\d{3})\b/))) return { kind: 'responds', name: m[1] }; // Laravel
   if ((m = s.match(/^raise\s+([\w.]+)(?:\(([\s\S]*)\))?$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: m[2] ? firstString(m[2]) : null };
@@ -867,7 +1506,7 @@ export function terminatorEffect(stmt, language) {
     if (/^Err[A-Z]\w*$/.test(last)) return { kind: 'fails', name: last };
     if (parts.length === 1 && last === 'nil') return { kind: 'nothing' };
   }
-  if (/^(null|undefined|None|nil|void 0)$/.test(v)) return { kind: 'nothing' };
+  if (/^(null|undefined|None|nil|void 0|NULL|nullptr)$/.test(v)) return { kind: 'nothing' };
   if ((m = v.match(/(?:\b(?:status|Status|StatusCode|HttpStatus|sendStatus)|\.code)\s*\(\s*(\d{3})\s*\)/)) || (m = v.match(/^\{\s*status\s*:\s*(\d{3})\b/))) return { kind: 'responds', name: m[1] };
   if ((m = v.match(/^(BadRequest|Unauthorized|Forbid|Forbidden|NotFound|Conflict|UnprocessableEntity)\s*\(/))) return { kind: 'responds', name: m[1] };
   const fixed = toThunderOutcome(v);
@@ -903,7 +1542,7 @@ function makeGuard(cond, branch, language, inputs, line) {
 function splitIf(text, language) {
   let rest = text.replace(/^if\b\s*/, '');
   let cond, after;
-  if (language === 'go' || language === 'rust' || rest[0] !== '(') {
+  if (BARE_IF.has(language) || rest[0] !== '(') {
     const b = findTopBrace(rest);
     if (b < 0) return null;
     cond = rest.slice(0, b).trim(); after = rest.slice(b);
@@ -957,7 +1596,22 @@ function valueLiteral(text) {
   if (/^-?\d+(\.\d+)?$/.test(s)) return s;
   if (/^(true|false|True|False)$/.test(s)) return s.toLowerCase();
   if ((m = s.match(/^(?:[A-Za-z_]\w*(?:\.|::))*([A-Za-z_]\w*)$/))) return m[1];
+  if ((m = s.match(/^\.([a-z_]\w*)$/))) return m[1]; // Swift: case .premium
   return null;
+}
+
+/** A Swift one-expression body (an implicit return): not a declaration, an assignment, or a statement keyword. */
+function swiftImplicitValue(text) {
+  const t = String(text).trim();
+  return !!t && !/\n\s*\S/.test(t) && !/^(?:if|guard|for|while|switch|let|var|return|throw|defer|do|repeat|print|try|await)\b/.test(t) && !/^[\w.]+\s*(?:[-+*/]?=)(?!=)/.test(t) && !/^[\w.]+\s*\(/.test(t);
+}
+
+/** A Swift one-statement body that gives back its value: the function returns something, and the statement is an expression. */
+function swiftImplicitResult(text, returns) {
+  const r = String(returns || '').trim();
+  if (!r || /^(?:Void|\(\s*\)|Never)$/.test(r)) return false;
+  const t = String(text).trim();
+  return !!t && !/^(?:if|guard|for|while|switch|let|var|return|throw|defer|do|repeat|fatalError|preconditionFailure|precondition|assert|assertionFailure|break|continue|case|default)\b/.test(t) && !/^[\w.\[\]]+\s*(?:[-+*/]?=)(?!=)/.test(t) && !/^\$0\s*=/.test(t);
 }
 
 /** Replace a pattern binding (Rust `n if n > 3`) with the subject inside its guard. */
@@ -1015,7 +1669,7 @@ function switchArms(body, language, baseLine) {
     else {
       rest = rest.replace(/;?\s*break\s*;?\s*$/, '').replace(/;\s*$/, '').trim();
       value = useArrow ? rest : (rest.match(/^return\s+([\s\S]+)$/) || [])[1] ?? null;
-      if (value && /;/.test(value)) value = null; // more than one statement
+      if (value && (/;/.test(value) || (language === 'swift' && /\n\s*\S/.test(value)))) value = null; // more than one statement
     }
     const patterns = [...pending, pattern];
     pending = [];
@@ -1054,7 +1708,7 @@ function readSwitch(text, language, inputs, line) {
   const t = text.trim();
   if ((m = t.match(/^switch\s*\(([\s\S]*?)\)\s*\{/)) && language !== 'go' && language !== 'rust') {
     const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
-  } else if (language === 'go' && (m = t.match(/^switch\b([^{]*)\{/))) {
+  } else if ((language === 'go' || language === 'swift') && (m = t.match(/^switch\b([^{]*)\{/))) {
     const open = t.indexOf('{'); subjectText = m[1].trim() || null; body = t.slice(open + 1, matchClose(t, open));
   } else if (language === 'rust' && (m = t.match(/^match\s+([^{]+?)\s*\{/))) {
     const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
@@ -1122,8 +1776,10 @@ function splitStatements(body, baseLine) {
         // statement. Any other brace is part of an expression (an object literal, destructuring, a struct
         // literal, JSX): keep reading to the end of the statement.
         const prefix = src.slice(start, i).trim();
+        // A Go composite literal (`[]string{…}`, `map[string]int{…}`) inside a header is a value: read past it.
+        if (/(?:\[\d*\][\w.*]+|map\[[^\]]+\][\w.*[\]]+)$/.test(prefix) && /^(?:for|if|switch)\b/.test(prefix)) { i = close; continue; }
         const blockHeader = !prefix
-          || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
+          || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|guard|repeat|extension|protocol|actor|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
           || (/(?:\)|=>|\belse|\btry|\bdo|\bfinally|\bloop|\bunsafe|\bdefer)\s*$/.test(prefix) && !/^(?:return|throw|yield)\b/.test(prefix) && !/[=:]\s*\w*\s*\(/.test(prefix.replace(/=>\s*$/, '')) )
           || (/=>\s*$/.test(prefix));
         if (depth === 0 && !blockHeader) { i = close; continue; }
@@ -1132,7 +1788,7 @@ function splitStatements(body, baseLine) {
           // An if/else chain continues past a closing brace, and so do `do { … } while (…)` and a Go function
           // called where it is written (`go func() { … }()`). Only the next few characters matter.
           const next = src.slice(i + 1, i + 40);
-          const goes = /^\s*else\b/.test(next) || (/^do\b/.test(prefix) && /^\s*while\b/.test(next)) || (/^\(/.test(next) && /^(?:go\s+|defer\s+)?func\s*\(/.test(prefix));
+          const goes = /^\s*else\b/.test(next) || (/^(?:do|repeat)\b/.test(prefix) && /^\s*while\b/.test(next)) || (/^\(/.test(next) && /^(?:go\s+|defer\s+)?func\s*\(/.test(prefix));
           if (!goes) { i++; break; }
         }
       } else if (c === ';' && depth === 0) {
@@ -1150,7 +1806,17 @@ function splitStatements(body, baseLine) {
         const after = src.slice(j, j + 24);
         // A switch label (`case 'a':`, `default:`) is a statement of its own: what follows it is the case's first step.
         if (/^(?:case\b[^\n]*|default\s*):$/.test(before)) { i++; break; }
-        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
+        // A loop label (`outer:`) is its own line, and so is a C label (`cleanup:`), the place a goto jumps to.
+        if (/^[A-Za-z_]\w*\s*:$/.test(before) && !/^(?:public|private|protected|else)\s*:$/.test(before)) { i++; break; }
+        // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
+        if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
+        // (Nested: `for (…)\n  if (…)\n    return 1;` is one statement: the last line is itself a brace-less header.)
+        const lastLine = before.slice(before.lastIndexOf('\n') + 1).trim();
+        if (lastLine !== before && /^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && /^(?:if|for|foreach|while)\s*\(/.test(lastLine) && headerClosed(lastLine)) continue;
+        if (/^(?:\}\s*)?else$/.test(before)) continue;
+        // (`i++` / `n--` at the end of a line is a whole statement, not an operator waiting for more.)
+        // (`do { … }` with its `while (…)` on the next line, Allman style, is one statement.)
+        if (before && (!/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) || /[\w)\]](?:\+\+|--)$/.test(before)) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after) && !(/^(?:do|repeat)\b/.test(before) && /\}$/.test(before) && /^while\b/.test(after))) { i++; break; }
       }
     }
     const raw = src.slice(start, i);
@@ -1164,7 +1830,51 @@ function splitStatements(body, baseLine) {
   }
   return out;
 }
-const stripCommentsKeepLayout = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:])\/\/.*$/gm, '$1');
+/** `if (a && b)` with its parentheses closed and nothing after them: a header still waiting for its statement. */
+function headerClosed(before) {
+  const o = before.indexOf('(');
+  let d = 0;
+  for (let k = o; k < before.length; k++) {
+    const c = before[k];
+    if (c === '"' || c === '\'' || c === '`') { k = skipString(before, k); continue; }
+    if (c === '(') d++;
+    else if (c === ')' && --d === 0) return !before.slice(k + 1).trim();
+  }
+  return false;
+}
+/**
+ * Comments blanked to spaces (lines and offsets unchanged), outside strings only: `'… use \`//\` …'` and
+ * `"https://…"` keep their text, so a string can never swallow the rest of a line. One pass, linear.
+ */
+const INTERESTING = /["'`/]/g;
+function stripCommentsKeepLayout(s) {
+  if (!s.includes('/')) return s; // no comment can start without a slash
+  let out = '', last = 0;
+  for (let i = 0; i < s.length; i++) {
+    // Jump to the next quote or slash: nothing else matters here.
+    INTERESTING.lastIndex = i;
+    const hit = INTERESTING.exec(s);
+    if (!hit) break;
+    i = hit.index;
+    const c = s[i];
+    if (c === '"' || c === "'" || c === '`') {
+      // A quote is a string only when it closes (on the same line, except template and raw strings).
+      let j = i + 1;
+      for (; j < s.length; j++) { if (s[j] === '\\') { j++; continue; } if (s[j] === c || (s[j] === '\n' && c !== '`')) break; }
+      if (j < s.length && s[j] === c) i = j;
+      continue;
+    }
+    if (c === '/' && s[i + 1] === '/' && s[i - 1] !== ':') {
+      let e = s.indexOf('\n', i); if (e < 0) e = s.length;
+      out += s.slice(last, i) + ' '.repeat(e - i); last = i = e; i--; continue;
+    }
+    if (c === '/' && s[i + 1] === '*') {
+      let e = s.indexOf('*/', i + 2); e = e < 0 ? s.length : e + 2;
+      out += s.slice(last, i) + s.slice(i, e).replace(/[^\n]/g, ' '); last = e; i = e - 1; continue;
+    }
+  }
+  return out + s.slice(last);
+}
 
 /** Read `if ... else ...` / `return ...` statements into rules. Returns { rules, otherwise, unread }. */
 function readBraceStatements(stmts, language, inputs) {
@@ -1187,6 +1897,21 @@ function readBraceStatements(stmts, language, inputs) {
   for (const st of stmts) {
     const t = st.text;
     let m;
+    // Swift: guard cond else { return … } stops unless the condition holds; `guard let x = …` stops when x is not set.
+    if (language === 'swift' && (m = t.match(/^guard\s+([\s\S]+?)\s+else\s*\{([\s\S]*)\}\s*$/))) {
+      const branch = m[2].trim();
+      const stmts1 = splitTop(branch.replace(/;\s*$/, ''), ';').flatMap((x) => x.split('\n')).map((x) => x.trim()).filter(Boolean);
+      const effect = stmts1.length === 1 ? terminatorEffect(stmts1[0], language) : null;
+      if (effect && effect.kind !== 'passes-error') {
+        const parts = splitTop(m[1], ',').map((x) => x.trim()).filter(Boolean);
+        const bound = parts.map((p) => p.match(/^(?:let|var)\s+(\w+)/)?.[1]).filter(Boolean);
+        const plain = parts.filter((p) => !/^(?:let|var|case)\b/.test(p));
+        const when = !bound.length && !parts.some((p) => /^case\b/.test(p)) ? toThunderCondition(`!(${plain.join(' && ')})`, inputs) : null;
+        const said = when ? sayCondition(when) : [...bound.map((b) => `${displayLabel(b).toLowerCase()} is not set`), ...plain.map((p) => { const w = toThunderCondition(`!(${p})`, inputs); return w ? sayCondition(w) : `not \`${p}\``; })].join(' or ');
+        guards.push({ when, code: `guard ${m[1].trim()}`, effect, line: st.line, readable: !!when || (!plain.length && !!bound.length), says: sayGuard(effect, said) });
+        continue;
+      }
+    }
     if (/^if\b/.test(t)) {
       // A guard: an `if` with no else whose branch exits without a fixed answer.
       const head = splitIf(t, language);
@@ -1204,7 +1929,10 @@ function readBraceStatements(stmts, language, inputs) {
       // Walk the chain: if C B (else if C B)* (else B)?
       let rest = t;
       let ok = true;
+      // Each `else if` / `else` is on its own line of the statement: its rule is placed there, not on the first `if`.
+      const lineOf = (part) => { const at = t.lastIndexOf(part); return st.line + (at > 0 ? (t.slice(0, at).match(/\n/g) || []).length : 0); };
       while (rest) {
+        const here = lineOf(rest);
         const head = rest.match(/^(?:else\s+)?if\b\s*/);
         if (!head) break;
         rest = rest.slice(head[0].length);
@@ -1212,7 +1940,7 @@ function readBraceStatements(stmts, language, inputs) {
         if (rest[0] === '(' && (language !== 'go' && language !== 'rust' || true)) {
           const close = matchClose(rest, 0);
           const tail = rest.slice(close + 1).trimStart();
-          if (language === 'go' || language === 'rust') {
+          if (BARE_IF.has(language)) {
             // Go/Rust may wrap only part of the condition in parentheses: if (a) && b {
             const brace = findTopBrace(rest);
             cond = rest.slice(0, brace).trim(); after = rest.slice(brace);
@@ -1234,13 +1962,13 @@ function readBraceStatements(stmts, language, inputs) {
           remaining = (semi < 0 ? '' : after.slice(semi + 1)).trim();
         }
         if (value == null) { unread.push({ line: st.line, text: `if ${cond.trim()}`, reason: 'This branch does more than choose an answer.' }); ok = false; break; }
-        if (!take(cond, value, st.line)) { ok = false; break; }
+        if (!take(cond, value, here)) { ok = false; break; }
         if (/^else\s+if\b/.test(remaining)) { rest = remaining; continue; }
         if (/^else\b/.test(remaining)) {
           const elseBody = remaining.replace(/^else\s*/, '');
           const v = elseBody.startsWith('{') ? blockValue(elseBody) : (elseBody.startsWith('return ') ? elseBody.slice(7).replace(/;$/, '') : null);
-          if (v == null) { unread.push({ line: st.line, text: 'else', reason: 'The fallback branch does more than choose an answer.' }); ok = false; }
-          else take(null, v, st.line);
+          if (v == null) { unread.push({ line: lineOf(remaining), text: 'else', reason: 'The fallback branch does more than choose an answer.' }); ok = false; }
+          else take(null, v, lineOf(remaining));
         }
         rest = '';
       }
@@ -1283,7 +2011,9 @@ function readBraceStatements(stmts, language, inputs) {
         continue;
       }
     }
-    const ret = t.match(/^return\s+([\s\S]+?);?$/) || (language === 'rust' && st === stmts[stmts.length - 1] && !/;\s*$/.test(t) ? [null, t] : null);
+    // Rust's last expression, and a Swift body that is one expression, give the answer without `return`.
+    const ret = t.match(/^return\s+([\s\S]+?);?$/) || (language === 'rust' && st === stmts[stmts.length - 1] && !/;\s*$/.test(t) ? [null, t] : null)
+      || (language === 'swift' && stmts.length === 1 && swiftImplicitValue(t) ? [null, t] : null);
     if (ret) {
       if (language === 'kotlin' && readKotlinIf(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
       if (readTernary(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
@@ -1677,7 +2407,8 @@ function sayDecision(rules, otherwise) {
 }
 
 function decisionSource(name, inputs, rules, otherwise) {
-  const L = [`decision ${name}`, '  inputs'];
+  // A function with no name of its own ("format › callback at line 579") is written under a name a card can hold.
+  const L = [`decision ${/^[A-Za-z_$][\w$]*$/.test(name) ? name : String(name).replace(/[^\w$]+/g, "_").replace(/^_+|_+$/g, "") || "callback"}`, "  inputs"];
   for (const p of inputs) L.push(`    ${p.name}${['number', 'boolean', 'string'].includes(p.type) ? `: ${p.type}` : ''}`);
   rules.forEach((r, i) => L.push(`  rule rule_${i + 1}`, `    when ${r.when}`, `    return ${r.result}`));
   if (otherwise) L.push('  default', `    return ${otherwise.result}`);
@@ -1710,12 +2441,18 @@ function readPredicate(fn, lang, names, code) {
     if (typeof fn.body !== 'string') return null;
     const body = stripComments(fn.body).trim();
     let m = body.match(/^return\s+([^;{}]+?);?\s*$/s);
-    if (!m && lang === 'rust') m = body.match(/^([^;{}]+?)\s*$/s);
+    if (!m && (lang === 'rust' || (lang === 'swift' && swiftImplicitValue(body)))) m = body.match(/^([^;{}]+?)\s*$/s);
     if (!m) return null;
     expr = m[1].replace(/\s+/g, ' ').trim();
     if (fn.bodyStart != null) line = lineAt(code, fn.bodyStart + Math.max(0, fn.body.indexOf(m[1].trim().slice(0, 12))));
   }
   if (!expr || /^(true|false|True|False)$/.test(expr)) return null;
+  // C, C++, and Swift say what comes back: only a yes/no function is a rule (a String property is text, even when the
+  // text holds a comparison sign), and quoted text never makes a value a yes/no.
+  // (C and C++ yes/no functions often return int, so only Swift is held to its declared type.)
+  if (lang === 'swift' && fn.returns && !/^(?:Bool|bool|_Bool|boolean)\??$/.test(String(fn.returns).trim())) return null;
+  if (/^(?:c|cpp)$/.test(lang) && fn.returns && /^(?:string|char\*|const char\*)$/.test(String(fn.returns).trim())) return null;
+  if (/^(?:swift|c|cpp)$/.test(lang) && !BOOL_RETURN.test(String(fn.returns || '').trim()) && !/^Bool\??$/.test(String(fn.returns || '').trim()) && !LOGIC_OR_COMPARE.test(expr.replace(/"(?:\\.|[^"\\])*"/g, 'Q'))) return null;
   if (!(BOOL_RETURN.test(String(fn.returns || '').trim()) || LOGIC_OR_COMPARE.test(expr) || /\?$/.test(fn.name))) return null;
   const when = toThunderCondition(expr.replace(/\?$/, ''), names);
   return when ? { rule: { when, result: 'true', line } } : null;
@@ -1748,19 +2485,95 @@ function anchorSpan(span, fn, lang) {
   else { delete span.start; delete span.end; span.exact = 'lines'; }
 }
 
+/**
+ * C and C++ steps inside `#if` / `#ifdef` / `#elif` / `#else` run only in some builds: each says so, with the line that
+ * decides it, so alternatives (`#if A … #elif B …`) are never read as steps that all run one after another.
+ */
+function markBuildOnlySteps(steps, fn, lang, code, srcLines) {
+  const range = srcLines.length ? bodyRange(fn, lang, code) : null;
+  if (!range) return;
+  const only = new Map();
+  const stack = [];
+  const clean = (t) => t.replace(/\s*\/[/*].*$/, '').replace(/\s+/g, ' ').trim();
+  for (let l = range[0]; l <= range[1]; l++) {
+    let t = (srcLines[l - 1] ?? '').trim();
+    // A directive continued with `\` takes its next lines.
+    while (/^#/.test(t) && /\\$/.test(t) && l < range[1]) t = `${t.slice(0, -1).trim()} ${(srcLines[l++] ?? '').trim()}`;
+    let m;
+    if ((m = t.match(/^#\s*(if|ifdef|ifndef)\b(.*)$/))) stack.push({ first: clean(`#${m[1]}${m[2]}`), label: clean(`#${m[1]}${m[2]}`) });
+    else if ((m = t.match(/^#\s*(elif|elifdef|elifndef)\b(.*)$/)) && stack.length) stack[stack.length - 1].label = clean(`#${m[1]}${m[2]}`);
+    else if (/^#\s*else\b/.test(t) && stack.length) stack[stack.length - 1].label = `#else of ${stack[stack.length - 1].first}`;
+    else if (/^#\s*endif\b/.test(t)) stack.pop();
+    else if (stack.length) only.set(l, stack.map((x) => x.label).join(', '));
+  }
+  if (!only.size) return;
+  const walk = (list, outer) => {
+    for (const st of list) {
+      const label = only.get(st.line);
+      // (A question or a loop keeps its own words, which the views turn into "Ask: …?"; the steps under it say it.)
+      const holds = st.kind === 'branch' || st.kind === 'loop' || st.kind === 'try';
+      if (label && label !== outer && !holds) st.says = `${st.says} (only in builds where \`${label}\`)`;
+      const inner = holds ? outer : label || outer;
+      if (st.children) walk(st.children.map((k) => (holds && label && !only.has(k.line) ? (only.set(k.line, label), k) : k)), inner);
+      for (const h of st.handlers || []) if (h.steps) walk(h.steps, inner);
+    }
+  };
+  walk(steps, null);
+}
+
 function functionSteps(fn, lang, code, names, srcLines = []) {
   let stmts = [];
   try {
     if (lang === 'python') stmts = indentStatements(fn.pyBody, { depthKey: 'indent' });
     // For steps, elsif / else / rescue / ensure sit beside their if or begin (the rule reader keeps the raw depth).
     else if (lang === 'ruby') stmts = indentStatements(fn.rbBody.map((l) => (/^(elsif|else|rescue|ensure)\b/.test(l.text) ? { ...l, depth: Math.max(0, l.depth - 1) } : l)), { depthKey: 'depth' });
-    else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
+    else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = withLanguage(lang, () => braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements));
   } catch { return null; }
   if (!stmts.length) return null;
-  const r = stepsFrom(stmts);
+  // A Swift body that is one expression gives it back without `return` (`var isEmpty: Bool { count == 0 }`).
+  // So does one that is a single call or expression when the function says it gives something back
+  // (`func base32Bytes() -> [UInt8] { Base32.default.encode(…) }` gives back what encode makes).
+  if (lang === 'swift' && stmts.length === 1 && ((!stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) || swiftImplicitResult(stmts[0].text, fn.returns || (fn.route ? 'a response' : null)))) stmts[0] = { ...stmts[0], implicitReturn: true };
+  const r = withLanguage(lang, () => withFunctionContext({ params: fn.params || [], language: lang, route: !!fn.route }, () => {
+    const out = stepsFrom(stmts);
+    // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or
+    // and/or, that value is the answer, not a call made for its effect.
+    const last = out.steps[out.steps.length - 1];
+    if (lang === 'ruby' && last && last.kind === 'call' && !last.jump && !last.library && (/\?$/.test(fn.name) || /&&|\|\||\band\b|\bor\b|[!=]=|[<>]/.test(stripRubyStrings(last.code || '')))) {
+      const v = classifyStatement(`return ${String(last.code || '').trim()}`);
+      if (v.kind === 'return') out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code, ...(/^Returns (?:a computed value|a value)$/.test(v.says) ? { restates: true } : {}) };
+      delete out.steps[out.steps.length - 1].callee;
+    }
+    return out;
+  }));
+  if (lang === 'c' || lang === 'cpp') markBuildOnlySteps(r.steps, fn, lang, code, srcLines);
+  // A Swift `switch` that is the whole body of a function that gives something back: each case's one expression is
+  // what comes back (`case .key(let key): String(reflecting: key)` gives back that text; it is not just a call).
+  // So does an if / else if / else that is the whole body (Swift if-expressions).
+  if (lang === 'swift' && fn.returns && !/^(?:Void|\(\s*\)|Never)$/.test(String(fn.returns).trim()) && r.steps.length === 1 && r.steps[0].kind === 'branch' && /^(?:switch|if)\b/.test(String(r.steps[0].code || ''))) {
+    const giveBack = (list) => {
+      const only = list?.length === 1 ? list[0] : null;
+      if (!only) return;
+      if (only.kind === 'branch' && only.elseIf) { giveBack(only.children); giveBack(only.otherwise); return; }
+      if (only.children?.length || !/^(?:call|set|other)$/.test(only.kind) || !only.code || !swiftImplicitResult(only.code, fn.returns) || /^[\w.]+\s*=(?!=)/.test(only.code)) return;
+      const v = withLanguage(lang, () => classifyStatement(`return ${only.code}`));
+      if (v.kind === 'return') { list[0] = { ...only, ...v, code: only.code }; delete list[0].restates; delete list[0].callee; }
+    };
+    const top = r.steps[0];
+    if (/^switch\b/.test(String(top.code))) for (const arm of top.children || []) giveBack(arm.children);
+    else if (top.otherwise) { giveBack(top.children); giveBack(top.otherwise); }
+  }
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
+  // Every step carries its meaning tree (`expr`); a step made without one keeps its code, never a guess.
+  const withExpr = (list) => {
+    for (const st of list || []) {
+      if (!st.expr) st.expr = { kind: 'code', text: String(st.code ?? '').replace(/\s+/g, ' ').trim() };
+      withExpr(st.children); withExpr(st.otherwise); for (const h of st.handlers || []) withExpr(h.steps); withExpr(st.always?.steps);
+    }
+  };
+  withExpr(r.steps);
   for (const sk of r.skipped) anchorSpan(sk, fn, lang);
   const range = bodyRange(fn, lang, code);
   if (range) {
@@ -1782,23 +2595,37 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     const bareProperty = /^(not\s+|!)?(?:self\.|this\.)?\w+\.\w+(\(\))?$/.test(st.cond.trim()) && !/\./.test(st.says.replace(/\(\d+ steps? inside\)$/, ''));
     // A plain name used as a yes/no (`if (!slug)`) already reads as "slug is not set"; keep it rather than "not slug".
     const bareName = /^(not\s+|!)?(?:self\.|this\.)?\w+$/.test(st.cond.trim()) && /\bis (not )?set\b/.test(st.says);
-    const cond = bareProperty || bareName ? null : toThunderCondition(st.cond, names);
+    // Request and settings idioms (a header, a value in the address, a setting) already read as words; keep them.
+    const idiom = /\b(?:req|request|ctx|c)\s*\.\s*(?:headers|header|query|params|body|searchParams)\b|\bprocess\s*\.\s*env\b|\bos\s*\.\s*(?:environ|getenv)\b|getenv|GetEnvironmentVariable/.test(st.cond);
+    const cond = bareProperty || bareName || idiom ? null : toThunderCondition(st.cond, names);
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
-    delete st.cond; delete st.negate;
+    delete st.negate;
+  }
+  // C++ member names carry a mark that means nothing to a reader: items_ and m_items are both "items".
+  if (lang === 'cpp') {
+    const clean = (x) => String(x).replace(/\bm_(?=[A-Za-z])/g, '').replace(/\b([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)_(?![\w])/g, '$1');
+    const tidy = (list) => { for (const st of list || []) { st.says = clean(st.says); tidy(st.children); tidy(st.otherwise); for (const h of st.handlers || []) { h.says = clean(h.says); tidy(h.steps); } if (st.always) tidy(st.always.steps); } };
+    tidy(r.steps);
   }
   return r;
 }
 
-export function readCode(source, { language, file = '' } = {}) {
+export function readCode(source, { language, file = '', allSteps = false } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions').replace(/^(tf|hcl|opentofu|tofu)$/, 'terraform').replace(/^(k8s|kube|kubectl)$/, 'kubernetes').replace(/^(compose|docker[ -]?compose)$/, 'docker-compose').replace(/^(c\+\+|cxx|cc|hpp|hxx|hh)$/, 'cpp').replace(/^h$/, 'c')
+    .replace(/^(sh|bash|zsh|ksh|dash|posix)$/, 'shell').replace(/^(ps1|psm1|pwsh|ps)$/, 'powershell').replace(/^(rlang|rscript)$/, 'r');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
   // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
   if (lang === 'sql') return sqlReading(src);
+  // Infrastructure and delivery (spec section 12): Dockerfile stages and workflow jobs as steps, plus what they make.
+  if (INFRA_LANGUAGES.includes(lang)) return infraReading(lang, src, file);
+  // Shell, PowerShell, and R are read by their own modules into the same items.
+  if (SCRIPT_READERS[lang]) return scriptReading(lang, src, file, !language);
   // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
-  const code = lang === 'php' ? normalizePhp(src) : src;
+  // C and C++ are read with preprocessor lines blanked (#include, #define, #if): they are not statements.
+  const code = lang === 'php' ? normalizePhp(src) : lang === 'c' || lang === 'cpp' ? blankPreprocessor(src) : src;
   const items = [];
   const srcLines = src.split('\n');
   const codeLines = code.split('\n');
@@ -1814,9 +2641,11 @@ export function readCode(source, { language, file = '' } = {}) {
     // an implicit last value) reads as "true when <expression>, otherwise false".
     if (!read.rules.length && !read.otherwise) {
       const pred = readPredicate(fn, lang, names, code);
-      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; }
+      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; read.unread = []; }
     }
-    const isDecision = read.rules.length > 0 && !!read.otherwise;
+    // A rule is drawn only when every statement was read into it; a body with other steps (a loop, an assignment, a
+    // later check) is read as steps instead, so no check is silently left out of the picture.
+    const isDecision = read.rules.length > 0 && !!read.otherwise && !read.unread.length;
     const guards = read.guards || [];
     // In a function that is not a pure decision, early fixed returns are still rules worth reading.
     if (!isDecision) {
@@ -1830,9 +2659,15 @@ export function readCode(source, { language, file = '' } = {}) {
     const base = {
       id: `${fn.name}:${fn.line}`, name: fn.name, label: displayLabel(fn.name), line: fn.line,
       // Framework plumbing (a database session, the request, a context) is marked so views can leave it out of "You give it".
-      inputs: inputs.map((p) => (PLUMBING.test(p.name) || PLUMBING_TYPE.test(String(p.type ?? '')) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
+      // Plumbing (the framework's request, a database session, a context) by its type when it has one, else by name:
+      // `Handle(PingResource request, …)` takes a PingResource, which is the real input although it is named request.
+      inputs: inputs.map((p) => (isPlumbing(p, inputs, fn) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
+      // JS/TS: what a function is assigned to (`exports.x`, `Foo.prototype.bar`), or that it is a callback.
+      ...(fn.assignedTo ? { assignedTo: fn.assignedTo } : {}), ...(fn.callback ? { callback: true } : {}), ...(fn.passedTo ? { passedTo: fn.passedTo } : {}),
       ...(doc ? { doc } : {}),
+      // C++ `Library::lateFee` and Swift methods in `extension Library { … }`: the type they belong to, by name.
+      ...(fn.qualifier ? { qualifier: fn.qualifier } : {}),
       provenance: 'inferred-from-code',
     };
     if (isDecision) {
@@ -1842,6 +2677,8 @@ export function readCode(source, { language, file = '' } = {}) {
         says: (fn.route ? `Handles ${fn.route.method} ${fn.route.path}. ` : '') + sayDecision(read.rules, read.otherwise) + guardNote, guards,
         thunder: decisionSource(fn.name, inputs, read.rules, read.otherwise),
         unread: read.unread,
+        // `allSteps`: a decision also carries its steps (for writing in Thunder, which edits any function by its steps).
+        ...(allSteps ? (() => { const st = functionSteps(fn, lang, code, names, srcLines); return st ? { steps: st.steps, ...(st.anchor ? { anchor: st.anchor } : {}) } : {}; })() : {}),
       });
     } else {
       const st = functionSteps(fn, lang, code, names, srcLines);
@@ -1897,6 +2734,142 @@ function sqlReading(src) {
     limitations: [
       'Read by pattern, not by running it on a database. PostgreSQL first; other dialects where their syntax agrees.',
       'Tables are drawn as Data or Things; CHECK and UNIQUE as rules the database enforces; views, functions, procedures, and triggers as steps.',
+    ],
+  };
+}
+
+/**
+ * A reading of a Dockerfile or GitHub Actions workflow in the same shape as every other language's, plus `infra`:
+ * the Resources it makes, Permissions, Settings (secrets named only), Facts, and the links between its items.
+ */
+function infraReading(lang, src, file) {
+  const r = lang === 'dockerfile' ? readDockerfile(src, file || 'Dockerfile') : lang === 'terraform' ? readTerraform(src, file || 'main.tf') : lang === 'bicep' ? readBicep(src, file || 'main.bicep') : lang === 'kubernetes' ? readKubernetes(src, file || 'k8s.yaml') : lang === 'docker-compose' ? readCompose(src, file || 'compose.yaml') : readWorkflow(src, file || 'workflow.yml');
+  for (const it of r.items) it.completeness = completenessOf(it);
+  const counts = { decision: 0, function: r.items.length, error: 0, test: 0, partial: 0, guarded: 0, route: r.items.filter((i) => i.route).length };
+  return {
+    schema: READ_SCHEMA, language: lang, detected: false, items: r.items, counts,
+    ...(r.purpose ? { purpose: r.purpose } : {}),
+    infra: { things: r.things, permissions: r.permissions, settings: r.settings, facts: r.facts, links: r.links, unknowns: r.unknowns ?? [] },
+    limitations: [
+      'Read from the file, not from what is running: the live system may differ.',
+      'Secret values are never shown, only their names. Values worked out when it runs or is built say so; the original lines are one click away.',
+      lang === 'dockerfile' ? 'Each build stage is a Steps card; RUN commands are read in words, and commands Thunder does not know are named as they are.'
+        : lang === 'terraform' || lang === 'bicep' ? `Each ${lang === 'bicep' ? 'resource and module' : 'resource, data source, and module'} is a Resource; the order they are created is one Steps card, from the references between them. Links to resources in other files of the same ${lang === 'bicep' ? 'deployment' : 'folder (module)'} are drawn when those files are read together.`
+        : lang === 'kubernetes' ? 'Each resource is a Resource; the order they are made is one Steps card. A Service is linked to the workloads its selector picks, and names in settings (redis:6379) to the Service they name, also across files read together. Helm templates are not read.'
+        : lang === 'docker-compose' ? 'Each service, named volume, network, secret, and config is a Resource; the order services start, from depends_on, is one Steps card. A service built from a folder is linked to the Dockerfile in that folder when both are read together.'
+        : 'Each job is an Action with a "When" badge; well-known actions and common commands are read in words, others are named as they are.',
+    ],
+  };
+}
+
+// ── Shell, PowerShell, and R: read by their own modules, shown in the same shape ──────────────────────────
+
+const SCRIPT_TRIVIA = {
+  shell: SHELL_TRIVIA,
+  powershell: /^\s*(?:[{}()\[\];,]+|<#.*|#>.*|\.[A-Z]+\b.*|\[CmdletBinding\(\)\]|param\s*\(?)\s*$/i,
+  r: /^\s*(?:[{}()\[\],]+\s*)*$/,
+};
+const SCRIPT_NOTES = {
+  shell: 'Shell has no classes, so a shell file has no Things; its functions and its top-level script are read as steps.',
+  powershell: 'Cmdlets are read by their Verb-Noun names; native tools (git, docker, az, kubectl, …) by what their arguments show.',
+  r: 'Data-frame pipelines (|> and %>%) are read one verb at a time; S3 methods are read as plain functions.',
+};
+/**
+ * A question about something missing is asked the positive way, with "not:" in front, so the picture asks "Does the
+ * file exist?" and puts the Stop on No: "If there is no file x" -> "If not: the file x exists".
+ */
+const positiveAsk = (says) => String(says)
+  .replace(/^If there is no (file|folder) (.+)$/, 'If not: the $1 $2 exists')
+  .replace(/^If (?!not: )(.+) does not exist$/, 'If not: $1 exists');
+const dropConds = (steps) => { for (const s of steps || []) { delete s.cond; if (s.kind === 'branch' && s.says) s.says = positiveAsk(s.says); dropConds(s.children); dropConds(s.otherwise); for (const h of s.handlers || []) dropConds(h.steps); if (s.always) dropConds(s.always.steps); } };
+
+/** A reading for a language with its own module (shell.mjs, powershell.mjs, rlang.mjs). */
+function scriptReading(lang, src, file, detected) {
+  const r = SCRIPT_READERS[lang](src, file);
+  const srcLines = src.split('\n');
+  const trivia = SCRIPT_TRIVIA[lang];
+  const items = [];
+  // The script's own top-level code leaves out the lines of the functions and classes defined in it.
+  const defined = [...r.fns.filter((f) => !f.topLevel).map((f) => [f.line, Math.max(f.line, f.body?.[1] ?? f.line)]), ...(r.things || []).map((t) => t.lines)];
+  const inDefinition = (l) => defined.some(([a, b]) => l >= a && l <= b);
+  // PowerShell block comments (<# … #>) are comments on every line they cover.
+  const commentLines = new Set();
+  if (lang === 'powershell') {
+    for (let at = src.indexOf('<#'); at >= 0; at = src.indexOf('<#', at + 2)) {
+      const end = src.indexOf('#>', at + 2);
+      const a = lineAt(src, at), b = lineAt(src, end < 0 ? src.length - 1 : end);
+      for (let l = a; l <= b; l++) commentLines.add(l);
+      if (end < 0) break;
+      at = end;
+    }
+  }
+  for (const fn of r.fns) {
+    const inputs = fn.params.map((p) => ({ name: p.name, type: p.type ?? null }));
+    const names = inputs.map((p) => (lang === 'r' ? p.name.replace(/\./g, '_') : p.name));
+    dropConds(fn.steps);
+    let decision = null;
+    if (fn.decision) {
+      const rules = [];
+      for (const x of fn.decision.rules) {
+        const when = toThunderCondition(x.cond, names), result = toThunderOutcome(x.result);
+        if (!when || !result) { rules.length = 0; break; }
+        rules.push({ when, result, line: x.line });
+      }
+      const otherwise = toThunderOutcome(fn.decision.otherwise.result);
+      if (rules.length && otherwise) decision = { rules, otherwise: { result: otherwise, line: fn.decision.otherwise.line } };
+    }
+    const base = {
+      id: `${fn.name}:${fn.line}`, name: fn.name, label: fn.topLevel ? fn.name : displayLabel(fn.name), line: fn.line,
+      inputs: inputs.map((p) => (fn.route && PLUMBING.test(p.name) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns ?? null),
+      ...(fn.route ? { route: fn.route } : {}), ...(fn.doc ? { doc: fn.doc } : {}), ...(fn.topLevel ? { topLevel: true } : {}),
+      provenance: 'inferred-from-code',
+    };
+    const takes = `${inputs.length ? inputs.map((p) => p.name).join(', ') : 'no inputs'}`;
+    if (decision) {
+      const thunderName = String(fn.name).replace(/[^\w]/g, '_');
+      items.push({
+        ...base, kind: 'decision', status: 'read', rules: decision.rules.map((x) => ({ ...x, says: sayCondition(x.when) })), otherwise: decision.otherwise,
+        says: (fn.route ? `Handles ${fn.route.method} ${fn.route.path}. ` : '') + sayDecision(decision.rules, decision.otherwise), guards: [],
+        thunder: decisionSource(thunderName, inputs, decision.rules, decision.otherwise), unread: [],
+      });
+      continue;
+    }
+    const steps = fn.steps || [];
+    let anchor = null;
+    if (fn.body) {
+      const covered = new Set();
+      for (const st of steps) if (st.span) for (let l = st.span.startLine; l <= st.span.endLine; l++) covered.add(l);
+      let real = 0, hit = 0;
+      const missing = [];
+      for (let l = fn.body[0]; l <= fn.body[1]; l++) {
+        const t = srcLines[l - 1] ?? '';
+        if (TRIVIA_LINE.test(t) || trivia.test(t) || commentLines.has(l) || (fn.topLevel && inDefinition(l))) continue;
+        real++;
+        if (covered.has(l)) hit++; else if (missing.length < 5) missing.push(l);
+      }
+      anchor = { schema: 'thunder-anchor-v1', bodyLines: fn.body, codeLines: real, coveredLines: hit, coverage: real ? Math.round((hit / real) * 1000) / 1000 : 1, missing };
+    }
+    for (const st of allSteps(steps)) if (st.span && st.span.exact == null) st.span.exact = 'lines';
+    const readable = steps.length ? steps.filter((x) => x.kind !== 'other' && !x.restates).length / steps.length : 0;
+    const headline = fn.headline ?? (fn.route ? `Handles ${fn.route.method} ${fn.route.path}.` : `${displayLabel(fn.name)} takes ${takes}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}.`);
+    items.push({
+      ...base, kind: 'function', status: 'signature-only',
+      ...(steps.length ? { steps, stepsMore: Math.max(0, steps.length - 14), stepsReadable: Math.round(readable * 100) / 100, ...(anchor ? { anchor } : {}) } : {}),
+      says: fn.headline ?? (fn.route ? headline : `${fn.name} takes ${takes}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}.`),
+      headline, guards: [], unread: [],
+    });
+  }
+  for (const e of r.errors || []) items.push({ id: `error:${e.name}:${e.line}`, kind: 'error', name: e.name, line: e.line, status: 'read', says: `Can fail with the error "${e.name}".`, provenance: 'inferred-from-code' });
+  for (const t of r.tests || []) items.push({ id: `test:${t.name}:${t.line}`, kind: 'test', name: t.name, line: t.line, status: 'read', says: `A test named "${t.name}".`, provenance: 'inferred-from-code' });
+  items.sort((a, b) => a.line - b.line);
+  for (const it of items) if (it.kind === 'function' || it.kind === 'decision') it.completeness = completenessOf(it);
+  const counts = { decision: 0, function: 0, error: 0, test: 0, partial: 0, guarded: 0, route: 0 };
+  for (const it of items) { counts[it.kind]++; if (it.route) counts.route++; }
+  return {
+    schema: READ_SCHEMA, language: lang, detected, items, counts,
+    limitations: [
+      'Inferred from code by pattern, not by running it. Confirm a reading before relying on it.',
+      SCRIPT_NOTES[lang],
     ],
   };
 }

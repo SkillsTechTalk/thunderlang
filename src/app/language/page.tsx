@@ -70,7 +70,7 @@ const PARADIGMS = [
 
 const PRINCIPLES = [
   { title: "Meaning before syntax", body: "You see what the software does (who can get a refund, what happens next), not brackets, types, and keywords." },
-  { title: "Read before write", body: "Thunder works on the code you already have, in eleven languages, SQL included. You do not rewrite anything to start understanding it." },
+  { title: "Read before write", body: "Thunder works on the code you already have, in seventeen languages, C, C++, Swift, R, shell, PowerShell, and SQL included. You do not rewrite anything to start understanding it." },
   { title: "One meaning, two views", body: "The picture and Thunder Text are two views of the same reading, made from the same data. Switch between them and nothing is lost." },
   { title: "Truth before simplicity", body: "What Thunder cannot read is shown as Not read yet, with the original code. It never draws a guess to make a picture look complete." },
   { title: "People stay in charge", body: "AI can write most of the code. People read what it does, decide what it should do, and every change is checked before it ships." },
@@ -264,7 +264,7 @@ export default function LanguagePage() {
       <Section className="border-t border-white/8 bg-ink-900/40">
         <SectionHeading
           eyebrow="What works today"
-          title="Thunder V1 reads eleven languages, SQL included."
+          title="Thunder V1 reads seventeen languages, C, C++, Swift, R, shell, PowerShell, and SQL included, and six infrastructure and delivery formats."
           intro="Thunder is written down in the Thunder V1 specification. The status below comes from the same data the compiler and OpenThunder use, so it cannot drift from what actually works."
         />
         <ul className="mx-auto mt-8 grid max-w-3xl gap-2 sm:grid-cols-2">

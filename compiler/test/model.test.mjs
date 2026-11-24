@@ -110,8 +110,8 @@ test('setup reads as what a new Thing keeps', () => {
 });
 
 test('questions are asked the positive way round', () => {
-  assert.deepEqual(askAsQuestion({ says: 'If order has no items' }), { text: "Does order have items?", flip: true });
-  assert.deepEqual(askAsQuestion({ says: 'If order.total is at least 20' }), { text: "Is the order's total at least 20?", flip: false });
+  assert.deepEqual(askAsQuestion({ says: 'If order has no items' }), { text: "Does order have items?", flip: true, holds: { yes: 'order has items', no: 'order has no items' } });
+  assert.deepEqual(askAsQuestion({ says: 'If order.total is at least 20' }), { text: "Is the order's total at least 20?", flip: false, holds: { yes: "the order's total is at least 20", no: "the order's total is not at least 20" } });
   assert.deepEqual(askAsQuestion({ says: 'If not self.can_borrow(x)', code: 'if not self.can_borrow(x):' }, 'Can borrow'), { text: 'Can borrow?', flip: true });
 });
 

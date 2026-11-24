@@ -10,11 +10,19 @@ export { runTests, TEST_SCHEMA, TestReport, resolveObligations, ObligationResolu
 export { HumanContractPreview, compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
+export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from './write-steps.mjs';
+export type { ThunderEdit, ThunderWriteResult, WriteProof } from './write-steps.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
+export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, renderStatement, sayFull, detailParts, detailOf, exprCounts, normalizeExpr, sameExpr, wordsAgree } from './meaning.mjs';
+export type { Expr } from './meaning.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
-export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
+export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
+export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
+export type { RunEvent, RuntimeOverlay, MemberRun, NodeRun, ParsedStack, ErrorExplanation } from './running.mjs';
+export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
-export { SAME_SCHEMA, sameMeaning, compareRules, renderSame } from './same.mjs';
+export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
+export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
 export type { ColorRole, ElementKind, Provenance as VisualProvenance, Visual } from './visual.mjs';
 export { plainFromReading } from './plain-contract.mjs';
 export function conditionText(model: unknown, condition: unknown): string;
@@ -122,11 +130,11 @@ export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 export type { TranslateLanguage } from './translate.mjs';
 
 // Read code you don't know.
-export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, INFRA_LANGUAGES } from './read.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
 export function completenessOf(item: unknown): { level: 'explained' | 'partly explained' | 'found' | 'executed'; reasons: string[] };
 export function displayLabel(name: string): string;
-export { readRepo, searchRepo, groupByFile, readableLanguage, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
 export type { Promotion } from './promote.mjs';

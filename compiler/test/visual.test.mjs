@@ -89,6 +89,6 @@ test('the V1 specification names every element and language in the grammar, so t
   const { readFileSync } = await import('node:fs');
   const spec = readFileSync(new URL('../../docs/spec.md', import.meta.url), 'utf8');
   for (const e of Object.values(ELEMENTS)) assert.ok(spec.includes(`**${e.name}**`), `spec is missing element ${e.name}`);
-  for (const l of Object.values(LANGUAGES)) assert.ok(new RegExp(`^\\| \\**${l.name.replace('#', '\\#')}\\** \\|`, 'm').test(spec), `spec is missing language ${l.name}`);
+  for (const l of Object.values(LANGUAGES)) assert.ok(new RegExp(`^\\| \\**${l.name.replace(/[#+.*?()[\]\\]/g, '\\$&')}\\** \\|`, 'm').test(spec), `spec is missing language ${l.name}`);
   for (const k of Object.keys(STEP_MARKS)) assert.ok(spec.includes(k), `spec is missing step ${k}`);
 });

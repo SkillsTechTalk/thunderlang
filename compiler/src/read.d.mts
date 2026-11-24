@@ -1,3 +1,4 @@
+import type { Expr } from './meaning.mjs';
 export type ReadKind = 'decision' | 'function' | 'error' | 'test';
 export interface ReadInput { name: string; type: string | null; /** Framework plumbing (db, request, ctx): not something a person gives. */ plumbing?: true }
 export interface ReadRule { when: string; result: string; line: number; says: string }
@@ -13,6 +14,12 @@ export interface ReadItem {
   rules?: ReadRule[]; otherwise?: { result: string; line: number } | null;
   thunder?: string; unread?: ReadUnread[]; guards?: ReadGuard[];
   route?: { method: string; path: string };
+  /** Pipelines: when it runs, in words ("When someone pushes to main"). */
+  when?: string;
+  /** A heading that replaces the default ("What the build stage does"). */
+  title?: string;
+  /** Infrastructure readers: the last line the item covers. */
+  endLine?: number;
   /** A display name: "Late fee". */
   label?: string;
   /** For functions: what it handles or takes, without notes (unlike `says`). */
@@ -37,15 +44,28 @@ export interface ReadStep {
   otherwise?: ReadStep[]; handlers?: { says: string; line: number; steps: ReadStep[] }[]; always?: { line: number; steps: ReadStep[] };
   /** The wording only restates the code's syntax ("Works out actives"); show the code, do not count it as read. */
   restates?: true;
+  /** A command Thunder only names ("Runs `x`"), without explaining it. */
+  unknownCommand?: true;
+  /**
+   * The full meaning underneath the short words (thunder-expr-v1, see meaning.d.mts): every name, argument, and value
+   * of the statement, or `{ kind: 'code', text }` when it is not fully understood. Never guessed.
+   */
+  expr?: Expr;
 }
 export interface Reading {
   schema: 'thunder-reading-v1'; language: string; detected: boolean; items: ReadItem[];
   counts: Record<ReadKind | 'partial' | 'guarded' | 'route', number>; limitations: string[];
+  /** Infrastructure and delivery files: the file's own name for itself (a workflow's name:). */
+  purpose?: string;
+  /** Infrastructure and delivery files (spec section 12): what they make and allow, with lines. */
+  infra?: { things: unknown[]; permissions: unknown[]; settings: unknown[]; facts: unknown[]; links: { from: string; to: string; kind: string; file: string; line: number }[]; /** Parts of the file Thunder could not parse (Terraform, Bicep, Kubernetes, Compose), with their lines. */ unknowns?: { file: string; line: number; why: string }[] };
 }
 export const READ_SCHEMA: 'thunder-reading-v1';
 export const READ_LANGUAGES: string[];
+/** Formats read as infrastructure and delivery (spec section 12). */
+export const INFRA_LANGUAGES: string[];
 export function detectLanguage(source: string, file?: string): string;
-export function readCode(source: string, options?: { language?: string; file?: string }): Reading;
+export function readCode(source: string, options?: { language?: string; file?: string; /** Decisions also carry their steps. */ allSteps?: boolean }): Reading;
 export function searchReading(reading: Reading, filter?: { query?: string; kinds?: Array<ReadKind | 'route' | 'guard'>; status?: string[] }): ReadItem[];
 export function terminatorEffect(stmt: string, language: string): ReadGuard['effect'] | { kind: 'passes-error' } | null;
 export function toThunderCondition(text: string, inputs?: string[]): string | null;

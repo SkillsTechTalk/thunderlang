@@ -15,7 +15,10 @@ for (const s of READ_SAMPLES) {
     assert.equal(readCode(s.source).language, s.language, 'language detection from pasted text');
     // "Show line N" must land on the function itself, never on a comment above it.
     const lines = s.source.split('\n');
-    for (const it of r.items.filter((i) => i.kind === 'decision' || i.kind === 'function')) {
+    // (A script's own top-level code is one item named after the file; it starts at its first statement.)
+    for (const it of r.items.filter((i) => (i.kind === 'decision' || i.kind === 'function') && !i.topLevel)) {
+      // Declarative infrastructure (Terraform, Bicep, Kubernetes, Compose) has one card for the whole file: it points at its first step.
+      if (['terraform', 'bicep', 'kubernetes', 'docker-compose'].includes(r.language)) { assert.equal(it.line, Math.min(...it.steps.map((x) => x.line))); continue; }
       assert.ok(lines[it.line - 1].includes(it.name), `${it.name} points at line ${it.line}: ${lines[it.line - 1]}`);
     }
   });

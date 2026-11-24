@@ -1,0 +1,8 @@
+panic: runtime error: index out of range [0] with length 0
+
+goroutine 1 [running]:
+main.FirstBook(...)
+	/home/ci/go/src/school/library.go:26
+main.main()
+	/home/ci/go/src/school/library.go:31 +0x20
+exit status 2

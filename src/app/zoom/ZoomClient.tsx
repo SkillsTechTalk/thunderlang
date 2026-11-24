@@ -1,8 +1,10 @@
 "use client";
 // Semantic Zoom: read any example (or your own code) at the five reading levels, Big Picture, Flow, Details, Text,
 // and Original. What each level shows is defined by the compiler (LEVELS, readLevel); ReadingLevels lays it out.
+// Details also offers "Change this": write a change in Thunder; the compiler writes the code and proves it.
 import { useState } from "react";
 import { ZOOM_SAMPLES } from "./samples";
+import { SAMPLE_RUN } from "./sample-run";
 import { ReadingLevels } from "@/components/thunder/ReadingLevels";
 import { focus } from "@/components/thunder/ThunderParts";
 
@@ -20,7 +22,10 @@ export function ZoomClient() {
         </select>
         <span className="text-haze-400">or open Original and edit the code.</span>
       </label>
-      <ReadingLevels key={sampleKey} source={source} file={sample.file} editable onSourceChange={setSource} />
+      {/* The sample run was recorded on the example exactly as written, so it is offered only while the code is unchanged. */}
+      <ReadingLevels key={sampleKey} source={source} file={sample.file} editable canChange onSourceChange={setSource}
+        run={SAMPLE_RUN.sampleKey === sampleKey && source === sample.code ? SAMPLE_RUN : undefined}
+        runHidden={SAMPLE_RUN.sampleKey === sampleKey && source !== sample.code ? "What happened when it ran is hidden while the code is edited: the sample run was recorded on the example's original code." : undefined} />
     </div>
   );
 }

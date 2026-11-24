@@ -94,7 +94,7 @@ test('a web handler: facts unpacked from the request go in, and an error respons
   const SRC = "fastify.post('/api/orgs', async (request, reply) => {\n  const { slug, name } = (request.body as { slug?: string }) ?? {};\n  if (!slug) return reply.code(400).send({ error: 'slug is required.' });\n  return { org: await store.upsertOrg(slug, name) };\n});\napp.get('/users/:id', (req, res) => {\n  const { id } = req.params;\n  const user = db.find(id);\n  if (!user) {\n    return res.status(404).json({ message: 'No such user' });\n  }\n  res.json(user);\n});";
   const m = thunderModel([{ path: 'routes.ts', source: SRC }]);
   const post = m.members.find((x) => x.route === 'POST /api/orgs');
-  assert.deepEqual(post.youGive, ['slug', 'name'], 'request and reply are plumbing; slug and name come from the body');
+  assert.deepEqual(post.youGive, ['slug (sent in the request)', 'name (sent in the request)'], 'request and reply are plumbing; slug and name come from the body');
   const d = readLevel(m, 'details', post.id);
   assert.deepEqual(d.stops.map((s) => [s.error, s.message, s.when.map((w) => `${w.question} ${w.answer}`)]), [['400 Bad Request', 'slug is required.', ['Is slug set? No']]]);
   const get = readLevel(m, 'details', m.members.find((x) => x.route === 'GET /users/:id').id);

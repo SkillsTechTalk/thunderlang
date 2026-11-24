@@ -38,7 +38,7 @@ test('a step edit changes only that step, keeps indentation, and is verified by 
   const changed = src.split('\n').map((l, i) => [l, r.source.split('\n')[i]]).filter(([a, b]) => a !== b);
   assert.equal(changed.length, 1);
   assert.match(changed[0][1], /^ {8}stripe\.Refund\.create\(.*reason="requested_by_customer"\)$/);
-  assert.equal(r.reread.says, 'Calls Stripe');
+  assert.equal(r.reread.says, 'Creates a Stripe refund');
   const ts = read('checkout/refunds.ts');
   const r2 = editStep({ source: ts, language: 'typescript', functionName: 'requestRefund', path: [0], replacement: 'const decision = approveRefund(amount, withinWindow && amount > 0);' });
   assert.ok(r2.ok, r2.problems?.[0]);

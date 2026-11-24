@@ -22,6 +22,7 @@ import { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
 import { sameMeaning, renderSame } from './same.mjs';
 import { anchorReport } from './anchor.mjs';
 import { writeRule } from './write.mjs';
+import { thunderWrite } from './write-steps.mjs';
 import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
@@ -45,6 +46,9 @@ import { guardianReport } from './guardian.mjs';
 import { simulateChange } from './simulate.mjs';
 import { verifyLedger, explain as ledgerExplain } from './ledger.mjs';
 import { verifyDiff } from './verify-diff.mjs';
+import { verifyRun, executedText, mergeTraces } from './executed.mjs';
+import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, parseStacks, explainError, countWords } from './running.mjs';
+import { thunderModel } from './model.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
 import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
@@ -59,13 +63,14 @@ import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS
 import { twelveFactorReport } from './twelve-factor.mjs';
 import { GENERATORS } from './codegen.mjs';
 import { changeReport } from './changes.mjs';
-import { execSync, spawnSync } from 'node:child_process';
+import { execSync, execFileSync, spawnSync } from 'node:child_process';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
 import { applyWaivers, governanceDiagnostics } from './governance.mjs';
 import { exportIntent, EXPORT_FORMATS } from './exporters.mjs';
 import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { runProperties } from './property.mjs';
 import { runMutations } from './mutate.mjs';
+import { thunderReview, renderReview } from './review.mjs';
 import { buildConformance } from './conformance.mjs';
 import { semanticCoverage } from './coverage.mjs';
 import { runTypescriptTarget } from './target-ts.mjs';
@@ -134,7 +139,7 @@ import { parseEventLog, serializeEventLog, recordEvent, timeline } from './ai-ev
 const LIFT_EXTS = [
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.rs', '.pl', '.pm', '.t',
   '.py', '.pyi', '.java', '.cs', '.go', '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.c', '.h',
-  '.php', '.rb', '.kt', '.kts', '.scala', '.sc', '.ex', '.exs',
+  '.php', '.rb', '.kt', '.kts', '.scala', '.sc', '.ex', '.exs', '.swift',
 ];
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'build', '.intent', 'coverage', '.vercel']);
 // ThunderLang source files. `.thunder` is the canonical public extension; `.tl` is an
@@ -202,6 +207,38 @@ function collectIntents(root, acc = []) {
 
 // Proof freshness: a proof is valid only for a specific (intent, implementation, dependencies,
 // compiler, environment) tuple. These helpers capture that tuple so `verify` can mark a proof STALE.
+/**
+ * Read the files that changed between two commits (or a commit and the working tree, when head is null) and review
+ * them in Thunder. Only git is run (show, diff, ls-files): nothing is fetched and nothing is executed.
+ */
+function reviewGit(base, head) {
+  const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+  try { git('rev-parse', '--is-inside-work-tree'); } catch { throw new Error('not inside a git repository.'); }
+  for (const ref of [base, head].filter(Boolean)) {
+    try { git('rev-parse', '--verify', '--quiet', `${ref}^{commit}`); } catch { throw new Error(`${ref} is not a commit in this repository (fetch it first, for example with fetch-depth: 0).`); }
+  }
+  const root = git('rev-parse', '--show-toplevel').trim();
+  const parts = git('diff', '--name-status', '-z', '-M', base, ...(head ? [head] : []), '--').split('\0');
+  const changes = [];
+  for (let i = 0; i < parts.length && parts[i];) {
+    const status = parts[i++];
+    if (/^[RC]/.test(status)) changes.push({ old: parts[i++], new: parts[i++] });
+    else if (status === 'A') changes.push({ old: null, new: parts[i++] });
+    else if (status === 'D') changes.push({ old: parts[i++], new: null });
+    else { const p = parts[i++]; changes.push({ old: p, new: p }); }
+  }
+  if (!head) for (const p of git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean)) changes.push({ old: null, new: p });
+  const text = (s) => (s == null || s.includes('\0') ? null : s); // binary files are not read
+  const at = (ref, p) => { try { return text(git('show', `${ref}:${p}`)); } catch { return null; } };
+  const disk = (p) => { try { return text(readFileSync(join(root, p), 'utf8')); } catch { return null; } };
+  const oldFiles = [], newFiles = [];
+  for (const c of changes) {
+    if (c.old) { const s = at(base, c.old); if (s != null) oldFiles.push({ path: c.old, source: s }); }
+    if (c.new) { const s = head ? at(head, c.new) : disk(c.new); if (s != null) newFiles.push({ path: c.new, source: s }); }
+  }
+  return { ...thunderReview(oldFiles, newFiles), base, head: head ?? 'working tree' };
+}
+
 const gitCmd = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null; } catch { return null; } };
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'poetry.lock', 'Pipfile.lock', 'Cargo.lock', 'go.sum', 'Gemfile.lock', 'composer.lock'];
 function findLockfile(startDir) {
@@ -273,6 +310,11 @@ function parseArgs(argv) {
     else if (a === '--inputs') args.inputs = argv[++i];
     else if (a === '--events') args.events = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     else if (a === '--decision') args.decision = argv[++i];
+    else if (a === '--edit') (args.edit ??= []).push(argv[++i]);
+    else if (a === '--apply') args.apply = true;
+    else if (a === '--test') args.test = argv[++i];
+    else if (a === '--candidate') args.candidate = argv[++i];
+    else if (a === '--also') (args.also ??= []).push(argv[++i]);
     else if (a === '--rule') args.rule = argv[++i];
     else if (a === '--when') args.when = argv[++i];
     else if (a === '--to') args.to = argv[++i];
@@ -417,6 +459,12 @@ Prove & verify intent
   proof <file>               the .thunder-proof.json artifact (see also: prove, which emits verdicts)
   proof --schema             emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
+  verify --run <folder> [--lang python|js] [--pytest "<args>" | --tests <dir> | --command "<cmd>"]
+                             proof by running: run the code, compare what happened with Thunder's flows;
+                             marks matching readings executed, exits 1 if a run contradicts a reading
+  runtime <folder> [--traces <file|dir>] [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>] [--top n] [--json]
+                             the running system: what happened when it ran, on Thunder's flows (counts per
+                             question side, Stop, and ending; calls, failures, time); errors explained in Thunder
   evidence <file>            emit evidence-event-v1 JSON (tool_verified) for the shared proof spine
                              (also: prove/verify-diff/conform/drift accept --evidence to emit their own event)
   conform <file> [--targets a,b] [--run typescript,python,csharp,java,go,rust,kotlin,scala,elixir | --all-targets] [--results <json>]   conformance matrix across targets
@@ -439,11 +487,20 @@ Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   --version                 print the Thunder compiler version
   anchor <file> [--json]    show every Thunder step with its exact place in the file, and line coverage
+  write <file> --edit '<json>' [--edit …] [--also <file>] [--apply] [--test "<cmd>"] [--candidate <file>] [--json]
+                            Writing in Thunder: change a step, question, Stop, input, or function in Thunder; the code is
+                            written as a minimal patch (TS/JS, Python, Go) and proven (the edited steps mean exactly
+                            the edit; everything else means the same). Dry run by default; --apply saves; --test runs a
+                            command on the changed code. Other cases print an instruction for an AI coding agent;
+                            --candidate checks code it wrote (labeled AI-written).
   write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
                             Thunder write: change a number, comparison, text value, or answer in a recovered rule;
                             previews the exact code change and the cases whose answer changes; --write saves it
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
+  review <base-ref> [head-ref] [--json] [--out <file>]
+                            review in Thunder: what changed in meaning between two git commits (head: the working tree
+                            when omitted), as Markdown for a pull request comment; read from git, no network
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
@@ -481,7 +538,9 @@ function main() {
   }
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
     console.log(HELP);
-    process.exit(cmd ? 0 : 2);
+    // exitCode, not exit(): the help is longer than a pipe's buffer, and exit() would cut it off when piped.
+    process.exitCode = cmd ? 0 : 2;
+    return;
   }
   if (cmd === 'read') {
     try {
@@ -526,6 +585,52 @@ function main() {
         for (const u of it.unread || []) console.log(`  not read (line ${u.line}): ${u.text}  ${u.reason}`);
       }
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'write' && args.edit) {
+    try {
+      if (!file) throw new Error('Use thunder write <file> --edit \'{"op":"setValue","member":"name","step":"line:12","to":10}\' [--apply] [--test "<cmd>"].');
+      const paths = [file, ...(args.also || [])];
+      const files = paths.map((p) => ({ path: p, source: readFileSync(p, 'utf8') }));
+      let edits;
+      try { edits = args.edit.flatMap((e) => { const j = JSON.parse(e); return Array.isArray(j) ? j : [j]; }); } catch (e) { throw new Error(`--edit must be JSON: ${e.message}`); }
+      const options = args.candidate ? { candidate: { [file]: readFileSync(args.candidate, 'utf8') } } : {};
+      const r = thunderWrite(files, edits, options);
+      // --test: run the command on the changed code (written to the files for the run, then put back unless --apply).
+      if (r.status === 'written' && args.test) {
+        const originals = new Map(files.map((f) => [f.path, f.source]));
+        for (const [p, src] of Object.entries(r.files)) writeFileSync(p, src);
+        const t0 = Date.now();
+        const run = spawnSync(args.test, { shell: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+        r.proof.run = { command: args.test, passed: run.status === 0, exit: run.status, seconds: Math.round((Date.now() - t0) / 100) / 10, output: `${run.stdout ?? ''}${run.stderr ?? ''}`.split('\n').slice(-20).join('\n') };
+        if (!args.apply) for (const [p] of Object.entries(r.files)) writeFileSync(p, originals.get(p));
+      }
+      const applied = r.status === 'written' && args.apply && (!r.proof?.run || r.proof.run.passed);
+      if (applied && !args.test) for (const [p, src] of Object.entries(r.files)) writeFileSync(p, src);
+      if (r.status === 'written' && args.apply && r.proof?.run && !r.proof.run.passed) for (const f of files) writeFileSync(f.path, f.source);
+      if (args.json) { const { files: _f, ...rest } = r; console.log(JSON.stringify({ ...rest, applied }, null, 2)); if (r.status !== 'written') process.exitCode = 1; return; }
+      if (r.status === 'refused') { console.error(`Not changed. ${r.says}`); process.exitCode = 1; return; }
+      if (r.status === 'needs-ai') {
+        console.log(r.says);
+        console.log('\n--- Instruction for an AI coding agent (nothing was changed) ---\n');
+        console.log(r.prompt);
+        process.exitCode = 1;
+        return;
+      }
+      if (r.before) { console.log('Thunder before:'); for (const l of r.before.split('\n')) console.log(`  ${l}`); }
+      if (r.after) { console.log('Thunder after:'); for (const l of r.after.split('\n')) console.log(`  ${l}`); }
+      console.log(`\n${r.author === 'ai' ? 'AI-written change (checked):' : 'Code change:'}\n`);
+      process.stdout.write(r.patch);
+      console.log('\nProof:');
+      for (const c of r.proof.edited.checks) console.log(`  edited     ${c.member}: ${c.result === 'exact' ? 'reads exactly as the edit says' : c.result}`);
+      const u = r.proof.unchanged;
+      console.log(`  unchanged  ${u.checked} other function${u.checked === 1 ? '' : 's'} in the changed file${Object.keys(r.files).length === 1 ? '' : 's'}: ${u.status === 'same' ? 'all mean the same' : u.status}`);
+      if (r.proof.run) console.log(`  run        ${r.proof.run.command}: ${r.proof.run.passed ? 'passed' : `failed (exit ${r.proof.run.exit})`}`);
+      if (r.proof.run && !r.proof.run.passed) console.log(r.proof.run.output);
+      console.log(`\n${r.says}`);
+      console.log(applied ? `\nSaved ${Object.keys(r.files).join(', ')}.` : r.proof?.run && !r.proof.run.passed ? '\nNot saved: the test command failed.' : '\nDry run; nothing was saved. Add --apply to save the change.');
+      if (r.proof?.run && !r.proof.run.passed) process.exitCode = 1;
+    } catch (e) { console.error(`thunder write: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'write') {
@@ -601,6 +706,17 @@ function main() {
     finally { cleanup(); }
     return;
   }
+  if (cmd === 'review') {
+    try {
+      const [base, head] = args._;
+      if (!base) throw new Error('Use thunder review <base-ref> [head-ref] [--json] [--out <file>]. Without head-ref, the working tree is the new side.');
+      const r = reviewGit(base, head ?? null);
+      const text = args.json ? JSON.stringify(r, null, 2) : renderReview(r, { footer: `<sub>\`thunder review ${base}${head ? ` ${head}` : ''}\` · Thunder compiler ${COMPILER_VERSION}</sub>` }).trimEnd();
+      if (args.outExplicit) { mkdirSync(dirname(resolve(args.out)), { recursive: true }); writeFileSync(args.out, `${text}\n`); console.log(`thunder review: ${r.says} Wrote ${args.out}.`); }
+      else console.log(text);
+    } catch (e) { console.error(`thunder review: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
   if (cmd === 'same') {
     try {
       const [a, b] = args._;
@@ -656,6 +772,56 @@ function main() {
   // This is the "shared envelope" schema siblings sign (STW) and re-verify (RM/OT) against.
   if (cmd === 'proof' && args.schema) {
     console.log(JSON.stringify(intentProofJsonSchema(), null, 2));
+    return;
+  }
+  // `thunder verify --run <folder>`: proof by running. Runs the code (its tests, and made-up inputs for functions that
+  // look free of side effects), records which side of each question it took and how each call ended, and compares
+  // that with the flow Thunder drew. Exit 1 when a run contradicts any reading.
+  if (cmd === 'verify' && restArgv.includes('--run')) {
+    const opt = (name) => { const i = restArgv.indexOf(name); return i >= 0 ? restArgv[i + 1] : undefined; };
+    const folder = opt('--run');
+    if (!folder || folder.startsWith('--')) { console.error('usage: thunder verify --run <folder> [--lang python|js] [--pytest "<args>"] [--tests <dir>] [--command "<test command>"] [--cwd <dir>] [--python <path>] [--max-seconds <n>] [--no-generate] [--trace <saved.json>] [--save-trace <file>] [--all] [--json]'); process.exit(2); return; }
+    let res;
+    try {
+      res = verifyRun(folder, { lang: opt('--lang'), pytest: opt('--pytest'), tests: opt('--tests'), command: opt('--command'), cwd: opt('--cwd'), python: opt('--python'), trace: opt('--trace'),
+        maxSeconds: opt('--max-seconds') ? Number(opt('--max-seconds')) : undefined, generate: !restArgv.includes('--no-generate') });
+    } catch (e) { console.error(`thunder verify --run: ${e.message}`); process.exit(2); return; }
+    if (opt('--save-trace')) writeFileSync(opt('--save-trace'), JSON.stringify(res.trace));
+    if (restArgv.includes('--json')) console.log(JSON.stringify(res.result, null, 2));
+    else console.log(`thunder verify --run ${folder} (${res.result.language})\n${executedText(res.result, { all: restArgv.includes('--all') })}`);
+    if (res.result.summary.contradicted) process.exitCode = 1;
+    return;
+  }
+  // `thunder runtime <folder>`: the running system. Places recorded runs (thunder verify --run --save-trace), stack
+  // traces, structured logs, and OpenTelemetry spans on the folder's flows, and explains each error in Thunder.
+  if (cmd === 'runtime') {
+    const opt = (name) => { const i = restArgv.indexOf(name); return i >= 0 ? restArgv[i + 1] : undefined; };
+    const folder = restArgv[0];
+    const usage = 'usage: thunder runtime <folder> [--traces <file|dir>] [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>] [--top <n>] [--json]';
+    if (!folder || folder.startsWith('--') || !existsSync(folder) || !statSync(folder).isDirectory()) { console.error(folder && !folder.startsWith('--') ? `thunder runtime: ${folder} is not a folder.\n${usage}` : usage); process.exit(2); return; }
+    const evidence = [];
+    const stacks = [];
+    try {
+      const traces = opt('--traces');
+      if (traces) {
+        const t = { files: {}, runs: [] };
+        const list = statSync(traces).isDirectory() ? readdirSync(traces).filter((n) => n.endsWith('.json')).map((n) => join(traces, n)) : [traces];
+        for (const f of list) mergeTraces(t, JSON.parse(readFileSync(f, 'utf8')));
+        evidence.push(...fromTrace(t));
+      }
+      if (opt('--stack')) { const text = readFileSync(opt('--stack'), 'utf8'); evidence.push(...fromStack(text)); stacks.push(...parseStacks(text)); }
+      if (opt('--logs')) evidence.push(...fromLogs(readFileSync(opt('--logs'), 'utf8')));
+      if (opt('--otlp')) evidence.push(...fromOtlp(readFileSync(opt('--otlp'), 'utf8')));
+    } catch (e) { console.error(`thunder runtime: ${e.message}`); process.exit(2); return; }
+    if (!evidence.length) { console.error(`thunder runtime: no evidence given.\n${usage}`); process.exit(2); return; }
+    const model = thunderModel(collectReadableFiles(folder, { maxFiles: 5000 }).filter((f) => f.source), { name: basename(resolve(folder)) });
+    const overlay = runtimeOverlay(model, evidence);
+    const explained = stacks.map((s) => explainError(model, s));
+    if (restArgv.includes('--json')) { console.log(JSON.stringify({ ...overlay, errors: explained }, null, 2)); return; }
+    const out = [`thunder runtime ${folder}: ${Object.entries(overlay.sources).map(([k, v]) => `${k}: ${countWords(v)} observation${v === 1 ? '' : 's'}`).join(', ')} (counts only from this evidence)`, ''];
+    if (explained.length) { out.push('Errors, explained in Thunder:'); for (const x of explained) out.push(`  - ${x.text}`); out.push(''); }
+    out.push(runtimeText(model, overlay, { member: opt('--member') ?? null, top: opt('--top') ? Number(opt('--top')) : 10 }));
+    process.stdout.write(`${out.join('\n').replace(/\n+$/, '')}\n`);
     return;
   }
   // Verify a .thunder-proof.json against its source: the source hash still matches (no
