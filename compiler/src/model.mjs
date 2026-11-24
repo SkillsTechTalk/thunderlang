@@ -5,7 +5,7 @@
 import { readCode } from './read.mjs';
 import { readableLanguage } from './read-repo.mjs';
 import { plainFromReading } from './plain-contract.mjs';
-import { visualFor } from './visual.mjs';
+import { visualFor, LEVELS, DOES } from './visual.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
@@ -453,4 +453,86 @@ export function modelText(model, id) {
   if (m.youGetBack) lines.push(`  You get back: ${m.youGetBack}`);
   lines.push(...flowLines(m.flow));
   return `${lines.join('\n')}\n`;
+}
+
+// ── The five reading levels: what each one shows, decided here so every product shows the same thing ─────────
+
+const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setup', 'not-read': 'not-read', thing: 'thing', record: 'record', choices: 'choices' };
+
+/** Every step of a flow in reading order, with how deep it sits and which path it is on (Yes, No, For each, …). */
+function detailSteps(flow) {
+  const byId = new Map(flow.nodes.map((n) => [n.id, n]));
+  const out = [];
+  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' ? { notExplained: true } : {}) });
+  // `via` (Yes, No, For each) labels only the first step of each path, the way Thunder Text writes "Yes:" once.
+  const walk = (blocks, depth, via) => {
+    for (const b of blocks || []) {
+      const n = byId.get(b.id);
+      if (n && n.kind !== 'start') { push(n, depth, via); via = null; }
+      walk(b.yes, depth + 1, 'Yes');
+      walk(b.no, depth + 1, 'No');
+      walk(b.each, depth + 1, 'For each');
+      walk(b.body, depth + 1, null);
+      for (const h of b.handlers || []) { const hn = byId.get(h.id); if (hn) push(hn, depth, null, hn.text.replace(/\?$/, '')); walk(h.blocks, depth + 1, null); }
+      if (b.always) { const an = byId.get(b.always.id); if (an) push(an, depth, null); walk(b.always.blocks, depth + 1, null); }
+    }
+  };
+  walk(flow.blocks, 0, null);
+  return out;
+}
+
+/**
+ * What one reading level shows: `level` is a LEVELS id (big-picture, flow, details, text, original); `focus` is a
+ * Thing or member id, or nothing for the whole model. Flow and Details need an action or rule; without one they
+ * give back `needsFocus` and the list to choose from. Deterministic; built only from the model.
+ */
+export function readLevel(model, level, focus) {
+  const lv = LEVELS.find((l) => l.id === level);
+  if (!lv) throw new Error(`Unknown reading level "${level}". Use one of: ${LEVELS.map((l) => l.id).join(', ')}.`);
+  const member = focus ? model.members.find((m) => m.id === focus) : undefined;
+  const thing = focus && !member ? model.things.find((t) => t.id === focus) : undefined;
+  if (focus && !member && !thing) throw new Error(`Nothing in this model has the id "${focus}".`);
+  const owner = member?.owner ? model.things.find((t) => t.id === member.owner) : undefined;
+  const labelOf = (id) => model.members.find((m) => m.id === id)?.label ?? id;
+  const short = (m) => ({ id: m.id, label: m.label + (m.yesNo ? '?' : ''), symbol: SYMBOL_OF[m.kind], ...(m.route ? { route: m.route } : {}) });
+  const base = { level: lv.id, name: lv.name, question: lv.question };
+  const about = member
+    ? { scope: 'member', id: member.id, title: member.label + (member.yesNo ? '?' : ''), symbol: SYMBOL_OF[member.kind], file: member.file, lines: member.lines }
+    : thing ? { scope: 'thing', id: thing.id, title: thing.label, symbol: SYMBOL_OF[thing.kind], file: thing.file, lines: thing.lines }
+    : { scope: 'app', id: null, title: model.name, symbol: 'app', file: model.files[0]?.path ?? null, lines: null };
+  const uses = member ? model.links.filter((l) => l.from === member.id).map((l) => ({ id: l.to, label: labelOf(l.to) })) : [];
+  const usedBy = member ? model.links.filter((l) => l.to === member.id).map((l) => ({ id: l.from, label: labelOf(l.from) })) : [];
+
+  if (!member && (lv.id === 'flow' || lv.id === 'details')) {
+    const inScope = model.members.filter((m) => m.kind !== 'setup' && (!thing || m.owner === thing.id));
+    return { ...base, ...about, needsFocus: true, says: `${lv.name} shows one action or rule. Choose one.`, choose: inScope.map(short) };
+  }
+  if (lv.id === 'big-picture') {
+    if (member) {
+      return { ...base, ...about, ...(member.route ? { route: member.route } : {}), ...(member.doc ? { doc: member.doc } : {}),
+        ...(owner ? { owner: { id: owner.id, label: owner.label } } : {}), youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), uses, usedBy };
+    }
+    const inScope = (m) => m.kind !== 'setup' && (thing ? m.owner === thing.id : true);
+    const thingCard = (t) => ({ id: t.id, label: t.label, ...(t.doc ? { doc: t.doc } : {}), knows: t.knows.map((k) => ({ label: k.label, ...(k.start ? { start: k.start } : {}) })), can: model.members.filter((m) => m.owner === t.id && m.kind !== 'setup').map(short) });
+    return { ...base, ...about,
+      ...(thing?.doc ?? model.files[0]?.purpose ? { purpose: thing?.doc ?? model.files[0]?.purpose } : {}),
+      things: (thing ? [thing] : model.things.filter((t) => t.kind === 'thing')).map(thingCard),
+      data: thing ? [] : model.things.filter((t) => t.kind !== 'thing').map((t) => ({ id: t.id, label: t.label, symbol: SYMBOL_OF[t.kind], ...(t.choices.length ? { choices: t.choices } : {}), knows: t.knows.map((k) => k.label) })),
+      actions: model.members.filter((m) => inScope(m) && m.kind === 'action').map(short),
+      rules: model.members.filter((m) => inScope(m) && m.kind === 'rule').map(short),
+      loose: thing ? [] : model.members.filter((m) => !m.owner && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
+      unknowns: thing ? [] : model.unknowns };
+  }
+  if (lv.id === 'flow') return { ...base, ...about, flow: member.flow };
+  if (lv.id === 'details') {
+    const steps = detailSteps(member.flow);
+    return { ...base, ...about, youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), steps,
+      notExplained: steps.filter((s) => s.notExplained).length, uses, usedBy, tryable: !!member.rule, ...(member.rule ? { rule: member.rule } : {}),
+      source: 'Read from code by the Thunder compiler, with no AI.' };
+  }
+  if (lv.id === 'text') {
+    const text = focus ? modelText(model, focus) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id))].join('\n');
+    return { ...base, ...about, text };
+  }
+  return { ...base, ...about, language: (member ?? thing) ? (member?.language ?? model.files.find((f) => f.path === thing.file)?.language ?? null) : (model.files[0]?.language ?? null) };
 }

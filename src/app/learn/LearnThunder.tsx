@@ -209,7 +209,7 @@ function WholeApp({ app }: { app: NonNullable<BuiltLesson["app"]> }) {
   const action = app.actions[0];
   return (
     <div className="space-y-6">
-      <div role="group" aria-label="Zoom level" className="flex flex-wrap items-center gap-2">
+      <div role="group" aria-label="Where you are in the app" className="flex flex-wrap items-center gap-2">
         {ZOOM.map((z, i) => (
           <span key={z} className="flex items-center gap-2">
             {i > 0 && <span aria-hidden="true" className="text-haze-500">→</span>}

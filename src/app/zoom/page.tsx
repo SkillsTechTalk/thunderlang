@@ -3,8 +3,8 @@ import { pageMeta } from "@/lib/seo";
 import { ZoomClient } from "./ZoomClient";
 
 export const metadata = pageMeta({
-  title: "Semantic Zoom: read software from the big picture to one decision",
-  description: "Read code in Thunder at three depths (big picture, flow, details) and three views (Thunder, Thunder Text, original). One compiler model, no AI.",
+  title: "Semantic Zoom: read code at five levels, from Big Picture to Original",
+  description: "Read any code in the Thunder programming language at five levels: Big Picture, Flow, Details, Text, and Original. One compiler model, no AI.",
   path: "/zoom",
 });
 
@@ -12,9 +12,9 @@ export default function ZoomPage() {
   return (
     <>
       <PageHero
-        eyebrow="Read in Thunder · Semantic Zoom · preview"
-        title="Start with the big picture. Zoom in until you see exactly how it works."
-        intro="Pick an example, or edit the code. Thunder shows what it knows, what it can do, and the path each action takes, with every Yes and No. The picture, Thunder Text, and the original are three views of one reading by the Thunder compiler, with no AI."
+        eyebrow="Read in Thunder · Semantic Zoom"
+        title="Start with the Big Picture. Go as deep as you need."
+        intro="Pick an example, or edit the code. Every program reads at the same five levels: Big Picture (what it is and can do), Flow (how it goes), Details (exactly what happens, and how sure Thunder is), Text (the same meaning in words), and Original (the code that proves it). All five come from one reading by the Thunder compiler, with no AI."
       />
       <Section className="!pt-0"><ZoomClient /></Section>
     </>

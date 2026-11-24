@@ -32,8 +32,12 @@ export const SYMBOLS: Record<SymbolId, { name: string; says: string; color: Colo
 export type Does = 'start' | 'find' | 'keep-only' | 'check' | 'decide' | 'calculate' | 'save' | 'send' | 'ask' | 'repeat' | 'answer' | 'stop' | 'do' | 'code';
 export const DOES: Record<Does, { label: string; mark: string; color: ColorRole; dashed?: boolean; symbol?: SymbolId }>;
 export const BEGINNER: SymbolId[];
+/** The five reading levels, in order: how deep you read something. */
+export const LEVELS: { id: 'big-picture' | 'flow' | 'details' | 'text' | 'original'; name: string; question: string; shows: string; form: 'picture' | 'words' | 'evidence' }[];
+/** Places: where you are in an app (App, Area, File, Action, Rule, Original). Same as ZOOM. */
+export const PLACES: typeof ZOOM;
 export const THUNDER_VISUAL: {
-  schema: 'thunder-visual-v1'; principle: string; forms: typeof FORMS; zoom: typeof ZOOM; colors: typeof COLORS; lines: typeof LINES;
+  schema: 'thunder-visual-v1'; principle: string; forms: typeof FORMS; levels: typeof LEVELS; places: typeof ZOOM; zoom: typeof ZOOM; colors: typeof COLORS; lines: typeof LINES;
   provenance: typeof PROVENANCE; steps: typeof STEP_MARKS; elements: typeof ELEMENTS; languages: typeof LANGUAGES; rules: string[];
   symbols: typeof SYMBOLS; does: typeof DOES; beginner: SymbolId[];
 };

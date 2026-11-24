@@ -16,3 +16,28 @@ export function ruleFlow(item: unknown, start: string): Flow;
 export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean };
 export function stepDoes(step: unknown): Does;
 export function modelText(model: ThunderModel, id: string): string;
+export type LevelId = 'big-picture' | 'flow' | 'details' | 'text' | 'original';
+export interface LevelItem { id: string; label: string; symbol: string; route?: string }
+export interface LevelView {
+  level: LevelId; name: string; question: string;
+  scope: 'app' | 'thing' | 'member'; id: string | null; title: string; symbol: string; file: string | null; lines: [number, number] | null;
+  /** Flow and Details without an action or rule: choose one of these. */
+  needsFocus?: true; says?: string; choose?: LevelItem[];
+  // Big Picture
+  purpose?: string; things?: { id: string; label: string; doc?: string; knows: { label: string; start?: string }[]; can: LevelItem[] }[];
+  data?: { id: string; label: string; symbol: string; choices?: string[]; knows: string[] }[];
+  actions?: LevelItem[]; rules?: LevelItem[]; loose?: LevelItem[]; unknowns?: ThunderModel['unknowns'];
+  route?: string; doc?: string; owner?: { id: string; label: string }; youGive?: string[]; youGetBack?: string;
+  uses?: { id: string; label: string }[]; usedBy?: { id: string; label: string }[];
+  // Flow
+  flow?: Flow;
+  // Details
+  steps?: { id: string; text: string; does: Does; mark: string; line: number | null; depth: number; via?: string; notExplained?: true }[];
+  notExplained?: number; tryable?: boolean; rule?: unknown; source?: string;
+  // Text
+  text?: string;
+  // Original
+  language?: string | null;
+}
+/** What one reading level (LEVELS) shows for the whole model, a Thing, or one action or rule. */
+export function readLevel(model: ThunderModel, level: LevelId, focus?: string): LevelView;

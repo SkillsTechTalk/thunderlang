@@ -7,6 +7,7 @@ import { PlainRuleCard } from "@/app/try/PlainRuleCard";
 import { readCode } from "../../../compiler/src/read.mjs";
 import { thunderText, visualFor, THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
 import { JsonLd, LANGUAGE_LD } from "@/components/JsonLd";
+import { FiveLevels } from "@/components/thunder/FiveLevels";
 
 export const metadata = pageMeta({
   title: "The Thunder Programming Language",
@@ -137,6 +138,8 @@ export default function LanguagePage() {
           </dl>
         </div>
       </Section>
+
+      <FiveLevels eyebrow="The heart of the language" />
 
       <Section className="border-t border-white/8">
         <SectionHeading
