@@ -263,7 +263,16 @@ const HTTP_STATUS = { 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Req
  */
 function httpErrorOf(head) {
   const expr = head.replace(/^return\s+/, '').replace(/^await\s+/, '').replace(/;\s*$/, '').trim();
+  const named = /^return\b/.test(head) && expr.match(/^(NotFound|BadRequest|Unauthorized|Forbid|Conflict|UnprocessableEntity|ValidationProblem|Problem)\s*\((.*)\)$/);
+  if (named) {
+    const status = { NotFound: 404, BadRequest: 400, Unauthorized: 401, Forbid: 403, Conflict: 409, UnprocessableEntity: 422, ValidationProblem: 400, Problem: 500 }[named[1]];
+    const msg = (named[2].match(/["']([^"']{1,80})["']/) || [])[1];
+    return { kind: 'fail', says: `Fails with ${status} ${HTTP_STATUS[status]}${msg ? `: "${msg}"` : ''}`, error: `${status} ${HTTP_STATUS[status]}`, ...(msg ? { message: msg } : {}), status };
+  }
   let m = expr.match(/^(?:reply|res|response|resp|ctx\.response)\s*\.\s*(?:code|status|statusCode)\s*\(\s*([45]\d\d)\s*\)/)
+    || expr.match(/^(?:res|response)\s*\.\s*sendStatus\s*\(\s*([45]\d\d)\s*\)/)
+    || expr.match(/^c\s*\.\s*(?:JSON|String|AbortWithStatusJSON|AbortWithStatus)\s*\(\s*(?:http\.Status\w+?|([45]\d\d))\b/) && (() => { const g = expr.match(/^c\s*\.\s*\w+\s*\(\s*([^,)]+)/); const st = g && statusOf(g[1]); return st && st >= 400 ? [null, String(st)] : null; })()
+    || expr.match(/^ResponseEntity\s*\.\s*(?:status\s*\(\s*(?:HttpStatus\.)?(\w+)\s*\)|(notFound|badRequest|unprocessableEntity)\s*\(\s*\))/) && (() => { const g = expr.match(/ResponseEntity\s*\.\s*(?:status\s*\(\s*([^)]+)\)|(notFound|badRequest|unprocessableEntity))/); const st = g[2] ? { notFound: 404, badRequest: 400, unprocessableEntity: 422 }[g[2]] : statusOf(g[1]); return st && st >= 400 ? [null, String(st)] : null; })()
     || expr.match(/^(?:new\s+)?(?:Response|NextResponse(?:\.json)?|HttpResponse|JSONResponse|PlainTextResponse|Response\.json)\s*\(.*\bstatus(?:_code)?\s*[:=]\s*([45]\d\d)\b/)
     || (/^return\b/.test(head) ? expr.match(/^.+,\s*([45]\d\d)\s*$/) : null);
   if (!m) return null;
@@ -326,6 +335,85 @@ function objectKeys(expr) {
 }
 const listWords = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')}${xs.length > 2 ? ',' : ''} and ${xs.at(-1)}`);
 
+const STATUS_NAMES = { CONTINUE: 100, OK: 200, CREATED: 201, ACCEPTED: 202, NO_CONTENT: 204, NoContent: 204, MOVED_PERMANENTLY: 301, FOUND: 302, BAD_REQUEST: 400, BadRequest: 400, UNAUTHORIZED: 401, Unauthorized: 401, FORBIDDEN: 403, Forbidden: 403, NOT_FOUND: 404, NotFound: 404, CONFLICT: 409, Conflict: 409, UNPROCESSABLE_ENTITY: 422, UnprocessableEntity: 422, TOO_MANY_REQUESTS: 429, INTERNAL_SERVER_ERROR: 500, InternalServerError: 500, StatusOK: 200, StatusCreated: 201, StatusAccepted: 202, StatusNoContent: 204, StatusBadRequest: 400, StatusUnauthorized: 401, StatusForbidden: 403, StatusNotFound: 404, StatusConflict: 409, StatusUnprocessableEntity: 422, StatusInternalServerError: 500 };
+const SUCCESS_WORDS = { 200: '', 201: '201 Created', 202: '202 Accepted', 204: '204 No Content' };
+/** A status written as a number, http.StatusCreated, HttpStatus.CREATED, status.HTTP_201_CREATED, or StatusCodes.Status201Created. */
+function statusOf(text) {
+  const t = String(text || '').trim();
+  let m;
+  if ((m = t.match(/^(\d{3})$/))) return Number(m[1]);
+  if ((m = t.match(/HTTP_(\d{3})/)) || (m = t.match(/Status(\d{3})/))) return Number(m[1]);
+  if ((m = t.match(/(?:^|\.)(\w+)$/)) && STATUS_NAMES[m[1]]) return STATUS_NAMES[m[1]];
+  return null;
+}
+/** What is sent back, in words: user -> "user"; { ok, user } -> "ok and user"; "Hello" -> "\"Hello\"". */
+function payloadWords(arg) {
+  const a = String(arg || '').trim().replace(/^content\s*=\s*/, '');
+  if (!a) return null;
+  if (/^\{/.test(a)) { const keys = objectKeys(a); return keys.length ? listWords(keys.map(words)) : 'an object'; }
+  if (/^\[/.test(a)) return 'a list';
+  if (/^["'`]/.test(a)) return a.length < 50 ? `"${a.replace(/^["'`]|["'`]$/g, '')}"` : 'a message';
+  if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(a)) return possessiveWords(a);
+  const call = a.match(/^(?:await\s+)?([\w.]+)\s*\(/);
+  if (call) return `what ${words(call[1].split('.').pop())} gives back`;
+  return 'a value';
+}
+/** Split a call's argument text at top-level commas. */
+function callArgs(text) {
+  const out = []; let d = 0, cur = '';
+  for (const c of String(text)) { if ('([{'.includes(c)) d++; if (')]}'.includes(c)) d--; if (c === ',' && d === 0) { out.push(cur.trim()); cur = ''; } else cur += c; }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+const sentStep = (payload, status, extra = {}) => {
+  const st = SUCCESS_WORDS[status] ?? (status ? String(status) : '');
+  const what = status === 204 ? 'nothing' : payload || 'a response';
+  return { kind: 'return', says: `Returns ${what}${st && status !== 204 ? ` (${st})` : status === 204 ? ' (204 No Content)' : ''}`, response: true, ...(status ? { status } : {}), ...extra };
+};
+
+/**
+ * A successful response sent back to the caller (an error response is a Stop, see httpErrorOf): Express/Fastify
+ * res.json/send/status().json/sendStatus/render, Koa ctx.body =, Gin c.JSON, ASP.NET Ok/Created/NoContent, Spring
+ * ResponseEntity, Flask jsonify, FastAPI JSONResponse. Gives a return step that says what the person gets back.
+ */
+function responseOf(head) {
+  const expr = head.replace(/^return\s+/, '').replace(/^await\s+/, '').replace(/;\s*$/, '').trim();
+  let m;
+  // res.json(x) / res.status(201).json(x) / reply.code(201).send(x) / res.send(x) / res.end()
+  if ((m = expr.match(/^(?:res|reply|response|resp)\s*(?:\.\s*(?:status|code)\s*\(\s*([^)]*)\))?\s*\.\s*(json|send|jsonp|end)\s*\((.*)\)$/))) {
+    const status = m[1] ? statusOf(m[1]) : null;
+    if (status && status >= 300) return null;
+    return sentStep(payloadWords(m[3]), status);
+  }
+  if ((m = expr.match(/^(?:res|response)\s*\.\s*sendStatus\s*\(\s*([^)]*)\)$/))) { const st = statusOf(m[1]); return st && st < 300 ? sentStep(null, st) : null; }
+  if ((m = expr.match(/^(?:res|response)\s*\.\s*render\s*\(\s*["'`]([^"'`]+)["'`]/))) return { kind: 'return', says: `Shows the ${words(m[1].split('/').pop().replace(/\.\w+$/, ''))} page`, response: true };
+  if ((m = expr.match(/^ctx\.body\s*=\s*(.+)$/))) return sentStep(payloadWords(m[1]), null);
+  // Gin / Echo: c.JSON(http.StatusOK, user), c.String(200, "ok")
+  if ((m = expr.match(/^c\s*\.\s*(JSON|IndentedJSON|String|XML|YAML)\s*\((.*)\)$/))) { const [st, body] = callArgs(m[2]); const status = statusOf(st); if (status && status >= 300) return null; return sentStep(payloadWords(body), status === 200 ? null : status); }
+  // ASP.NET: Ok(x), Created(uri, x), CreatedAtAction(name, routeValues, x), Accepted(x), NoContent()
+  if (/^return\b/.test(head) && (m = expr.match(/^(Ok|Accepted|Created|CreatedAtAction|CreatedAtRoute|NoContent|Json)\s*\((.*)\)$/))) {
+    const args = callArgs(m[2]);
+    const status = { Ok: null, Json: null, Accepted: 202, Created: 201, CreatedAtAction: 201, CreatedAtRoute: 201, NoContent: 204 }[m[1]];
+    return sentStep(payloadWords(args.at(-1)), status);
+  }
+  // Spring: ResponseEntity.ok(x), ResponseEntity.status(HttpStatus.CREATED).body(x), ResponseEntity.noContent().build()
+  if ((m = expr.match(/^ResponseEntity\s*\.\s*(ok|accepted|created|noContent|status)\s*\(([^)]*)\)(?:\s*\.\s*(?:body|build)\s*\((.*)\))?$/))) {
+    const status = m[1] === 'status' ? statusOf(m[2]) : { ok: null, accepted: 202, created: 201, noContent: 204 }[m[1]];
+    if (status && status >= 300) return null;
+    return sentStep(payloadWords(m[1] === 'ok' ? m[2] || m[3] : m[3]), status);
+  }
+  // Flask jsonify(x) / jsonify(x), 201; FastAPI JSONResponse(content=x, status_code=201)
+  if (/^return\b/.test(head) && (m = expr.match(/^jsonify\s*\((.*)\)\s*(?:,\s*(\d{3}))?$/))) { const status = m[2] ? Number(m[2]) : null; if (status && status >= 300) return null; return sentStep(payloadWords(m[1]), status); }
+  if (/^return\b/.test(head) && (m = expr.match(/^(?:JSONResponse|ORJSONResponse|HTMLResponse|PlainTextResponse)\s*\((.*)\)$/))) {
+    const args = callArgs(m[1]);
+    const st = args.find((x) => /^status_code\s*=/.test(x));
+    const status = st ? statusOf(st.split('=')[1]) : null;
+    if (status && status >= 300) return null;
+    return sentStep(payloadWords(args.find((x) => !/^\w+\s*=/.test(x) || /^content\s*=/.test(x))), status);
+  }
+  return null;
+}
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
@@ -386,6 +474,9 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   // An HTTP error response (4xx/5xx) is a Stop: the request is refused, with a status and a message.
   const httpFail = httpErrorOf(head);
   if (httpFail) return { ...httpFail, code };
+  // A response sent back to the caller: "Returns user (201 Created)", not "Calls json".
+  const sent = responseOf(head);
+  if (sent) return { ...sent, code };
   // A redirect sends the person somewhere else: "Sends the person to the Google auth URL".
   const redirect = redirectOf(head);
   if (redirect) return { ...redirect, code };

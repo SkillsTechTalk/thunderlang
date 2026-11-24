@@ -1,3 +1,13 @@
+# Unreleased
+
+**Language: what a handler sends back.** A response sent to the caller reads as what the person gets back:
+`res.json(user)` reads "Returns user" (not "Calls json"), `res.status(201).json(order)` "Returns order (201 Created)",
+`res.sendStatus(204)` "Returns nothing (204 No Content)", `res.render('profile')` "Shows the profile page", across
+Express, Fastify, Koa, Gin, ASP.NET (`Ok`, `CreatedAtAction`, `NoContent`), Spring (`ResponseEntity`), Flask
+(`jsonify`), and FastAPI (`JSONResponse`). Their error forms (`NotFound(...)`, `ResponseEntity.notFound()`,
+`res.sendStatus(404)`, Gin `c.JSON(http.StatusNotFound, …)`) are Stops with their status. Details lists them under
+what it gives back and when.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**
