@@ -21,6 +21,7 @@ const EXT_LANG = [
   [/\.kts?$/i, 'kotlin'],
   [/\.php$/i, 'php'],
   [/\.rb$/i, 'ruby'],
+  [/\.sql$/i, 'sql'],
 ];
 
 /** Folders that hold dependencies, build output, or tooling state rather than the application. */

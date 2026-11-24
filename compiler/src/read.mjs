@@ -9,12 +9,13 @@
 //   return cond ? X : Y   (nested ternaries)  Python: return X if cond else Y
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
+import { sqlItems } from './sql.mjs';
 import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby'];
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql'];
 const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
@@ -1785,9 +1786,11 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
+  // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
+  if (lang === 'sql') return sqlReading(src);
   // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
   const code = lang === 'php' ? normalizePhp(src) : src;
   const items = [];
@@ -1876,4 +1879,18 @@ export function searchReading(reading, { query = '', kinds = [], status = [] } =
       .filter(Boolean).join(' ').toLowerCase();
     return terms.every((t) => hay.includes(t));
   });
+}
+
+/** A reading of a SQL file in the same shape as every other language's. */
+function sqlReading(src) {
+  const items = sqlItems(src);
+  for (const it of items) it.completeness = completenessOf(it);
+  const counts = { decision: 0, function: items.length, error: 0, test: 0, partial: 0, guarded: 0, route: 0 };
+  return {
+    schema: READ_SCHEMA, language: 'sql', detected: false, items, counts,
+    limitations: [
+      'Read by pattern, not by running it on a database. PostgreSQL first; other dialects where their syntax agrees.',
+      'Tables are drawn as Data or Things; CHECK and UNIQUE as rules the database enforces; views, functions, procedures, and triggers as steps.',
+    ],
+  };
 }

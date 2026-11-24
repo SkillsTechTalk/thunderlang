@@ -266,15 +266,22 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | Ruby | works today | Sinatra `get`/`post` blocks (Rails routes planned) | a `def` that returns fixed answers | `#` comment above | `class`, `Struct` |
 | **SQL** | **planned** | (reached through the app) | `CHECK` constraints, `CASE`, `IF` in procedures | `--` comment, `COMMENT ON` | `CREATE TABLE`, `CREATE VIEW` |
 
-### SQL (planned)
+### SQL
 
-- **Tables and views** become data shapes: columns, kinds, keys, and how tables relate.
-- **`CHECK` constraints, `CASE` expressions, and `IF` in procedures** become Thunder cards. A `CHECK` constraint is
-  already a rule: "a refund's amount is at least 0".
-- **`SELECT`, `INSERT`, `UPDATE`, `DELETE`** become steps: which data, filtered by which conditions, changed how.
-- **Triggers** become trigger cards: "When an order is deleted, it …".
-- **SQL inside app code** (`db.execute("SELECT …")`) is read in place, as a step.
-- PostgreSQL and standard SQL come first. SQL Server and MySQL come next.
+Thunder reads `.sql` files (PostgreSQL first; MySQL, SQLite, and SQL Server where their syntax agrees).
+
+- **Tables** are Data, or Things when they enforce rules: each column with its kind in words ("a number, given
+  automatically, the id"; "words, always set"), its default ("0 at first", "the moment it is saved"), and what it
+  points to ("a customer (by its id)").
+- **`CREATE TYPE … AS ENUM`** is a set of Choices.
+- **`CHECK` and `UNIQUE`** are rules the table enforces: "Is total at least 0?" with the Stop on No, "Refused by the
+  database: The order needs total is at least 0".
+- **Views** are steps: finds, adds the matching rows, keeps only, groups, sorts, takes the first N, gives back the
+  named columns. Table aliases read as their tables ("the order's status").
+- **Functions and procedures** are steps: their inputs, `IF`/`ELSIF`/`ELSE` as questions, `RAISE` as Stops with
+  their message, `INSERT`/`UPDATE`/`DELETE` as what they record, `SELECT … INTO` as what they find, `RETURN`.
+- **Triggers** say when the database runs them: "After an order is added or changed, runs log order change".
+- Planned: **SQL inside app code** (`db.execute("SELECT …")`) read in place, as a step; `CASE` expressions as cards.
 
 ## 10. Rules every Thunder view follows
 
