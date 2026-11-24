@@ -2232,7 +2232,9 @@ function readPredicate(fn, lang, names, code) {
   if (!expr || /^(true|false|True|False)$/.test(expr)) return null;
   // C, C++, and Swift say what comes back: only a yes/no function is a rule (a String property is text, even when the
   // text holds a comparison sign), and quoted text never makes a value a yes/no.
-  if (/^(?:swift|c|cpp)$/.test(lang) && fn.returns && !/^(?:Bool|bool|_Bool|boolean)\??$/.test(String(fn.returns).trim())) return null;
+  // (C and C++ yes/no functions often return int, so only Swift is held to its declared type.)
+  if (lang === 'swift' && fn.returns && !/^(?:Bool|bool|_Bool|boolean)\??$/.test(String(fn.returns).trim())) return null;
+  if (/^(?:c|cpp)$/.test(lang) && fn.returns && /^(?:string|char\*|const char\*)$/.test(String(fn.returns).trim())) return null;
   if (/^(?:swift|c|cpp)$/.test(lang) && !BOOL_RETURN.test(String(fn.returns || '').trim()) && !/^Bool\??$/.test(String(fn.returns || '').trim()) && !LOGIC_OR_COMPARE.test(expr.replace(/"(?:\\.|[^"\\])*"/g, 'Q'))) return null;
   if (!(BOOL_RETURN.test(String(fn.returns || '').trim()) || LOGIC_OR_COMPARE.test(expr) || /\?$/.test(fn.name))) return null;
   const when = toThunderCondition(expr.replace(/\?$/, ''), names);

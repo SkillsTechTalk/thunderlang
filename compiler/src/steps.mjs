@@ -2193,7 +2193,8 @@ export function braceStatements(stmts, split = null) {
       let from = o + 1;
       // Kotlin lambda parameters (`{ item ->`) name the item; they are not a step.
       // Swift closure parameters (`{ req in`, `{ (a, b) -> Bool in`) name what the closure is given; not a step.
-      const params = text.slice(from, e).match(LANG === 'swift' ? SWIFT_CLOSURE_PARAMS : LAMBDA_PARAMS);
+      // (C and C++ have no such parameters: `{ prev->next = cur;` starts with a field, not a lambda's `prev ->`.)
+      const params = C_FAMILY.has(LANG) ? null : text.slice(from, e).match(LANG === 'swift' ? SWIFT_CLOSURE_PARAMS : LAMBDA_PARAMS);
       if (params && !ARMS_HEAD.test(head0)) from += params[0].length;
       const body = e > from ? text.slice(from, e) : '';
       const base = s.start != null ? s.start + from : null;

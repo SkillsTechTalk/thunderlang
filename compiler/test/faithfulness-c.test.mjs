@@ -79,3 +79,8 @@ test('redis#9: `!strcasecmp(u, "m")` asks whether u is "m" (the gate knows it is
   const t = thunderText('a.c', 'double unit(char *u) {\n    if (!strcasecmp(u, "m")) {\n        return 1;\n    }\n    return -1;\n}\n');
   assert.equal(sideOf(t, /Ask: Is u "m"\?/, /Gives back 1/), 'yes');
 });
+
+test('redis#7: a block that starts with `prev->next = cur;` keeps the owner (it is not a lambda parameter)', () => {
+  const t = thunderText('a.c', 'void f(int *eb) {\n    if (previtem) {\n        previtem->next = curitem;\n    }\n}\n');
+  assert.match(t, /Sets the previtem's next to curitem/);
+});
