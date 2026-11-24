@@ -253,7 +253,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
   const nodes = [], edges = [];
   let n = 0;
   const node = (kind, text, extra = {}) => { const id = `n${n++}`; nodes.push({ id, kind, text, ...extra }); return id; };
-  const connect = (open, to) => { for (const o of open) edges.push({ from: o.id, to, ...(o.label ? { label: o.label } : {}) }); };
+  const connect = (open, to) => { for (const o of open) edges.push({ from: o.id, to, ...(o.label ? { label: o.label } : {}), ...(o.text ? { text: o.text } : {}) }); };
   // The first call in the step to another member of this file: self.can_borrow(...), delivery_fee(...), this.lateFee(...).
   const usesOf = (st) => {
     for (const c of String(st.code || '').matchAll(/(?:\b(?:self|this)\.)?\b([A-Za-z_]\w*)\s*\(/g)) {
@@ -270,6 +270,25 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
     for (const st of list) {
       const does = stepDoes(st);
       const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}) };
+      // A choice among several cases (switch, when, match, select): one question with one side per case.
+      const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check') ? st.children : null;
+      if (arms) {
+        const d = node('decision', st.says.replace(/\?$/, ''), { ...base, cases: true });
+        connect(open, d);
+        const cases = [];
+        let after = [];
+        for (const arm of arms) {
+          const label = arm.says;
+          const w = walk(arm.children || [], [{ id: d, label: 'case', text: label }], lane + 1);
+          cases.push({ label, line: arm.line, blocks: w.blocks });
+          after = [...after, ...w.open];
+        }
+        // With no "Otherwise", a value that matches no case carries straight on.
+        if (!arms.some((a) => /^(Otherwise|If none is ready yet|Default)\b/i.test(a.says))) after.push({ id: d, label: 'case', text: 'None of these' });
+        blocks.push({ id: d, cases });
+        open = after;
+        continue;
+      }
       if (st.kind === 'branch') {
         const { text, flip } = askAsQuestion(st, base.uses && memberLabel.get(base.uses));
         const [into, past] = flip ? ['no', 'yes'] : ['yes', 'no'];
@@ -325,7 +344,12 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         const k = node(does === 'code' ? 'code' : 'step', does === 'code' ? st.code ?? st.says : st.says, base);
         connect(open, k);
         open = [{ id: k }];
-        if (st.children?.length) {
+        if (st.children?.length && st.nested) {
+          // An inner function (a hook, a callback, go/defer, a closure) runs on its own: its steps are its own
+          // sub-flow, and a return or stop inside it ends only that function. The outer flow carries on from here.
+          const inner = walk(st.children, [{ id: k }], lane + 1);
+          blocks.push({ id: k, body: inner.blocks, nested: true });
+        } else if (st.children?.length) {
           const inner = walk(st.children, open, lane + 1);
           blocks.push({ id: k, body: inner.blocks });
           open = inner.open;
@@ -356,7 +380,10 @@ const idOf = (...parts) => parts.join('#').replace(/\s+/g, '');
  * `const { id } = req.params`, `{ email } = await request.json()`.
  */
 function youGiveOf(item) {
-  const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing).map((p) => words(p.name));
+  const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing)
+    // Destructured parameters (React props `{ userId, name }`) give each name.
+    .flatMap((p) => (/^\{.*\}$/.test(String(p.name).trim()) ? String(p.name).trim().slice(1, -1).split(',').map((x) => x.split(/[:=]/)[0].trim().replace(/^\.\.\./, '')).filter((x) => /^[A-Za-z_$][\w$]*$/.test(x)) : [p.name]))
+    .map((n) => words(n));
   const codes = [];
   const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
   walk(item.steps);
@@ -445,7 +472,7 @@ function flowLines(flow, depth = 1) {
   const out = [];
   const pad = (d) => '  '.repeat(d);
   const at = (n) => (n.line ? `  (line ${n.line})` : '');
-  const say = (n) => (n.kind === 'code' ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' ? `Ask: ${n.text}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
+  const say = (n) => (n.kind === 'code' ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
   const go = (blocks, d) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
@@ -456,6 +483,10 @@ function flowLines(flow, depth = 1) {
           if (b[side].length) { out.push(`${pad(d + 1)}${side === 'yes' ? 'Yes' : 'No'}:`); go(b[side], d + 2); }
           else out.push(`${pad(d + 1)}${side === 'yes' ? 'Yes' : 'No'}: continue`);
         }
+      }
+      for (const c of b.cases || []) {
+        if (c.blocks.length) { out.push(`${pad(d + 1)}${c.label}:`); go(c.blocks, d + 2); }
+        else out.push(`${pad(d + 1)}${c.label}: nothing`);
       }
       if (b.each) { out.push(`${pad(d + 1)}For each:`); go(b.each, d + 2); }
       if (b.body) go(b.body, d + 1);
@@ -510,6 +541,7 @@ function detailSteps(flow) {
       walk(b.yes, depth + 1, 'Yes');
       walk(b.no, depth + 1, 'No');
       walk(b.each, depth + 1, 'For each');
+      for (const c of b.cases || []) walk(c.blocks, depth + 1, c.label);
       walk(b.body, depth + 1, null);
       for (const h of b.handlers || []) { const hn = byId.get(h.id); if (hn) push(hn, depth, null, hn.text.replace(/\?$/, '')); walk(h.blocks, depth + 1, null); }
       if (b.always) { const an = byId.get(b.always.id); if (an) push(an, depth, null); walk(b.always.blocks, depth + 1, null); }
@@ -537,7 +569,9 @@ function pathsOf(flow) {
       walk(b.yes, [...when, { question: q, answer: 'Yes' }]);
       walk(b.no, [...when, { question: q, answer: 'No' }]);
       walk(b.each, [...when, { question: q, answer: 'For each' }]);
-      walk(b.body, when);
+      for (const c of b.cases || []) walk(c.blocks, [...when, { question: q, answer: c.label }]);
+      // An inner function's steps end only that function: not one of this action's endings.
+      if (!b.nested) walk(b.body, when);
       for (const h of b.handlers || []) { const hn = byId.get(h.id); walk(h.blocks, [...when, { question: (hn?.text ?? '').replace(/\?$/, ''), answer: 'Yes' }]); }
       if (b.always) walk(b.always.blocks, when);
       // A question whose one side ends the path (a Stop or an answer) guards everything after it: what follows only

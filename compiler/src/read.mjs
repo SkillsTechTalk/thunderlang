@@ -23,6 +23,8 @@ const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'retur
 export function detectLanguage(source, file = '') {
   if (file) return languageForFile(file);
   const s = String(source);
+  // SQL: a file that starts with (or is mostly) schema statements.
+  if (/^\s*(?:--[^\n]*\n\s*)*(?:CREATE|ALTER|INSERT\s+INTO|SELECT|WITH)\b/i.test(s) && /\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX)|SELECT\b[\s\S]*\bFROM)\b/i.test(s)) return 'sql';
   if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
   if (/\bfun\s+(<[^>]*>\s*)?[\w.]*\w+\s*\(/.test(s)) return 'kotlin';
   if (/^\s*def\s+[\w.?!]+(\s*\(.*\))?\s*$/m.test(s) && /^\s*end\s*$/m.test(s)) return 'ruby';

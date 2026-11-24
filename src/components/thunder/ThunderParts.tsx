@@ -77,8 +77,10 @@ export function FlowBlocks({ blocks, flow, ...p }: { blocks: Block[]; flow: Flow
             <FlowNodeCard n={n} {...p} />
             {b.yes && b.yes.length > 0 && <Side label="Yes" items={b.yes} />}
             {b.no && b.no.length > 0 && <Side label="No" items={b.no} />}
+            {(b.cases ?? []).map((c, i) => c.blocks.length ? <Side key={i} label={c.label} items={c.blocks} /> : <p key={i} className="ml-6 mt-2 border-l-2 border-white/15 pl-5 text-sm font-semibold text-haze-300">{c.label}: <span className="font-normal text-haze-400">nothing</span></p>)}
+            {b.cases && !b.cases.some((c) => /^(Otherwise|If none is ready yet|Default)\b/i.test(c.label)) && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">None of these <span aria-hidden="true">↓</span> continue</p>}
             {b.each && <Side label="For each" items={b.each} />}
-            {b.body && b.body.length > 0 && <div className="ml-6 mt-2 border-l-2 border-white/10 pl-5"><FlowBlocks blocks={b.body} flow={flow} {...p} /></div>}
+            {b.body && b.body.length > 0 && <div className={`ml-6 mt-2 border-l-2 pl-5 ${b.nested ? "border-dashed border-[#C4B5FD]/40" : "border-white/10"}`}>{b.nested && <p className="mb-2 text-xs text-haze-400">Runs on its own; a stop in here ends only these steps.</p>}<FlowBlocks blocks={b.body} flow={flow} {...p} /></div>}
             {(b.handlers ?? []).map((h) => <Side key={h.id} label={node(h.id).text.replace(/\?$/, "")} items={h.blocks} />)}
             {b.always && <Side label="Always, at the end" items={b.always.blocks} />}
             {(yesEmpty || noEmpty) && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">{yesEmpty ? "Yes" : "No"} <span aria-hidden="true">↓</span> continue</p>}
