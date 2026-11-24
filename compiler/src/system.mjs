@@ -320,7 +320,8 @@ export function linkSystem(model, files) {
   for (const t of model.things) (thingsOf.get(t.file) ?? thingsOf.set(t.file, []).get(t.file)).push(t);
   const memberById = new Map(model.members.map((m) => [m.id, m]));
   const notLinked = [];
-  if (model.files.length < 2 && !model.members.some((m) => m.route)) { model.notLinked = notLinked; return model; }
+  // (One file with no routes and no Things has nothing to link: no other files, services, or instances.)
+  if (model.files.length < 2 && !model.members.some((m) => m.route) && !model.things.length) { model.notLinked = notLinked; return model; }
 
   // Top-level members of a file by name: not a method of a Thing, not written inside another function.
   const topCache = new Map();
@@ -803,10 +804,13 @@ export function linkSystem(model, files) {
         if (p.length >= 2 && /^(delay|apply_async|send|enqueue|perform_async|perform_later)$/.test(last) && langOf.get(m.file) !== 'go') { p = p.slice(0, -1); task = /^(delay|apply_async|perform_async|perform_later)$/.test(last); }
         argc = (call.args || []).length;
         const r = resolve(m.file, p, isNew, m);
-        if (r.member && r.member.id !== m.id && (r.member.file !== m.file)) {
-          link({ from: m.id, to: r.member.id, kind: task ? 'sends-to' : 'uses', node: nd.id, file: r.member.file, line: nd.line ?? null, crossFile: true, ...(task ? { task: r.member.name } : {}) });
-          if (!nd.uses) { nd.uses = r.member.id; nd.usesFile = r.member.file; }
-          stats.crossFile++;
+        // (Same-file calls the name match missed, such as `library.can_borrow()` through `library = Library()`,
+        // link the same way, without `crossFile`.)
+        if (r.member && r.member.id !== m.id) {
+          const cross = r.member.file !== m.file;
+          link({ from: m.id, to: r.member.id, kind: task ? 'sends-to' : 'uses', node: nd.id, file: r.member.file, line: nd.line ?? null, ...(cross ? { crossFile: true } : {}), ...(task ? { task: r.member.name } : {}) });
+          if (!nd.uses) { nd.uses = r.member.id; if (cross) nd.usesFile = r.member.file; }
+          if (cross) stats.crossFile++;
         } else if (!r.member && r.worth) notLinked.push({ from: m.id, node: nd.id, file: m.file, line: nd.line ?? null, call: path.join('.'), why: r.why });
       }
     }
