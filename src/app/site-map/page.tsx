@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHero, Section } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
-import { OPENTHUNDER_URL } from "@/lib/site";
+import { OPENTHUNDER_URL, LEARN_COURSE_URL } from "@/lib/site";
 import { getSiteMap } from "@/lib/site-map";
 import { getDocCategories, getExampleList } from "@/lib/docs";
 import { posts } from "../blog/posts";
@@ -44,6 +44,7 @@ export default function SiteMapPage() {
             <p className="mt-1 text-sm text-haze-400">Where you use Thunder on your whole application.</p>
             <ul className="mt-4 space-y-3">
               <li><a href={OPENTHUNDER_URL} className="font-medium text-gold-200 hover:text-gold-100">openthunder.dev ↗</a><p className="text-sm text-haze-300">Open a repository, read it in Thunder, change it, and check every change.</p></li>
+              <li><a href={LEARN_COURSE_URL} className="font-medium text-gold-200 hover:text-gold-100">The full ThunderLang course ↗</a><p className="text-sm text-haze-300">Learn Thunder and ThunderLang in depth on Skills Tech Talk, with practice and progress.</p></li>
               <li><a href="https://github.com/SkillsTechTalk/thunderlang" className="font-medium text-gold-200 hover:text-gold-100">Thunder source on GitHub ↗</a><p className="text-sm text-haze-300">The open-source compiler, this site, and the VS Code extension.</p></li>
             </ul>
           </section>

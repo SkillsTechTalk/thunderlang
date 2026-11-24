@@ -9,7 +9,7 @@ import { readCode } from "../../compiler/src/read.mjs";
 import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
 import type { PlainModel } from "../../compiler/src/plain-contract.d.mts";
 import { PROJECT_FACTS } from "@/lib/facts";
-import { OPENTHUNDER_URL } from "@/lib/site";
+import { OPENTHUNDER_URL, LEARN_COURSE_URL } from "@/lib/site";
 import { THUNDERED_SAMPLES } from "@/lib/thundered-samples";
 import { ThunderedTabs, type ThunderedSample } from "@/components/ThunderedTabs";
 
@@ -210,6 +210,10 @@ export default function HomePage() {
             <div className="mt-8 flex justify-center">
               <CTAButtons primary={{ href: "/try", label: "Try it on a refund rule" }} secondary={{ href: "/learn", label: "Take the 10-minute tutorial" }} />
             </div>
+            <p className="mt-5 text-sm text-haze-400">
+              Want to learn Thunder in depth?{" "}
+              <a href={LEARN_COURSE_URL} className="font-medium text-gold-300 hover:text-gold-200">Take the full course on Skills Tech Talk ↗</a>
+            </p>
           </div>
           <div className="relative mx-auto mt-12 max-w-3xl border-t border-white/10 pt-8">
             <p className="flex items-center justify-center gap-2 font-semibold text-white"><ServiceGlyph className="text-gold-300" />See your own app in Thunder with OpenThunder, the IDE for Thunder</p>

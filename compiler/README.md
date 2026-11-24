@@ -8,6 +8,9 @@ result, so intent can be diffed, merged, tested, and trusted.
 
 Part of [ThunderLang](https://thunderlang.dev), the intent language for AI-era software.
 
+**Learn ThunderLang:** the [10-minute tutorial](https://thunderlang.dev/learn), then the
+[full course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
+
 ## Install
 
 ```bash
