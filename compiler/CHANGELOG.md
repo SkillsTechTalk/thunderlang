@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.7
 
 **Language: the five reading levels.** Every Thunder view now offers the same five levels, in this order, with
 these names: **Big Picture** (what is it, and what can it do?), **Flow** (how does it go?), **Details** (exactly
