@@ -115,11 +115,11 @@ test('questions are asked the positive way round', () => {
   assert.deepEqual(askAsQuestion({ says: 'If not self.can_borrow(x)', code: 'if not self.can_borrow(x):' }, 'Can borrow'), { text: 'Can borrow?', flip: true });
 });
 
-test('classes in languages not drawn as Things yet are listed as unknowns, never silently dropped', () => {
+test('a Java class is a Thing too: what it knows and what it can do (every readable language draws Things)', () => {
   const m = thunderModel([{ path: 'Lib.java', source: 'class Library {\n  int maxBooks = 3;\n  boolean canBorrow(int out) { return out < 3; }\n}\n' }]);
-  assert.equal(m.things.length, 0);
-  assert.match(m.unknowns[0].why, /not drawn as Things yet/);
-  assert.ok(m.members.some((x) => x.name === 'canBorrow'));
+  assert.deepEqual(m.things.map((t) => [t.name, t.kind, t.knows.map((k) => `${k.label}: ${k.start}`)]), [['Library', 'thing', ['max books: 3 at first']]]);
+  assert.equal(m.members.find((x) => x.name === 'canBorrow').owner, m.things[0].id);
+  assert.equal(m.unknowns.length, 0);
 });
 
 test('TypeScript classes, interfaces, and enums become Things, records, and choices', () => {

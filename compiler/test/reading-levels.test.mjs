@@ -77,7 +77,7 @@ test('Details for an action: what goes in, what it changes, every Stop with the 
   assert.deepEqual(d.changes.map((c) => c.text), ['Sets the book\'s status to "borrowed"', "Adds book to student's books"]);
   assert.deepEqual(d.stops.map((s) => [s.error, s.message, s.when.map((w) => `${w.question} ${w.answer}`)]), [
     ['NotAvailable', 'Someone else has this book', ['Is the book\'s status "on shelf"? No']],
-    ['CannotBorrow', 'Return a book first', ['Can borrow? No']],
+    ['CannotBorrow', 'Return a book first', ['Is the book\'s status "on shelf"? Yes', 'Can borrow? No']],
   ]);
   assert.deepEqual(d.reliesOn.map((r) => [r.label, r.says]), [['Can borrow?', 'Answers Yes or No.']]);
 });

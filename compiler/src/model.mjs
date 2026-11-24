@@ -6,10 +6,11 @@ import { readCode } from './read.mjs';
 import { readableLanguage } from './read-repo.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
+import { makeThingReaders } from './things-langs.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
-export const THING_LANGUAGES = ['python', 'typescript', 'javascript'];
+export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby'];
 
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -20,35 +21,39 @@ function startValue(expr, params = {}) {
   const e = String(expr ?? '').trim();
   if (!e) return null;
   if (e in params) return params[e] != null ? `${startValue(params[e])?.replace(/ at first$/, '')} unless told otherwise` : 'given when it starts';
-  if (/^(\[\]|\{\}|list\(\)|dict\(\)|set\(\)|new (Map|Set|Array)\(\)|\[\]\s*as\s+.+)$/.test(e)) return 'empty at first';
-  if (/^(None|null|undefined)$/.test(e)) return 'nothing at first';
+  if (/^(\[\]|\{\}|list\(\)|dict\(\)|set\(\)|new (Map|Set|Array)\(\)|\[\]\s*as\s+.+|array\(\)|new \w*(?:List|Map|Set|Dictionary|HashMap|HashSet|ArrayList|LinkedList)(?:<[^>]*>)?\(\)|(?:mutable)?(?:List|Map|Set|listOf|mapOf|setOf|mutableListOf|mutableMapOf|mutableSetOf|emptyList|emptyMap|arrayListOf)(?:<[^>]*>)?\(\)|(?:List|Set|Map)\.of\(\)|Vec::new\(\)|vec!\[\]|HashMap::new\(\)|String::new\(\)|\[\]\w+\{\}|make\(\[\][^)]*\)|new\(\)|Hash\.new|\{\s*\})$/.test(e)) return 'empty at first';
+  if (/^(None|null|undefined|nil|NULL|Option::None)$/.test(e)) return 'nothing at first';
   if (/^(True|true)$/.test(e)) return 'yes at first';
   if (/^(False|false)$/.test(e)) return 'no at first';
   if (/^-?\d+(\.\d+)?$/.test(e)) return `${e} at first`;
   if (/^[rbuf]*["'`].*["'`]$/.test(e)) return `"${stripQuotes(e)}" at first`;
-  const en = e.match(/^[A-Z]\w*\.([A-Z][A-Z0-9_]+)$/);
+  const en = e.match(/^[A-Z]\w*(?:\.|::)([A-Z][A-Z0-9_]+|[A-Z][a-z]\w*)$/);
   if (en) return `${words(en[1])} at first`;
   return 'worked out when it starts';
 }
 
 const KIND_WORDS = [
-  [/^(int|float|number|double|long|decimal|Decimal|bigint)$/i, 'a number'],
-  [/^(str|string|String|text)$/i, 'words'],
-  [/^(bool|boolean)$/i, 'yes or no'],
-  [/^(date|datetime|Date|LocalDate|Instant)$/i, 'a date'],
+  [/^(int|float|number|double|long|short|decimal|Decimal|bigint|BigDecimal|BigInteger|Integer|Int|Long|Double|Float|Short|Byte|byte|uint|usize|isize|[iuf](?:8|16|32|64|128)|int(?:8|16|32|64)|uint(?:8|16|32|64)|float(?:32|64)|Number)$/, 'a number'],
+  [/^(str|string|String|text|&str|&'static str|char|Char|Character|rune)$/, 'words'],
+  [/^(bool|boolean|Boolean|Bool)$/, 'yes or no'],
+  [/^(date|datetime|Date|LocalDate|LocalDateTime|Instant|DateTime|DateTimeOffset|ZonedDateTime|time\.Time|NaiveDate|NaiveDateTime|DateTimeImmutable)$/, 'a date'],
 ];
 function kindWords(type) {
   const t = String(type ?? '').trim();
   if (!t) return null;
   for (const [re, w] of KIND_WORDS) if (re.test(t)) return w;
-  const list = t.match(/^(?:list|List|Array|Sequence|Iterable)\[(.+)\]$|^Array<(.+)>$|^(.+)\[\]$/);
-  if (list) return `a list of ${(list[1] || list[2] || list[3]).trim()}s`;
-  const opt = t.match(/^Optional\[(.+)\]$|^(.+?)\s*\|\s*None$|^(.+?)\s*\|\s*(null|undefined)$/);
-  if (opt) return `${kindWords(opt[1] || opt[2] || opt[3]) ?? `a ${opt[1] || opt[2] || opt[3]}`}, or nothing`;
+  const list = t.match(/^(?:list|List|Array|Sequence|Iterable)\[(.+)\]$|^(?:Array|List|ArrayList|LinkedList|Vec|VecDeque|IList|IEnumerable|ICollection|IReadOnlyList|Collection|Set|HashSet|MutableList|MutableSet|Sequence|Iterable)<(.+)>$|^(.+)\[\]$|^\[\](.+)$/);
+  if (list) { const inner = (list[1] || list[2] || list[3] || list[4]).trim(); return `a list of ${kindWords(inner)?.replace(/^an? /, '') ?? inner}s`.replace(/wordss$/, 'words').replace(/ys$/, 'ies').replace(/(yes or no)s$/, '$1 answers'); }
+  const opt = t.match(/^Optional\[(.+)\]$|^(.+?)\s*\|\s*None$|^(.+?)\s*\|\s*(null|undefined)$|^(?:Option|Optional|Nullable)<(.+)>$|^(.+)\?$|^\*(\w+)$/);
+  if (opt) { const inner = opt[1] || opt[2] || opt[3] || opt[5] || opt[6] || opt[7]; return `${kindWords(inner) ?? `a ${inner}`}, or nothing`; }
+  const map = t.match(/^(?:Map|HashMap|Dictionary|IDictionary|MutableMap|BTreeMap|dict|Dict|Record)[<\[]/) || /^map\[/.test(t);
+  if (map) return 'a lookup table';
   return /^[A-Z]/.test(t) ? `a ${t}` : null;
 }
 
-// ── Things: classes, records, and choices ───────────────────────────────────────────────────────────────
+const thingsFor = makeThingReaders({ words: (x) => words(x), kindWords: (x) => kindWords(x), startValue: (x, p) => startValue(x, p) });
+
+// ── Things: classes, records, and choices ───────────────────────────────────────────────────────────
 
 function pythonThings(src, file) {
   const lines = src.split('\n');
@@ -373,7 +378,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     let reading;
     try { reading = readCode(f.source, { language, file: f.path }); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
     let fileThings = [];
-    try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : THING_LANGUAGES.includes(language) ? tsThings(f.source, f.path) : []; }
+    try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
     if (!THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
@@ -383,10 +388,11 @@ export function thunderModel(files, { name = 'app' } = {}) {
     fileInfo.push({ path: f.path, language, ...(moduleDoc ? { purpose: moduleDoc } : {}) });
 
     const fns = reading.items.filter((i) => i.kind === 'function' || i.kind === 'decision');
-    const fileMembers = fns.map((item) => {
-      const owner = fileThings.filter((t) => item.line > t.lines[0] && item.line <= t.lines[1]).sort((a, b) => b.lines[0] - a.lines[0])[0];
+    const declaredThing = (item) => fileThings.some((t) => t.name === item.name && t.lines[0] === item.line);
+    const fileMembers = fns.filter((item) => !declaredThing(item)).map((item) => {
+      const owner = fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0];
       const v = visualFor(item);
-      const setup = /^(__init__|constructor|init|New)$/.test(item.name) && owner;
+      const setup = (/^(__init__|constructor|init|New|__construct|initialize|new)$/.test(item.name) || (owner && item.name === owner.name)) && owner;
       const kind = setup ? 'setup' : v.element === 'action' ? 'action' : v.element === 'decision' ? 'rule' : v.element === 'not-read' ? 'not-read' : 'steps';
       const bodyEnd = item.anchor?.bodyLines?.[1] ?? Math.max(item.line, ...(item.rules || []).map((r) => r.line || 0), item.otherwise?.line || 0);
       let rule = null;
@@ -417,6 +423,14 @@ export function thunderModel(files, { name = 'app' } = {}) {
       delete m._steps; delete m._item;
       members.push(m);
     }
+  }
+  for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
+  // An empty class (no facts, nothing it can do) is not a Thing a person needs to see: an error type is already shown
+  // where it stops a path, and any other empty class is a named record with no facts.
+  for (let i = things.length - 1; i >= 0; i--) {
+    const t = things[i];
+    if (t.kind !== 'thing' || t.knows.length || members.some((x) => x.owner === t.id)) continue;
+    if (/(Exception|Error)$/.test(t.name)) things.splice(i, 1); else t.kind = 'record';
   }
   return { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns };
 }
@@ -512,6 +526,7 @@ const CHANGES = /^(Sets|Adds|Removes|Subtracts|Clears|Marks|Saves|Deletes|Update
 function pathsOf(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
+  const ends = (blocks) => { const last = byId.get((blocks || []).at(-1)?.id); return !!last && (last.kind === 'stop' || last.kind === 'end'); };
   const walk = (blocks, when) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
@@ -523,6 +538,13 @@ function pathsOf(flow) {
       walk(b.body, when);
       for (const h of b.handlers || []) { const hn = byId.get(h.id); walk(h.blocks, [...when, { question: (hn?.text ?? '').replace(/\?$/, ''), answer: 'Yes' }]); }
       if (b.always) walk(b.always.blocks, when);
+      // A question whose one side ends the path (a Stop or an answer) guards everything after it: what follows only
+      // happens on the other side. "Gives back org" happens when "Is org set?" is Yes, not always.
+      if (n?.kind === 'decision' && (b.yes || b.no)) {
+        const yesEnds = ends(b.yes), noEnds = ends(b.no);
+        if (yesEnds && !noEnds) when = [...when, { question: q, answer: 'No' }];
+        else if (noEnds && !yesEnds) when = [...when, { question: q, answer: 'Yes' }];
+      }
     }
   };
   walk(flow.blocks, []);

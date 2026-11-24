@@ -1,5 +1,16 @@
 # Unreleased
 
+**Language: Big Picture in all ten languages.** Classes, structs, records, data classes, and enums become Things,
+Data, and Choices in Java, C#, Kotlin, PHP, Go, Rust, and Ruby, as they already did in Python, TypeScript, and
+JavaScript: what each knows (with its kind in words and how it starts, from constructors, `init`, `__construct`,
+`initialize`, Go `NewX`, and Rust `new`), its choices, its doc comment, and what it can do. Go methods with a
+receiver and Rust `impl` blocks belong to their type although they are written outside it. Interfaces and traits
+are contracts, not Things. Empty error classes are left out (errors show where they stop a path); other empty classes
+are records. Checked on cobra, log, MediatR, gson, timber, guzzle, and sinatra.
+
+**Language: Details for web handlers.** What follows a guard that can stop only happens on its other side (an
+action's answer says "when Is org set? Yes", not "Always"), and a returned object names its keys ("Gives back org,
+repos, avg, and failing").
 **Language: functions inside functions, values chosen by if / match / when, do … while, and Go select are read.**
 Fewer steps are left as code ("Not read yet"); see docs/language-audit.md for the numbers on 11 open-source repos
 (formik branches shown 52% → 91%, timber 73% → 91%, cobra 64% → 81%).

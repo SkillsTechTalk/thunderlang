@@ -125,7 +125,8 @@ test('a yes/no property reads as a sentence; a plain property used as a conditio
 test('arithmetic in parentheses is a computed value, not an object; += says what it adds', async () => {
   const { classifyStatement } = await import('../src/steps.mjs');
   assert.equal(classifyStatement('return (dough.thickness * 17 + 220) % 300').says, 'Returns a computed value');
-  assert.equal(classifyStatement('return ({ a: 1 })').says, 'Returns an object');
+  assert.equal(classifyStatement('return ({ a: 1 })').says, 'Returns a', 'an object names its keys');
+  assert.equal(classifyStatement('return {}').says, 'Returns an object');
   assert.equal(classifyStatement('total += item.price').says, 'Adds item price to total');
   assert.equal(classifyStatement('count += 1').says, 'Adds 1 to count');
 });

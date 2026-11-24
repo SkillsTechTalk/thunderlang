@@ -301,6 +301,31 @@ function redirectOf(head) {
   return { kind: isReturn ? 'return' : 'call', says: `Sends the person to ${to}`, redirect: to };
 }
 
+/** The top-level keys of an object literal: `{ org, repos: list, ...rest, 'avg': x }` -> ['org', 'repos', 'avg']. */
+function objectKeys(expr) {
+  const open = expr.indexOf('{');
+  if (open < 0) return [];
+  let close = -1;
+  for (let i = open, d = 0; i < expr.length; i++) {
+    const c = expr[i];
+    if (c === '"' || c === "'" || c === '`') { for (i++; i < expr.length && expr[i] !== c; i++) if (expr[i] === '\\') i++; continue; }
+    if (c === '{') d++; else if (c === '}' && --d === 0) { close = i; break; }
+  }
+  if (close < 0) return [];
+  const inner = expr.slice(open + 1, close);
+  const keys = [];
+  let depth = 0, cur = '';
+  const take = (part) => { const m = part.trim().match(/^(?:["'](\w+)["']|(\w+))\s*(?::|$|\()/); if (m && !part.trim().startsWith('...')) keys.push(m[1] || m[2]); };
+  for (const c of inner) {
+    if ('([{'.includes(c)) depth++;
+    if (')]}'.includes(c)) depth--;
+    if (c === ',' && depth === 0) { take(cur); cur = ''; } else cur += c;
+  }
+  if (cur.trim()) take(cur);
+  return keys.length > 8 ? [...keys.slice(0, 7), 'more'] : keys;
+}
+const listWords = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')}${xs.length > 2 ? ',' : ''} and ${xs.at(-1)}`);
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
@@ -379,7 +404,11 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     }
     const chain = sayChain(expr);
     if (chain) return { kind: 'return', says: `Returns ${chain}`, code };
-    if (/^\(?\s*\{/.test(expr)) return { kind: 'return', says: 'Returns an object', code };
+    if (/^\(?\s*\{/.test(expr)) {
+      // Name what is in it: { org, repos, avg: x } -> "Returns org, repos, and avg".
+      const keys = objectKeys(expr);
+      return { kind: 'return', says: keys.length ? `Returns ${listWords(keys.map(words))}` : 'Returns an object', code, ...(keys.length ? { keys } : {}) };
+    }
     if (/^\(?\s*</.test(expr)) return { kind: 'return', says: 'Returns what to show on screen', code };
     const v = sayValue(expr) || sayWhether(expr);
     return { kind: 'return', says: v ? `Returns ${v}` : 'Returns a computed value', code, ...(v ? {} : { value: clip(expr, 60) }) };
