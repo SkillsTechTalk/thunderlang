@@ -18,6 +18,13 @@ const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 // __init__), written in any convention: app/delivery.py#delivery_fee pairs with app/delivery.ts#deliveryFee.
 const stemKey = (path) => nameKey(String(path).replace(/\.[^./]+$/, '').replace(/\\/g, '/'));
 
+// Only what compareItems needs is kept, so comparing a whole app does not hold every reading in memory: rules keep
+// their item (their answers are run), lists of steps keep only their flattened signatures and text.
+function compact(it, key, file, language) {
+  const base = { key, file, language, name: it.name, kind: it.kind, line: it.line, route: it.route, element: visualFor(it).element };
+  return it.kind === 'decision' ? { ...it, ...base } : { ...base, flat: flatSteps(it.steps) };
+}
+
 function readAll(files) {
   const items = new Map(), byName = new Map(), unreadable = [];
   for (const f of files) {
@@ -31,7 +38,7 @@ function readAll(files) {
       const n = nameKey(it.name);
       const nth = (seen.get(n) || 0) + 1; seen.set(n, nth);
       const key = `${stemKey(f.path)}#${n}${nth > 1 ? `#${nth}` : ''}`;
-      items.set(key, { ...it, key, file: f.path, language });
+      items.set(key, compact(it, key, f.path, language));
       byName.set(n, byName.has(n) ? null : key); // null marks a name used more than once
     }
   }
@@ -90,9 +97,9 @@ const flatSteps = (steps, depth = 0) => (steps || []).flatMap((s) => [
 ]);
 
 function compareItems(o, n) {
-  const vo = visualFor(o), vn = visualFor(n);
+
   const where = { old: { file: o.file, line: o.line, language: o.language }, new: { file: n.file, line: n.line, language: n.language } };
-  if (vo.element === 'not-read' || vn.element === 'not-read') return { status: 'cannot-check', reason: 'Thunder cannot read one side yet, so it cannot confirm they mean the same.', ...where };
+  if (o.element === 'not-read' || n.element === 'not-read') return { status: 'cannot-check', reason: 'Thunder cannot read one side yet, so it cannot confirm they mean the same.', ...where };
   if (o.kind !== n.kind) return { status: 'different', reason: `One is a ${o.kind === 'decision' ? 'rule' : 'list of steps'}, the other is a ${n.kind === 'decision' ? 'rule' : 'list of steps'}.`, ...where };
   if ((o.route?.method || '') !== (n.route?.method || '') || (o.route?.path || '') !== (n.route?.path || '')) {
     return { status: 'different', reason: `The address changed: ${o.route ? `${o.route.method} ${o.route.path}` : 'none'} became ${n.route ? `${n.route.method} ${n.route.path}` : 'none'}.`, ...where };
@@ -107,7 +114,7 @@ function compareItems(o, n) {
     }
     return { status: 'different', reason: r.reason, ...where };
   }
-  const so = flatSteps(o.steps), sn = flatSteps(n.steps);
+  const so = o.flat, sn = n.flat;
   const at = so.findIndex((s, i) => s.sig !== sn[i]?.sig);
   if (at === -1 && so.length === sn.length) return { status: 'same', reason: `Same ${so.length} steps.`, ...where };
   const i = at === -1 ? Math.min(so.length, sn.length) : at;
