@@ -8,6 +8,7 @@ import type { ThunderModel, LevelId, LevelView } from "../../../compiler/src/mod
 import { LEVELS, THUNDER_VISUAL, thunderTokens } from "../../../compiler/src/visual.mjs";
 import { explainPlain } from "../../../compiler/src/plain-contract.mjs";
 import { Symbol, ThingCard, DataCard, FlowBlocks, HEX, focus, type SymbolId } from "./ThunderParts";
+import { sourceLines } from "../../lib/source-tokens.mjs";
 
 /** The same answer words the flow uses: BigFee -> Big fee, true -> Yes. */
 const answerWords = (r: string) => (/^true$/i.test(r) ? "Yes" : /^false$/i.test(r) ? "No" : ((w) => w.charAt(0).toUpperCase() + w.slice(1))(String(r).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase()));
@@ -230,6 +231,8 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
   initialFocus?: string; initialLevel?: LevelId; editable?: boolean; onSourceChange?: (s: string) => void;
 }) {
   const model = useMemo<ThunderModel | null>(() => { try { return thunderModel([{ path: file, source }], { name: name ?? file }) as ThunderModel; } catch { return null; } }, [source, file, name]);
+  // The Original level in editor colors, language from the file name (plain text if unsupported).
+  const lines = useMemo(() => sourceLines(source, file), [source, file]);
   const firstMember = model?.members.find((m) => m.name === initialFocus)?.id ?? null;
   const [level, setLevel] = useState<LevelId>(initialLevel);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -247,7 +250,6 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
   const open = (id: string) => { setFocusId(id); setHighlight(null); setLevel(model.members.some((m) => m.id === id) ? "flow" : "big-picture"); };
   const showLine = (l: number) => { setHighlight([l, l]); setLevel("original"); };
   const current = LEVELS.find((l) => l.id === level)!;
-  const lines = source.split("\n");
   const focusLines = highlight ?? view.lines;
 
   return (
@@ -330,10 +332,11 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
         {level === "original" && (
           <figure>
             <figcaption className="mb-2 flex flex-wrap items-center gap-3 text-sm text-haze-300">{file}{focusLines && <span className="text-haze-400">· lines {focusLines[0]}–{focusLines[1]} highlighted</span>}</figcaption>
-            <pre className="max-h-[640px] overflow-auto rounded-2xl border border-white/10 bg-black/40 py-3 font-mono text-[13px] leading-relaxed">
+            <pre className="max-h-[640px] overflow-auto rounded-2xl border border-white/10 bg-black/40 py-3 font-mono text-[13px] leading-relaxed text-haze-200">
               {lines.map((l, i) => {
                 const on = focusLines && i + 1 >= focusLines[0] && i + 1 <= focusLines[1];
-                return <div key={i} className={`flex gap-4 px-4 ${on ? "bg-gold-400/[0.12]" : ""}`}><span className="w-8 shrink-0 select-none text-right text-haze-500">{i + 1}</span><code className={on ? "text-white" : "text-haze-300"}>{l || " "}</code></div>;
+                // Highlighted lines get a tint and a bar at the edge, so they stand out without relying on color.
+                return <div key={i} className={`flex gap-4 border-l-2 pl-[14px] pr-4 ${on ? "border-gold-300 bg-gold-400/[0.12]" : "border-transparent"}`}><span className={`w-8 shrink-0 select-none text-right ${on ? "text-haze-200" : "text-haze-400"}`}>{i + 1}</span><code>{l.length ? l.map((t, k) => <span key={k} className={t.cls}>{t.text}</span>) : " "}</code></div>;
               })}
             </pre>
             {editable && onSourceChange && (

@@ -3,6 +3,7 @@
 // component only lays it out: the idea, a picture to hold in mind, the code, Thunder, Thunder Text, and questions you
 // answer before revealing ours.
 import { useState } from "react";
+import { HighlightedCode } from "@/lib/highlight";
 import Link from "next/link";
 import { StepsView, type Step } from "@/app/try/StepsView";
 import { PlainRuleCard } from "@/app/try/PlainRuleCard";
@@ -112,7 +113,7 @@ function Code({ code, label }: { code: string; label: string }) {
   return (
     <figure>
       <figcaption className="mb-2 text-sm font-medium text-haze-300">The code ({label})</figcaption>
-      <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-haze-100"><code>{code}</code></pre>
+      <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-haze-200"><code><HighlightedCode source={code} lang={label} /></code></pre>
     </figure>
   );
 }
