@@ -1598,6 +1598,9 @@ function splitStatements(body, baseLine) {
         if (/^[A-Za-z_]\w*\s*:$/.test(before) && !/^(?:public|private|protected|else)\s*:$/.test(before)) { i++; break; }
         // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
         if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
+        // (Nested: `for (…)\n  if (…)\n    return 1;` is one statement: the last line is itself a brace-less header.)
+        const lastLine = before.slice(before.lastIndexOf('\n') + 1).trim();
+        if (lastLine !== before && /^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && /^(?:if|for|foreach|while)\s*\(/.test(lastLine) && headerClosed(lastLine)) continue;
         if (/^(?:\}\s*)?else$/.test(before)) continue;
         // (`do { … }` with its `while (…)` on the next line, Allman style, is one statement.)
         if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after) && !(/^(?:do|repeat)\b/.test(before) && /\}$/.test(before) && /^while\b/.test(after))) { i++; break; }

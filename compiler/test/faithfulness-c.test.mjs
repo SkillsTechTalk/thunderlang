@@ -47,3 +47,35 @@ test('a goto label keeps its name exactly inside quotes (names are not turned in
   assert.match(t, /Jumps to the "object_first" part/);
   assert.match(t, /The "object_first" part starts here/);
 });
+
+test('redis#5: a brace-less for holding a brace-less if keeps the return inside both (it is not given back always)', () => {
+  const t = thunderText('a.c', 'int contains(slotRangeArray *slots, unsigned int slot) {\n    for (int i = 0; i < slots->num_ranges; i++)\n        if (slots->ranges[i].start <= slot && slots->ranges[i].end >= slot)\n            return 1;\n    return 0;\n}\n');
+  assert.match(t, /Counts i from 0 while i is less than slots\.num_ranges.*\n    For each:\n      - Ask: .*\n        Yes:\n          - Gives back 1/);
+  assert.match(t, /\n  - Gives back 0/);
+  assert.doesNotMatch(t, /\n  - Gives back 1/);
+});
+
+test('redis#1: a brace-less for keeps its one statement, and an indexed field keeps its index and field', () => {
+  const t = thunderText('a.c', 'void init(aeEventLoop *eventLoop) {\n    int i;\n    for (i = 0; i < eventLoop->nevents; i++)\n        eventLoop->events[i].mask = AE_NONE;\n}\n');
+  assert.match(t, /For each:\n\s+- Sets the mask of eventLoop\.events\[i\] to ae none/);
+  assert.doesNotMatch(t, /Sets the event loop's events to/);
+});
+
+test('redis#7/#10: two names declared at once are code; `unsigned long long x = f()` is a value, not a call to unsigned', () => {
+  const t = thunderText('a.c', 'void f(int *eb) {\n    eItem newitem, curitem = ebGetListPtr(type, *eb);\n    unsigned long long keys_count = kvstoreSize(kvs);\n}\n');
+  assert.match(t, /`eItem newitem, curitem = ebGetListPtr\(type, \*eb\);` \(code, not explained\)/);
+  assert.match(t, /Works out keys count from kvstore size/);
+  assert.doesNotMatch(t, /Calls e item|Calls unsigned/);
+});
+
+test('redis#19/#21: a value under an index keeps its owner (`c->argv[j]->ptr`, `c->argv[1]`)', () => {
+  const t = thunderText('a.c', 'void cmd(client *c) {\n    char *opt = c->argv[j]->ptr;\n    robj *key = c->argv[1];\n}\n');
+  assert.match(t, /Sets opt to the ptr of c\.argv\[j\]/);
+  assert.match(t, /Sets key to the 1 entry in the c's argv/);
+  assert.doesNotMatch(t, /the j's ptr|the argv's 1/);
+});
+
+test('redis#9: `!strcasecmp(u, "m")` asks whether u is "m" (the gate knows it is a comparison)', () => {
+  const t = thunderText('a.c', 'double unit(char *u) {\n    if (!strcasecmp(u, "m")) {\n        return 1;\n    }\n    return -1;\n}\n');
+  assert.equal(sideOf(t, /Ask: Is u "m"\?/, /Gives back 1/), 'yes');
+});

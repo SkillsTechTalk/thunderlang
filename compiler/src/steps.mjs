@@ -120,7 +120,19 @@ const KNOWN_CALLS = [
 ];
 
 /** entry['easy'] -> "the entry's easy"; $x->y -> "the x's y"; plain names as words. */
-const possessiveWords = (path) => { const parts = String(path).replace(/^\$/, '').replace(/\[\s*['"]?([\w$]+)['"]?\s*\]/g, '.$1').split(/\.|->/).filter((x) => x && !/^(self|this)$/.test(x)); return parts.length > 1 ? `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}` : words(parts[0] || path); };
+const possessiveWords = (path) => {
+  if ((C_FAMILY.has(LANG) || LANG === 'swift') && /\[/.test(String(path)) && !/\[\s*['"]/.test(String(path))) return indexedWords(String(path).replace(/->/g, '.'));
+  return possessivePlain(path);
+};
+/** A path with an index in it, owners kept: `c.argv[j].ptr` -> "the ptr of c.argv[j]", `c.argv[1]` -> "the 1 entry in c.argv". */
+function indexedWords(p) {
+  const t = p.replace(/^(?:self|this)\./, '');
+  let m;
+  if ((m = t.match(/^(.*\])\.([A-Za-z_]\w*)$/))) return `the ${words(m[2])} of ${m[1]}`;
+  if ((m = t.match(/^([\w.]+)\[\s*([^\[\]]+?)\s*\]$/))) return `the ${m[2]} entry in ${m[1].includes('.') ? possessivePlain(m[1]) : words(m[1])}`;
+  return possessivePlain(p);
+}
+const possessivePlain = (path) => { const parts = String(path).replace(/^\$/, '').replace(/\[\s*['"]?([\w$]+)['"]?\s*\]/g, '.$1').split(/\.|->/).filter((x) => x && !/^(self|this)$/.test(x)); return parts.length > 1 ? `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}` : words(parts[0] || path); };
 
 /** Enum values read as words: Status.ON_SHELF -> "on shelf", Color.RED -> "red". */
 // (Constants of the number and text classes are not choices: `Integer.TYPE`, `Long.MAX_VALUE` stay as written.)
@@ -182,7 +194,8 @@ function sayAtom(atom) {
   }
   const said = sayAtomWords(a);
   // (C and C++ write the empty pointer as NULL or nullptr: for the gate it is null, so `p != nullptr` is "p is set".)
-  const gated = C_FAMILY.has(LANG) ? a.replace(/\b(?:nullptr|NULL)\b/g, 'null') : a;
+  // (`!strcmp(a, b)` and `strcmp(a, b) == 0` ask whether a is b; the reader says them that way.)
+  const gated = C_FAMILY.has(LANG) ? a.replace(/\b(?:nullptr|NULL)\b/g, 'null').replace(/(!\s*)?\b(?:strcmp|strcasecmp|strncmp|strncasecmp)\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*(?:,[^()]*)?\)(\s*(==|!=)\s*0\b)?/g, (all, neg, x, y, cmp, op) => (neg || op === '==' ? `${x} == ${y}` : `${x} != ${y}`)) : a;
   if (said == null || isCodeWords(said) || !accountsFor(gated, said)) return null;
   return said;
 }
@@ -301,6 +314,8 @@ function matchingClose(str, open) {
 const lastWords = (path) => words(String(path).split('.').pop());
 /** "cmd.commandCalledAs.called" -> "called on command called as"; "this.count" -> "count". */
 function targetWords(path) {
+  // (C, C++, Swift: an index keeps its place, `events[i].mask` is "the mask of events[i]", never just "events".)
+  if ((C_FAMILY.has(LANG) || LANG === 'swift') && /\[[^\]]*\]\s*(?:\.|->)/.test(String(path))) return indexedWords(String(path).replace(/->/g, '.'));
   const parts = String(path).replace(/^[@$]+/, '').replace(/#/g, '').replace(/\[.*$/, '').split('.').filter((p) => !/^(this|self)$/.test(p));
   if (parts.length <= 1) return words(parts[0] || path);
   return `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}`;
@@ -654,7 +669,7 @@ const NOT_A_TYPE = /^(?:return|throw|yield|await|new|delete|case|goto|else|typeo
  * `String x = …` is left to the typed-declaration reading.
  */
 function cDeclaration(head) {
-  const m = String(head).match(/^((?:(?:static|const|constexpr|volatile|register|unsigned|signed|struct|enum|union|thread_local|mutable|inline)\s+)*)((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:<[^=;]*?>)?)(\s*[*&]+\s*|\s+)((?:const\s+)?[a-zA-Z_]\w*)\s*(?:\[[^\]]*\])*\s*(?:=(?!=)\s*(.*?)|(\{[^{}]*\}|\([^()]*\)))?\s*;?\s*$/);
+  const m = String(head).match(/^((?:(?:static|const|constexpr|volatile|register|unsigned|signed|struct|enum|union|thread_local|mutable|inline|long(?=\s+(?:long|int|double|unsigned)\b)|short(?=\s+int\b))\s+)*)((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*(?:<[^=;]*?>)?)(\s*[*&]+\s*|\s+)((?:const\s+)?[a-zA-Z_]\w*)\s*(?:\[[^\]]*\])*\s*(?:=(?!=)\s*(.*?)|(\{[^{}]*\}|\([^()]*\)))?\s*;?\s*$/);
   if (!m || NOT_A_TYPE.test(m[2]) || NOT_A_TYPE.test(m[4].replace(/^const\s+/, ''))) return null;
   const type = m[2], pointer = /[*&]/.test(m[3]), quals = m[1].trim();
   // Leave `String name = …`, `int x = …`, `auto x = …` to the typed reading unless it is plainly C (a pointer, a
@@ -1090,6 +1105,8 @@ function sayExactly(first, head) {
     const text = swiftTextWithValues(args[0]);
     if (text) return { kind: 'call', says: `Writes a log or message: ${text}`, callee: m[1] };
   }
+  // `eItem newitem, curitem = f(x);` declares two names at once: shown as code (it is not a call to eItem).
+  if (c && /^(?:(?:const|unsigned|signed|struct|static|long|short)\s+)*[A-Za-z_][\w:]*(?:\s*\*+\s*|\s+)\**[A-Za-z_]\w*\s*(?:=|,)/.test(t) && !/^(?:return|else|case|goto|delete|throw|new|sizeof)\b/.test(t) && splitTopArgs(t).length > 1) return { kind: 'other', says: clip(t, 70) };
   if (c) {
     // `*out = v` writes v where out points (out itself does not change); `*p++ = v` is shown as code.
     if ((m = t.match(/^\*\s*([A-Za-z_][\w.]*(?:->[A-Za-z_]\w*)*)\s*=(?!=)\s*(.+)$/))) {
@@ -1154,6 +1171,17 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   const innerNote = inner ? ` (${inner} step${inner === 1 ? '' : 's'} inside)` : '';
   const exact = C_FAMILY.has(LANG) || LANG === 'swift' ? sayExactly(first, head) : null;
   if (exact) return { ...exact, code };
+  // A brace-less C loop: `for (…)\n    stmt;` is the loop with that one statement inside it (never the header alone).
+  if (C_FAMILY.has(LANG) && /^(?:for|while)\s*\(/.test(text)) {
+    const flat = text.replace(/\s+/g, ' ').trim();
+    const close = closeOf(flat, flat.indexOf('('));
+    const rest = close > 0 ? flat.slice(close + 1).trim() : '';
+    if (rest && !/^[{;]/.test(rest)) {
+      const loop = classifyStatement(flat.slice(0, close + 1));
+      if (loop.kind === 'loop') return { ...loop, says: loop.says.replace(/ \(\d+ steps? inside\)$/, ''), code: clip(flat.slice(0, close + 1), 90), inline: rest };
+      return { kind: 'other', says: clip(flat, 70), code: clip(flat, 90) };
+    }
+  }
   // C and C++ read like the rest once `p->x` is `p.x`, C casts are dropped, and `Type *name = v` is `var name = v`.
   if (C_FAMILY.has(LANG)) head = cNormalize(head);
   // `if (x) [[unlikely]] {`: the attribute is a hint to the compiler, not part of the check or the block.
