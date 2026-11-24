@@ -269,6 +269,8 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | GitHub Actions | works today (section 12) | each job, with a "When" badge | `if:` as a question | the workflow's `name:` | **Permissions** and **Settings** |
 | Terraform | works today (section 12) | (none: it describes what exists) | `count = cond ? 1 : 0` as a question | `#` comment above a block | each `resource`, `data`, and `module` is a **Resource**; role assignments and IAM policies are **Permissions** |
 | Bicep | works today (section 12) | (none: it describes what exists) | `if (…)` as a question | `//` comment or `@description` above | each `resource` (`existing` is looked up) and `module` is a **Resource**; role assignments are **Permissions** |
+| Kubernetes | works today (section 12) | (none: it describes what runs) | (none) | `#` comment above a resource | each resource (`Deployment/api`) is a **Resource**; RBAC roles and bindings are **Permissions** |
+| Docker Compose | works today (section 12) | (none: it describes what runs) | `profiles:` as a question | the file's `name:` | each service, named volume, network, secret, and config is a **Resource** |
 
 ### SQL
 
@@ -332,10 +334,10 @@ whole of it without learning each format first.
 
 ### New elements
 
-**Status:** Dockerfile, GitHub Actions, Terraform (`.tf`), and Bicep are read today (Image build, Pipeline,
-Resource, Connection, Permission, Setting). Connections use all four kinds (`uses`, `runs-in`, `reads-from`,
-`sends-to`). Kubernetes, Docker Compose, Helm, Azure Pipelines, ARM JSON, CloudFormation, Ansible, and `.tf.json` are
-planned.
+**Status:** Dockerfile, GitHub Actions, Terraform (`.tf`), Bicep, Kubernetes YAML, and Docker Compose are read today
+(Image build, Pipeline, Resource, Connection, Permission, Setting). Connections use all four kinds (`uses`,
+`runs-in`, `reads-from`, `sends-to`). Helm (its templates are listed as not read, with the reason), Azure Pipelines,
+ARM JSON, CloudFormation, Ansible, and `.tf.json` are planned.
 
 Terraform and Bicep read the same way:
 
@@ -368,6 +370,68 @@ Terraform and Bicep read the same way:
   or bucket access), `secret-in-plain-config` (a secret-looking argument or default written in the file),
   `encryption-off` (encryption or HTTPS turned off, or TLS 1.0/1.1 accepted, where the file says so), and
   `wide-permission`.
+
+Kubernetes YAML (a `.yaml` or `.yml` file whose first lines have `apiVersion:` and `kind:`; several documents per
+file, and `kind: List`) reads this way:
+
+- Each resource is a Resource with its `kind` as written (`Deployment`, `Service`, a custom kind too) and the address
+  `Kind/name`, or `Kind/namespace/name` outside the default namespace. A comment right above it is its note.
+- A **workload** (Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod) knows how many copies run, the image ("no
+  tag, so whatever latest is when it starts"), how it starts, its ports, each setting (a literal value unless the name
+  looks secret; `secretKeyRef` reads "the secret value password in the Secret db-creds (only its name is shown)"),
+  CPU and memory ("Asks for 0.1 CPU and 128 MiB of memory"), its health checks in words ("Ready for traffic when a
+  web request to /healthz on port 8080 succeeds"), the user it runs as, and where each volume is mounted. A CronJob
+  says when it runs ("every day at 02:00 (the cluster's time zone)").
+- A **Service** says who can reach it (inside the cluster only; a NodePort or LoadBalancer from outside, unless an
+  internal load balancer or source ranges say otherwise) and **sends to** the workloads its selector picks. An
+  **Ingress** sends each host and path to its Service and names the TLS Secret it uses. A setting whose value names a
+  Service exactly (`redis:6379`, `http://api:8080`, `db.shop.svc.cluster.local`) **sends to** it.
+- **ConfigMap** keys are Settings with their values (a secret-looking key is not shown); **Secret** keys are only
+  named. A PersistentVolumeClaim says how much storage it asks for and how it can be used; an autoscaler, which
+  workload it scales and between how many copies; a NetworkPolicy, which pods it applies to and what it lets in and
+  out, in words.
+- **Links**: a workload **uses** its service account and storage claims and **reads from** the ConfigMaps and Secrets
+  it takes settings or files from; a namespaced resource **runs in** its Namespace; a binding **uses** its role.
+  Links to resources in other files are drawn when the files are read together (in the same folder first; in another
+  folder only when exactly one folder has it).
+- **Permissions**: each Role and ClusterRole rule ("Whoever is given the role config-reader can read (get, list, and
+  watch) configmaps in the namespace shop"), and each RoleBinding and ClusterRoleBinding ("The service account
+  ci/deployer can do anything (cluster-admin) in the whole cluster"). **Wide**: `*` verbs or resources, cluster-admin
+  anywhere, admin or edit across the whole cluster, or a role given to everyone (signed in or not).
+- **Flow**: one Steps card per file, the order things are made, from those links ("Creates the namespace shop",
+  "Creates the deployment api (3 copies of ghcr.io/acme/api:1.4.2)", "Creates the service api, which sends to the
+  deployment api").
+- **Facts**: `runs-as-root` (`runAsUser: 0`, or nothing that stops it: no `runAsNonRoot: true` and no `runAsUser`),
+  `image-not-pinned`, `public-ingress` (NodePort, LoadBalancer, Ingress), `secret-in-plain-env`,
+  `secret-in-plain-config` (a Secret's values, or a secret-looking ConfigMap key, written in the file),
+  `wide-permission`, and two new kinds: `privileged-container` (`privileged: true`, the SYS_ADMIN or ALL capability,
+  `hostNetwork`/`hostPID`/`hostIPC`, or the node's root folder or Docker socket mounted) and `no-resource-limits`.
+- Helm templates (and other `{{ … }}` templates) are not Kubernetes until they are filled in: they are listed as
+  skipped with that reason. A kustomization says which files it combines and what it changes.
+
+Docker Compose (`docker-compose.yml`, `compose.yaml`, `docker-compose.<name>.yml`, `<name>.compose.yml`) reads this
+way:
+
+- Each **service** is a Resource (`compose-service`, address `services.web`) that knows what it runs: an image, or
+  "Built from the folder ./api, the runtime stage", **linked to that folder's Dockerfile image** when the Dockerfile
+  is read together (an exact path, never a guess). It knows the ports it publishes and to whom ("port 80 as port
+  8080, on every network the computer is on"; "on this computer only" for `127.0.0.1:…`), its settings (`${VAR}` is
+  worked out when it starts; a name with no value is taken from the computer; a secret-looking literal is never
+  shown), its env files, secrets, configs, volumes and folders, what it starts after, its networks, health check,
+  restarts, user, limits, and profiles.
+- Named **volumes**, **networks**, **secrets**, and **configs** are Resources too (`external` ones are made elsewhere).
+- **Links**: `depends_on` **uses**, networks **runs in**, secrets and configs **reads from**, named volumes **uses**,
+  and a setting that names another service (`http://api:8080`, `REDIS_HOST=cache`) **sends to** it.
+- **Flow**: "Starting compose.yaml": networks and volumes first, then each service after the ones it waits for
+  ("Builds and starts api (from ./api), once db is healthy and cache has started"), with "Is the profile monitoring
+  turned on?" for a service that only starts with a profile.
+- **Facts**: `public-ingress` (a port published on every address), `image-not-pinned`, `secret-in-plain-env`,
+  `secret-in-plain-config`, `runs-as-root` (`user: root`), and `privileged-container` (`privileged: true`, the Docker
+  socket, SYS_ADMIN, `pid: host`).
+
+At app scope these Resources join the Dockerfile, Terraform, and Bicep ones and the pipelines on one map. A Kubernetes
+workload whose image has exactly the name of the folder a Dockerfile is in (`image: gcr.io/shop/cart:1.2` and
+`cart/Dockerfile`) **uses** that image, when exactly one folder has that name.
 
 | Element | Shape | What it is | Where it comes from | Thunder Text |
 | --- | --- | --- | --- | --- |

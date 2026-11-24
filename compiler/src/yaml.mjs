@@ -93,17 +93,35 @@ function foldLines(parts) {
 export function parseYaml(src) { return parseYamlAll(src)[0] ?? null; }
 
 export function parseYamlAll(src) {
+  return parseYamlDocs(src).map((d) => { if (d.error) throw d.error; return d.node; });
+}
+
+/**
+ * Every document of a multi-document file (`---` between them), each parsed on its own so one unreadable document
+ * does not hide the others: [{ node, line, endLine, error? }]. `line` is the document's first written line; documents
+ * that hold only comments are left out. Kubernetes files often hold many resources this way.
+ */
+export function parseYamlDocs(src) {
   const raw = String(src ?? '').replace(/^﻿/, '').split('\n').map((l) => l.replace(/\r$/, ''));
   for (let i = 0; i < raw.length; i++) if (raw[i].includes('\t') && /^\s*\t/.test(raw[i]) && !isBlank(raw[i])) raw[i] = raw[i].replace(/^[ \t]+/, (w) => ' '.repeat(w.replace(/\t/g, '  ').length));
   const docs = [];
+  const push = (lines, start) => {
+    let first = 0;
+    while (first < lines.length && (isBlank(lines[first]) || /^%/.test(lines[first]))) first++;
+    if (first === lines.length) return;
+    let last = lines.length - 1;
+    while (last > first && isBlank(lines[last])) last--;
+    const doc = { node: null, line: start + first + 1, endLine: start + last + 1 };
+    try { doc.node = parseDoc(lines, start); } catch (e) { doc.error = e instanceof YamlError ? e : new YamlError(e?.message ?? 'Unreadable YAML', doc.line); }
+    docs.push(doc);
+  };
   let start = 0;
   for (let i = 0; i <= raw.length; i++) {
     const l = raw[i];
     if (i === raw.length || /^(---|\.\.\.)(\s|$)/.test(l ?? '')) {
-      const lines = raw.slice(start, i);
-      // `--- value` on the marker line itself.
-      if (i < raw.length && /^---\s+\S/.test(l)) { raw[i] = l.slice(3).replace(/^\s+/, ''); docs.push(parseDoc(lines, start)); start = i; continue; }
-      if (lines.some((x) => !isBlank(x) && !/^%/.test(x))) docs.push(parseDoc(lines, start));
+      push(raw.slice(start, i), start);
+      // `--- value` on the marker line itself starts the next document on that line (a comment there does not).
+      if (i < raw.length && /^---\s+[^\s#]/.test(l)) { raw[i] = l.slice(3).replace(/^\s+/, ''); start = i; continue; }
       start = i + 1;
     }
   }

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseYaml, parseYamlAll, toJS, get, entry, text, stripComment } from '../src/yaml.mjs';
+import { parseYaml, parseYamlAll, parseYamlDocs, toJS, get, entry, text, stripComment } from '../src/yaml.mjs';
 
 test('mappings, sequences, and scalars in YAML core types', () => {
   const y = parseYaml(`name: CI
@@ -123,6 +123,18 @@ test('anchors, aliases, merge keys, tags, and several documents', () => {
   assert.equal(docs.length, 2);
   assert.deepEqual(toJS(docs[0]), { base: { x: 1 }, other: { x: 1, y: '2' }, alias: { x: 1 } });
   assert.deepEqual(toJS(docs[1]), { second: true });
+});
+
+test('multi-document files: each document on its own, with its first line; a bad one does not hide the rest', () => {
+  const src = '# header\n---\napiVersion: v1\nkind: A\n--- # comment after the marker\n# only a comment\n---\n\nkind: B\nlist: [1,\n---\nkind: C\n...\n--- kind: D\n';
+  const docs = parseYamlDocs(src);
+  assert.deepEqual(docs.map((d) => [d.line, d.error ? 'error' : toJS(d.node)?.kind]), [[3, 'A'], [9, 'error'], [12, 'C'], [14, 'D']]);
+  assert.equal(docs[0].endLine, 4);
+  assert.equal(entry(docs[2].node, 'kind').line, 12, 'lines are counted from the start of the file');
+  assert.throws(() => parseYamlAll(src), /not closed/, 'parseYamlAll still refuses a file with an unreadable document');
+  // Kubernetes-style keys and values.
+  const k = parseYamlDocs('metadata:\n  labels:\n    app.kubernetes.io/name: web\n  annotations:\n    "prometheus.io/port": "9090"\nspec:\n  containers:\n  - name: web\n    image: gcr.io/x/web:1.2@sha256:abc\n    args: ["--port=8080", --verbose]\n')[0].node;
+  assert.deepEqual(toJS(k), { metadata: { labels: { 'app.kubernetes.io/name': 'web' }, annotations: { 'prometheus.io/port': '9090' } }, spec: { containers: [{ name: 'web', image: 'gcr.io/x/web:1.2@sha256:abc', args: ['--port=8080', '--verbose'] }] } });
 });
 
 test('comments, blank lines, and a key named `on` are kept as text, not turned into true', () => {

@@ -21,6 +21,10 @@ export function collectReadableFiles(root, { maxFiles = 5000, maxFileBytes = 400
       else if (readableLanguage(path)) {
         // Oversized files are not loaded; readRepo lists them as skipped from their size.
         out.push(st.size > maxFileBytes ? { path, source: '', size: st.size } : { path, source: readFileSync(full, 'utf8') });
+      } else if (/\.ya?ml$/i.test(name) && st.size <= maxFileBytes) {
+        // Kubernetes YAML is known by its first lines (apiVersion: and kind:), not its name.
+        const source = readFileSync(full, 'utf8');
+        if (readableLanguage(path, source.slice(0, 2048))) out.push({ path, source });
       }
     }
   };

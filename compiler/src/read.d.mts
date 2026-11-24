@@ -52,7 +52,7 @@ export interface Reading {
   /** Infrastructure and delivery files: the file's own name for itself (a workflow's name:). */
   purpose?: string;
   /** Infrastructure and delivery files (spec section 12): what they make and allow, with lines. */
-  infra?: { things: unknown[]; permissions: unknown[]; settings: unknown[]; facts: unknown[]; links: { from: string; to: string; kind: string; file: string; line: number }[]; /** Parts of the file Thunder could not parse (Terraform, Bicep), with their lines. */ unknowns?: { file: string; line: number; why: string }[] };
+  infra?: { things: unknown[]; permissions: unknown[]; settings: unknown[]; facts: unknown[]; links: { from: string; to: string; kind: string; file: string; line: number }[]; /** Parts of the file Thunder could not parse (Terraform, Bicep, Kubernetes, Compose), with their lines. */ unknowns?: { file: string; line: number; why: string }[] };
 }
 export const READ_SCHEMA: 'thunder-reading-v1';
 export const READ_LANGUAGES: string[];

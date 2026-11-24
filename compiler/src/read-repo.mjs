@@ -76,7 +76,7 @@ export function readRepo(files, { maxFileBytes = 400000, maxFiles = 5000 } = {})
   let considered = 0;
   for (const f of files || []) {
     const path = String(f.path).replace(/\\/g, '/').replace(/^\.\//, '');
-    const language = readableLanguage(path);
+    const language = readableLanguage(path, String(f.source ?? '').slice(0, 2048));
     if (!language) continue; // not code this reader understands; not worth listing one by one
     considered++;
     if (considered > maxFiles) { skipped.push({ path, reason: `More than ${maxFiles} files; read a smaller folder to include this one.` }); continue; }
@@ -160,7 +160,7 @@ export function groupByFile(items) {
  */
 export function readFiles(files) {
   return files.map((f) => {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, String(f.source ?? '').slice(0, 2048));
     if (!language || !f.source || f.reading) return f;
     try { return { ...f, reading: readCode(f.source, { language, file: f.path }) }; }
     catch (e) { return { ...f, readError: e.message }; }
@@ -168,7 +168,7 @@ export function readFiles(files) {
 }
 
 /** A file's reading: the one readFiles attached, or a fresh one. Throws the same error the reader would. */
-export function readingOf(f, language = readableLanguage(f.path)) {
+export function readingOf(f, language = readableLanguage(f.path, String(f.source ?? '').slice(0, 2048))) {
   if (f.readError) throw new Error(f.readError);
   return f.reading ?? readCode(f.source, { language, file: f.path });
 }

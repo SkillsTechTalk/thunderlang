@@ -467,4 +467,107 @@ output webUrl string = 'https://\${web.properties.defaultHostName}'
 `,
     expect: { decisions: [], functions: ['deploy'] },
   },
+  {
+    key: 'kubernetes-web',
+    label: 'Kubernetes: a web app, its settings, and who can reach it',
+    language: 'kubernetes',
+    file: 'k8s/web.yaml',
+    source: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  LOG_LEVEL: info
+---
+# The web app: two copies, never as root.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: web
+          image: ghcr.io/acme/web:1.4.2
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-creds
+                  key: password
+          envFrom:
+            - configMapRef:
+                name: web-config
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 3000
+`,
+    expect: { decisions: [], functions: ['apply'] },
+  },
+  {
+    key: 'docker-compose-web',
+    label: 'Docker Compose: a web app, its database, and its cache',
+    language: 'docker-compose',
+    file: 'compose.yaml',
+    source: `services:
+  web:
+    build: ./web
+    ports:
+      - "8080:3000"
+    environment:
+      DATABASE_URL: postgres://app:\${DB_PASSWORD}@db:5432/app
+      REDIS_URL: redis://cache:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: \${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+
+  cache:
+    image: redis:7
+
+volumes:
+  db-data:
+`,
+    expect: { decisions: [], functions: ['up'] },
+  },
 ];

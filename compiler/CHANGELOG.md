@@ -1,5 +1,40 @@
 # Unreleased
 
+**Language: the whole application, next two readers: Kubernetes YAML and Docker Compose (spec section 12).**
+- **Kubernetes** (`.yaml`/`.yml` known by `apiVersion:` and `kind:` in its first lines; multi-document files and
+  `kind: List`): each resource is a Resource (`resourceType` the kind as written, `address` `Deployment/api` or
+  `Service/shop/web` in a namespace). Workloads (Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod) know copies,
+  image, command, ports, settings (`secretKeyRef` only named), CPU and memory, health checks in words, the user they
+  run as, and their mounts; Services, Ingresses, ConfigMaps, Secrets (values never shown), PersistentVolumeClaims,
+  ServiceAccounts, NetworkPolicies (in words), autoscalers, Namespaces, and kustomizations are read too; other kinds
+  are still drawn, with their type as written.
+- **Docker Compose** (`docker-compose.yml`, `compose.yaml`, `*.compose.yml`, `docker-compose.<name>.yml`): services,
+  named volumes, networks, secrets, and configs are Resources (`compose-service`, `services.web`). A service knows its
+  image or build folder, published ports and to whom, settings (`${VAR}` computed; secret-looking literals not shown),
+  env files, volumes, what it starts after, networks, health check, restarts, user, limits, and profiles.
+- **Links** with file and line: a Service **sends to** the workloads its selector picks; an Ingress to its Services; a
+  setting that names a Service or Compose service exactly (`redis:6379`, `http://api:8080`) **sends to** it; ConfigMaps
+  and Secrets are **read from**; Namespaces and Compose networks are **run in**; service accounts, storage claims,
+  roles, `depends_on`, and named volumes are **used**. Links to resources in other files are drawn when the files are
+  read together (same folder first; another folder only when exactly one has it). A Compose `build:` is linked to that
+  folder's Dockerfile image by exact path, and a Kubernetes image to a Dockerfile whose folder has exactly its name.
+- **Flow**: "Applying shop.yaml" (the order things are made) and "Starting compose.yaml" (networks and volumes, then
+  each service after what it waits for: "Builds and starts api (from ./api), once db is healthy"; "Is the profile
+  monitoring turned on?").
+- **Permissions**: Role/ClusterRole rules ("can read (get, list, and watch) configmaps in the namespace shop") and
+  RoleBinding/ClusterRoleBinding ("The service account ci/deployer can do anything (cluster-admin) in the whole
+  cluster"), wide for `*` verbs or resources, cluster-admin, admin/edit cluster-wide, or a role given to everyone.
+- **Facts**, two new kinds: `privileged-container` (`privileged: true`, SYS_ADMIN/ALL, host network/PID/IPC, the
+  Docker socket or the node's root mounted) and `no-resource-limits`; and `runs-as-root`, `image-not-pinned`,
+  `public-ingress` (NodePort, LoadBalancer, Ingress, a Compose port published on every address),
+  `secret-in-plain-env`, `secret-in-plain-config`, and `wide-permission`.
+- Helm and other `{{ … }}` templates are listed as skipped with the reason, never read as YAML. The YAML reader has
+  `parseYamlDocs`: each document of a multi-document file parsed on its own, so one bad document does not hide the
+  rest. `readableFile(path, head)` is now given each file's first lines everywhere a repository is read.
+- Read on real repositories: kubernetes/examples, GoogleCloudPlatform/microservices-demo, docker/awesome-compose, and
+  dockersamples/example-voting-app.
+- thunderlang.dev/read has Kubernetes and Docker Compose in its picker, with a sample each.
+
 **Language: the whole application, next two readers: Terraform and Bicep (spec section 12).**
 - **Terraform** (`*.tf`): each `resource` is a Resource (`resourceType` exactly as written, `address`
   `azurerm_storage_account.main`) that knows its arguments in words: a value only when the file writes it

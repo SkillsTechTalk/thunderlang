@@ -14,15 +14,17 @@ import { readDockerfile } from './infra-docker.mjs';
 import { readWorkflow } from './infra-gha.mjs';
 import { readTerraform } from './infra-terraform.mjs';
 import { readBicep } from './infra-bicep.mjs';
+import { readKubernetes } from './infra-k8s.mjs';
+import { readCompose } from './infra-compose.mjs';
 import { readableFormat } from './file-formats.mjs';
 import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'dockerfile', 'github-actions', 'terraform', 'bicep'];
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'dockerfile', 'github-actions', 'terraform', 'bicep', 'kubernetes', 'docker-compose'];
 /** Formats read as infrastructure and delivery (spec section 12), not as programming languages. */
-export const INFRA_LANGUAGES = ['dockerfile', 'github-actions', 'terraform', 'bicep'];
+export const INFRA_LANGUAGES = ['dockerfile', 'github-actions', 'terraform', 'bicep', 'kubernetes', 'docker-compose'];
 const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
@@ -38,6 +40,10 @@ export function detectLanguage(source, file = '') {
   if (/^(?:resource|data|module|variable|provider|output)\s+"[\w-]+"/m.test(s) || /^(?:terraform|locals)\s*\{/m.test(s)) return 'terraform';
   // A GitHub Actions workflow: top-level `on:` and `jobs:`.
   if (/^(?:on|"on"|'on'):/m.test(s) && /^jobs:\s*$/m.test(s)) return 'github-actions';
+  // Kubernetes YAML: top-level apiVersion: and kind:.
+  if (/^apiVersion:\s*\S/m.test(s) && /^kind:\s*\S/m.test(s)) return 'kubernetes';
+  // Docker Compose: top-level services: with a service that has an image: or build:.
+  if (/^services:\s*$/m.test(s) && /^\s+(?:image|build):/m.test(s)) return 'docker-compose';
   // SQL: a file that starts with (or is mostly) schema statements.
   if (/^\s*(?:--[^\n]*\n\s*)*(?:CREATE|ALTER|INSERT\s+INTO|SELECT|WITH)\b/i.test(s) && /\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX)|SELECT\b[\s\S]*\bFROM)\b/i.test(s)) return 'sql';
   if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
@@ -1809,7 +1815,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions').replace(/^(tf|hcl|opentofu|tofu)$/, 'terraform');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions').replace(/^(tf|hcl|opentofu|tofu)$/, 'terraform').replace(/^(k8s|kube|kubectl)$/, 'kubernetes').replace(/^(compose|docker[ -]?compose)$/, 'docker-compose');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
   // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
@@ -1925,7 +1931,7 @@ function sqlReading(src) {
  * the Resources it makes, Permissions, Settings (secrets named only), Facts, and the links between its items.
  */
 function infraReading(lang, src, file) {
-  const r = lang === 'dockerfile' ? readDockerfile(src, file || 'Dockerfile') : lang === 'terraform' ? readTerraform(src, file || 'main.tf') : lang === 'bicep' ? readBicep(src, file || 'main.bicep') : readWorkflow(src, file || 'workflow.yml');
+  const r = lang === 'dockerfile' ? readDockerfile(src, file || 'Dockerfile') : lang === 'terraform' ? readTerraform(src, file || 'main.tf') : lang === 'bicep' ? readBicep(src, file || 'main.bicep') : lang === 'kubernetes' ? readKubernetes(src, file || 'k8s.yaml') : lang === 'docker-compose' ? readCompose(src, file || 'compose.yaml') : readWorkflow(src, file || 'workflow.yml');
   for (const it of r.items) it.completeness = completenessOf(it);
   const counts = { decision: 0, function: r.items.length, error: 0, test: 0, partial: 0, guarded: 0, route: r.items.filter((i) => i.route).length };
   return {
@@ -1937,6 +1943,8 @@ function infraReading(lang, src, file) {
       'Secret values are never shown, only their names. Values worked out when it runs or is built say so; the original lines are one click away.',
       lang === 'dockerfile' ? 'Each build stage is a Steps card; RUN commands are read in words, and commands Thunder does not know are named as they are.'
         : lang === 'terraform' || lang === 'bicep' ? `Each ${lang === 'bicep' ? 'resource and module' : 'resource, data source, and module'} is a Resource; the order they are created is one Steps card, from the references between them. Links to resources in other files of the same ${lang === 'bicep' ? 'deployment' : 'folder (module)'} are drawn when those files are read together.`
+        : lang === 'kubernetes' ? 'Each resource is a Resource; the order they are made is one Steps card. A Service is linked to the workloads its selector picks, and names in settings (redis:6379) to the Service they name, also across files read together. Helm templates are not read.'
+        : lang === 'docker-compose' ? 'Each service, named volume, network, secret, and config is a Resource; the order services start, from depends_on, is one Steps card. A service built from a folder is linked to the Dockerfile in that folder when both are read together.'
         : 'Each job is an Action with a "When" badge; well-known actions and common commands are read in words, others are named as they are.',
     ],
   };

@@ -8,10 +8,10 @@ import { thunderText, visualFor } from './visual.mjs';
 export const THUNDERIZE_SCHEMA = 'thunderize-v1';
 export const THUNDER_TEXT_EXT = '.thunder-text';
 
-const LANGUAGE_NAMES = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', go: 'Go', rust: 'Rust', csharp: 'C#', java: 'Java', kotlin: 'Kotlin', php: 'PHP', ruby: 'Ruby', dockerfile: 'Dockerfile', 'github-actions': 'GitHub Actions', terraform: 'Terraform', bicep: 'Bicep' };
+const LANGUAGE_NAMES = { typescript: 'TypeScript', javascript: 'JavaScript', python: 'Python', go: 'Go', rust: 'Rust', csharp: 'C#', java: 'Java', kotlin: 'Kotlin', php: 'PHP', ruby: 'Ruby', dockerfile: 'Dockerfile', 'github-actions': 'GitHub Actions', terraform: 'Terraform', bicep: 'Bicep', kubernetes: 'Kubernetes', 'docker-compose': 'Docker Compose' };
 
 /** One file in Thunder Text: a header, then every action, rule, and function in order, then how it can fail. */
-export function thunderizeFile(path, source, language = readableLanguage(path), reading = readCode(source, { language, file: path })) {
+export function thunderizeFile(path, source, language = readableLanguage(path, String(source ?? '').slice(0, 2048)), reading = readCode(source, { language, file: path })) {
   const main = reading.items.filter((i) => i.kind === 'decision' || i.kind === 'function');
   const failures = [...new Set(reading.items.filter((i) => i.kind === 'error').map((i) => i.name))];
   const counts = { actions: 0, rules: 0, functions: 0, notReadYet: 0, failures: failures.length };
@@ -43,7 +43,7 @@ function summary(c) {
 export function thunderizeFiles(files, { name = 'app' } = {}) {
   const out = [], skipped = [];
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, String(f.source ?? '').slice(0, 2048));
     if (!language) { skipped.push({ path: f.path, reason: 'not a language Thunder reads yet' }); continue; }
     if (!f.source) { skipped.push({ path: f.path, reason: f.size ? 'too large to read' : 'empty' }); continue; }
     try { out.push(thunderizeFile(f.path, f.source, language, readingOf(f, language))); }

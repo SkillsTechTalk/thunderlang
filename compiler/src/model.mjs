@@ -14,7 +14,7 @@ export const MODEL_SCHEMA = 'thunder-model-v1';
 export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql'];
 
 /** Which part of the whole application a file describes (spec section 12). */
-const CATEGORY = { dockerfile: 'infrastructure', 'github-actions': 'delivery', terraform: 'infrastructure', bicep: 'infrastructure' };
+const CATEGORY = { dockerfile: 'infrastructure', 'github-actions': 'delivery', terraform: 'infrastructure', bicep: 'infrastructure', kubernetes: 'infrastructure', 'docker-compose': 'infrastructure' };
 const categoryOf = (language) => CATEGORY[language] ?? 'application';
 
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
@@ -404,11 +404,49 @@ function youGiveOf(item) {
   return given;
 }
 
+const dirOf = (p) => (String(p).includes('/') ? String(p).slice(0, String(p).lastIndexOf('/')) : '');
+/** The first lines of a file, so a format known by its content (Kubernetes YAML) is recognized. */
+const headOf = (f) => (typeof f.source === 'string' ? f.source.slice(0, 2048) : '');
+
+/**
+ * Links whose other end is in another file, drawn once every file is read. Only exact matches: a Terraform address in
+ * the same folder; a Dockerfile's image by its path; a Kubernetes address (in the same folder first, else the one
+ * resource in the repository with it); a Kubernetes selector against the workloads whose pods carry those labels.
+ * When more than one folder could be meant, nothing is drawn.
+ */
+function resolveAcrossFiles(pending, things, links, linkKeys) {
+  const add = (p, to) => {
+    const key = `${p.from}>${to}>${p.l.kind}>${p.l.line}`;
+    if (to && to !== p.from && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from: p.from, to, kind: p.l.kind, file: p.l.file, line: p.l.line }); }
+  };
+  const resources = things.filter((t) => t.kind === 'resource' && t.address);
+  const byDirAddr = new Map(resources.map((t) => [`${dirOf(t.file)}|${t.address}`, t.id]));
+  const byAddr = new Map();
+  for (const t of resources) byAddr.set(t.address, [...(byAddr.get(t.address) ?? []), t]);
+  const oneDir = (hits, dir) => {
+    const here = hits.filter((t) => dirOf(t.file) === dir);
+    if (here.length) return here;
+    return new Set(hits.map((t) => dirOf(t.file))).size === 1 ? hits : [];
+  };
+  for (const p of pending) {
+    const to = p.l.to;
+    if (p.language === 'terraform') { add(p, byDirAddr.get(`${p.dir}|${to}`)); continue; }
+    if (typeof to === 'string' && to.startsWith('image:')) { const hit = byAddr.get(to); if (hit?.length === 1) add(p, hit[0].id); continue; }
+    if (p.l.selector) {
+      const hits = resources.filter((t) => t.podLabels && (t.podLabels.ns ?? null) === (p.l.namespace ?? null) && Object.entries(p.l.selector).every(([k, v]) => t.podLabels.labels[k] === v));
+      for (const t of oneDir(hits, p.dir)) add(p, t.id);
+      continue;
+    }
+    const hits = oneDir(byAddr.get(to) ?? [], p.dir);
+    if (hits.length === 1) add(p, hits[0].id);
+  }
+}
+
 export function thunderModel(files, { name = 'app' } = {}) {
   const things = [], members = [], links = [], unknowns = [], fileInfo = [], permissions = [], settings = [], facts = [];
   const linkKeys = new Set(), pending = [];
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, headOf(f));
     if (!language || !f.source) continue;
     let reading;
     try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); fileInfo.push({ path: f.path, language, category: categoryOf(language), skipped: `Could not read this file: ${e.message}` }); continue; }
@@ -476,19 +514,21 @@ export function thunderModel(files, { name = 'app' } = {}) {
         const key = `${from}>${to}>${l.kind}>${l.line}`;
         if (from && to && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from, to, kind: l.kind, file: l.file, line: l.line }); }
         // A Terraform module is a folder: a reference to a resource in another file of it is drawn once all are read.
-        else if (from && !to && language === 'terraform') pending.push({ dir: f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : '', from, l });
+        // Kubernetes and Compose resources (and the Dockerfile a Compose service builds) can be in other files too.
+        else if (from && !to && (language === 'terraform' || language === 'kubernetes' || language === 'docker-compose')) pending.push({ dir: dirOf(f.path), from, l, language });
       }
     }
   }
-  if (pending.length) {
-    const byAddr = new Map(things.filter((t) => t.kind === 'resource' && t.address).map((t) => [`${t.file.includes('/') ? t.file.slice(0, t.file.lastIndexOf('/')) : ''}|${t.address}`, t.id]));
-    for (const p of pending) {
-      const to = byAddr.get(`${p.dir}|${p.l.to}`);
-      const key = `${p.from}>${to}>${p.l.kind}>${p.l.line}`;
-      if (to && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from: p.from, to, kind: p.l.kind, file: p.l.file, line: p.l.line }); }
-    }
+  if (pending.length) resolveAcrossFiles(pending, things, links, linkKeys);
+  // A Kubernetes workload whose image has exactly the name of the folder a Dockerfile in the repository is in uses
+  // that image (`image: gcr.io/shop/cart:1.2` and `cart/Dockerfile`). Exact names only, and only one such folder.
+  const dockerImages = things.filter((t) => t.resourceType === 'docker-image');
+  for (const t of things) for (const im of t.images ?? []) {
+    const hits = dockerImages.filter((d) => dirOf(d.address.slice('image:'.length)).split('/').pop() === im.name);
+    const key = hits.length === 1 && `${t.id}>${hits[0].id}>uses>${im.line}`;
+    if (key && !linkKeys.has(key)) { linkKeys.add(key); links.push({ from: t.id, to: hits[0].id, kind: 'uses', file: t.file, line: im.line }); }
   }
-  for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
+  for (const t of things) { delete t.memberRanges; delete t.images; delete t.podLabels; delete t.selects; } // only used while the model is made
   // An empty class (no facts, nothing it can do) is not a Thing a person needs to see: an error type is already shown
   // where it stops a path, and any other empty class is a named record with no facts.
   const owners = new Set(members.map((x) => x.owner).filter(Boolean));
