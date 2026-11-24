@@ -285,7 +285,7 @@ export function readWorkflow(src, file = 'workflow.yml') {
       const dims = matrix.t === 'map' ? matrix.entries.filter((e) => e.key !== 'include' && e.key !== 'exclude') : [];
       const dimWords = dims.map((d) => `${words(d.key)} (${d.value.t === 'seq' ? listWords(texts(d.value).map(sayExpressions)) : 'worked out when it runs'})`);
       const extra = list(get(matrix, 'include')).length;
-      const says = matrix.t !== 'map' ? 'For each combination in the matrix (worked out when it runs)' : dims.length === 1 ? `For each ${dimWords[0]}` : dims.length ? `For each combination of ${listWords(dimWords)}` : 'For each combination it lists';
+      const says = matrix.t !== 'map' ? 'For each combination in the matrix (worked out when it runs)' : dims.length === 1 ? `For each ${dimWords[0]}` : dims.length ? `For each combination of ${listWords(dimWords)}` : (() => { const keys = [...new Set(list(get(matrix, 'include')).flatMap((m) => (m.t === 'map' ? m.entries.map((e) => words(e.key)) : [])))]; return keys.length ? `For each ${listWords(keys)} listed` : 'For each combination it lists'; })();
       main = [{ kind: 'loop', says: `${says}${extra && dims.length ? `, plus ${extra} more` : ''}`, code: 'strategy: matrix', line: entry(get(job, 'strategy'), 'matrix').line, children: body }];
       main = [...gate, ...main];
     }

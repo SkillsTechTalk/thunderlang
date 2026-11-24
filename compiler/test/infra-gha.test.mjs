@@ -237,7 +237,7 @@ test('in the model: pipeline members with when, delivery category, permissions a
   assert.ok(bp.loose.every((x) => x.symbol === 'action' && x.route));
   const deploy = p.find((m) => m.name === 'deploy');
   const details = readLevel(model, 'details', deploy.id);
-  assert.deepEqual(details.stops.map((s) => [s.error, s.line]), [['The job fails', 81]]);
+  assert.deepEqual(details.stops.map((s) => [s.error, s.line]), [['Fails: the step stops with exit code 1', 81]]);
   const text = modelText(model, p[0].id);
   assert.match(text, /^npm \(@skillstech\/thunderlang\)\n {2}When someone pushes to main/);
   assert.doesNotMatch(text, /\?\?/);

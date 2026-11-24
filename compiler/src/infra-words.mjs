@@ -367,6 +367,14 @@ export function commandSays(cmd) {
   let m;
   if ((m = /^(?:export\s+|local\s+|readonly\s+)?([A-Za-z_]\w*)=(.*)$/.exec(text)) && shellWords(m[2]).length <= 1) {
     const v = m[2];
+    // Arithmetic: n=$((n + 1)) -> "Adds 1 to n"; total=$((a * b)) -> "Sets total to a times b".
+    const ar = /^"?\$\(\(\s*(.*?)\s*\)\)"?$/.exec(v);
+    if (ar) {
+      const e = ar[1].replace(/\$\{?(\w+)\}?/g, '$1');
+      let x;
+      if ((x = new RegExp(`^${m[1]}\\s*([-+])\\s*(\\w+)$`).exec(e))) return { kind: 'set', says: `${x[1] === '+' ? 'Adds' : 'Takes'} ${x[2]} ${x[1] === '+' ? 'to' : 'from'} ${m[1]}` };
+      return { kind: 'set', says: `Sets ${m[1]} to ${e.replace(/\s*\*\s*/g, ' times ').replace(/\s*\/\s*/g, ' divided by ').replace(/\s*\+\s*/g, ' plus ').replace(/\s*-\s*/g, ' minus ').replace(/\s*%\s*/g, ' remainder ')}` };
+    }
     if (/^\$\([\s\S]*\)$/.test(v) || /^"\$\([\s\S]*\)"$/.test(v)) {
       const inner = v.replace(/^"|"$/g, '').slice(2, -1);
       const iw = shellWords(inner);
@@ -528,7 +536,7 @@ export function commandSays(cmd) {
   })();
   if (tool === 'exit') {
     const code = Number(sub ?? 0);
-    return code ? { kind: 'fail', says: 'Fails with The job fails' } : { kind: 'return', says: 'Stops here, successfully' };
+    return code ? { kind: 'fail', says: `Fails: the step stops with exit code ${code}`, error: `exit code ${code}` } : { kind: 'return', says: 'Finishes here, successfully' };
   }
   if (r) return out(r);
   // A script in the repository: ./scripts/deploy.sh -> "Runs scripts/deploy.sh".
@@ -761,7 +769,12 @@ export function shellSteps(text, firstLine) {
       if (head === 'for' || head === 'while' || head === 'until') {
         const m = /^for\s+(\w+)\s+in\s+(.*)$/.exec(s.text);
         if (stmts[i]?.text === 'do') i++;
-        out.push({ kind: 'loop', says: m ? `For each ${m[1]} in ${m[2]}` : `Repeats ${head === 'until' ? 'until' : 'while'} ${s.text.replace(/^(while|until)\s+/, '')}`, code: s.text, line: s.line, children: block(['done']) });
+        const loopCond = s.text.replace(/^(while|until)\s+/, '').replace(/;\s*do\s*$/, '').trim();
+        // "Is n at least 3?" -> "n is at least 3"; "Does the file x exist?" -> "the file x exists".
+        const q = shellQuestion(loopCond);
+        const asWords = /^Is (\S+) (.+)\?$/.test(q) ? q.replace(/^Is (\S+) (.+)\?$/, '$1 is $2') : /^Does (.+) (not )?exist\?$/.test(q) ? q.replace(/^Does (.+?) (not )?exist\?$/, (x, a, n) => `${a} ${n ? 'does not exist' : 'exists'}`) : q;
+        const readable = !/`/.test(asWords) ? asWords.replace(/\?$/, '') : loopCond;
+        out.push({ kind: 'loop', says: m ? `For each ${m[1]} in ${m[2]}` : `Repeats ${head === 'until' ? 'until' : 'while'} ${readable}`, code: s.text, line: s.line, children: block(['done']) });
         if (stmts[i]?.text === 'done') i++;
         continue;
       }
