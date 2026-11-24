@@ -2314,7 +2314,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   // A Swift body that is one expression gives it back without `return` (`var isEmpty: Bool { count == 0 }`).
   // So does one that is a single call or expression when the function says it gives something back
   // (`func base32Bytes() -> [UInt8] { Base32.default.encode(…) }` gives back what encode makes).
-  if (lang === 'swift' && stmts.length === 1 && ((!stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) || swiftImplicitResult(stmts[0].text, fn.returns))) stmts[0] = { ...stmts[0], implicitReturn: true };
+  if (lang === 'swift' && stmts.length === 1 && ((!stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) || swiftImplicitResult(stmts[0].text, fn.returns || (fn.route ? 'a response' : null)))) stmts[0] = { ...stmts[0], implicitReturn: true };
   const r = withLanguage(lang, () => withFunctionContext({ params: fn.params || [], language: lang, route: !!fn.route }, () => {
     const out = stepsFrom(stmts);
     // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or

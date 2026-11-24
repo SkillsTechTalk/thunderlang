@@ -98,3 +98,9 @@ test('vapor (fresh sample) Count: `T.self is String.Type` asks whether T is the 
   assert.match(t, /Ask: Is T the type String\?/);
   assert.doesNotMatch(t, /Is t a Type/);
 });
+
+test('vapor (fresh sample) ResponseBenchmarks: a route closure that is one expression sends that value back', () => {
+  const t = thunderText('a.swift', 'func routes(_ app: Application) throws {\n    app.get("small") { _ in SmallPayload(name: "Vapor") }\n}\n');
+  assert.match(t, /GET \/small[^]*Gives back a new SmallPayload/);
+  assert.doesNotMatch(t, /Calls small payload/);
+});
