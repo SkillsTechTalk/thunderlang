@@ -9,8 +9,9 @@ const DIR = new URL('./fixtures/things/', import.meta.url);
 const model = (f) => thunderModel([{ path: f, source: readFileSync(new URL(f, DIR), 'utf8') }]);
 const thing = (m, name) => m.things.find((t) => t.name === name);
 
-test('Things are drawn in every language Thunder reads', () => {
-  assert.deepEqual([...THING_LANGUAGES].sort(), ['c', 'cpp', 'csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'python', 'ruby', 'rust', 'sql', 'swift', 'typescript']);
+test('Things are drawn in every language Thunder reads that has them', () => {
+  assert.deepEqual([...THING_LANGUAGES].sort(), ['c', 'cpp', 'csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'powershell', 'python', 'r', 'ruby', 'rust', 'sql', 'swift', 'typescript']);
+  assert.ok(!THING_LANGUAGES.includes('shell'), 'shell has no classes, so it has no Things');
 });
 
 for (const f of readdirSync(DIR)) {
@@ -30,7 +31,7 @@ for (const f of readdirSync(DIR)) {
 }
 
 test('choices: enums in every language that has them list their values in words', () => {
-  for (const f of ['Library.java', 'Library.cs', 'Library.kt', 'Library.php', 'library.go', 'library.rs', 'library.c', 'library.cpp', 'Library.swift']) {
+  for (const f of ['Library.java', 'Library.cs', 'Library.kt', 'Library.php', 'library.go', 'library.rs', 'library.c', 'library.cpp', 'Library.swift', 'Library.ps1']) {
     const s = thing(model(f), 'Status');
     assert.equal(s.kind, 'choices', f);
     assert.deepEqual(s.choices.slice(0, 2), ['on shelf', 'borrowed'], f);

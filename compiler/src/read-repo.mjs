@@ -27,6 +27,9 @@ const EXT_LANG = [
   [/\.(cc|cpp|cxx|c\+\+|hpp|hh|hxx|ipp|tpp)$/i, 'cpp'],
   [/\.h$/i, 'c'], // C unless its content is C++ (readableLanguage with the source decides)
   [/\.swift$/i, 'swift'],
+  [/\.r$/i, 'r'],
+  [/\.(sh|bash|zsh|ksh)$/i, 'shell'],
+  [/\.(ps1|psm1)$/i, 'powershell'],
 ];
 
 /** Folders that hold dependencies, build output, or tooling state rather than the application. */
@@ -35,6 +38,9 @@ export const READ_SKIP_DIRS = new Set([
   'vendor', 'target', 'bin', 'obj', '__pycache__', '.venv', 'venv', 'env', '.tox', '.mypy_cache',
   '.gradle', '.idea', '.vscode', '.intent', 'third_party', 'Pods', '.terraform',
 ]);
+
+/** True when a file's first line is a shell shebang (#!/bin/bash, #!/usr/bin/env sh, zsh, ksh, dash). */
+export const isShellScript = (source) => /^#!\s*\S*\/(?:env\s+(?:-\S+\s+)*)?(?:ba|z|k|da|a)?sh\b/.test(String(source ?? ''));
 
 /**
  * The language or format the reader uses for a file, or null when it is not read. `source` (the whole file, or at
@@ -47,6 +53,7 @@ export function readableFile(path, source = '') {
   const format = readableFormat(p, String(source ?? '').slice(0, 2048));
   if (format) return format;
   for (const [re, lang] of EXT_LANG) if (re.test(p)) return lang === 'c' && /\.h$/i.test(p) && source && looksCpp(source) ? 'cpp' : lang;
+  if (source && !/\.[^./]+$/.test(p.split('/').pop()) && isShellScript(source)) return 'shell';
   return null;
 }
 

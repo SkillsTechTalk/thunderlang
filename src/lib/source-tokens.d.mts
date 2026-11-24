@@ -1,4 +1,4 @@
-export type SourceLang = "python" | "typescript" | "javascript" | "java" | "csharp" | "go" | "rust" | "kotlin" | "php" | "ruby" | "sql" | "c" | "cpp" | "swift";
+export type SourceLang = "python" | "typescript" | "javascript" | "java" | "csharp" | "go" | "rust" | "kotlin" | "php" | "ruby" | "sql" | "c" | "cpp" | "swift" | "r" | "shell" | "powershell";
 export type SynClass = "syn-kw" | "syn-ctl" | "syn-str" | "syn-com" | "syn-num" | "syn-const" | "syn-fn" | "syn-type" | "syn-dec" | "syn-var" | "syn-op" | "syn-punc";
 export type SourceToken = { text: string; cls?: SynClass };
 /** The language to color, from a language name, a file name, or a label containing one; null if unsupported. */

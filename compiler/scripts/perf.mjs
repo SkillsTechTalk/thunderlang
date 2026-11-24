@@ -33,7 +33,7 @@ let functions = 0, decisions = 0, errors = 0;
 const perFile = [];
 const [, tRead] = time(() => {
   for (const f of loaded) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     const t = process.hrtime.bigint();
     try {
       const r = readCode(f.source, { language, file: f.path });

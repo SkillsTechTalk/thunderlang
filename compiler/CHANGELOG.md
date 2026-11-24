@@ -373,6 +373,66 @@ Express, Fastify, Koa, Gin, ASP.NET (`Ok`, `CreatedAtAction`, `NoContent`), Spri
 `res.sendStatus(404)`, Gin `c.JSON(http.StatusNotFound, …)`) are Stops with their status. Details lists them under
 what it gives back and when.
 
+**Language: R, Bash/POSIX shell, and PowerShell.** Thunder reads three more languages, each by its own module
+(`rlang.mjs`, `shell.mjs`, `powershell.mjs`, with a shared phrasebook of command-line tools in `commands.mjs`) into
+the same items as every other language.
+- **R** (`.R`, `.r`): `name <- function(a, b = 3)` functions; `if`/`else if`/`else`, `return()` guards, and `switch()`
+  (with fall-through) as decisions; `for`/`while`/`repeat`, `stop()` as a Stop with its message, `warning()`,
+  `message()`, `tryCatch(error =, warning =, finally =)` as handlers and what always runs at the end, the implicit last
+  value; `library()` as setup; data-frame pipelines (`|>`, `%>%`) one verb at a time ("Keeps only the rows where total
+  is more than 100", "Groups the rows by region", "Sorts the rows by revenue, highest first"); `R6Class`,
+  `setRefClass`, and `setClass` as Things; roxygen `#'` as the author's note; plumber `#* @get /path` as actions;
+  testthat tests.
+- **Shell** (`.sh`, `.bash`, `.zsh`, `.ksh`, and extensionless files with a shell shebang): a linear lexer and parser
+  for words, quotes, `$(…)`, heredocs, pipes, `&&`/`||`, `if`/`elif`/`else`, `for`, `while`/`until`, `case`, and
+  functions. Tests in words ("the file … exists", "x is empty", "is at least"), `exit N` as a Stop with the message
+  echoed to stderr right before it, `set -euo pipefail` as a note, `trap … EXIT` as what runs at the end,
+  `cmd || { …; exit 1; }` as a question, and docker, kubectl, helm, az, aws, gcloud, git, npm, curl, and file commands
+  by what they do. The script's own top-level code is one item named after the file. Shell has no classes, so it has
+  no Things (it is left out of `THING_LANGUAGES` on purpose).
+- **PowerShell** (`.ps1`, `.psm1`): `function Verb-Noun` with `param()` inputs and their kinds, comment-based help
+  (`.SYNOPSIS`) as the author's note, `if`/`elseif`/`else` and `switch` as decisions, `foreach`, `ForEach-Object`,
+  `try`/`catch [Type]`/`finally`, `throw` as a Stop, `Write-Error` as a Stop only when errors are set to stop,
+  comparison operators in words, cmdlets by Verb-Noun ("Gets the Azure resource groups"), `class` and `enum` as Things
+  and Choices, Pode routes as actions, Pester tests.
+- `readableLanguage(path, source)` reads an extensionless file as shell when its first line is a shell shebang;
+  `collectReadableFiles` looks at the first bytes of extensionless files to find them.
+- Flows link a shell or PowerShell call to the function it runs (by the step's callee). Steps that write a message
+  or send an HTTP request get the "send" and "ask" shapes.
+- `/read` has R, Shell (Bash), and PowerShell in its language picker, a sample for each, and editor colors for them.
+- `scripts/language-audit.mjs` audits tidyverse/dplyr, nvm-sh/nvm, and PowerShell/PSScriptAnalyzer, and leaves a
+  script's own functions out of its top-level item's branch count. Spec section 9 updated.
+
+**Language: R, shell, and PowerShell held to the faithfulness bar.** A hand review of 112 samples (nvm, neofetch,
+posh-git, PSScriptAnalyzer, httr, dplyr) found 41 readings that stated something false (D) and 14 that misled (C);
+after this change the same samples have 0 D and 0 C (each fix has a regression test in
+`test/faithfulness-{shell,powershell,r}.test.mjs`).
+- **Text with values inside** (spec section 9): quoted text keeps every literal character as written, escapes included,
+  and each inserted value is a `«…»` placeholder: a plain variable by its exact name (`"${NVM_DIR}/alias"` →
+  `"«NVM_DIR»/alias"`), anything else by its code (`«$1»`, `«${1-}»`, `«$(cat)»`). printf, sprintf, glue/cli, and
+  PowerShell `-f` pair each conversion with its argument (`«n as %5d»`); when they cannot be paired the step is shown
+  as code. Names are no longer turned into words inside quotes ("{nvm dir}", "{all the inputs}"), and quoted text is
+  never rewritten by the possessive pass (`liblzma.so` was "the liblzma's so", `binfmt_misc` "binfmt misc").
+- **Shell**: `${x#p}`, `${x%%p}`, `${x/a/b}`, `${x:+w}`, `${#x[@]}`, `${x[0]}` say what they do (they read as the bare
+  variable before: "Sets version to version"); `${x:-d}` says "empty or not set", `${x-d}` "not set"; arithmetic
+  Thunder cannot say exactly (`?:`, commas inside conditions, `++` in a test) is shown as code; `a && b || c` runs `c`
+  when a or b failed (it was read as "only if a worked"); `test && a || b` is if/else only when `a` cannot fail; a bare
+  `return`/`exit` gives back the last command's code (it said "success"); `$1`…`$9` inside single quotes (awk) are not
+  inputs; `$(< file)` is the file's contents; case patterns are shown as written; `read -a … <<<`, `printf -v`.
+- **commands.mjs**: `curl` sends to its address (not to the value after `--max-time`); `wget --version` / `curl
+  --version` download nothing; `find` with `!`, `-prune`, `-links` shows those tests as code instead of dropping them;
+  `head`/`tail -1` keep their count; `git config name` reads the setting; `choco -s .` is a source, not a package.
+- **PowerShell**: conditions pass the faithfulness gate (`-not`, `-ne`, `-and`, `-or` counted like `!`, `!=`, `&&`,
+  `||`; otherwise the code is shown); arguments run to the next space (`-Color $s.X` no longer splits); `$_` in a catch
+  is "the error"; `$args[0]` is "the first input"; spaces inside quoted text are kept.
+- **R**: calls not put into words keep every argument; `names(x) <- v` is "Sets the names of x"; `if`/`switch` used as
+  a value sets the variable on each side; `is.null` says "is NULL"; `cat` keeps escapes and its separator;
+  `!(a && b)` is shown as code, not rewritten.
+- **Shared (ported from fix/faithfulness, identical code)**: `src/faithful.mjs`, `test/faithfulness-helpers.mjs`;
+  `askAsQuestion` asks a compound condition as written and a code condition as code, and asks by a rule's name only
+  when the condition is that call (`askedByRule`); words inside quotes, code, and placeholders are never the question's
+  verb ("^«COMMAND» is an alias for" is not split at "is"). `req`/`app` are plumbing only in web handlers.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

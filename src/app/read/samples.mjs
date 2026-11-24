@@ -395,6 +395,117 @@ func show(req: Request) async throws -> Order {
     expect: { decisions: ['shippingSpeed'], functions: ['routes', 'show'] },
   },
   {
+    key: 'r-orders',
+    label: 'R: shipping and sales',
+    language: 'r',
+    file: 'orders.R',
+    source: `library(dplyr)
+
+#' Decide how fast an order ships.
+shipping_speed <- function(total, member = FALSE) {
+  if (total >= 100 && member) {
+    "Express"
+  } else if (total >= 50) {
+    "Standard"
+  } else {
+    "Economy"
+  }
+}
+
+#' Sales by region, biggest first.
+region_sales <- function(orders) {
+  if (nrow(orders) == 0) {
+    stop("No orders to summarise")
+  }
+  orders |>
+    filter(status == "paid", total > 0) |>
+    group_by(region) |>
+    summarise(revenue = sum(total)) |>
+    arrange(desc(revenue))
+}
+`,
+    expect: { decisions: ['shipping_speed'], functions: ['region_sales'] },
+  },
+  {
+    key: 'shell-deploy',
+    label: 'Shell (Bash): deploy script',
+    language: 'shell',
+    file: 'deploy.sh',
+    source: `#!/usr/bin/env bash
+# Builds the web app and rolls it out to Kubernetes.
+set -euo pipefail
+
+# Builds the image and uploads it.
+build_image() {
+  local tag="$1"
+  docker build -t "registry.example.com/web:$tag" .
+  docker push "registry.example.com/web:$tag"
+}
+
+deploy() {
+  local env="\${1:-staging}"
+  if [[ ! -f "k8s/$env.yaml" ]]; then
+    echo "No settings for $env" >&2
+    exit 1
+  fi
+  case "$env" in
+    prod) kubectl apply -f k8s/prod.yaml -n web ;;
+    *) kubectl apply -f "k8s/$env.yaml" ;;
+  esac
+  kubectl rollout status deployment/web -n web
+}
+
+command -v docker >/dev/null || { echo "docker is required" >&2; exit 1; }
+build_image "$(git rev-parse --short HEAD)"
+deploy "$@"
+`,
+    expect: { decisions: [], functions: ['build_image', 'deploy'] },
+  },
+  {
+    key: 'powershell-release',
+    label: 'PowerShell: release',
+    language: 'powershell',
+    file: 'Release.ps1',
+    source: `<#
+.SYNOPSIS
+Chooses which ring a release goes to first.
+#>
+function Get-ReleaseRing {
+    param([int]$Users, [bool]$Pilot)
+    if ($Users -ge 1000 -and -not $Pilot) {
+        'Broad'
+    } elseif ($Users -ge 100) {
+        'Early'
+    } else {
+        'Canary'
+    }
+}
+
+function Publish-Release {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Version,
+        [string]$ResourceGroup = 'rg-web'
+    )
+    if (-not (Test-Path ".\\release\\$Version")) {
+        throw "No build for version $Version"
+    }
+    $rg = Get-AzResourceGroup -Name $ResourceGroup -ErrorAction SilentlyContinue
+    if ($null -eq $rg) {
+        New-AzResourceGroup -Name $ResourceGroup -Location 'eastus'
+    }
+    try {
+        Invoke-RestMethod -Method Post -Uri 'https://deploy.example.com/releases' -Body @{ version = $Version }
+    } catch {
+        Write-Warning "Could not announce $Version"
+    } finally {
+        Remove-Item -Path ".\\release\\tmp" -Recurse -Force
+    }
+}
+`,
+    expect: { decisions: ['Get-ReleaseRing'], functions: ['Publish-Release'] },
+  },
+  {
     key: 'dockerfile-web',
     label: 'Dockerfile: build and run a web app',
     language: 'dockerfile',

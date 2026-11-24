@@ -412,6 +412,9 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | C | works today | (none: reached through `main` or another program) | a function that returns fixed answers | `/* … */` or `//` above | `struct`, `typedef struct`, `enum` |
 | C++ | works today | not yet (Crow, Drogon planned) | a function or method that returns fixed answers | `/** … */`, `///`, `//` above | `class`, `struct`, `enum class` |
 | Swift | works today | Vapor `app.get("orders", ":id") { req in … }`, `routes.post(…, use: handler)` | a `func` with `switch`/`if` | `///` | `struct`, `class`, `enum` with `case`, `extension` |
+| R | works today | plumber `#* @get /path`, `#* @post /path` | a function whose `if`/`else` or `switch()` gives fixed answers | roxygen `#'` above | `R6Class`, `setRefClass`, `setClass` |
+| Shell | works today | (none: the script itself is what runs) | (none: steps only) | `#` comment above, or at the top of the script | (none: shell has no classes) |
+| PowerShell | works today | Pode `Add-PodeRoute` | a function whose `if`/`elseif`/`else` or `switch` gives fixed answers | `<# .SYNOPSIS #>` comment-based help | `class`, `enum` |
 | Dockerfile | works today (section 12) | (none: it packages the app) | (none) | `#` comment above `FROM` | the image it makes is a **Resource** |
 | GitHub Actions | works today (section 12) | each job, with a "When" badge | `if:` as a question | the workflow's `name:` | **Permissions** and **Settings** |
 | Terraform | works today (section 12) | (none: it describes what exists) | `count = cond ? 1 : 0` as a question | `#` comment above a block | each `resource`, `data`, and `module` is a **Resource**; role assignments and IAM policies are **Permissions** |
@@ -422,6 +425,10 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 ### Text with values inside
 
 When quoted text has values inserted into it (string interpolation, format strings), Thunder keeps every literal character of the text exactly as the code writes it (escapes included) and shows each inserted value as a placeholder in guillemets: `«…»`. A plain variable shows its name exactly as the code spells it (`"${NVM_DIR}/alias"` → `"«NVM_DIR»/alias"`, Swift `"\(name)!"` → `"«name»!"`); anything else shows its code as written (`"$1"` → `"«$1»"`, `"${1-}"` → `"«${1-}»"`, `"$(cat)"` → `"«$(cat)»"`, `"\(a + b)"` → `"«a + b»"`). A format string pairs each conversion with its argument: `printf("%s/alias %d\n", dir, n)` → `"«dir»/alias «n»\n"`; a conversion with flags, width, or precision keeps it: `"%5.2f"` with `x` → `"«x as %5.2f»"`; `fmt::format("{}/{:>8}", a, b)` → `"«a»/«b as {:>8}»"`. Names are not turned into words inside quotes: the quote is what a person greps for. Guillemets do not occur in code, so a placeholder is never confused with literal braces, `%`, or `$`. When a quoted text is a single inserted value and nothing else, it is a value, not text, and reads in words like any other value. When the arguments cannot be paired with the conversions, the text is shown as code (not explained).
+
+Why this form: an earlier reading wrote `"{nvm dir}/alias"`, which looks like literal text with braces and hides the
+name a person would search for; guillemets mark the inserted part unambiguously in every one of these languages
+(shell, PowerShell, R glue and cli, Swift, and C/C++/fmt format strings all use `{`, `$`, or `%` as literal text too).
 
 ### C, C++, and Swift
 
@@ -474,6 +481,71 @@ Thunder reads `.sql` files (PostgreSQL first; MySQL, SQLite, and SQL Server wher
   their message, `INSERT`/`UPDATE`/`DELETE` as what they record, `SELECT … INTO` as what they find, `RETURN`.
 - **Triggers** say when the database runs them: "After an order is added or changed, runs log order change".
 - Planned: **SQL inside app code** (`db.execute("SELECT …")`) read in place, as a step; `CASE` expressions as cards.
+
+### R
+
+Thunder reads `.R` and `.r` files.
+
+- **Functions**: `name <- function(a, b = 3) { … }` (also `=` and `<<-`) with their inputs, and methods inside
+  `R6Class(public = list(…))`, `setRefClass(methods = list(…))`, and `setMethod("name", "Class", function(…))`.
+- **Decisions**: a function whose `if`/`else if`/`else` chain, `if (…) return(…)` guards, or `switch()` each give a
+  fixed answer is a rule ("If total is at least 100 and member, the answer is Express").
+- **Steps**: `if`/`else` as questions, `for (x in xs)` ("For each x in xs"; `seq_len(n)` and `1:n` count), `while`,
+  `repeat`, `switch()` as cases, `stop("msg")` as a Stop with its message, `warning()` and `message()` in words,
+  `tryCatch(…, error = …, warning = …, finally = …)` as handlers and what always runs at the end, `on.exit()`,
+  `return(x)` and the implicit last value, `library()`/`require()` ("Loads the dplyr package"), `lapply`/`purrr::map`
+  as loops. Data-frame pipelines (`|>` and `%>%`) are one step per verb: "Keeps only the rows where total is more than
+  100", "Groups the rows by region", "Sums up the rows: revenue is the total of total", "Sorts the rows by revenue,
+  highest first".
+- **Things**: `R6Class`, `setRefClass`, and `setClass` are Things (or Data when they have no methods), each field with
+  its default or its type in words, starting values from `initialize`.
+- **Actions**: a function with a plumber annotation above it (`#* @get /orders`) is an action with that route.
+- **Tests**: `test_that("…", …)`. Script files with top-level code also get one item named after the file.
+
+### Shell
+
+Thunder reads Bash and POSIX shell: `.sh`, `.bash`, `.zsh`, `.ksh`, and files with no extension whose first line is
+a shell shebang (`#!/bin/bash`, `#!/usr/bin/env sh`). Shell has no classes, so a shell file has no Things.
+
+- **Functions**: `name() { … }` and `function name { … }`; inputs come from `local name="$1"` (and `$1`, `$2` when
+  unnamed). The script's own top-level code is one item named after the file: "Runs deploy.sh, from top to bottom".
+- **Questions**: `if`/`elif`/`else` with tests in words: `-f` "the file … exists", `-d` "the folder … exists", `-z`
+  "x is empty", `-n` "x is set", `==`/`!=`, `-eq`/`-ne`/`-lt`/`-le`/`-gt`/`-ge` ("is at least"), `=~` "matches the
+  pattern"; `command -v docker` "docker is installed"; `grep -q` "contains"; `cmd || { …; exit 1; }` and `cmd && …`
+  as questions; `case … esac` as cases.
+- **Steps**: `for`, `while`, `until`, `while read -r line … < file` ("For each line in …"), `exit N` (non-zero is a
+  Stop, with the message from an `echo "…" >&2` right before it), `return`, `set -euo pipefail` ("Stops at the first
+  command that fails, …"), `trap … EXIT` ("At the end, even if something fails, runs cleanup"), `export`/`local`
+  assignments, `source`, heredocs, and well-known tools by what they do: docker, docker compose, kubectl, helm, az,
+  aws, gcloud, git, npm/yarn/pnpm, pip, make, terraform, curl ("Sends a POST request to …"), wget, ssh, files and
+  folders (`cp`, `mv`, `rm -rf`, `mkdir -p`, `chmod`). A helper that always exits (`die() { …; exit 1; }`) makes each
+  call to it a Stop. A variable used as a value reads as its name in words (`$ENV_NAME` "env name", `$1` "the first
+  input"); expansions say what they do (`${v#iojs-}` "v without "iojs-" at the start", `${x:-d}` "x, or "d" when it is
+  empty or not set", `${#list[@]}` "how many items list has"). Inside quoted text, values follow "Text with values
+  inside" below. Arithmetic Thunder cannot say exactly (`?:`, commas, `++` inside a condition) is shown as code.
+- A command Thunder does not know reads as "Runs <command>", with its code one click away.
+
+### PowerShell
+
+Thunder reads `.ps1` and `.psm1` files.
+
+- **Functions**: `function Verb-Noun { [CmdletBinding()] param([Parameter(Mandatory)][string]$Name, [int]$Max = 3) … }`
+  with its inputs and their kinds; a script's own `param()` block gives the script's inputs. Comment-based help
+  (`<# .SYNOPSIS … #>`) is the author's note.
+- **Decisions**: a function whose `if`/`elseif`/`else` or `switch` gives a fixed answer in each case (as `return 'A'`
+  or as the bare value it outputs) is a rule.
+- **Steps**: `if`/`elseif`/`else`, `foreach`, `ForEach-Object`, `for`, `while`, `do … until`, `switch` (cases),
+  `try`/`catch [Type]`/`finally`, `trap`, `throw "msg"` as a Stop with its message, `Write-Error` as a Stop when errors
+  are set to stop (`$ErrorActionPreference = 'Stop'` or `-ErrorAction Stop`) and as "Reports an error and carries on"
+  otherwise, `return`, comparison operators in words (`-eq`, `-ne`, `-gt`, `-ge`, `-lt`, `-le`, `-like`, `-match`,
+  `-contains`, `-in`), and cmdlets by Verb-Noun: `Get-AzResourceGroup` "Gets the Azure resource groups",
+  `New-Item -ItemType Directory` "Makes a folder …", `Remove-Item`, `Set-Content` "Writes … to …",
+  `Invoke-RestMethod -Method Post -Uri X` "Sends a POST request to X", pipelines with `Where-Object`
+  ("keeps only those where …"), `Select-Object`, `Sort-Object`. Native tools (git, docker, az, kubectl, …) read as
+  they do in shell.
+- **Things**: `class` with typed properties (and their defaults, or starting values from the constructor) and
+  methods; `enum` is a set of Choices.
+- **Actions**: a Pode route (`Add-PodeRoute -Method Get -Path '/orders' -ScriptBlock { … }`). **Tests**: Pester `It "…"`.
 
 ## 10. Rules every Thunder view follows
 

@@ -8,13 +8,18 @@ import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
 import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
+import { rThings } from './rlang.mjs';
+import { psThings } from './powershell.mjs';
 import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
 import { detailParts } from './meaning.mjs';
 import { linkSystem, callsSummary } from './system.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
-/** Languages whose classes, records, and choices are read today. Others still get every function. */
-export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql', 'c', 'cpp', 'swift'];
+/**
+ * Languages whose classes, records, and choices are read today. Others still get every function. Shell is not here
+ * because it has no classes: a shell file is its functions and its top-level script.
+ */
+export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql', 'c', 'cpp', 'swift', 'r', 'powershell'];
 
 /** Which part of the whole application a file describes (spec section 12). */
 const CATEGORY = { dockerfile: 'infrastructure', 'github-actions': 'delivery', terraform: 'infrastructure', bicep: 'infrastructure', kubernetes: 'infrastructure', 'docker-compose': 'infrastructure' };
@@ -73,7 +78,8 @@ function cShortName(t, name) {
   return name;
 }
 
-const thingsFor = makeThingReaders({ words: (x) => words(x), kindWords: (x) => kindWords(x), startValue: (x, p) => startValue(x, p) });
+const THING_HELPERS = { words: (x) => words(x), kindWords: (x) => kindWords(x), startValue: (x, p) => startValue(x, p) };
+const thingsFor = makeThingReaders(THING_HELPERS);
 
 // ── Things: classes, records, and choices ───────────────────────────────────────────────────────────
 
@@ -245,15 +251,21 @@ export function stepDoes(step) {
   if (step.kind === 'check') return 'check';
   if (step.kind === 'branch') return 'decide';
   if (/^Writes to the database|^(Records|Stores|Adds to|Removes)/.test(s)) return 'save';
-  if (/^(Sends an email|Announces an event|Writes a log)/.test(s)) return 'send';
-  if (/^(Calls another service|Calls Stripe)/.test(s)) return 'ask';
+  if (/^(Sends an email|Announces an event|Writes a log|Writes a message|Writes an error message|Shows a message|Warns:)/.test(s)) return 'send';
+  if (/^(Calls another service|Calls Stripe|Sends an? (?:GET|POST|PUT|PATCH|DELETE|HEAD) request)/.test(s)) return 'ask';
   if (/\b(filter|where|select|query|find|get|fetch|load|read|search|lookup|scalars|all)\b/i.test(c) || /the items in .* where|the first item in|the .* entry in|the .* with /.test(s)) return /\b(filter|where)\b/i.test(c) || / where /.test(s) ? 'keep-only' : 'find';
   if (step.kind === 'set') return 'calculate';
   return 'do';
 }
 
-/** "the book's status" for book.status; plain words for everything else. */
-const possessive = (text) => String(text)
+/**
+ * Quoted text ("…"), code (`…`), and placeholders («…») kept exactly as they are, while `fn` rewrites the words
+ * between them.
+ */
+const outsideQuotes = (text, fn) => String(text).split(/("(?:\\.|[^"\\])*"|`[^`]*`|«[^»]*»)/).map((part, i) => (i % 2 ? part : fn(part))).join('');
+/** "the book's status" for book.status; plain words for everything else. Quoted text is never rewritten. */
+const possessive = (text) => outsideQuotes(text, possessiveWords);
+const possessiveWords = (text) => String(text)
   .replace(/\b([a-z_][\w]*)\.([a-z_][\w]*)\b(?!\s*\()/gi, (m, a, b) => (/^(self|this)$/.test(a) ? `the ${words(b)}` : `the ${words(a)}'s ${words(b)}`))
   .replace(/\b([a-z]+(?:_[a-z0-9]+)+|[a-z]+(?:[A-Z][a-z0-9]*)+)\b/g, (m) => words(m)); // days_late, daysLate -> days late
 /** An answer as words: NoFee -> "No fee", true -> "Yes". */
@@ -265,6 +277,17 @@ const answerWords = (r) => (/^true$/i.test(r) ? 'Yes' : /^false$/i.test(r) ? 'No
  * asked by the rule's own name: "Can borrow?".
  */
 export function askAsQuestion(step, ruleLabel) {
+  // " is " inside quoted text or code is not the question's verb: those parts are held aside while the question is
+  // shaped, then put back exactly as written.
+  // "Running x works?": a command's success is the question; words inside it ("nvm is merged …") are not its verb.
+  const run = String(step.says).match(/^If (not: )?([A-Z]?[a-z]+ing\b[^]* (?:works|fails))$/);
+  if (run && !ruleLabel) return { text: `${cap(run[2])}?`, flip: !!run[1] };
+  const held = [];
+  const says = String(step.says).replace(/"(?:\\.|[^"\\])*"|`[^`]*`|«[^»]*»/g, (m) => (isCodeWords(String(step.says).replace(/^If (?:not: )?/, '')) ? m : `\u0001${held.push(m) - 1}\u0002`));
+  const r = askWords({ ...step, says }, ruleLabel);
+  return { ...r, text: r.text.replace(/\u0001(\d+)\u0002/g, (m, k) => held[Number(k)]) };
+}
+function askWords(step, ruleLabel) {
   let c = String(step.says).replace(/^If /, '').replace(/ \(\d+ steps? inside\)$/, '').trim();
   let flip = false;
   if (/^not: /.test(c)) { c = c.slice(5); flip = true; }
@@ -362,6 +385,8 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       const id = memberIndex.get(c[1].toLowerCase());
       if (id) return id;
     }
+    // Shell and PowerShell call a function without parentheses: the step names it as its callee.
+    if (st.callee && /^[\w-]+$/.test(st.callee)) return memberIndex.get(String(st.callee).toLowerCase()) ?? null;
     return null;
   };
   // A question is asked by a rule's own name only when the condition is that call and nothing else
@@ -633,10 +658,11 @@ export function thunderModel(files, { name = 'app' } = {}) {
     try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); fileInfo.push({ path: f.path, language, category: categoryOf(language), skipped: `Could not read this file: ${e.message}` }); continue; }
     const infra = INFRA_LANGUAGES.includes(language) ? reading.infra : null;
     let fileThings = [];
-    try { fileThings = infra ? infra.things.map((t) => ({ ...t, knows: t.knows.map((k) => ({ ...k })) })) : language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
+    try { fileThings = infra ? infra.things.map((t) => ({ ...t, knows: t.knows.map((k) => ({ ...k })) })) : language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : language === 'r' ? rThings(f.source, f.path, THING_HELPERS) : language === 'powershell' ? psThings(f.source, f.path, THING_HELPERS) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
     if (language === 'typescript' || language === 'javascript') fileThings.push(...jsAssignedThings(reading.items, f.source, f.path, fileThings));
-    if (!infra && !THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
+    // Shell has no classes at all, so a word like "class Foo" in a shell file is text, not a gap.
+    if (!infra && !THING_LANGUAGES.includes(language) && language !== 'shell' && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }
     for (const t of fileThings) { t.id = idOf(f.path, t.name); t.label = infra && t.label ? t.label : cap(words(t.name)); t.can = []; things.push(t); }
