@@ -173,6 +173,7 @@ export function stepDoes(step) {
   const s = step.says || '', c = step.callee || '';
   if (step.restates || step.kind === 'other') return 'code';
   if (step.kind === 'fail') return 'stop';
+  if (step.redirect) return 'redirect';
   if (step.kind === 'loop') return 'repeat';
   if (step.kind === 'return') return 'answer';
   if (step.kind === 'check') return 'check';

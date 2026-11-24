@@ -1,3 +1,11 @@
+# Unreleased
+
+**Language: redirects say where the person goes.** A redirect reads "Sends the person to /login" (or "the Google
+auth URL", "the dashboard page") instead of "Gives back the result of redirect", and has its own step kind,
+`redirect` (mark ↪), in `THUNDER_VISUAL.does`. Fastify and Express `redirect`, `Response`/`NextResponse.redirect`,
+Flask/Django/Next `redirect(...)`, `HttpResponseRedirect`, FastAPI `RedirectResponse`, Laravel `redirect()->route()`.
+Found by OpenThunder on its own sign-in route.
+
 # 0.5.8
 
 **Language: Details is a fact sheet.** `readLevel(model, 'details', id)` now gives what you need to check before you

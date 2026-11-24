@@ -29,7 +29,7 @@ export function visualForStep(step: ReadStep): { mark: string; label: string; co
 export function thunderText(item: ReadItem): string;
 export type SymbolId = 'app' | 'area' | 'file' | 'thing' | 'data' | 'record' | 'choices' | 'action' | 'rule' | 'steps' | 'setup' | 'stop' | 'not-read';
 export const SYMBOLS: Record<SymbolId, { name: string; says: string; color: ColorRole; paths: string[]; circles?: [number, number, number][]; fill?: boolean; dashed?: boolean; beginner?: boolean; group?: string }>;
-export type Does = 'start' | 'find' | 'keep-only' | 'check' | 'decide' | 'calculate' | 'save' | 'send' | 'ask' | 'repeat' | 'answer' | 'stop' | 'do' | 'code';
+export type Does = 'start' | 'find' | 'keep-only' | 'check' | 'decide' | 'calculate' | 'save' | 'send' | 'redirect' | 'ask' | 'repeat' | 'answer' | 'stop' | 'do' | 'code';
 export const DOES: Record<Does, { label: string; mark: string; color: ColorRole; dashed?: boolean; symbol?: SymbolId }>;
 export const BEGINNER: SymbolId[];
 /** The five reading levels, in order: how deep you read something. */
