@@ -13,16 +13,30 @@ import { sqlItems } from './sql.mjs';
 import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
+import { shellReading, shellShebang, SHELL_TRIVIA } from './shell.mjs';
+import { powershellReading } from './powershell.mjs';
+import { rReading } from './rlang.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql'];
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'r', 'shell', 'powershell'];
+/** Languages read by their own module (shell.mjs, powershell.mjs, rlang.mjs) into the same reading shape. */
+const SCRIPT_READERS = { shell: shellReading, powershell: powershellReading, r: rReading };
 const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
 /** Best-effort language guess for pasted code (a file name, when known, is more reliable). */
 export function detectLanguage(source, file = '') {
-  if (file) return languageForFile(file);
   const s = String(source);
+  // A file with no extension is a shell script when its first line says so (#!/bin/bash).
+  if (file && !/\.[^./\\]+$/.test(String(file)) && shellShebang(s)) return 'shell';
+  if (file) return languageForFile(file);
+  if (shellShebang(s)) return 'shell';
+  // PowerShell: Verb-Noun functions, [CmdletBinding()], param blocks with [type]$name, -eq style operators.
+  if (/^\s*function\s+[A-Za-z]+-[A-Za-z]\w*/m.test(s) || /\[CmdletBinding\(/i.test(s) || /\bparam\s*\(\s*(?:\[[^\]]+\]\s*)*\$\w+/i.test(s) || /\$\w+\s+-(?:eq|ne|gt|ge|lt|le|like|match|contains)\b/i.test(s) || /^\s*(?:Write-Host|Get-[A-Z]\w+|Set-[A-Z]\w+|New-[A-Z]\w+)\b/m.test(s)) return 'powershell';
+  // R: name <- function(…), library(pkg), pipes with <-, R6Class, plumber annotations.
+  if (/[\w.]\s*<-\s*function\s*\(/.test(s) || /^\s*library\(\w+\)\s*$/m.test(s) || /\bR6Class\(|\bsetRefClass\(|^#\*\s*@(?:get|post)\s/m.test(s) || (/<-/.test(s) && /%>%|\|>/.test(s))) return 'r';
+  // Shell without a shebang: its own keywords (fi, done, esac, then) alongside $variables.
+  if ([/^\s*fi\s*$/m, /^\s*done\s*$/m, /;\s*then\s*$/m, /^\s*esac\s*$/m, /\[\[ .+ \]\]/, /^\s*set -[euo]/m].filter((re) => re.test(s)).length >= 2) return 'shell';
   // SQL: a file that starts with (or is mostly) schema statements.
   if (/^\s*(?:--[^\n]*\n\s*)*(?:CREATE|ALTER|INSERT\s+INTO|SELECT|WITH)\b/i.test(s) && /\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX)|SELECT\b[\s\S]*\bFROM)\b/i.test(s)) return 'sql';
   if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
@@ -1792,11 +1806,14 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql')
+    .replace(/^(sh|bash|zsh|ksh|dash|posix)$/, 'shell').replace(/^(ps1|psm1|pwsh|ps)$/, 'powershell').replace(/^(rlang|rscript)$/, 'r');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
   // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
   if (lang === 'sql') return sqlReading(src);
+  // Shell, PowerShell, and R are read by their own modules into the same items.
+  if (SCRIPT_READERS[lang]) return scriptReading(lang, src, file, !language);
   // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
   const code = lang === 'php' ? normalizePhp(src) : src;
   const items = [];
@@ -1897,6 +1914,118 @@ function sqlReading(src) {
     limitations: [
       'Read by pattern, not by running it on a database. PostgreSQL first; other dialects where their syntax agrees.',
       'Tables are drawn as Data or Things; CHECK and UNIQUE as rules the database enforces; views, functions, procedures, and triggers as steps.',
+    ],
+  };
+}
+
+// ── Shell, PowerShell, and R: read by their own modules, shown in the same shape ──────────────────────────
+
+const SCRIPT_TRIVIA = {
+  shell: SHELL_TRIVIA,
+  powershell: /^\s*(?:[{}()\[\];,]+|<#.*|#>.*|\.[A-Z]+\b.*|\[CmdletBinding\(\)\]|param\s*\(?)\s*$/i,
+  r: /^\s*(?:[{}()\[\],]+\s*)*$/,
+};
+const SCRIPT_NOTES = {
+  shell: 'Shell has no classes, so a shell file has no Things; its functions and its top-level script are read as steps.',
+  powershell: 'Cmdlets are read by their Verb-Noun names; native tools (git, docker, az, kubectl, …) by what their arguments show.',
+  r: 'Data-frame pipelines (|> and %>%) are read one verb at a time; S3 methods are read as plain functions.',
+};
+/**
+ * A question about something missing is asked the positive way, with "not:" in front, so the picture asks "Does the
+ * file exist?" and puts the Stop on No: "If there is no file x" -> "If not: the file x exists".
+ */
+const positiveAsk = (says) => String(says)
+  .replace(/^If there is no (file|folder) (.+)$/, 'If not: the $1 $2 exists')
+  .replace(/^If (?!not: )(.+) does not exist$/, 'If not: $1 exists');
+const dropConds = (steps) => { for (const s of steps || []) { delete s.cond; if (s.kind === 'branch' && s.says) s.says = positiveAsk(s.says); dropConds(s.children); dropConds(s.otherwise); for (const h of s.handlers || []) dropConds(h.steps); if (s.always) dropConds(s.always.steps); } };
+
+/** A reading for a language with its own module (shell.mjs, powershell.mjs, rlang.mjs). */
+function scriptReading(lang, src, file, detected) {
+  const r = SCRIPT_READERS[lang](src, file);
+  const srcLines = src.split('\n');
+  const trivia = SCRIPT_TRIVIA[lang];
+  const items = [];
+  // The script's own top-level code leaves out the lines of the functions and classes defined in it.
+  const defined = [...r.fns.filter((f) => !f.topLevel).map((f) => [f.line, Math.max(f.line, f.body?.[1] ?? f.line)]), ...(r.things || []).map((t) => t.lines)];
+  const inDefinition = (l) => defined.some(([a, b]) => l >= a && l <= b);
+  // PowerShell block comments (<# … #>) are comments on every line they cover.
+  const commentLines = new Set();
+  if (lang === 'powershell') {
+    for (let at = src.indexOf('<#'); at >= 0; at = src.indexOf('<#', at + 2)) {
+      const end = src.indexOf('#>', at + 2);
+      const a = lineAt(src, at), b = lineAt(src, end < 0 ? src.length - 1 : end);
+      for (let l = a; l <= b; l++) commentLines.add(l);
+      if (end < 0) break;
+      at = end;
+    }
+  }
+  for (const fn of r.fns) {
+    const inputs = fn.params.map((p) => ({ name: p.name, type: p.type ?? null }));
+    const names = inputs.map((p) => (lang === 'r' ? p.name.replace(/\./g, '_') : p.name));
+    dropConds(fn.steps);
+    let decision = null;
+    if (fn.decision) {
+      const rules = [];
+      for (const x of fn.decision.rules) {
+        const when = toThunderCondition(x.cond, names), result = toThunderOutcome(x.result);
+        if (!when || !result) { rules.length = 0; break; }
+        rules.push({ when, result, line: x.line });
+      }
+      const otherwise = toThunderOutcome(fn.decision.otherwise.result);
+      if (rules.length && otherwise) decision = { rules, otherwise: { result: otherwise, line: fn.decision.otherwise.line } };
+    }
+    const base = {
+      id: `${fn.name}:${fn.line}`, name: fn.name, label: fn.topLevel ? fn.name : displayLabel(fn.name), line: fn.line,
+      inputs: inputs.map((p) => (PLUMBING.test(p.name) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns ?? null),
+      ...(fn.route ? { route: fn.route } : {}), ...(fn.doc ? { doc: fn.doc } : {}), ...(fn.topLevel ? { topLevel: true } : {}),
+      provenance: 'inferred-from-code',
+    };
+    const takes = `${inputs.length ? inputs.map((p) => p.name).join(', ') : 'no inputs'}`;
+    if (decision) {
+      const thunderName = String(fn.name).replace(/[^\w]/g, '_');
+      items.push({
+        ...base, kind: 'decision', status: 'read', rules: decision.rules.map((x) => ({ ...x, says: sayCondition(x.when) })), otherwise: decision.otherwise,
+        says: (fn.route ? `Handles ${fn.route.method} ${fn.route.path}. ` : '') + sayDecision(decision.rules, decision.otherwise), guards: [],
+        thunder: decisionSource(thunderName, inputs, decision.rules, decision.otherwise), unread: [],
+      });
+      continue;
+    }
+    const steps = fn.steps || [];
+    let anchor = null;
+    if (fn.body) {
+      const covered = new Set();
+      for (const st of steps) if (st.span) for (let l = st.span.startLine; l <= st.span.endLine; l++) covered.add(l);
+      let real = 0, hit = 0;
+      const missing = [];
+      for (let l = fn.body[0]; l <= fn.body[1]; l++) {
+        const t = srcLines[l - 1] ?? '';
+        if (TRIVIA_LINE.test(t) || trivia.test(t) || commentLines.has(l) || (fn.topLevel && inDefinition(l))) continue;
+        real++;
+        if (covered.has(l)) hit++; else if (missing.length < 5) missing.push(l);
+      }
+      anchor = { schema: 'thunder-anchor-v1', bodyLines: fn.body, codeLines: real, coveredLines: hit, coverage: real ? Math.round((hit / real) * 1000) / 1000 : 1, missing };
+    }
+    for (const st of allSteps(steps)) if (st.span && st.span.exact == null) st.span.exact = 'lines';
+    const readable = steps.length ? steps.filter((x) => x.kind !== 'other' && !x.restates).length / steps.length : 0;
+    const headline = fn.headline ?? (fn.route ? `Handles ${fn.route.method} ${fn.route.path}.` : `${displayLabel(fn.name)} takes ${takes}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}.`);
+    items.push({
+      ...base, kind: 'function', status: 'signature-only',
+      ...(steps.length ? { steps, stepsMore: Math.max(0, steps.length - 14), stepsReadable: Math.round(readable * 100) / 100, ...(anchor ? { anchor } : {}) } : {}),
+      says: fn.headline ?? (fn.route ? headline : `${fn.name} takes ${takes}${fn.returns ? ` and returns ${simpleType(fn.returns)}` : ''}.`),
+      headline, guards: [], unread: [],
+    });
+  }
+  for (const e of r.errors || []) items.push({ id: `error:${e.name}:${e.line}`, kind: 'error', name: e.name, line: e.line, status: 'read', says: `Can fail with the error "${e.name}".`, provenance: 'inferred-from-code' });
+  for (const t of r.tests || []) items.push({ id: `test:${t.name}:${t.line}`, kind: 'test', name: t.name, line: t.line, status: 'read', says: `A test named "${t.name}".`, provenance: 'inferred-from-code' });
+  items.sort((a, b) => a.line - b.line);
+  for (const it of items) if (it.kind === 'function' || it.kind === 'decision') it.completeness = completenessOf(it);
+  const counts = { decision: 0, function: 0, error: 0, test: 0, partial: 0, guarded: 0, route: 0 };
+  for (const it of items) { counts[it.kind]++; if (it.route) counts.route++; }
+  return {
+    schema: READ_SCHEMA, language: lang, detected, items, counts,
+    limitations: [
+      'Inferred from code by pattern, not by running it. Confirm a reading before relying on it.',
+      SCRIPT_NOTES[lang],
     ],
   };
 }

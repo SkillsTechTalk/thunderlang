@@ -1,5 +1,5 @@
 // Editor-style syntax colors for ORIGINAL source code (Python, TypeScript, JavaScript, Java, C#, Go, Rust,
-// Kotlin, PHP, Ruby, SQL), so the Original level looks like the code does in an IDE.
+// Kotlin, PHP, Ruby, SQL, R, shell, PowerShell), so the Original level looks like the code does in an IDE.
 //
 // Small, dependency-free, and deterministic (a pure function of the text), so server-rendered pages hydrate
 // without mismatches. It is for display only: it colors what a reader expects (keywords, strings including
@@ -93,6 +93,29 @@ const SPECS = {
     consts: words("true false null"),
     types: words("int integer bigint smallint tinyint decimal numeric real float double precision varchar char text date time timestamp timestamptz boolean bool serial uuid json jsonb blob"),
   },
+  r: {
+    line: ["#"],
+    decl: words("function library require source invisible"),
+    ctl: words("if else for while repeat break next return in switch stop tryCatch"),
+    consts: words("TRUE FALSE NULL NA NaN Inf T F NA_integer_ NA_real_ NA_character_"),
+    types: words("numeric character logical integer double list vector factor matrix"),
+  },
+  shell: {
+    line: ["#"], interpDouble: "$",
+    decl: words("function local export readonly declare typeset source alias unset set shift trap eval exec"),
+    ctl: words("if then elif else fi for while until do done case esac in return exit break continue select"),
+    consts: words("true false"),
+    types: words(""),
+    defFn: words("function"), sigil: /\$(?:\{[^}\n]*\}|[A-Za-z_]\w*|[0-9#?@*$!-])/y,
+  },
+  powershell: {
+    line: ["#"], block: ["<#", "#>"], ci: true, interpDouble: "$",
+    decl: words("function filter param begin process end class enum using hidden static workflow dynamicparam"),
+    ctl: words("if elseif else foreach for while do until switch break continue return throw try catch finally trap exit in"),
+    consts: words("true false null"),
+    types: words("string int bool object array hashtable datetime void switch"),
+    defFn: words("function filter"), defType: words("class enum"), sigil: /\$(?:\{[^}\n]*\}|[A-Za-z_][\w:]*|[_?^$])/y,
+  },
 };
 SPECS.javascript = SPECS.typescript;
 
@@ -101,6 +124,7 @@ const ALIASES = {
   javascript: "javascript", js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript",
   java: "java", csharp: "csharp", "c#": "csharp", cs: "csharp", go: "go", golang: "go", rust: "rust", rs: "rust",
   kotlin: "kotlin", kt: "kotlin", kts: "kotlin", php: "php", ruby: "ruby", rb: "ruby", sql: "sql",
+  r: "r", shell: "shell", sh: "shell", bash: "shell", zsh: "shell", ksh: "shell", powershell: "powershell", ps1: "powershell", psm1: "powershell", pwsh: "powershell",
 };
 
 /**
@@ -111,7 +135,7 @@ export function sourceLang(hint) {
   if (!hint) return null;
   const h = String(hint).trim().toLowerCase();
   if (ALIASES[h]) return ALIASES[h];
-  const ext = h.match(/\.([a-z]+)\b(?!.*\.[a-z]+\b)/);
+  const ext = h.match(/\.([a-z][a-z0-9]*)\b(?!.*\.[a-z][a-z0-9]*\b)/);
   if (ext && ALIASES[ext[1]]) return ALIASES[ext[1]];
   const first = h.match(/^[a-z#]+/);
   return (first && ALIASES[first[0]]) || null;

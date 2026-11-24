@@ -642,6 +642,9 @@ export function languageForFile(file) {
   if (/\.(scala|sc)$/i.test(file)) return 'scala';
   if (/\.exs?$/i.test(file)) return 'elixir';
   if (/\.(mjs|cjs|jsx?)$/i.test(file)) return 'javascript';
+  if (/\.r$/i.test(file)) return 'r';
+  if (/\.(sh|bash|zsh|ksh)$/i.test(file)) return 'shell';
+  if (/\.(ps1|psm1)$/i.test(file)) return 'powershell';
   return 'typescript';
 }
 

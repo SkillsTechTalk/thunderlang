@@ -8,10 +8,15 @@ import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
 import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
+import { rThings } from './rlang.mjs';
+import { psThings } from './powershell.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
-/** Languages whose classes, records, and choices are read today. Others still get every function. */
-export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql'];
+/**
+ * Languages whose classes, records, and choices are read today. Others still get every function. Shell is not here
+ * because it has no classes: a shell file is its functions and its top-level script.
+ */
+export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql', 'r', 'powershell'];
 
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -52,7 +57,8 @@ function kindWords(type) {
   return /^[A-Z]/.test(t) ? `a ${t}` : null;
 }
 
-const thingsFor = makeThingReaders({ words: (x) => words(x), kindWords: (x) => kindWords(x), startValue: (x, p) => startValue(x, p) });
+const THING_HELPERS = { words: (x) => words(x), kindWords: (x) => kindWords(x), startValue: (x, p) => startValue(x, p) };
+const thingsFor = makeThingReaders(THING_HELPERS);
 
 // ── Things: classes, records, and choices ───────────────────────────────────────────────────────────
 
@@ -185,8 +191,8 @@ export function stepDoes(step) {
   if (step.kind === 'check') return 'check';
   if (step.kind === 'branch') return 'decide';
   if (/^Writes to the database|^(Records|Adds to|Removes)/.test(s)) return 'save';
-  if (/^(Sends an email|Announces an event|Writes a log)/.test(s)) return 'send';
-  if (/^(Calls another service|Calls Stripe)/.test(s)) return 'ask';
+  if (/^(Sends an email|Announces an event|Writes a log|Writes a message|Writes an error message|Shows a message|Warns:)/.test(s)) return 'send';
+  if (/^(Calls another service|Calls Stripe|Sends an? (?:GET|POST|PUT|PATCH|DELETE|HEAD) request)/.test(s)) return 'ask';
   if (/\b(filter|where|select|query|find|get|fetch|load|read|search|lookup|scalars|all)\b/i.test(c) || /the items in .* where|the first item in|the .* entry in|the .* with /.test(s)) return /\b(filter|where)\b/i.test(c) || / where /.test(s) ? 'keep-only' : 'find';
   if (step.kind === 'set') return 'calculate';
   return 'do';
@@ -260,6 +266,8 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       const id = memberIndex.get(c[1].toLowerCase());
       if (id) return id;
     }
+    // Shell and PowerShell call a function without parentheses: the step names it as its callee.
+    if (st.callee && /^[\w-]+$/.test(st.callee)) return memberIndex.get(String(st.callee).toLowerCase()) ?? null;
     return null;
   };
   // walk returns { open, blocks }: open = edges still waiting for the next node; blocks = the same nodes as a tree
@@ -401,14 +409,15 @@ function youGiveOf(item) {
 export function thunderModel(files, { name = 'app' } = {}) {
   const things = [], members = [], links = [], unknowns = [], fileInfo = [];
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source) continue;
     let reading;
     try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
     let fileThings = [];
-    try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
+    try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : language === 'r' ? rThings(f.source, f.path, THING_HELPERS) : language === 'powershell' ? psThings(f.source, f.path, THING_HELPERS) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
-    if (!THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
+    // Shell has no classes at all, so a word like "class Foo" in a shell file is text, not a gap.
+    if (!THING_LANGUAGES.includes(language) && language !== 'shell' && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }
     for (const t of fileThings) { t.id = idOf(f.path, t.name); t.label = cap(words(t.name)); t.can = []; things.push(t); }

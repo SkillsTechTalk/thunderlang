@@ -18,6 +18,9 @@ const SAMPLES = {
   php: "#[Route('/x')]\nfunction fee($days) { return \"late $days\"; } # c",
   ruby: "def borrow!(book)\n  raise Error, \"no #{book.title}\" unless @shelf.include?(book)\n  :ok\nend",
   sql: "SELECT COUNT(*) AS n FROM loans WHERE note = 'it''s' AND \"user id\" > 0 -- late",
+  r: "late_fee <- function(days) {\n  if (days > 7) return(\"BigFee\") # late\n  NULL\n}",
+  shell: "deploy() {\n  cd $HOME && echo $# ${#ARGS[@]}\n  if [[ -z \"$1\" ]]; then echo \"no ${ENV}\" >&2; exit 1; fi # check\n}",
+  powershell: "<# .SYNOPSIS\nFee #>\nfunction Get-Fee([int]$Days) {\n  if ($Days -gt 7) { return 'Big' } # late\n}",
 };
 
 test("tokens always join back to the exact source, for every language", () => {
@@ -35,6 +38,10 @@ test("language comes from a name, a file name, or a label", () => {
   assert.equal(sourceLang("C#"), "csharp");
   assert.equal(sourceLang("Loans.kt"), "kotlin");
   assert.equal(sourceLang("schema.sql"), "sql");
+  assert.equal(sourceLang("orders.R"), "r");
+  assert.equal(sourceLang("deploy.sh"), "shell");
+  assert.equal(sourceLang("Shell (Bash)"), "shell");
+  assert.equal(sourceLang("Release.ps1"), "powershell");
   assert.equal(sourceLang("notes.txt"), null);
   assert.deepEqual(tokenizeSource("x = 1", "notes.txt"), [{ text: "x = 1" }]);
 });
@@ -68,6 +75,13 @@ test("each language's own forms", () => {
   const sql = colored(SAMPLES.sql, "sql");
   for (const want of ["kw:SELECT", "fn:COUNT", "str:'it''s'", "ctl:AND", "com:-- late"]) assert.ok(sql.includes(want), want);
   assert.ok(!sql.some((t) => t.includes("user id")), "a quoted SQL name is not a string");
+  const r = colored(SAMPLES.r, "orders.R");
+  for (const want of ["kw:function", "ctl:if", "ctl:return", 'str:"BigFee"', "com:# late", "const:NULL"]) assert.ok(r.includes(want), want);
+  const sh = colored(SAMPLES.shell, "deploy.sh");
+  for (const want of ["ctl:if", "ctl:then", "ctl:fi", "var:$HOME", "var:$#", "var:${#ARGS[@]}", "com:# check", "ctl:exit"]) assert.ok(sh.includes(want), want);
+  assert.ok(!sh.some((t) => t.startsWith("com:#\"")), "$# is not a comment");
+  const ps = colored(SAMPLES.powershell, "Release.ps1");
+  for (const want of ["com:<# .SYNOPSIS\nFee #>", "kw:function", "var:$Days", "ctl:if", "ctl:return", "str:'Big'", "com:# late"]) assert.ok(ps.includes(want), want);
 });
 
 test("deterministic: the same input always gives the same tokens", () => {

@@ -1,3 +1,35 @@
+# Unreleased
+
+**Language: R, Bash/POSIX shell, and PowerShell.** Thunder reads three more languages, each by its own module
+(`rlang.mjs`, `shell.mjs`, `powershell.mjs`, with a shared phrasebook of command-line tools in `commands.mjs`) into
+the same items as every other language.
+- **R** (`.R`, `.r`): `name <- function(a, b = 3)` functions; `if`/`else if`/`else`, `return()` guards, and `switch()`
+  (with fall-through) as decisions; `for`/`while`/`repeat`, `stop()` as a Stop with its message, `warning()`,
+  `message()`, `tryCatch(error =, warning =, finally =)` as handlers and what always runs at the end, the implicit last
+  value; `library()` as setup; data-frame pipelines (`|>`, `%>%`) one verb at a time ("Keeps only the rows where total
+  is more than 100", "Groups the rows by region", "Sorts the rows by revenue, highest first"); `R6Class`,
+  `setRefClass`, and `setClass` as Things; roxygen `#'` as the author's note; plumber `#* @get /path` as actions;
+  testthat tests.
+- **Shell** (`.sh`, `.bash`, `.zsh`, `.ksh`, and extensionless files with a shell shebang): a linear lexer and parser
+  for words, quotes, `$(…)`, heredocs, pipes, `&&`/`||`, `if`/`elif`/`else`, `for`, `while`/`until`, `case`, and
+  functions. Tests in words ("the file … exists", "x is empty", "is at least"), `exit N` as a Stop with the message
+  echoed to stderr right before it, `set -euo pipefail` as a note, `trap … EXIT` as what runs at the end,
+  `cmd || { …; exit 1; }` as a question, and docker, kubectl, helm, az, aws, gcloud, git, npm, curl, and file commands
+  by what they do. The script's own top-level code is one item named after the file. Shell has no classes, so it has
+  no Things (it is left out of `THING_LANGUAGES` on purpose).
+- **PowerShell** (`.ps1`, `.psm1`): `function Verb-Noun` with `param()` inputs and their kinds, comment-based help
+  (`.SYNOPSIS`) as the author's note, `if`/`elseif`/`else` and `switch` as decisions, `foreach`, `ForEach-Object`,
+  `try`/`catch [Type]`/`finally`, `throw` as a Stop, `Write-Error` as a Stop only when errors are set to stop,
+  comparison operators in words, cmdlets by Verb-Noun ("Gets the Azure resource groups"), `class` and `enum` as Things
+  and Choices, Pode routes as actions, Pester tests.
+- `readableLanguage(path, source)` reads an extensionless file as shell when its first line is a shell shebang;
+  `collectReadableFiles` looks at the first bytes of extensionless files to find them.
+- Flows link a shell or PowerShell call to the function it runs (by the step's callee). Steps that write a message
+  or send an HTTP request get the "send" and "ask" shapes.
+- `/read` has R, Shell (Bash), and PowerShell in its language picker, a sample for each, and editor colors for them.
+- `scripts/language-audit.mjs` audits tidyverse/dplyr, nvm-sh/nvm, and PowerShell/PSScriptAnalyzer, and leaves a
+  script's own functions out of its top-level item's branch count. Spec section 9 updated.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

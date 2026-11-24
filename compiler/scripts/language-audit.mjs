@@ -23,17 +23,20 @@ export const AUDIT_REPOS = [
   { language: 'Kotlin + Java', repo: 'JakeWharton/timber' },
   { language: 'PHP', repo: 'guzzle/guzzle' },
   { language: 'Ruby', repo: 'sinatra/sinatra' },
+  { language: 'R', repo: 'tidyverse/dplyr' },
+  { language: 'Shell', repo: 'nvm-sh/nvm' },
+  { language: 'PowerShell', repo: 'PowerShell/PSScriptAnalyzer' },
 ];
 
 // A clause keyword at the start of a statement (or right after a closing brace), outside comments.
 const CLAUSE_RE = /(?:^|[}\s;])(?:else\s+if|elseif|elsif|elif|else|except|catch|finally|rescue|ensure)\b(?!\s*[:=]\s*[^:\n]*$)/g;
 const COMMENT_RE = /^\s*(#|\/\/|\*|\/\*)/;
 
-function clausesInSource(lines, [from, to], language) {
+function clausesInSource(lines, [from, to], language, skip = () => false) {
   let n = 0;
   for (let l = from; l <= to; l++) {
     const t = lines[l - 1] ?? '';
-    if (COMMENT_RE.test(t)) continue;
+    if (COMMENT_RE.test(t) || skip(l)) continue;
     const code = t.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, '""').replace(/(\/\/|#).*$/, '');
     // Ruby/Python one-line conditional expressions (x if c else y, cond ? a : b) are not clauses.
     if (language === 'python' && /\bif\b.+\belse\b/.test(code) && !/^\s*(el)?if\b/.test(code)) continue;
@@ -59,7 +62,7 @@ const allSteps = (steps) => (steps || []).flatMap((s) => [s, ...allSteps(s.child
 export function auditFiles(files) {
   const r = { files: 0, functions: 0, errors: 0, explained: 0, sourceClauses: 0, shownClauses: 0, steps: 0, restates: 0, worst: [] };
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source || /(^|\/)(test|tests|spec|__tests__|vendor|node_modules)\//.test(f.path)) continue;
     r.files++;
     let reading;
@@ -71,7 +74,9 @@ export function auditFiles(files) {
       if (it.kind !== 'function') continue;
       r.functions++;
       const range = it.anchor?.bodyLines;
-      const src = range ? clausesInSource(lines, range, language) : 0;
+      // A script's top-level item (shell, PowerShell, R) leaves out the functions defined inside its lines.
+      const others = it.topLevel ? reading.items.filter((x) => x !== it && (x.kind === 'function' || x.kind === 'decision')).map((x) => [x.line, x.anchor?.bodyLines?.[1] ?? Math.max(x.line, ...(x.rules || []).map((q) => q.line), x.otherwise?.line ?? 0)]) : [];
+      const src = range ? clausesInSource(lines, range, language, (l) => others.some(([a, b]) => l >= a && l <= b)) : 0;
       const shown = clausesInSteps(it.steps);
       r.sourceClauses += src;
       r.shownClauses += Math.min(shown, src);

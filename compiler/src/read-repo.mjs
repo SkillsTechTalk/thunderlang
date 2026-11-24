@@ -22,6 +22,9 @@ const EXT_LANG = [
   [/\.php$/i, 'php'],
   [/\.rb$/i, 'ruby'],
   [/\.sql$/i, 'sql'],
+  [/\.r$/i, 'r'],
+  [/\.(sh|bash|zsh|ksh)$/i, 'shell'],
+  [/\.(ps1|psm1)$/i, 'powershell'],
 ];
 
 /** Folders that hold dependencies, build output, or tooling state rather than the application. */
@@ -31,11 +34,18 @@ export const READ_SKIP_DIRS = new Set([
   '.gradle', '.idea', '.vscode', '.intent', 'third_party', 'Pods', '.terraform',
 ]);
 
-/** The language the reader uses for a path, or null when the file is not read. */
-export function readableLanguage(path) {
+/** True when a file's first line is a shell shebang (#!/bin/bash, #!/usr/bin/env sh, zsh, ksh, dash). */
+export const isShellScript = (source) => /^#!\s*\S*\/(?:env\s+(?:-\S+\s+)*)?(?:ba|z|k|da|a)?sh\b/.test(String(source ?? ''));
+
+/**
+ * The language the reader uses for a path, or null when the file is not read. A file with no extension is read as
+ * shell when `source` is given and its first line is a shell shebang.
+ */
+export function readableLanguage(path, source) {
   const p = String(path).replace(/\\/g, '/');
   if (p.split('/').some((seg) => READ_SKIP_DIRS.has(seg))) return null;
   for (const [re, lang] of EXT_LANG) if (re.test(p)) return lang;
+  if (source != null && !/\.[^./]+$/.test(p.split('/').pop()) && isShellScript(source)) return 'shell';
   return null;
 }
 
@@ -62,7 +72,7 @@ export function readRepo(files, { maxFileBytes = 400000, maxFiles = 5000 } = {})
   let considered = 0;
   for (const f of files || []) {
     const path = String(f.path).replace(/\\/g, '/').replace(/^\.\//, '');
-    const language = readableLanguage(path);
+    const language = readableLanguage(path, f.source);
     if (!language) continue; // not code this reader understands; not worth listing one by one
     considered++;
     if (considered > maxFiles) { skipped.push({ path, reason: `More than ${maxFiles} files; read a smaller folder to include this one.` }); continue; }
@@ -146,7 +156,7 @@ export function groupByFile(items) {
  */
 export function readFiles(files) {
   return files.map((f) => {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source || f.reading) return f;
     try { return { ...f, reading: readCode(f.source, { language, file: f.path }) }; }
     catch (e) { return { ...f, readError: e.message }; }
@@ -154,7 +164,7 @@ export function readFiles(files) {
 }
 
 /** A file's reading: the one readFiles attached, or a fresh one. Throws the same error the reader would. */
-export function readingOf(f, language = readableLanguage(f.path)) {
+export function readingOf(f, language = readableLanguage(f.path, f.source)) {
   if (f.readError) throw new Error(f.readError);
   return f.reading ?? readCode(f.source, { language, file: f.path });
 }

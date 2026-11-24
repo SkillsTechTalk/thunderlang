@@ -22,7 +22,7 @@ const category = (t) => (t.t === 'op' ? 'cmp' : t.t);
 const sameTok = (a, b) => a.t === b.t && a.v === b.v;
 const normWhen = (w) => tokenize(w).map((t) => (t.t === 'str' ? JSON.stringify(t.v) : String(t.v))).join(' ');
 
-const COMMENT = { python: ['#'], ruby: ['#'], php: ['#', '//', '/*'] };
+const COMMENT = { python: ['#'], ruby: ['#'], php: ['#', '//', '/*'], r: ['#'], shell: ['#'], powershell: ['<#', '#'] };
 const commentStarts = (language) => COMMENT[language] || ['//', '/*'];
 
 /** Numbers, comparison operators, and text literals in a slice of the original file, with exact offsets. */
@@ -34,6 +34,7 @@ function scanSource(source, from, to, language) {
     const c = source[i];
     if (starts.some((s) => source.startsWith(s, i))) {
       if (source.startsWith('/*', i)) { const j = source.indexOf('*/', i + 2); i = j < 0 ? to : j + 2; }
+      else if (source.startsWith('<#', i)) { const j = source.indexOf('#>', i + 2); i = j < 0 ? to : j + 2; }
       else { const j = source.indexOf('\n', i); i = j < 0 ? to : j; }
       continue;
     }
