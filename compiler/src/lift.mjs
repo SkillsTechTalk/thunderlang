@@ -628,6 +628,7 @@ function liftDiagnostics(lift, facts) {
  * repo-level summary matching the `thunder lift --from repo --json` contract.
  */
 export function languageForFile(file) {
+  if (/\.sql$/i.test(file)) return 'sql';
   if (/\.rs$/i.test(file)) return 'rust';
   if (/\.(pl|pm|t)$/i.test(file)) return 'perl';
   if (/\.pyi?$/i.test(file)) return 'python';

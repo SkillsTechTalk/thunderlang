@@ -248,4 +248,41 @@ end
 `,
     expect: { decisions: ['priority'], functions: ['escalate'] },
   },
+  {
+    key: 'sql-orders',
+    label: 'SQL: orders and payments',
+    language: 'sql',
+    file: 'orders.sql',
+    source: `-- One purchase by one customer.
+CREATE TABLE orders (
+    id          SERIAL PRIMARY KEY,
+    customer_id INTEGER NOT NULL REFERENCES customers(id),
+    status      TEXT NOT NULL DEFAULT 'pending',
+    total       NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    CONSTRAINT total_not_negative CHECK (total >= 0)
+);
+
+-- Paid orders of $100 or more, biggest first.
+CREATE VIEW big_paid_orders AS
+SELECT o.id, o.total
+FROM orders o
+WHERE o.status = 'paid' AND o.total >= 100
+ORDER BY o.total DESC;
+
+-- Marks an order as paid, if the payment covers it.
+CREATE FUNCTION pay_order(p_order_id INTEGER, p_amount NUMERIC) RETURNS TEXT AS $$
+DECLARE
+    v_total NUMERIC;
+BEGIN
+    SELECT total INTO v_total FROM orders WHERE id = p_order_id;
+    IF p_amount < v_total THEN
+        RAISE EXCEPTION 'Not enough money';
+    END IF;
+    UPDATE orders SET status = 'paid' WHERE id = p_order_id;
+    RETURN 'paid';
+END;
+$$ LANGUAGE plpgsql;
+`,
+    expect: { decisions: [], functions: ['total_not_negative', 'big_paid_orders', 'pay_order'] },
+  },
 ];

@@ -1,3 +1,16 @@
+# Unreleased
+
+**Language: choices among cases, and inner functions, in the flow.**
+- A `switch`, `when`, `match`, or `select` is one question with one side per case ("Chooses by score": "When it is
+  from 90 to 100", …, "Otherwise"), not a yes/no question. Flow blocks carry `cases: [{ label, blocks }]`, the
+  decision node `cases: true`, and its edges `label: 'case'` with the case's `text` (the edge into an inner function's steps is `label: 'nested'`). Without an Otherwise, "None of
+  these" carries straight on.
+- An inner function (a React hook, a callback, `go`/`defer`, a closure) is its own sub-flow (`nested: true` on its
+  block): a return or stop inside it ends only that function, and the outer flow carries on from the step. Details no
+  longer lists its returns and stops as the outer action's endings.
+- Destructured parameters (React props `{ userId, name }`) are what goes in: "user id, name".
+- SQL is in the reader on thunderlang.dev/read, with a sample; pasted SQL is recognized.
+
 # 0.5.10
 
 **Language: SQL.** Thunder reads `.sql` files: tables become Data or Things (columns in words, defaults, always
