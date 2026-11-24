@@ -378,7 +378,7 @@ function isPlumbing(p, params, fn) {
   if (/^(self|this|cls)$/i.test(p.name)) return true;
   const web = !!fn.route || params.some((x) => /^(?:req|res|reply|ctx|c|w|r|next)$/.test(x.name) || /HttpRequest|HttpResponse|ResponseWriter|NextFunction|HttpContext|ServerRequest|FastifyRequest|FastifyReply|NextRequest|HttpServletRequest/.test(String(x.type || '')));
   const t = String(p.type || '');
-  if (/^(?:request|response|resp)$/i.test(p.name) || (t && /^(?:Request|Response)(?:\s*\|.*)?$|\|\s*(?:Request|Response)\b/.test(t) && !/Http|Servlet|Fastify|Next/.test(t))) return web;
+  if (/^(?:request|response)$/i.test(p.name) || (t && /^(?:Request|Response)(?:\s*\|.*)?$|\|\s*(?:Request|Response)\b/.test(t) && !/Http|Servlet|Fastify|Next/.test(t))) return web;
   return t ? PLUMBING_TYPE.test(t) : PLUMBING.test(p.name);
 }
 const PLUMBING_TYPE = /\b(Session|AsyncSession|DbContext|Connection|HttpRequest|HttpResponse|Request|Response|Context|ResponseWriter|CancellationToken|ILogger|Logger|NextFunction)\b/;
@@ -1840,7 +1840,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     const last = out.steps[out.steps.length - 1];
     if (lang === 'ruby' && last && last.kind === 'call' && !last.jump && !last.library && (/\?$/.test(fn.name) || /&&|\|\||\band\b|\bor\b|[!=]=|[<>]/.test(stripRubyStrings(last.code || '')))) {
       const v = classifyStatement(`return ${String(last.code || '').trim()}`);
-      if (v.kind === 'return') out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code };
+      if (v.kind === 'return') out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code, ...(/^Returns (?:a computed value|a value)$/.test(v.says) ? { restates: true } : {}) };
       delete out.steps[out.steps.length - 1].callee;
     }
     return out;

@@ -195,9 +195,9 @@ function sayAtomWords(cond) {
 }
 
 // `typeof x === 'string'` -> "x is text": what a reader means by each JavaScript type name.
-const TYPEOF_WORDS = { string: 'text', number: 'a number', boolean: 'true or false', function: 'a function', object: 'an object', undefined: 'undefined', bigint: 'a big number', symbol: 'a symbol' };
+const TYPEOF_WORDS = { string: 'text', number: 'a number', boolean: 'a yes/no value', function: 'a function', object: 'an object', undefined: 'undefined', bigint: 'a big number', symbol: 'a symbol' };
 // PHP's type checks: is_string($x) -> "x is text".
-const PHP_IS = { is_string: 'text', is_array: 'an array', is_int: 'a whole number', is_integer: 'a whole number', is_float: 'a decimal number', is_numeric: 'a number', is_bool: 'true or false', is_object: 'an object', is_callable: 'callable', is_resource: 'a resource', is_iterable: 'iterable', is_scalar: 'a single value' };
+const PHP_IS = { is_string: 'text', is_array: 'an array', is_int: 'a whole number', is_integer: 'a whole number', is_float: 'a decimal number', is_numeric: 'a number', is_bool: 'a yes/no value', is_object: 'an object', is_callable: 'callable', is_resource: 'a resource', is_iterable: 'iterable', is_scalar: 'a single value' };
 
 function sayCodeConditionInner(cond) {
   let c = plainEnums(String(cond)).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
@@ -210,7 +210,7 @@ function sayCodeConditionInner(cond) {
   if ((ty = c.match(/^(!|not\s+)?\\?(is_\w+)\(\s*\$?([\w$.\[\]'">-]+)\s*\)$/)) && PHP_IS[ty[2]]) return `${possessiveWords(ty[3])} is ${ty[1] ? 'not ' : ''}${PHP_IS[ty[2]]}`;
   // `x instanceof Foo` / `x is Foo` (Kotlin, C#) / isinstance(x, Foo): "x is a Foo".
   if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.]+)\s+instanceof\s+([\w$.\\]+)\s*\)?$/))) return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}a ${ty[3].split(/[.\\]/).pop()}`;
-  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/))) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}a ${ty[3].split('.').pop()}`;
+  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/)) && !/^(?:True|False|None|Null|Nil|NULL)$/.test(ty[3])) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}a ${ty[3].split('.').pop()}`;
   if ((ty = c.match(/^(not\s+)?isinstance\(\s*([\w.]+)\s*,\s*\(?\s*([\w.]+(?:\s*,\s*[\w.]+)*)\s*\)?\s*\)$/))) { const kinds = ty[3].split(/\s*,\s*/).map((x) => x.split('.').pop()); return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${kinds.length > 1 ? `one of ${kinds.join(', ')}` : `a ${kinds[0]}`}`; }
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
   const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
@@ -247,7 +247,7 @@ function sayCodeConditionInner(cond) {
     const w = words(call[2]);
     // "not: " is kept for `unless` (it flips the whole question); a negated call says its own "not".
     if (!call[1]) return w;
-    return w.replace(/^(is|was|are|should) /, '$1 not ').replace(/^(has) /, 'does not have ').replace(/^(can) /, 'cannot ').replace(/^(does) /, 'does not ');
+    return w.replace(/^(is|was|are|should|has|can|does) /, (m0, v) => ({ has: 'does not have ', can: 'cannot ', does: 'does not ' }[v] ?? `${v} not `));
   }
   // A plain name or property path used as a yes/no: `if proxy` -> "proxy is set"; `not url.host` -> "the url's host is not set".
   const bare = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)$/);
@@ -464,6 +464,8 @@ export function withFunctionContext(ctx, fn) {
  */
 function nextKind() {
   const ps = FN_CONTEXT?.params || [];
+  // A route handler's `next` (`app.get('/', function (req, res, next) { … })`).
+  if (FN_CONTEXT?.route && !ps.some((x) => x.name === 'next' && /Delegate|Func</.test(String(x.type || '')))) return 'middleware';
   const p = ps.find((x) => x.name === 'next');
   if (!p) return null;
   if (/RequestHandlerDelegate|Delegate\b|Func</.test(String(p.type || ''))) return 'pipeline';
@@ -742,7 +744,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((inl = head.match(/^(if|else\s+if)\s*\(/))) {
     const c = closeOf(head, head.indexOf('('));
     const body = c > 0 ? head.slice(c + 1).trim() : '';
-    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && !/^(?:&&|\|\||and\b|or\b|[-+*/%<>=!?.])/.test(body)) {
+    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && !/^(?:&&|\|\||and\b|or\b|is\b|in\b|not\b|instanceof\b|[-+*/%<>=!?.])/.test(body) && !/:\s*$/.test(body)) {
       const cond = head.slice(head.indexOf('(') + 1, c);
       return { kind: 'branch', says: `If ${sayCodeCondition(cond)}`, cond, code, inline: body };
     }

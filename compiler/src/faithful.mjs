@@ -110,7 +110,8 @@ export function codeCounts(code) {
 /** The same counts in the words Thunder wrote. */
 export function wordCounts(said) {
   const s = stripQuoted(String(said).replace(/`[^`]*`/g, 'Q'));
-  const neg = (s.match(/\b(?:not|no|non|never|cannot|none)\b|n't\b/gi) || []).length;
+  // (`None` written as a value is Python's empty value, not a negation.)
+  const neg = (s.match(/\b(?:[Nn]ot|[Nn]o|[Nn]on|[Nn]ever|[Cc]annot|none)\b|n't\b/g) || []).length;
   const logic = (s.match(/\band\b|\bor\b/g) || []).length;
   const compare = (s.match(/\b(?:is|are|was|has|have|does|than|at least|at most|in|instanceof|equals?|matches|set|empty|null|undefined|nil|true|false)\b|[<>=]/g) || []).length;
   return { neg, logic, compare };
