@@ -18,4 +18,4 @@ export const NPM_PACKAGE = "@skillstech/thunderlang";
 
 // The version npm installs today. Update this when a new release is published, so the install page
 // never promises a command people can't run yet.
-export const PUBLISHED_VERSION = "0.5.4";
+export const PUBLISHED_VERSION = "0.5.5";

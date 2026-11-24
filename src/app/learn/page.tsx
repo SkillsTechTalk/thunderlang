@@ -1,5 +1,6 @@
 import { PageHero, Section } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
+import { LEARN_COURSE_URL } from "@/lib/site";
 import { readCode } from "../../../compiler/src/read.mjs";
 import { thunderText, visualFor } from "../../../compiler/src/visual.mjs";
 import { thunderModel, modelText } from "../../../compiler/src/model.mjs";
@@ -72,6 +73,17 @@ function buildOne(lesson: (typeof READ_LESSONS)[number]): Omit<BuiltLesson, "qui
   }
 }
 
+function CourseLink({ lead }: { lead: string }) {
+  return (
+    <p className="mx-auto max-w-3xl rounded-xl border border-gold-400/30 bg-gold-400/5 px-5 py-4 text-sm text-haze-200">
+      {lead}{" "}
+      <a href={LEARN_COURSE_URL} className="font-semibold text-gold-200 hover:text-gold-100">
+        Take the full ThunderLang course on Skills Tech Talk ↗
+      </a>
+    </p>
+  );
+}
+
 export default function LearnPage() {
   return (
     <>
@@ -81,7 +93,13 @@ export default function LearnPage() {
         intro="Thunder is a human-native programming language: it shows what software does as pictures and plain words. These lessons use one small pizza-delivery app. You don't need to know any programming language. Every picture here was made from real code by the Thunder compiler."
       />
       <Section className="!pt-0">
-        <LearnThunder lessons={build()} />
+        <CourseLink lead="These lessons teach you to read Thunder. To learn Thunder and ThunderLang in depth, with practice and progress:" />
+        <div className="mt-10">
+          <LearnThunder lessons={build()} />
+        </div>
+        <div className="mt-12">
+          <CourseLink lead="Finished the lessons? Keep going:" />
+        </div>
       </Section>
     </>
   );
