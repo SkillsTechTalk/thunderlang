@@ -5,6 +5,7 @@
 // Pure and browser-safe: callers pass { path, source } pairs (the CLI reads them from disk, the
 // browser from a folder the person picks; nothing is uploaded). Deterministic, no AI.
 import { readCode } from './read.mjs';
+import { readableFormat } from './file-formats.mjs';
 
 export const READ_REPO_SCHEMA = 'thunder-repo-reading-v1';
 
@@ -31,13 +32,26 @@ export const READ_SKIP_DIRS = new Set([
   '.gradle', '.idea', '.vscode', '.intent', 'third_party', 'Pods', '.terraform',
 ]);
 
-/** The language the reader uses for a path, or null when the file is not read. */
-export function readableLanguage(path) {
+/**
+ * The language or format the reader uses for a file, or null when it is not read. `head` (the first ~2 KB) lets a
+ * format that is known by its content be recognized; infrastructure and delivery formats come from file-formats.mjs.
+ */
+export function readableFile(path, head = '') {
   const p = String(path).replace(/\\/g, '/');
   if (p.split('/').some((seg) => READ_SKIP_DIRS.has(seg))) return null;
+  const format = readableFormat(p, head);
+  if (format) return format;
   for (const [re, lang] of EXT_LANG) if (re.test(p)) return lang;
   return null;
 }
+
+/** The language the reader uses for a path, or null when the file is not read. */
+export function readableLanguage(path, head = '') {
+  return readableFile(path, head);
+}
+
+/** Folders whose names start with a dot but hold files Thunder reads (workflows live in .github). */
+export const READ_DOT_DIRS = new Set(['.github']);
 
 /** True for files that look machine-generated or minified (very long lines), which read as noise. */
 function looksGenerated(source) {

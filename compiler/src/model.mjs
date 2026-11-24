@@ -2,7 +2,7 @@
 // choices), and members (actions, rules, steps, setup) with their flow as a graph, links between them, source lines,
 // and everything Thunder could not read. Thunder pictures and Thunder Text are projections of this model; nothing in
 // them may say more than the model does. Browser-safe: takes [{ path, source }].
-import { readCode } from './read.mjs';
+import { readCode, INFRA_LANGUAGES } from './read.mjs';
 import { readableLanguage, readingOf } from './read-repo.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
@@ -12,6 +12,10 @@ import { sqlThings } from './sql.mjs';
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
 export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql'];
+
+/** Which part of the whole application a file describes (spec section 12). */
+const CATEGORY = { dockerfile: 'infrastructure', 'github-actions': 'delivery' };
+const categoryOf = (language) => CATEGORY[language] ?? 'application';
 
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -208,6 +212,8 @@ export function askAsQuestion(step, ruleLabel) {
   let c = String(step.says).replace(/^If /, '').replace(/ \(\d+ steps? inside\)$/, '').trim();
   let flip = false;
   if (/^not: /.test(c)) { c = c.slice(5); flip = true; }
+  // A step that is already worded as a question (infrastructure readers ask their own) is asked as it is.
+  if (/\?$/.test(c) && !ruleLabel) return { text: c, flip };
   if (ruleLabel) {
     const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*if\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
     // The negation is read from the code alone; the step's wording may already say "not" for the same reason.
@@ -399,37 +405,44 @@ function youGiveOf(item) {
 }
 
 export function thunderModel(files, { name = 'app' } = {}) {
-  const things = [], members = [], links = [], unknowns = [], fileInfo = [];
+  const things = [], members = [], links = [], unknowns = [], fileInfo = [], permissions = [], settings = [], facts = [];
   for (const f of files) {
     const language = readableLanguage(f.path);
     if (!language || !f.source) continue;
     let reading;
-    try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
+    try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); fileInfo.push({ path: f.path, language, category: categoryOf(language), skipped: `Could not read this file: ${e.message}` }); continue; }
+    const infra = INFRA_LANGUAGES.includes(language) ? reading.infra : null;
     let fileThings = [];
-    try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
+    try { fileThings = infra ? infra.things.map((t) => ({ ...t, knows: t.knows.map((k) => ({ ...k })) })) : language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
-    if (!THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
+    if (!infra && !THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }
     for (const t of fileThings) { t.id = idOf(f.path, t.name); t.label = cap(words(t.name)); t.can = []; things.push(t); }
     const moduleDoc = language === 'python' ? (f.source.match(/^\s*(?:#.*\n|\s*\n)*[rRuU]?("""|''')([\s\S]*?)\1/)?.[2] ?? '').trim().split(/\n\s*\n/)[0].replace(/\s+/g, ' ') : '';
-    fileInfo.push({ path: f.path, language, ...(moduleDoc ? { purpose: moduleDoc } : {}) });
+    const purpose = moduleDoc || reading.purpose || '';
+    fileInfo.push({ path: f.path, language, category: categoryOf(language), ...(purpose ? { purpose } : {}) });
+    if (infra) {
+      permissions.push(...infra.permissions.map((x) => ({ ...x })));
+      settings.push(...infra.settings.map((x) => ({ ...x })));
+      facts.push(...infra.facts.map((x) => ({ ...x })));
+    }
 
     const fns = reading.items.filter((i) => i.kind === 'function' || i.kind === 'decision');
     const declaredThing = (item) => fileThings.some((t) => t.name === item.name && t.lines[0] === item.line);
     const fileMembers = fns.filter((item) => !declaredThing(item)).map((item) => {
-      const owner = fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0];
+      const owner = infra ? undefined : fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0];
       const v = visualFor(item);
       const setup = (/^(__init__|constructor|init|New|__construct|initialize|new)$/.test(item.name) || (owner && item.name === owner.name)) && owner;
-      const kind = setup ? 'setup' : v.element === 'action' ? 'action' : v.element === 'decision' ? 'rule' : v.element === 'not-read' ? 'not-read' : 'steps';
-      const bodyEnd = item.anchor?.bodyLines?.[1] ?? Math.max(item.line, ...(item.rules || []).map((r) => r.line || 0), item.otherwise?.line || 0);
+      const kind = language === 'github-actions' ? 'pipeline' : language === 'dockerfile' ? 'image-build' : setup ? 'setup' : v.element === 'action' ? 'action' : v.element === 'decision' ? 'rule' : v.element === 'not-read' ? 'not-read' : 'steps';
+      const bodyEnd = item.endLine ?? item.anchor?.bodyLines?.[1] ?? Math.max(item.line, ...(item.rules || []).map((r) => r.line || 0), item.otherwise?.line || 0);
       let rule = null;
       if (kind === 'rule') { try { rule = plainFromReading(item); } catch { rule = null; } }
       const m = {
         id: idOf(f.path, owner?.name ?? '', item.name, item.line), kind, name: item.name,
-        label: setup ? `A new ${owner.label} starts with` : cap(words(item.name.replace(/^__|__$/g, ''))),
+        label: setup ? `A new ${owner.label} starts with` : infra && item.label ? item.label : cap(words(item.name.replace(/^__|__$/g, ''))),
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
-        ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
+        ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}), ...(item.when ? { when: item.when } : {}),
         youGive: youGiveOf(item),
         ...(item.returns && kind !== 'rule' ? { youGetBack: kindWords(item.returns) ?? item.returns } : {}),
         ...(rule ? { rule, question: rule.question } : {}),
@@ -445,11 +458,21 @@ export function thunderModel(files, { name = 'app' } = {}) {
     const byName = new Map(fileMembers.map((m) => [m.name.toLowerCase(), m.id]));
     const labels = new Map(fileMembers.map((m) => [m.id, m.label]));
     for (const m of fileMembers) {
-      const start = m.youGive.length ? `You give it: ${m.youGive.join(', ')}` : 'Start';
+      const start = m.when ?? (m.youGive.length ? `You give it: ${m.youGive.join(', ')}` : 'Start');
       m.flow = m.kind === 'rule' || (m._item.kind === 'decision' && m._item.rules?.length) ? ruleFlow(m._item, start) : flowOf(m._steps, { start, memberIndex: byName, memberLabel: labels });
+      if (m.when) { const s0 = m.flow.nodes.find((nd) => nd.kind === 'start'); if (s0) s0.does = 'when'; }
       for (const nd of m.flow.nodes) if (nd.uses && nd.uses !== m.id) links.push({ from: m.id, to: nd.uses, kind: 'uses', node: nd.id });
       delete m._steps; delete m._item;
       members.push(m);
+    }
+    // Links the file states (a stage that starts from another, a job that needs another), by member id.
+    if (infra) {
+      const byItem = new Map(fileMembers.map((m) => [`${m.name}:${m.lines[0]}`, m.id]));
+      const byThing = new Map(fileThings.map((t) => [t.name, t.id]));
+      for (const l of infra.links) {
+        const from = byItem.get(l.from) ?? byThing.get(l.from), to = byItem.get(l.to) ?? byThing.get(l.to);
+        if (from && to && !links.some((x) => x.from === from && x.to === to && x.kind === l.kind && x.line === l.line)) links.push({ from, to, kind: l.kind, file: l.file, line: l.line });
+      }
     }
   }
   for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
@@ -461,7 +484,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     if (t.kind !== 'thing' || t.knows.length || owners.has(t.id)) continue;
     if (/(Exception|Error)$/.test(t.name)) things.splice(i, 1); else t.kind = 'record';
   }
-  return { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns };
+  return { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns, permissions, settings, facts };
 }
 
 // ── Thunder Text, projected from the model (the picture is projected from the same nodes) ──────────────
@@ -505,7 +528,7 @@ function flowLines(flow, depth = 1) {
 export function modelText(model, id) {
   const t = model.things.find((x) => x.id === id);
   if (t) {
-    const lines = [`${t.kind === 'thing' ? 'Thing' : t.kind === 'record' ? 'Record' : 'Choices'} ${t.label}`];
+    const lines = [t.kind === 'resource' ? `Resource ${t.label} (${t.resourceType})` : `${t.kind === 'thing' ? 'Thing' : t.kind === 'record' ? 'Record' : 'Choices'} ${t.label}`];
     if (t.doc) lines.push(`  Author's note: ${t.doc}`);
     if (t.choices.length) lines.push(`  One of: ${t.choices.join(', ')}`);
     if (t.knows.length) { lines.push('  It knows'); for (const k of t.knows) lines.push(`    ${k.label}: ${[k.kind, k.start].filter(Boolean).join(', ') || 'a value'}`); }
@@ -516,7 +539,8 @@ export function modelText(model, id) {
   if (!m) throw new Error(`Nothing in the model has id ${id}.`);
   const owner = m.owner && model.things.find((x) => x.id === m.owner);
   const lines = [`${m.label}${owner && m.kind !== 'setup' ? ` (${owner.label})` : ''}${m.kind === 'rule' ? ': a rule' : ''}`];
-  if (m.route) lines.push(`  When someone calls ${m.route}`);
+  if (m.when) lines.push(`  ${m.when}`);
+  else if (m.route) lines.push(`  When someone calls ${m.route}`);
   if (m.doc) lines.push(`  Author's note: ${m.doc}`);
   if (m.youGive.length) lines.push(`  You give it: ${m.youGive.join(', ')}`);
   if (m.youGetBack) lines.push(`  You get back: ${m.youGetBack}`);
@@ -526,7 +550,9 @@ export function modelText(model, id) {
 
 // ── The five reading levels: what each one shows, decided here so every product shows the same thing ─────────
 
-const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setup', 'not-read': 'not-read', thing: 'thing', record: 'record', choices: 'choices' };
+const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setup', 'not-read': 'not-read', thing: 'thing', record: 'record', choices: 'choices', pipeline: 'action', 'image-build': 'steps', resource: 'resource' };
+
+const SETTING_WORDS = { parameter: 'given when it starts or is built', variable: 'a variable kept outside the file', secret: 'a secret (only its name is shown)', literal: 'written in the file', computed: 'worked out when it runs' };
 
 /** Every step of a flow in reading order, with how deep it sits and which path it is on (Yes, No, For each, …). */
 function detailSteps(flow) {
@@ -681,11 +707,17 @@ export function readLevel(model, level, focus) {
         ...(owner ? { owner: { id: owner.id, label: owner.label } } : {}), youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), uses, usedBy };
     }
     const inScope = (m) => m.kind !== 'setup' && (thing ? m.owner === thing.id : true);
+    const resourceCard = (t) => ({ id: t.id, label: t.label, symbol: 'resource', resourceType: t.resourceType, address: t.address, file: t.file,
+      knows: t.knows.map((k) => ({ label: k.label, value: k.kind, ...(k.computed ? { computed: true } : {}), ...(k.secret ? { secret: true } : {}), line: k.line })),
+      links: (model.links || []).filter((l) => l.from === t.id || l.to === t.id).map((l) => ({ from: l.from, to: l.to, kind: l.kind, ...(l.line ? { line: l.line } : {}) })) });
+    const resource = thing?.kind === 'resource' ? thing : null;
     const thingCard = (t) => ({ id: t.id, label: t.label, ...(t.doc ? { doc: t.doc } : {}), knows: t.knows.map((k) => ({ label: k.label, ...(k.start ? { start: k.start } : {}) })), can: model.members.filter((m) => m.owner === t.id && m.kind !== 'setup').map(short) });
     return { ...base, ...about,
       ...(thing?.doc ?? model.files[0]?.purpose ? { purpose: thing?.doc ?? model.files[0]?.purpose } : {}),
-      things: (thing ? [thing] : model.things.filter((t) => t.kind === 'thing')).map(thingCard),
-      data: thing ? [] : model.things.filter((t) => t.kind !== 'thing').map((t) => ({ id: t.id, label: t.label, symbol: SYMBOL_OF[t.kind], ...(t.choices.length ? { choices: t.choices } : {}), knows: t.knows.map((k) => k.label) })),
+      things: (resource ? [] : thing ? [thing] : model.things.filter((t) => t.kind === 'thing')).map(thingCard),
+      resources: (resource ? [resource] : thing ? [] : model.things.filter((t) => t.kind === 'resource')).map(resourceCard),
+      ...(thing ? {} : { permissions: model.permissions ?? [], settings: model.settings ?? [], facts: model.facts ?? [] }),
+      data: thing ? [] : model.things.filter((t) => t.kind !== 'thing' && t.kind !== 'resource').map((t) => ({ id: t.id, label: t.label, symbol: SYMBOL_OF[t.kind], ...(t.choices.length ? { choices: t.choices } : {}), knows: t.knows.map((k) => k.label) })),
       actions: model.members.filter((m) => inScope(m) && m.kind === 'action').map(short),
       rules: model.members.filter((m) => inScope(m) && m.kind === 'rule').map(short),
       loose: thing ? [] : model.members.filter((m) => !m.owner && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
@@ -700,7 +732,10 @@ export function readLevel(model, level, focus) {
       source: 'Read from code by the Thunder compiler, with no AI.' };
   }
   if (lv.id === 'text') {
-    const text = focus ? modelText(model, focus) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id))].join('\n');
+    const extra = [];
+    if (!focus && model.permissions?.length) extra.push(`Permissions\n${model.permissions.map((p) => `  ${p.says ?? `${p.who} can ${p.can} ${p.on}`}${p.wide && !/\(wide\)/.test(p.says ?? '') ? ' (wide)' : ''}  (line ${p.line})`).join('\n')}\n`);
+    if (!focus && model.settings?.length) extra.push(`Settings\n${model.settings.map((x) => `  Setting ${x.name}: ${SETTING_WORDS[x.source] ?? x.source}  (line ${x.line})`).join('\n')}\n`);
+    const text = focus ? modelText(model, focus) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id)), ...extra].join('\n');
     return { ...base, ...about, text };
   }
   return { ...base, ...about, language: (member ?? thing) ? (member?.language ?? model.files.find((f) => f.path === thing.file)?.language ?? null) : (model.files[0]?.language ?? null) };

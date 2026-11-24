@@ -115,6 +115,12 @@ export const ELEMENTS = {
   error: { zoom: 4, name: 'Failure', shape: 'chip', mark: '✕', color: 'failure', status: 'available', shows: 'A way the code can fail, by name.', text: 'Can fail with <Name>' },
   test: { zoom: 4, name: 'Test', shape: 'chip', mark: '⚑', color: 'structure', status: 'available', shows: 'A test that exists. Green or red only once it has run.', text: 'Test: <name>' },
   event: { zoom: 3, name: 'Trigger', shape: 'steps-card', badge: 'when', status: 'planned', shows: 'Something that runs when an event happens (a database trigger, a message handler, a schedule).', text: 'When <event>, it\n  - <step>' },
+  // The whole application (spec section 12): where it runs and how it ships.
+  resource: { zoom: 2, name: 'Resource', shape: 'block', status: 'available', shows: 'Something that exists when the app runs (an image, a server, a database), with what it knows: its settings.', text: 'Resource <name> (<kind>)\n  It knows' },
+  permission: { zoom: 2, name: 'Permission', shape: 'key', status: 'available', shows: 'Who can do what to which resource. Wide permissions are called wide.', text: '<who> can <what> on <resource>' },
+  setting: { zoom: 2, name: 'Setting', shape: 'chip', status: 'available', shows: 'A value the app or the infrastructure is given, and where it comes from. A secret is only ever named.', text: 'Setting <name>: <where it comes from>' },
+  pipeline: { zoom: 3, name: 'Pipeline', shape: 'steps-card', badge: 'when', status: 'available', shows: 'Automation: when it runs, then its jobs as steps.', text: 'When someone pushes to main\n  - <step>' },
+  'image-build': { zoom: 3, name: 'Image build', shape: 'steps-card', status: 'available', shows: 'How an app is packaged and started, one card per build stage.', text: 'What the image build does\n  - <step>' },
   source: { zoom: 5, name: 'Original code', shape: 'code', status: 'available', shows: 'The exact lines, highlighted, in the original language.', text: '(the original code)' },
 };
 
@@ -131,6 +137,8 @@ export const LANGUAGES = {
   php: { name: 'PHP', status: 'available', action: '#[Route] (Symfony)', decision: 'a function that returns fixed answers', doc: '/** PHPDoc */', 'data-shape': 'class, enum (planned)' },
   ruby: { name: 'Ruby', status: 'available', action: 'Sinatra get/post blocks (Rails routes.rb planned)', decision: 'a def that returns fixed answers', doc: '# comment above the def', 'data-shape': 'class, Struct (planned)' },
   sql: { name: 'SQL', status: 'available', action: '(none: SQL is reached through the app)', decision: 'CHECK and UNIQUE constraints; IF in functions and procedures', doc: '-- comment above, COMMENT ON', 'data-shape': 'CREATE TABLE / VIEW', event: 'CREATE TRIGGER', steps: 'SELECT / INSERT / UPDATE / DELETE: which data, filtered by which conditions, changed how' },
+  dockerfile: { name: 'Dockerfile', status: 'available', category: 'infrastructure', action: '(none: it packages the app)', decision: '(none)', doc: '# comment above FROM', steps: 'each build stage: FROM, COPY, RUN, ENV, EXPOSE, USER, CMD in words', resource: 'the image it makes' },
+  'github-actions': { name: 'GitHub Actions', status: 'available', category: 'delivery', action: 'each job, with a When badge (its trigger)', decision: 'if: as a question', doc: "the workflow's name:", steps: 'well-known actions and run: commands in words', permission: 'permissions:', setting: 'env:, secrets (named only), inputs' },
 };
 
 /** Rules every Thunder view follows. A view that breaks one is wrong, however good it looks. */
@@ -156,14 +164,14 @@ export function visualFor(item) {
   const base = { provenance: item.provenance === 'confirmed' ? 'confirmed' : 'from-code', ...(item.doc ? { doc: { text: item.doc, provenance: 'authors-note' } } : {}) };
   if (item.kind === 'error') return { element: 'error', shape: 'chip', line: 'solid', mark: '✕', color: 'failure', title: `Can fail with ${item.name}`, ...base };
   if (item.kind === 'test') return { element: 'test', shape: 'chip', line: 'solid', mark: '⚑', color: 'structure', title: `Test: ${item.name}`, ...base };
-  const badge = item.route ? { kind: 'route', text: `${item.route.method} ${item.route.path}`.trim() } : undefined;
+  const badge = item.route ? { kind: item.when ? 'when' : 'route', text: `${item.route.method} ${item.route.path}`.trim() } : undefined;
   if (item.kind === 'decision') {
     const card = safePlain(item);
     return { element: 'decision', shape: 'card', line: item.status === 'partial' ? 'dashed' : 'solid', title: card?.question || `How ${words(item.name)} decides`, ...(badge ? { badge } : {}), ...(item.status === 'partial' ? { note: 'Partly read' } : {}), ...base };
   }
   const readable = (item.stepsReadable ?? 0) >= 0.5 && item.steps?.length;
   if (!readable) return { element: 'not-read', shape: 'dashed-card', line: 'dashed', title: `What ${words(item.name)} does`, ...(badge ? { badge } : {}), ...base, provenance: 'not-read' };
-  return { element: item.route ? 'action' : 'function', shape: 'steps-card', line: 'solid', title: item.route ? `When someone calls ${badge.text}` : `What ${words(item.name)} does`, ...(badge ? { badge } : {}), ...base };
+  return { element: item.route ? 'action' : 'function', shape: 'steps-card', line: 'solid', title: item.title ?? (item.route ? `When someone calls ${badge.text}` : `What ${words(item.name)} does`), ...(badge ? { badge } : {}), ...base };
 }
 
 /** How to draw one step: its mark, label, color role, and whether to show words or the original code. */
@@ -238,6 +246,8 @@ export const SYMBOLS = {
   setup: { name: 'Starts with', says: 'What a new Thing has when it is made.', color: 'structure', paths: ['M22 5 V15 M22 29 V39 M5 22 H15 M29 22 H39 M10 10 L16 16 M28 28 L34 34 M34 10 L28 16 M16 28 L10 34'] },
   stop: { name: 'Stop', says: 'Something is wrong, so it stops and says why.', color: 'failure', beginner: true, paths: ['M15 5 H29 L39 15 V29 L29 39 H15 L5 29 V15 Z', 'M16 22 H28'] },
   'not-read': { name: 'Not read yet', says: "Thunder shows the code, because it can't explain it yet.", color: 'unread', dashed: true, paths: ['M11 5 H33 V39 H11 Z', 'M17 22 H27'] },
+  resource: { name: 'Resource', says: 'Something that exists when the app runs: an image, a server, a database. It knows its settings.', color: 'fact', paths: ['M7 8 H37 V18 H7 Z', 'M7 26 H37 V36 H7 Z', 'M22 18 V26'], circles: [[13, 13, 1.6], [13, 31, 1.6]], fill: true },
+  permission: { name: 'Permission', says: 'Who can do what. A wide one can change a lot.', color: 'comparison', paths: ['M24 20 L38 34 M33 29 L29 33 M37 33 L34 36'], circles: [[16, 16, 9]] },
 };
 
 /** What a step does, in a kid's words (model flow nodes carry `does`). Shape first, color second. */
@@ -257,6 +267,7 @@ export const DOES = {
   stop: { label: 'Stops', mark: '■', color: 'failure', symbol: 'stop' },
   do: { label: 'Does', mark: '→', color: 'outcome' },
   code: { label: 'Not read yet', mark: '·', color: 'unread', dashed: true },
+  when: { label: 'Runs when', mark: '⚡', color: 'structure' },
 };
 
 /** The six concepts a beginner learns first; the model keeps all of SYMBOLS. */
@@ -269,7 +280,7 @@ export const THUNDER_VISUAL = { schema: VISUAL_SCHEMA, principle: PRINCIPLE, for
 
 // ── Thunder Text colors: each word's role, decided by the compiler so every view colors it the same way ──────
 
-const STRUCTURE_WORDS = /^(?:Ask:|Yes:|No:|Otherwise:|Otherwise,|Always, at the end:|For each:|When done:|You give it:|You get back:|Takes|Author's note:|It knows|It can|One of:|We need|Examples|Why:|When someone calls|What|Thing|Record|Choices|Area|File|App|Not read)(?=\s|$)/;
+const STRUCTURE_WORDS = /^(?:Resource|Permissions|Settings|Ask:|Yes:|No:|Otherwise:|Otherwise,|Always, at the end:|For each:|When done:|You give it:|You get back:|Takes|Author's note:|It knows|It can|One of:|We need|Examples|Why:|When someone calls|What|Thing|Record|Choices|Area|File|App|Not read)(?=\s|$)/;
 const COMPARISON_RE = /\b(?:is at least|is at most|is less than|is more than|is not in|is in|is not|at least|at most|less than|more than|under|over|exactly|whether|is set|is not set|is empty|is not empty|has no|has|is)\b/;
 
 /**

@@ -265,6 +265,8 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | PHP | works today | Symfony `#[Route]` | a function that returns fixed answers | PHPDoc | `class`, `enum` |
 | Ruby | works today | Sinatra `get`/`post` blocks (Rails routes planned) | a `def` that returns fixed answers | `#` comment above | `class`, `Struct` |
 | **SQL** | **planned** | (reached through the app) | `CHECK` constraints, `CASE`, `IF` in procedures | `--` comment, `COMMENT ON` | `CREATE TABLE`, `CREATE VIEW` |
+| Dockerfile | works today (section 12) | (none: it packages the app) | (none) | `#` comment above `FROM` | the image it makes is a **Resource** |
+| GitHub Actions | works today (section 12) | each job, with a "When" badge | `if:` as a question | the workflow's `name:` | **Permissions** and **Settings** |
 
 ### SQL
 
@@ -327,6 +329,9 @@ whole of it without learning each format first.
 | **Automation and delivery** | How is it built, tested, and released? | GitHub Actions; Azure Pipelines; Makefiles and build scripts (shell and PowerShell are read as languages) |
 
 ### New elements
+
+**Status:** Dockerfile and GitHub Actions are read today (Image build, Pipeline, Resource for the image,
+Permission, Setting). The other formats in the table above are planned; Connection lines beyond `uses` are planned.
 
 | Element | Shape | What it is | Where it comes from | Thunder Text |
 | --- | --- | --- | --- | --- |

@@ -10,19 +10,28 @@
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
 import { sqlItems } from './sql.mjs';
+import { readDockerfile } from './infra-docker.mjs';
+import { readWorkflow } from './infra-gha.mjs';
+import { readableFormat } from './file-formats.mjs';
 import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql'];
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'dockerfile', 'github-actions'];
+/** Formats read as infrastructure and delivery (spec section 12), not as programming languages. */
+export const INFRA_LANGUAGES = ['dockerfile', 'github-actions'];
 const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
 /** Best-effort language guess for pasted code (a file name, when known, is more reliable). */
 export function detectLanguage(source, file = '') {
-  if (file) return languageForFile(file);
+  if (file) return readableFormat(file, String(source).slice(0, 2048)) ?? languageForFile(file);
   const s = String(source);
+  // A Dockerfile: its first instruction is FROM (or ARG before FROM), after comments and parser directives.
+  if (/^\s*(?:#[^\n]*\n\s*)*(?:ARG\s[^\n]*\n\s*(?:#[^\n]*\n\s*)*)*FROM\s+\S/i.test(s) && /^(RUN|CMD|COPY|ENTRYPOINT|WORKDIR|EXPOSE)\s/m.test(s)) return 'dockerfile';
+  // A GitHub Actions workflow: top-level `on:` and `jobs:`.
+  if (/^(?:on|"on"|'on'):/m.test(s) && /^jobs:\s*$/m.test(s)) return 'github-actions';
   // SQL: a file that starts with (or is mostly) schema statements.
   if (/^\s*(?:--[^\n]*\n\s*)*(?:CREATE|ALTER|INSERT\s+INTO|SELECT|WITH)\b/i.test(s) && /\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX)|SELECT\b[\s\S]*\bFROM)\b/i.test(s)) return 'sql';
   if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
@@ -386,6 +395,8 @@ export function completenessOf(item) {
   const code = steps.filter((s) => s.kind === 'other').length;
   const restated = steps.filter((s) => s.restates).length;
   if (code) reasons.push(`${code} step${code === 1 ? '' : 's'} shown as code`);
+  const named = steps.filter((s) => s.unknownCommand).length;
+  if (named) reasons.push(`${named} command${named === 1 ? '' : 's'} only named, not explained`);
   if (restated) reasons.push(`${restated} step${restated === 1 ? '' : 's'} only restate the code`);
   if (item.anchor && item.anchor.coverage < 1) reasons.push(`${item.anchor.missing.length ? `lines ${item.anchor.missing.join(', ')}` : 'some lines'} not tied to a step`);
   return { level: reasons.length ? 'partly explained' : 'explained', reasons };
@@ -1792,11 +1803,13 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
   // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
   if (lang === 'sql') return sqlReading(src);
+  // Infrastructure and delivery (spec section 12): Dockerfile stages and workflow jobs as steps, plus what they make.
+  if (INFRA_LANGUAGES.includes(lang)) return infraReading(lang, src, file);
   // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
   const code = lang === 'php' ? normalizePhp(src) : src;
   const items = [];
@@ -1897,6 +1910,27 @@ function sqlReading(src) {
     limitations: [
       'Read by pattern, not by running it on a database. PostgreSQL first; other dialects where their syntax agrees.',
       'Tables are drawn as Data or Things; CHECK and UNIQUE as rules the database enforces; views, functions, procedures, and triggers as steps.',
+    ],
+  };
+}
+
+/**
+ * A reading of a Dockerfile or GitHub Actions workflow in the same shape as every other language's, plus `infra`:
+ * the Resources it makes, Permissions, Settings (secrets named only), Facts, and the links between its items.
+ */
+function infraReading(lang, src, file) {
+  const r = lang === 'dockerfile' ? readDockerfile(src, file || 'Dockerfile') : readWorkflow(src, file || 'workflow.yml');
+  for (const it of r.items) it.completeness = completenessOf(it);
+  const counts = { decision: 0, function: r.items.length, error: 0, test: 0, partial: 0, guarded: 0, route: r.items.filter((i) => i.route).length };
+  return {
+    schema: READ_SCHEMA, language: lang, detected: false, items: r.items, counts,
+    ...(r.purpose ? { purpose: r.purpose } : {}),
+    infra: { things: r.things, permissions: r.permissions, settings: r.settings, facts: r.facts, links: r.links },
+    limitations: [
+      'Read from the file, not from what is running: the live system may differ.',
+      'Secret values are never shown, only their names. Values worked out when it runs or is built say so; the original lines are one click away.',
+      lang === 'dockerfile' ? 'Each build stage is a Steps card; RUN commands are read in words, and commands Thunder does not know are named as they are.'
+        : 'Each job is an Action with a "When" badge; well-known actions and common commands are read in words, others are named as they are.',
     ],
   };
 }

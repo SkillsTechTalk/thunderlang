@@ -285,4 +285,68 @@ $$ LANGUAGE plpgsql;
 `,
     expect: { decisions: [], functions: ['total_not_negative', 'big_paid_orders', 'pay_order'] },
   },
+  {
+    key: 'dockerfile-web',
+    label: 'Dockerfile: build and run a web app',
+    language: 'dockerfile',
+    file: 'Dockerfile',
+    source: `# Build the app with every dependency.
+FROM node:22-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# The image that runs: only what the app needs.
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist ./dist
+EXPOSE 3000
+USER node
+CMD ["node", "dist/server.js"]
+`,
+    expect: { decisions: [], functions: ['build', 'runtime'] },
+  },
+  {
+    key: 'github-actions-ci',
+    label: 'GitHub Actions: test, then deploy',
+    language: 'github-actions',
+    file: '.github/workflows/ci.yml',
+    source: `name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run build
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
+`,
+    expect: { decisions: [], functions: ['test', 'deploy'] },
+  },
 ];

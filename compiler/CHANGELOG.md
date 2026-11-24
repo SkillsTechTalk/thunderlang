@@ -1,3 +1,43 @@
+# Unreleased
+
+**Language: the whole application, first two readers: Dockerfiles and GitHub Actions workflows (spec section 12).**
+- **Dockerfile**: each build stage is a Steps card ("Image build", or "The build stage" for `AS build`), its
+  instructions in words: "Starts from node:22-slim", "Starts from the build stage", "Copies package.json and
+  package-lock.json into the image", "Installs what it needs (npm ci)", "Sets NODE_ENV to production", "Opens port
+  3000", "Runs as the user node", "Checks its health with …", and "Starts with …" last. `RUN` chains are split into
+  steps; continuation lines, heredocs, `# escape=`, `--mount=type=secret` (named only) are read.
+- The image a Dockerfile makes is a **Resource** (`kind: 'resource'`, `resourceType: 'docker-image'`, `address:
+  'image:<path>'`) that knows what it starts from, its working folder, ports, user, start command, health check, and
+  its ENV settings (a value only when the file writes it; a secret-looking one is never shown).
+- **GitHub Actions**: each job is a pipeline member with a "When" badge (`route: { method: 'When', path }` and
+  `when`): "When someone pushes to main", "When a pull request is opened", "When someone starts it by hand", "On a
+  schedule: every day at 02:00 UTC" (else "On a schedule (cron …)"), several joined with "or". Steps: well-known
+  actions in words ("Gets the code", "Sets up Node 22", "Builds and pushes the image"), others "Uses owner/action";
+  `run:` one step per command ("Runs the tests", "Publishes the package to npm"; unknown commands "Runs `…`", kept
+  and counted as only named); `if:` as a question (steps sharing one share the question; `always()` is a note, not a
+  question); `needs:` as "After the Test job finishes"; a matrix as "For each …"; `environment:` as "Deploys to the
+  production environment (it may need someone's approval first)"; `exit 1` as a Stop; `continue-on-error` noted.
+  Shell `if`/`for`/`case`, `cmd || { …; exit 1; }`, `[ … ] && cmd`, heredocs, and quotes across lines are read.
+- **Permissions** (`model.permissions[]`: `{ id, who, can, on, wide, why?, says, file, line }`): "This workflow can
+  read the code"; `write-all` is wide: "can change everything in the repository (wide)".
+- **Settings** (`model.settings[]`: `{ name, source, secret, file, line }`): parameters, variables, secrets (named,
+  never shown), literals, and values worked out when it runs (`computed: true`). `${{ … }}` reads "worked out when it
+  runs"; `${{ secrets.X }}` reads "the secret X".
+- **Facts** (`model.facts[]`, what the file says, not advice): `write-all-permissions`, `untrusted-trigger-with-secrets`,
+  `action-pinned-by-tag` (GitHub's own actions marked `firstParty`), `image-not-pinned`, `runs-as-root`,
+  `secret-in-plain-env`.
+- Model, additive: `files[].category` ('application' | 'infrastructure' | 'delivery') and `files[].skipped` (why a
+  file could not be read); member kinds `pipeline` and `image-build`; links with `file` and `line`; Big Picture at app
+  scope has `resources`, `permissions`, `settings`, and `facts`; Text lists Permissions and Settings.
+- `readableFile(path, head?)` (read-repo and /core) says which language or format a file is; `Dockerfile`,
+  `Dockerfile.*`, `*.dockerfile`, `Containerfile`, and `.github/workflows/*.yml|yaml` are read, and folder reading
+  no longer skips `.github`. Hooks are in place for Terraform, Bicep, Compose, Azure Pipelines, Helm, and Kubernetes.
+- A small YAML reader (no dependency): block and flow collections, quoted and plain scalars, block scalars with
+  chomping, anchors, comments, and `${{ … }}` kept as text, line by line.
+- Grammar: symbols `resource` (a block) and `permission` (a key), a `when` mark, elements Resource, Permission,
+  Setting, Pipeline, and Image build, and Dockerfile and GitHub Actions in LANGUAGES. thunderlang.dev draws a
+  Resource card, who can do what, and the settings; /read has a Dockerfile and a workflow sample.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

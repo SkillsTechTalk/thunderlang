@@ -11,9 +11,20 @@ export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; ea
   nested?: true; handlers?: { id: string; blocks: FlowBlock[] }[]; always?: { id: string; blocks: FlowBlock[] } }
 /** nodes/edges: the flow as a graph. blocks: the same nodes as a tree, which views draw from. */
 export interface Flow { nodes: FlowNode[]; edges: FlowEdge[]; blocks: FlowBlock[] }
-export interface Thing { id: string; kind: 'thing' | 'record' | 'choices'; name: string; label: string; doc?: string; file: string; lines: [number, number]; knows: { name: string; label: string; kind: string | null; start: string | null; line: number | null }[]; choices: string[]; can: string[] }
-export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read'; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
-export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string }[]; things: Thing[]; members: Member[]; links: { from: string; to: string; kind: 'uses'; node: string }[]; unknowns: { id?: string; file: string; line: number; why: string }[] }
+export interface Thing { id: string; kind: 'thing' | 'record' | 'choices' | 'resource'; name: string; label: string; doc?: string; file: string; lines: [number, number];
+  knows: { name: string; label: string; kind: string | null; start: string | null; line: number | null; /** Worked out when it runs, is built, or is applied. */ computed?: true; /** A secret: named only, its value never shown. */ secret?: true; setting?: true }[]; choices: string[]; can: string[];
+  /** Resources (spec section 12): the type exactly as written ('docker-image', 'azurerm_storage_account'). */ resourceType?: string;
+  /** Resources: a stable address that matches the same resource across versions ('image:api/Dockerfile'). */ address?: string }
+/** Who can do what to which resource (spec section 12). `wide` and `why` are the compiler's call. */
+export interface Permission { id: string; who: string; can: string; on: string; wide: boolean; why?: string; says?: string; file: string; line: number }
+/** A value the app or infrastructure is given, and where it comes from. Never a secret's value. */
+export interface Setting { name: string; source: 'parameter' | 'variable' | 'secret' | 'literal' | 'computed'; secret: boolean; computed?: true; file: string; line: number }
+/** What a file says, not advice; a tool decides how serious each one is. */
+export interface Fact { id: string; kind: 'write-all-permissions' | 'untrusted-trigger-with-secrets' | 'action-pinned-by-tag' | 'image-not-pinned' | 'runs-as-root' | 'secret-in-plain-env' | 'public-ingress'; says: string; file: string; line: number; /** action-pinned-by-tag: an action made by GitHub itself. */ firstParty?: boolean }
+export type LinkKind = 'uses' | 'runs-in' | 'reads-from' | 'sends-to';
+export interface Link { from: string; to: string; kind: LinkKind; node?: string; file?: string; line?: number }
+export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
+export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string; category: 'application' | 'infrastructure' | 'delivery'; /** Why this file could not be read. */ skipped?: string }[]; things: Thing[]; members: Member[]; links: Link[]; unknowns: { id?: string; file: string; line: number; why: string }[]; permissions: Permission[]; settings: Setting[]; facts: Fact[] }
 export function thunderModel(files: { path: string; source: string }[], options?: { name?: string }): ThunderModel;
 export function flowOf(steps: unknown[], options?: { start?: string; memberIndex?: Map<string, string>; memberLabel?: Map<string, string> }): Flow;
 export function ruleFlow(item: unknown, start: string): Flow;
@@ -32,6 +43,9 @@ export interface LevelView {
   // Big Picture
   purpose?: string; things?: { id: string; label: string; doc?: string; knows: { label: string; start?: string }[]; can: LevelItem[] }[];
   data?: { id: string; label: string; symbol: string; choices?: string[]; knows: string[] }[];
+  /** Big Picture: the resources and how they connect; at app scope, the permissions, settings, and facts too. */
+  resources?: { id: string; label: string; symbol: 'resource'; resourceType?: string; address?: string; file: string; knows: { label: string; value: string | null; computed?: true; secret?: true; line: number | null }[]; links: { from: string; to: string; kind: LinkKind; line?: number }[] }[];
+  permissions?: Permission[]; settings?: Setting[]; facts?: Fact[];
   actions?: LevelItem[]; rules?: LevelItem[]; loose?: LevelItem[]; unknowns?: ThunderModel['unknowns'];
   route?: string; doc?: string; owner?: { id: string; label: string }; youGive?: string[]; youGetBack?: string;
   uses?: { id: string; label: string }[]; usedBy?: { id: string; label: string }[];

@@ -743,7 +743,7 @@ export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } 
 export { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
 export { sameMeaning, renderSame } from './same.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
-export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
 export function collectReadableFiles(root: string, options?: { maxFiles?: number; maxFileBytes?: number }): Array<{ path: string; source: string; size?: number }>;
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';

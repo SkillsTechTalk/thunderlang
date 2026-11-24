@@ -21,6 +21,8 @@ const LANGS: { key: string; label: string }[] = [
   { key: "php", label: "PHP" },
   { key: "ruby", label: "Ruby" },
   { key: "sql", label: "SQL" },
+  { key: "dockerfile", label: "Dockerfile" },
+  { key: "github-actions", label: "GitHub Actions workflow" },
 ];
 const KNOW_KEY = "thunderlang-read-language";
 const labelOf = (key: string) => LANGS.find((l) => l.key === key)?.label ?? key;
