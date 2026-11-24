@@ -3,7 +3,7 @@
 // value either rule mentions), not by comparing text, so a rewritten condition that gives the same answers counts as
 // the same, and a changed limit is caught with a counterexample. Browser-safe: takes [{ path, source }].
 import { readCode } from './read.mjs';
-import { readableLanguage } from './read-repo.mjs';
+import { readableLanguage, readingOf } from './read-repo.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor } from './visual.mjs';
 
@@ -31,7 +31,7 @@ function readAll(files) {
     const language = readableLanguage(f.path);
     if (!language || !f.source) continue;
     let reading;
-    try { reading = readCode(f.source, { language, file: f.path }); } catch (e) { unreadable.push({ path: f.path, reason: e.message }); continue; }
+    try { reading = readingOf(f, language); } catch (e) { unreadable.push({ path: f.path, reason: e.message }); continue; }
     const seen = new Map();
     for (const it of reading.items) {
       if (it.kind !== 'decision' && it.kind !== 'function') continue;

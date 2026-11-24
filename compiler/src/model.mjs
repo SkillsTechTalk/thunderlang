@@ -3,7 +3,7 @@
 // and everything Thunder could not read. Thunder pictures and Thunder Text are projections of this model; nothing in
 // them may say more than the model does. Browser-safe: takes [{ path, source }].
 import { readCode } from './read.mjs';
-import { readableLanguage } from './read-repo.mjs';
+import { readableLanguage, readingOf } from './read-repo.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { visualFor, LEVELS, DOES } from './visual.mjs';
 import { makeThingReaders } from './things-langs.mjs';
@@ -376,7 +376,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     const language = readableLanguage(f.path);
     if (!language || !f.source) continue;
     let reading;
-    try { reading = readCode(f.source, { language, file: f.path }); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
+    try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
     let fileThings = [];
     try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
@@ -427,9 +427,10 @@ export function thunderModel(files, { name = 'app' } = {}) {
   for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
   // An empty class (no facts, nothing it can do) is not a Thing a person needs to see: an error type is already shown
   // where it stops a path, and any other empty class is a named record with no facts.
+  const owners = new Set(members.map((x) => x.owner).filter(Boolean));
   for (let i = things.length - 1; i >= 0; i--) {
     const t = things[i];
-    if (t.kind !== 'thing' || t.knows.length || members.some((x) => x.owner === t.id)) continue;
+    if (t.kind !== 'thing' || t.knows.length || owners.has(t.id)) continue;
     if (/(Exception|Error)$/.test(t.name)) things.splice(i, 1); else t.kind = 'record';
   }
   return { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns };

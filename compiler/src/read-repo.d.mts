@@ -19,3 +19,10 @@ export function readableLanguage(path: string): string | null;
 export function readRepo(files: Array<{ path: string; source: string; size?: number }>, options?: { maxFileBytes?: number; maxFiles?: number }): RepoReading;
 export function searchRepo(index: RepoReading, filter?: RepoFilter): RepoItem[];
 export function groupByFile(items: RepoItem[]): Array<{ file: string; language: string; items: RepoItem[] }>;
+
+/** A file, optionally carrying the reading readFiles attached (or the error reading it gave). */
+export interface ReadableFile { path: string; source?: string; size?: number; reading?: import('./read.d.mts').Reading; readError?: string }
+/** Read every file once; thunderModel, thunderizeFiles, and sameMeaning reuse each file's `reading`. */
+export function readFiles<T extends ReadableFile>(files: T[]): (T & { reading?: import('./read.d.mts').Reading; readError?: string })[];
+/** A file's reading: the attached one, or a fresh one. */
+export function readingOf(file: ReadableFile, language?: string): import('./read.d.mts').Reading;

@@ -1,5 +1,10 @@
 # Unreleased
 
+**Read once.** `readFiles(files)` (in `/core`) reads every file once; `thunderModel`, `thunderizeFiles`, and
+`sameMeaning` reuse each file's `reading`, with identical results. On Django (2,376 files) the three stages together
+take 3.8 s reading once, against 11.6 s when each stage reads. The model no longer checks every Thing against every
+member when it tidies empty classes (13.3 s to 3.4 s on Django). `scripts/perf.mjs` reports both totals.
+
 **Language: Big Picture in all ten languages.** Classes, structs, records, data classes, and enums become Things,
 Data, and Choices in Java, C#, Kotlin, PHP, Go, Rust, and Ruby, as they already did in Python, TypeScript, and
 JavaScript: what each knows (with its kind in words and how it starts, from constructors, `init`, `__construct`,
