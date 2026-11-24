@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.10
 
 **Language: SQL.** Thunder reads `.sql` files: tables become Data or Things (columns in words, defaults, always
 set, what they point to), `CREATE TYPE … AS ENUM` becomes Choices, `CHECK` and `UNIQUE` become rules the table
