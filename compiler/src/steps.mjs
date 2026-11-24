@@ -213,12 +213,15 @@ const TYPEOF_WORDS = { string: 'text', number: 'a number', boolean: 'a true/fals
 const PHP_IS = { is_string: 'text', is_array: 'an array', is_int: 'a whole number', is_integer: 'a whole number', is_float: 'a decimal number', is_numeric: 'a number', is_bool: 'a true/false value', is_object: 'an object', is_callable: 'callable', is_resource: 'a resource', is_iterable: 'iterable', is_scalar: 'a single value' };
 
 function sayCodeConditionInner(cond) {
+  let ty0;
   let c = plainEnums(String(cond)).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
   if (C_FAMILY.has(LANG)) {
     c = cNormalize(c).replace(/'\\0'/g, 'the end of the text');
     // C text comparison: `strcmp(a, b) == 0` and `!strcmp(a, b)` are "a is b"; `strcmp(a, b)` alone is "a is not b".
     c = c.replace(/(!\s*)?\b(?:strcmp|strcasecmp|strncmp|strncasecmp)\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*(?:,[^()]*)?\)(\s*(==|!=)\s*0\b)?/g, (all, neg, a, b, cmp, op) => (neg || op === '==' ? `${a} == ${b}` : op === '!=' || !cmp ? `${a} != ${b}` : all));
   }
+  // Swift `T.self is String.Type` asks whether the type T is String.
+  if (LANG === 'swift' && (ty0 = String(c).match(/^([A-Za-z_]\w*)\.self\s+is\s+([A-Za-z_][\w.]*)\.Type$/))) return `${ty0[1]} is the type ${ty0[2]}`;
   if (LANG === 'swift') c = c.replace(/(^|[\s(!=<>])\.([a-z]\w*)\b(?!\s*\()/g, (m0, pre, v) => `${pre}${words(v)}`); // .onShelf -> on shelf
   while (c.startsWith('(') && matchingClose(c, 0) === c.length - 1) c = c.slice(1, -1).trim();
   let ty;
@@ -336,6 +339,8 @@ function sayValue(expr) {
   if (py) return py;
   const common = sayCommon(e);
   if (common) return common;
+  // Swift `SocketAddress.init(…)` makes a new SocketAddress.
+  if (LANG === 'swift' && /^[A-Z][\w.]*\.init\(/.test(e) && closeOf(e, e.indexOf('(')) === e.length - 1) return `a new ${e.slice(0, e.indexOf('.init(')).split('.').pop()}`;
   // Swift text with values inside: the literal kept exactly, each value a «placeholder» (docs/spec.md).
   if (LANG === 'swift' && /^"/.test(e) && /\\\(/.test(e)) { const tv = swiftTextWithValues(e); if (tv) return tv.length > 90 ? `${tv.slice(0, 88)}…"` : tv; }
   if (/^(["'`])(?:\\.|(?!\1)[^\\])*\1$/.test(e) && !(/^`/.test(e) && /\$\{/.test(e))) return `"${clip(e.slice(1, -1), 40)}"`;
@@ -794,7 +799,7 @@ function sayNativeShape(head, text, innerNote) {
     return { kind: 'branch', says: `If not: ${swiftCondition(m[1])}${innerNote}`, ...(binds ? {} : { cond: m[1], negate: true }) };
   }
   // if let x = … / if let x, y > 0 / if case .a = x
-  if (swift && (m = head.match(/^(?:else\s+)?if\s+(.+?)\s*\{.*$/)) && (/^(?:let|var|case)\b/.test(m[1]) || /,\s*(?:let|var|case)?\s*\w/.test(m[1].replace(/\([^()]*\)/g, '')))) {
+  if (swift && (m = head.match(/^(?:else\s+)?if\s+(.+?)\s*(?:\{.*)?$/)) && (/^(?:let|var|case)\b/.test(m[1]) || /,\s*(?:let|var|case)?\s*\w/.test(m[1].replace(/\([^()]*\)/g, '')))) {
     return { kind: 'branch', says: `If ${swiftCondition(m[1])}${innerNote}` };
   }
   if (swift && /^defer\s*\{/.test(head)) return { kind: 'call', says: 'At the end, runs these steps' };

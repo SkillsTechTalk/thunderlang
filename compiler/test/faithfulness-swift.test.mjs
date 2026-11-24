@@ -86,3 +86,15 @@ test('vapor (fresh sample) BasicCodingKey: a switch that is the whole body gives
   assert.doesNotMatch(t, /Calls string/);
   assert.match(t, /When it is index:.*\n\s+- Gives back/);
 });
+
+test('vapor (fresh sample) Request peerAddress: an if / else if / else body gives back each side; `else if let` asks if it is set', () => {
+  const t = thunderText('a.swift', 'struct R {\n    public var peerAddress: SocketAddress? {\n        if let clientAddress = headers.forwarded.first?.for {\n            SocketAddress.init(ipAddress: clientAddress, port: 80)\n        } else if let xForwardedFor = headers[.xForwardedFor] {\n            SocketAddress.init(ipAddress: xForwardedFor, port: 80)\n        } else {\n            self.remoteAddress\n        }\n    }\n}\n');
+  assert.equal(sideOf(t, /Ask: Is x forwarded for set\?/, /Gives back remote address/), 'no');
+  assert.doesNotMatch(t, /Let x forwarded|Reads remote address|\(code, not explained\)/);
+});
+
+test('vapor (fresh sample) Count: `T.self is String.Type` asks whether T is the type String', () => {
+  const t = thunderText('a.swift', 'struct V {\n    static func count(min: Int?) -> String {\n        if T.self is String.Type {\n            return "character"\n        }\n        return "item"\n    }\n}\n');
+  assert.match(t, /Ask: Is T the type String\?/);
+  assert.doesNotMatch(t, /Is t a Type/);
+});

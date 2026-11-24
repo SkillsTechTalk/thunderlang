@@ -2325,13 +2325,19 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   if (lang === 'c' || lang === 'cpp') markBuildOnlySteps(r.steps, fn, lang, code, srcLines);
   // A Swift `switch` that is the whole body of a function that gives something back: each case's one expression is
   // what comes back (`case .key(let key): String(reflecting: key)` gives back that text; it is not just a call).
-  if (lang === 'swift' && fn.returns && !/^(?:Void|\(\s*\)|Never)$/.test(String(fn.returns).trim()) && r.steps.length === 1 && r.steps[0].kind === 'branch' && /^switch\b/.test(String(r.steps[0].code || ''))) {
-    for (const arm of r.steps[0].children || []) {
-      const only = arm.children?.length === 1 ? arm.children[0] : null;
-      if (!only || only.children?.length || !/^(?:call|set|other)$/.test(only.kind) || !only.code || !swiftImplicitResult(only.code, fn.returns) || /^[\w.]+\s*=(?!=)/.test(only.code)) continue;
+  // So does an if / else if / else that is the whole body (Swift if-expressions).
+  if (lang === 'swift' && fn.returns && !/^(?:Void|\(\s*\)|Never)$/.test(String(fn.returns).trim()) && r.steps.length === 1 && r.steps[0].kind === 'branch' && /^(?:switch|if)\b/.test(String(r.steps[0].code || ''))) {
+    const giveBack = (list) => {
+      const only = list?.length === 1 ? list[0] : null;
+      if (!only) return;
+      if (only.kind === 'branch' && only.elseIf) { giveBack(only.children); giveBack(only.otherwise); return; }
+      if (only.children?.length || !/^(?:call|set|other)$/.test(only.kind) || !only.code || !swiftImplicitResult(only.code, fn.returns) || /^[\w.]+\s*=(?!=)/.test(only.code)) return;
       const v = withLanguage(lang, () => classifyStatement(`return ${only.code}`));
-      if (v.kind === 'return') arm.children[0] = { ...only, ...v, code: only.code };
-    }
+      if (v.kind === 'return') { list[0] = { ...only, ...v, code: only.code }; delete list[0].restates; delete list[0].callee; }
+    };
+    const top = r.steps[0];
+    if (/^switch\b/.test(String(top.code))) for (const arm of top.children || []) giveBack(arm.children);
+    else if (top.otherwise) { giveBack(top.children); giveBack(top.otherwise); }
   }
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
