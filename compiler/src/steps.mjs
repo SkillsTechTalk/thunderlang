@@ -63,7 +63,8 @@ const KNOWN_CALLS = [
 const possessiveWords = (path) => { const parts = String(path).replace(/^\$/, '').replace(/\[\s*['"]?([\w$]+)['"]?\s*\]/g, '.$1').split(/\.|->/).filter((x) => x && !/^(self|this)$/.test(x)); return parts.length > 1 ? `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}` : words(parts[0] || path); };
 
 /** Enum values read as words: Status.ON_SHELF -> "on shelf", Color.RED -> "red". */
-export const plainEnums = (text) => String(text).replace(/\b[A-Z][A-Za-z0-9]*\.([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\b(?!\s*\()/g, (m, v) => (v.length > 1 && v === v.toUpperCase() ? words(v) : m));
+// (Constants of the number and text classes are not choices: `Integer.TYPE`, `Long.MAX_VALUE` stay as written.)
+export const plainEnums = (text) => String(text).replace(/\b([A-Z][A-Za-z0-9]*)\.([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\b(?!\s*\()/g, (m, owner, v) => (v.length > 1 && v === v.toUpperCase() && !/^(?:Integer|Long|Short|Byte|Float|Double|Character|Boolean|Void|Number|Math|BigInteger|BigDecimal|Int|UInt|Char)$/.test(owner) ? words(v) : m));
 
 /** A condition as words when it can't be fully translated: c.ctx == nil -> "c.ctx is empty". */
 /**
@@ -1262,8 +1263,23 @@ export function stepsFrom(statements) {
     if (s.arms) {
       const subject = armsSubject(choice ? choice.rest : head0);
       const kids = stepsFrom(s.children || []).steps;
+      // With no subject (`when {`, `switch {`), each arm is a condition of its own: "When x is a string", not
+      // "When it is isString(x)".
+      if (!subject) {
+        const pats = (s.children || []).filter((c) => c.arm != null).map((c) => String(c.arm).trim());
+        const arms = kids.filter((k) => k.caseLabel);
+        if (pats.length === arms.length) arms.forEach((k, i) => { if (!/^(?:_|else|default)$/.test(pats[i])) k.says = `When ${sayCodeCondition(pats[i])}`; });
+      }
       const chooser = { kind: 'branch', says: subject ? `Chooses by ${words(clip(subject, 40))}` : 'Checks these cases in order', code: clip(head0, 90), line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}), ...(choice ? { valueOf: choice.target } : {}) };
       steps.push(chooser);
+      continue;
+    }
+    // Kotlin `val m = call() ?: return null`: the value, then the early way out when there is none.
+    const elvis = !s.children?.length && String(s.text).replace(/\s+/g, ' ').trim().match(/^((?:val|var|let)\s+([A-Za-z_]\w*)(?:\s*:\s*[^=]+)?\s*=\s*.+?)\s*\?:\s*((?:return|throw)\b.*)$/);
+    if (elvis && balancedText(elvis[1]) && balancedText(elvis[3])) {
+      steps.push({ ...classifyStatement(elvis[1]), line: s.line, span: spanOf(s) });
+      const out = classifyStatement(elvis[3]);
+      steps.push({ kind: 'branch', says: `If ${words(elvis[2])} is empty`, cond: `${elvis[2]} == null`, code: clip(String(s.text).replace(/\s+/g, ' '), 90), line: s.line, span: spanOf(s), children: [{ ...out, line: s.line, span: spanOf(s) }] });
       continue;
     }
     let step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line, span: spanOf(s) };

@@ -252,7 +252,9 @@ function findFunctions(src, language) {
       // the body's "{" is the one after the type, not a brace inside it.
       const typed = (language === 'typescript' || language === 'javascript') ? balancedReturnHead(after) : null;
       const head = typed ?? (language === 'kotlin'
-        ? after.match(/^\s*(?::\s*([^{=]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
+        // (The return type stays on the signature's line: an abstract `fun f(): T` with no body never runs on into
+        // the next declarations.)
+        ? after.match(/^\s*(?::\s*([^{=\n]+?))?()()\s*(?:where\s+[^{=]+)?(=(?![=>])|\{)/)
         : after.match(/^\s*(?::\s*([^{=;]+?)|->\s*([^{;]+?)|\s+(\([^)]*\)|[\w.<>\[\]*&' ]+?))?\s*(?:throws\s+[\w.,\s]+)?\s*(=>|\{|;)/));
       if (!head || head[4] === ';') continue;
       // `const d = (await res.json()) as {...}` is a value, not a function: a const/let/var only declares a
