@@ -1,5 +1,36 @@
 # Unreleased
 
+**Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
+review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
+misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep
+everything the code says, and shows the code (marked "not explained") when they cannot:
+- Conditions are split at their top-level and / or, each part said on its own, and each part must keep its
+  negations (`!`, `not`, `!=`, `!==`, `is not`, `not in`, `unless`) and comparisons. Compound questions are asked as
+  written, so the Stop is always on the side the code takes (`!body || used` read "Body or used? No: stop"); only
+  `unless` flips a whole question. `=== null` and `=== undefined` are told apart, `typeof x === 'string'` reads "x
+  is text", PHP `is_string($x)` "x is text", `x instanceof Foo` "x is a Foo"; a question is asked by a rule's name
+  only when the condition is that call alone; `!==` before `null` no longer reads "! is empty".
+- Values keep what they are made of: `headers[key] = v` reads "Stores v under key in headers" (it read "Sets headers
+  to …"); a returned `a && b` / `a || !b` keeps every part; multi-line returns and assignments are read whole (JSX
+  `return (` reads "what to show on screen"); `a or b` keeps its fallback; `*=`, `??=`, `||=`, `.=`, Go `append`
+  and PHP `$a[] =` say what they do; a call names a value only when it is the whole value; a returned function is
+  shown with its steps.
+- Nothing is dropped or moved: a loop's `continue` / `break` are steps ("Skips to the next one", "Leaves the loop");
+  a brace-less `if (x)\n  stmt;` keeps its statement; a C-like switch is one question with each case's steps under
+  it; Go `t.Fatal` / `t.Errorf` and Rust `cfg!` chains are no longer "Checks: …: nothing"; PHP `foreach ($a as $k =>
+  $v)` is a loop; `//` or PHP `#` inside a string no longer cuts the body short; a loop whose body could not be read
+  is shown as code; a function is drawn as a rule only when every statement was read into it (partial rules hid
+  later checks).
+- `next(…)` passes an error on only in middleware (`(req, res, next)`, a route, a `NextFunction`); a .NET handler
+  delegate "returns the answer of the next handler"; a local helper named `next` is an ordinary call.
+- Smaller fixes: messages are no longer cut at an inner quote; PHP `$a.$b` joins text (it read "the a's b"); Go
+  `return out, err` gives both back; Kotlin `?: return null`, `require`, abstract `fun`s; Ruby implicit last values,
+  `unless`, one-line blocks, `case … else`, `halt`; Python continued lines and bare `self.x`; destructured inputs;
+  a fetch `Request` / `Response` is an input outside web handlers.
+- Tests updated where they encoded a lossy reading: "whether proxy and …" is now "whether proxy is set and …", a
+  keyed store reads "Stores True under arg in seen", a switch's cases hold their steps, and a value keeps its owner
+  ("otherwise the order's total", "Sets name to the user's name").
+
 **Language: common libraries, read as what they do** (`compiler/src/libraries.mjs`). Calls into well-known libraries
 read with their arguments instead of "Calls find unique": ORMs (Prisma, Mongoose, Sequelize, Django, SQLAlchemy,
 Spring Data incl. derived names like `findByEmailAndActive`, Entity Framework, GORM, `database/sql`, ActiveRecord,
