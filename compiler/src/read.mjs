@@ -1,5 +1,6 @@
 // Read code you don't know: recover the decision rules inside functions written in TypeScript /
-// JavaScript, Python, Go, Rust, C#, or Java, and show them as ThunderLang plus plain English.
+// JavaScript, Python, Go, Rust, C#, Java, Kotlin, PHP, Ruby, SQL, C, C++, or Swift, and show them as ThunderLang
+// plus plain English.
 // Deterministic, no AI, browser-safe. Everything here is INFERRED from code: a reading says what
 // the code appears to decide, never what it was meant to decide, and anything it could not read
 // is listed rather than guessed.
@@ -10,31 +11,48 @@
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
 import { sqlItems } from './sql.mjs';
-import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
+import { stepsFrom, braceStatements, indentStatements, plainEnums, withLanguage, SWIFT_CLOSURE_PARAMS, VAPOR_STATUS } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
 export const READ_SCHEMA = 'thunder-reading-v1';
-export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql'];
-const BRACE_LANGS = new Set(['typescript', 'javascript', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php']);
+export const READ_LANGUAGES = ['typescript', 'javascript', 'python', 'go', 'rust', 'csharp', 'java', 'kotlin', 'php', 'ruby', 'sql', 'c', 'cpp', 'swift'];
+// Languages whose `if` condition needs no parentheses: `if a && b {` (a leading parenthesis may wrap only part of it).
+const BARE_IF = new Set(['go', 'rust', 'swift']);
 const KEYWORDS_NOT_FN = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'new', 'else', 'using', 'lock', 'synchronized', 'foreach', 'match', 'loop', 'sizeof', 'typeof', 'nameof']);
 
 /** Best-effort language guess for pasted code (a file name, when known, is more reliable). */
 export function detectLanguage(source, file = '') {
-  if (file) return languageForFile(file);
+  if (file) return /\.h$/i.test(file) ? (looksCpp(source) ? 'cpp' : 'c') : languageForFile(file);
   const s = String(source);
   // SQL: a file that starts with (or is mostly) schema statements.
   if (/^\s*(?:--[^\n]*\n\s*)*(?:CREATE|ALTER|INSERT\s+INTO|SELECT|WITH)\b/i.test(s) && /\b(?:CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE|TRIGGER|TYPE|INDEX)|SELECT\b[\s\S]*\bFROM)\b/i.test(s)) return 'sql';
   if (/^\s*<\?php\b/.test(s) || /\bfunction\s+\w+\s*\([^)]*\$\w+/.test(s)) return 'php';
   if (/\bfun\s+(<[^>]*>\s*)?[\w.]*\w+\s*\(/.test(s)) return 'kotlin';
+  // Swift before Go: both write `func`, but only Swift types its parameters with a colon or returns with `->`.
+  if (/^[ \t]*import[ \t]+(?:Foundation|UIKit|SwiftUI|Vapor|Combine|XCTest|AppKit|Fluent)\b/m.test(s) || /\bfunc\s+\w+\s*(?:<[^>]*>)?\s*\([^)]*\w\s*:\s*[^)]*\)|\bfunc\s+\w+\s*(?:<[^>]*>)?\s*\([^)]*\)\s*(?:async\s+)?(?:throws\s+)?->/.test(s)) return 'swift';
   if (/^\s*def\s+[\w.?!]+(\s*\(.*\))?\s*$/m.test(s) && /^\s*end\s*$/m.test(s)) return 'ruby';
   if (/^\s*package\s+\w+\s*$/m.test(s) || /\bfunc\s+(\([^)]*\)\s*)?\w+\s*\(/.test(s)) return 'go';
   if (/\bfn\s+\w+\s*(<[^>]*>)?\s*\(/.test(s) || /\blet\s+mut\b|->\s*&'static/.test(s)) return 'rust';
   if (/^\s*def\s+\w+\s*\(.*\)\s*(->\s*[^:]+)?:\s*$/m.test(s)) return 'python';
+  // C and C++: an #include, or C++ syntax (std::, templates, Type::method definitions), or a C function that uses
+  // pointers, NULL, or the C library.
+  const cSignature = /^[ \t]*(?:static[ \t]+|inline[ \t]+)*(?:const[ \t]+|unsigned[ \t]+|struct[ \t]+\w+[ \t]*)?(?:void|int|char|long|double|float|size_t|bool|u?int\d+_t)[ \t*]+\w+[ \t]*\([^)]*\)[ \t]*\{/m.test(s)
+    && /\bNULL\b|->|\bchar[ \t]*\*|\bprintf\(|\bmalloc\(|\bfree\(|\bsizeof\b|\btypedef\b|\bstruct[ \t]+\w+/.test(s) && !/\b(?:public|private|String|boolean|using)\b/.test(s);
+  if (cSignature || /^[ \t]*#[ \t]*(?:include|define|ifndef|pragma)\b/m.test(s) || /\bstd::\w|\btemplate[ \t]*<|\b\w+::~?\w+[ \t]*\([^;{)]*\)[ \t]*(?:const[ \t]*)?\{/.test(s)) return looksCpp(s) ? 'cpp' : 'c';
   if (/\bnamespace\s+[\w.]+|\busing\s+System\b|\bpublic\s+static\s+string\b|\bstring\s+\w+\s*[,)]/.test(s)) return 'csharp';
   if (/\bpublic\s+(static\s+)?(class|String|boolean|int|double|void)\b|\bString\s+\w+\s*[,)]|\bboolean\b/.test(s)) return 'java';
   if (/:\s*(number|string|boolean)\b|\binterface\s+\w+|\bexport\s+(function|const)\b/.test(s)) return 'typescript';
   return 'javascript';
+}
+
+/** True when C-family source uses C++ (classes, namespaces, templates, `::`, std), so a `.h` file is read as C++. */
+export function looksCpp(source) {
+  // A C header may hold a few lines for C++ callers (#ifdef __cplusplus … #endif); those do not make it C++.
+  const s = stripComments(String(source).slice(0, 200000)).replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
+    .replace(/^[ \t]*#[ \t]*if(?:def)?[ \t]+(?:defined[ \t]*\(?[ \t]*)?__cplusplus[\s\S]*?^[ \t]*#[ \t]*(?:endif|else)\b/gm, '');
+  // C allows `template` and `typename` as names (const char *template), so they count only in their C++ shape.
+  return /\bclass[ \t]+\w+[ \t]*[:{]|\bnamespace[ \t]+\w*[ \t]*\{|\btemplate[ \t]*<|\btypename[ \t]+\w+[ \t]*[,>=]|^[ \t]*(?:public|private|protected)[ \t]*:|\bnullptr\b|\bconstexpr\b|\w::\w|\bstd::|#[ \t]*include[ \t]*<(?:iostream|string|vector|map|memory|utility|algorithm|functional|optional|cstdint|cstdio|cstdlib|cstring)>/m.test(s);
 }
 
 // ── Lexing helpers ──────────────────────────────────────────────────────────────────────────
@@ -79,6 +97,8 @@ let READING_RUST = false;
 
 function skipString(src, i) {
   const q = src[i];
+  // A multi-line string (triple quotes in Swift, Kotlin, Java, C#) runs to its closing triple quote.
+  if (q === '"' && src[i + 1] === '"' && src[i + 2] === '"') { const e = src.indexOf('"""', i + 3); return e < 0 ? src.length : e + 2; }
   if (q === '\'' && !READING_RUST) {
     for (let j = i + 1; j < src.length; j++) {
       if (src[j] === '\\') { j++; continue; }
@@ -126,6 +146,23 @@ function parseParams(raw, language) {
       continue;
     }
     let name = p, type = null, m;
+    if (language === 'c' || language === 'cpp') {
+      const q = p.replace(/\[[^\]]*\]/g, '[]').replace(/\s+/g, ' ').trim();
+      if (/^(?:void|\.\.\.)$/.test(q)) continue;
+      const fp = q.match(/\(\s*[*&^]\s*(\w+)\s*\)\s*\(/); // a function pointer: int (*compare)(int, int)
+      if (fp) { out.push({ name: fp[1], type: 'function' }); continue; }
+      const cm = q.match(/^(.*[\s*&])(\w+)(\[\])?$/);
+      if (!cm) { if (/^[a-z_]\w*$/.test(q) && !C_TYPE_WORDS.test(q)) out.push({ name: q, type: null }); continue; } // unnamed parameters have only a type
+      if (/^(?:const|struct|enum|union|unsigned|signed)?\s*$/.test(cm[1])) { if (!C_TYPE_WORDS.test(cm[2])) out.push({ name: cm[2], type: null }); continue; }
+      out.push({ name: cm[2], type: cType(cm[1] + (cm[3] ? '[]' : '')) });
+      continue;
+    }
+    if (language === 'swift') {
+      const q = p.replace(/@\w+(?:\([^)]*\))?\s*/g, '').trim();
+      const sm = q.match(/^(?:(\w+)\s+)?(\w+)\s*:\s*(.+)$/);
+      if (sm) out.push({ name: sm[2], type: simpleType(sm[3].replace(/^(?:inout|borrowing|consuming|sending)\s+/, '').replace(/\.\.\.$/, '').trim()) });
+      continue;
+    }
     if (language === 'go') {
       m = p.match(/^(\w+)\s+(.+)$/);
       if (!m) { pendingGo.push(p); continue; }
@@ -171,11 +208,23 @@ function balancedReturnHead(after) {
   return m;
 }
 
+/** Type words that are never a C parameter's name (an unnamed parameter is only its type). */
+const C_TYPE_WORDS = /^(?:void|int|char|short|long|float|double|bool|_Bool|unsigned|signed|size_t|ssize_t|u?int\d+_t|wchar_t|auto|const)$/;
+/** A C or C++ parameter type in reader terms: numbers, text, yes/no, or the type itself (`Library*`, `Book`). */
+function cType(raw) {
+  let t = String(raw).replace(/\b(?:const|volatile|struct|enum|union|register|restrict|__restrict|typename|class)\b/g, ' ').replace(/\bstd::/g, '').replace(/\s+/g, ' ').trim();
+  if (/^(?:unsigned|signed)?\s*char\s*\*$|^(?:string|string_view|wstring|sds)\s*&?$/.test(t)) return 'string';
+  t = t.replace(/\s*([*&]+)\s*/g, '$1').replace(/&+$/, '').trim(); // a reference is the value itself
+  if (/^(?:(?:unsigned|signed|long|short)\s+)*(?:int|long|short|char|unsigned|signed)$|^(?:float|double|long double|size_t|ssize_t|off_t|ptrdiff_t|u?int\d+_t|u?int_fast\d+_t|intptr_t|uintptr_t|time_t)$/.test(t)) return 'number';
+  if (/^(?:bool|_Bool)$/.test(t)) return 'boolean';
+  return t || null;
+}
+
 function simpleType(t) {
   if (!t) return null;
   const s = String(t).trim().replace(/^&(mut\s+)?/, '');
-  if (/^(number|int|long|short|float|double|decimal|f32|f64|i\d+|u\d+|usize|isize|float64|float32|int\d*|uint\d*|Integer|Double|Long|BigDecimal|Int|Float|Short|Byte)$/.test(s)) return 'number';
-  if (/^(bool|boolean|Boolean)$/.test(s)) return 'boolean';
+  if (/^(number|int|long|short|float|double|decimal|f32|f64|i\d+|u\d+|usize|isize|float64|float32|int\d*|uint\d*|Integer|Double|Long|BigDecimal|Int|Float|Short|Byte|Int\d+|UInt\d*|CGFloat|Float\d+)$/.test(s)) return 'number';
+  if (/^(bool|boolean|Boolean|Bool)$/.test(s)) return 'boolean';
   if (/^(str|string|String|&str|char)$/.test(s)) return 'string';
   return s;
 }
@@ -221,6 +270,8 @@ function findFunctions(src, language) {
     return fns;
   }
   if (language === 'ruby') return findRubyFunctions(src);
+  if (language === 'c' || language === 'cpp') return findCFunctions(src, language);
+  if (language === 'swift') return findSwiftFunctions(src);
   const patterns = {
     typescript: [
       /(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*(?:<[^>]*>)?\s*\(/g,
@@ -356,6 +407,318 @@ function findFunctions(src, language) {
   annotateRoutes(fns, src);
   return fns.sort((a, b) => a.line - b.line);
 }
+// ── C, C++, and Swift: function definitions ──────────────────────────────────────────────────────────
+
+/** C/C++ with every preprocessor line (and its `\` continuations) blanked to spaces, so offsets and lines stay put. */
+export function blankPreprocessor(src) {
+  const lines = String(src).split('\n');
+  let cont = false;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (!cont && !/^[ \t]*#/.test(l)) continue;
+    cont = /\\\r?$/.test(l);
+    lines[i] = ' '.repeat(l.length);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * The source with comments and the inside of strings and chars blanked (same length, same lines), so brackets can be
+ * counted without being fooled by a `{` in a string. Handles C++ raw strings R"x(…)x" and triple-quoted strings.
+ */
+function maskCode(src) {
+  const a = String(src).split('');
+  const n = a.length;
+  const blank = (from, to) => { for (let k = from; k < to && k < n; k++) if (a[k] !== '\n') a[k] = ' '; };
+  for (let i = 0; i < n; i++) {
+    const c = a[i];
+    if (c === '/' && a[i + 1] === '/') { let j = i; while (j < n && a[j] !== '\n') j++; blank(i, j); i = j; continue; }
+    if (c === '/' && a[i + 1] === '*') { let j = i + 2; while (j < n && !(a[j] === '*' && a[j + 1] === '/')) j++; blank(i, j + 2); i = j + 1; continue; }
+    if (c === '"' && a[i + 1] === '"' && a[i + 2] === '"') { const e = src.indexOf('"""', i + 3); const end = e < 0 ? n : e; blank(i + 3, end); i = end + 2; continue; }
+    if (c === '"' && a[i - 1] === 'R' && /(?:^|[^\w])(?:u8|u|U|L)?R$/.test(src.slice(Math.max(0, i - 4), i))) {
+      const paren = src.indexOf('(', i);
+      const delim = paren > i && paren - i < 18 ? src.slice(i + 1, paren) : null;
+      if (delim != null && /^[^\s()\\]*$/.test(delim)) {
+        const e = src.indexOf(`)${delim}"`, paren);
+        const end = e < 0 ? n : e;
+        blank(i + 1, end + delim.length + 1);
+        i = end + delim.length + 1;
+        continue;
+      }
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      for (; j < n; j++) {
+        if (a[j] === '\\') { if (a[j + 1] !== '\n') a[j + 1] = ' '; a[j] = ' '; j++; continue; }
+        if (a[j] === c || a[j] === '\n') break;
+        a[j] = ' ';
+      }
+      i = j;
+    }
+  }
+  return a.join('');
+}
+
+/** Index of the bracket closing the one at `open` in masked text (no strings or comments left to skip). */
+function closeIn(masked, open) {
+  const o = masked[open], c = { '{': '}', '(': ')', '[': ']' }[o];
+  let depth = 0;
+  for (let i = open; i < masked.length; i++) {
+    if (masked[i] === o) depth++;
+    else if (masked[i] === c && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/** Blank `name(…)` groups (balanced) in a header, keeping its length. */
+function blankCalls(h, names) {
+  let out = h;
+  for (const m of h.matchAll(names)) {
+    const open = out.indexOf('(', m.index + m[0].length - 1);
+    if (open < 0) continue;
+    const close = closeIn(out, open);
+    if (close < 0) continue;
+    out = out.slice(0, m.index) + ' '.repeat(close + 1 - m.index) + out.slice(close + 1);
+  }
+  return out;
+}
+
+/** A C/C++ declaration header with access labels, templates, and attributes blanked (same length). */
+function cleanCHeader(header) {
+  let h = header.replace(/(?<![\w:])(?:public|private|protected|signals|slots|Q_SIGNALS|Q_SLOTS)\s*:(?!:)/g, (m) => ' '.repeat(m.length));
+  // template <…> (angle brackets balanced) and [[attributes]].
+  for (let at = h.indexOf('template'); at >= 0; at = h.indexOf('template', at + 1)) {
+    if (/\w/.test(h[at - 1] || '') || /\w/.test(h[at + 8] || '')) continue;
+    let j = at + 8;
+    while (/\s/.test(h[j] || '')) j++;
+    if (h[j] !== '<') continue;
+    let depth = 0, k = j;
+    for (; k < h.length; k++) { if (h[k] === '<') depth++; else if (h[k] === '>' && --depth === 0) break; }
+    if (k >= h.length) break;
+    h = h.slice(0, at) + ' '.repeat(k + 1 - at) + h.slice(k + 1);
+  }
+  for (let at = h.indexOf('[['); at >= 0; at = h.indexOf('[[', at + 2)) {
+    const e = h.indexOf(']]', at);
+    if (e < 0) break;
+    h = h.slice(0, at) + ' '.repeat(e + 2 - at) + h.slice(e + 2);
+  }
+  return blankCalls(h, /\b(?:__attribute__|__declspec|alignas|_Alignas|__THROW_?\w*|__nonnull|__wur)\s*\(/g);
+}
+
+const C_NOT_NAMES = new Set(['if', 'for', 'while', 'switch', 'catch', 'return', 'sizeof', 'else', 'do', 'case', 'defined', 'alignof', 'decltype', 'static_assert', '_Static_assert', 'typeof', '__typeof__', 'asm', '__asm__', 'new', 'delete', 'throw', 'noexcept', 'requires', 'operator', 'using', 'typedef', 'goto']);
+const C_STORAGE = /\b(?:static|inline|extern|virtual|explicit|constexpr|consteval|constinit|friend|__inline|__inline__|__forceinline|register|thread_local|_Noreturn|_Thread_local)\b/g;
+
+/** After a parameter list: const, noexcept, override, `-> type`, macros, or a constructor's `: init(…)` list. */
+function cSuffixOk(s, language) {
+  let i = 0;
+  const n = s.length;
+  const skipParens = () => { if (s[i] === '(') { const c = closeIn(s, i); i = c < 0 ? n : c + 1; } };
+  for (let guard = 0; guard < 40; guard++) {
+    while (i < n && /\s/.test(s[i])) i++;
+    if (i >= n) return true;
+    const rest = s.slice(i, i + 40);
+    let m;
+    if ((m = rest.match(/^(?:const|volatile|override|final|mutable|noexcept|throw|try|&&|&)(?!\w)/))) { i += m[0].length; while (/\s/.test(s[i] || '')) i++; skipParens(); continue; }
+    if (s[i] === '-' && s[i + 1] === '>') return language === 'cpp'; // a trailing return type runs to the body
+    if (s[i] === ':' && s[i + 1] !== ':') return language === 'cpp'; // a constructor's member initializer list
+    if ((m = rest.match(/^requires\b/))) return language === 'cpp';
+    if ((m = rest.match(/^[A-Z_][A-Z0-9_]*(?!\w)/))) { i += m[0].length; while (/\s/.test(s[i] || '')) i++; skipParens(); continue; } // FMT_NOEXCEPT, __THROW
+    return false;
+  }
+  return false;
+}
+
+/** A function definition head (the text before a `{` at file, namespace, or class level), or null. */
+function cHead(header, language, container) {
+  const h = cleanCHeader(header);
+  const start = h.search(/\S/);
+  if (start < 0) return null;
+  let depth = 0;
+  for (let o = 0; o < h.length; o++) {
+    if (h[o] === ')') { depth--; continue; }
+    if (h[o] !== '(') continue;
+    if (depth++ !== 0) continue;
+    const c = closeIn(h, o);
+    if (c < 0) return null;
+    const before = h.slice(Math.max(0, o - 300), o);
+    const nm = before.match(/((?:[A-Za-z_]\w*(?:<[^<>()]*>)?\s*::\s*)*)(operator\s*(?:\(\s*\)|\[\s*\]|new\b|delete\b|[^\s\w()]+|[A-Za-z_][\w:<> ]*?)|~?[A-Za-z_]\w*)\s*$/);
+    if (!nm || C_NOT_NAMES.has(nm[2]) || !cSuffixOk(h.slice(c + 1), language)) { o = c; depth--; continue; }
+    const nameAt = o - nm[0].length + nm[1].length;
+    const prefix = blankCalls(h.slice(start, o - nm[0].length), /\b[A-Z_][A-Z0-9_]*\s*\(/g);
+    if (!/^[\w\s*&:<>,"~]*$/.test(prefix) || /(?:^|\s)(?:return|else|case|goto|new|delete|throw|typedef|using|co_return|co_await|co_yield|sizeof)\s*$/.test(prefix)) return null;
+    const qualifier = nm[1] ? nm[1].replace(/<[^<>]*>/g, '').split('::').map((x) => x.trim()).filter(Boolean).pop() : null;
+    const name = nm[2].replace(/\s+/g, ' ').trim();
+    const returns = prefix.replace(C_STORAGE, ' ').replace(/""/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!returns && language === 'c') return null;
+    // No return type: only a constructor or destructor has none (`TEST(A, B) {` is a macro, not a function).
+    const ctor = /^~/.test(name) || (qualifier && qualifier === name.replace(/^~/, '')) || (container && container === name.replace(/^~/, ''));
+    if (!returns && !ctor) return null;
+    return { name, nameAt, open: o, close: c, returns: returns && !/^void$/.test(returns) ? returns : null, qualifier, startAt: start };
+  }
+  return null;
+}
+
+/** A class, struct, union, namespace, or extern "C" header whose braces hold more declarations. Gives its name ('' if none) or null. */
+function cContainer(header) {
+  let h = cleanCHeader(header);
+  for (let k = 0; k < 6 && /<[^<>]*>/.test(h); k++) h = h.replace(/<[^<>]*>/g, ' ');
+  // A macro may stand in front of the class (NLOHMANN_BASIC_JSON_TPL_DECLARATION class basic_json, FMT_EXPORT class …).
+  h = h.trim().replace(/^(?:[A-Z_][A-Z0-9_]*(?:\s*\([^()]*\))?\s+)+(?=(?:typedef\s+)?(?:class|struct|union|namespace|inline\s+namespace|extern)\b)/, '');
+  if (/^extern\s*""$/.test(h)) return '';
+  if (/^(?:inline\s+)?namespace\b[^()=;]*$/.test(h)) return '';
+  const m = h.match(/^(?:typedef\s+)?(?:class|struct|union)\b([^()=;]*)$/);
+  if (!m) return null;
+  const names = (m[1].split(/:(?!:)/)[0].match(/[A-Za-z_]\w*/g) || []).filter((w) => w !== 'final');
+  return names[names.length - 1] || '';
+}
+
+/** Lines that can carry the start of a C signature above the name: a return type, a template, a macro. */
+const C_SIG_LINE = /^\s*[\w<>:,*&\s]+$/;
+
+/** C and C++ function definitions, found by walking scopes: file, namespaces, extern "C", classes and structs. */
+function findCFunctions(code, language) {
+  const masked = maskCode(code);
+  const lines = code.split('\n');
+  const fns = [];
+  const stack = [];
+  let stmtStart = 0;
+  for (let i = 0; i < masked.length; i++) {
+    const ch = masked[i];
+    if (ch === ';') { stmtStart = i + 1; continue; }
+    if (ch === '}') { stack.pop(); stmtStart = i + 1; continue; }
+    if (ch !== '{') continue;
+    // Comments and #lines are blank in the mask: a header starts at its first real character (a long license
+    // comment above the first function must not make its header look too long to be one).
+    while (stmtStart < i && /\s/.test(masked[stmtStart])) stmtStart++;
+    const header = masked.slice(stmtStart, i);
+    const close = closeIn(masked, i);
+    const head = header.length < 4000 ? cHead(header, language, stack[stack.length - 1]) : null;
+    if (head && close > 0) {
+      const nameAt = stmtStart + head.nameAt;
+      const fnLine = lineAt(code, nameAt);
+      // The doc comment sits above the whole signature: a return type or template may be on the lines above the name.
+      let docLine = fnLine;
+      for (let k = 0; k < 3 && docLine >= 2 && lineAt(code, stmtStart + head.startAt) < docLine && C_SIG_LINE.test(lines[docLine - 2]) && lines[docLine - 2].trim(); k++) docLine--;
+      const doc = leadingDoc(lines, docLine, language);
+      fns.push({
+        key: `${head.name}@${nameAt}`, name: head.name, line: fnLine,
+        params: parseParams(code.slice(stmtStart + head.open + 1, stmtStart + head.close), language),
+        returns: head.returns ? cType(head.returns) : null, bodyStart: i + 1, body: code.slice(i + 1, close),
+        ...(head.qualifier ? { qualifier: head.qualifier } : {}), ...(doc ? { doc } : {}),
+      });
+      i = close; stmtStart = close + 1;
+      continue;
+    }
+    const container = cContainer(header);
+    if (container != null) { stack.push(container); stmtStart = i + 1; continue; }
+    if (close < 0) break;
+    i = close; // an initializer, an enum, a lambda: braces that hold no functions
+  }
+  return fns;
+}
+
+/** After a Swift parameter list: async, throws, `-> Type`, `where …`, then the body's `{`. Null for a bodiless requirement. */
+function swiftHead(after) {
+  const brace = after.indexOf('{');
+  if (brace < 0) return null;
+  const mid = after.slice(0, brace);
+  if (/[;}=]/.test(mid.replace(/->/g, '')) || /\n\s*(?:@|func\b|var\b|let\b|case\b|init\b|deinit\b|static\b|class\b|struct\b|enum\b|public\b|private\b|internal\b|fileprivate\b|open\b|mutating\b|override\b|subscript\b|typealias\b|associatedtype\b|convenience\b|required\b|final\b|#)/.test(mid)) return null;
+  let rest = mid.replace(/^\s*(?:async\s+)?(?:(?:re)?throws(?:\s*\([^)]*\))?\s*)?(?:async\s+)?/, '');
+  let returns = null;
+  if (/^->/.test(rest)) {
+    rest = rest.slice(2);
+    const where = rest.search(/\bwhere\b/);
+    returns = (where < 0 ? rest : rest.slice(0, where)).trim() || null;
+  } else if (rest.trim() && !/^where\b/.test(rest.trim())) return null;
+  return { returns, brace };
+}
+
+
+/** Swift functions: func, init, computed properties, and Vapor route closures (`app.get("orders", ":id") { req in … }`). */
+function findSwiftFunctions(src) {
+  const masked = maskCode(src);
+  const fns = [];
+  // extension Library { … }: the methods inside belong to Library, though they are written outside the type.
+  const exts = [];
+  for (const m of masked.matchAll(/(?:^|[\s;}])extension[ \t]+([\w.]+)[^{\n]*\{/g)) {
+    const open = m.index + m[0].length - 1, close = closeIn(masked, open);
+    if (close > 0) exts.push([open, close, m[1].split('.').pop()]);
+  }
+  const extOf = (at) => exts.find(([a, b]) => at > a && at < b)?.[2] ?? null;
+  const bodies = [];
+  const push = (fn, open, close) => { fns.push({ ...fn, bodyStart: open + 1, body: src.slice(open + 1, close) }); bodies.push([open, close]); };
+  for (const m of masked.matchAll(/(?:^|[^\w.])(?:func[ \t]+([A-Za-z_]\w*|`\w+`|[^\s(<\w`]+)|(init)[?!]?|(subscript))[ \t]*(?:<[^>{}()]*>)?[ \t]*\(/g)) {
+    const name = (m[1] || m[2] || m[3]).replace(/`/g, '');
+    const open = m.index + m[0].length - 1;
+    const close = closeIn(masked, open);
+    if (close < 0) continue;
+    const head = swiftHead(masked.slice(close + 1, close + 1 + 2000));
+    if (!head) continue;
+    const bo = close + 1 + head.brace, bc = closeIn(masked, bo);
+    if (bc < 0) continue;
+    const nameAt = m.index + m[0].indexOf(m[1] || m[2] || m[3]);
+    const qualifier = extOf(m.index);
+    // A subscript with get { … } set { … }: what it gives back is its getter.
+    const getter = name === 'subscript' ? masked.slice(bo + 1, bc).match(/^\s*get\s*\{/) : null;
+    if (getter) { const go = bo + 1 + getter[0].length - 1, gc = closeIn(masked, go); if (gc > 0) { push({ key: `${name}@${nameAt}`, name, line: lineAt(src, nameAt), params: parseParams(src.slice(open + 1, close), 'swift'), returns: head.returns, ...(qualifier ? { qualifier } : {}) }, go, gc); continue; } }
+    push({ key: `${name}@${nameAt}`, name, line: lineAt(src, nameAt), params: parseParams(src.slice(open + 1, close), 'swift'), returns: head.returns, ...(qualifier ? { qualifier } : {}) }, bo, bc);
+  }
+  // Computed properties read like a function with no inputs: var total: Int { … } (or its get { … }).
+  for (const m of masked.matchAll(/(?:^|[\s;{}])(?:@\w+(?:\([^()\n]*\))?[ \t]+)*(?:(?:public|private|internal|fileprivate|open|static|class|override|final|nonisolated)(?:\(set\))?[ \t]+)*var[ \t]+(\w+)[ \t]*:[ \t]*([^={}\n]+)\{/g)) {
+    let open = m.index + m[0].length - 1;
+    let close = closeIn(masked, open);
+    if (close < 0 || bodies.some(([a, b]) => open > a && open < b)) continue;
+    const inner = masked.slice(open + 1, close).trim();
+    if (/^(?:willSet|didSet|set|_read|_modify)\b/.test(inner) || /^get\s*(?:set\s*)?$|^get\s+(?:async|throws)/.test(inner)) continue;
+    const g = masked.slice(open + 1, close).match(/^\s*get\s*\{/);
+    if (g) { open = open + 1 + g[0].length - 1; close = closeIn(masked, open); if (close < 0) continue; }
+    const nameAt = masked.indexOf(m[1], m.index + m[0].lastIndexOf('var') + 3);
+    const qualifier = extOf(m.index);
+    push({ key: `${m[1]}@${nameAt}`, name: m[1], line: lineAt(src, nameAt), params: [], returns: m[2].trim(), computed: true, ...(qualifier ? { qualifier } : {}) }, open, close);
+  }
+  // Vapor routes. Literal path pieces only; grouped(...) prefixes are followed when they are literal too.
+  const literalPath = (args) => {
+    const pieces = [];
+    for (const raw of splitTop(args, ',').map((x) => x.trim()).filter(Boolean)) {
+      if (/^\w+\s*:/.test(raw)) continue; // named arguments (use:, body:)
+      let m;
+      if ((m = raw.match(/^"([^"\\]*)"$/))) pieces.push(m[1].replace(/^\/+|\/+$/g, ''));
+      else if (raw === '.catchall' || raw === '"**"') pieces.push('**');
+      else if (raw === '.anything') pieces.push('*');
+      else if (/^\.(?:GET|POST|PUT|PATCH|DELETE)$/.test(raw)) continue;
+      else return null;
+    }
+    return pieces.filter(Boolean).join('/');
+  };
+  const groups = new Map();
+  for (const m of src.matchAll(/\blet[ \t]+(\w+)[ \t]*=[ \t]*(\w+)\.grouped\(([^()\n]*)\)/g)) groups.set(m[1], { parent: m[2], path: literalPath(m[3]) });
+  const prefixOf = (v, depth = 0) => { const g = groups.get(v); if (!g || g.path == null || depth > 6) return g ? null : ''; const up = prefixOf(g.parent, depth + 1); return up == null ? null : [up, g.path].filter(Boolean).join('/'); };
+  const routeFor = new Map();
+  for (const m of masked.matchAll(/\b(\w+)\.(get|post|put|patch|delete|on)\(([^()]*?)\buse:[ \t]*(?:self\.)?(\w+)[ \t]*\)/g)) {
+    if (!(groups.has(m[1]) || /^(?:app|routes?|router|r|api|v\d+|\w*(?:[Rr]outes?|[Gg]roup|[Rr]outer))$/.test(m[1]))) continue;
+    const args = src.slice(m.index + m[0].indexOf('(') + 1, m.index + m[0].length - 1);
+    const method = m[2] === 'on' ? (args.match(/\.(GET|POST|PUT|PATCH|DELETE)\b/) || [])[1] : m[2].toUpperCase();
+    const path = literalPath(args.replace(/\buse:[\s\S]*$/, '')), prefix = prefixOf(m[1]);
+    if (method && path != null && prefix != null) routeFor.set(m[4], { method, path: `/${[prefix, path].filter(Boolean).join('/')}` });
+  }
+  for (const m of masked.matchAll(/\b(\w+)\.(get|post|put|patch|delete|on)\(([^()]*)\)[ \t]*\{/g)) {
+    const argsAt = m.index + m[0].indexOf('(') + 1;
+    const args = src.slice(argsAt, argsAt + m[3].length);
+    const method = m[2] === 'on' ? (args.match(/\.(GET|POST|PUT|PATCH|DELETE)\b/) || [])[1] : m[2].toUpperCase();
+    const path = literalPath(args), prefix = prefixOf(m[1]);
+    // Only a router registers routes (app, routes, a grouped(...) value): `cache.get("x") { … }` is a callback.
+    if (!method || path == null || prefix == null || !(groups.has(m[1]) || /^(?:app|routes?|router|r|api|v\d+|\w*(?:[Rr]outes?|[Gg]roup|[Rr]outer))$/.test(m[1]))) continue;
+    const bo = m.index + m[0].length - 1, bc = closeIn(masked, bo);
+    if (bc < 0) continue;
+    const params = src.slice(bo + 1, bc).match(SWIFT_CLOSURE_PARAMS);
+    if (!params) continue; // a route's handler always takes the request
+    const full = `/${[prefix, path].filter(Boolean).join('/')}`;
+    push({ name: `${method} ${full}`, line: lineAt(src, m.index), params: [], returns: null, route: { method, path: full } }, bo + params[0].length, bc);
+  }
+  for (const fn of fns) if (!fn.route && routeFor.has(fn.name)) fn.route = routeFor.get(fn.name);
+  return fns.sort((a, b) => a.line - b.line);
+}
+
 // ── Labels, plumbing, and completeness: facts views need, so they never re-derive them ─────────────────
 
 /** A display name: late_fee -> "Late fee", deliveryFee -> "Delivery fee", __init__ -> "Init". */
@@ -484,13 +847,20 @@ function leadingDoc(lines, fnLine, language) {
   let k = fnLine - 2;
   while (k >= 0 && /^\s*(@|#\[|\[[A-Z])/.test(lines[k])) k--; // annotations and attributes
   if (k < 0) return null;
+  // C and C++ document with plain block comments (/* … */) as often as with /** … */.
+  if ((language === 'c' || language === 'cpp') && /\*\/\s*$/.test(lines[k])) {
+    const end = k;
+    while (k >= 0 && !/\/\*/.test(lines[k])) k--;
+    if (k < 0 || !/^\s*\/\*/.test(lines[k])) return null; // a comment at the end of a line of code is not a doc
+    return cleanDoc(lines.slice(k, end + 1).join('\n').replace(/^\s*\/\*+!?/, '').replace(/\*+\/\s*$/, ''));
+  }
   if (/\*\/\s*$/.test(lines[k])) {
     const end = k;
     while (k >= 0 && !/\/\*\*/.test(lines[k])) k--;
     if (k < 0) return null;
     return cleanDoc(lines.slice(k, end + 1).join('\n').replace(/^\s*\/\*\*/, '').replace(/\*\/\s*$/, ''));
   }
-  const lineDoc = language === 'go' ? /^\s*\/\/(?!\/)/ : language === 'ruby' ? /^\s*#(?![!{])/ : /^\s*\/\/\//;
+  const lineDoc = language === 'go' || language === 'c' || language === 'cpp' ? /^\s*\/\/(?!\/)|^\s*\/\/\/(?!\/)/ : language === 'ruby' ? /^\s*#(?![!{])/ : /^\s*\/\/\//;
   const got = [];
   while (k >= 0 && lineDoc.test(lines[k])) got.unshift(lines[k--]);
   return got.length ? cleanDoc(got.join('\n')) : null;
@@ -729,7 +1099,7 @@ export function toThunderCondition(text, inputs = []) {
         continue;
       }
       let path = t;
-      while (toks[i + 1] === '.' && /^[A-Za-z_$]/.test(toks[i + 2] || '')) {
+      while ((toks[i + 1] === '.' || toks[i + 1] === '->') && /^[A-Za-z_$]/.test(toks[i + 2] || '')) {
         if (/^(equals|Equals)$/.test(toks[i + 2]) && toks[i + 3] === '(') break;
         path += '.' + toks[i + 2];
         i += 2;
@@ -759,10 +1129,12 @@ export function toThunderCondition(text, inputs = []) {
         if (toks[i + 2] !== ')') return null;
         i += 2;
       }
-      if (/^(null|nil|None|undefined)$/.test(path)) return null;
+      if (/^(null|nil|None|undefined|NULL|nullptr)$/.test(path)) return null;
       out.push(path);
       continue;
     }
+    // Swift's implicit enum member: `status == .active` compares with the case `active`.
+    if (t === '.' && /^[a-z_]\w*$/.test(next || '') && (!out.length || ['==', '!=', '(', 'and', 'or', 'not'].includes(out[out.length - 1]))) { out.push(next); i++; continue; }
     return null;
   }
   for (let k = 0; k < out.length; k++) if (/^[<>]=?$/.test(out[k]) && (/^"/.test(out[k - 1] || '') || /^"/.test(out[k + 1] || ''))) return null; // text ordering differs by language
@@ -793,9 +1165,11 @@ function splitArgs(toks) {
 /** An answer a decision can return: a string, enum member, number, or boolean. Null otherwise. */
 export function toThunderOutcome(text) {
   let s = String(text).trim().replace(/;$/, '').trim();
+  let m0;
   s = s.replace(/^Ok\((.*)\)$/, '$1').replace(/\.(to_string|into|to_owned)\(\)$/, '').replace(/^String::from\((.*)\)$/, '$1').trim();
   // Absence is not an answer: None/null/nil/undefined are "returns nothing", handled as guards.
-  if (/^(None|null|nil|undefined|Nothing)$/.test(s)) return null;
+  if (/^(None|null|nil|undefined|Nothing|NULL|nullptr)$/.test(s)) return null;
+  if ((m0 = s.match(/^\.([a-z]\w*)$/))) return m0[1]; // Swift: return .premium
   let m;
   if ((m = s.match(/^"([^"\\]*)"$|^'([^'\\]*)'$|^`([^`$\\]*)`$/))) {
     // "#{x}" (Ruby) and "$x" / "${x}" (Kotlin, PHP) build the text from values: computed, not fixed.
@@ -840,8 +1214,9 @@ export function terminatorEffect(stmt, language) {
   const s = String(stmt).trim().replace(/;$/, '').trim();
   let m;
   if ((m = s.match(/^throw\s+new\s+([\w.$]+)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) };
-  if ((m = s.match(/^throw\s+([\w.$]+)$/))) return { kind: 'fails', name: lastSeg(m[1]) };
-  if ((m = s.match(/^throw\s+([A-Z][\w.$]*)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: firstString(m[2]) }; // Kotlin: no `new`
+  if ((m = s.match(/^throw\s+([\w.$]+)$/))) return { kind: 'fails', name: /^[A-Z]\w*\.[a-z]\w*$/.test(m[1]) ? m[1] : lastSeg(m[1]) }; // Swift: throw LibraryError.full
+  if ((m = s.match(/^throw\s+Abort\(\s*\.(\w+)/)) && VAPOR_STATUS[m[1]]) return { kind: 'responds', name: String(VAPOR_STATUS[m[1]]) }; // Vapor
+  if ((m = s.match(/^throw\s+([A-Z][\w.$]*)\s*\(([\s\S]*)\)$/))) return { kind: 'fails', name: /^[A-Z]\w*\.[a-z]\w*$/.test(m[1]) ? m[1] : lastSeg(m[1]), detail: firstString(m[2]) }; // Kotlin and Swift: no `new`
   if ((m = s.match(/^error\(([\s\S]*)\)$/)) && language === 'kotlin') return { kind: 'fails', name: 'IllegalStateException', detail: firstString(m[1]) };
   if ((m = s.match(/^abort\(\s*(\d{3})\b/))) return { kind: 'responds', name: m[1] }; // Laravel
   if ((m = s.match(/^raise\s+([\w.]+)(?:\(([\s\S]*)\))?$/))) return { kind: 'fails', name: lastSeg(m[1]), detail: m[2] ? firstString(m[2]) : null };
@@ -867,7 +1242,7 @@ export function terminatorEffect(stmt, language) {
     if (/^Err[A-Z]\w*$/.test(last)) return { kind: 'fails', name: last };
     if (parts.length === 1 && last === 'nil') return { kind: 'nothing' };
   }
-  if (/^(null|undefined|None|nil|void 0)$/.test(v)) return { kind: 'nothing' };
+  if (/^(null|undefined|None|nil|void 0|NULL|nullptr)$/.test(v)) return { kind: 'nothing' };
   if ((m = v.match(/(?:\b(?:status|Status|StatusCode|HttpStatus|sendStatus)|\.code)\s*\(\s*(\d{3})\s*\)/)) || (m = v.match(/^\{\s*status\s*:\s*(\d{3})\b/))) return { kind: 'responds', name: m[1] };
   if ((m = v.match(/^(BadRequest|Unauthorized|Forbid|Forbidden|NotFound|Conflict|UnprocessableEntity)\s*\(/))) return { kind: 'responds', name: m[1] };
   const fixed = toThunderOutcome(v);
@@ -903,7 +1278,7 @@ function makeGuard(cond, branch, language, inputs, line) {
 function splitIf(text, language) {
   let rest = text.replace(/^if\b\s*/, '');
   let cond, after;
-  if (language === 'go' || language === 'rust' || rest[0] !== '(') {
+  if (BARE_IF.has(language) || rest[0] !== '(') {
     const b = findTopBrace(rest);
     if (b < 0) return null;
     cond = rest.slice(0, b).trim(); after = rest.slice(b);
@@ -957,7 +1332,14 @@ function valueLiteral(text) {
   if (/^-?\d+(\.\d+)?$/.test(s)) return s;
   if (/^(true|false|True|False)$/.test(s)) return s.toLowerCase();
   if ((m = s.match(/^(?:[A-Za-z_]\w*(?:\.|::))*([A-Za-z_]\w*)$/))) return m[1];
+  if ((m = s.match(/^\.([a-z_]\w*)$/))) return m[1]; // Swift: case .premium
   return null;
+}
+
+/** A Swift one-expression body (an implicit return): not a declaration, an assignment, or a statement keyword. */
+function swiftImplicitValue(text) {
+  const t = String(text).trim();
+  return !!t && !/\n\s*\S/.test(t) && !/^(?:if|guard|for|while|switch|let|var|return|throw|defer|do|repeat|print|try|await)\b/.test(t) && !/^[\w.]+\s*(?:[-+*/]?=)(?!=)/.test(t) && !/^[\w.]+\s*\(/.test(t);
 }
 
 /** Replace a pattern binding (Rust `n if n > 3`) with the subject inside its guard. */
@@ -1015,7 +1397,7 @@ function switchArms(body, language, baseLine) {
     else {
       rest = rest.replace(/;?\s*break\s*;?\s*$/, '').replace(/;\s*$/, '').trim();
       value = useArrow ? rest : (rest.match(/^return\s+([\s\S]+)$/) || [])[1] ?? null;
-      if (value && /;/.test(value)) value = null; // more than one statement
+      if (value && (/;/.test(value) || (language === 'swift' && /\n\s*\S/.test(value)))) value = null; // more than one statement
     }
     const patterns = [...pending, pattern];
     pending = [];
@@ -1054,7 +1436,7 @@ function readSwitch(text, language, inputs, line) {
   const t = text.trim();
   if ((m = t.match(/^switch\s*\(([\s\S]*?)\)\s*\{/)) && language !== 'go' && language !== 'rust') {
     const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
-  } else if (language === 'go' && (m = t.match(/^switch\b([^{]*)\{/))) {
+  } else if ((language === 'go' || language === 'swift') && (m = t.match(/^switch\b([^{]*)\{/))) {
     const open = t.indexOf('{'); subjectText = m[1].trim() || null; body = t.slice(open + 1, matchClose(t, open));
   } else if (language === 'rust' && (m = t.match(/^match\s+([^{]+?)\s*\{/))) {
     const open = t.indexOf('{', m[0].length - 1); subjectText = m[1]; body = t.slice(open + 1, matchClose(t, open));
@@ -1123,7 +1505,7 @@ function splitStatements(body, baseLine) {
         // literal, JSX): keep reading to the end of the statement.
         const prefix = src.slice(start, i).trim();
         const blockHeader = !prefix
-          || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
+          || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|guard|repeat|extension|protocol|actor|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
           || (/(?:\)|=>|\belse|\btry|\bdo|\bfinally|\bloop|\bunsafe|\bdefer)\s*$/.test(prefix) && !/^(?:return|throw|yield)\b/.test(prefix) && !/[=:]\s*\w*\s*\(/.test(prefix.replace(/=>\s*$/, '')) )
           || (/=>\s*$/.test(prefix));
         if (depth === 0 && !blockHeader) { i = close; continue; }
@@ -1132,7 +1514,7 @@ function splitStatements(body, baseLine) {
           // An if/else chain continues past a closing brace, and so do `do { … } while (…)` and a Go function
           // called where it is written (`go func() { … }()`). Only the next few characters matter.
           const next = src.slice(i + 1, i + 40);
-          const goes = /^\s*else\b/.test(next) || (/^do\b/.test(prefix) && /^\s*while\b/.test(next)) || (/^\(/.test(next) && /^(?:go\s+|defer\s+)?func\s*\(/.test(prefix));
+          const goes = /^\s*else\b/.test(next) || (/^(?:do|repeat)\b/.test(prefix) && /^\s*while\b/.test(next)) || (/^\(/.test(next) && /^(?:go\s+|defer\s+)?func\s*\(/.test(prefix));
           if (!goes) { i++; break; }
         }
       } else if (c === ';' && depth === 0) {
@@ -1150,7 +1532,10 @@ function splitStatements(body, baseLine) {
         const after = src.slice(j, j + 24);
         // A switch label (`case 'a':`, `default:`) is a statement of its own: what follows it is the case's first step.
         if (/^(?:case\b[^\n]*|default\s*):$/.test(before)) { i++; break; }
-        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
+        // So is a C label (`cleanup:`), the place a goto jumps to.
+        if (/^[A-Za-z_]\w*\s*:$/.test(before) && !/^(?:public|private|protected|else)\s*:$/.test(before)) { i++; break; }
+        // (`do { … }` with its `while (…)` on the next line, Allman style, is one statement.)
+        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after) && !(/^(?:do|repeat)\b/.test(before) && /\}$/.test(before) && /^while\b/.test(after))) { i++; break; }
       }
     }
     const raw = src.slice(start, i);
@@ -1187,6 +1572,21 @@ function readBraceStatements(stmts, language, inputs) {
   for (const st of stmts) {
     const t = st.text;
     let m;
+    // Swift: guard cond else { return … } stops unless the condition holds; `guard let x = …` stops when x is not set.
+    if (language === 'swift' && (m = t.match(/^guard\s+([\s\S]+?)\s+else\s*\{([\s\S]*)\}\s*$/))) {
+      const branch = m[2].trim();
+      const stmts1 = splitTop(branch.replace(/;\s*$/, ''), ';').flatMap((x) => x.split('\n')).map((x) => x.trim()).filter(Boolean);
+      const effect = stmts1.length === 1 ? terminatorEffect(stmts1[0], language) : null;
+      if (effect && effect.kind !== 'passes-error') {
+        const parts = splitTop(m[1], ',').map((x) => x.trim()).filter(Boolean);
+        const bound = parts.map((p) => p.match(/^(?:let|var)\s+(\w+)/)?.[1]).filter(Boolean);
+        const plain = parts.filter((p) => !/^(?:let|var|case)\b/.test(p));
+        const when = !bound.length && !parts.some((p) => /^case\b/.test(p)) ? toThunderCondition(`!(${plain.join(' && ')})`, inputs) : null;
+        const said = when ? sayCondition(when) : [...bound.map((b) => `${displayLabel(b).toLowerCase()} is not set`), ...plain.map((p) => { const w = toThunderCondition(`!(${p})`, inputs); return w ? sayCondition(w) : `not \`${p}\``; })].join(' or ');
+        guards.push({ when, code: `guard ${m[1].trim()}`, effect, line: st.line, readable: !!when || (!plain.length && !!bound.length), says: sayGuard(effect, said) });
+        continue;
+      }
+    }
     if (/^if\b/.test(t)) {
       // A guard: an `if` with no else whose branch exits without a fixed answer.
       const head = splitIf(t, language);
@@ -1212,7 +1612,7 @@ function readBraceStatements(stmts, language, inputs) {
         if (rest[0] === '(' && (language !== 'go' && language !== 'rust' || true)) {
           const close = matchClose(rest, 0);
           const tail = rest.slice(close + 1).trimStart();
-          if (language === 'go' || language === 'rust') {
+          if (BARE_IF.has(language)) {
             // Go/Rust may wrap only part of the condition in parentheses: if (a) && b {
             const brace = findTopBrace(rest);
             cond = rest.slice(0, brace).trim(); after = rest.slice(brace);
@@ -1283,7 +1683,9 @@ function readBraceStatements(stmts, language, inputs) {
         continue;
       }
     }
-    const ret = t.match(/^return\s+([\s\S]+?);?$/) || (language === 'rust' && st === stmts[stmts.length - 1] && !/;\s*$/.test(t) ? [null, t] : null);
+    // Rust's last expression, and a Swift body that is one expression, give the answer without `return`.
+    const ret = t.match(/^return\s+([\s\S]+?);?$/) || (language === 'rust' && st === stmts[stmts.length - 1] && !/;\s*$/.test(t) ? [null, t] : null)
+      || (language === 'swift' && stmts.length === 1 && swiftImplicitValue(t) ? [null, t] : null);
     if (ret) {
       if (language === 'kotlin' && readKotlinIf(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
       if (readTernary(ret[1], inputs, rules, unread, st.line, (o) => { otherwise = o; })) continue;
@@ -1710,7 +2112,7 @@ function readPredicate(fn, lang, names, code) {
     if (typeof fn.body !== 'string') return null;
     const body = stripComments(fn.body).trim();
     let m = body.match(/^return\s+([^;{}]+?);?\s*$/s);
-    if (!m && lang === 'rust') m = body.match(/^([^;{}]+?)\s*$/s);
+    if (!m && (lang === 'rust' || (lang === 'swift' && swiftImplicitValue(body)))) m = body.match(/^([^;{}]+?)\s*$/s);
     if (!m) return null;
     expr = m[1].replace(/\s+/g, ' ').trim();
     if (fn.bodyStart != null) line = lineAt(code, fn.bodyStart + Math.max(0, fn.body.indexOf(m[1].trim().slice(0, 12))));
@@ -1754,10 +2156,12 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     if (lang === 'python') stmts = indentStatements(fn.pyBody, { depthKey: 'indent' });
     // For steps, elsif / else / rescue / ensure sit beside their if or begin (the rule reader keeps the raw depth).
     else if (lang === 'ruby') stmts = indentStatements(fn.rbBody.map((l) => (/^(elsif|else|rescue|ensure)\b/.test(l.text) ? { ...l, depth: Math.max(0, l.depth - 1) } : l)), { depthKey: 'depth' });
-    else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
+    else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = withLanguage(lang, () => braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements));
   } catch { return null; }
   if (!stmts.length) return null;
-  const r = stepsFrom(stmts);
+  // A Swift body that is one expression gives it back without `return` (`var isEmpty: Bool { count == 0 }`).
+  if (lang === 'swift' && stmts.length === 1 && !stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) stmts[0] = { ...stmts[0], implicitReturn: true };
+  const r = withLanguage(lang, () => stepsFrom(stmts));
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
@@ -1786,19 +2190,26 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
     delete st.cond; delete st.negate;
   }
+  // C++ member names carry a mark that means nothing to a reader: items_ and m_items are both "items".
+  if (lang === 'cpp') {
+    const clean = (x) => String(x).replace(/\bm_(?=[A-Za-z])/g, '').replace(/\b([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)*)_(?![\w])/g, '$1');
+    const tidy = (list) => { for (const st of list || []) { st.says = clean(st.says); tidy(st.children); tidy(st.otherwise); for (const h of st.handlers || []) { h.says = clean(h.says); tidy(h.steps); } if (st.always) tidy(st.always.steps); } };
+    tidy(r.steps);
+  }
   return r;
 }
 
 export function readCode(source, { language, file = '' } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
-  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql');
+  const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(c\+\+|cxx|cc|hpp|hxx|hh)$/, 'cpp').replace(/^h$/, 'c');
   if (!READ_LANGUAGES.includes(lang)) throw new Error(`Reading rules supports ${READ_LANGUAGES.join(', ')}. Got "${lang}".`);
   READING_RUST = lang === 'rust';
   // SQL is read by its own reader: tables, rules (CHECK, UNIQUE), views, functions, procedures, triggers.
   if (lang === 'sql') return sqlReading(src);
   // PHP is read after `$name` -> `name` and `->` -> `.`; every line stays on its line.
-  const code = lang === 'php' ? normalizePhp(src) : src;
+  // C and C++ are read with preprocessor lines blanked (#include, #define, #if): they are not statements.
+  const code = lang === 'php' ? normalizePhp(src) : lang === 'c' || lang === 'cpp' ? blankPreprocessor(src) : src;
   const items = [];
   const srcLines = src.split('\n');
   const codeLines = code.split('\n');
@@ -1833,6 +2244,8 @@ export function readCode(source, { language, file = '' } = {}) {
       inputs: inputs.map((p) => (PLUMBING.test(p.name) || PLUMBING_TYPE.test(String(p.type ?? '')) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
       ...(doc ? { doc } : {}),
+      // C++ `Library::lateFee` and Swift methods in `extension Library { … }`: the type they belong to, by name.
+      ...(fn.qualifier ? { qualifier: fn.qualifier } : {}),
       provenance: 'inferred-from-code',
     };
     if (isDecision) {

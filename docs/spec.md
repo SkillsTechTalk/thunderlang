@@ -265,6 +265,37 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | PHP | works today | Symfony `#[Route]` | a function that returns fixed answers | PHPDoc | `class`, `enum` |
 | Ruby | works today | Sinatra `get`/`post` blocks (Rails routes planned) | a `def` that returns fixed answers | `#` comment above | `class`, `Struct` |
 | **SQL** | **planned** | (reached through the app) | `CHECK` constraints, `CASE`, `IF` in procedures | `--` comment, `COMMENT ON` | `CREATE TABLE`, `CREATE VIEW` |
+| C | works today | (none: reached through `main` or another program) | a function that returns fixed answers | `/* … */` or `//` above | `struct`, `typedef struct`, `enum` |
+| C++ | works today | not yet (Crow, Drogon planned) | a function or method that returns fixed answers | `/** … */`, `///`, `//` above | `class`, `struct`, `enum class` |
+| Swift | works today | Vapor `app.get("orders", ":id") { req in … }`, `routes.post(…, use: handler)` | a `func` with `switch`/`if` | `///` | `struct`, `class`, `enum` with `case`, `extension` |
+
+### C, C++, and Swift
+
+Thunder reads `.c` as C; `.cc`, `.cpp`, `.cxx`, `.hpp`, `.hh`, `.hxx` as C++; `.h` as C unless it uses classes,
+namespaces, templates, or `::` (then C++); `.swift` as Swift. Preprocessor lines (`#include`, `#define`, `#if`) are
+not steps; both sides of an `#if` are read.
+
+- **Things.** A C `struct` (or `typedef struct`) is Data; it becomes a Thing when functions take it first
+  (`library_late_fee(const Library *lib, …)`) or are named after it (`library_new`), and the Thing's own name is left
+  out of the label ("Late fee"; `library_new` is how a new Library starts). A C `enum` is Choices, with a shared
+  prefix dropped (`STATUS_ON_SHELF` is "on shelf"). A C++ `class` is a Thing (a `struct` with only fields is Data);
+  `enum`/`enum class` is Choices; methods written outside the class (`Library::lateFee`, also in another file) belong
+  to it; constructors, member initializer lists (`: maxBooks_(maxBooks)`), and default member initializers
+  (`overflow_{}`) give the starting values. A Swift `class`/`actor` is a Thing, a `struct` is a Thing when it can do
+  something (its own `func`s or an `extension`, also in another file) and Data otherwise, an `enum` with `case` is
+  Choices, `init` is how it starts, stored properties with defaults (`var max = 3`, `let`) are what it knows, and
+  a `protocol` is a contract, not a Thing.
+- **Steps.** `if`/`else`, `for (;;)`, C++ range-for, `while`, `do … while` (Swift `repeat … while`), `switch` as one
+  question with a side per case (a C case without `break` says "then carries on into the next case"), `return`,
+  `goto` and labels ("Jumps to the "done" part"), C++ `throw` and `try`/`catch` (by type), lambdas and Swift closures
+  as their own sub-flow. Swift `guard cond else { … }` is "If not: …" with the else block as the Stop; `if let x = …`
+  and `guard let` are "If x is set"; `defer { … }` is "At the end, runs these steps"; `do`/`try`/`catch`; ranges
+  (`for i in 0..<3` counts "from 0 to 2"); Vapor `throw Abort(.notFound)` is "Fails with 404 Not Found".
+- **Memory in plain words.** `malloc`/`calloc`/`new T[n]` are "Gets memory for 10 books as list", `free`/`delete` are
+  "Frees buf", `memcpy`/`strcpy` are "Copies name into buf", `memset(…, 0, …)` is "Fills buf with zeros",
+  `strcmp(a, b) == 0` is "a is b". A pointer expression Thunder cannot say simply (`*op++ = *ip++`) stays as code.
+- **Honest returns.** C error returns stay what the code says: `if (fd < 0) return -1;` is "Returns -1 early if fd is
+  less than 0"; Thunder does not claim -1 means failure.
 
 ### SQL
 

@@ -1,3 +1,34 @@
+# Unreleased
+
+**Language: C, C++, and Swift.** Thunder now reads fourteen languages. `.c` is C; `.cc`/`.cpp`/`.cxx`/`.hpp`/`.hh`/`.hxx`
+are C++; a `.h` is C unless it uses classes, namespaces, templates, or `::` (C++ lines kept for C++ callers inside
+`#ifdef __cplusplus` do not count); `.swift` is Swift. Pasted code is recognized too.
+- **Functions.** C and C++ functions are found by walking scopes (file, namespaces, `extern "C"`, classes): return
+  types on their own line, `static`/`inline`, macros, templates, attributes, constructors with initializer lists,
+  destructors ("Clean up"), operators, and `Type::method` definitions (with the type they belong to). Swift `func`,
+  `init`, subscripts, computed properties, and Vapor routes (`app.get("orders", ":id") { req in … }`,
+  `routes.post(…, use: handler)`, literal `grouped(…)` prefixes). Doc comments: C/C++ `/* … */`, `/** … */`, `//`;
+  Swift `///`.
+- **Steps.** C/C++: `malloc`/`calloc`/`new T[n]` ("Gets memory for 10 books as books"), `free`/`delete` ("Frees buf"),
+  `memcpy`/`strcpy`, `memset`, `strlen`, `strcmp(a, b) == 0` ("a is b"), `exit`/`abort`, `cout`/`printf`, `p->x`,
+  casts, declarations, designated initializers, labels and `goto`, `do … while` (also Allman style), endless loops,
+  range-for, `try`/`catch` by type, `throw;`, lambdas as their own sub-flow, `(void)x` skipped. A C/C++/Swift
+  `switch` is one question with one side per case; a C case without `break` says "then carries on into the next
+  case". Swift: `guard … else` ("If not: …" with the Stop inside), `if let`/`guard let` ("x is set"), `defer`,
+  `do`/`try`/`catch` by type, ranges (`0..<3` is "from 0 to 2"), enum cases (`.cancelled`), trailing closures,
+  one-expression bodies, `throw LibraryError.full`, Vapor `throw Abort(.notFound)` ("Fails with 404 Not Found").
+  C error returns stay what the code says ("Returns -1 early if fd is less than 0").
+- **Things.** C `struct`/`typedef struct` (Data, or a Thing when functions take it first or are named after it, with
+  the type's name left out of the label) and `enum` (shared prefixes dropped); C++ `class`/`struct`/`enum class`,
+  methods outside the class (also in another file), constructors, initializer lists, and default member initializers
+  as starting values; Swift `class`/`struct`/`actor`/`enum`, `extension` methods (also in another file), `init`, stored
+  properties with defaults; `protocol` is a contract, not a Thing.
+- Measured on redis (227 C files, 5,667 functions, 95% of steps explained), nlohmann/json and fmt (C++, 87–90%),
+  Alamofire and vapor (Swift, 92–96%), no reader errors; see the PR. The older readers are unchanged (the switch
+  grouping, `blockBrace`, and C/Swift wording run only for the new languages); `readableLanguage(path, source?)`
+  takes the source to decide a `.h`.
+- thunderlang.dev says fourteen languages; /read has C, C++, and Swift samples, and the Original view colors them.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

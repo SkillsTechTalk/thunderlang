@@ -23,6 +23,9 @@ export const AUDIT_REPOS = [
   { language: 'Kotlin + Java', repo: 'JakeWharton/timber' },
   { language: 'PHP', repo: 'guzzle/guzzle' },
   { language: 'Ruby', repo: 'sinatra/sinatra' },
+  { language: 'C', repo: 'redis/redis' },
+  { language: 'C++', repo: 'nlohmann/json' },
+  { language: 'Swift', repo: 'Alamofire/Alamofire' },
 ];
 
 // A clause keyword at the start of a statement (or right after a closing brace), outside comments.
@@ -59,7 +62,7 @@ const allSteps = (steps) => (steps || []).flatMap((s) => [s, ...allSteps(s.child
 export function auditFiles(files) {
   const r = { files: 0, functions: 0, errors: 0, explained: 0, sourceClauses: 0, shownClauses: 0, steps: 0, restates: 0, worst: [] };
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source || /(^|\/)(test|tests|spec|__tests__|vendor|node_modules)\//.test(f.path)) continue;
     r.files++;
     let reading;

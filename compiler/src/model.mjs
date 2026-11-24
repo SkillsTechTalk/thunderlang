@@ -11,7 +11,7 @@ import { sqlThings } from './sql.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
-export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql'];
+export const THING_LANGUAGES = ['python', 'typescript', 'javascript', 'java', 'csharp', 'kotlin', 'php', 'go', 'rust', 'ruby', 'sql', 'c', 'cpp', 'swift'];
 
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -23,18 +23,19 @@ function startValue(expr, params = {}) {
   if (!e) return null;
   if (e in params) return params[e] != null ? `${startValue(params[e])?.replace(/ at first$/, '')} unless told otherwise` : 'given when it starts';
   if (/^(\[\]|\{\}|list\(\)|dict\(\)|set\(\)|new (Map|Set|Array)\(\)|\[\]\s*as\s+.+|array\(\)|new \w*(?:List|Map|Set|Dictionary|HashMap|HashSet|ArrayList|LinkedList)(?:<[^>]*>)?\(\)|(?:mutable)?(?:List|Map|Set|listOf|mapOf|setOf|mutableListOf|mutableMapOf|mutableSetOf|emptyList|emptyMap|arrayListOf)(?:<[^>]*>)?\(\)|(?:List|Set|Map)\.of\(\)|Vec::new\(\)|vec!\[\]|HashMap::new\(\)|String::new\(\)|\[\]\w+\{\}|make\(\[\][^)]*\)|new\(\)|Hash\.new|\{\s*\})$/.test(e)) return 'empty at first';
-  if (/^(None|null|undefined|nil|NULL|Option::None)$/.test(e)) return 'nothing at first';
+  if (/^\[\s*:\s*\]$/.test(e)) return 'empty at first'; // Swift: an empty lookup table
+  if (/^(None|null|undefined|nil|NULL|nullptr|Option::None)$/.test(e)) return 'nothing at first';
   if (/^(True|true)$/.test(e)) return 'yes at first';
   if (/^(False|false)$/.test(e)) return 'no at first';
   if (/^-?\d+(\.\d+)?$/.test(e)) return `${e} at first`;
   if (/^[rbuf]*["'`].*["'`]$/.test(e)) return `"${stripQuotes(e)}" at first`;
-  const en = e.match(/^[A-Z]\w*(?:\.|::)([A-Z][A-Z0-9_]+|[A-Z][a-z]\w*)$/);
+  const en = e.match(/^[A-Z]\w*(?:\.|::)([A-Z][A-Z0-9_]+|[A-Z][a-z]\w*)$/) || e.match(/^(?:[A-Z]\w*)?\.([a-z]\w*)$/); // Swift: .onShelf
   if (en) return `${words(en[1])} at first`;
   return 'worked out when it starts';
 }
 
 const KIND_WORDS = [
-  [/^(int|float|number|double|long|short|decimal|Decimal|bigint|BigDecimal|BigInteger|Integer|Int|Long|Double|Float|Short|Byte|byte|uint|usize|isize|[iuf](?:8|16|32|64|128)|int(?:8|16|32|64)|uint(?:8|16|32|64)|float(?:32|64)|Number)$/, 'a number'],
+  [/^(int|float|number|double|long|short|decimal|Decimal|bigint|BigDecimal|BigInteger|Integer|Int|Long|Double|Float|Short|Byte|byte|uint|usize|isize|[iuf](?:8|16|32|64|128)|int(?:8|16|32|64)|uint(?:8|16|32|64)|float(?:32|64)|Number|U?Int(?:8|16|32|64)|UInt|CGFloat|Float(?:16|32|64|80))$/, 'a number'],
   [/^(str|string|String|text|&str|&'static str|char|Char|Character|rune)$/, 'words'],
   [/^(bool|boolean|Boolean|Bool)$/, 'yes or no'],
   [/^(date|datetime|Date|LocalDate|LocalDateTime|Instant|DateTime|DateTimeOffset|ZonedDateTime|time\.Time|NaiveDate|NaiveDateTime|DateTimeImmutable)$/, 'a date'],
@@ -50,6 +51,19 @@ function kindWords(type) {
   const map = t.match(/^(?:Map|HashMap|Dictionary|IDictionary|MutableMap|BTreeMap|dict|Dict|Record)[<\[]/) || /^map\[/.test(t);
   if (map) return 'a lookup table';
   return /^[A-Z]/.test(t) ? `a ${t}` : null;
+}
+
+/** C: a function belongs to a struct it takes first (`library_late_fee(const Library *lib, …)`) or is named after. */
+const snakeOf = (t) => words(t.name).replace(/ /g, '_');
+function cOwns(t, item) {
+  const first = String(item.inputs?.[0]?.type ?? '').replace(/\s+/g, '');
+  const names = [t.name, t.tag].filter(Boolean);
+  if (names.some((n) => first === n || first === `${n}*`)) return true;
+  return [snakeOf(t), t.tag].filter(Boolean).some((n) => String(item.name).toLowerCase().startsWith(`${String(n).toLowerCase()}_`));
+}
+function cShortName(t, name) {
+  for (const n of [snakeOf(t), t.tag].filter(Boolean)) if (String(name).toLowerCase().startsWith(`${String(n).toLowerCase()}_`) && name.length > n.length + 1) return name.slice(n.length + 1);
+  return name;
 }
 
 const thingsFor = makeThingReaders({ words: (x) => words(x), kindWords: (x) => kindWords(x), startValue: (x, p) => startValue(x, p) });
@@ -401,7 +415,7 @@ function youGiveOf(item) {
 export function thunderModel(files, { name = 'app' } = {}) {
   const things = [], members = [], links = [], unknowns = [], fileInfo = [];
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, f.source);
     if (!language || !f.source) continue;
     let reading;
     try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); continue; }
@@ -418,16 +432,23 @@ export function thunderModel(files, { name = 'app' } = {}) {
     const fns = reading.items.filter((i) => i.kind === 'function' || i.kind === 'decision');
     const declaredThing = (item) => fileThings.some((t) => t.name === item.name && t.lines[0] === item.line);
     const fileMembers = fns.filter((item) => !declaredThing(item)).map((item) => {
-      const owner = fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0];
+      // The Thing a member belongs to: the type it is written in (or a Go/Rust/C++/Swift block of its methods), the
+      // type it names (C++ Library::lateFee, Swift extension Library), or in C, the struct it takes or is named after.
+      const owner = fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0]
+        ?? (item.qualifier ? fileThings.find((t) => t.name === item.qualifier && t.kind !== 'choices') : undefined)
+        ?? (language === 'c' ? fileThings.find((t) => t.kind !== 'choices' && cOwns(t, item)) : undefined);
+      // C names a struct's functions after it (library_late_fee): the Thing's own name is left out of the label.
+      const own = language === 'c' && owner ? cShortName(owner, item.name) : item.name;
+      if (language === 'c' && owner && owner.kind === 'record') owner.kind = 'thing';
       const v = visualFor(item);
-      const setup = (/^(__init__|constructor|init|New|__construct|initialize|new)$/.test(item.name) || (owner && item.name === owner.name)) && owner;
+      const setup = (/^(__init__|constructor|init|New|__construct|initialize|new)$/.test(own) || (language === 'c' && /^(?:create|make|alloc)$/.test(own)) || (owner && item.name === owner.name)) && owner;
       const kind = setup ? 'setup' : v.element === 'action' ? 'action' : v.element === 'decision' ? 'rule' : v.element === 'not-read' ? 'not-read' : 'steps';
       const bodyEnd = item.anchor?.bodyLines?.[1] ?? Math.max(item.line, ...(item.rules || []).map((r) => r.line || 0), item.otherwise?.line || 0);
       let rule = null;
       if (kind === 'rule') { try { rule = plainFromReading(item); } catch { rule = null; } }
       const m = {
         id: idOf(f.path, owner?.name ?? '', item.name, item.line), kind, name: item.name,
-        label: setup ? `A new ${owner.label} starts with` : cap(words(item.name.replace(/^__|__$/g, ''))),
+        label: setup ? `A new ${owner.label} starts with` : /^~/.test(item.name) ? 'Clean up' : cap(words(own.replace(/^__|__$/g, ''))),
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
         youGive: youGiveOf(item),
@@ -435,7 +456,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
         ...(rule ? { rule, question: rule.question } : {}),
         // A yes/no rule is named as a question ("Can borrow?"); a rule with named answers is not ("Late fee").
         ...(kind === 'rule' ? { yesNo: [...(item.rules || []).map((r) => r.result), item.otherwise?.result].every((r) => r == null || /^(true|false)$/i.test(r)) } : {}),
-        _steps: item.steps || [], _item: item,
+        _steps: item.steps || [], _item: item, ...(item.qualifier && !owner ? { _qualifier: item.qualifier } : {}),
       };
       if (owner) owner.can.push(m.id);
       if (kind === 'not-read') unknowns.push({ id: m.id, file: f.path, line: item.line, why: 'Thunder cannot explain this function yet; its code is shown instead.' });
@@ -451,6 +472,21 @@ export function thunderModel(files, { name = 'app' } = {}) {
       delete m._steps; delete m._item;
       members.push(m);
     }
+  }
+  // A method written in another file (Library::lateFee in library.cpp, extension Library in Library+Fees.swift)
+  // belongs to the one Thing with that name, wherever it is declared.
+  const thingsNamed = new Map();
+  for (const t of things) if (t.kind !== 'choices') thingsNamed.set(t.name, [...(thingsNamed.get(t.name) || []), t]);
+  for (const mem of members) {
+    const q = mem._qualifier;
+    delete mem._qualifier;
+    const found = q && !mem.owner ? thingsNamed.get(q) : null;
+    if (!found || found.length !== 1) continue;
+    const t = found[0];
+    mem.owner = t.id;
+    t.can.push(mem.id);
+    if (mem.name === t.name || /^(?:init|__init__)$/.test(mem.name)) { mem.kind = 'setup'; mem.label = `A new ${t.label} starts with`; }
+    if (t.kind === 'record') t.kind = 'thing';
   }
   for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
   // An empty class (no facts, nothing it can do) is not a Thing a person needs to see: an error type is already shown
