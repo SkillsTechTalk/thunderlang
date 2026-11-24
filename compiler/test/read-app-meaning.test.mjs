@@ -110,7 +110,7 @@ test('everyday value shapes are said as what they are', () => {
   assert.equal(says('return host_params, pool_kwargs'), 'Returns host params and pool kwargs');
 });
 
-test('a yes/no property reads as a sentence; other property paths stay as they are', async () => {
+test('a yes/no property reads as a sentence; a plain property used as a condition reads as set / not set', async () => {
   const { sayCodeCondition } = await import('../src/steps.mjs');
   assert.equal(sayCodeCondition('order.refunded'), 'order is refunded');
   assert.equal(sayCodeCondition('not order.refunded'), 'order is not refunded');
@@ -118,7 +118,7 @@ test('a yes/no property reads as a sentence; other property paths stay as they a
   assert.equal(sayCodeCondition('user.hasAccess'), 'user has access');
   assert.equal(sayCodeCondition('self.cart.items'), 'cart has items', 'a collection used as a condition means it has items');
   assert.equal(sayCodeCondition('not order.items'), 'order has no items');
-  assert.equal(sayCodeCondition('order.status'), 'order.status', 'status is not a plural');
+  assert.equal(sayCodeCondition('order.status'), "the order's status is set", 'status is not a plural; a plain property used as a yes/no means it is set');
   assert.equal(sayCodeCondition('x.y()'), 'x.y()');
 });
 

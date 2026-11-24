@@ -187,6 +187,13 @@ export function thunderText(item) {
       const pad = '  '.repeat(depth + 1);
       out.push(s.show === 'code' ? `${pad}- \`${s.text}\` (code, not explained)` : `${pad}- ${s.text}`);
       if (st.children?.length) lines(st.children, depth + 1);
+      // Every branch is printed: the other side of an If, each error handler, and what always runs at the end.
+      if (st.otherwise?.length) {
+        out.push(`${pad}  Otherwise:`);
+        lines(st.otherwise, depth + 2);
+      }
+      for (const h of st.handlers || []) { out.push(`${pad}  ${h.says}:`); lines(h.steps, depth + 2); }
+      if (st.always) { out.push(`${pad}  Always, at the end:`); lines(st.always.steps, depth + 2); }
     }
   };
   if (steps.length) lines(steps, 0);
@@ -197,5 +204,47 @@ export function thunderText(item) {
   return `${out.join('\n')}\n`;
 }
 
+/**
+ * The Thunder symbols (V1.1): one shape per kind of thing, drawn as stroke paths on a 44 x 44 grid, so every product
+ * draws the same symbol. `paths` are SVG path data; `circles` are [cx, cy, r]; `fill` marks a solid dot. A kid learns
+ * the six `beginner` symbols first; the rest appear as they are needed.
+ */
+export const SYMBOLS = {
+  app: { name: 'App', says: 'The whole program, as a map.', color: 'structure', paths: ['M6 11 L16 7 L28 11 L38 7 V33 L28 37 L16 33 L6 37 Z', 'M16 7 V33 M28 11 V37'] },
+  area: { name: 'Area', says: 'A part of the app that belongs together.', color: 'structure', paths: ['M5 13 H17 L21 17 H39 V35 H5 Z'] },
+  file: { name: 'File', says: 'One page of the program.', color: 'structure', paths: ['M11 5 H27 L35 13 V39 H11 Z', 'M27 5 V13 H35', 'M16 22 H30 M16 28 H30 M16 34 H24'] },
+  thing: { name: 'Thing', says: 'Something the app knows about. It knows stuff and can do stuff.', color: 'outcome', beginner: true, paths: ['M22 5 L38 13 V31 L22 39 L6 31 V13 Z', 'M6 13 L22 21 L38 13 M22 21 V39'] },
+  data: { name: 'Data', says: 'Information: a record of facts, or a list of allowed choices.', color: 'outcome', beginner: true, paths: ['M8 10 C8 6 36 6 36 10 V34 C36 38 8 38 8 34 Z', 'M8 10 C8 14 36 14 36 10', 'M8 22 C8 26 36 26 36 22'] },
+  record: { name: 'Record', says: 'A Thing that only remembers facts, like an ID card.', color: 'outcome', group: 'data', paths: ['M9 10 H35 A4 4 0 0 1 39 14 V30 A4 4 0 0 1 35 34 H9 A4 4 0 0 1 5 30 V14 A4 4 0 0 1 9 10 Z', 'M11 29 H19 M24 18 H34 M24 24 H34 M24 30 H30'], circles: [[15, 20, 4]] },
+  choices: { name: 'Choices', says: 'Only one of these values is allowed.', color: 'outcome', group: 'data', paths: ['M10 7 H34 A4 4 0 0 1 34 15 H10 A4 4 0 0 1 10 7 Z', 'M10 18 H34 A4 4 0 0 1 34 26 H10 A4 4 0 0 1 10 18 Z', 'M10 29 H34 A4 4 0 0 1 34 37 H10 A4 4 0 0 1 10 29 Z'], circles: [[12, 22, 1.8]], fill: true },
+  action: { name: 'Action', says: 'A door into the app: something a person can do.', color: 'fact', beginner: true, paths: ['M11 39 V6 H33 V39', 'M6 39 H38'], circles: [[27, 23, 1.8]], fill: true },
+  rule: { name: 'Rule', says: 'A decision: look at some facts, pick one answer.', color: 'question', beginner: true, paths: ['M22 4 L38 20 L22 36 L6 20 Z', 'M22 36 V41 M15 29 L9 37 M29 29 L35 37'] },
+  steps: { name: 'Steps', says: 'A how-to: do this, then this, then this.', color: 'structure', beginner: true, paths: ['M10 5 H34 A4 4 0 0 1 38 9 V35 A4 4 0 0 1 34 39 H10 A4 4 0 0 1 6 35 V9 A4 4 0 0 1 10 5 Z', 'M13 14 H14 M19 14 H31 M13 22 H14 M19 22 H31 M13 30 H14 M19 30 H27'] },
+  setup: { name: 'Starts with', says: 'What a new Thing has when it is made.', color: 'structure', paths: ['M22 5 V15 M22 29 V39 M5 22 H15 M29 22 H39 M10 10 L16 16 M28 28 L34 34 M34 10 L28 16 M16 28 L10 34'] },
+  stop: { name: 'Stop', says: 'Something is wrong, so it stops and says why.', color: 'failure', beginner: true, paths: ['M15 5 H29 L39 15 V29 L29 39 H15 L5 29 V15 Z', 'M16 22 H28'] },
+  'not-read': { name: 'Not read yet', says: "Thunder shows the code, because it can't explain it yet.", color: 'unread', dashed: true, paths: ['M11 5 H33 V39 H11 Z', 'M17 22 H27'] },
+};
+
+/** What a step does, in a kid's words (model flow nodes carry `does`). Shape first, color second. */
+export const DOES = {
+  start: { label: 'Starts', mark: '▶', color: 'fact' },
+  find: { label: 'Finds', mark: '⌕', color: 'fact' },
+  'keep-only': { label: 'Keeps only', mark: '⏚', color: 'fact' },
+  check: { label: 'Checks', mark: '✓', color: 'comparison' },
+  decide: { label: 'Asks', mark: '◇', color: 'question' },
+  calculate: { label: 'Works out', mark: '=', color: 'fact' },
+  save: { label: 'Saves', mark: '⤓', color: 'outcome' },
+  send: { label: 'Tells someone', mark: '✉', color: 'outcome' },
+  ask: { label: 'Asks another part', mark: '⇄', color: 'outcome' },
+  repeat: { label: 'For each', mark: '↻', color: 'structure' },
+  answer: { label: 'Gives back', mark: '⇥', color: 'outcome' },
+  stop: { label: 'Stops', mark: '■', color: 'failure', symbol: 'stop' },
+  do: { label: 'Does', mark: '→', color: 'outcome' },
+  code: { label: 'Not read yet', mark: '·', color: 'unread', dashed: true },
+};
+
+/** The six concepts a beginner learns first; the model keeps all of SYMBOLS. */
+export const BEGINNER = ['thing', 'action', 'rule', 'steps', 'data', 'stop'];
+
 /** The whole grammar in one object, for views that want to render a legend or validate themselves against it. */
-export const THUNDER_VISUAL = { schema: VISUAL_SCHEMA, principle: PRINCIPLE, forms: FORMS, zoom: ZOOM, colors: COLORS, lines: LINES, provenance: PROVENANCE, steps: STEP_MARKS, elements: ELEMENTS, languages: LANGUAGES, rules: RULES };
+export const THUNDER_VISUAL = { schema: VISUAL_SCHEMA, principle: PRINCIPLE, forms: FORMS, zoom: ZOOM, colors: COLORS, lines: LINES, provenance: PROVENANCE, steps: STEP_MARKS, elements: ELEMENTS, languages: LANGUAGES, rules: RULES, symbols: SYMBOLS, does: DOES, beginner: BEGINNER };

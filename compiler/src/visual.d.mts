@@ -27,7 +27,13 @@ export interface Visual {
 export function visualFor(item: ReadItem): Visual;
 export function visualForStep(step: ReadStep): { mark: string; label: string; color: ColorRole; show: 'words' | 'code'; line: 'solid' | 'dashed'; text: string };
 export function thunderText(item: ReadItem): string;
+export type SymbolId = 'app' | 'area' | 'file' | 'thing' | 'data' | 'record' | 'choices' | 'action' | 'rule' | 'steps' | 'setup' | 'stop' | 'not-read';
+export const SYMBOLS: Record<SymbolId, { name: string; says: string; color: ColorRole; paths: string[]; circles?: [number, number, number][]; fill?: boolean; dashed?: boolean; beginner?: boolean; group?: string }>;
+export type Does = 'start' | 'find' | 'keep-only' | 'check' | 'decide' | 'calculate' | 'save' | 'send' | 'ask' | 'repeat' | 'answer' | 'stop' | 'do' | 'code';
+export const DOES: Record<Does, { label: string; mark: string; color: ColorRole; dashed?: boolean; symbol?: SymbolId }>;
+export const BEGINNER: SymbolId[];
 export const THUNDER_VISUAL: {
   schema: 'thunder-visual-v1'; principle: string; forms: typeof FORMS; zoom: typeof ZOOM; colors: typeof COLORS; lines: typeof LINES;
   provenance: typeof PROVENANCE; steps: typeof STEP_MARKS; elements: typeof ELEMENTS; languages: typeof LANGUAGES; rules: string[];
+  symbols: typeof SYMBOLS; does: typeof DOES; beginner: SymbolId[];
 };
