@@ -67,3 +67,25 @@ test('an unknown level or id is a clear error', () => {
   assert.throws(() => readLevel(model(), 'zoom'), /Unknown reading level "zoom". Use one of: big-picture, flow, details, text, original/);
   assert.throws(() => readLevel(model(), 'flow', 'nope'), /Nothing in this model has the id "nope"/);
 });
+
+test('Details for an action: what goes in, what it changes, every Stop with the answer that leads there, and what it relies on', () => {
+  const src = `class Library:\n    def can_borrow(self, books_out: int) -> bool:\n        return books_out < 3\n\n    def borrow(self, student, book):\n        """A student takes a book home."""\n        if book.status != "on shelf":\n            raise NotAvailable("Someone else has this book")\n        if not self.can_borrow(len(student.books)):\n            raise CannotBorrow("Return a book first")\n        book.status = "borrowed"\n        student.books.append(book)\n`;
+  const m = thunderModel([{ path: 'library.py', source: src }]);
+  const d = readLevel(m, 'details', idOf(m, 'borrow'));
+  assert.deepEqual(d.inputs.map((i) => i.label), ['student', 'book']);
+  assert.ok(d.inputs[1].lines.length >= 2);
+  assert.deepEqual(d.changes.map((c) => c.text), ['Sets the book\'s status to "borrowed"', "Adds book to student's books"]);
+  assert.deepEqual(d.stops.map((s) => [s.error, s.message, s.when.map((w) => `${w.question} ${w.answer}`)]), [
+    ['NotAvailable', 'Someone else has this book', ['Is the book\'s status "on shelf"? No']],
+    ['CannotBorrow', 'Return a book first', ['Can borrow? No']],
+  ]);
+  assert.deepEqual(d.reliesOn.map((r) => [r.label, r.says]), [['Can borrow?', 'Answers Yes or No.']]);
+});
+
+test('Details for a rule: its answers in words, and its exact limits found by running it', () => {
+  const m = model();
+  const d = readLevel(m, 'details', idOf(m, 'late_fee'));
+  assert.deepEqual(d.answers, [{ answer: 'Small fee', when: 'the days late is at most 7' }, { answer: 'Big fee', when: 'otherwise' }]);
+  assert.deepEqual(d.limits, { fact: 'days late', ranges: [{ from: null, to: 7, answer: 'Small fee' }, { from: 8, to: null, answer: 'Big fee' }] });
+  assert.ok(d.openQuestions.some((q) => /money, a count/.test(q)), 'it says what the code cannot tell');
+});

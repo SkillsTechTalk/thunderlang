@@ -1,3 +1,12 @@
+# Unreleased
+
+**Language: Details is a fact sheet.** `readLevel(model, 'details', id)` now gives what you need to check before you
+trust or change an action or rule, computed by the compiler: `stops` (every way it can stop, the error, the message
+people see, and the answers that lead there), `givesBack`, `changes` (data it changes, saves, or sends), `inputs`
+(and the lines where each is used), `reliesOn` (each rule or action it uses, summarized), for rules `answers` (in
+words) and `limits` (exact ranges found by running the rule, e.g. 0 or less: No fee, 1 to 7: Small fee, 8 or more:
+Big fee), and `openQuestions` (what the code cannot tell you). The step list stays as `steps`.
+
 # 0.5.7
 
 **Language: the five reading levels.** Every Thunder view now offers the same five levels, in this order, with

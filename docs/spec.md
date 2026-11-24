@@ -109,7 +109,7 @@ are (the place). Every Thunder view offers the same five levels, in this order, 
 | --- | --- | --- |
 | **Big Picture** | What is it, and what can it do? | The Things, what each knows and can do, its doors (actions), its rules, and its data. For one action or rule: what you give it, what you get back, and what it uses. |
 | **Flow** | How does it go? | One action or rule as a path: questions with Yes and No, repeats, the Stops, what happens if something goes wrong, and what always happens at the end. |
-| **Details** | Exactly what happens, and how sure is Thunder? | Every step with its line, what goes in and comes out, what it uses and what uses it, anything Thunder could not explain, and a rule you can try. |
+| **Details** | Exactly what happens, and how sure is Thunder? | A fact sheet: every way it can end (each Stop with the message people see, and what it gives back) with the answers that lead there, what it changes, what goes in and where it is used, what it relies on, a rule's answers in words and its exact limits (found by running it), and what the code cannot tell you. Every fact links to its line. |
 | **Text** | What does it say, in words? | Thunder Text: the same meaning in structured words, for reading closely, reviewing a change, and keeping a copy. |
 | **Original** | Which code says so? | The exact lines in the original language that Thunder read. The evidence, one click away. |
 
