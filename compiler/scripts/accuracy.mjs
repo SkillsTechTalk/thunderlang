@@ -61,7 +61,11 @@ function stepFidelity(step, lines = []) {
   // Invented: a number or a quoted text in the wording that the code does not contain.
   const invented = [];
   for (const n of says.match(/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/g) || []) if (!code.includes(n) && !/^(1|0)$/.test(n)) invented.push(n);
-  for (const q of says.match(/"[^"]{1,80}"/g) || []) { const inner = q.slice(1, -1).replace(/…$/, ''); const parts = inner.split('…').map((x) => x.trim()).filter((x) => x.length > 2); if (parts.some((p) => !code.includes(p) && !code.includes(p.replace(/\\"/g, '"')))) invented.push(q); }
+  // A quoted text may hold quotes of its own (`"The "multiplex" option …"`): it is invented only when neither the
+  // shortest nor the longest reading of the quote is in the code.
+  const inCode = (q) => { const inner = q.slice(1, -1).replace(/…$/, ''); const parts = inner.split('…').map((x) => x.trim()).filter((x) => x.length > 2); return parts.every((p) => code.includes(p) || code.includes(p.replace(/\\"/g, '"')) || code.includes(p.replace(/`/g, '\\`'))); };
+  const whole = says.match(/"[^]{1,200}"/);
+  for (const q of says.match(/"[^"]{0,80}"/g) || []) if (!inCode(q) && !(whole && inCode(whole[0]))) invented.push(q);
   // Kept: how many of the code's names the wording mentions (as words).
   const names = [...new Set((firstLine.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, ' ').match(/[A-Za-z_][\w]*/g) || []).filter((t) => !KEYWORDS.has(t.toLowerCase()) && t.length > 1))];
   const sw = ` ${words(says)} `;

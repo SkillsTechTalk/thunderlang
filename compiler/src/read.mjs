@@ -277,7 +277,8 @@ function findFunctions(src, language) {
       const fnLine = lineAt(src, m.index + m[0].lastIndexOf(name));
       if (seen.has(name + ':' + fnLine)) continue;
       seen.add(name + ':' + fnLine);
-      const returns = (head[1] || head[2] || head[3] || '').trim() || null;
+      // (A Rust `where` clause is a constraint on the types, not part of what comes back.)
+      const returns = (head[1] || head[2] || head[3] || '').replace(/\s+where\b[\s\S]*$/, '').trim() || null;
       const params = parseParams(src.slice(open + 1, close), language);
       const markerAt = close + 1 + head[0].length - head[4].length;
       if (head[4] === '=>') {

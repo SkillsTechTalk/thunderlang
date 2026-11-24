@@ -421,10 +421,36 @@ function inputKindsOf(item) {
   return Object.keys(kinds).length ? kinds : null;
 }
 
+/** The names a destructuring pattern takes: `{ a, b: { c, d }, ...rest }: T` -> a, c, d (the rest is not one input). */
+function destructuredNames(text) {
+  const open = text.indexOf('{');
+  const close = closeOf(text, open);
+  if (close < 0) return [];
+  const inner = text.slice(open + 1, close);
+  const out = [];
+  let d = 0, from = 0;
+  const part = (x) => {
+    const t = x.trim();
+    if (!t || /^\.\.\./.test(t)) return;
+    const m = t.match(/^([A-Za-z_$][\w$]*)\s*:\s*(\{[\s\S]*\})\s*(?:=.*)?$/);
+    if (m) { out.push(...destructuredNames(m[2])); return; }
+    const n = t.split(/[:=]/)[0].trim();
+    if (/^[A-Za-z_$][\w$]*$/.test(n)) out.push(n);
+  };
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i];
+    if ('{[('.includes(c)) d++; else if ('}])'.includes(c)) d--;
+    else if (c === ',' && d === 0) { part(inner.slice(from, i)); from = i + 1; }
+  }
+  part(inner.slice(from));
+  return out;
+}
+
 function youGiveOf(item) {
   const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing)
     // Destructured parameters (React props `{ userId, name }`) give each name.
-    .flatMap((p) => (/^\{.*\}$/.test(String(p.name).trim()) ? String(p.name).trim().slice(1, -1).split(',').map((x) => x.split(/[:=]/)[0].trim().replace(/^\.\.\./, '')).filter((x) => /^[A-Za-z_$][\w$]*$/.test(x)) : [p.name]))
+    // Destructured parameters (React props `{ userId, name }`, `{ route: { href }, onClick }: Props`) give each name.
+    .flatMap((p) => (/^\{/.test(String(p.name).trim()) ? destructuredNames(String(p.name).trim()) : [p.name]))
     .map((n) => words(n));
   const codes = [];
   const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
@@ -502,7 +528,8 @@ export function thunderModel(files, { name = 'app' } = {}) {
       // An action's "You get back": every way it ends, from its flow (what it sends back, and the statuses it can stop
       // with), rather than only a declared return type a web handler rarely has.
       if (m.route && m.kind !== 'setup') {
-        const ends = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'end' && !/^Stops here$/.test(nd.text)).map((nd) => nd.text.replace(/^Gives back /, '')))];
+        // (An ending shown as code is not a value in words: it is not listed here, so code never poses as an answer.)
+        const ends = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'end' && !nd.code && !/^(?:Stops here|Done)$/.test(nd.text)).map((nd) => nd.text.replace(/^Gives back /, '')))];
         const stopsWith = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'stop').map((nd) => (nd.text.match(/^Stop:\s*(\d{3})\b/) || [])[1] ?? nd.text.replace(/^Stop:\s*/, '').split(':')[0].trim()))];
         const parts = [ends.length ? ends.join(', or ') : null, stopsWith.length ? `it stops with ${stopsWith.join(' or ')}` : null].filter(Boolean);
         if (parts.length) m.youGetBack = parts.join('; or ');
@@ -548,7 +575,7 @@ function flowLines(flow, depth = 1) {
       }
       if (b.each) { out.push(`${pad(d + 1)}For each:`); go(b.each, d + 2); }
       if (b.body) go(b.body, d + 1);
-      for (const h of b.handlers || []) { out.push(`${pad(d + 1)}${byId.get(h.id).text.replace(/\?$/, '')}:`); go(h.blocks, d + 2); }
+      for (const h of b.handlers || []) { const t = byId.get(h.id).text.replace(/\?$/, ''); if (h.blocks.length) { out.push(`${pad(d + 1)}${t}:`); go(h.blocks, d + 2); } else out.push(`${pad(d + 1)}${t}: nothing (the error is ignored)`); }
       if (b.always) { out.push(`${pad(d + 1)}Always, at the end:`); go(b.always.blocks, d + 2); }
     }
   };
