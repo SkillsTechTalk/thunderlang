@@ -579,11 +579,12 @@ export function thunderModel(files, { name = 'app' } = {}) {
 // ── Thunder Text, projected from the model (the picture is projected from the same nodes) ──────────────
 
 /** Thunder Text lines from a flow's blocks: the same tree the picture is drawn from. */
-function flowLines(flow, depth = 1) {
+function flowLines(flow, depth = 1, note = null) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
   const pad = (d) => '  '.repeat(d);
-  const at = (n) => (n.line ? `  (line ${n.line})` : '');
+  // `note` (optional) adds words after a node: the running system's counts (running.mjs).
+  const at = (n) => `${n.line ? `  (line ${n.line})` : ''}${(note && note(n)) || ''}`;
   const say = (n) => (n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
   const go = (blocks, d) => {
     for (const b of blocks || []) {
@@ -614,7 +615,7 @@ function flowLines(flow, depth = 1) {
  * Thunder Text for a Thing or a member, made from the same model nodes the picture is drawn from, so the two
  * cannot disagree. Pass the model and an id.
  */
-export function modelText(model, id) {
+export function modelText(model, id, { note = null } = {}) {
   const t = model.things.find((x) => x.id === id);
   if (t) {
     const lines = [`${t.kind === 'thing' ? 'Thing' : t.kind === 'record' ? 'Record' : 'Choices'} ${t.label}`];
@@ -632,7 +633,7 @@ export function modelText(model, id) {
   if (m.doc) lines.push(`  Author's note: ${m.doc}`);
   if (m.youGive.length) lines.push(`  You give it: ${m.youGive.join(', ')}`);
   if (m.youGetBack) lines.push(`  You get back: ${m.youGetBack}`);
-  lines.push(...flowLines(m.flow));
+  lines.push(...flowLines(m.flow, 1, note));
   return `${lines.join('\n')}\n`;
 }
 
@@ -669,7 +670,7 @@ function detailSteps(flow) {
 const CHANGES = /^(Sets|Adds|Removes|Subtracts|Clears|Marks|Saves|Deletes|Updates|Appends|Increases|Decreases|Sends|Records|Stores|Writes)\b/;
 
 /** Each step with the answers that lead to it: [{ question, answer }] from the top of the flow. */
-function pathsOf(flow) {
+export function pathsOf(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
   const ends = (blocks) => { const last = byId.get((blocks || []).at(-1)?.id); return !!last && (last.kind === 'stop' || last.kind === 'end'); };

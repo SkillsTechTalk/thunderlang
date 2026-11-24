@@ -19,7 +19,10 @@ export function flowOf(steps: unknown[], options?: { start?: string; memberIndex
 export function ruleFlow(item: unknown, start: string): Flow;
 export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean };
 export function stepDoes(step: unknown): Does;
-export function modelText(model: ThunderModel, id: string): string;
+/** Thunder Text for a Thing or a member. `note` adds words after a flow node (the running system's counts). */
+export function modelText(model: ThunderModel, id: string, options?: { note?: (node: FlowNode) => string | null | undefined }): string;
+/** Each node of a flow with the answers that lead to it, from the top (the same paths Details shows). */
+export function pathsOf(flow: Flow): { node: FlowNode; when: When[] }[];
 /** One answer on the way to a step: the question, and Yes, No, For each, or Otherwise. */
 export interface When { question: string; answer: string }
 export type LevelId = 'big-picture' | 'flow' | 'details' | 'text' | 'original';

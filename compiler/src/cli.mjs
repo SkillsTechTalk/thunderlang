@@ -45,7 +45,9 @@ import { guardianReport } from './guardian.mjs';
 import { simulateChange } from './simulate.mjs';
 import { verifyLedger, explain as ledgerExplain } from './ledger.mjs';
 import { verifyDiff } from './verify-diff.mjs';
-import { verifyRun, executedText } from './executed.mjs';
+import { verifyRun, executedText, mergeTraces } from './executed.mjs';
+import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, parseStacks, explainError, countWords } from './running.mjs';
+import { thunderModel } from './model.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
 import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
@@ -421,6 +423,9 @@ Prove & verify intent
   verify --run <folder> [--lang python|js] [--pytest "<args>" | --tests <dir> | --command "<cmd>"]
                              proof by running: run the code, compare what happened with Thunder's flows;
                              marks matching readings executed, exits 1 if a run contradicts a reading
+  runtime <folder> [--traces <file|dir>] [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>] [--top n] [--json]
+                             the running system: what happened when it ran, on Thunder's flows (counts per
+                             question side, Stop, and ending; calls, failures, time); errors explained in Thunder
   evidence <file>            emit evidence-event-v1 JSON (tool_verified) for the shared proof spine
                              (also: prove/verify-diff/conform/drift accept --evidence to emit their own event)
   conform <file> [--targets a,b] [--run typescript,python,csharp,java,go,rust,kotlin,scala,elixir | --all-targets] [--results <json>]   conformance matrix across targets
@@ -678,6 +683,38 @@ function main() {
     if (restArgv.includes('--json')) console.log(JSON.stringify(res.result, null, 2));
     else console.log(`thunder verify --run ${folder} (${res.result.language})\n${executedText(res.result, { all: restArgv.includes('--all') })}`);
     if (res.result.summary.contradicted) process.exitCode = 1;
+    return;
+  }
+  // `thunder runtime <folder>`: the running system. Places recorded runs (thunder verify --run --save-trace), stack
+  // traces, structured logs, and OpenTelemetry spans on the folder's flows, and explains each error in Thunder.
+  if (cmd === 'runtime') {
+    const opt = (name) => { const i = restArgv.indexOf(name); return i >= 0 ? restArgv[i + 1] : undefined; };
+    const folder = restArgv[0];
+    const usage = 'usage: thunder runtime <folder> [--traces <file|dir>] [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>] [--top <n>] [--json]';
+    if (!folder || folder.startsWith('--') || !existsSync(folder) || !statSync(folder).isDirectory()) { console.error(folder && !folder.startsWith('--') ? `thunder runtime: ${folder} is not a folder.\n${usage}` : usage); process.exit(2); return; }
+    const evidence = [];
+    const stacks = [];
+    try {
+      const traces = opt('--traces');
+      if (traces) {
+        const t = { files: {}, runs: [] };
+        const list = statSync(traces).isDirectory() ? readdirSync(traces).filter((n) => n.endsWith('.json')).map((n) => join(traces, n)) : [traces];
+        for (const f of list) mergeTraces(t, JSON.parse(readFileSync(f, 'utf8')));
+        evidence.push(...fromTrace(t));
+      }
+      if (opt('--stack')) { const text = readFileSync(opt('--stack'), 'utf8'); evidence.push(...fromStack(text)); stacks.push(...parseStacks(text)); }
+      if (opt('--logs')) evidence.push(...fromLogs(readFileSync(opt('--logs'), 'utf8')));
+      if (opt('--otlp')) evidence.push(...fromOtlp(readFileSync(opt('--otlp'), 'utf8')));
+    } catch (e) { console.error(`thunder runtime: ${e.message}`); process.exit(2); return; }
+    if (!evidence.length) { console.error(`thunder runtime: no evidence given.\n${usage}`); process.exit(2); return; }
+    const model = thunderModel(collectReadableFiles(folder, { maxFiles: 5000 }).filter((f) => f.source), { name: basename(resolve(folder)) });
+    const overlay = runtimeOverlay(model, evidence);
+    const explained = stacks.map((s) => explainError(model, s));
+    if (restArgv.includes('--json')) { console.log(JSON.stringify({ ...overlay, errors: explained }, null, 2)); return; }
+    const out = [`thunder runtime ${folder}: ${Object.entries(overlay.sources).map(([k, v]) => `${k}: ${countWords(v)} observation${v === 1 ? '' : 's'}`).join(', ')} (counts only from this evidence)`, ''];
+    if (explained.length) { out.push('Errors, explained in Thunder:'); for (const x of explained) out.push(`  - ${x.text}`); out.push(''); }
+    out.push(runtimeText(model, overlay, { member: opt('--member') ?? null, top: opt('--top') ? Number(opt('--top')) : 10 }));
+    process.stdout.write(`${out.join('\n').replace(/\n+$/, '')}\n`);
     return;
   }
   // Verify a .thunder-proof.json against its source: the source hash still matches (no

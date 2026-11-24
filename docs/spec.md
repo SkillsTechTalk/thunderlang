@@ -297,7 +297,42 @@ A view that breaks one of these is wrong, however good it looks.
    **Update code**.
 8. Use the reader's words: plain names, no syntax. A step that would only restate the code shows the code instead.
 
-## 11. Using the grammar in a tool
+## 11. The running system
+
+When something runs or breaks, people should not have to read stack traces or logs in the original language. Thunder
+places what happened on the pictures it already draws. **Works today** for Python and JavaScript runs recorded by
+`thunder verify --run`; for stack traces from Python (and pytest), JavaScript/TypeScript (Node, V8), Java, C#, and Go;
+for structured logs (JSON lines); and for OpenTelemetry spans (OTLP/JSON). In the compiler: `runtimeOverlay`,
+`explainError`, and the adapters `fromTrace`, `fromStack`, `fromLogs`, `fromOtlp` (`@skillstech/thunderlang/core`);
+on the command line, `thunder runtime <folder> --traces … --stack … --logs … --otlp …`.
+
+**What is shown**
+
+| Where | What the run adds |
+| --- | --- |
+| A question | How many times it was asked, and how many times each side was taken: "ran 201×: Yes 84, No 117" |
+| A Stop | How many times it happened, with the error and message as they were seen, and its share of the calls |
+| An ending, an answer, "Done" | How many times it was reached |
+| A step | How many times it failed, and with what (from a stack trace); how many times it logged (from logs) |
+| An action or rule (Details) | One sentence: "Ran 201 times; stopped with NotAvailable 117 times (58%), when Is the book's status on shelf? was No; …", its time (average and slowest) when the evidence has it, and the most-taken way through it |
+| An error | Explained in Thunder: "Failed in Borrow, at “Adds book to student's books” (line 42): AttributeError: …; it got there because Is the book's status on shelf? was Yes and Can borrow? was Yes. Called from …" |
+
+**Honesty rules**
+
+1. Counts come only from evidence. A step no evidence speaks for has no count, which is not the same as zero; a
+   crash at a step says it failed there, not how often the step ran.
+2. Nothing is inferred about a path that was not observed. The one thing worked out rather than seen is how an error
+   got to its step: the answers that lead there in the flow as drawn (the step is on a question's Yes side, or comes
+   after a question whose other side always stops). When the flow does not show it, only the step and its line are
+   given.
+3. Evidence that cannot be placed on a step is listed as **not matched**, with the reason ("no file Thunder read is
+   charge.go", "Thunder draws 2 answers at line 32 and the record does not say how many times each"). It is never
+   dropped or guessed onto the nearest step.
+4. A sample or recorded run is labeled as such, with what was run; each source counts as its own runs, so the same
+   run should not be given twice (as a record and as its stack trace).
+5. Colors follow section 7: a Stop's count is a fact about a Stop, not a failed check.
+
+## 12. Using the grammar in a tool
 
 Every Thunder view renders from the same data instead of deciding shapes, colors, and wording for itself.
 
@@ -313,7 +348,7 @@ for (const item of items) {
 THUNDER_VISUAL.colors.pass.hex;   // '#34D399', for checks that passed and nothing else
 ```
 
-## 12. What comes next
+## 13. What comes next
 
 In the order OpenThunder needs them for Read in Thunder:
 

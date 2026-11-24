@@ -1,5 +1,30 @@
 # Unreleased
 
+**Language: the running system — what happened when it ran, on Thunder's pictures** (`compiler/src/running.mjs`,
+`thunder runtime <folder>`). Evidence of a run is placed on the flows Thunder draws, so nobody needs to read a stack
+trace or a log in the original language: per question, how many times each side was taken; per Stop, how many times
+it happened with the error and message as seen; per ending, how many times it was reached; per action or rule, its
+calls, failures, and average and slowest time, a Details sentence ("Ran 201 times; stopped with NotAvailable 117
+times (58%), when Is the book's status on shelf? was No"), and the most-taken way through it.
+- Sources, each an adapter to one event shape (`{ file, line, kind, side?, error?, message?, value?, durationMs?,
+  count? }`): proof by running's records (`fromTrace`), stack traces (`fromStack`: Python tracebacks and pytest
+  reports, Node/V8 stacks, Java with its causes, C#, Go panics), structured logs (`fromLogs`: JSON lines with a
+  file/line or function, including Python logging, Google Cloud's sourceLocation, ECS, zap's caller; an error's
+  stack in a log is read too), and OpenTelemetry spans (`fromOtlp`: OTLP/JSON with `code.filepath` / `code.lineno`
+  / `code.function` or the newer `code.file.path` / `code.line.number` / `code.function.name`, with the exception
+  event's stack).
+- `explainError(model, stack)`: "Failed in Borrow, at “Adds book to student's books” (line 42): AttributeError: …;
+  it got there because Is the book's status on shelf? was Yes and Can borrow? was Yes. Called from …". The answers
+  that led there come from the flow as drawn and are left out when it does not show them.
+- Honest by rule: counts only from evidence (no count is not zero); evidence that cannot be placed is listed as
+  **not matched** with the reason (spec section 11).
+- `thunder runtime <folder> --traces <file|dir> [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>]
+  [--top n] [--json]` prints the flows in Thunder Text with counts ("- Ask: Is the book's status on shelf?  (line
+  36)  (ran 201×: Yes 84, No 117)"), each error explained, and what was not matched.
+- Site: Semantic Zoom's School library (Python) example has "What happened when it ran" at Flow and Details, from a
+  recorded sample run (labeled as one), with counts beside each node and on each side.
+- `modelText(model, id, { note })` and `pathsOf(flow)` are exported for tools that draw their own overlays.
+
 **Language: proof by running — readings are checked against what the code actually does** (`compiler/src/executed.mjs`,
 `thunder verify --run <folder>`). Thunder runs real code (the project's own tests, and made-up inputs for functions
 that look free of side effects), records which way every question went and how every call ended, and compares that

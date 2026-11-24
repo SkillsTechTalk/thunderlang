@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/home/ci/school/tests/test_day.py", line 45, in test_tuple_of_books
+    lib.borrow(s, library.Book("Charlotte's Web"))
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ci/school/library.py", line 42, in borrow
+    student.books.append(book)
+    ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'tuple' object has no attribute 'append'

@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import type { ThunderModel, Member, Thing, Flow, FlowNode, FlowBlock } from "../../../compiler/src/model.d.mts";
 import { THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
+import type { NodeRun } from "../../../compiler/src/running.d.mts";
 
 export type SymbolId = keyof typeof THUNDER_VISUAL.symbols;
 
@@ -31,10 +32,33 @@ export const thingSymbol = (t: Thing): SymbolId => (t.kind === "thing" ? "thing"
 
 export type Block = FlowBlock;
 
-export function FlowNodeCard({ n, onOpen, onLine, model }: { n: FlowNode; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel }) {
+const count = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/** What a run showed at one node, in words: "asked 201×", "happened 117× (58%)", "failed 1×: AttributeError". */
+export function runWords(r: NodeRun | undefined, calls?: number): string | null {
+  if (!r) return null;
+  const parts: string[] = [];
+  const share = (x: number) => (calls ? ` (${x / calls < 0.01 ? "<1" : Math.round((x / calls) * 100)}%)` : "");
+  if (r.kind === "decision" && r.sides && r.ran) parts.push(`asked ${count(r.ran)}×`);
+  else if (r.kind === "loop" && r.sides) parts.push(Object.entries(r.sides).map(([k, v]) => `${k === "For each" ? "went round" : "left"} ${count(v)}×`).join(", "));
+  else if (r.kind === "stop" && r.ran) parts.push(`happened ${count(r.ran)}×${share(r.ran)}`);
+  else if (r.kind === "end" && r.ran) parts.push(`reached ${count(r.ran)}×${share(r.ran)}`);
+  else if (r.ran) parts.push(`${r.levels ? "logged" : "ran"} ${count(r.ran)}×`);
+  for (const f of r.failed ?? []) parts.push(`failed ${count(f.count)}×: ${f.error}`);
+  return parts.length ? parts.join("; ") : null;
+}
+
+/** The run's count beside a node: words in a quiet chip, never color alone. */
+function RunChip({ text, failed }: { text: string | null; failed?: boolean }) {
+  if (!text) return null;
+  return <span className={`shrink-0 rounded-full border px-2.5 py-0.5 font-mono text-xs ${failed ? "border-[#FDBA74]/60 text-[#FDBA74]" : "border-white/25 text-haze-200"}`}><span className="sr-only">When it ran: </span>{text}</span>;
+}
+
+export function FlowNodeCard({ n, onOpen, onLine, model, run, calls }: { n: FlowNode; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel; run?: NodeRun; calls?: number }) {
   const d = THUNDER_VISUAL.does[n.does] ?? THUNDER_VISUAL.does.do;
   const target = n.uses ? model.members.find((m) => m.id === n.uses) : undefined;
-  const line = n.line ? <button type="button" onClick={() => onLine(n.line!)} className={`ml-auto shrink-0 rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`} aria-label={`Show line ${n.line} in the original code`}>{n.line}</button> : null;
+  const chip = <RunChip text={runWords(run, calls)} failed={!!run?.failed?.length} />;
+  const line = n.line ? <><span className="ml-auto" />{chip}<button type="button" onClick={() => onLine(n.line!)} className={`shrink-0 rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`} aria-label={`Show line ${n.line} in the original code`}>{n.line}</button></> : chip;
   if (n.kind === "start") return <div className="flex items-center gap-3 rounded-full border border-[#FCD34D]/40 bg-[#FCD34D]/[0.06] px-4 py-2 text-[15px] text-white"><span aria-hidden="true" className="text-[#FCD34D]">▶</span>{n.text}</div>;
   if (n.kind === "decision") return (
     <div className="flex items-center gap-3 rounded-2xl border-2 border-[#7FB2FF]/70 bg-[#7FB2FF]/[0.07] px-4 py-3">
@@ -58,13 +82,17 @@ export function FlowNodeCard({ n, onOpen, onLine, model }: { n: FlowNode; onOpen
   );
 }
 
-/** The flow tree from the model: questions with their Yes and No sides, loops, error handlers, and "always". */
-export function FlowBlocks({ blocks, flow, ...p }: { blocks: Block[]; flow: Flow; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel }): ReactNode {
+/**
+ * The flow tree from the model: questions with their Yes and No sides, loops, error handlers, and "always".
+ * `runs` (optional, from the running system's overlay) adds what a run showed: counts beside nodes and on each side.
+ */
+export function FlowBlocks({ blocks, flow, runs, calls, ...p }: { blocks: Block[]; flow: Flow; onOpen: (id: string) => void; onLine: (l: number) => void; model: ThunderModel; runs?: Record<string, NodeRun>; calls?: number }): ReactNode {
   const node = (id: string) => flow.nodes.find((n) => n.id === id)!;
-  const Side = ({ label, items }: { label: string; items: Block[] }) => (
+  const taken = (id: string, label: string) => { const v = runs?.[id]?.sides?.[label]; return v != null ? <span className="ml-2 font-mono text-xs font-normal text-haze-200">taken {count(v)}×</span> : null; };
+  const Side = ({ label, items, of }: { label: string; items: Block[]; of?: string }) => (
     <div className="ml-6 mt-2 border-l-2 border-white/15 pl-5">
-      <p className="mb-2 text-sm font-semibold text-haze-300">{label}</p>
-      <FlowBlocks blocks={items} flow={flow} {...p} />
+      <p className="mb-2 text-sm font-semibold text-haze-300">{label}{of && taken(of, label)}</p>
+      <FlowBlocks blocks={items} flow={flow} runs={runs} calls={calls} {...p} />
     </div>
   );
   return (
@@ -74,16 +102,16 @@ export function FlowBlocks({ blocks, flow, ...p }: { blocks: Block[]; flow: Flow
         const yesEmpty = "yes" in b && !b.yes!.length, noEmpty = "no" in b && !b.no!.length;
         return (
           <li key={b.id}>
-            <FlowNodeCard n={n} {...p} />
-            {b.yes && b.yes.length > 0 && <Side label="Yes" items={b.yes} />}
-            {b.no && b.no.length > 0 && <Side label="No" items={b.no} />}
-            {(b.cases ?? []).map((c, i) => c.blocks.length ? <Side key={i} label={c.label} items={c.blocks} /> : <p key={i} className="ml-6 mt-2 border-l-2 border-white/15 pl-5 text-sm font-semibold text-haze-300">{c.label}: <span className="font-normal text-haze-400">nothing</span></p>)}
+            <FlowNodeCard n={n} {...p} run={runs?.[b.id]} calls={calls} />
+            {b.yes && b.yes.length > 0 && <Side label="Yes" items={b.yes} of={b.id} />}
+            {b.no && b.no.length > 0 && <Side label="No" items={b.no} of={b.id} />}
+            {(b.cases ?? []).map((c, i) => c.blocks.length ? <Side key={i} label={c.label} items={c.blocks} of={b.id} /> : <p key={i} className="ml-6 mt-2 border-l-2 border-white/15 pl-5 text-sm font-semibold text-haze-300">{c.label}: <span className="font-normal text-haze-400">nothing</span>{taken(b.id, c.label)}</p>)}
             {b.cases && !b.cases.some((c) => /^(Otherwise|If none is ready yet|Default)\b/i.test(c.label)) && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">None of these <span aria-hidden="true">↓</span> continue</p>}
-            {b.each && <Side label="For each" items={b.each} />}
-            {b.body && b.body.length > 0 && <div className={`ml-6 mt-2 border-l-2 pl-5 ${b.nested ? "border-dashed border-[#C4B5FD]/40" : "border-white/10"}`}>{b.nested && <p className="mb-2 text-xs text-haze-400">Runs on its own; a stop in here ends only these steps.</p>}<FlowBlocks blocks={b.body} flow={flow} {...p} /></div>}
+            {b.each && <Side label="For each" items={b.each} of={b.id} />}
+            {b.body && b.body.length > 0 && <div className={`ml-6 mt-2 border-l-2 pl-5 ${b.nested ? "border-dashed border-[#C4B5FD]/40" : "border-white/10"}`}>{b.nested && <p className="mb-2 text-xs text-haze-400">Runs on its own; a stop in here ends only these steps.</p>}<FlowBlocks blocks={b.body} flow={flow} runs={runs} calls={calls} {...p} /></div>}
             {(b.handlers ?? []).map((h) => <Side key={h.id} label={node(h.id).text.replace(/\?$/, "")} items={h.blocks} />)}
             {b.always && <Side label="Always, at the end" items={b.always.blocks} />}
-            {(yesEmpty || noEmpty) && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">{yesEmpty ? "Yes" : "No"} <span aria-hidden="true">↓</span> continue</p>}
+            {(yesEmpty || noEmpty) && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">{yesEmpty ? "Yes" : "No"} <span aria-hidden="true">↓</span> continue{taken(b.id, yesEmpty ? "Yes" : "No")}</p>}
             {b.each && <p className="ml-6 mt-2 text-sm font-semibold text-haze-300">When done <span aria-hidden="true">↓</span></p>}
           </li>
         );
