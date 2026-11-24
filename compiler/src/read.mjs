@@ -10,7 +10,7 @@
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
 import { sqlItems } from './sql.mjs';
-import { stepsFrom, braceStatements, indentStatements, plainEnums, withFunctionContext } from './steps.mjs';
+import { stepsFrom, braceStatements, indentStatements, plainEnums, withFunctionContext, classifyStatement } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
@@ -366,6 +366,18 @@ export function displayLabel(name) {
 
 /** Inputs that are framework plumbing rather than something a person gives. */
 const PLUMBING = /^(self|this|cls|db|session|conn|connection|cursor|tx|transaction|request|req|res|response|ctx|context|c|w|r|next|logger|log|deps|container|di|cancellationToken|ct|ec|app|g)$/i;
+/**
+ * Framework plumbing is left out of "You give it". A plain `Request` or `Response` (the fetch types, or a response
+ * a helper inspects) is plumbing only in a web handler: in `cancelBody(value: Response, keep?: Response)` or
+ * `streamRequest(request: Request, …)` it is the very thing the function works on.
+ */
+function isPlumbing(p, params, fn) {
+  if (/^(self|this|cls)$/i.test(p.name)) return true;
+  const web = !!fn.route || params.some((x) => /^(?:req|res|reply|ctx|c|w|r|next)$/.test(x.name) || /HttpRequest|HttpResponse|ResponseWriter|NextFunction|HttpContext|ServerRequest|FastifyRequest|FastifyReply|NextRequest|HttpServletRequest/.test(String(x.type || '')));
+  const t = String(p.type || '');
+  if (/^(?:request|response|resp)$/i.test(p.name) || (t && /^(?:Request|Response)(?:\s*\|.*)?$|\|\s*(?:Request|Response)\b/.test(t) && !/Http|Servlet|Fastify|Next/.test(t))) return web;
+  return t ? PLUMBING_TYPE.test(t) : PLUMBING.test(p.name);
+}
 const PLUMBING_TYPE = /\b(Session|AsyncSession|DbContext|Connection|HttpRequest|HttpResponse|Request|Response|Context|ResponseWriter|CancellationToken|ILogger|Logger|NextFunction)\b/;
 
 const allSteps = (steps) => (steps || []).flatMap((s) => [s, ...allSteps(s.children), ...allSteps(s.otherwise), ...(s.handlers || []).flatMap((h) => allSteps(h.steps)), ...allSteps(s.always?.steps)]);
@@ -593,6 +605,8 @@ function normalizePhp(src) {
     .replace(/(\w|\))\s*(?:\?)?->\s*(?=[A-Za-z_])/g, '$1.')
     .replace(/\belseif\b/g, 'else if'));
 }
+
+const stripRubyStrings = (t) => String(t).replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q');
 
 /** PHP `# comment` as `// comment`, outside strings (a `#` inside '[^:/?#]' is text). Attributes `#[…]` stay. */
 function phpHashComments(src) {
@@ -1816,7 +1830,18 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     else if (typeof fn.body === 'string' && fn.bodyStart != null) stmts = braceStatements(splitStatements(lang === 'kotlin' ? kotlinTerminate(fn.body) : fn.body, lineAt(code, fn.bodyStart)), splitStatements);
   } catch { return null; }
   if (!stmts.length) return null;
-  const r = withFunctionContext({ params: fn.params || [], language: lang }, () => stepsFrom(stmts));
+  const r = withFunctionContext({ params: fn.params || [], language: lang }, () => {
+    const out = stepsFrom(stmts);
+    // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or
+    // and/or, that value is the answer, not a call made for its effect.
+    const last = out.steps[out.steps.length - 1];
+    if (lang === 'ruby' && last && last.kind === 'call' && !last.jump && !last.library && (/\?$/.test(fn.name) || /&&|\|\||\band\b|\bor\b|[!=]=|[<>]/.test(stripRubyStrings(last.code || '')))) {
+      const v = classifyStatement(`return ${String(last.code || '').trim()}`);
+      if (v.kind === 'return') out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code };
+      delete out.steps[out.steps.length - 1].callee;
+    }
+    return out;
+  });
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
@@ -1895,7 +1920,7 @@ export function readCode(source, { language, file = '' } = {}) {
       // Framework plumbing (a database session, the request, a context) is marked so views can leave it out of "You give it".
       // Plumbing (the framework's request, a database session, a context) by its type when it has one, else by name:
       // `Handle(PingResource request, …)` takes a PingResource, which is the real input although it is named request.
-      inputs: inputs.map((p) => (p.type ? PLUMBING_TYPE.test(String(p.type)) || (/^(self|this|cls)$/i.test(p.name)) : PLUMBING.test(p.name)) ? { ...p, plumbing: true } : p), returns: simpleType(fn.returns),
+      inputs: inputs.map((p) => (isPlumbing(p, inputs, fn) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
       ...(doc ? { doc } : {}),
       provenance: 'inferred-from-code',

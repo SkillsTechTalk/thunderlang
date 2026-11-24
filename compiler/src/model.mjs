@@ -432,6 +432,8 @@ function youGiveOf(item) {
   for (const c of codes) {
     // Values read straight from the request: a header, a value in the address, or a field it was sent.
     for (const r of c.matchAll(/\b(?:req|request|ctx\.request|c\.req)\s*\.\s*headers\s*(?:\[\s*['"`]([^'"`]+)['"`]\s*\]|\.\s*get\(\s*['"`]([^'"`]+)['"`]\s*\))/g)) { const h = `the ${r[1] || r[2]} header`; if (!given.includes(h)) given.push(h); }
+    // (Only in a web handler, where the request is plumbing; `request.body.locked` on a fetch Request is not a field.)
+    if ((item.inputs || []).some((p) => !p.plumbing && /^(?:req|request)$/.test(p.name))) continue;
     for (const r of c.matchAll(/\b(?:req|request|ctx\.request|ctx|c\.req)\s*\.\s*(query|params|body)\s*(?:\.\s*([A-Za-z_][\w]*)|\[\s*['"`]([^'"`]+)['"`]\s*\])/g)) { const n = `${words(r[2] || r[3])} ${r[1] === 'body' ? '(sent in the request)' : '(in the address)'}`; if (!given.includes(n)) given.push(n); }
     const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(body|query|params|json\(\))/);
     const where = m ? (/^(query|params)$/.test(m[2]) ? ' (in the address)' : ' (sent in the request)') : '';
