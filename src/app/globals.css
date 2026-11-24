@@ -104,6 +104,48 @@
   }
 }
 
+/* Editor colors for code in a real programming language (src/lib/source-tokens.mjs). In the spirit of
+   VS Code Dark+, lightened for the ink background: every role is >= 7:1 on ink-950 and on the violet
+   highlighted-line tint. Decorative only: nothing on the page depends on telling these colors apart.
+   Outside @layer so Tailwind keeps them: the class names live in a .mjs file it does not scan. */
+.syn-kw {
+  color: #6cb6ff;
+}
+.syn-ctl {
+  color: #d9a6e6;
+}
+.syn-str {
+  color: #e3a27f;
+}
+.syn-com {
+  color: #7faf6b;
+  font-style: italic;
+}
+.syn-num {
+  color: #b5cea8;
+}
+.syn-const {
+  color: #4fc1ff;
+}
+.syn-fn {
+  color: #e3dfa3;
+}
+.syn-type {
+  color: #4ec9b0;
+}
+.syn-dec {
+  color: #e0c07e;
+}
+.syn-var {
+  color: #9cdcfe;
+}
+.syn-op {
+  @apply text-haze-200;
+}
+.syn-punc {
+  @apply text-haze-300;
+}
+
 /* Rendered Markdown docs (docs/*.md) */
 .doc-prose {
   @apply text-[15px] leading-relaxed text-haze-200;

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Section, Pill, CTAButtons } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
+import { HighlightedCode } from "@/lib/highlight";
 import { OPENTHUNDER_URL } from "@/lib/site";
 import { PlainRuleCard } from "@/app/try/PlainRuleCard";
 import { readCode } from "../../../../compiler/src/read.mjs";
@@ -138,7 +139,7 @@ export default function WhyICreatedThunder() {
         <P>You can understand that description without knowing how to program.</P>
         <P>Here is that same rule today: five lines of Python, read by the Thunder compiler into a card you can question. Pick a number of days and see what happens.</P>
         <figure className="my-8 space-y-4">
-          <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-haze-100"><code>{REFUND_CODE}</code></pre>
+          <pre className="overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 font-mono text-[13px] leading-relaxed text-haze-200"><code><HighlightedCode source={REFUND_CODE} lang="python" /></code></pre>
           <PlainRuleCard initialSource={refundCard} breadcrumb={["Refunds", "refund_eligibility"]} />
           <figcaption className="text-center text-sm text-haze-400">Read from the code by the Thunder compiler when this page was built; no AI. The examples were added by a person to check the rule.</figcaption>
         </figure>
