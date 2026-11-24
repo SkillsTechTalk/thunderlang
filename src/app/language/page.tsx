@@ -6,6 +6,7 @@ import { StepsView, type Step } from "@/app/try/StepsView";
 import { PlainRuleCard } from "@/app/try/PlainRuleCard";
 import { readCode } from "../../../compiler/src/read.mjs";
 import { thunderText, visualFor, THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
+import { JsonLd, LANGUAGE_LD } from "@/components/JsonLd";
 
 export const metadata = pageMeta({
   title: "The Thunder Programming Language",
@@ -79,6 +80,7 @@ export default function LanguagePage() {
   const languages = Object.values(THUNDER_VISUAL.languages);
   return (
     <>
+      <JsonLd data={LANGUAGE_LD} />
       <PageHero
         eyebrow="Human-Native Programming"
         title="The Thunder Programming Language"
