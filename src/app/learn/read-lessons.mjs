@@ -7,7 +7,7 @@
  * @typedef {{
  *   slug: string, title: string, idea: string, picture: string,
  *   files: LessonFile[], focus: string,
- *   show: 'steps' | 'card' | 'compare' | 'text' | 'honest',
+ *   show: 'steps' | 'card' | 'compare' | 'text' | 'honest' | 'shapes' | 'thing' | 'flow' | 'howto',
  *   examples?: string, questions: { q: string, a: string }[],
  * }} ReadLesson
  */
@@ -55,6 +55,55 @@ func DeliveryFee(total float64, distanceKm float64) string {
 `,
 };
 
+
+/** The school library: a Thing with what it knows and what it can do (lessons 3 and 4). */
+const LIBRARY = `from dataclasses import dataclass
+from enum import Enum
+
+
+class Status(Enum):
+    ON_SHELF = "on shelf"
+    BORROWED = "borrowed"
+
+
+@dataclass
+class Book:
+    """A book in the school library."""
+    title: str
+    status: Status = Status.ON_SHELF
+
+
+class Library:
+    """Lends books to students and takes them back."""
+
+    def __init__(self, max_books: int = 3):
+        self.max_books = max_books
+        self.overflow = []
+
+    def late_fee(self, days_late: int) -> str:
+        """Small fines for late books."""
+        if days_late <= 7:
+            return "SmallFee"
+        return "BigFee"
+
+    def return_book(self, student, book, days_late: int):
+        """A student brings a book back."""
+        if book not in student.books:
+            raise NotBorrowed("This student does not have this book")
+        student.books.remove(book)
+        if days_late > 0:
+            fee = self.late_fee(days_late)
+            student.fees.append(fee)
+        else:
+            student.thanks += 1
+        try:
+            self.shelf.put(book)
+        except ShelfFull:
+            self.overflow.append(book)
+        finally:
+            book.status = Status.ON_SHELF
+`;
+
 /** Examples a person adds to check the rule (code has none). */
 const DELIVERY_EXAMPLES = `
 Examples
@@ -85,6 +134,44 @@ export const READ_LESSONS = [
     questions: [
       { q: "In your own words, what does order_total do?", a: "It adds up the price of every item, takes $5 off when the order has a coupon, and gives back the total. You could say that without knowing Python. That is the point." },
       { q: "Who drew this picture, a person or an AI?", a: "Neither. The Thunder compiler read the code with fixed rules and no AI. The same code always gives the same picture." },
+    ],
+  },
+  {
+    slug: "shapes",
+    title: "The six shapes",
+    idea: "Everything in a program is one of six kinds of thing, and each has its own shape. Learn these six and you can tell what any piece of code is before you read a single word.",
+    picture: "Road signs again: a stop sign is an octagon everywhere in the world. Thunder's shapes work the same way in every programming language.",
+    files: [],
+    show: "shapes",
+    questions: [
+      { q: "You see a diamond. What kind of thing is it, and what will it do?", a: "A Rule. It looks at some facts and picks one answer, like \"Small fee\" or \"Big fee\"." },
+      { q: "Which shape tells you the program gives up and says why?", a: "The octagon: Stop. It ends the path and shows the reason, for example \"This student does not have this book\"." },
+    ],
+  },
+  {
+    slug: "things",
+    title: "Things: what it knows, what it can do",
+    idea: "Programs are built from Things. A Thing knows some facts and can do some jobs. Code calls a Thing a class; Thunder just shows the box: what it knows, and what it can do.",
+    picture: "A toy robot's instruction card: on one side what's inside it (battery, 3 lights), on the other the buttons it has (walk, beep). You don't need to see the wires.",
+    files: [{ language: "python", label: "Python", code: LIBRARY }],
+    focus: "Library",
+    show: "thing",
+    questions: [
+      { q: "How many books can a student have at once, if nobody says otherwise?", a: "3. \"max books: a number, 3 unless told otherwise\" is in what the Library knows." },
+      { q: "Book and Status are drawn smaller. Why are they not Things?", a: "They only remember facts (a Book's title and status) or list allowed choices (on shelf, borrowed). They can't do anything, so Thunder draws them as Data." },
+    ],
+  },
+  {
+    slug: "flow",
+    title: "Follow the flow",
+    idea: "When a Thing does a job, it follows a path. Questions split the path into Yes and No. Some paths end at a Stop. Some steps only happen if something goes wrong, and some always happen at the end.",
+    picture: "A Choose Your Own Adventure book: at each question you turn to the Yes page or the No page, and some pages say THE END.",
+    files: [{ language: "python", label: "Python", code: LIBRARY }],
+    focus: "return_book",
+    show: "flow",
+    questions: [
+      { q: "A student returns a book 3 days late. What happens to their fees?", a: "Days late is more than 0, so Yes: the late fee rule works out a fee (Small fee, because 3 is at most 7) and it is added to the student's fees." },
+      { q: "The shelf is full. Does the book still end up marked \"on shelf\"?", a: "Yes. \"If ShelfFull goes wrong\" puts it in the overflow pile, and \"Always, at the end\" marks it on shelf no matter what happened before." },
     ],
   },
   {
@@ -195,6 +282,18 @@ def place_order(order, card):
     questions: [
       { q: "Why does Thunder show code here instead of a sentence?", a: "A sentence like \"Returns a computed value\" would only repeat the code without explaining it. Thunder shows the code, dashed, so you know it was not explained, rather than reading a sentence that sounds helpful but says nothing." },
       { q: "Which label would an AI-written explanation get, and how would it look?", a: "AI summary, with a dashed outline, always placed above the exact reading, never instead of it. It helps you understand; it is never the evidence." },
+    ],
+  },
+  {
+    slug: "your-code",
+    title: "Use Thunder on your own code",
+    idea: "You can read any program in Thunder now: in your browser, in your terminal, in your editor, or a whole app in OpenThunder. Pick the one that fits what you are doing.",
+    picture: "A pair of glasses that works on any book. Put them on wherever you are reading.",
+    files: [],
+    show: "howto",
+    questions: [
+      { q: "You want to understand one file someone sent you. Which is fastest?", a: "Semantic Zoom or Thunder Code in your browser: paste the code and read it. Nothing is installed and nothing leaves your browser." },
+      { q: "Your team rewrote a service from Python to Java. How do you check nothing changed?", a: "thunder same old-folder new-folder. It reads both, runs every rule on its edge cases, compares the steps, and shows any difference with an example." },
     ],
   },
 ];

@@ -6,19 +6,47 @@ import { readCode } from '../src/read.mjs';
 import { thunderText, visualFor, visualForStep } from '../src/visual.mjs';
 import { previewPlainContract } from '../src/plain-contract.mjs';
 import { READ_LESSONS } from '../../src/app/learn/read-lessons.mjs';
+import { thunderModel, modelText } from '../src/model.mjs';
 
 const squash = (s) => s.replace(/[_\s]/g, '').toLowerCase();
 const lesson = (slug) => READ_LESSONS.find((l) => l.slug === slug);
 const itemOf = (l, i = 0) => readCode(l.files[i].code, { language: l.files[i].language }).items.find((it) => squash(it.name) === squash(l.focus));
 const flat = (steps) => steps.flatMap((s) => [s, ...flat(s.children || [])]);
 
-test('every lesson has an idea, a picture, two questions with answers, and code that contains its function', () => {
-  assert.equal(READ_LESSONS.length, 7);
+const MODEL_LESSONS = new Set(['shapes', 'thing', 'flow', 'howto']);
+
+test('every lesson has an idea, a picture, two questions with answers, and code that contains what it teaches', () => {
+  assert.equal(READ_LESSONS.length, 11);
   for (const l of READ_LESSONS) {
     assert.ok(l.idea && l.picture, l.slug);
     assert.ok(l.questions.length >= 2 && l.questions.every((q) => q.q && q.a), l.slug);
+    if (MODEL_LESSONS.has(l.show)) continue;
     for (let i = 0; i < l.files.length; i++) assert.ok(itemOf(l, i), `${l.slug}: ${l.files[i].label} has ${l.focus}`);
   }
+});
+
+const libraryModel = () => thunderModel(lesson('things').files.map((f) => ({ path: 'lesson.py', source: f.code })));
+
+test('lesson 3 (Things): the Library knows max books (3 unless told otherwise) and an overflow pile; Book and Status are Data', () => {
+  const m = libraryModel();
+  const lib = m.things.find((t) => t.name === 'Library');
+  assert.equal(lib.kind, 'thing');
+  assert.deepEqual(lib.knows.map((k) => [k.label, k.start]), [['max books', '3 unless told otherwise'], ['overflow', 'empty at first']]);
+  assert.deepEqual(m.things.filter((t) => t.kind !== 'thing').map((t) => [t.name, t.kind]), [['Status', 'choices'], ['Book', 'record']]);
+});
+
+test('lesson 4 (flow): return_book shows the Stop, both sides of the late question, the error case, and always', () => {
+  const m = libraryModel();
+  const text = modelText(m, m.members.find((x) => x.name === 'return_book').id);
+  assert.match(text, /Ask: Is book in the student's books\?/);
+  assert.match(text, /No:\n\s+- Stop: NotBorrowed/);
+  assert.match(text, /Ask: Is days late more than 0\?[^\n]*\n\s+Yes:\n\s+- Works out fee from late fee/);
+  assert.match(text, /No:\n\s+- Adds 1 to the student's thanks/);
+  assert.match(text, /If ShelfFull goes wrong:\n\s+- Adds book to overflow/);
+  assert.match(text, /Always, at the end:\n\s+- Sets the book's status to on shelf/);
+  // The quiz answer: 3 days late gives a Small fee.
+  const fee = m.members.find((x) => x.name === 'late_fee');
+  assert.equal(fee.flow.nodes.find((n) => n.answer && !n.otherwise).text, 'Small fee');
 });
 
 test('lesson 1: order_total reads fully as steps a non-programmer can say back', () => {
