@@ -313,9 +313,60 @@ for (const item of items) {
 THUNDER_VISUAL.colors.pass.hex;   // '#34D399', for checks that passed and nothing else
 ```
 
-## 12. What comes next
+## 12. The whole application: where it runs and how it ships (design)
 
-In the order OpenThunder needs them for Read in Thunder:
+An application is more than its source code. It is also where it runs (containers, servers, databases, networks,
+permissions, settings) and how it is built, tested, and released (pipelines, build scripts). Thunder explains all
+of it, in the same shapes and the same five reading levels, so a person who inherits a system can understand the
+whole of it without learning each format first.
+
+| Category | The question | Formats, in the order Thunder reads them |
+| --- | --- | --- |
+| **Application** | What does the software do? | the programming languages in section 9 |
+| **Infrastructure and configuration** | Where and how does it run? | Dockerfile; Terraform/HCL and Bicep; Kubernetes and Docker Compose YAML; Helm; ARM JSON and CloudFormation; Ansible; JSON/YAML/TOML settings |
+| **Automation and delivery** | How is it built, tested, and released? | GitHub Actions; Azure Pipelines; Makefiles and build scripts (shell and PowerShell are read as languages) |
+
+### New elements
+
+| Element | Shape | What it is | Where it comes from | Thunder Text |
+| --- | --- | --- | --- | --- |
+| **Resource** | a block (new symbol) | Something that exists when the app runs: a container image, an app service or server, a database, a storage account, a queue, a key vault, a network. Like a Thing, it **knows** its settings (name, size, region, version). | Terraform and Bicep `resource`; Kubernetes Deployment, Service, ConfigMap; Compose services; the image a Dockerfile builds; ARM and CloudFormation resources | `Resource <name> (<kind>)` then `It knows` |
+| **Connection** | a line between resources | Uses, runs inside, reads from, sends to. | `depends_on`, references (`azurerm_app_service.app.id`), environment values that name another service, Kubernetes selectors | `<A> uses <B>` |
+| **Permission** | a key (new symbol) | Who can do what to which resource. It reads as a Rule: "The app can read secrets in the key vault." Wide permissions ("Owner of the whole subscription") are called wide. | role assignments (Bicep, Terraform), IAM policies, Kubernetes RBAC, a workflow's `permissions:` | `<who> can <what> on <resource>` |
+| **Setting** | Data | A value the app or the infrastructure is given: name, default, and where it comes from (a parameter, a variable, a secret, written in the file). A secret is only ever named, never shown. | parameters, variables, environment variables, outputs | `Setting <name>: <where it comes from>` |
+| **Pipeline** | an Action with a "when" badge | Automation: **when** it runs (a trigger), then its jobs as Steps cards, in order. | GitHub Actions `on:`/`jobs:`, Azure Pipelines `trigger:`/`stages:`, Makefile targets | `When someone pushes to main` then steps |
+| **Image build** | Steps | How an app is packaged and started: "Starts from node:22-slim", "Copies the package files", "Installs what it needs", "Opens port 3000", "Starts with npm start". The image it makes is a Resource. | Dockerfile (each stage of a multi-stage build is its own Steps card) | `What the image build does` then steps |
+
+Steps inside a pipeline read the way the language they are written in reads: a `run:` block is read as shell or
+PowerShell, and well-known actions read in words (`actions/checkout`: "Gets the code"; `actions/setup-node` with
+`node-version: 22`: "Sets up Node 22"; `npm publish`: "Publishes the package to npm"). A job's `needs:` is its order,
+its `if:` is a question, a failing step is a Stop, and an environment that needs approval is a Stop until someone
+approves it.
+
+### The five reading levels, for infrastructure and delivery
+
+| Level | What it shows |
+| --- | --- |
+| **Big Picture** | The resources and how they connect, as a map; the permissions as keys on it; the settings each one is given. For a pipeline: when it runs and its jobs. |
+| **Flow** | A pipeline's or an image build's path, with its questions and Stops. For declarative infrastructure: the order things are created, from their connections. |
+| **Details** | One resource's settings, what it can do and who can do what to it, which secrets it uses (by name), and what it relies on. For a pipeline job: every step, what it publishes or deploys, and every way it can stop. |
+| **Text** | Thunder Text, as for code. |
+| **Original** | The exact lines of the file. |
+
+### Honest by design, again
+
+- Thunder reads **files**, not the live cloud. What is actually running may differ; Thunder says so instead of
+  guessing.
+- **Secret values are never shown**, only their names and where they come from.
+- A value that is worked out when the infrastructure is applied (a reference, a function, a loop) is shown as
+  "worked out when it is applied", with the original one click away.
+- Unknown resource kinds are still drawn as Resources, with their type written as it is (`azurerm_foo_bar`), never
+  dropped.
+
+## 13. What comes next
+
+In the order OpenThunder needs them for Read in Thunder (the whole-application formats in section 12 follow
+their own order there):
 
 1. **Actions everywhere:** routes on every handler, including routes registered in another file
    (`r.Post("/orders", h.CreateOrder)`), Go and Rust frameworks, Rails routes, and screens.
