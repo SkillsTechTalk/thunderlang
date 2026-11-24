@@ -9,7 +9,7 @@
 //   return cond ? X : Y   (nested ternaries)  Python: return X if cond else Y
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
-import { stepsFrom, braceStatements, indentStatements } from './steps.mjs';
+import { stepsFrom, braceStatements, indentStatements, plainEnums } from './steps.mjs';
 import { compileExpr, simplifyExpr } from './expr.mjs';
 import { extractFacts, languageForFile } from './lift.mjs';
 
@@ -1653,7 +1653,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     // A bare yes/no property (`order.refunded`) already reads as a sentence from the step itself; keep it.
     const bareProperty = /^(not\s+|!)?(?:self\.|this\.)?\w+\.\w+(\(\))?$/.test(st.cond.trim()) && !/\./.test(st.says.replace(/\(\d+ steps? inside\)$/, ''));
     const cond = bareProperty ? null : toThunderCondition(st.cond, names);
-    if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${sayCondition(cond).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
+    if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
     delete st.cond; delete st.negate;
   }
   return r;

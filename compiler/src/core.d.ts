@@ -12,6 +12,7 @@ export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from './visual.mjs';
+export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, flowOf, ruleFlow, askAsQuestion, stepDoes } from './model.mjs';
 export type { ColorRole, ElementKind, Provenance as VisualProvenance, Visual } from './visual.mjs';
 export { PLAIN_SCHEMA, PlainModel, PlainPreview, PlainExplanation, parsePlainContract, renderPlainContract, plainToThunder, compilePlainContract, previewPlainContract, explainPlain } from './plain-contract.mjs';
 

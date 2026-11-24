@@ -1,5 +1,28 @@
 # Unreleased
 
+**Semantic Zoom: one model, read from the big picture down to one decision.**
+- **`thunder-model-v1`** (`thunderModel(files)`, `/core`): the one meaning every Thunder view is drawn from.
+  Things (classes: what they know and how they start, what they can do), Data (records and choices, from
+  dataclasses, pydantic, TypeScript interfaces, enums), members (actions, rules, steps, setup) with their **flow as
+  a graph** (start, questions with Yes/No sides, steps, loops, stops, answers), links between members ("Can borrow?"
+  opens the rule it uses), source lines, and every unknown. Python and TypeScript classes today; other languages
+  list their classes as unknowns and still read every function.
+- Questions are asked the positive way round for a kid: `if book.status != Status.ON_SHELF: raise` becomes "Is the
+  book's status on shelf?" with the Stop on **No**. A call to a rule is asked by the rule's own name ("Can
+  borrow?"). Rules are drawn as questions in order, each Yes giving its answer in words ("No fee"), otherwise the
+  fallback.
+- **`modelText(model, id)`**: Thunder Text projected from the same model nodes as the picture, so the two views
+  cannot disagree.
+- **Thunder symbols as data** (`THUNDER_VISUAL.symbols`, `does`, `beginner`): one shape per kind of thing (Thing,
+  Data, Record, Choices, Action, Rule, Steps, Starts with, Stop, Not read yet, App, Area, File) as SVG path data, and
+  what each step does in a kid's words (find, keep only, check, ask, work out, save, tell someone, ask another
+  part, for each, give back, stop). Six are beginner concepts.
+- Wording: enum values read as words (`Status.ON_SHELF` is "on shelf"); `book.status = …` is "Sets the book's
+  status"; `self.max_books = max_books` is "Keeps the max books it is given"; `student.books.append(book)` is "Adds
+  book to student's books".
+- Site: `/zoom`, Semantic Zoom (preview): How deep (Big picture, Flow, Details) and Show as (Thunder, Thunder Text,
+  Original), breadcrumbs, the symbols, Try the rule (runs the rule as read), and line links to the original.
+
 **Thunder V1: the Thunder Programming Language.** Thunder is a human-native programming language: people work
 with the meaning of software while machines handle most of the implementation. Specified in `docs/spec.md`,
 which replaces the mission specification draft v0.2 (kept as `docs/spec-v0.2.md`).

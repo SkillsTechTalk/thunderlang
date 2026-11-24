@@ -48,6 +48,7 @@ export const learnNav: NavItem[] = [
   { href: "/language", label: "The Thunder language" },
   { href: "/install", label: "Install" },
   { href: "/learn", label: "Tutorial" },
+  { href: "/zoom", label: "Semantic Zoom (preview)" },
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
   { href: "/docs/thunder-vocabulary", label: "Thunder vocabulary" },

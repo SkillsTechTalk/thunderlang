@@ -18,9 +18,12 @@ const KNOWN_CALLS = [
   { re: /^(?:log|logger|console|logging|fmt|Log|System\.out|println|print|puts|echo|printf)\b/i, say: () => 'Writes a log or message' },
 ];
 
+/** Enum values read as words: Status.ON_SHELF -> "on shelf", Color.RED -> "red". */
+export const plainEnums = (text) => String(text).replace(/\b[A-Z][A-Za-z0-9]*\.([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\b(?!\s*\()/g, (m, v) => (v.length > 1 && v === v.toUpperCase() ? words(v) : m));
+
 /** A condition as words when it can't be fully translated: c.ctx == nil -> "c.ctx is empty". */
 export function sayCodeCondition(cond) {
-  let c = String(cond).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
+  let c = plainEnums(String(cond)).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
   while (c.startsWith('(') && matchingClose(c, 0) === c.length - 1) c = c.slice(1, -1).trim();
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
   const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
@@ -52,7 +55,7 @@ const lastWords = (path) => words(String(path).split('.').pop());
 function targetWords(path) {
   const parts = String(path).replace(/^@+/, '').replace(/#/g, '').replace(/\[.*$/, '').split('.').filter((p) => !/^(this|self)$/.test(p));
   if (parts.length <= 1) return words(parts[0] || path);
-  return `${words(parts[parts.length - 1])} on ${words(parts[parts.length - 2])}`;
+  return `the ${words(parts[parts.length - 2])}'s ${words(parts[parts.length - 1])}`;
 }
 
 function callee(text) {
@@ -73,6 +76,7 @@ function firstArgs(text) {
 }
 
 function sayValue(expr) {
+  if (/^[A-Z][A-Za-z0-9]*\.[A-Z][A-Z0-9_]+$/.test(stripTail(expr))) return plainEnums(stripTail(expr));
   const e = stripTail(expr).replace(/\s+as\s+[\w.<>\[\]|, ]+$/, '');
   const py = sayPython(e);
   if (py) return py;
@@ -274,6 +278,8 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:(?:const|let|var|val|final|auto|my|local)\s+)?(?:mut\s+)?([@A-Za-z_$#][\w$#.\[\]'"@]*?(?:\s*,\s*[@A-Za-z_$#][\w$#.@]*)*)(?:\s*:\s*[\w<>\[\]?, .|]+)?\s*(:=|\+=|-=|\*=|\/=|\|\|=|\?\?=|=)(?!=)\s*(.*)$/)) && !/^(?:if|for|while|return)\b/.test(head)) {
     const target = m[1].split(/\s*,\s*/).map(targetWords).join(', ');
     const value = stripTail(m[3]);
+    // self.max_books = max_books: the Thing keeps what it was given.
+    if (m[2] === '=' && /^[A-Za-z_]\w*$/.test(value) && m[1].split('.').pop() === value && /^(self|this)\./.test(m[1])) return { kind: 'set', says: `Keeps the ${words(value)} it is given`, code };
     const chain = value ? (sayPython(value) || sayChain(value)) : null;
     if (chain) return { kind: 'set', says: `Works out ${target}: ${chain}`, code };
     const common = value ? sayCommon(m[3].trim().replace(/;$/, '')) || sayCommon(value) : null;
@@ -294,7 +300,12 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   }
   // Calls
   if ((m = head.match(/^([\w$.]+)\.(?:set|Set|put|setdefault|Add)\(\s*["'`]([\w.\-: ]{1,40})["'`]\s*,/))) return { kind: 'call', says: `Sets "${m[2]}" on ${lastSeg(m[1])}`, code, callee: `${m[1]}.set` };
-  if ((m = head.match(/^([\w$.]+)\.(?:append|push|add|Add|insert|appendleft|extend)\(/)) && !/^(?:db|session|repo|conn|cursor)\b/.test(m[1])) return { kind: 'call', says: `Adds to ${lastSeg(m[1])}`, code, callee: m[1] };
+  if ((m = head.match(/^([\w$.]+)\.(?:append|push|add|Add|insert|appendleft|extend)\(\s*([\w$.]*)\s*\)?/)) && !/^(?:db|session|repo|conn|cursor)\b/.test(m[1])) {
+    // "student.books.append(book)" -> "Adds book to student's books"
+    const owner = m[1].split('.').filter((p) => !/^(self|this)$/.test(p));
+    const where = owner.length > 1 ? `${words(owner[owner.length - 2])}'s ${words(owner[owner.length - 1])}` : words(owner[0] || m[1]);
+    return { kind: 'call', says: m[2] && /^[A-Za-z_][\w$]*$/.test(m[2]) ? `Adds ${words(m[2])} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
+  }
   const c = callee(head);
   if (c) {
     const known = sayCall(c, firstArgs(head));
