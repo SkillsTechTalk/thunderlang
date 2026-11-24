@@ -347,7 +347,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         if (st.children?.length && st.nested) {
           // An inner function (a hook, a callback, go/defer, a closure) runs on its own: its steps are its own
           // sub-flow, and a return or stop inside it ends only that function. The outer flow carries on from here.
-          const inner = walk(st.children, [{ id: k }], lane + 1);
+          const inner = walk(st.children, [{ id: k, label: 'nested' }], lane + 1);
           blocks.push({ id: k, body: inner.blocks, nested: true });
         } else if (st.children?.length) {
           const inner = walk(st.children, open, lane + 1);

@@ -33,6 +33,7 @@ test('a React effect is its own sub-flow: its early return does not stop the com
   assert.deepEqual(mem.youGive, ['user id', 'name']);
   const effect = mem.flow.blocks.find((b) => b.nested);
   assert.ok(effect, 'the effect is marked as an inner function');
+  assert.deepEqual(mem.flow.edges.filter((e) => e.from === effect.id).map((e) => e.label).sort(), [undefined, 'nested'].sort(), 'one edge into its own steps (nested), one on to the next step');
   const save = mem.flow.nodes.find((n) => /save/i.test(n.text));
   assert.deepEqual(mem.flow.edges.filter((e) => e.to === save.id).map((e) => e.from), [effect.id], 'save always follows the effect step');
   const d = readLevel(m, 'details', mem.id);
