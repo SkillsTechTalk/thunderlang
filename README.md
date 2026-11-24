@@ -143,7 +143,8 @@ The compiler is deterministic (no AI, no key, no network) and explains its findi
 
 Some rules don't need code generated at all: a decision evaluates against inputs, a lifecycle simulates against
 events, and an outcome contract is judged against a result. Start with
-[Getting started](./docs/getting-started.md) or the [10-minute tutorial](https://thunderlang.dev/learn).
+[Getting started](./docs/getting-started.md) or the [10-minute tutorial](https://thunderlang.dev/learn). To learn Thunder
+and ThunderLang in depth, take the [full course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
 
 ## Words we use
 

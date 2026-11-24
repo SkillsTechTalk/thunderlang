@@ -43,11 +43,15 @@ export const mainNav: NavItem[] = [
 
 export const OPENTHUNDER_URL = "https://openthunder.dev";
 
+// Where to send people who want to learn Thunder in depth: the full course on Skills Tech Talk.
+export const LEARN_COURSE_URL = "https://app.skillstechtalk.com/learn/technology/t/thunderlang";
+
 // Reading + reference surfaces, grouped under the "Learn" dropdown to keep the header lean.
 export const learnNav: NavItem[] = [
   { href: "/language", label: "The Thunder language" },
   { href: "/install", label: "Install" },
   { href: "/learn", label: "Tutorial" },
+  { href: LEARN_COURSE_URL, label: "Full course ↗" },
   { href: "/zoom", label: "Semantic Zoom (preview)" },
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
@@ -66,6 +70,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Language",
     items: [
       { href: "/learn", label: "Tutorial" },
+      { href: LEARN_COURSE_URL, label: "Full course ↗" },
       { href: "/read", label: "Thunder Code" },
       { href: "/map", label: "Thunder Atlas" },
       { href: "/vision", label: "Vision" },
