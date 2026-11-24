@@ -196,7 +196,9 @@ function sayCodeConditionInner(cond) {
   }
   if ((call = c.match(/^(!|not\s+)?(?:(?:self|this)\.)?((?:is|has|can|should|was|are|does)[A-Z_]\w*)\s*\([^()]*\)$/))) {
     const w = words(call[2]);
-    return call[1] ? `not: ${w}` : w;
+    // "not: " is kept for `unless` (it flips the whole question); a negated call says its own "not".
+    if (!call[1]) return w;
+    return w.replace(/^(is|was|are|should) /, '$1 not ').replace(/^(has) /, 'does not have ').replace(/^(can) /, 'cannot ').replace(/^(does) /, 'does not ');
   }
   // A plain name or property path used as a yes/no: `if proxy` -> "proxy is set"; `not url.host` -> "the url's host is not set".
   const bare = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)$/);
