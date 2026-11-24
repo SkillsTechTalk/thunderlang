@@ -29,6 +29,24 @@ are C++; a `.h` is C unless it uses classes, namespaces, templates, or `::` (C++
   takes the source to decide a `.h`.
 - thunderlang.dev says fourteen languages; /read has C, C++, and Swift samples, and the Original view colors them.
 
+**Language: C, C++, and Swift held to the faithfulness bar.** This branch now carries the faithfulness gate
+(merged from fix/faithfulness; `faithful.mjs` unchanged) and fixes every false or misleading reading found in a hand
+review of fmt, nlohmann/json, redis, Alamofire, and vapor (see docs/accuracy.md, "C, C++, and Swift"):
+- **Text with values inside** (docs/spec.md): `printf`/`fprintf`/`snprintf`, `fmt::print`, `cout <<`, and Swift
+  interpolation keep every literal character and show each value as a «placeholder» (`"«dir»/alias «n»\n"`,
+  `«x as %5.2f»`); text whose values cannot be paired is shown as code.
+- C/C++: macros in front of a return type are dropped (`FMT_CONSTEXPR void` gives back nothing; `auto f() -> T`
+  gives back T); `using` is no step; `*p = v` "Writes v where p points"; `+=` of a call adds; bit operators,
+  statement ternaries, and multi-name declarations are code; brace-less `for`/`while`/`if` (also nested, `++q`,
+  `*err = …`, `[[unlikely]]`) keep their bodies on the right side; `events[i].mask` and `c->argv[j]->ptr` keep their
+  index; `p != nullptr` and `!strcmp(a, b)` pass the gate; steps under `#if`/`#elif`/`#else` say which build runs
+  them; a block starting `p->x = …` is no longer cut as a lambda parameter; goto labels keep their names.
+- Swift: a one-expression body (also a switch or if/else body, a trailing closure, a Vapor route closure) gives back
+  its value; `[Character]` parameters are inputs; a String property is never a yes/no rule; `Logger(…)` and Apple C
+  functions (`SecPolicyCreateSSL`) are not "writes a message"/"a new"; `guard case .x = event` asks about event;
+  `T.self is String.Type`; `for _ in xs`; code shown "not explained" is exactly as written.
+- Regression tests: `test/faithfulness-c.test.mjs`, `-cpp`, `-swift` (one per false or misleading sample).
+
 **Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
 review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
 misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep

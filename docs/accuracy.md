@@ -85,6 +85,32 @@ with `Object.defineProperty`, a returned anonymous class (Gson), a returned stre
 behind "the result of pipe through" (ky), and a Go `ctx` input left out as plumbing. Each sample's regression test is
 in `compiler/test/faithfulness-*.test.mjs`.
 
+## C, C++, and Swift
+
+Hand review (same samples before and after; C from a 43-file redis `src/` subset, C++ from fmt and nlohmann/json,
+Swift from Alamofire and vapor; Python/JavaScript files in those repositories not counted):
+
+| | accurate (A) | vague (B) | misleading (C) | false (D) |
+|---|---|---|---|---|
+| C, before (22) | 3 | 4 | 7 | 8 |
+| C, after | 10 | 12 | 0 | 0 |
+| C++, before (39) | 5 | 11 | 10 | 13 |
+| C++, after | 15 | 24 | 0 | 0 |
+| Swift, before (38) | 10 | 8 | 18 | 2 |
+| Swift, after | 16 | 22 | 0 | 0 |
+
+Fresh samples drawn after the first round of fixes (57, not used to write the fixes) found 3 more false and 5
+misleading Swift readings (a String property read as a rule, `Logger(…)` as "writes a message", a tuple as
+"whether"; array inputs, switch / if-expression / route bodies not giving back); after the second round none of
+them is C or D. Each is a test in `compiler/test/faithfulness-{c,cpp,swift}.test.mjs`.
+
+Automatic numbers (before → after): steps explained fmt 86.6 → 83.9%, json 88.7 → 87.2%, redis 95.9 → 93.6%,
+Alamofire 93.8 → 92.6%, vapor 91.6 → 90.8% (the gate shows code instead of false words); steps with an invented value
+json 68 → 8, redis 44 → 12, vapor 36 → 32 (vapor's are status numbers from `.notFound`-style names, a checker
+artifact); inputs shown Alamofire 91.3 → 91.8%, vapor 67.5 → 71.4% (the earlier 61% / 37% came from the checker
+taking Swift's external labels, `to request:`, as names); endings shown vapor 93.6 → 96.3%. Text with values inside
+is checked with its «placeholders» removed: every literal part must appear in the code.
+
 ## What the numbers say
 
 - **No false readings in the re-graded sample, and no changed answers.** Every condition keeps its polarity or is
