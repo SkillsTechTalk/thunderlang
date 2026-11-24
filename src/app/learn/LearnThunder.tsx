@@ -6,14 +6,78 @@ import { useState } from "react";
 import Link from "next/link";
 import { StepsView, type Step } from "@/app/try/StepsView";
 import { PlainRuleCard } from "@/app/try/PlainRuleCard";
+import { Symbol, ThingCard, DataCard, FlowBlocks } from "@/components/thunder/ThunderParts";
+import { THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
+import type { ThunderModel } from "../../../compiler/src/model.d.mts";
+
+type SymbolId = keyof typeof THUNDER_VISUAL.symbols;
+
+/** Lesson: the six shapes a beginner learns first, then the rest, drawn from the grammar's own symbols. */
+function Shapes() {
+  const all = Object.entries(THUNDER_VISUAL.symbols) as [SymbolId, (typeof THUNDER_VISUAL.symbols)[SymbolId]][];
+  const first = THUNDER_VISUAL.beginner as SymbolId[];
+  return (
+    <div className="space-y-6">
+      <ul aria-label="The six shapes" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {first.map((id) => { const s = THUNDER_VISUAL.symbols[id]; return (
+          <li key={id} className="flex items-start gap-4 rounded-2xl border border-white/12 bg-ink-850/40 p-5">
+            <Symbol id={id} size={48} label={s.name} />
+            <div><p className="text-lg font-semibold text-white">{s.name}</p><p className="mt-1 text-sm leading-relaxed text-haze-300">{s.says}</p></div>
+          </li>); })}
+      </ul>
+      <div>
+        <p className="text-sm text-haze-400">More shapes you&apos;ll meet later:</p>
+        <ul className="mt-3 flex flex-wrap gap-3">
+          {all.filter(([id]) => !first.includes(id)).map(([id, s]) => <li key={id} className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-haze-200"><Symbol id={id} size={22} />{s.name}</li>)}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Lesson: how to use Thunder on your own code. */
+function HowTo() {
+  const ways = [
+    { title: "Semantic Zoom", where: "In your browser", what: "Paste code and read it at three depths: big picture, flow, details.", href: "/zoom", cta: "Open Semantic Zoom" },
+    { title: "Thunder Code", where: "In your browser", what: "Paste a file in any of ten languages and read every function in Thunder.", href: "/read", cta: "Open Thunder Code" },
+    { title: "OpenThunder", where: "A whole app", what: "Open a repository and read it in Thunder, from the app down to one rule, then change it safely.", href: "https://openthunder.dev", cta: "Open OpenThunder ↗" },
+  ];
+  const commands = [
+    ["npm install -g @skillstech/thunderlang", "Install the Thunder compiler (once)."],
+    ["thunder read checkout.py", "Read one file in Thunder."],
+    ["thunder thunderize ./my-app --out ./my-app-thunder", "Write a whole app in Thunder Text, one file per file, plus APP.thunder-text."],
+    ["thunder same ./old ./new", "Check that converted or refactored code still means the same."],
+  ];
+  return (
+    <div className="space-y-6">
+      <ul className="grid gap-4 lg:grid-cols-3">
+        {ways.map((w) => (
+          <li key={w.title} className="flex flex-col rounded-2xl border border-white/12 bg-ink-850/40 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">{w.where}</p>
+            <p className="mt-1 text-lg font-semibold text-white">{w.title}</p>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-haze-300">{w.what}</p>
+            {w.href.startsWith("http") ? <a href={w.href} className="mt-4 text-sm font-medium text-gold-200 hover:text-gold-100">{w.cta}</a> : <Link href={w.href} className="mt-4 text-sm font-medium text-gold-200 hover:text-gold-100">{w.cta} →</Link>}
+          </li>
+        ))}
+      </ul>
+      <div className="rounded-2xl border border-white/12 p-5">
+        <p className="text-sm font-semibold text-white">In your terminal</p>
+        <ul className="mt-3 space-y-3">{commands.map(([c, d]) => <li key={c}><code className="block overflow-x-auto rounded-lg bg-black/40 px-3 py-2 font-mono text-[13px] text-haze-100">{c}</code><p className="mt-1 text-sm text-haze-300">{d}</p></li>)}</ul>
+        <p className="mt-4 text-sm text-haze-400">In VS Code, install the ThunderLang extension (openthunder.thunderlang) for colors, errors, and hover help in Thunder files.</p>
+      </div>
+    </div>
+  );
+}
 
 type Visual = { element: string; line: "solid" | "dashed"; title: string; badge?: { text: string } };
 type View = { label: string; code: string; visual: Visual; steps: Step[]; doc: string | null; text: string; cardSource: string | null };
 export type BuiltLesson = {
   slug: string; title: string; idea: string; picture: string;
-  show: "steps" | "card" | "compare" | "text" | "honest";
+  show: "steps" | "card" | "compare" | "text" | "honest" | "shapes" | "thing" | "flow" | "howto";
   questions: { q: string; a: string }[];
   views: View[];
+  /** Model-drawn lessons (a Thing, or one member's flow). */
+  model?: ThunderModel; focusId?: string; text?: string; code?: string; codeLabel?: string;
 };
 
 const STEP_LEGEND: [string, string, string][] = [
@@ -104,7 +168,7 @@ export function LearnThunder({ lessons }: { lessons: BuiltLesson[] }) {
   const [index, setIndex] = useState(0);
   const [tab, setTab] = useState(0);
   const lesson = lessons[index];
-  const view = lesson.views[Math.min(tab, lesson.views.length - 1)];
+  const view = lesson.views.length ? lesson.views[Math.min(tab, lesson.views.length - 1)] : null;
   const go = (next: number) => { setIndex(next); setTab(0); if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
@@ -150,12 +214,42 @@ export function LearnThunder({ lessons }: { lessons: BuiltLesson[] }) {
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-2">
+        {lesson.show === "shapes" && <Shapes />}
+        {lesson.show === "howto" && <HowTo />}
+        {(lesson.show === "thing" || lesson.show === "flow") && lesson.model && lesson.focusId && (() => {
+          const model = lesson.model!;
+          const member = model.members.find((m) => m.id === lesson.focusId);
+          const thing = model.things.find((t) => t.id === lesson.focusId);
+          return (
+            <>
+              <div className="grid gap-6 xl:grid-cols-2">
+                <Code code={lesson.code ?? ""} label={lesson.codeLabel ?? ""} />
+                <div className="space-y-4">
+                  <div className="mb-1 flex flex-wrap items-center gap-2 text-sm font-medium text-haze-300">Thunder <Chip>From code</Chip></div>
+                  {thing && <ThingCard t={thing} model={model} />}
+                  {thing && <div className="grid gap-3 sm:grid-cols-2">{model.things.filter((t) => t.kind !== "thing").map((t) => <DataCard key={t.id} t={t} />)}</div>}
+                  {member && (
+                    <div className="rounded-2xl border border-white/10 bg-ink-850/40 p-5">
+                      <p className="text-xs text-haze-400">{model.things.find((t) => t.id === member.owner)?.label ?? ""} can</p>
+                      <p className="text-xl font-bold text-white">{member.label}</p>
+                      {member.doc && <p className="mt-2 text-sm text-haze-300"><span className="text-haze-400">Author&apos;s note:</span> “{member.doc}”</p>}
+                      {member.youGive.length > 0 && <p className="mt-2 text-sm"><span className="mr-2 text-xs font-semibold uppercase tracking-wider text-haze-400">You give it</span><span className="text-[#FCD34D]">{member.youGive.join(", ")}</span></p>}
+                      <div className="mt-4"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={() => {}} onLine={() => {}} model={model} /></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <ThunderText text={lesson.text ?? ""} />
+            </>
+          );
+        })()}
+
+        {view && <div className="grid gap-6 xl:grid-cols-2">
           <Code code={view.code} label={view.label} />
           {lesson.show === "text"
             ? <ThunderText text={view.text} />
             : <Picture view={view} lessonSlug={`${lesson.slug}-${tab}`} />}
-        </div>
+        </div>}
 
         {lesson.show === "compare" && (
           <p className="rounded-xl border border-white/10 p-4 text-sm text-haze-200">
@@ -163,8 +257,8 @@ export function LearnThunder({ lessons }: { lessons: BuiltLesson[] }) {
             is built; if the four ever disagreed, the page would not be published.
           </p>
         )}
-        {lesson.show === "text" && <Picture view={view} lessonSlug={`${lesson.slug}-picture`} />}
-        {(lesson.show === "steps" || lesson.show === "honest") && <ThunderText text={view.text} />}
+        {lesson.show === "text" && view && <Picture view={view} lessonSlug={`${lesson.slug}-picture`} />}
+        {(lesson.show === "steps" || lesson.show === "honest") && view && <ThunderText text={view.text} />}
 
         <Questions questions={lesson.questions} slug={lesson.slug} />
 

@@ -71,6 +71,8 @@ export function sayCodeCondition(cond) {
     .replace(/\bis not None\b/g, 'is set').replace(/\bis None\b/g, 'is empty')
     .replace(/\s*(===|==)\s*/g, ' is ').replace(/\s*(!==|!=)\s*/g, ' is not ')
     .replace(/\s*&&\s*/g, ' and ').replace(/\s*\|\|\s*/g, ' or ')
+    // Membership: `book not in student.books` -> "book is not in student.books".
+    .replace(/\s+not\s+in\s+/g, ' is not in ').replace(/(?<!\bis(?: not)?)\s+in\s+(?=[\w$])/g, ' is in ')
     // Comparisons as words; `->` and `=>` are never comparisons.
     .replace(/\s+<=\s+/g, ' is at most ').replace(/\s+>=\s+/g, ' is at least ').replace(/\s+<\s+/g, ' is less than ').replace(/(?<![-=])\s+>\s+/g, ' is more than ')
     .replace(/(^|[\s(])!(?=[\w(])/g, '$1not ').replace(/\s+/g, ' '), 70);
@@ -371,6 +373,11 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   }
   // Calls
   if ((m = head.match(/^([\w$.]+)\.(?:set|Set|put|setdefault|Add)\(\s*["'`]([\w.\-: ]{1,40})["'`]\s*,/))) return { kind: 'call', says: `Sets "${m[2]}" on ${lastSeg(m[1])}`, code, callee: `${m[1]}.set` };
+  if ((m = head.match(/^([\w$.]+)\.(?:remove|Remove|discard|delete|pop)\(\s*([\w$]+)\s*\)/)) && !/^(?:db|session|repo|conn|cursor)\b/.test(m[1])) {
+    const owner = m[1].split('.').filter((p) => !/^(self|this)$/.test(p));
+    const where = owner.length > 1 ? `${words(owner[owner.length - 2])}'s ${words(owner[owner.length - 1])}` : words(owner[0] || m[1]);
+    return { kind: 'call', says: `Removes ${words(m[2])} from ${where}`, code, callee: m[1] };
+  }
   if ((m = head.match(/^([\w$.]+)\.(?:append|push|add|Add|insert|appendleft|extend)\(\s*([\w$.]*)\s*\)?/)) && !/^(?:db|session|repo|conn|cursor)\b/.test(m[1])) {
     // "student.books.append(book)" -> "Adds book to student's books"
     const owner = m[1].split('.').filter((p) => !/^(self|this)$/.test(p));
