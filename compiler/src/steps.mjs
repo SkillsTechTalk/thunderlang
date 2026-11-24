@@ -312,6 +312,8 @@ function callee(text) {
   return name.replace(/<[^()]*?>/g, '').replace(/\(\)/g, '').replace(/::|->/g, '.').replace(/#/g, '');
 }
 function sayCall(name, args) {
+  // A bare capitalized Swift call makes a value of that type (`Logger(label: …)` makes a logger; it does not write one).
+  if (LANG === 'swift' && /^[A-Z]\w*$/.test(name) && !/^NSLog$/.test(name)) return null;
   // In C and C++ `fmt::` is the {fmt} library (fmt::format makes text, fmt::format_to fills a buffer): only its print
   // functions write a message; std::print likewise.
   if (C_FAMILY.has(LANG) && /^(?:fmt|std)\./.test(name) && !/^(?:fmt|std)\.(?:print|println|cout|cerr)$/.test(name)) return null;
@@ -488,6 +490,8 @@ function sayWhether(expr) {
   if (!LOGIC.test(e) || /=>|\blambda\b|\s\?\s.*:/.test(e)) return null;
   // (`bin_sig << 4` shifts bits: it is not a comparison.)
   if ((C_FAMILY.has(LANG) || LANG === 'swift') && /<<|>>/.test(e.replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q'))) return null;
+  // (A Swift range `a..<b` is not a comparison, and `(a, b)` is two values, not one yes/no.)
+  if (LANG === 'swift' && (/\.\.[.<]/.test(e) || splitTopArgs(e.replace(/^\((.*)\)$/, '$1')).length > 1)) return null;
   const said = sayCodeCondition(e);
   return isCodeWords(said) ? null : `whether ${said}`;
 }
@@ -756,8 +760,8 @@ function sayNativeShape(head, text, innerNote) {
   let m;
   const swift = LANG === 'swift';
   // A label (`cleanup:`) and the goto that jumps to it.
-  if ((m = head.match(/^([A-Za-z_]\w*)\s*:$/)) && !/^(?:default|public|private|protected|else|case)$/.test(m[1]) && (C_FAMILY.has(LANG) || LANG === 'go')) return { kind: 'call', says: `The "${words(m[1])}" part starts here` };
-  if ((m = head.match(/^goto\s+([A-Za-z_]\w*)\s*;?$/))) return { kind: 'call', says: `Jumps to the "${words(m[1])}" part` };
+  if ((m = head.match(/^([A-Za-z_]\w*)\s*:$/)) && !/^(?:default|public|private|protected|else|case)$/.test(m[1]) && (C_FAMILY.has(LANG) || LANG === 'go')) return { kind: 'call', says: `The "${m[1]}" part starts here` };
+  if ((m = head.match(/^goto\s+([A-Za-z_]\w*)\s*;?$/))) return { kind: 'call', says: `Jumps to the "${m[1]}" part` };
   if (/^\[\[fallthrough\]\]\s*;?$/.test(head)) return { kind: 'call', says: 'Carries on into the next case too' };
   // do { … } while (cond) written on one line; Swift's repeat { … } while cond; Swift's do { try … } catch { … }.
   if (/^(?:do|repeat)\s*\{/.test(head)) {

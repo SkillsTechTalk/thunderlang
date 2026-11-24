@@ -58,3 +58,31 @@ test('text with values inside: Swift interpolation keeps the literal and shows e
   assert.match(t, /Writes a log or message: "Saying «s» now"/);
   assert.match(t, /Gives back "Hi «name»"/);
 });
+
+test('vapor (fresh sample) Request+Body reason: a String property holding text is not a yes/no rule', () => {
+  const t = thunderText('a.swift', 'struct F {\n    public var reason: String { "The request body could not be read: \\(self.underlying)" }\n}\n');
+  assert.doesNotMatch(t, /a rule|Answer: Yes/);
+  assert.match(t, /Gives back "The request body could not be read: «self\.underlying»"/);
+});
+
+test('vapor (fresh sample) entrypoint: `Logger(label: …)` makes a logger; it does not write a message', () => {
+  const t = thunderText('a.swift', 'struct E {\n    static func main() async throws {\n        var logger = Logger(label: "codes.vapor.app")\n        logger.logLevel = .debug\n    }\n}\n');
+  assert.match(t, /Creates a new Logger as logger/);
+  assert.doesNotMatch(t, /Writes a log or message/);
+});
+
+test('vapor (fresh sample) CharacterSet: a tuple with a range is two values, not "whether"', () => {
+  const t = thunderText('a.swift', 'struct C {\n    var invalid: [(Int, Int)] {\n        self.strings.compactMap { offset, string in\n            return (offset, idx..<scalars.index(after: idx))\n        }\n    }\n}\n');
+  assert.doesNotMatch(t, /whether offset/);
+});
+
+test('vapor (fresh sample) Directive: an input typed as an array (`[Character]`) is shown', () => {
+  const t = thunderText('a.swift', 'struct D {\n    private func firstIndex(matchingAnyOf characters: [Character]) -> Int? {\n        guard characters.isEmpty == false else { return nil }\n        return 1\n    }\n}\n');
+  assert.match(t, /You give it: characters/);
+});
+
+test('vapor (fresh sample) BasicCodingKey: a switch that is the whole body gives back each case\'s value', () => {
+  const t = thunderText('a.swift', 'enum K {\n    public var debugDescription: String {\n        switch self {\n        case .index(let index): String(reflecting: index)\n        case .key(let key): String(reflecting: key)\n        }\n    }\n}\n');
+  assert.doesNotMatch(t, /Calls string/);
+  assert.match(t, /When it is index:.*\n\s+- Gives back/);
+});

@@ -126,7 +126,9 @@ const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:
 // ── Function discovery ──────────────────────────────────────────────────────────────────────
 
 function parseParams(raw, language) {
-  raw = String(raw).replace(/#\[[^\]]*\]\s*/g, '').replace(/\[\w+(?:\([^)]*\))?\]\s*/g, ''); // #[SensitiveParameter], [FromBody]
+  raw = String(raw).replace(/#\[[^\]]*\]\s*/g, ''); // #[SensitiveParameter]
+  // C# [FromBody] attributes (in Swift `[Character]` is an array type, not an attribute).
+  if (language !== 'swift') raw = raw.replace(/\[\w+(?:\([^)]*\))?\]\s*/g, '');
   const parts = [];
   let depth = 0, cur = '';
   for (const ch of raw) {
@@ -2225,6 +2227,10 @@ function readPredicate(fn, lang, names, code) {
     if (fn.bodyStart != null) line = lineAt(code, fn.bodyStart + Math.max(0, fn.body.indexOf(m[1].trim().slice(0, 12))));
   }
   if (!expr || /^(true|false|True|False)$/.test(expr)) return null;
+  // C, C++, and Swift say what comes back: only a yes/no function is a rule (a String property is text, even when the
+  // text holds a comparison sign), and quoted text never makes a value a yes/no.
+  if (/^(?:swift|c|cpp)$/.test(lang) && fn.returns && !/^(?:Bool|bool|_Bool|boolean)\??$/.test(String(fn.returns).trim())) return null;
+  if (/^(?:swift|c|cpp)$/.test(lang) && !BOOL_RETURN.test(String(fn.returns || '').trim()) && !/^Bool\??$/.test(String(fn.returns || '').trim()) && !LOGIC_OR_COMPARE.test(expr.replace(/"(?:\\.|[^"\\])*"/g, 'Q'))) return null;
   if (!(BOOL_RETURN.test(String(fn.returns || '').trim()) || LOGIC_OR_COMPARE.test(expr) || /\?$/.test(fn.name))) return null;
   const when = toThunderCondition(expr.replace(/\?$/, ''), names);
   return when ? { rule: { when, result: 'true', line } } : null;
@@ -2317,6 +2323,16 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     return out;
   }));
   if (lang === 'c' || lang === 'cpp') markBuildOnlySteps(r.steps, fn, lang, code, srcLines);
+  // A Swift `switch` that is the whole body of a function that gives something back: each case's one expression is
+  // what comes back (`case .key(let key): String(reflecting: key)` gives back that text; it is not just a call).
+  if (lang === 'swift' && fn.returns && !/^(?:Void|\(\s*\)|Never)$/.test(String(fn.returns).trim()) && r.steps.length === 1 && r.steps[0].kind === 'branch' && /^switch\b/.test(String(r.steps[0].code || ''))) {
+    for (const arm of r.steps[0].children || []) {
+      const only = arm.children?.length === 1 ? arm.children[0] : null;
+      if (!only || only.children?.length || !/^(?:call|set|other)$/.test(only.kind) || !only.code || !swiftImplicitResult(only.code, fn.returns) || /^[\w.]+\s*=(?!=)/.test(only.code)) continue;
+      const v = withLanguage(lang, () => classifyStatement(`return ${only.code}`));
+      if (v.kind === 'return') arm.children[0] = { ...only, ...v, code: only.code };
+    }
+  }
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);

@@ -41,3 +41,9 @@ test('#ifdef: steps that only some builds run say so', () => {
   assert.match(t, /Calls use epoll \(only in builds where `#ifdef HAVE_EPOLL`\)/);
   assert.match(t, /Calls use select \(only in builds where `#else of #ifdef HAVE_EPOLL`\)/);
 });
+
+test('a goto label keeps its name exactly inside quotes (names are not turned into words inside quotes)', () => {
+  const t = thunderText('a.c', 'int f(int n) {\n    if (n < 0) goto object_first;\n    return n;\nobject_first:\n    return 0;\n}\n');
+  assert.match(t, /Jumps to the "object_first" part/);
+  assert.match(t, /The "object_first" part starts here/);
+});
