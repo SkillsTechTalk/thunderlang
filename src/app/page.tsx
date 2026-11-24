@@ -75,16 +75,16 @@ export default function HomePage() {
           <div className="animate-fade-up">
             <div className="flex items-center gap-3">
               <StarMark className="h-8 w-8 animate-twinkle" />
-              <p className="text-base font-semibold tracking-tight text-haze-100 sm:whitespace-nowrap sm:text-lg">
+              <h1 className="text-base font-semibold tracking-tight text-haze-100 sm:whitespace-nowrap sm:text-lg">
                 Introducing the{" "}
                 <span className="text-gradient-gold text-xl font-bold sm:text-2xl">Thunder<sup className="ml-0.5 align-super text-[0.5em] font-semibold">™</sup></span>{" "}
                 programming language
-              </p>
+              </h1>
             </div>
-            <h1 className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+            <p className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
               Programming,{" "}
               <span className="text-gradient-gold">made human.</span>
-            </h1>
+            </p>
             <p className="mt-5 text-xl font-medium text-white sm:text-2xl">AI can write the code. Humans should understand it.</p>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-haze-300">
               For decades, people learned to speak to computers. Now that AI writes software, programming should speak our

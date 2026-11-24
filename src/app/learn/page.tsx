@@ -8,9 +8,10 @@ import type { ThunderModel } from "../../../compiler/src/model.d.mts";
 import { READ_LESSONS } from "../../../compiler/src/learn-lessons.mjs";
 import { learnThunder } from "../../../compiler/src/learn.mjs";
 import { LearnThunder, type BuiltLesson } from "./LearnThunder";
+import { JsonLd, COURSE_LD } from "@/components/JsonLd";
 
 export const metadata = pageMeta({
-  title: "Learn Thunder",
+  title: "Learn the Thunder Programming Language",
   description:
     "Twelve short lessons on reading software in Thunder, the human-native programming language: steps, rule cards, actions, Thunder Text, and the same meaning in any language. No install, no programming experience needed.",
   path: "/learn",
@@ -87,6 +88,7 @@ function CourseLink({ lead }: { lead: string }) {
 export default function LearnPage() {
   return (
     <>
+      <JsonLd data={COURSE_LD} />
       <PageHero
         eyebrow="Learn Thunder · Twelve short lessons · No install"
         title="Read software in Thunder."

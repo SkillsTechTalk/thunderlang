@@ -3,9 +3,10 @@ import { PageHero, Section } from "@/components/ui";
 import { pageMeta } from "@/lib/seo";
 import { NPM_PACKAGE, PUBLISHED_VERSION } from "@/lib/facts";
 import { COMPILER_VERSION } from "../../../compiler/src/index.mjs";
+import { JsonLd, COMPILER_LD } from "@/components/JsonLd";
 
 export const metadata = pageMeta({
-  title: "Install ThunderLang",
+  title: "Install Thunder (ThunderLang)",
   description: "Download and install the Thunder programming language (ThunderLang): the open-source Thunder compiler and the thunder command. Node.js 18 or newer, no account, no AI key.",
   path: "/install",
 });
@@ -38,6 +39,7 @@ function Code({ children }: { children: string }) {
 export default function InstallPage() {
   return (
     <>
+      <JsonLd data={COMPILER_LD} />
       <PageHero eyebrow="Install" title="Install ThunderLang™."
         intro="Download and install the ThunderLang™ programming language and compiler (also called Thunder™): the open-source Thunder compiler and the thunder command. No account and no AI key." />
       <Section className="!pt-0">

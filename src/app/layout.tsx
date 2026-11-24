@@ -11,6 +11,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { siteConfig } from "@/lib/site";
 import { EcosystemHandoff } from "@/components/EcosystemHandoff";
+import { JsonLd, SITE_GRAPH } from "@/components/JsonLd";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,7 +28,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Thunder | Programming, made human",
+    default: "Thunder Programming Language: programming, made human",
     template: "%s | ThunderLang",
   },
   description: siteConfig.description,
@@ -42,12 +43,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteConfig.url,
     siteName: "ThunderLang",
-    title: "Thunder | Programming, made human",
+    title: "Thunder Programming Language: programming, made human",
     description: siteConfig.description,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Thunder | Programming, made human",
+    title: "Thunder Programming Language: programming, made human",
     description: siteConfig.description,
     creator: siteConfig.twitter,
   },
@@ -73,6 +74,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable}`}>
       <body className="min-h-screen font-sans">
+        <JsonLd data={SITE_GRAPH} />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-gold-300 focus:px-4 focus:py-2 focus:text-ink-950"
