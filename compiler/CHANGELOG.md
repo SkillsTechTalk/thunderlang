@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**
 - A `switch`, `when`, `match`, or `select` is one question with one side per case ("Chooses by score": "When it is
