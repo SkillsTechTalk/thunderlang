@@ -11,6 +11,37 @@ are records. Checked on cobra, log, MediatR, gson, timber, guzzle, and sinatra.
 **Language: Details for web handlers.** What follows a guard that can stop only happens on its other side (an
 action's answer says "when Is org set? Yes", not "Always"), and a returned object names its keys ("Gives back org,
 repos, avg, and failing").
+**Language: functions inside functions, values chosen by if / match / when, do … while, and Go select are read.**
+Fewer steps are left as code ("Not read yet"); see docs/language-audit.md for the numbers on 11 open-source repos
+(formik branches shown 52% → 91%, timber 73% → 91%, cobra 64% → 81%).
+- Functions written inside a function show their own steps under the step that holds them (marked `nested: true`):
+  React `useEffect` ("When this first shows on screen, and whenever user id changes", "Every time this is drawn on
+  screen", cleanup "When this is taken off the screen, cleans up"), `useMemo` ("Works out full name and remembers
+  it until user changes"), `useCallback` and `use…Callback` ("Defines how handle save works"), inner functions and
+  Python inner `def`s, Go `go func() {…}()` ("Starts these steps running alongside, without waiting for them") and
+  `defer func() {…}()` ("At the end, runs these steps"), Go function values, Java/C# lambdas, Rust closures,
+  Kotlin trailing lambdas (`user?.let { … }` reads "If user is set", `repeat(3)` "Repeats 3 times"), Ruby `do`
+  blocks, `setTimeout` ("After 300 milliseconds"), event listeners (`Whenever "click" happens`) and promise
+  callbacks ("When load is done", "If load goes wrong"). `return new Promise((resolve) => { … })` reads "Makes a
+  new Promise with these steps", then "Returns a new Promise". Python `with`, C# `using`/`lock` and Java
+  `synchronized` blocks show their steps (Java `synchronized (x) {` is no longer read as a function).
+- `if` used as a value reads like a ternary: Kotlin `val x = if (a) b else c`, Rust `let x = if a { b } else { c }`,
+  Ruby `x = if a then b else c end` ("Sets bonus to 5 if score is more than 90, otherwise 0"). Over several lines
+  it reads as the question, each side ending in "Sets label to …" (or "Returns …" for `return if` / `return when`).
+- The arms of a Rust `match`, Kotlin `when`, C# `switch` expression and PHP `match` are read one by one, each with
+  what it does: "When it is from 0 to 49" → "Sets label to "fail"", "When it is stop or halt", "Otherwise".
+  Kotlin `when (x) {` reads "Chooses by x" (was "If x is set").
+- `do { … } while (cond)` reads "Runs once, then repeats while …" with its steps (was "Calls do" plus a separate
+  loop with no steps). `for (; i < n; i++)` reads "Repeats while i is less than n".
+- Go `select` reads "Waits for whichever of these is ready first" (with `default`: "Checks which of these is ready,
+  without waiting"); its cases read "When msg arrives from ch", "When ctx is cancelled or times out", "When 5
+  seconds have passed", "When 1 can be sent to out", "If none is ready yet". `fallthrough` reads "Carries on into
+  the next case too". `switch {` reads "Checks these cases in order" and its cases "When age is more than 65".
+- A `case 'a':` / `default:` label is a statement of its own, so the first step of every case is shown (it was
+  folded into the label). A bare `{ … }` block inside a case is read in place.
+- Also fixed: a Python comprehension filter (`[i for i in xs if keep(i)]`) is no longer read as "If keep(i)]";
+  an `if` condition written over several lines is read whole; `(x as T).then(…)` keeps its parentheses;
+  `delete registry[name]` reads "Removes name from registry"; Ruby `else "value"` on one line keeps its value.
 
 # 0.5.9
 

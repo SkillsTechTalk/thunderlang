@@ -46,6 +46,8 @@ function clausesInSteps(steps) {
   let n = 0;
   for (const s of steps || []) {
     if (s.otherwise) n += 1 + clausesInSteps(s.otherwise);
+    // A Kotlin `else ->` arm of a when is its else branch, shown as "Otherwise".
+    if (s.caseLabel && /^else\s*->/.test(s.code || '')) n += 1;
     for (const h of s.handlers || []) n += 1 + clausesInSteps(h.steps);
     if (s.always) n += 1 + clausesInSteps(s.always.steps);
     n += clausesInSteps(s.children);
