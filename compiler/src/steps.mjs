@@ -195,9 +195,9 @@ function sayAtomWords(cond) {
 }
 
 // `typeof x === 'string'` -> "x is text": what a reader means by each JavaScript type name.
-const TYPEOF_WORDS = { string: 'text', number: 'a number', boolean: 'a yes/no value', function: 'a function', object: 'an object', undefined: 'undefined', bigint: 'a big number', symbol: 'a symbol' };
+const TYPEOF_WORDS = { string: 'text', number: 'a number', boolean: 'a true/false value', function: 'a function', object: 'an object', undefined: 'undefined', bigint: 'a big number', symbol: 'a symbol' };
 // PHP's type checks: is_string($x) -> "x is text".
-const PHP_IS = { is_string: 'text', is_array: 'an array', is_int: 'a whole number', is_integer: 'a whole number', is_float: 'a decimal number', is_numeric: 'a number', is_bool: 'a yes/no value', is_object: 'an object', is_callable: 'callable', is_resource: 'a resource', is_iterable: 'iterable', is_scalar: 'a single value' };
+const PHP_IS = { is_string: 'text', is_array: 'an array', is_int: 'a whole number', is_integer: 'a whole number', is_float: 'a decimal number', is_numeric: 'a number', is_bool: 'a true/false value', is_object: 'an object', is_callable: 'callable', is_resource: 'a resource', is_iterable: 'iterable', is_scalar: 'a single value' };
 
 function sayCodeConditionInner(cond) {
   let c = plainEnums(String(cond)).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
@@ -492,11 +492,14 @@ function sayChain(value) {
   // In Rust, `.map` straight on a value (not on `.iter()`) is on an Option or a Result: it changes the value if
   // there is one; it does not go through items.
   if (FN_CONTEXT?.language === 'rust' && !/\.(?:iter|into_iter|iter_mut|chars|bytes|lines|split\w*|keys|values|windows|chunks)\(\)/.test(value) && /\.(?:map|filter|and_then|find)\s*\(/.test(value)) return null;
-  const src = (value.match(/^(?:await\s+)?([A-Za-z_$#][\w$#.]*?)(?:\.(?:iter|into_iter|stream|asSequence|values|keys|entries)\(\))?\./) || [])[1];
-  if (!src) return null;
-  let hit = null;
-  for (const c of CHAIN) { const m = value.match(c.re); if (m && (!hit || m.index > hit.index)) hit = { index: m.index, c }; }
-  return hit ? hit.c.say(words(src.split('.').pop().replace(/^#/, ''))) : null;
+  let hit = null, first = null;
+  for (const c of CHAIN) { const m = value.match(c.re); if (m && (!hit || m.index > hit.index)) hit = { index: m.index, c }; if (m && (first == null || m.index < first)) first = m.index; }
+  if (!hit) return null;
+  // The items are the source's only when the first collection step comes straight after a plain name or path: in
+  // `Orderer.Prioritize(list, r).Select(…)` they are what Prioritize gives back, not the orderer's.
+  const src = value.slice(0, first).replace(/^await\s+/, '').replace(/\.(?:iter|into_iter|stream|asSequence|values|keys|entries)\(\)$/, '');
+  if (!/^[A-Za-z_$#][\w$#.]*$/.test(src)) return null;
+  return hit.c.say(words(src.split('.').pop().replace(/^#/, '')));
 }
 
 const HTTP_STATUS = { 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 409: 'Conflict', 410: 'Gone', 413: 'Payload Too Large', 415: 'Unsupported Media Type', 422: 'Unprocessable Content', 429: 'Too Many Requests', 500: 'Internal Server Error', 501: 'Not Implemented', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout' };
@@ -997,7 +1000,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (m[2] === '.=') { const v = valueWords(value); return { kind: 'set', says: v ? `Adds ${v} to the end of ${target}` : `Adds to the end of ${target}`, code }; }
     if (m[2] === '%=' || m[2] === '&&=') return { kind: 'other', says: clip(head, 70), code };
     // A yes/no value: `ok = proxy and scheme != "https"` -> "Works out ok: whether proxy and scheme is not https".
-    if (m[2] === '=' && fb == null && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
+    if (m[2] === '=' && fb == null && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.').replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, 'Q')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
     // self.max_books = max_books: the Thing keeps what it was given.
     if (m[2] === '=' && /^[A-Za-z_]\w*$/.test(value) && m[1].split('.').pop() === value && /^(self|this)\./.test(m[1])) return { kind: 'set', says: `Keeps the ${words(value)} it is given`, code };
     const chain = value ? (sayPython(value) || sayChain(value)) : null;
