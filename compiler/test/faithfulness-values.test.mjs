@@ -26,7 +26,7 @@ test('#55 / #115 / #131 / #210 / #296: a value stored under a key keeps the key,
 test('#246 Ruby `options[:outvar] ||= x unless y`: the key and the "if nothing is there yet" are kept', () => {
   const t = thunderText('a.rb', "class Base\n  def render(options, exclude_outvar)\n    options[:outvar] ||= '@_out_buf' unless exclude_outvar\n    options[:default_encoding] ||= settings.default_encoding\n    output\n  end\nend\n");
   assert.equal(sideOf(t, /Ask: Is exclude outvar set\?/, /Stores "@_out_buf" under "outvar" in options, if nothing is there yet/), 'no');
-  assert.match(t, /Stores default encoding under "default_encoding" in options, if nothing is there yet/);
+  assert.match(t, /Stores the settings's default encoding under "default_encoding" in options, if nothing is there yet/);
   assert.doesNotMatch(t, /Sets options to/);
 });
 

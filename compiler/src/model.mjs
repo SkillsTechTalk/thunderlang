@@ -421,7 +421,7 @@ function inputKindsOf(item) {
   return Object.keys(kinds).length ? kinds : null;
 }
 
-/** The names a destructuring pattern takes: `{ a, b: { c, d }, ...rest }: T` -> a, c, d (the rest is not one input). */
+/** The names a destructuring pattern takes: `{ a, b: { c, d }, ...rest }: T` -> a, c, d, rest. */
 function destructuredNames(text) {
   const open = text.indexOf('{');
   const close = closeOf(text, open);
@@ -431,7 +431,9 @@ function destructuredNames(text) {
   let d = 0, from = 0;
   const part = (x) => {
     const t = x.trim();
-    if (!t || /^\.\.\./.test(t)) return;
+    if (!t) return;
+    // `...props`: everything else it is given, under one name.
+    if (/^\.\.\.[A-Za-z_$][\w$]*$/.test(t)) { out.push(t.slice(3)); return; }
     const m = t.match(/^([A-Za-z_$][\w$]*)\s*:\s*(\{[\s\S]*\})\s*(?:=.*)?$/);
     if (m) { out.push(...destructuredNames(m[2])); return; }
     const n = t.split(/[:=]/)[0].trim();

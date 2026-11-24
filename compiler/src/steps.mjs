@@ -15,6 +15,20 @@ const words = (s) => {
   for (const m of t.matchAll(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g)) { out += wordsPlain(t.slice(last, m.index)) + m[0]; last = m.index + m[0].length; }
   return (out + wordsPlain(t.slice(last))).trim();
 };
+/**
+ * True unless the value goes on past its first call in a way that changes what it is: `isObject(s) || t ? a : b`
+ * is not "worked out from is object". A chain (`a.b().c()`) or a call cut at the end of its line still counts.
+ */
+function wholeValueCall(value) {
+  const e = String(value).trim().replace(/;$/, '');
+  const at = e.search(/[\w$>\]]\s*\(/);
+  if (at < 0) return true;
+  const close = closeOf(e, e.indexOf('(', at));
+  if (close < 0) return true;
+  const rest = e.slice(close + 1).trim();
+  return !rest || /^(?:\.|\?\.|!\.|\)|\.Error\b)/.test(rest) && !/(?:&&|\|\||\s\?\s|[=!<>]=|\s[<>]\s)/.test(rest.replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, 'Q'));
+}
+
 /** Top-level arguments of a call's argument text: "a, f(b, c), d" -> ['a', 'f(b, c)', 'd']. */
 function splitTopArgs(t) {
   const out = [];
@@ -270,7 +284,12 @@ function sayValue(expr) {
     if (/^new\s/.test(e)) return `a new ${c.split('.').pop()}`;
     return `the result of ${lastWords(c)}`;
   }
-  if (/^[A-Za-z_$][\w$.]*$/.test(e)) return words(e.replace(/^\$/, '').split('.').pop());
+  // A path keeps its owner: `callback.call` is "the callback's call", not "call"; `Boolean.TYPE` stays as written.
+  if (/^[A-Za-z_$][\w$.]*$/.test(e)) {
+    const parts = e.replace(/^\$/, '').split('.').filter((p) => !/^(?:self|this)$/.test(p));
+    if (parts.length > 1 && /^[A-Z][A-Z0-9_]+$/.test(parts[parts.length - 1])) return parts.slice(-2).join('.');
+    return parts.length > 1 ? possessiveWords(parts.join('.')) : words(parts[0] ?? e);
+  }
   if (/^\$?[A-Za-z_][\w$]*(?:\[\s*['"]?\w+['"]?\s*\]|->\w+|\.\w+)+$/.test(e)) return possessiveWords(e);
   return null;
 }
@@ -555,7 +574,8 @@ function payloadWords(arg) {
   if (/^\[/.test(a)) return 'a list';
   const made = a.match(/^new\s+([A-Z]\w*)/);
   if (made) return `a new ${words(made[1])}`;
-  if (/^["'`]/.test(a)) return a.length < 50 ? `"${a.replace(/^["'`]|["'`]$/g, '')}"` : 'a message';
+  if (/^(["'`])(?:\\.|(?!\1)[^\\])*\1$/.test(a) && !/^`[^`]*\$\{/.test(a)) return a.length < 50 ? `"${a.replace(/^["'`]|["'`]$/g, '')}"` : 'a message';
+  if (/^["'`]/.test(a) || /["'`]\s*\+|\+\s*["'`]/.test(a)) return 'text built from its parts';
   if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(a)) return possessiveWords(a);
   const call = a.match(/^(?:await\s+)?([\w.]+)\s*\(/);
   if (call) return `what ${words(call[1].split('.').pop())} gives back`;
@@ -659,12 +679,14 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if (/^return\s*\(\s*$/.test(first) && /^\s*</.test(text.split('\n')[1] || '')) first = `return (${text.split('\n')[1].trim()}`;
   // A statement written over several lines (`return a\n  && b`, `x =\n  cond ? y : z`, `return (\n  <div>…`) is read
   // whole, so a value is never cut to its first line.
-  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && !/[{:]\s*$/.test(first) && !/=>\s*\{?\s*$/.test(first) && balancedText(text) && text.length < 2000 && (!/\{\s*$/.test(text.split('\n')[0]) || /^(?:const|let|var|val)\s*[{[]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first))) {
+  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && (!/[{:]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^(?:const|let|var|val)\s*[{[]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first)) && !/=>\s*\{?\s*$/.test(first) && balancedText(text) && text.length < 2000 && (!/\{\s*$/.test(text.split('\n')[0]) || /^(?:const|let|var|val)\s*[{[]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first))) {
     const lines = text.split('\n');
     const joined = lines.map((l) => l.trim()).join(' ');
     if (!bracketsClosed(first) || /(?:[-+*/%&|^=<>?:.,(\[]|\b(?:and|or|not|in))\s*$/.test(first) || /^\s*(?:[-+*/%&|^=<>?:.)\]]|&&|\|\||\b(?:and|or)\b)/.test(lines[1] || '')) first = joined;
   }
   // An annotation line (`@Override`) belongs to the declaration under it.
+  let jmp;
+  if ((jmp = text.match(/^(continue|break)(?:\s+([A-Za-z_]\w*))?;?$/))) return { kind: 'call', says: jmp[1] === 'break' ? `Leaves the loop${jmp[2] ? ` (${jmp[2]})` : ''}` : `Skips to the next one${jmp[2] ? ` (${jmp[2]})` : ''}`, code: text, jump: jmp[1] };
   if (/^@\w+(?:\([^)]*\))?$/.test(first) && text.includes('\n')) first = text.split('\n').map((l) => l.trim()).find((l) => l && !/^@\w+(?:\([^)]*\))?$/.test(l)) ?? first;
   // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
   // (PHP `foreach ($a as $k => $v)` is a loop, not a cast.)
@@ -796,7 +818,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   // A C-style loop with no counter of its own: `for (; pos < limit; i++)` / `for (;;)`.
   if ((m = head.match(/^for\s*\(\s*[^;]*;\s*([^;]*?)\s*;[^)]*\)\s*\{?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${sayCodeCondition(m[1])}${innerNote}` : `Repeats${innerNote}`, code };
   // Pairs unpacked in a loop: for (const [key, value] of entries) / for key, value in items.items() / foreach ($a as $k => $v)
-  if ((m = head.match(/^for\b\s*\(?\s*(?:const|let|var|val)?\s*[\[{(]?\s*([\w$]+)\s*,\s*([\w$]+)\s*[\]})]?\s+(?:of|in)\s+(.+?)\)?\s*(?:\{|:|do)?\s*$/))) {
+  if ((m = head.match(/^for\b\s*\(?\s*(?:(?:const|let|var|val)\s+)?[\[{(]?\s*([\w$]+)\s*,\s*([\w$]+)\s*[\]})]?\s+(?:of|in)\s+(.+?)\)?\s*(?:\{|:|do)?\s*$/))) {
     const src = stripTail(m[3]).replace(/\($/, '()').replace(/^Object\.entries\((.+)\)$/, '$1').replace(/\.(?:items|entries)\(\)$/, '');
     return { kind: 'loop', says: `For each ${words(m[1])} and ${words(m[2])} in ${words(src.split('.').pop())}${innerNote}`, code };
   }
@@ -828,7 +850,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^assert\b\s*(.*?)\s*;?$/))) return { kind: 'check', says: `Checks that ${m[1] ? sayCodeCondition(m[1].replace(/,\s*["'].*$/, '')) : 'a condition holds'}`, code };
   if ((m = head.match(/^assert(?:_\w+|That|Equals|True|False|NotNull|Null)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
   // Sinatra / Rack `halt`: the request stops here, with what follows sent back.
-  if (/^halt\b/.test(head) && FN_CONTEXT?.language === 'ruby') return { kind: 'fail', says: `Stops the request here${/^halt\s*$/.test(head) ? '' : ' and sends back what follows'}`, error: 'halt', code };
+  if (/^halt\b/.test(head) && FN_CONTEXT?.language === 'ruby') return { kind: 'fail', says: `Fails with halt: the request stops here${/^halt\s*$/.test(head) ? '' : ', sending back what follows'}`, error: 'halt', code };
   // Go tests: t.Fatal stops the test as failed; t.Error marks it failed and carries on.
   if ((m = head.match(/^t\.(Fatal|Fatalf|Error|Errorf|FailNow|Fail)\s*\(/))) {
     const msg = firstText(head);
@@ -881,7 +903,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const c = value ? callee(value) : null;
     const everyday = value ? sayPython(value) || sayCommon(value) : null;
     if (everyday) return { kind: 'set', says: `Sets ${target} to ${everyday}`, code };
-    if (c) {
+    if (c && wholeValueCall(value)) {
       const known = sayCall(c, firstArgs(value));
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
       if (/^new\s/.test(value)) return { kind: 'set', says: `Creates a new ${c.split('.').pop()} as ${target}`, code };
@@ -909,7 +931,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (keyedAt > 0 && /\]$/.test(m[1]) && !/,/.test(m[1])) {
       const container = targetWords(m[1].slice(0, keyedAt));
       const keys = [...m[1].slice(keyedAt).matchAll(/\[\s*([^\]]*?)\s*\]/g)].map((k) => k[1]);
-      const keyWords = (k) => (/^["'`].*["'`]$/.test(k) ? `"${k.slice(1, -1)}"` : /^:\w+$/.test(k) && FN_CONTEXT?.language === 'ruby' ? `"${k.slice(1)}"` : /^[\w$.]+$/.test(k) ? possessiveWords(k) : `\`${k}\``);
+      const keyWords = (k) => (/^\$\d/.test(k) ? `\`${k}\`` : /^["'`].*["'`]$/.test(k) ? `"${k.slice(1, -1)}"` : /^:\w+$/.test(k) && FN_CONTEXT?.language === 'ruby' ? `"${k.slice(1)}"` : /^[\w$.]+$/.test(k) ? possessiveWords(k) : `\`${k}\``);
       const v = value ? valueWords(value) : null;
       const what = v ?? 'a value';
       const where = keys.length === 1 ? `under ${keyWords(keys[0])} in ${container}` : `at ${keys.map(keyWords).join(', then ')} in ${container}`;
@@ -931,7 +953,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const common = value ? sayCommon(m[3].trim().replace(/;$/, '')) || sayCommon(value) : null;
     if (common) return { kind: 'set', says: `Sets ${target} to ${common}`, code };
     const c = callee(value);
-    if (c) {
+    if (c && wholeValueCall(value)) {
       const known = sayCall(c, firstArgs(value));
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
       if (/^new\s/.test(value)) return { kind: 'set', says: `Creates a new ${c.split('.').pop()} as ${target}`, code };
@@ -1222,6 +1244,14 @@ function groupCases(kids) {
   return out;
 }
 
+/** The one statement written after a condition or in a one-line block, read (with its own one-line body, if any). */
+function inlineKid(text, s, depth = 0) {
+  const kid = { ...classifyStatement(text), line: s.line, span: spanOf(s) };
+  if (kid.inline && depth < 3) kid.children = [inlineKid(kid.inline, s, depth + 1)];
+  delete kid.inline;
+  return kid;
+}
+
 export function stepsFrom(statements) {
   const steps = [];
   const skipped = [];
@@ -1255,6 +1285,13 @@ export function stepsFrom(statements) {
         steps.push({ kind: 'try', says: 'Tries these steps and handles any error', code: '(the whole method)', line: tried[0].line, span: { startLine: tried[0].span.startLine, endLine: tried[tried.length - 1].span.endLine }, children: tried });
       }
       const prev2 = steps[steps.length - 1];
+      // Inside a Ruby `case`, `else` is the last arm ("Otherwise"), with what it does.
+      if (prev2?.caseLabel && /^else\b/.test(t0)) {
+        const inlineElse = t0.match(/^else\s+(?!if\b)(.+)$/);
+        const kids = inlineElse ? [inlineKid(inlineElse[1], s)] : stepsFrom(s.children || []).steps;
+        steps.push({ kind: 'check', says: 'Otherwise', code: clip(t0, 90), caseLabel: true, line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}) });
+        continue;
+      }
       if (prev2 && (prev2.kind === 'branch' || prev2.kind === 'try')) {
         const prev = prev2;
         const kw = /^(?:elif|elsif|else\s+if)\b/.test(t0) ? 'elif' : /^else\b/.test(t0) ? 'else' : /^(?:finally|ensure)\b/.test(t0) ? 'finally' : 'catch';
@@ -1342,7 +1379,7 @@ export function stepsFrom(statements) {
     }
     // A one-line `if (x) return reply.code(400).send({ error: 'bad' })` is one statement: its braces belong to the
     // object being sent, not to a block, so read the statement after the condition instead of the braces' inside.
-    if (step.inline && !/^\{/.test(step.inline.trim())) { const kid = classifyStatement(step.inline); step.children = [{ ...kid, line: s.line, span: spanOf(s) }]; delete step.inline; }
+    if (step.inline && !/^\{/.test(step.inline.trim())) { step.children = [inlineKid(step.inline, s)]; delete step.inline; }
     else if (s.children?.length && (['branch', 'loop', 'try'].includes(step.kind) || (step.kind === 'check' && step.caseLabel) || /^(?:Defines a helper|Defines how|Opens |Uses )/.test(step.says))) {
       let kids = stepsFrom(s.children).steps;
       if (step.kind === 'branch' && /^(?:Chooses by|Checks these cases)/.test(step.says)) kids = groupCases(kids);
@@ -1353,7 +1390,7 @@ export function stepsFrom(statements) {
         step.says = step.children.some((k) => /^default\b/.test(k.code || '')) ? 'Checks which of these is ready, without waiting' : 'Waits for whichever of these is ready first';
       }
     }
-    if (step.inline && !step.children) { const kid = classifyStatement(step.inline); step.children = [{ ...kid, line: s.line, span: spanOf(s) }]; delete step.inline; }
+    if (step.inline && !step.children) { step.children = [inlineKid(step.inline, s)]; delete step.inline; }
     else delete step.inline;
     // A block with code in it that gave no step was not read: say so, never "Yes: continue" / an empty "For each".
     if ((step.kind === 'branch' || step.kind === 'loop') && !step.children?.length && (s.inner > 0 || s.children?.length) && !(s.children || []).every((c) => /^(?:pass|\}|end)\b/.test(String(c.text || '').trim()))) step.unread = true;
