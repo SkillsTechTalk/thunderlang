@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.9
 
 **Language: redirects say where the person goes.** A redirect reads "Sends the person to /login" (or "the Google
 auth URL", "the dashboard page") instead of "Gives back the result of redirect", and has its own step kind,
