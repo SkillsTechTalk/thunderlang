@@ -49,11 +49,11 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.mjs",
     "accuracy:gate": "node scripts/accuracy-gate.mjs",
     "build:cjs": "node scripts/build-cjs.mjs",
     "prepack": "node scripts/build-cjs.mjs",
-    "prepublishOnly": "node scripts/build-cjs.mjs && node --test",
+    "prepublishOnly": "node scripts/build-cjs.mjs && node --test test/*.test.mjs",
     "check:example": "node src/cli.mjs check ../examples/CreateInvoice.thunder",
     "build:example": "node src/cli.mjs build ../examples/CreateInvoice.thunder"
   },
