@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.12
 
 - **Fix:** a call through an instance made in the same file (`library = Library()` then `library.can_borrow(…)`; `const svc = new Service()` then `svc.canShip(…)`) links to the rule again, as in 0.5.11. Details "Rules it relies on" and Flow "Open the rule" depend on it. Reported by OpenThunder.
 
