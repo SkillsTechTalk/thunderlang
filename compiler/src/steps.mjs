@@ -15,6 +15,24 @@ const words = (s) => {
   for (const m of t.matchAll(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g)) { out += wordsPlain(t.slice(last, m.index)) + m[0]; last = m.index + m[0].length; }
   return (out + wordsPlain(t.slice(last))).trim();
 };
+/**
+ * The first quoted text in a statement, whole: a quote of one kind closes only at the same kind, so
+ * 'The `ky.retry()` options' is never cut at its inner backtick. Long text is shortened visibly with "…".
+ */
+function firstText(text, n = 60) {
+  const s = String(text);
+  for (let i = 0; i < s.length; i++) {
+    const q = s[i];
+    if (q !== '"' && q !== "'" && q !== '`') continue;
+    let j = i + 1, out = '';
+    for (; j < s.length && s[j] !== q; j++) { if (s[j] === '\\' && j + 1 < s.length) { out += s[j + 1]; j++; } else out += s[j]; }
+    if (j >= s.length) return null;
+    if (!out.trim()) { i = j; continue; }
+    if (q === '`') out = out.replace(/\$\{[^}]*\}/g, '…');
+    return out.length > n ? `${out.slice(0, n - 1).trimEnd()}…` : out;
+  }
+  return null;
+}
 const clip = (s, n = 70) => { const t = String(s).replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const stripTail = (s) => String(s).trim().replace(/[;{]\s*$/, '').replace(/:\s*$/, '').trim();
 
@@ -297,7 +315,10 @@ function sayCommon(value) {
   if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^[\w.]+\.(?:get|get_or_404|find|Find|findById|find_by_id)\(\s*([A-Z]\w*)\s*,\s*([\w.]+)\s*\)$/))) return `the ${m[1]} with ${lastSeg(m[2])}`;
   if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return `the ${lastSeg(m[2])} entry in ${lastSeg(m[1])}`;
-  if (/["'`]\s*\+|\+\s*["'`]/.test(e) && !/[<>=!&|]/.test(e)) return 'text built from its parts';
+  const wholeCall = (() => { const c = e.match(/^(?:new\s+)?[\w$.]+(?:<[^()]*?>)?\s*\(/); return !!c && closeOf(e, c[0].length - 1) === e.length - 1; })();
+  if (/["'`]\s*\+|\+\s*["'`]/.test(e) && !/[<>=!&|]/.test(e) && !wholeCall) return 'text built from its parts';
+  // PHP joins text with ` . ` (spaced when PHP is read): `$a . ':' . $b`.
+  if (/\s\.\s/.test(e.replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q')) && !/[<>=!&|?]/.test(e.replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q'))) return 'text built from its parts';
   if ((m = e.match(/^[A-Za-z_][\w.]*(\s*,\s*[A-Za-z_][\w.]*)+$/))) return e.split(/\s*,\s*/).map(lastSeg).join(' and ');
   if ((m = e.match(/^make\(\s*(\[\]|map\[)/))) return m[1] === '[]' ? 'an empty list' : 'an empty lookup table';
   if (/^(?:f|rf|fr)["']/.test(e) || /^`[^`]*\$\{/.test(e) || /^\$"/.test(e) || /^(?:fmt\.Sprintf|String\.format|format!)\(/.test(e)) return 'text built from its parts';
@@ -396,7 +417,7 @@ function httpErrorOf(head) {
   const named = /^return\b/.test(head) && expr.match(/^(NotFound|BadRequest|Unauthorized|Forbid|Conflict|UnprocessableEntity|ValidationProblem|Problem)\s*\((.*)\)$/);
   if (named) {
     const status = { NotFound: 404, BadRequest: 400, Unauthorized: 401, Forbid: 403, Conflict: 409, UnprocessableEntity: 422, ValidationProblem: 400, Problem: 500 }[named[1]];
-    const msg = (named[2].match(/["']([^"']{1,80})["']/) || [])[1];
+    const msg = firstText(named[2], 80);
     return { kind: 'fail', says: `Fails with ${status} ${HTTP_STATUS[status]}${msg ? `: "${msg}"` : ''}`, error: `${status} ${HTTP_STATUS[status]}`, ...(msg ? { message: msg } : {}), status };
   }
   let m = expr.match(/^(?:reply|res|response|resp|ctx\.response)\s*\.\s*(?:code|status|statusCode)\s*\(\s*([45]\d\d)\s*\)/)
@@ -604,8 +625,9 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (!bracketsClosed(first) || /(?:[-+*/%&|^=<>?:.,(\[]|\b(?:and|or|not|in))\s*$/.test(first) || /^\s*(?:[-+*/%&|^=<>?:.)\]]|&&|\|\||\b(?:and|or)\b)/.test(lines[1] || '')) first = joined;
   }
   // TypeScript-only syntax that changes nothing for a reader: casts, non-null assertions, optional calls.
-  const head = first
-    .replace(/(^|[^\w$\])])\(\s*([\w$#.]+)\s+as\s+[^()]+\)/g, '$1$2').replace(/([\w$\])])\(\s*([\w$#.]+)\s+as\s+[^()]+\)/g, '$1($2)').replace(/([\w$\])])!(?=[.(\[])/g, '$1').replace(/\?\.(?=[\w(\[])/g, '.').replace(/\.\(/g, '(').replace(/^\(\*+(self|this)\)\./, '$1.')
+  // (PHP `foreach ($a as $k => $v)` is a loop, not a cast.)
+  const head = (/^foreach\b/.test(first) ? first : first
+    .replace(/(^|[^\w$\])])\(\s*([\w$#.]+)\s+as\s+[^()]+\)/g, '$1$2').replace(/([\w$\])])\(\s*([\w$#.]+)\s+as\s+[^()]+\)/g, '$1($2)')).replace(/([\w$\])])!(?=[.(\[])/g, '$1').replace(/\?\.(?=[\w(\[])/g, '.').replace(/\.\(/g, '(').replace(/^\(\*+(self|this)\)\./, '$1.')
     // Java/C# casts: ((JsonTreeReader) reader).promote() -> reader.promote(); (int) x -> x
     .replace(/\(\(\s*[A-Z][\w.<>\[\]?, ]*\s*\)\s*([\w$.]+)\s*\)/g, '$1').replace(/^(\w[\w.]*\s*=\s*)\(\s*[A-Z][\w.<>\[\]?]*\s*\)\s*/, '$1')
     // .NET: `.ConfigureAwait(false)` only says which thread carries on; it changes nothing a reader needs.
@@ -655,7 +677,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   // Failures
   if ((m = head.match(/^(?:throw|raise)\s+(?:new\s+)?([A-Za-z_][\w.]*)?/)) || /^panic!?\s*\(/.test(head)) {
     const name = m?.[1] ? m[1].split('.').pop() : null;
-    const msg = (head.match(/["'`]([^"'`]{1,60})["'`]/) || [])[1];
+    const msg = firstText(head);
     const said = name && /^[a-z]/.test(name) ? `the error made by ${words(name)}` : name;
     return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code, ...(name ? { error: name } : {}), ...(msg ? { message: msg } : {}) };
   }
@@ -691,12 +713,15 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const expr = stripTail(m[1]);
     if (!expr) return { kind: 'return', says: 'Stops here', code };
     const lastVal = expr.split(',').pop().trim();
-    if (/,/.test(expr) && /^(?:err|error|e)$|^Err[A-Z]\w*$|^\w*Error$|^errors\.New\(|^fmt\.Errorf\(/.test(lastVal)) {
+    // Go `return nil, err` gives an error back; `return output, err` gives both back (err is often nil).
+    const others = expr.split(',').slice(0, -1).map((x) => x.trim());
+    const zero = others.every((x) => /^(?:nil|0|0\.0|""|false|None|\w+\{\}|\[\]\w+\{\}|-1)$/.test(x));
+    if (/,/.test(expr) && zero && /^(?:err|error|e)$|^Err[A-Z]\w*$|^\w*Error$|^errors\.New\(|^fmt\.Errorf\(/.test(lastVal)) {
       const named = /^Err[A-Z]\w*$|^\w+Error$/.test(lastVal) ? `: ${lastVal}` : '';
       return { kind: 'fail', says: `Returns an error to the caller${named}`, code };
     }
     if (/^(Err|Error)\s*\(/.test(expr) || /\berrors\.New\(|fmt\.Errorf\(/.test(expr)) {
-      const msg = (expr.match(/["'`]([^"'`]{1,60})["'`]/) || [])[1];
+      const msg = firstText(expr);
       return { kind: 'fail', says: `Returns an error${msg ? `: "${msg}"` : ''}`, code };
     }
     const terms = splitLogic(expr);
@@ -733,7 +758,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   }
   if ((m = head.match(/^for\s+[\w, _]+\s*:=\s*range\s+(.+?)\s*\{?$/))) return { kind: 'loop', says: `For each item in ${words(stripTail(m[1]).split('.').pop())}${innerNote}`, code };
   if ((m = head.match(/^foreach\s*\(\s*(?:var\s+|\w+\s+)?(\$?\w+)\s+in\s+(.+?)\)\s*\{?$/))) return { kind: 'loop', says: `For each ${words(m[1])} in ${words(m[2].split('.').pop())}${innerNote}`, code };
-  if ((m = head.match(/^foreach\s*\(\s*(.+?)\s+as\s+(?:\w+\s*=>\s*)?(\w+)\s*\)\s*\{?$/))) return { kind: 'loop', says: `For each ${words(m[2])} in ${words(m[1].split('.').pop())}${innerNote}`, code };
+  if ((m = head.match(/^foreach\s*\(\s*(.+?)\s+as\s+(?:&?(\w+)\s*=>\s*)?&?(\w+)\s*\)\s*\{?$/))) return { kind: 'loop', says: `For each ${m[2] ? `${words(m[2])} and ` : ''}${words(m[3])} in ${words(m[1].split('.').pop())}${innerNote}`, code };
   if ((m = head.match(/^([\w.]+)\.each(?:_with_index)?\s+do\s*\|(\w+)/))) return { kind: 'loop', says: `For each ${words(m[2])} in ${words(m[1].split('.').pop())}${innerNote}`, code };
   if ((m = head.match(/^([\w.]+)\.(?:forEach|each|map|filter|for_each)\s*[({]/))) return { kind: 'loop', says: `For each item in ${words(m[1].split('.').pop())}${innerNote}`, code };
   if ((m = head.match(/^(?:while|until|loop)\b\s*\(?(.*?)\)?\s*(?:\{|:|do)?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${sayCodeCondition(m[1])}${innerNote}` : `Repeats${innerNote}`, code };
@@ -753,7 +778,12 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if (/^(?:try|begin)\b/.test(head)) return { kind: 'try', says: `Tries the next steps and handles any error${innerNote}`, code };
   if ((m = head.match(/^assert\b\s*(.*?)\s*;?$/))) return { kind: 'check', says: `Checks that ${m[1] ? sayCodeCondition(m[1].replace(/,\s*["'].*$/, '')) : 'a condition holds'}`, code };
   if ((m = head.match(/^assert(?:_\w+|That|Equals|True|False|NotNull|Null)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
-  if ((m = head.match(/^(?:expect|t\.(?:Error|Fatal|Errorf|Fatalf|Run)|require\.\w+|assert\.\w+)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
+  // Go tests: t.Fatal stops the test as failed; t.Error marks it failed and carries on.
+  if ((m = head.match(/^t\.(Fatal|Fatalf|Error|Errorf|FailNow|Fail)\s*\(/))) {
+    const msg = firstText(head);
+    return /^Fa(?:tal|ilNow)/.test(m[1]) ? { kind: 'fail', says: `Fails the test${msg ? `: "${msg}"` : ''}`, error: 'the test fails', code, ...(msg ? { message: msg } : {}) } : { kind: 'call', says: `Marks the test as failed${msg ? `: "${msg}"` : ''}, and goes on`, code };
+  }
+  if ((m = head.match(/^(?:expect|t\.(?:Run)|require\.\w+|assert\.\w+)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
   if ((m = head.match(/^(?:async\s+)?with\s+(.+?)\s+as\s+(.+?):\s*$/))) { const what = /^open\s*\(/.test(m[1]) ? 'a file' : words(clip(stripTail(m[1]).replace(/\(.*$/, ''), 40)); return { kind: 'set', says: `Opens ${what} as ${words(m[2].replace(/[()]/g, ''))}`, code }; }
   if ((m = head.match(/^(?:using|lock|synchronized)\s*\((.+?)\)/))) return { kind: 'set', says: `Uses ${clip(m[1], 50)}`, code };
   if (/^defer\b/.test(head)) return { kind: 'call', says: `At the end, ${clip(head.replace(/^defer\s+/, ''), 60)}`, code };
@@ -812,6 +842,10 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const valueWords = (v) => sayValue(v) ?? sayArithmetic(v);
     // A value stored under a key keeps the key: `headers[key] = v` -> "Stores v under key in headers", never
     // "Sets headers to ..." (that would say the whole container was replaced).
+    // Go `xs = append(xs, v)`: v is added to the end of xs.
+    const app = m[2] !== '+=' && value.match(/^append\(\s*([\w$.]+)\s*,\s*(.+)\)$/);
+    if (app && app[1] === m[1].trim()) { const v = /,/.test(app[2].replace(/\([^()]*\)/g, '')) ? null : valueWords(app[2].trim()); return { kind: 'set', says: `Adds ${v ?? 'to the end of'}${v ? ' to the end of' : ''} ${target}`, code }; }
+    if (/\[\s*\]$/.test(m[1]) && m[2] === '=') { const v = valueWords(value); return { kind: 'set', says: `Adds ${v ?? 'a value'} to the end of ${targetWords(m[1].replace(/\[\s*\]$/, ''))}`, code }; }
     const keyedAt = m[1].indexOf('[');
     if (keyedAt > 0 && /\]$/.test(m[1]) && !/,/.test(m[1])) {
       const container = targetWords(m[1].slice(0, keyedAt));
@@ -1180,6 +1214,7 @@ export function stepsFrom(statements) {
       steps.push({ kind: 'call', says: jump[1] === 'break' ? `Leaves the loop${label}` : `Skips to the next one${label}`, code: t0, line: s.line, span: spanOf(s), jump: jump[1] === 'break' ? 'break' : 'continue' });
       continue;
     }
+    if (/^[A-Za-z_]\w*:$/.test(t0) && !/^(?:default|else|try|finally|begin|ensure|rescue)$/.test(t0.slice(0, -1))) { skipped.push(spanOf(s)); continue; }
     if (!t0 || /^(?:end\b|\}|pass$|#)/.test(t0)) { if (t0 && !/^#/.test(t0)) skipped.push(spanOf(s)); continue; }
     if (/^(?:"""|'''|r"""|\/\*\*|\*)/.test(t0)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments
     if (/^[)\]}]+[):;,]*$/.test(t0) || /^\.\.\.$/.test(t0) || /^\.[A-Za-z_]/.test(t0) || /^@\w+(?:\(.*\))?$/.test(t0) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t0) || /^:(?:param|rtype|return|raises|type)\b/.test(t0)) { skipped.push(spanOf(s)); continue; }
@@ -1427,6 +1462,8 @@ function blockOpen(text, head0) {
     const ch = text[i];
     if (ch === "'") { const nl = text.indexOf('\n', i); const e = text.indexOf("'", i + 1); if (e < 0 || (nl >= 0 && e > nl)) continue; }
     if (ch === '"' || ch === "'" || ch === '`') { const q = ch; for (i++; i < text.length && text[i] !== q; i++) if (text[i] === '\\') i++; continue; }
+    // Go composite literals in a header (`range []string{"a", "b"} {`) are values, not the block.
+    if (ch === '{' && /(?:\[\d*\][\w.*]+|map\[[^\]]+\][\w.*[\]]+)\s*$/.test(text.slice(Math.max(0, i - 60), i))) { const c = closeOf(text, i); if (c > 0) { i = c; continue; } }
     if (ch === '{') return i;
   }
   return -1;

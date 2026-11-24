@@ -585,11 +585,26 @@ function mapCode(src, fn) {
 
 /** PHP reads like the other brace languages once `$name` is `name` and `->` is `.` (line numbers unchanged). */
 function normalizePhp(src) {
-  return mapCode(src.replace(/(^|[^\[])#(?!\[)/gm, '$1//'), (code) => code
+  return mapCode(phpHashComments(src), (code) => code
+    // `.` is PHP's text join (`$a.$b`, `'x'.$y`); spaced, it can never be read as `a.b` (a property) below.
+    .replace(/(?<![.\d])\.(?![.=\d])/g, ' . ')
     .replace(/\$this\s*->/g, 'this.')
     .replace(/\$(?=[A-Za-z_])/g, '')
     .replace(/(\w|\))\s*(?:\?)?->\s*(?=[A-Za-z_])/g, '$1.')
     .replace(/\belseif\b/g, 'else if'));
+}
+
+/** PHP `# comment` as `// comment`, outside strings (a `#` inside '[^:/?#]' is text). Attributes `#[…]` stay. */
+function phpHashComments(src) {
+  let out = '', last = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '"' || c === "'") { i = skipString(src, i); continue; }
+    if (c === '/' && src[i + 1] === '/') { const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; continue; }
+    if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 1; continue; }
+    if (c === '#' && src[i + 1] !== '[') { out += `${src.slice(last, i)}//`; last = i + 1; const e = src.indexOf('\n', i); i = e < 0 ? src.length : e - 1; }
+  }
+  return out + src.slice(last);
 }
 
 /** Kotlin `if (c) A else if (c2) B else C` used as a value. Returns false when the text is not one. */
@@ -1122,6 +1137,8 @@ function splitStatements(body, baseLine) {
         // statement. Any other brace is part of an expression (an object literal, destructuring, a struct
         // literal, JSX): keep reading to the end of the statement.
         const prefix = src.slice(start, i).trim();
+        // A Go composite literal (`[]string{…}`, `map[string]int{…}`) inside a header is a value: read past it.
+        if (/(?:\[\d*\][\w.*]+|map\[[^\]]+\][\w.*[\]]+)$/.test(prefix) && /^(?:for|if|switch)\b/.test(prefix)) { i = close; continue; }
         const blockHeader = !prefix
           || /^(?:if|else|for|foreach|while|switch|try|catch|finally|do|function|class|fn|func|match|loop|unsafe|impl|struct|enum|trait|mod|go|defer|select|using|lock|synchronized|namespace|interface|record|object|init|when|static|async\s+function|export\s+(?:default\s+)?(?:function|class))\b/.test(prefix)
           || (/(?:\)|=>|\belse|\btry|\bdo|\bfinally|\bloop|\bunsafe|\bdefer)\s*$/.test(prefix) && !/^(?:return|throw|yield)\b/.test(prefix) && !/[=:]\s*\w*\s*\(/.test(prefix.replace(/=>\s*$/, '')) )
@@ -1150,6 +1167,8 @@ function splitStatements(body, baseLine) {
         const after = src.slice(j, j + 24);
         // A switch label (`case 'a':`, `default:`) is a statement of its own: what follows it is the case's first step.
         if (/^(?:case\b[^\n]*|default\s*):$/.test(before)) { i++; break; }
+        // A loop label (`outer:`) is its own line; the loop after it is the next statement.
+        if (/^[A-Za-z_]\w*:$/.test(before)) { i++; break; }
         // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
         if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
         if (/^(?:\}\s*)?else$/.test(before)) continue;
@@ -1179,7 +1198,32 @@ function headerClosed(before) {
   }
   return false;
 }
-const stripCommentsKeepLayout = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:])\/\/.*$/gm, '$1');
+/**
+ * Comments blanked to spaces (lines and offsets unchanged), outside strings only: `'… use \`//\` …'` and
+ * `"https://…"` keep their text, so a string can never swallow the rest of a line. One pass, linear.
+ */
+function stripCommentsKeepLayout(s) {
+  let out = '', last = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === '"' || c === "'" || c === '`') {
+      // A quote is a string only when it closes (on the same line, except template and raw strings).
+      let j = i + 1;
+      for (; j < s.length; j++) { if (s[j] === '\\') { j++; continue; } if (s[j] === c || (s[j] === '\n' && c !== '`')) break; }
+      if (j < s.length && s[j] === c) i = j;
+      continue;
+    }
+    if (c === '/' && s[i + 1] === '/' && s[i - 1] !== ':') {
+      let e = s.indexOf('\n', i); if (e < 0) e = s.length;
+      out += s.slice(last, i) + ' '.repeat(e - i); last = i = e; i--; continue;
+    }
+    if (c === '/' && s[i + 1] === '*') {
+      let e = s.indexOf('*/', i + 2); e = e < 0 ? s.length : e + 2;
+      out += s.slice(last, i) + s.slice(i, e).replace(/[^\n]/g, ' '); last = e; i = e - 1; continue;
+    }
+  }
+  return out + s.slice(last);
+}
 
 /** Read `if ... else ...` / `return ...` statements into rules. Returns { rules, otherwise, unread }. */
 function readBraceStatements(stmts, language, inputs) {
@@ -1831,9 +1875,11 @@ export function readCode(source, { language, file = '' } = {}) {
     // an implicit last value) reads as "true when <expression>, otherwise false".
     if (!read.rules.length && !read.otherwise) {
       const pred = readPredicate(fn, lang, names, code);
-      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; }
+      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; read.unread = []; }
     }
-    const isDecision = read.rules.length > 0 && !!read.otherwise;
+    // A rule is drawn only when every statement was read into it; a body with other steps (a loop, an assignment, a
+    // later check) is read as steps instead, so no check is silently left out of the picture.
+    const isDecision = read.rules.length > 0 && !!read.otherwise && !read.unread.length;
     const guards = read.guards || [];
     // In a function that is not a pure decision, early fixed returns are still rules worth reading.
     if (!isDecision) {
