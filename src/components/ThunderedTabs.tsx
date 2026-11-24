@@ -4,11 +4,8 @@ import { useState } from "react";
 import type { PlainModel } from "../../compiler/src/plain-contract.d.mts";
 import { HighlightedCode } from "@/lib/highlight";
 import { RulePictureStatic } from "@/app/try/RuleVisual";
-import type { CodeLang } from "@/lib/code-tokens";
 
 export type ThunderedSample = { key: string; label: string; lang: string; source: string; model: PlainModel | null; inferred: boolean };
-
-const HIGHLIGHT: Record<string, CodeLang> = { python: "python", typescript: "typescript", javascript: "typescript", java: "java", csharp: "csharp", go: "go", rust: "rust", kotlin: "java", php: "typescript", ruby: "python" };
 
 /** One refund rule in every language Thunder reads. Pick a language; the Thunder picture stays the same. */
 export function ThunderedTabs({ samples }: { samples: ThunderedSample[] }) {
@@ -27,7 +24,7 @@ export function ThunderedTabs({ samples }: { samples: ThunderedSample[] }) {
       <div id="thundered-panel" role="tabpanel" className="mt-5 grid gap-4 lg:grid-cols-2">
         <figure className="min-w-0 rounded-2xl border border-white/10 bg-ink-850/40 p-6">
           <figcaption className="text-sm font-semibold text-white">Original {s.label}</figcaption>
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-4 font-mono text-[12px] leading-6 text-haze-200"><code><HighlightedCode source={s.source} lang={HIGHLIGHT[s.key] ?? "typescript"} /></code></pre>
+          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-4 font-mono text-[12px] leading-6 text-haze-200"><code><HighlightedCode source={s.source} lang={s.lang} /></code></pre>
           <p className="mt-3 text-xs text-haze-400">Your code stays the source of truth.</p>
         </figure>
         <figure className="min-w-0 rounded-2xl border border-gold-300/40 bg-gradient-to-b from-gold-400/[0.07] to-transparent p-6 shadow-[0_30px_100px_-50px_rgba(167,139,250,0.6)]">

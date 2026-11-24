@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { tokenizeLine } from "./thunder-tokens";
-import { tokenizeCode, type CodeLang } from "./code-tokens";
+import { tokenizeSource } from "./source-tokens.mjs";
 import { tokenizePlain } from "./plain-tokens";
 
 function render(tokens: { text: string; cls?: string }[]) {
@@ -25,9 +25,12 @@ export function HighlightedSource({ source }: { source: string }) {
   );
 }
 
-/** Generated TypeScript / Python / Go / Rust / C# / Java, in the same palette. */
-export function HighlightedCode({ source, lang }: { source: string; lang: CodeLang }) {
-  return <>{render(tokenizeCode(source, lang))}</>;
+/**
+ * Code in a real programming language (original or generated), in editor colors (the syn-* classes).
+ * `lang` is a language name or a file name; anything unsupported is shown as plain text.
+ */
+export function HighlightedCode({ source, lang }: { source: string; lang: string }) {
+  return <>{render(tokenizeSource(source, lang))}</>;
 }
 
 /** Plain ThunderLang (.thunder-plain), colored by kind of word. */
