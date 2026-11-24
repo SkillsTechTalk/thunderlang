@@ -91,8 +91,19 @@ export function compareRules(oldItem, newItem) {
 
 // Each step flattened in reading order: `sig` is what is compared (kind and wording, case- and punctuation-blind),
 // `text` is what a person is shown. Code that is not explained compares as code, never by its wording.
+// A step's code as a language-neutral signature: its names (any convention: delivery_fee = deliveryFee), operators,
+// and values, without syntax (const, let, def, semicolons, braces). Two steps whose words match but whose signatures
+// differ are not proven the same: a + b and a - b read alike in short words, and must never be called "same".
+// Control words are syntax here: the step's kind (a question, a repeat) already carries their meaning.
+const SYNTAX = new Set('const let var val final auto def fn func function return await async new public private protected static self this my local export mut ref out in of for foreach if elif elsif while do then end each as range'.split(' '));
+const OPS = { '&&': 'and', '||': 'or', '!': 'not', '===': '==', '!==': '!=', '<>': '!=', '**': '^', and: 'and', or: 'or', not: 'not', is: '==', None: 'null', nil: 'null', undefined: 'null', NULL: 'null', nullptr: 'null', True: 'true', False: 'false' };
+export function stepSignature(code) {
+  const t = String(code || '').replace(/(\/\/|#)[^\n]*$/gm, '');
+  const toks = t.match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|-?\d+(?:\.\d+)?|[A-Za-z_$][\w$]*|===|!==|==|!=|<=|>=|&&|\|\||\*\*|<>|[-+*\/%<>=!]/g) || [];
+  return toks.filter((x) => !SYNTAX.has(x)).map((x) => OPS[x] ?? (/^["'`]/.test(x) ? `"${x.slice(1, -1)}"` : /^[A-Za-z_$]/.test(x) ? x.replace(/[_$]/g, '').toLowerCase() : x)).join(' ');
+}
 const flatSteps = (steps, depth = 0) => (steps || []).flatMap((s) => [
-  { sig: `${depth}:${s.restates ? 'code' : s.kind}:${s.restates || s.kind === 'other' ? '' : norm(s.says)}`, text: s.restates || s.kind === 'other' ? `\`${s.code ?? s.says}\`` : s.says },
+  { sig: `${depth}:${s.restates ? 'code' : s.kind}:${s.restates || s.kind === 'other' ? '' : norm(s.says)}`, code: stepSignature(s.code), raw: String(s.code ?? ''), text: s.restates || s.kind === 'other' ? `\`${s.code ?? s.says}\`` : s.says },
   ...flatSteps(s.children, depth + 1),
 ]);
 
@@ -116,7 +127,12 @@ function compareItems(o, n) {
   }
   const so = o.flat, sn = n.flat;
   const at = so.findIndex((s, i) => s.sig !== sn[i]?.sig);
-  if (at === -1 && so.length === sn.length) return { status: 'same', reason: `Same ${so.length} steps.`, ...where };
+  if (at === -1 && so.length === sn.length) {
+    // Same words is not proof: the code under them must say the same too (names, operators, values).
+    const differs = so.findIndex((s, i) => s.code && sn[i].code && s.code !== sn[i].code);
+    if (differs >= 0) return { status: 'cannot-check', reason: `Thunder reads these the same, but the code differs at step ${differs + 1}: \`${so[differs].raw.trim()}\` before, \`${sn[differs].raw.trim()}\` after. Check this step.`, ...where };
+    return { status: 'same', reason: `Same ${so.length} steps.`, ...where };
+  }
   const i = at === -1 ? Math.min(so.length, sn.length) : at;
   return { status: 'different', reason: `Steps differ from step ${i + 1}: "${so[i]?.text ?? '(nothing)'}" became "${sn[i]?.text ?? '(nothing)'}".`, ...where };
 }
