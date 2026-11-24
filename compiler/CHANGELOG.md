@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.8
 
 **Language: Details is a fact sheet.** `readLevel(model, 'details', id)` now gives what you need to check before you
 trust or change an action or rule, computed by the compiler: `stops` (every way it can stop, the error, the message
