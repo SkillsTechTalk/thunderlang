@@ -122,11 +122,11 @@ export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
 export type { TranslateLanguage } from './translate.mjs';
 
 // Read code you don't know.
-export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } from './read.mjs';
+export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, INFRA_LANGUAGES } from './read.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
 export function completenessOf(item: unknown): { level: 'explained' | 'partly explained' | 'found' | 'executed'; reasons: string[] };
 export function displayLabel(name: string): string;
-export { readRepo, searchRepo, groupByFile, readableLanguage, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
+export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
 export type { Promotion } from './promote.mjs';

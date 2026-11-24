@@ -7,6 +7,118 @@ code (names in any convention, operators, values); when the words match but the 
 check: Thunder reads these the same, but the code differs at step N", with both lines. A faithful conversion across
 languages is still proven the same.
 
+**Language: the whole application, next two readers: Kubernetes YAML and Docker Compose (spec section 12).**
+- **Kubernetes** (`.yaml`/`.yml` known by `apiVersion:` and `kind:` in its first lines; multi-document files and
+  `kind: List`): each resource is a Resource (`resourceType` the kind as written, `address` `Deployment/api` or
+  `Service/shop/web` in a namespace). Workloads (Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod) know copies,
+  image, command, ports, settings (`secretKeyRef` only named), CPU and memory, health checks in words, the user they
+  run as, and their mounts; Services, Ingresses, ConfigMaps, Secrets (values never shown), PersistentVolumeClaims,
+  ServiceAccounts, NetworkPolicies (in words), autoscalers, Namespaces, and kustomizations are read too; other kinds
+  are still drawn, with their type as written.
+- **Docker Compose** (`docker-compose.yml`, `compose.yaml`, `*.compose.yml`, `docker-compose.<name>.yml`): services,
+  named volumes, networks, secrets, and configs are Resources (`compose-service`, `services.web`). A service knows its
+  image or build folder, published ports and to whom, settings (`${VAR}` computed; secret-looking literals not shown),
+  env files, volumes, what it starts after, networks, health check, restarts, user, limits, and profiles.
+- **Links** with file and line: a Service **sends to** the workloads its selector picks; an Ingress to its Services; a
+  setting that names a Service or Compose service exactly (`redis:6379`, `http://api:8080`) **sends to** it; ConfigMaps
+  and Secrets are **read from**; Namespaces and Compose networks are **run in**; service accounts, storage claims,
+  roles, `depends_on`, and named volumes are **used**. Links to resources in other files are drawn when the files are
+  read together (same folder first; another folder only when exactly one has it). A Compose `build:` is linked to that
+  folder's Dockerfile image by exact path, and a Kubernetes image to a Dockerfile whose folder has exactly its name.
+- **Flow**: "Applying shop.yaml" (the order things are made) and "Starting compose.yaml" (networks and volumes, then
+  each service after what it waits for: "Builds and starts api (from ./api), once db is healthy"; "Is the profile
+  monitoring turned on?").
+- **Permissions**: Role/ClusterRole rules ("can read (get, list, and watch) configmaps in the namespace shop") and
+  RoleBinding/ClusterRoleBinding ("The service account ci/deployer can do anything (cluster-admin) in the whole
+  cluster"), wide for `*` verbs or resources, cluster-admin, admin/edit cluster-wide, or a role given to everyone.
+- **Facts**, two new kinds: `privileged-container` (`privileged: true`, SYS_ADMIN/ALL, host network/PID/IPC, the
+  Docker socket or the node's root mounted) and `no-resource-limits`; and `runs-as-root`, `image-not-pinned`,
+  `public-ingress` (NodePort, LoadBalancer, Ingress, a Compose port published on every address),
+  `secret-in-plain-env`, `secret-in-plain-config`, and `wide-permission`.
+- Helm and other `{{ … }}` templates are listed as skipped with the reason, never read as YAML. The YAML reader has
+  `parseYamlDocs`: each document of a multi-document file parsed on its own, so one bad document does not hide the
+  rest. `readableFile(path, head)` is now given each file's first lines everywhere a repository is read.
+- Read on real repositories: kubernetes/examples, GoogleCloudPlatform/microservices-demo, docker/awesome-compose, and
+  dockersamples/example-voting-app.
+- thunderlang.dev/read has Kubernetes and Docker Compose in its picker, with a sample each.
+
+**Language: the whole application, next two readers: Terraform and Bicep (spec section 12).**
+- **Terraform** (`*.tf`): each `resource` is a Resource (`resourceType` exactly as written, `address`
+  `azurerm_storage_account.main`) that knows its arguments in words: a value only when the file writes it
+  ("Account tier: Standard"), a reference as what it names ("the location of the resource group rg (worked out when
+  it is applied)", `computed: true`), nested blocks summed up in a line, `lifecycle { prevent_destroy }` as
+  "Protected: Terraform refuses to destroy it". `data` sources are looked up (`existing: true`, "Looks up an existing
+  subscription, made elsewhere"); a `module` is a Resource of its own ("Uses the module …"). `count`/`for_each` read
+  "One for each item in the setting names"; `count = x ? 1 : 0` reads "one, only when …".
+- **Bicep** (`*.bicep`): `resource` (`resourceType` 'Microsoft.Storage/storageAccounts', `address` the symbolic name),
+  nested resources (full type, `parent::child`), `existing`, `module`, `for` and `if (…)`, `targetScope`, and
+  `metadata description` as the file's purpose.
+- **Links** with `file` and `line`: references, `depends_on`/`dependsOn`, and `parent`, as `runs-in`
+  (`resource_group_name`, `service_plan_id`, `serverFarmId`, `parent`, …), `reads-from` (data sources, `existing`),
+  `sends-to` (workspaces, endpoints), or `uses`; one link per pair, the most exact kind kept. A reference to a resource
+  in another `.tf` file of the same folder is linked once the folder is read together.
+- **Flow**: one Steps card per file, the order things are created from those links ("Keeps what it made in an Azure
+  storage account", "Works in Azure", "Creates the resource group rg", "Creates the storage account main in the
+  resource group rg"), with a question for each conditional resource and "For each …" for repeated ones.
+- **Permissions** (`role?` added): `azurerm_role_assignment`, Key Vault access policies, AWS IAM (inline JSON,
+  `jsonencode`, `aws_iam_policy_document`, trust policies, policy attachments), `google_*_iam_member`/`_binding`,
+  and Bicep `roleAssignments` with 48 built-in Azure role ids named (checked against Azure Verified Modules: Owner,
+  Contributor, Reader, Storage Blob Data Reader, Key Vault Secrets User, AcrPull, …), followed through a `var`.
+  Wide: Owner/Contributor/User Access Administrator on a subscription or management group, `roles/owner` or
+  `roles/editor` on a project, IAM `"*"` actions or changes on `Resource: "*"`, AdministratorAccess.
+- **Settings** (`default?`, `type?`, `doc?`, `output?`, `from?`, `allowed?` added): `variable`/`param` (sensitive and
+  `@secure()` only named), `locals`/`var`, `output`. Text says "given when it is applied (westeurope unless told
+  otherwise)".
+- **Facts**, new kinds: `storage-public`, `secret-in-plain-config`, `encryption-off`, `wide-permission`; and
+  `public-ingress` for security groups, NSG rules, and firewalls open to `0.0.0.0/0`, `*`, or `Internet` beyond ports
+  80 and 443 (ICMP reads "ping").
+- Small HCL and Bicep parsers (no dependency, linear): strings with `${…}`, heredocs, for expressions, multi-line
+  calls and ternaries, safe access and non-null assertions, lambdas, spreads, union types, decorators. A block or
+  declaration that cannot be parsed is listed in `unknowns` with its line ("Not read yet: …"); the rest of the file
+  is read.
+- Read on real repositories: terraform-aws-vpc, terraform-aws-iam, terraform-google-network, two Azure Verified
+  Modules for Terraform, two Azure Samples, and all 1,880 Bicep files of the Azure Verified Modules: every file read.
+- thunderlang.dev/read has Terraform and Bicep in its picker, with a sample each; a Resource card says when it is
+  looked up rather than made, and settings show their default and whether they are secret.
+
+**Language: the whole application, first two readers: Dockerfiles and GitHub Actions workflows (spec section 12).**
+- **Dockerfile**: each build stage is a Steps card ("Image build", or "The build stage" for `AS build`), its
+  instructions in words: "Starts from node:22-slim", "Starts from the build stage", "Copies package.json and
+  package-lock.json into the image", "Installs what it needs (npm ci)", "Sets NODE_ENV to production", "Opens port
+  3000", "Runs as the user node", "Checks its health with …", and "Starts with …" last. `RUN` chains are split into
+  steps; continuation lines, heredocs, `# escape=`, `--mount=type=secret` (named only) are read.
+- The image a Dockerfile makes is a **Resource** (`kind: 'resource'`, `resourceType: 'docker-image'`, `address:
+  'image:<path>'`) that knows what it starts from, its working folder, ports, user, start command, health check, and
+  its ENV settings (a value only when the file writes it; a secret-looking one is never shown).
+- **GitHub Actions**: each job is a pipeline member with a "When" badge (`route: { method: 'When', path }` and
+  `when`): "When someone pushes to main", "When a pull request is opened", "When someone starts it by hand", "On a
+  schedule: every day at 02:00 UTC" (else "On a schedule (cron …)"), several joined with "or". Steps: well-known
+  actions in words ("Gets the code", "Sets up Node 22", "Builds and pushes the image"), others "Uses owner/action";
+  `run:` one step per command ("Runs the tests", "Publishes the package to npm"; unknown commands "Runs `…`", kept
+  and counted as only named); `if:` as a question (steps sharing one share the question; `always()` is a note, not a
+  question); `needs:` as "After the Test job finishes"; a matrix as "For each …"; `environment:` as "Deploys to the
+  production environment (it may need someone's approval first)"; `exit 1` as a Stop; `continue-on-error` noted.
+  Shell `if`/`for`/`case`, `cmd || { …; exit 1; }`, `[ … ] && cmd`, heredocs, and quotes across lines are read.
+- **Permissions** (`model.permissions[]`: `{ id, who, can, on, wide, why?, says, file, line }`): "This workflow can
+  read the code"; `write-all` is wide: "can change everything in the repository (wide)".
+- **Settings** (`model.settings[]`: `{ name, source, secret, file, line }`): parameters, variables, secrets (named,
+  never shown), literals, and values worked out when it runs (`computed: true`). `${{ … }}` reads "worked out when it
+  runs"; `${{ secrets.X }}` reads "the secret X".
+- **Facts** (`model.facts[]`, what the file says, not advice): `write-all-permissions`, `untrusted-trigger-with-secrets`,
+  `action-pinned-by-tag` (GitHub's own actions marked `firstParty`), `image-not-pinned`, `runs-as-root`,
+  `secret-in-plain-env`.
+- Model, additive: `files[].category` ('application' | 'infrastructure' | 'delivery') and `files[].skipped` (why a
+  file could not be read); member kinds `pipeline` and `image-build`; links with `file` and `line`; Big Picture at app
+  scope has `resources`, `permissions`, `settings`, and `facts`; Text lists Permissions and Settings.
+- `readableFile(path, head?)` (read-repo and /core) says which language or format a file is; `Dockerfile`,
+  `Dockerfile.*`, `*.dockerfile`, `Containerfile`, and `.github/workflows/*.yml|yaml` are read, and folder reading
+  no longer skips `.github`. Hooks are in place for Terraform, Bicep, Compose, Azure Pipelines, Helm, and Kubernetes.
+- A small YAML reader (no dependency): block and flow collections, quoted and plain scalars, block scalars with
+  chomping, anchors, comments, and `${{ … }}` kept as text, line by line.
+- Grammar: symbols `resource` (a block) and `permission` (a key), a `when` mark, elements Resource, Permission,
+  Setting, Pipeline, and Image build, and Dockerfile and GitHub Actions in LANGUAGES. thunderlang.dev draws a
+  Resource card, who can do what, and the settings; /read has a Dockerfile and a workflow sample.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

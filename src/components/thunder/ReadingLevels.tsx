@@ -7,7 +7,7 @@ import { thunderModel, readLevel } from "../../../compiler/src/model.mjs";
 import type { ThunderModel, LevelId, LevelView } from "../../../compiler/src/model.d.mts";
 import { LEVELS, THUNDER_VISUAL, thunderTokens } from "../../../compiler/src/visual.mjs";
 import { explainPlain } from "../../../compiler/src/plain-contract.mjs";
-import { Symbol, ThingCard, DataCard, FlowBlocks, HEX, focus, type SymbolId } from "./ThunderParts";
+import { Symbol, ThingCard, DataCard, ResourceCard, PermissionList, SettingList, FlowBlocks, HEX, focus, type SymbolId } from "./ThunderParts";
 import { sourceLines } from "../../lib/source-tokens.mjs";
 
 /** The same answer words the flow uses: BigFee -> Big fee, true -> Yes. */
@@ -292,6 +292,13 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
                 </section>
               )}
             </div>
+            {(view.resources ?? []).length > 0 && <div className="grid gap-5 lg:grid-cols-2">{model.things.filter((t) => view.resources!.some((r) => r.id === t.id)).map((t) => <ResourceCard key={t.id} t={t} model={model} onLine={showLine} />)}</div>}
+            {((view.permissions ?? []).length > 0 || (view.settings ?? []).length > 0) && (
+              <div className="grid gap-5 lg:grid-cols-2">
+                {(view.permissions ?? []).length > 0 && <PermissionList permissions={view.permissions!} onLine={showLine} />}
+                {(view.settings ?? []).length > 0 && <SettingList settings={view.settings!} />}
+              </div>
+            )}
             {view.data!.length > 0 && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{model.things.filter((t) => view.data!.some((d) => d.id === t.id)).map((t) => <DataCard key={t.id} t={t} />)}</div>}
             {view.unknowns!.length > 0 && <ul className="rounded-2xl border border-dashed border-white/25 p-4 text-sm text-haze-300">{view.unknowns!.map((u, i) => <li key={i}>Not read yet, line {u.line}: {u.why}</li>)}</ul>}
             <p className="text-sm text-haze-400">Choose anything it can do to see its Flow.</p>

@@ -28,7 +28,7 @@ function compact(it, key, file, language) {
 function readAll(files) {
   const items = new Map(), byName = new Map(), unreadable = [];
   for (const f of files) {
-    const language = readableLanguage(f.path);
+    const language = readableLanguage(f.path, String(f.source ?? '').slice(0, 2048));
     if (!language || !f.source) continue;
     let reading;
     try { reading = readingOf(f, language); } catch (e) { unreadable.push({ path: f.path, reason: e.message }); continue; }

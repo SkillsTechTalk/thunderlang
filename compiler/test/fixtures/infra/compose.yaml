@@ -1,0 +1,81 @@
+name: shop
+
+x-logging: &logging
+  logging:
+    driver: json-file
+
+services:
+  web:
+    build:
+      context: ./web
+      target: runtime
+    image: acme/web:dev
+    ports:
+      - "3000:3000"
+      - "127.0.0.1:9229:9229"
+    environment:
+      API_URL: http://api:8080
+      NODE_ENV: production
+    depends_on:
+      - api
+    networks: [front]
+
+  api:
+    <<: *logging
+    build: ./api
+    command: ["node", "server.js"]
+    environment:
+      - DATABASE_URL=postgres://app:${DB_PASSWORD}@db:5432/shop
+      - JWT_SECRET=dev-secret-123
+      - REDIS_HOST=cache
+      - LOG_LEVEL
+    env_file: .env
+    secrets:
+      - stripe_key
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    networks: [front, back]
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  db:
+    image: postgres:16@sha256:4ec37d2a07a0067f176fdcc9d4bb633a5724d2cc4f892c7a2046d054bb6939e5
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+    networks: [back]
+
+  cache:
+    image: redis
+    user: root
+    networks: [back]
+
+  agent:
+    image: acme/agent:1.2
+    profiles: [monitoring]
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+volumes:
+  db-data:
+
+networks:
+  front:
+  back:
+    internal: true
+
+secrets:
+  stripe_key:
+    file: ./secrets/stripe.txt

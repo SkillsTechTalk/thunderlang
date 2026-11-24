@@ -265,6 +265,12 @@ The AI summary layer belongs to OpenThunder. This specification defines only how
 | PHP | works today | Symfony `#[Route]` | a function that returns fixed answers | PHPDoc | `class`, `enum` |
 | Ruby | works today | Sinatra `get`/`post` blocks (Rails routes planned) | a `def` that returns fixed answers | `#` comment above | `class`, `Struct` |
 | **SQL** | **planned** | (reached through the app) | `CHECK` constraints, `CASE`, `IF` in procedures | `--` comment, `COMMENT ON` | `CREATE TABLE`, `CREATE VIEW` |
+| Dockerfile | works today (section 12) | (none: it packages the app) | (none) | `#` comment above `FROM` | the image it makes is a **Resource** |
+| GitHub Actions | works today (section 12) | each job, with a "When" badge | `if:` as a question | the workflow's `name:` | **Permissions** and **Settings** |
+| Terraform | works today (section 12) | (none: it describes what exists) | `count = cond ? 1 : 0` as a question | `#` comment above a block | each `resource`, `data`, and `module` is a **Resource**; role assignments and IAM policies are **Permissions** |
+| Bicep | works today (section 12) | (none: it describes what exists) | `if (…)` as a question | `//` comment or `@description` above | each `resource` (`existing` is looked up) and `module` is a **Resource**; role assignments are **Permissions** |
+| Kubernetes | works today (section 12) | (none: it describes what runs) | (none) | `#` comment above a resource | each resource (`Deployment/api`) is a **Resource**; RBAC roles and bindings are **Permissions** |
+| Docker Compose | works today (section 12) | (none: it describes what runs) | `profiles:` as a question | the file's `name:` | each service, named volume, network, secret, and config is a **Resource** |
 
 ### SQL
 
@@ -313,9 +319,179 @@ for (const item of items) {
 THUNDER_VISUAL.colors.pass.hex;   // '#34D399', for checks that passed and nothing else
 ```
 
-## 12. What comes next
+## 12. The whole application: where it runs and how it ships (design)
 
-In the order OpenThunder needs them for Read in Thunder:
+An application is more than its source code. It is also where it runs (containers, servers, databases, networks,
+permissions, settings) and how it is built, tested, and released (pipelines, build scripts). Thunder explains all
+of it, in the same shapes and the same five reading levels, so a person who inherits a system can understand the
+whole of it without learning each format first.
+
+| Category | The question | Formats, in the order Thunder reads them |
+| --- | --- | --- |
+| **Application** | What does the software do? | the programming languages in section 9 |
+| **Infrastructure and configuration** | Where and how does it run? | Dockerfile; Terraform/HCL and Bicep; Kubernetes and Docker Compose YAML; Helm; ARM JSON and CloudFormation; Ansible; JSON/YAML/TOML settings |
+| **Automation and delivery** | How is it built, tested, and released? | GitHub Actions; Azure Pipelines; Makefiles and build scripts (shell and PowerShell are read as languages) |
+
+### New elements
+
+**Status:** Dockerfile, GitHub Actions, Terraform (`.tf`), Bicep, Kubernetes YAML, and Docker Compose are read today
+(Image build, Pipeline, Resource, Connection, Permission, Setting). Connections use all four kinds (`uses`,
+`runs-in`, `reads-from`, `sends-to`). Helm (its templates are listed as not read, with the reason), Azure Pipelines,
+ARM JSON, CloudFormation, Ansible, and `.tf.json` are planned.
+
+Terraform and Bicep read the same way:
+
+- Each `resource` is a Resource with its type as written (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`)
+  and its address (`azurerm_storage_account.main`; in Bicep, the symbolic name). It **knows** its arguments in words,
+  a value only when the file writes it ("Account tier: Standard"); a reference reads as what it names ("the location
+  of the resource group rg (worked out when it is applied)"); nested blocks are summed up in a line.
+- A Terraform `data` source or a Bicep `existing` resource is looked up, not made ("Looks up an existing subscription,
+  made elsewhere"). A `module` is a Resource of its own ("Uses the module ./network").
+- `count`, `for_each`, and Bicep `for` read "One for each item in the setting names"; `count = x ? 1 : 0` and Bicep
+  `if (…)` read "Only when the setting enabled is on". `lifecycle { prevent_destroy = true }` reads "Protected:
+  Terraform refuses to destroy it".
+- `variable` and `param` are Settings given when it is applied (`sensitive = true` and `@secure()` are only named);
+  `locals` and `var` are written in the file or worked out; `output` is a Setting the infrastructure gives back.
+- References and `depends_on`/`dependsOn` are Connections with their lines: `resource_group_name`, `service_plan_id`,
+  `parent`, and similar keys are **runs in**; a data source or `existing` resource is **reads from**; workspace and
+  endpoint keys are **sends to**; the rest is **uses**. A reference to a resource in another `.tf` file of the same
+  folder is drawn when the folder is read together.
+- **Flow** is the order things are created, from those connections: "Works in Azure", "Creates the resource group
+  rg", "Creates the storage account main in the resource group rg", with a question for each conditional resource and
+  "For each …" for each repeated one.
+- **Permissions**: `azurerm_role_assignment`, Key Vault access policies, AWS IAM policies (inline JSON,
+  `jsonencode`, `aws_iam_policy_document`, trust policies, and policy attachments), `google_*_iam_member`/`_binding`,
+  and Bicep `Microsoft.Authorization/roleAssignments` (well-known role ids are named: Owner, Contributor, Reader,
+  Storage Blob Data Reader, Key Vault Secrets User, AcrPull, …). A permission is **wide** when it gives Owner,
+  Contributor, or User Access Administrator on a whole subscription or management group, `roles/owner` or
+  `roles/editor` on a project, or IAM `"*"` actions (or changes on `Resource: "*"`).
+- **Facts** (in addition to the Dockerfile and workflow ones): `public-ingress` (a security group, NSG rule, or
+  firewall that lets `0.0.0.0/0`, `*`, or `Internet` reach a port other than 80 or 443), `storage-public` (public blob
+  or bucket access), `secret-in-plain-config` (a secret-looking argument or default written in the file),
+  `encryption-off` (encryption or HTTPS turned off, or TLS 1.0/1.1 accepted, where the file says so), and
+  `wide-permission`.
+
+Kubernetes YAML (a `.yaml` or `.yml` file whose first lines have `apiVersion:` and `kind:`; several documents per
+file, and `kind: List`) reads this way:
+
+- Each resource is a Resource with its `kind` as written (`Deployment`, `Service`, a custom kind too) and the address
+  `Kind/name`, or `Kind/namespace/name` outside the default namespace. A comment right above it is its note.
+- A **workload** (Deployment, StatefulSet, DaemonSet, Job, CronJob, Pod) knows how many copies run, the image ("no
+  tag, so whatever latest is when it starts"), how it starts, its ports, each setting (a literal value unless the name
+  looks secret; `secretKeyRef` reads "the secret value password in the Secret db-creds (only its name is shown)"),
+  CPU and memory ("Asks for 0.1 CPU and 128 MiB of memory"), its health checks in words ("Ready for traffic when a
+  web request to /healthz on port 8080 succeeds"), the user it runs as, and where each volume is mounted. A CronJob
+  says when it runs ("every day at 02:00 (the cluster's time zone)").
+- A **Service** says who can reach it (inside the cluster only; a NodePort or LoadBalancer from outside, unless an
+  internal load balancer or source ranges say otherwise) and **sends to** the workloads its selector picks. An
+  **Ingress** sends each host and path to its Service and names the TLS Secret it uses. A setting whose value names a
+  Service exactly (`redis:6379`, `http://api:8080`, `db.shop.svc.cluster.local`) **sends to** it.
+- **ConfigMap** keys are Settings with their values (a secret-looking key is not shown); **Secret** keys are only
+  named. A PersistentVolumeClaim says how much storage it asks for and how it can be used; an autoscaler, which
+  workload it scales and between how many copies; a NetworkPolicy, which pods it applies to and what it lets in and
+  out, in words.
+- **Links**: a workload **uses** its service account and storage claims and **reads from** the ConfigMaps and Secrets
+  it takes settings or files from; a namespaced resource **runs in** its Namespace; a binding **uses** its role.
+  Links to resources in other files are drawn when the files are read together (in the same folder first; in another
+  folder only when exactly one folder has it).
+- **Permissions**: each Role and ClusterRole rule ("Whoever is given the role config-reader can read (get, list, and
+  watch) configmaps in the namespace shop"), and each RoleBinding and ClusterRoleBinding ("The service account
+  ci/deployer can do anything (cluster-admin) in the whole cluster"). **Wide**: `*` verbs or resources, cluster-admin
+  anywhere, admin or edit across the whole cluster, or a role given to everyone (signed in or not).
+- **Flow**: one Steps card per file, the order things are made, from those links ("Creates the namespace shop",
+  "Creates the deployment api (3 copies of ghcr.io/acme/api:1.4.2)", "Creates the service api, which sends to the
+  deployment api").
+- **Facts**: `runs-as-root` (`runAsUser: 0`, or nothing that stops it: no `runAsNonRoot: true` and no `runAsUser`),
+  `image-not-pinned`, `public-ingress` (NodePort, LoadBalancer, Ingress), `secret-in-plain-env`,
+  `secret-in-plain-config` (a Secret's values, or a secret-looking ConfigMap key, written in the file),
+  `wide-permission`, and two new kinds: `privileged-container` (`privileged: true`, the SYS_ADMIN or ALL capability,
+  `hostNetwork`/`hostPID`/`hostIPC`, or the node's root folder or Docker socket mounted) and `no-resource-limits`.
+- Helm templates (and other `{{ … }}` templates) are not Kubernetes until they are filled in: they are listed as
+  skipped with that reason. A kustomization says which files it combines and what it changes.
+
+Docker Compose (`docker-compose.yml`, `compose.yaml`, `docker-compose.<name>.yml`, `<name>.compose.yml`) reads this
+way:
+
+- Each **service** is a Resource (`compose-service`, address `services.web`) that knows what it runs: an image, or
+  "Built from the folder ./api, the runtime stage", **linked to that folder's Dockerfile image** when the Dockerfile
+  is read together (an exact path, never a guess). It knows the ports it publishes and to whom ("port 80 as port
+  8080, on every network the computer is on"; "on this computer only" for `127.0.0.1:…`), its settings (`${VAR}` is
+  worked out when it starts; a name with no value is taken from the computer; a secret-looking literal is never
+  shown), its env files, secrets, configs, volumes and folders, what it starts after, its networks, health check,
+  restarts, user, limits, and profiles.
+- Named **volumes**, **networks**, **secrets**, and **configs** are Resources too (`external` ones are made elsewhere).
+- **Links**: `depends_on` **uses**, networks **runs in**, secrets and configs **reads from**, named volumes **uses**,
+  and a setting that names another service (`http://api:8080`, `REDIS_HOST=cache`) **sends to** it.
+- **Flow**: "Starting compose.yaml": networks and volumes first, then each service after the ones it waits for
+  ("Builds and starts api (from ./api), once db is healthy and cache has started"), with "Is the profile monitoring
+  turned on?" for a service that only starts with a profile.
+- **Facts**: `public-ingress` (a port published on every address), `image-not-pinned`, `secret-in-plain-env`,
+  `secret-in-plain-config`, `runs-as-root` (`user: root`), and `privileged-container` (`privileged: true`, the Docker
+  socket, SYS_ADMIN, `pid: host`).
+
+At app scope these Resources join the Dockerfile, Terraform, and Bicep ones and the pipelines on one map. A Kubernetes
+workload whose image has exactly the name of the folder a Dockerfile is in (`image: gcr.io/shop/cart:1.2` and
+`cart/Dockerfile`) **uses** that image, when exactly one folder has that name.
+
+| Element | Shape | What it is | Where it comes from | Thunder Text |
+| --- | --- | --- | --- | --- |
+| **Resource** | a block (new symbol) | Something that exists when the app runs: a container image, an app service or server, a database, a storage account, a queue, a key vault, a network. Like a Thing, it **knows** its settings (name, size, region, version). | Terraform and Bicep `resource`; Kubernetes Deployment, Service, ConfigMap; Compose services; the image a Dockerfile builds; ARM and CloudFormation resources | `Resource <name> (<kind>)` then `It knows` |
+| **Connection** | a line between resources | Uses, runs inside, reads from, sends to. | `depends_on`, references (`azurerm_app_service.app.id`), environment values that name another service, Kubernetes selectors | `<A> uses <B>` |
+| **Permission** | a key (new symbol) | Who can do what to which resource. It reads as a Rule: "The app can read secrets in the key vault." Wide permissions ("Owner of the whole subscription") are called wide. | role assignments (Bicep, Terraform), IAM policies, Kubernetes RBAC, a workflow's `permissions:` | `<who> can <what> on <resource>` |
+| **Setting** | Data | A value the app or the infrastructure is given: name, default, and where it comes from (a parameter, a variable, a secret, written in the file). A secret is only ever named, never shown. | parameters, variables, environment variables, outputs | `Setting <name>: <where it comes from>` |
+| **Pipeline** | an Action with a "when" badge | Automation: **when** it runs (a trigger), then its jobs as Steps cards, in order. | GitHub Actions `on:`/`jobs:`, Azure Pipelines `trigger:`/`stages:`, Makefile targets | `When someone pushes to main` then steps |
+| **Image build** | Steps | How an app is packaged and started: "Starts from node:22-slim", "Copies the package files", "Installs what it needs", "Opens port 3000", "Starts with npm start". The image it makes is a Resource. | Dockerfile (each stage of a multi-stage build is its own Steps card) | `What the image build does` then steps |
+
+Steps inside a pipeline read the way the language they are written in reads: a `run:` block is read as shell or
+PowerShell, and well-known actions read in words (`actions/checkout`: "Gets the code"; `actions/setup-node` with
+`node-version: 22`: "Sets up Node 22"; `npm publish`: "Publishes the package to npm"). A job's `needs:` is its order,
+its `if:` is a question, a failing step is a Stop, and an environment that needs approval is a Stop until someone
+approves it.
+
+### In the model (thunder-model-v1, additive)
+
+So every product draws the same thing without guessing, the compiler gives:
+
+| Field | Shape |
+| --- | --- |
+| A Resource | a Thing with `kind: 'resource'`, `resourceType` exactly as written (`azurerm_storage_account`, `docker-image`), and a stable `address` (`azurerm_storage_account.main`, `Deployment/api`). Changes are matched across versions by `address`. |
+| Connections | `links[]` with `kind: 'uses' \| 'runs-in' \| 'reads-from' \| 'sends-to'`, each with `file` and `line`, only where the file says so |
+| Permissions | `permissions[]`: `{ id, who, can, on, wide, why?, file, line }`. Whether a permission is `wide`, and the short reason, is the compiler's call. |
+| Settings | `settings[]`: `{ name, source: 'parameter' \| 'variable' \| 'secret' \| 'literal' \| 'computed', secret, file, line }`, never a secret's value |
+| Pipelines and image builds | members with `kind: 'pipeline'` (with `when`, the trigger in words) or `kind: 'image-build'` |
+| Category | `files[].category: 'application' \| 'infrastructure' \| 'delivery'` |
+| Worked out later | `computed: true` on any value worked out when the file runs or is applied |
+| Facts | `facts[]`: `{ id, kind, says, file, line }`, what the file says, not advice: permissions that can change everything, triggers that run untrusted code with secrets, actions pinned by a tag instead of a commit, images without a pinned digest, containers that run as root, secrets written into plain settings. A tool decides how serious each one is. |
+| Which files | `readableFile(path, head?)` says which language or format a file is, from its name and, when needed, its first lines (Kubernetes YAML by `apiVersion` and `kind`) |
+| Files not read | a per-file `skipped` reason (too large, a construct Thunder does not read yet), never silently dropped |
+
+The original lines are always one click away, so a secret committed to a file is still visible there; finding
+committed secrets is a security check's job, not Thunder's.
+
+### The five reading levels, for infrastructure and delivery
+
+| Level | What it shows |
+| --- | --- |
+| **Big Picture** | The resources and how they connect, as a map; the permissions as keys on it; the settings each one is given. For a pipeline: when it runs and its jobs. |
+| **Flow** | A pipeline's or an image build's path, with its questions and Stops. For declarative infrastructure: the order things are created, from their connections. |
+| **Details** | One resource's settings, what it can do and who can do what to it, which secrets it uses (by name), and what it relies on. For a pipeline job: every step, what it publishes or deploys, and every way it can stop. |
+| **Text** | Thunder Text, as for code. |
+| **Original** | The exact lines of the file. |
+
+### Honest by design, again
+
+- Thunder reads **files**, not the live cloud. What is actually running may differ; Thunder says so instead of
+  guessing.
+- **Secret values are never shown**, only their names and where they come from.
+- A value that is worked out when the infrastructure is applied (a reference, a function, a loop) is shown as
+  "worked out when it is applied", with the original one click away.
+- Unknown resource kinds are still drawn as Resources, with their type written as it is (`azurerm_foo_bar`), never
+  dropped.
+
+## 13. What comes next
+
+In the order OpenThunder needs them for Read in Thunder (the whole-application formats in section 12 follow
+their own order there):
 
 1. **Actions everywhere:** routes on every handler, including routes registered in another file
    (`r.Post("/orders", h.CreateOrder)`), Go and Rust frameworks, Rails routes, and screens.

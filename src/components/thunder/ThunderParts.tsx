@@ -3,7 +3,7 @@
 // Thing card, a Data card, and the flow with its Yes and No sides. Everything they draw comes from the compiler's
 // model (thunder-model-v1) and grammar (thunder-visual-v1); nothing here decides meaning.
 import type { ReactNode } from "react";
-import type { ThunderModel, Member, Thing, Flow, FlowNode, FlowBlock } from "../../../compiler/src/model.d.mts";
+import type { ThunderModel, Member, Thing, Flow, FlowNode, FlowBlock, Permission, Setting } from "../../../compiler/src/model.d.mts";
 import { THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
 
 export type SymbolId = keyof typeof THUNDER_VISUAL.symbols;
@@ -24,8 +24,8 @@ export function Symbol({ id, size = 28, label }: { id: SymbolId; size?: number; 
   );
 }
 
-export const memberSymbol = (m: Member): SymbolId => (m.kind === "action" ? "action" : m.kind === "rule" ? "rule" : m.kind === "setup" ? "setup" : m.kind === "not-read" ? "not-read" : "steps");
-export const thingSymbol = (t: Thing): SymbolId => (t.kind === "thing" ? "thing" : t.kind === "record" ? "record" : "choices");
+export const memberSymbol = (m: Member): SymbolId => (m.kind === "action" || m.kind === "pipeline" ? "action" : m.kind === "rule" ? "rule" : m.kind === "setup" ? "setup" : m.kind === "not-read" ? "not-read" : "steps");
+export const thingSymbol = (t: Thing): SymbolId => (t.kind === "resource" ? "resource" : t.kind === "thing" ? "thing" : t.kind === "record" ? "record" : "choices");
 
 // ── The flow, drawn as a path you can follow ─────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ export function FlowNodeCard({ n, onOpen, onLine, model }: { n: FlowNode; onOpen
   const d = THUNDER_VISUAL.does[n.does] ?? THUNDER_VISUAL.does.do;
   const target = n.uses ? model.members.find((m) => m.id === n.uses) : undefined;
   const line = n.line ? <button type="button" onClick={() => onLine(n.line!)} className={`ml-auto shrink-0 rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`} aria-label={`Show line ${n.line} in the original code`}>{n.line}</button> : null;
-  if (n.kind === "start") return <div className="flex items-center gap-3 rounded-full border border-[#FCD34D]/40 bg-[#FCD34D]/[0.06] px-4 py-2 text-[15px] text-white"><span aria-hidden="true" className="text-[#FCD34D]">▶</span>{n.text}</div>;
+  if (n.kind === "start") return <div className="flex items-center gap-3 rounded-full border border-[#FCD34D]/40 bg-[#FCD34D]/[0.06] px-4 py-2 text-[15px] text-white"><span aria-hidden="true" className="text-[#FCD34D]">{d.mark}</span>{n.does === "when" && <span className="sr-only">Runs when: </span>}{n.text}</div>;
   if (n.kind === "decision") return (
     <div className="flex items-center gap-3 rounded-2xl border-2 border-[#7FB2FF]/70 bg-[#7FB2FF]/[0.07] px-4 py-3">
       <Symbol id="rule" size={26} />
@@ -137,6 +137,70 @@ export function DataCard({ t }: { t: Thing }) {
       {t.doc && <p className="mt-2 text-sm text-haze-300">{t.doc}</p>}
       {t.choices.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.choices.map((c) => <span key={c} className="rounded-full border border-[#67E8F9]/50 px-3 py-1 text-sm text-[#67E8F9]">{c}</span>)}</div>}
       {t.knows.length > 0 && <ul className="mt-3 space-y-1 text-sm">{t.knows.map((k) => <li key={k.name}><span className="text-[#FCD34D]">{k.label}</span><span className="text-haze-300">{[k.kind, k.start].filter(Boolean).length ? `: ${[k.kind, k.start].filter(Boolean).join(", ")}` : ""}</span></li>)}</ul>}
+    </section>
+  );
+}
+
+const Chip = ({ children, dashed = false }: { children: ReactNode; dashed?: boolean }) => (
+  <span className={`rounded-full border px-2 py-0.5 text-xs text-haze-300 ${dashed ? "border-dashed border-white/30" : "border-white/25"}`}>{children}</span>
+);
+
+/** A Resource (spec section 12): something that exists when the app runs, and what it knows (its settings). */
+export function ResourceCard({ t, model, onLine }: { t: Thing; model: ThunderModel; onLine?: (line: number) => void }) {
+  const label = (id: string) => model.members.find((m) => m.id === id)?.label ?? model.things.find((x) => x.id === id)?.label ?? id;
+  const links = model.links.filter((l) => l.from === t.id || l.to === t.id);
+  return (
+    <section aria-labelledby={`r-${t.id}`} className="rounded-3xl border-2 border-[#FCD34D]/45 bg-[#FCD34D]/[0.03] p-6">
+      <div className="flex items-center gap-4">
+        <Symbol id="resource" size={44} label="Resource" />
+        <div><p className="text-xs font-semibold uppercase tracking-wider text-[#FCD34D]">{t.existing ? "Looked up, not made here" : "A Resource"}{t.resourceType ? <span className="ml-2 font-mono normal-case tracking-normal text-haze-300">{t.resourceType}</span> : null}</p><h2 id={`r-${t.id}`} className="text-2xl font-bold text-white">{t.label}</h2></div>
+      </div>
+      <p className="mt-3 text-sm text-haze-300">Read from {t.file}, not from what is running now.</p>
+      {t.knows.length > 0 && (
+        <>
+          <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-haze-400">It knows</h3>
+          <ul className="mt-2 space-y-1.5">{t.knows.map((k, i) => (
+            <li key={`${k.name}-${i}`} className="flex flex-wrap items-baseline gap-x-2 text-[16px]">
+              <span className="text-[#FCD34D]">{k.label}</span>
+              <span className="text-haze-200">{k.kind}</span>
+              {k.computed && !/worked out/.test(k.kind ?? "") && <Chip dashed>worked out when it runs</Chip>}
+              {k.secret && <Chip>secret, name only</Chip>}
+              {k.line != null && onLine && <button type="button" onClick={() => onLine(k.line!)} aria-label={`Show line ${k.line} in the original`} className={`ml-auto rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`}>{k.line}</button>}
+            </li>
+          ))}</ul>
+        </>
+      )}
+      {links.length > 0 && <p className="mt-4 text-sm text-haze-300">{links.map((l, i) => <span key={i}>{i ? "; " : ""}{label(l.from)} {l.kind.replace(/-/g, " ")} {label(l.to)}</span>)}</p>}
+    </section>
+  );
+}
+
+/** Permissions as keys: who can do what. A wide one says so in words, not only in color. */
+export function PermissionList({ permissions, onLine }: { permissions: Permission[]; onLine?: (line: number) => void }) {
+  return (
+    <section aria-labelledby="perm-h" className="rounded-2xl border border-white/12 p-5">
+      <h3 id="perm-h" className="flex items-center gap-2 text-lg font-semibold text-white"><Symbol id="permission" size={26} />Who can do what</h3>
+      <ul className="mt-3 space-y-2">{permissions.map((p) => (
+        <li key={p.id} className="flex flex-wrap items-start gap-2 text-[15px]">
+          <span className={p.wide ? "text-white" : "text-haze-100"}>{p.says ?? `${p.who} can ${p.can} ${p.on}`}</span>
+          {p.wide && <span className="rounded-full border border-[#F472B6]/70 px-2 py-0.5 text-xs font-semibold text-[#F472B6]">Wide{p.why ? `: ${p.why}` : ""}</span>}
+          {onLine && <button type="button" onClick={() => onLine(p.line)} aria-label={`Show line ${p.line} in the original`} className={`ml-auto rounded font-mono text-xs text-haze-400 hover:text-white ${focus}`}>{p.line}</button>}
+        </li>
+      ))}</ul>
+    </section>
+  );
+}
+
+const SOURCE_WORDS: Record<Setting["source"], string> = { parameter: "given when it starts or is built", variable: "a variable kept outside the file", secret: "a secret: only its name is shown", literal: "written in the file", computed: "worked out when it runs" };
+
+/** Settings: each value's name and where it comes from. A secret is only ever named. */
+export function SettingList({ settings }: { settings: Setting[] }) {
+  return (
+    <section aria-labelledby="set-h" className="rounded-2xl border border-white/12 p-5">
+      <h3 id="set-h" className="text-lg font-semibold text-white">Settings it is given</h3>
+      <ul className="mt-3 space-y-1.5">{settings.map((x) => (
+        <li key={`${x.file}-${x.name}-${x.source}-${x.line}`} className="text-[15px]"><span className="font-mono text-[#FCD34D]">{x.name}</span> <span className="text-haze-300">{x.output ? "given back once it is applied" : SOURCE_WORDS[x.source]}</span>{x.default != null && !x.secret && <span className="text-haze-300"> ({x.default} unless told otherwise)</span>}{x.secret && <> <Chip>secret, name only</Chip></>}</li>
+      ))}</ul>
     </section>
   );
 }

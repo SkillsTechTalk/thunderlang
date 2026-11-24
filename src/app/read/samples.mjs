@@ -285,4 +285,289 @@ $$ LANGUAGE plpgsql;
 `,
     expect: { decisions: [], functions: ['total_not_negative', 'big_paid_orders', 'pay_order'] },
   },
+  {
+    key: 'dockerfile-web',
+    label: 'Dockerfile: build and run a web app',
+    language: 'dockerfile',
+    file: 'Dockerfile',
+    source: `# Build the app with every dependency.
+FROM node:22-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# The image that runs: only what the app needs.
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist ./dist
+EXPOSE 3000
+USER node
+CMD ["node", "dist/server.js"]
+`,
+    expect: { decisions: [], functions: ['build', 'runtime'] },
+  },
+  {
+    key: 'github-actions-ci',
+    label: 'GitHub Actions: test, then deploy',
+    language: 'github-actions',
+    file: '.github/workflows/ci.yml',
+    source: `name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm run build
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
+`,
+    expect: { decisions: [], functions: ['test', 'deploy'] },
+  },
+  {
+    key: 'terraform-web',
+    label: 'Terraform: a web app, its storage, and who can read it',
+    language: 'terraform',
+    file: 'main.tf',
+    source: `provider "azurerm" {
+  features {}
+}
+
+variable "location" {
+  type    = string
+  default = "westeurope"
+}
+
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+# Everything for the web app lives here.
+resource "azurerm_resource_group" "rg" {
+  name     = "web-rg"
+  location = var.location
+}
+
+resource "azurerm_storage_account" "files" {
+  name                     = "webfiles"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = azurerm_resource_group.rg.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_service_plan" "plan" {
+  name                = "web-plan"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  os_type             = "Linux"
+  sku_name            = "B1"
+}
+
+resource "azurerm_linux_web_app" "web" {
+  name                = "web-app"
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
+  service_plan_id     = azurerm_service_plan.plan.id
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  app_settings = {
+    FILES_URL   = azurerm_storage_account.files.primary_blob_endpoint
+    DB_PASSWORD = var.db_password
+  }
+}
+
+resource "azurerm_role_assignment" "web_reads_files" {
+  scope                = azurerm_storage_account.files.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_linux_web_app.web.identity[0].principal_id
+}
+`,
+    expect: { decisions: [], functions: ['apply'] },
+  },
+  {
+    key: 'bicep-web',
+    label: 'Bicep: a web app, its storage, and who can read it',
+    language: 'bicep',
+    file: 'main.bicep',
+    source: `param location string = resourceGroup().location
+
+@secure()
+param dbPassword string
+
+// Files the app reads.
+resource files 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: 'webfiles'
+  location: location
+  sku: {
+    name: 'Standard_LRS'
+  }
+  kind: 'StorageV2'
+}
+
+resource plan 'Microsoft.Web/serverfarms@2023-01-01' = {
+  name: 'web-plan'
+  location: location
+  sku: {
+    name: 'B1'
+  }
+}
+
+resource web 'Microsoft.Web/sites@2023-01-01' = {
+  name: 'web-app'
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: plan.id
+    httpsOnly: true
+  }
+}
+
+resource webReadsFiles 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(files.id, web.id, 'reader')
+  scope: files
+  properties: {
+    principalId: web.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
+  }
+}
+
+output webUrl string = 'https://\${web.properties.defaultHostName}'
+`,
+    expect: { decisions: [], functions: ['deploy'] },
+  },
+  {
+    key: 'kubernetes-web',
+    label: 'Kubernetes: a web app, its settings, and who can reach it',
+    language: 'kubernetes',
+    file: 'k8s/web.yaml',
+    source: `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  LOG_LEVEL: info
+---
+# The web app: two copies, never as root.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: web
+          image: ghcr.io/acme/web:1.4.2
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-creds
+                  key: password
+          envFrom:
+            - configMapRef:
+                name: web-config
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 3000
+`,
+    expect: { decisions: [], functions: ['apply'] },
+  },
+  {
+    key: 'docker-compose-web',
+    label: 'Docker Compose: a web app, its database, and its cache',
+    language: 'docker-compose',
+    file: 'compose.yaml',
+    source: `services:
+  web:
+    build: ./web
+    ports:
+      - "8080:3000"
+    environment:
+      DATABASE_URL: postgres://app:\${DB_PASSWORD}@db:5432/app
+      REDIS_URL: redis://cache:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: \${DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+
+  cache:
+    image: redis:7
+
+volumes:
+  db-data:
+`,
+    expect: { decisions: [], functions: ['up'] },
+  },
 ];
