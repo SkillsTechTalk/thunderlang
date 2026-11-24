@@ -1,8 +1,11 @@
 // thunder-model-v1: the one meaning every Thunder view is drawn from (see src/model.mjs).
 import type { Does } from './visual.mjs';
+import type { Expr } from './meaning.mjs';
 export const MODEL_SCHEMA: 'thunder-model-v1';
 export const THING_LANGUAGES: string[];
-export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true }
+export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true;
+  /** The step's full meaning (thunder-expr-v1). */ expr?: Expr;
+  /** What the short words leave out, one level down: "with: order, { validate: false }". Shown in Details and the full Thunder Text. */ detail?: string }
 export interface FlowEdge { from: string; to: string; label?: 'yes' | 'no' | 'each' | 'next' | 'done' | 'error' | 'case' | 'nested'; /** On a 'case' edge: the case it takes ("When it is from 90 to 100", "Otherwise", "None of these"). */ text?: string }
 export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; each?: FlowBlock[]; body?: FlowBlock[];
   /** A choice among several cases (switch, when, match, select): one side per case, in order. The decision node has `cases: true`. */
@@ -19,7 +22,8 @@ export function flowOf(steps: unknown[], options?: { start?: string; memberIndex
 export function ruleFlow(item: unknown, start: string): Flow;
 export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean };
 export function stepDoes(step: unknown): Does;
-export function modelText(model: ThunderModel, id: string): string;
+/** Thunder Text for a Thing or member; `full` shows every argument and value after the short words. */
+export function modelText(model: ThunderModel, id: string, options?: { full?: boolean }): string;
 /** One answer on the way to a step: the question, and Yes, No, For each, or Otherwise. */
 export interface When { question: string; answer: string }
 export type LevelId = 'big-picture' | 'flow' | 'details' | 'text' | 'original';
@@ -38,7 +42,9 @@ export interface LevelView {
   // Flow
   flow?: Flow;
   // Details
-  steps?: { id: string; text: string; does: Does; mark: string; line: number | null; depth: number; via?: string; notExplained?: true }[];
+  steps?: { id: string; text: string; does: Does; mark: string; line: number | null; depth: number; via?: string; notExplained?: true;
+    /** The step's full meaning tree. */ expr?: Expr;
+    /** What the short words leave out ("with: order, { validate: false }"), and the whole sentence ("Calls save — with: …"). */ detail?: string; full?: string }[];
   notExplained?: number; tryable?: boolean; rule?: unknown; source?: string;
   /** Details: what goes in, and the lines where each fact is used. */
   inputs?: { label: string; lines: number[]; /** Its kind in words when the code says it: "a number", "a PingResource". */ kind?: string }[];
@@ -62,4 +68,4 @@ export interface LevelView {
   language?: string | null;
 }
 /** What one reading level (LEVELS) shows for the whole model, a Thing, or one action or rule. */
-export function readLevel(model: ThunderModel, level: LevelId, focus?: string): LevelView;
+export function readLevel(model: ThunderModel, level: LevelId, focus?: string, options?: { full?: boolean }): LevelView;

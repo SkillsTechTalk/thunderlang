@@ -9,6 +9,7 @@ import { visualFor, LEVELS, DOES } from './visual.mjs';
 import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
 import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
+import { detailParts } from './meaning.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /** Languages whose classes, records, and choices are read today. Others still get every function. */
@@ -292,7 +293,10 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
     const blocks = [];
     for (const st of list) {
       const does = stepDoes(st);
-      const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}) };
+      // Every node keeps its step's meaning tree (`expr`) and, when the short words leave something out, `detail`:
+      // the rest, one level down ("with: order, { validate: false }"). Details and the full Thunder Text show it.
+      const parts = detailParts(st);
+      const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}), ...(st.expr ? { expr: st.expr } : {}), ...(parts.length ? { detail: parts.map((x) => `${x.label}: ${x.text}`).join('; ') } : {}) };
       // A choice among several cases (switch, when, match, select): one question with one side per case.
       const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check' && c.caseLabel) ? st.children : null;
       if (arms) {
@@ -362,7 +366,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         let after = body.open;
         const handlers = [];
         for (const h of st.handlers || []) {
-          const hn = node('decision', `${h.says}?`, { line: h.line, lane: lane + 1, does: 'decide', handler: true });
+          const hn = node('decision', `${h.says}?`, { line: h.line, lane: lane + 1, does: 'decide', handler: true, ...(h.expr ? { expr: h.expr } : {}) });
           edges.push({ from: t, to: hn, label: 'error' });
           const hw = walk(h.steps, [{ id: hn, label: 'yes' }], lane + 1);
           handlers.push({ id: hn, blocks: hw.blocks });
@@ -559,8 +563,8 @@ export function thunderModel(files, { name = 'app' } = {}) {
 
 // ── Thunder Text, projected from the model (the picture is projected from the same nodes) ──────────────
 
-/** Thunder Text lines from a flow's blocks: the same tree the picture is drawn from. */
-function flowLines(flow, depth = 1) {
+/** Thunder Text lines from a flow's blocks: the same tree the picture is drawn from. `full`: every detail too. */
+function flowLines(flow, depth = 1, full = false) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
   const pad = (d) => '  '.repeat(d);
@@ -569,7 +573,7 @@ function flowLines(flow, depth = 1) {
   const go = (blocks, d) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
-      out.push(`${pad(d)}- ${say(n)}${at(n)}`);
+      out.push(`${pad(d)}- ${say(n)}${full && n.detail ? ` — ${n.detail}` : ''}${at(n)}`);
       if (n.kind === 'decision') {
         for (const side of ['yes', 'no']) {
           if (!(side in b)) continue;
@@ -595,7 +599,7 @@ function flowLines(flow, depth = 1) {
  * Thunder Text for a Thing or a member, made from the same model nodes the picture is drawn from, so the two
  * cannot disagree. Pass the model and an id.
  */
-export function modelText(model, id) {
+export function modelText(model, id, { full = false } = {}) {
   const t = model.things.find((x) => x.id === id);
   if (t) {
     const lines = [`${t.kind === 'thing' ? 'Thing' : t.kind === 'record' ? 'Record' : 'Choices'} ${t.label}`];
@@ -613,7 +617,7 @@ export function modelText(model, id) {
   if (m.doc) lines.push(`  Author's note: ${m.doc}`);
   if (m.youGive.length) lines.push(`  You give it: ${m.youGive.join(', ')}`);
   if (m.youGetBack) lines.push(`  You get back: ${m.youGetBack}`);
-  lines.push(...flowLines(m.flow));
+  lines.push(...flowLines(m.flow, 1, full));
   return `${lines.join('\n')}\n`;
 }
 
@@ -625,7 +629,9 @@ const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setu
 function detailSteps(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
-  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' || n.code ? { notExplained: true } : {}) });
+  const push = (n, depth, via, text = n.text) => out.push({ id: n.id, text, does: n.does, mark: DOES[n.does]?.mark ?? '·', line: n.line ?? null, depth, ...(via ? { via } : {}), ...(n.kind === 'code' || n.code ? { notExplained: true } : {}),
+    // One level down: the full meaning, and what the short words leave out.
+    ...(n.expr ? { expr: n.expr } : {}), ...(n.detail ? { detail: n.detail, full: `${text} — ${n.detail}` } : {}) });
   // `via` (Yes, No, For each) labels only the first step of each path, the way Thunder Text writes "Yes:" once.
   const walk = (blocks, depth, via) => {
     for (const b of blocks || []) {
@@ -750,7 +756,7 @@ function detailsFacts(model, member) {
  * Thing or member id, or nothing for the whole model. Flow and Details need an action or rule; without one they
  * give back `needsFocus` and the list to choose from. Deterministic; built only from the model.
  */
-export function readLevel(model, level, focus) {
+export function readLevel(model, level, focus, { full = false } = {}) {
   const lv = LEVELS.find((l) => l.id === level);
   if (!lv) throw new Error(`Unknown reading level "${level}". Use one of: ${LEVELS.map((l) => l.id).join(', ')}.`);
   const member = focus ? model.members.find((m) => m.id === focus) : undefined;
@@ -796,7 +802,7 @@ export function readLevel(model, level, focus) {
       source: 'Read from code by the Thunder compiler, with no AI.' };
   }
   if (lv.id === 'text') {
-    const text = focus ? modelText(model, focus) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id))].join('\n');
+    const text = focus ? modelText(model, focus, { full }) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id, { full }))].join('\n');
     return { ...base, ...about, text };
   }
   return { ...base, ...about, language: (member ?? thing) ? (member?.language ?? model.files.find((f) => f.path === thing.file)?.language ?? null) : (model.files[0]?.language ?? null) };

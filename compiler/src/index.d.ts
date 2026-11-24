@@ -742,6 +742,9 @@ export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } 
 export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from './visual.mjs';
 export { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
 export { sameMeaning, renderSame } from './same.mjs';
+export { EXPR_SCHEMA, parseStatement, renderStatement, sayFull, detailOf, sameExpr } from './meaning.mjs';
+export type { Expr } from './meaning.mjs';
+export { stepRoundTrip, runBehavior, ROUND_TRIP_LANGUAGES } from './round-trip.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
 export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';

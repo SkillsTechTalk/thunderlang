@@ -193,6 +193,9 @@ export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES } 
 export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } from "./visual.mjs";
 export { thunderizeFiles, THUNDER_TEXT_EXT } from "./thunderize.mjs";
 export { sameMeaning, renderSame } from "./same.mjs";
+// Every step's meaning tree, and code → Thunder → code for steps.
+export { EXPR_SCHEMA, parseStatement, renderStatement, sayFull, detailOf, sameExpr } from "./meaning.mjs";
+export { stepRoundTrip, runBehavior, ROUND_TRIP_LANGUAGES } from "./round-trip.mjs";
 export { readRepo, searchRepo, groupByFile, readableLanguage, READ_REPO_SCHEMA, READ_SKIP_DIRS } from "./read-repo.mjs";
 export { collectReadableFiles } from "./read-repo-fs.mjs";
 export { promoteDecision, PROMOTE_SCHEMA } from "./promote.mjs";

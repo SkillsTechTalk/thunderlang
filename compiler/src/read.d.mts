@@ -1,3 +1,4 @@
+import type { Expr } from './meaning.mjs';
 export type ReadKind = 'decision' | 'function' | 'error' | 'test';
 export interface ReadInput { name: string; type: string | null; /** Framework plumbing (db, request, ctx): not something a person gives. */ plumbing?: true }
 export interface ReadRule { when: string; result: string; line: number; says: string }
@@ -37,6 +38,11 @@ export interface ReadStep {
   otherwise?: ReadStep[]; handlers?: { says: string; line: number; steps: ReadStep[] }[]; always?: { line: number; steps: ReadStep[] };
   /** The wording only restates the code's syntax ("Works out actives"); show the code, do not count it as read. */
   restates?: true;
+  /**
+   * The full meaning underneath the short words (thunder-expr-v1, see meaning.d.mts): every name, argument, and value
+   * of the statement, or `{ kind: 'code', text }` when it is not fully understood. Never guessed.
+   */
+  expr?: Expr;
 }
 export interface Reading {
   schema: 'thunder-reading-v1'; language: string; detected: boolean; items: ReadItem[];

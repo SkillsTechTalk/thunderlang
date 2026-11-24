@@ -1189,7 +1189,8 @@ function splitStatements(body, baseLine) {
         // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
         if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
         if (/^(?:\}\s*)?else$/.test(before)) continue;
-        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
+        // (`i++` / `n--` at the end of a line is a whole statement, not an operator waiting for more.)
+        if (before && (!/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) || /[\w)\]](?:\+\+|--)$/.test(before)) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
       }
     }
     const raw = src.slice(start, i);
@@ -1855,6 +1856,14 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
+  // Every step carries its meaning tree (`expr`); a step made without one keeps its code, never a guess.
+  const withExpr = (list) => {
+    for (const st of list || []) {
+      if (!st.expr) st.expr = { kind: 'code', text: String(st.code ?? '').replace(/\s+/g, ' ').trim() };
+      withExpr(st.children); withExpr(st.otherwise); for (const h of st.handlers || []) withExpr(h.steps); withExpr(st.always?.steps);
+    }
+  };
+  withExpr(r.steps);
   for (const sk of r.skipped) anchorSpan(sk, fn, lang);
   const range = bodyRange(fn, lang, code);
   if (range) {

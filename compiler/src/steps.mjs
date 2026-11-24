@@ -1,5 +1,6 @@
 import { sayLibraryCall } from './libraries.mjs';
 import { splitLogic, wrapped, accountsFor, asCodeWords, isCodeWords, closeOf, balancedText } from './faithful.mjs';
+import { parseStatement, parseExpr } from './meaning.mjs';
 // Steps: read any function as a short list of plain steps (check, branch, loop, set, call, return, fail).
 // Decisions become rules; everything else becomes steps. Deterministic and pattern-based, like the rest of
 // the reader: a statement it does not recognize is kept as `other` with its original text, never guessed.
@@ -170,7 +171,9 @@ function sayAtom(atom) {
     return inner == null ? null : `not (${inner})`;
   }
   const said = sayAtomWords(a);
-  if (said == null || isCodeWords(said) || !accountsFor(a, said)) return null;
+  // The words are checked against the condition's tree when it parses (exact operators, no strings or comments in
+  // the way); otherwise against the text.
+  if (said == null || isCodeWords(said) || !accountsFor(a, said, parseExpr(a, readingLanguage()))) return null;
   return said;
 }
 
@@ -704,7 +707,28 @@ function libraryStep(head) {
   return lib && !lib.value ? { kind: 'call', says: lib.says, library: true, does: lib.does } : null;
 }
 
-export function classifyStatement(raw, { inner = 0 } = {}) {
+/**
+ * One statement as a step: its short words (`says`), its kind, and `expr`, the full meaning underneath the words
+ * (thunder-expr-v1, see meaning.mjs): every name, argument, and value, or `{ kind: 'code', text }` when the statement
+ * is not fully understood. The words stay short; `expr` keeps everything one level down.
+ */
+export function classifyStatement(raw, opts) {
+  const r = classifyWords(raw, opts);
+  if (!r.expr) r.expr = statementExpr(raw);
+  return r;
+}
+/** The language of the function being read ('' outside one). */
+export const readingLanguage = () => FN_CONTEXT?.language || '';
+/** A statement's meaning tree, read in the language of the function around it. */
+export function statementExpr(raw) {
+  let text = String(raw ?? '').trim();
+  // An annotation line (`@Override`) belongs to the declaration under it.
+  if (/^@\w+/.test(text) && text.includes('\n')) text = text.replace(/^(?:@\w+(?:\([^)]*\))?[ \t]*\r?\n\s*)+/, '');
+  return parseStatement(text, readingLanguage());
+}
+const codeExpr = (text) => ({ kind: 'code', text: String(text ?? '').replace(/\s+/g, ' ').trim() });
+
+function classifyWords(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
   let first = text.split('\n')[0].trim();
@@ -886,6 +910,12 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (fn) return { kind: 'branch', says: `If ${lastWords(fn)} fails${innerNote}`, code };
   }
   if ((m = head.match(/^(?:if|else\s+if)\s+[^;{]*:=[^;{]*;\s*(.+?)\s*\{?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${cond}${innerNote}`, cond: m[1], code }; }
+  // `if (x) { a(); }` on one line: the condition is what is in the brackets; the block is the step's children.
+  if (/^(?:if|else\s+if)\s*\(/.test(head)) {
+    const o = head.indexOf('('), c = closeOf(head, o);
+    const after = c > 0 ? head.slice(c + 1).trim() : '';
+    if (/^\{./.test(after)) { const cond = head.slice(o + 1, c); return { kind: 'branch', says: `If ${sayCodeCondition(cond)}${innerNote}`, cond, code }; }
+  }
   if ((m = head.match(/^(?:if|elif|else\s+if|unless|when)\b\s*(.*?)\s*(?:\{|:|then)?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${/^unless\b/.test(head) ? 'not: ' : ''}${cond}${innerNote}`, cond: m[1].replace(/^\((.*)\)$/, '$1'), code, negate: /^unless\b/.test(head) }; }
   if (/^switch\s*(?:true\s*)?\{$/.test(head)) return { kind: 'branch', says: `Checks these cases in order${innerNote}`, code };
   if ((m = head.match(/^(?:switch|match|case|select)\b\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
@@ -1065,6 +1095,30 @@ function asCall(list, i) {
 
 const CLAUSE = /^(?:elif\b|elsif\b|else\s+if\b|else\b|except\b|catch\b|rescue\b|finally\b|ensure\b)/;
 
+/**
+ * A catch clause as a tree: which errors it handles and the name it gives the error. `catch (e)`, `catch (IOException
+ * | TimeoutException e)`, `except (A, B) as e`, `rescue Foo, Bar => e`. Anything else is kept as code.
+ */
+function catchExpr(head) {
+  const h = String(head).trim().replace(/\s*[:{]\s*$/, '').replace(/\s+/g, ' ');
+  const m = h.match(/^(?:catch|except|rescue)\b\s*(.*)$/);
+  if (!m) return codeExpr(h);
+  let rest = m[1].trim();
+  if (rest.startsWith('(') && closeOf(rest, 0) === rest.length - 1) rest = rest.slice(1, -1).trim();
+  if (!rest) return { kind: 'catch', errors: [] };
+  let as = null;
+  const named = rest.match(/^(.*?)\s*(?:\bas\b|=>)\s*([A-Za-z_$][\w$]*)$/);
+  if (named) { rest = named[1].replace(/^\(\s*|\s*\)$/g, ''); as = named[2]; }
+  else {
+    const typed = rest.match(/^([\w.$:\\]+(?:\s*\|\s*[\w.$:\\]+)*)\s+([a-z_$][\w$]*)$/);
+    if (typed) { rest = typed[1]; as = typed[2]; }
+    else if (/^[a-z_$][\w$]*$/.test(rest)) return { kind: 'catch', errors: [], as: rest };
+  }
+  const errors = rest ? rest.split(/\s*[,|]\s*/) : [];
+  if (!errors.every((x) => /^[\w.$:\\]+$/.test(x))) return codeExpr(h);
+  return { kind: 'catch', errors, ...(as ? { as } : {}) };
+}
+
 /** Turn a clause (else, elif, except, catch, finally) into what it means for the step it belongs to. */
 function attachClause(step, clause) {
   const kw = clause.kind;
@@ -1082,7 +1136,7 @@ function attachClause(step, clause) {
     target.otherwiseLine = clause.line;
   } else if (kw === 'catch') {
     const what = (clause.head.replace(/\\/g, '.').replace(/\(\s*\./, '(').match(/^(?:except|catch|rescue)\s*\(?\s*(?:[\w.]+\s+)?\(?\.?([A-Z][\w.:]*(?:\s*[,|]\s*\.?[A-Z][\w.:]*)*)/) || [])[1]?.replace(/::/g, '.');
-    (step.handlers ||= []).push({ says: what ? `If ${what.split(/\s*[,|]\s*/).map((x) => x.split('.').pop()).join(' or ')} goes wrong` : 'If anything goes wrong', line: clause.line, steps: kids });
+    (step.handlers ||= []).push({ says: what ? `If ${what.split(/\s*[,|]\s*/).map((x) => x.split('.').pop()).join(' or ')} goes wrong` : 'If anything goes wrong', line: clause.line, steps: kids, expr: catchExpr(clause.head) });
   } else if (kw === 'finally') {
     // Code that always runs at the end is never the value given back.
     for (let i = 0; i < kids.length; i++) asCall(kids, i);
@@ -1204,6 +1258,25 @@ function armsSubject(rest) {
   const m = (r.match(/^match\s*\((.+)\)$/) || r.match(/^match\s+(.+)$/)) || r.match(/^when\s*\((.+)\)$/) || r.match(/^([\w.]+)\s+switch$/);
   return m ? m[1].trim() : null;
 }
+/** One arm's patterns as a tree: `A | B` -> case [A, B]; `_` / `else` -> otherwise; anything not understood -> code. */
+function armExpr(pattern) {
+  const p = String(pattern).trim();
+  if (/^(?:_|else|default)$/.test(p)) return { kind: 'case', default: true };
+  const lang = readingLanguage();
+  let guard = null, body = p;
+  const g = p.match(/^(.+?)\s+(?:if|when)\s+(.+)$/);
+  if (g) { body = g[1]; guard = parseExpr(g[2], lang); if (!guard) return codeExpr(p); }
+  const parts = [];
+  let depth = 0, from = 0;
+  for (let i = 0; i <= body.length; i++) {
+    const c = body[i];
+    if (c === '(' || c === '[' || c === '{') depth++; else if (c === ')' || c === ']' || c === '}') depth--;
+    if (i === body.length || (depth === 0 && ((c === '|' && body[i + 1] !== '|' && body[i - 1] !== '|') || c === ','))) { parts.push(body.slice(from, i).trim()); from = i + 1; }
+  }
+  const patterns = parts.filter(Boolean).map((x) => parseExpr(x, lang));
+  if (!patterns.length || patterns.some((x) => !x)) return codeExpr(p);
+  return { kind: 'case', patterns, ...(guard ? { guard } : {}) };
+}
 /** One arm's pattern in words: `0..=49` -> "from 0 to 49", `Cmd::Start | Cmd::Go` -> "start or go", `_` -> otherwise. */
 function armSays(pattern) {
   let p = String(pattern).trim();
@@ -1283,6 +1356,10 @@ function groupCases(kids) {
         const a = cur.says, b = k.says;
         cur.says = /^When it is /.test(a) && /^When it is /.test(b) ? `${a} or ${b.slice(11)}` : b === 'Otherwise' ? 'Otherwise' : `${a}, or ${b.replace(/^When /, '')}`;
         cur.span = { ...cur.span, endLine: k.span?.endLine ?? cur.span?.endLine };
+        // The tree keeps every label: `case A: case B:` is one case with both patterns (and `default` when it is one).
+        const ea = cur.expr, eb = k.expr;
+        if (ea?.kind === 'case' && eb?.kind === 'case') cur.expr = { kind: 'case', patterns: [...(ea.patterns || []), ...(eb.patterns || [])], ...(ea.default || eb.default ? { default: true } : {}) };
+        else if (ea || eb) cur.expr = { kind: 'code', text: [cur.code, k.code].filter(Boolean).join(' ') };
         continue;
       }
       cur = { ...k, children: [] };
@@ -1317,7 +1394,7 @@ export function stepsFrom(statements) {
     const t0 = (s.text || '').trim();
     // An arm of a match / when: "When it is …", with what that arm does inside it (`else ->` is an arm, not a clause).
     if (s.arm != null) {
-      const arm = { kind: 'check', says: armSays(s.arm), code: clip(t0.split('\n')[0].trim(), 90), caseLabel: true, line: s.line, span: spanOf(s) };
+      const arm = { kind: 'check', says: armSays(s.arm), code: clip(t0.split('\n')[0].trim(), 90), expr: armExpr(s.arm), caseLabel: true, line: s.line, span: spanOf(s) };
       const kids = stepsFrom(s.children || []).steps;
       if (kids.length) arm.children = kids;
       steps.push(arm);
@@ -1337,14 +1414,14 @@ export function stepsFrom(statements) {
         // Ruby: `def x ... rescue ... end` with no `begin`: everything before the rescue is what is tried.
         const tried = steps.splice(0, steps.length);
         for (let i = 0; i < tried.length - 1; i++) asCall(tried, i);
-        steps.push({ kind: 'try', says: 'Tries these steps and handles any error', code: '(the whole method)', line: tried[0].line, span: { startLine: tried[0].span.startLine, endLine: tried[tried.length - 1].span.endLine }, children: tried });
+        steps.push({ kind: 'try', says: 'Tries these steps and handles any error', code: '(the whole method)', expr: { kind: 'try' }, line: tried[0].line, span: { startLine: tried[0].span.startLine, endLine: tried[tried.length - 1].span.endLine }, children: tried });
       }
       const prev2 = steps[steps.length - 1];
       // Inside a Ruby `case`, `else` is the last arm ("Otherwise"), with what it does.
       if (prev2?.caseLabel && /^else\b/.test(t0)) {
         const inlineElse = t0.match(/^else\s+(?!if\b)(.+)$/);
         const kids = inlineElse ? [inlineKid(inlineElse[1], s)] : stepsFrom(s.children || []).steps;
-        steps.push({ kind: 'check', says: 'Otherwise', code: clip(t0, 90), caseLabel: true, line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}) });
+        steps.push({ kind: 'check', says: 'Otherwise', code: clip(t0, 90), expr: { kind: 'case', default: true }, caseLabel: true, line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}) });
         continue;
       }
       if (prev2 && (prev2.kind === 'branch' || prev2.kind === 'try')) {
@@ -1365,7 +1442,7 @@ export function stepsFrom(statements) {
     let jump;
     if ((jump = t0.match(/^(continue|break|next)(?:\s+([A-Za-z_]\w*))?;?$/)) && !(jump[1] === 'next' && jump[2])) {
       const label = jump[2] && jump[2] !== 'if' ? ` (${jump[2]})` : '';
-      steps.push({ kind: 'call', says: jump[1] === 'break' ? `Leaves the loop${label}` : `Skips to the next one${label}`, code: t0, line: s.line, span: spanOf(s), jump: jump[1] === 'break' ? 'break' : 'continue' });
+      steps.push({ kind: 'call', says: jump[1] === 'break' ? `Leaves the loop${label}` : `Skips to the next one${label}`, code: t0, expr: { kind: 'jump', jump: jump[1] === 'break' ? 'break' : 'continue', ...(jump[2] ? { label: jump[2] } : {}) }, line: s.line, span: spanOf(s), jump: jump[1] === 'break' ? 'break' : 'continue' });
       continue;
     }
     if (/^[A-Za-z_]\w*:$/.test(t0) && !/^(?:default|else|try|finally|begin|ensure|rescue)$/.test(t0.slice(0, -1))) { skipped.push(spanOf(s)); continue; }
@@ -1386,7 +1463,7 @@ export function stepsFrom(statements) {
         const arms = kids.filter((k) => k.caseLabel);
         if (pats.length === arms.length) arms.forEach((k, i) => { if (!/^(?:_|else|default)$/.test(pats[i])) k.says = `When ${sayCodeCondition(pats[i])}`; });
       }
-      const chooser = { kind: 'branch', says: subject ? `Chooses by ${words(clip(subject, 40))}` : 'Checks these cases in order', code: clip(head0, 90), line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}), ...(choice ? { valueOf: choice.target } : {}) };
+      const chooser = { kind: 'branch', says: subject ? `Chooses by ${words(clip(subject, 40))}` : 'Checks these cases in order', code: clip(head0, 90), expr: { kind: 'switch', ...(subject ? { subject: parseExpr(subject, readingLanguage()) ?? codeExpr(subject) } : {}) }, line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}), ...(choice ? { valueOf: choice.target } : {}) };
       steps.push(chooser);
       continue;
     }
@@ -1395,7 +1472,7 @@ export function stepsFrom(statements) {
     if (elvis && balancedText(elvis[1]) && balancedText(elvis[3])) {
       steps.push({ ...classifyStatement(elvis[1]), line: s.line, span: spanOf(s) });
       const out = classifyStatement(elvis[3]);
-      steps.push({ kind: 'branch', says: `If ${words(elvis[2])} is empty`, cond: `${elvis[2]} == null`, code: clip(String(s.text).replace(/\s+/g, ' '), 90), line: s.line, span: spanOf(s), children: [{ ...out, line: s.line, span: spanOf(s) }] });
+      steps.push({ kind: 'branch', says: `If ${words(elvis[2])} is empty`, cond: `${elvis[2]} == null`, expr: { kind: 'if', test: { kind: 'compare', op: '==', left: { kind: 'name', name: elvis[2] }, right: { kind: 'literal', type: 'null', value: null, raw: 'null' } }, elvis: true }, code: clip(String(s.text).replace(/\s+/g, ' '), 90), line: s.line, span: spanOf(s), children: [{ ...out, line: s.line, span: spanOf(s) }] });
       continue;
     }
     let step = { ...classifyStatement(s.text, { inner: s.inner || 0 }), line: s.line, span: spanOf(s) };
@@ -1410,7 +1487,7 @@ export function stepsFrom(statements) {
         // `return function () { … }` / `return () => …`: the caller gets a new function; its steps run later.
         const kids = stepsFrom(s.children).steps;
         if (kids.length) {
-          steps.push({ kind: 'set', says: 'Makes a new function that does these steps', code: step.code, line: s.line, span: spanOf(s), children: kids, nested: true });
+          steps.push({ kind: 'set', says: 'Makes a new function that does these steps', code: step.code, expr: step.expr, line: s.line, span: spanOf(s), children: kids, nested: true });
           step = { ...step, says: 'Returns that function' };
           delete step.value; delete step.restates;
         }
@@ -1422,11 +1499,11 @@ export function stepsFrom(statements) {
           const said = (m = body.match(/^new\s+([A-Z]\w*)/)) ? `Makes a new ${m[1]} with these steps`
             : thenSays(body) ? thenSays(body)
             : callee(body) ? `Calls ${lastWords(callee(body))} with these steps` : null;
-          if (said) steps.push({ kind: 'call', says: said, code: step.code, line: s.line, span: spanOf(s), children: kids, nested: true });
+          if (said) steps.push({ kind: 'call', says: said, code: step.code, expr: step.expr, line: s.line, span: spanOf(s), children: kids, nested: true });
         }
       }
       if (nest) {
-        step = { ...nest, line: s.line, span: spanOf(s) };
+        step = { ...nest, line: s.line, span: spanOf(s), expr: nest.expr ?? step.expr };
         for (const c of s.clauses || []) attachClause(step, c);
         steps.push(step);
         continue;
