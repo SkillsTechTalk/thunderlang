@@ -1,0 +1,113 @@
+name: 'Thunder Review'
+description: 'Say what a pull request changed in meaning, in plain sentences, and keep one pull request comment up to date. Deterministic: no AI, and no code from the pull request is run.'
+author: 'SkillsTech'
+branding:
+  icon: 'zap'
+  color: 'yellow'
+
+# How a repository installs it: docs/review-in-thunder.md. It is not enabled on this repository's own pull requests.
+
+inputs:
+  base:
+    description: 'The commit to compare from. Default: the pull request base.'
+    required: false
+    default: ${{ github.event.pull_request.base.sha }}
+  head:
+    description: 'The commit to compare to. Default: the pull request head.'
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+  version:
+    description: 'npm version or tag of @skillstech/thunderlang (thunder review needs the first release that includes it). Ignored when `thunder` is set.'
+    required: false
+    default: 'latest'
+  thunder:
+    description: 'Command that runs the Thunder compiler instead of npx, for example `node compiler/src/cli.mjs` in a checkout of the compiler.'
+    required: false
+    default: ''
+  comment:
+    description: 'Post the review as one pull request comment, updated on every push (true or false).'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used to post the comment. Default: the workflow''s own GITHUB_TOKEN (needs pull-requests: write).'
+    required: false
+    default: ${{ github.token }}
+  fail-on-risk:
+    description: 'Fail the job when the review finds anything that needs a careful look (true or false).'
+    required: false
+    default: 'false'
+
+outputs:
+  says:
+    description: 'The summary line, for example "3 changes in meaning, 1 risk, 12 form-only."'
+    value: ${{ steps.review.outputs.says }}
+  risks:
+    description: 'How many items need a careful look.'
+    value: ${{ steps.review.outputs.risks }}
+  meaning:
+    description: 'How many changes in meaning.'
+    value: ${{ steps.review.outputs.meaning }}
+  markdown-file:
+    description: 'Path of the Markdown review.'
+    value: ${{ steps.review.outputs.markdown-file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Review in Thunder
+      id: review
+      shell: bash
+      env:
+        BASE: ${{ inputs.base }}
+        HEAD: ${{ inputs.head }}
+        VERSION: ${{ inputs.version }}
+        THUNDER: ${{ inputs.thunder }}
+      run: |
+        set -euo pipefail
+        if [ -z "$BASE" ] || [ -z "$HEAD" ]; then
+          echo "::error::thunder review needs a base and a head commit. Run it on pull_request, or set the base and head inputs."
+          exit 1
+        fi
+        # actions/checkout fetches one commit by default: fetch whichever side is missing (or use fetch-depth: 0).
+        for ref in "$BASE" "$HEAD"; do
+          git cat-file -e "$ref^{commit}" 2>/dev/null || git fetch --no-tags --quiet --depth=1 origin "$ref"
+        done
+        if [ -n "$THUNDER" ]; then read -r -a cmd <<< "$THUNDER"; else cmd=(npx --yes --package "@skillstech/thunderlang@$VERSION" thunder); fi
+        md="$RUNNER_TEMP/thunder-review.md"
+        json="$RUNNER_TEMP/thunder-review.json"
+        "${cmd[@]}" review "$BASE" "$HEAD" --out "$md"
+        "${cmd[@]}" review "$BASE" "$HEAD" --json > "$json"
+        node -e '
+          const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+          const out = [`says=${r.says}`, `risks=${r.summary.risk}`, `meaning=${r.summary.meaning}`].join("\n");
+          require("fs").appendFileSync(process.env.GITHUB_OUTPUT, out + "\n");
+        ' "$json"
+        echo "markdown-file=$md" >> "$GITHUB_OUTPUT"
+        cat "$md" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Post or update the pull request comment
+      if: inputs.comment == 'true' && github.event.pull_request.number
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        FILE: ${{ steps.review.outputs.markdown-file }}
+      run: |
+        set -uo pipefail
+        # One comment per pull request: the one that starts with the review marker is updated in place.
+        id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[] | select(.body | startswith("<!-- thunder-review -->")) | .id' | head -n 1)
+        if [ -n "$id" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$id" -F "body=@$FILE" > /dev/null || echo "::warning::Could not update the review comment (the token may be read-only, as on pull requests from forks). The review is in the job summary."
+        else
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -F "body=@$FILE" > /dev/null || echo "::warning::Could not post the review comment (the token may be read-only, as on pull requests from forks). The review is in the job summary."
+        fi
+
+    - name: Fail when something needs a careful look
+      if: inputs.fail-on-risk == 'true' && steps.review.outputs.risks != '0'
+      shell: bash
+      env:
+        SAYS: ${{ steps.review.outputs.says }}
+      run: |
+        echo "::error::Thunder review: $SAYS Something needs a careful look."
+        exit 1
