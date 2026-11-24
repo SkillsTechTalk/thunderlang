@@ -29,9 +29,9 @@ test('every step kind and element points at a defined color, and every zoom leve
   assert.equal(PROVENANCE['ai-summary'].line, 'dashed', 'an AI summary is never drawn as established');
 });
 
-test('every language the reader supports is in the grammar, and SQL is listed honestly as planned', () => {
+test('every language the reader supports is in the grammar as available, SQL included', () => {
   for (const l of READ_LANGUAGES) assert.equal(LANGUAGES[l]?.status, 'available', l);
-  assert.equal(LANGUAGES.sql.status, 'planned');
+  assert.ok(READ_LANGUAGES.includes('sql'));
   assert.ok(THUNDER_VISUAL.rules.some((r) => /Never draw a guess/.test(r)));
 });
 

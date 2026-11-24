@@ -130,7 +130,7 @@ export const LANGUAGES = {
   kotlin: { name: 'Kotlin', status: 'available', action: 'Spring annotations', decision: 'a fun with when or if returning fixed answers', doc: '/** KDoc */', 'data-shape': 'data class, enum class (planned)' },
   php: { name: 'PHP', status: 'available', action: '#[Route] (Symfony)', decision: 'a function that returns fixed answers', doc: '/** PHPDoc */', 'data-shape': 'class, enum (planned)' },
   ruby: { name: 'Ruby', status: 'available', action: 'Sinatra get/post blocks (Rails routes.rb planned)', decision: 'a def that returns fixed answers', doc: '# comment above the def', 'data-shape': 'class, Struct (planned)' },
-  sql: { name: 'SQL', status: 'planned', action: '(none: SQL is reached through the app)', decision: 'CHECK constraints, CASE expressions, IF in procedures', doc: '-- comment above, COMMENT ON', 'data-shape': 'CREATE TABLE / VIEW', event: 'CREATE TRIGGER', steps: 'SELECT / INSERT / UPDATE / DELETE: which data, filtered by which conditions, changed how' },
+  sql: { name: 'SQL', status: 'available', action: '(none: SQL is reached through the app)', decision: 'CHECK and UNIQUE constraints; IF in functions and procedures', doc: '-- comment above, COMMENT ON', 'data-shape': 'CREATE TABLE / VIEW', event: 'CREATE TRIGGER', steps: 'SELECT / INSERT / UPDATE / DELETE: which data, filtered by which conditions, changed how' },
 };
 
 /** Rules every Thunder view follows. A view that breaks one is wrong, however good it looks. */

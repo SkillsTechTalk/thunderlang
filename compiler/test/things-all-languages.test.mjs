@@ -10,7 +10,7 @@ const model = (f) => thunderModel([{ path: f, source: readFileSync(new URL(f, DI
 const thing = (m, name) => m.things.find((t) => t.name === name);
 
 test('Things are drawn in all ten languages', () => {
-  assert.deepEqual([...THING_LANGUAGES].sort(), ['csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'python', 'ruby', 'rust', 'typescript']);
+  assert.deepEqual([...THING_LANGUAGES].sort(), ['csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'python', 'ruby', 'rust', 'sql', 'typescript']);
 });
 
 for (const f of readdirSync(DIR)) {

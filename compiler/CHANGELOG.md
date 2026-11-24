@@ -1,5 +1,10 @@
 # Unreleased
 
+**Language: SQL.** Thunder reads `.sql` files: tables become Data or Things (columns in words, defaults, always
+set, what they point to), `CREATE TYPE … AS ENUM` becomes Choices, `CHECK` and `UNIQUE` become rules the table
+enforces (a No stops the row: "Refused by the database"), and views, functions, procedures (PL/pgSQL), and triggers
+become steps. PostgreSQL first; MySQL, SQLite, and SQL Server where their syntax agrees. Spec section 9 updated.
+
 **Read once.** `readFiles(files)` (in `/core`) reads every file once; `thunderModel`, `thunderizeFiles`, and
 `sameMeaning` reuse each file's `reading`, with identical results. On Django (2,376 files) the three stages together
 take 3.8 s reading once, against 11.6 s when each stage reads. The model no longer checks every Thing against every
