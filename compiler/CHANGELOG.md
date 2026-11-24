@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.5
 
 **Complete behavior: every branch, at every depth, in every language.**
 - **Fix (serious):** `else`, `elif`/`else if`/`elsif`, `except`/`catch`/`rescue`, and `finally`/`ensure` were
