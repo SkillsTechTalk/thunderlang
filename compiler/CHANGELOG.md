@@ -30,6 +30,36 @@ the same items as every other language.
 - `scripts/language-audit.mjs` audits tidyverse/dplyr, nvm-sh/nvm, and PowerShell/PSScriptAnalyzer, and leaves a
   script's own functions out of its top-level item's branch count. Spec section 9 updated.
 
+**Language: R, shell, and PowerShell held to the faithfulness bar.** A hand review of 112 samples (nvm, neofetch,
+posh-git, PSScriptAnalyzer, httr, dplyr) found 41 readings that stated something false (D) and 14 that misled (C);
+after this change the same samples have 0 D and 0 C (each fix has a regression test in
+`test/faithfulness-{shell,powershell,r}.test.mjs`).
+- **Text with values inside** (spec section 9): quoted text keeps every literal character as written, escapes included,
+  and each inserted value is a `«…»` placeholder: a plain variable by its exact name (`"${NVM_DIR}/alias"` →
+  `"«NVM_DIR»/alias"`), anything else by its code (`«$1»`, `«${1-}»`, `«$(cat)»`). printf, sprintf, glue/cli, and
+  PowerShell `-f` pair each conversion with its argument (`«n as %5d»`); when they cannot be paired the step is shown
+  as code. Names are no longer turned into words inside quotes ("{nvm dir}", "{all the inputs}"), and quoted text is
+  never rewritten by the possessive pass (`liblzma.so` was "the liblzma's so", `binfmt_misc` "binfmt misc").
+- **Shell**: `${x#p}`, `${x%%p}`, `${x/a/b}`, `${x:+w}`, `${#x[@]}`, `${x[0]}` say what they do (they read as the bare
+  variable before: "Sets version to version"); `${x:-d}` says "empty or not set", `${x-d}` "not set"; arithmetic
+  Thunder cannot say exactly (`?:`, commas inside conditions, `++` in a test) is shown as code; `a && b || c` runs `c`
+  when a or b failed (it was read as "only if a worked"); `test && a || b` is if/else only when `a` cannot fail; a bare
+  `return`/`exit` gives back the last command's code (it said "success"); `$1`…`$9` inside single quotes (awk) are not
+  inputs; `$(< file)` is the file's contents; case patterns are shown as written; `read -a … <<<`, `printf -v`.
+- **commands.mjs**: `curl` sends to its address (not to the value after `--max-time`); `wget --version` / `curl
+  --version` download nothing; `find` with `!`, `-prune`, `-links` shows those tests as code instead of dropping them;
+  `head`/`tail -1` keep their count; `git config name` reads the setting; `choco -s .` is a source, not a package.
+- **PowerShell**: conditions pass the faithfulness gate (`-not`, `-ne`, `-and`, `-or` counted like `!`, `!=`, `&&`,
+  `||`; otherwise the code is shown); arguments run to the next space (`-Color $s.X` no longer splits); `$_` in a catch
+  is "the error"; `$args[0]` is "the first input"; spaces inside quoted text are kept.
+- **R**: calls not put into words keep every argument; `names(x) <- v` is "Sets the names of x"; `if`/`switch` used as
+  a value sets the variable on each side; `is.null` says "is NULL"; `cat` keeps escapes and its separator;
+  `!(a && b)` is shown as code, not rewritten.
+- **Shared (ported from fix/faithfulness, identical code)**: `src/faithful.mjs`, `test/faithfulness-helpers.mjs`;
+  `askAsQuestion` asks a compound condition as written and a code condition as code, and asks by a rule's name only
+  when the condition is that call (`askedByRule`); words inside quotes, code, and placeholders are never the question's
+  verb ("^«COMMAND» is an alias for" is not split at "is"). `req`/`app` are plumbing only in web handlers.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

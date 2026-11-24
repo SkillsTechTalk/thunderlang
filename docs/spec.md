@@ -323,7 +323,10 @@ a shell shebang (`#!/bin/bash`, `#!/usr/bin/env sh`). Shell has no classes, so a
   assignments, `source`, heredocs, and well-known tools by what they do: docker, docker compose, kubectl, helm, az,
   aws, gcloud, git, npm/yarn/pnpm, pip, make, terraform, curl ("Sends a POST request to …"), wget, ssh, files and
   folders (`cp`, `mv`, `rm -rf`, `mkdir -p`, `chmod`). A helper that always exits (`die() { …; exit 1; }`) makes each
-  call to it a Stop. Variables read as their names in words (`$ENV_NAME` "env name", `$1` "the first input").
+  call to it a Stop. A variable used as a value reads as its name in words (`$ENV_NAME` "env name", `$1` "the first
+  input"); expansions say what they do (`${v#iojs-}` "v without "iojs-" at the start", `${x:-d}` "x, or "d" when it is
+  empty or not set", `${#list[@]}` "how many items list has"). Inside quoted text, values follow "Text with values
+  inside" below. Arithmetic Thunder cannot say exactly (`?:`, commas, `++` inside a condition) is shown as code.
 - A command Thunder does not know reads as "Runs <command>", with its code one click away.
 
 ### PowerShell
@@ -347,6 +350,14 @@ Thunder reads `.ps1` and `.psm1` files.
 - **Things**: `class` with typed properties (and their defaults, or starting values from the constructor) and
   methods; `enum` is a set of Choices.
 - **Actions**: a Pode route (`Add-PodeRoute -Method Get -Path '/orders' -ScriptBlock { … }`). **Tests**: Pester `It "…"`.
+
+### Text with values inside
+
+When quoted text has values inserted into it (string interpolation, format strings), Thunder keeps every literal character of the text exactly as the code writes it (escapes included) and shows each inserted value as a placeholder in guillemets: `«…»`. A plain variable shows its name exactly as the code spells it (`"${NVM_DIR}/alias"` → `"«NVM_DIR»/alias"`, Swift `"\(name)!"` → `"«name»!"`); anything else shows its code as written (`"$1"` → `"«$1»"`, `"${1-}"` → `"«${1-}»"`, `"$(cat)"` → `"«$(cat)»"`, `"\(a + b)"` → `"«a + b»"`). A format string pairs each conversion with its argument: `printf("%s/alias %d\n", dir, n)` → `"«dir»/alias «n»\n"`; a conversion with flags, width, or precision keeps it: `"%5.2f"` with `x` → `"«x as %5.2f»"`; `fmt::format("{}/{:>8}", a, b)` → `"«a»/«b as {:>8}»"`. Names are not turned into words inside quotes: the quote is what a person greps for. Guillemets do not occur in code, so a placeholder is never confused with literal braces, `%`, or `$`. When a quoted text is a single inserted value and nothing else, it is a value, not text, and reads in words like any other value. When the arguments cannot be paired with the conversions, the text is shown as code (not explained).
+
+Why this form: an earlier reading wrote `"{nvm dir}/alias"`, which looks like literal text with braces and hides the
+name a person would search for; guillemets mark the inserted part unambiguously in every one of these languages
+(shell, PowerShell, R glue and cli, Swift, and C/C++/fmt format strings all use `{`, `$`, or `%` as literal text too).
 
 ## 10. Rules every Thunder view follows
 

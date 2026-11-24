@@ -4,7 +4,7 @@
 // right before them, `set -e` as a note, `trap … EXIT` as what runs at the end, and well-known tools (docker,
 // kubectl, helm, az, aws, gcloud, git, npm, curl, files and folders) by what they do. Shell has no classes, so it has
 // no Things. Deterministic, browser-safe; a command it does not know reads as "Runs <command>" and keeps its code.
-import { sayCommand, gerund, words, cap, listWords, scriptPath, positional } from './commands.mjs';
+import { sayCommand, gerund, words, cap, listWords, scriptPath, positional, opt } from './commands.mjs';
 
 /** True when the first line is a shell shebang (#!/bin/bash, #!/usr/bin/env sh, zsh, ksh, dash). */
 export const shellShebang = (src) => /^#!\s*\S*\/(?:env\s+(?:-\S+\s+)*)?(?:ba|z|k|da|a)?sh\b/.test(String(src));
@@ -350,44 +350,101 @@ function parse(src) {
 }
 
 // ── Words: a shell word in plain words ──────────────────────────────────────────────────────────────────
+//
+// Text with values inside (docs/spec.md, "Text with values inside"): the literal parts of a word are kept exactly as
+// the code writes them, and each inserted value is a placeholder in guillemets: a plain variable by its name
+// ("${NVM_DIR}/alias" -> "«NVM_DIR»/alias"), anything else by its code as written ("«$1»", "«${1-}»", "«$(cat)»").
+// A word that is one value and nothing else is a value, and reads in words ("the first input"). A value Thunder has
+// no exact words for is shown as code, in backticks, never as a guess.
 
 const ORDINAL = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth'];
-const SPECIAL = { '@': 'all the inputs', '*': 'all the inputs', '#': 'how many inputs', '?': "the last command's result", '0': 'this script', $: "this script's process id", '!': 'the last background command', PWD: 'the current folder', HOME: 'the home folder', RANDOM: 'a random number', USER: 'the user name', BASH_SOURCE: 'this file', OLDPWD: 'the previous folder', PATH: 'the PATH (where commands are found)' };
+const SPECIAL = { '@': 'all the inputs', '*': 'all the inputs', '#': 'how many inputs', '?': "the last command's exit code", '0': 'this script', $: "this script's process id", '!': 'the last background command', PWD: 'the current folder', HOME: 'the home folder', RANDOM: 'a random number', USER: 'the user name', BASH_SOURCE: 'this file', OLDPWD: 'the previous folder', PATH: 'the PATH (where commands are found)' };
 function varWords(name) {
   if (/^[1-9]$/.test(name)) return `the ${ORDINAL[name]} input`;
   if (SPECIAL[name]) return SPECIAL[name];
   return words(name.replace(/\[.*$/, '')) || name;
 }
-/** `${…}` in words: ${x:-d} -> "x (or "d" when not set)", ${#x} -> "the length of x". */
+/** Code shown as code (the faithfulness gate's form): in backticks, shortened visibly when long. */
+const asCode = (code, n = 100) => { const t = String(code).replace(/\s+/g, ' ').trim(); return `\`${t.length > n ? `${t.slice(0, n - 1)}…` : t}\``; };
+const isCode = (said) => /^`[^`]*`$/.test(String(said));
+const GLOBBY = /(?<!\\)[*?[]/;
+
+/**
+ * `${…}` in words: ${x:-d} -> "x, or "d" when it is empty or not set", ${x#v} -> "x without "v" at the start",
+ * ${#x} -> "the length of x". Null when there are no exact words for it (the caller shows the code).
+ */
 function braceWords(inner) {
   let m;
-  if ((m = inner.match(/^#([A-Za-z_]\w*|[@*])(\[[@*]\])?$/))) return m[1] === '@' || m[1] === '*' ? 'how many inputs' : m[2] ? `how many ${varWords(m[1])}` : `the length of ${varWords(m[1])}`;
-  if ((m = inner.match(/^([A-Za-z_]\w*|[0-9@*#?$!])(?:\[[^\]]*\])?(:?[-=])(.*)$/))) { const d = sayWord(m[3]); return d && d !== '""' ? `${varWords(m[1])} (or ${d} when not set)` : varWords(m[1]); }
-  if ((m = inner.match(/^!?([A-Za-z_]\w*|[0-9@*#?$!])/))) return varWords(m[1]);
-  return 'a value';
+  if ((m = inner.match(/^#([A-Za-z_]\w*|[@*])(\[[@*]\])?$/))) return m[1] === '@' || m[1] === '*' ? 'how many inputs' : m[2] ? `how many items ${varWords(m[1])} has` : `the length of ${varWords(m[1])}`;
+  const sm = inner.match(/^(!?)([A-Za-z_]\w*|[0-9]|[@*#?$!])(\[[^\]]*\])?/);
+  if (!sm) return null;
+  const [head, bang, name, idx] = sm;
+  if (bang) return idx || inner.length > head.length || !/^[A-Za-z_]/.test(name) ? null : `the setting whose name is in ${varWords(name)}`;
+  let subj = varWords(name);
+  if (idx) {
+    const i = idx.slice(1, -1);
+    if (/^[@*]$/.test(i)) subj = `all the items in ${varWords(name)}`;
+    else { const iw = sayWord(i); if (isCode(iw)) return null; subj = `item ${iw.replace(/^"|"$/g, '')} of ${varWords(name)}`; }
+  }
+  const rest = inner.slice(head.length);
+  if (!rest) return subj;
+  if ((m = rest.match(/^(:?)([-=?+])([\s\S]*)$/))) {
+    const [, colon, op, w] = m;
+    const when = colon ? 'is empty or not set' : 'is not set';
+    const dw = w === '' ? '""' : sayWord(w);
+    const d = / when it /.test(dw) ? `(${dw})` : dw;
+    if (op === '-') return w === '' ? subj : `${subj}, or ${d} when it ${when}`;
+    if (op === '=') return `${subj} (first set to ${d} when it ${when})`;
+    if (op === '?') return `${subj} (the script stops when it ${when})`;
+    return `${d} when ${subj} ${colon ? 'is set and not empty' : 'is set'}, otherwise nothing`;
+  }
+  if ((m = rest.match(/^(##?|%%?)([\s\S]*)$/))) {
+    const [, op, p] = m;
+    if (/\$/.test(p)) return null;
+    const what = GLOBBY.test(p) ? `the ${op.length === 2 ? 'longest' : 'shortest'} match of "${p}"` : `"${p}"`;
+    return `${subj} without ${what} at the ${op[0] === '#' ? 'start' : 'end'}`;
+  }
+  if ((m = rest.match(/^\/([/#%]?)((?:\\.|[^/\\])*)(?:\/([\s\S]*))?$/))) {
+    const [, mode, p, r] = m;
+    if (!p || /\$/.test(p)) return null;
+    const pat = GLOBBY.test(p) ? `match of "${p}"` : `"${p}"`;
+    const which = mode === '/' ? `every ${pat}` : mode === '#' ? `${pat} at the start` : mode === '%' ? `${pat} at the end` : `the first ${pat}`;
+    if (r == null || r === '') return `${subj} with ${which} removed`;
+    const rw = sayWord(r);
+    return isCode(rw) ? null : `${subj} with ${which} replaced by ${rw}`;
+  }
+  if (rest === '^^') return `${subj} in capital letters`;
+  if (rest === ',,') return `${subj} in small letters`;
+  if (rest === '^') return `${subj} with its first letter a capital`;
+  if ((m = rest.match(/^:\s*(\d+)(?::\s*(\d+))?$/))) return m[2] ? `${m[2]} characters of ${subj}, from position ${m[1]} (counting from 0)` : `${subj} from position ${m[1]} on (counting from 0)`;
+  return null;
 }
 
-/** A word's parts: literal text and expansions (variables, command output, arithmetic). */
+/**
+ * A word's parts: literal text and inserted values (variables, command output, arithmetic). Each literal part keeps
+ * `lit` (what the shell makes of it) and `raw` (as the code writes it); each value keeps `code` (as written), `name`
+ * (a plain variable's name, else null), and `v` (its words, or null when there are none).
+ */
 function partsOf(raw) {
   const out = [];
-  const lit = (s) => { if (!s) return; const l = out[out.length - 1]; if (l && l.lit != null) l.lit += s; else out.push({ lit: s }); };
+  const lit = (s, r = s) => { if (!s && !r) return; const l = out[out.length - 1]; if (l && l.lit != null) { l.lit += s; l.raw += r; } else out.push({ lit: s, raw: r }); };
   const walk = (s, quoted) => {
     for (let i = 0; i < s.length; i++) {
       const c = s[i];
-      if (c === '\\') { const n = s[i + 1] ?? ''; if (n === '\n') { i++; continue; } lit(quoted && !'$`"\\'.includes(n) ? c + n : n); i++; continue; }
-      if (c === "'" && !quoted) { const e = skipSingle(s, i); lit(s.slice(i + 1, e - 1)); i = e - 1; continue; }
+      if (c === '\\') { const n = s[i + 1] ?? ''; if (n === '\n') { i++; continue; } lit(quoted && !'$`"\\'.includes(n) ? c + n : n, c + n); i++; continue; }
+      if (c === "'" && !quoted) { const e = skipSingle(s, i); const t = s.slice(i + 1, e - 1); lit(t, t); i = e - 1; continue; }
       if (c === '"' && !quoted) { const e = skipDouble(s, i); walk(s.slice(i + 1, e - 1), true); i = e - 1; continue; }
-      if (c === '`') { const e = skipBacktick(s, i); out.push({ cmd: s.slice(i + 1, e - 1) }); i = e - 1; continue; }
+      if (c === '`') { const e = skipBacktick(s, i); out.push({ cmd: s.slice(i + 1, e - 1), code: s.slice(i, e) }); i = e - 1; continue; }
       if (c === '$') {
         const n = s[i + 1];
-        if (n === '(' && s[i + 2] === '(') { const e = skipBalanced(s, i + 1); out.push({ arith: s.slice(i + 3, e - 2) }); i = e - 1; continue; }
-        if (n === '(') { const e = skipBalanced(s, i + 1); out.push({ cmd: s.slice(i + 2, e - 1) }); i = e - 1; continue; }
-        if (n === '{') { const e = skipBrace(s, i + 1); out.push({ v: braceWords(s.slice(i + 2, e - 1)), name: s.slice(i + 2, e - 1).match(/^#?!?(\w+)/)?.[1] }); i = e - 1; continue; }
-        if (n === "'" && !quoted) { const e = skipAnsi(s, i); lit(s.slice(i + 2, e - 1).replace(/\\n/g, ' ').replace(/\\t/g, ' ')); i = e - 1; continue; }
+        if (n === '(' && s[i + 2] === '(') { const e = skipBalanced(s, i + 1); out.push({ arith: s.slice(i + 3, e - 2), code: s.slice(i, e) }); i = e - 1; continue; }
+        if (n === '(') { const e = skipBalanced(s, i + 1); out.push({ cmd: s.slice(i + 2, e - 1), code: s.slice(i, e) }); i = e - 1; continue; }
+        if (n === '{') { const e = skipBrace(s, i + 1); const inner = s.slice(i + 2, e - 1); out.push({ v: braceWords(inner), code: s.slice(i, e), name: /^[A-Za-z_]\w*$/.test(inner) ? inner : null }); i = e - 1; continue; }
+        if (n === "'" && !quoted) { const e = skipAnsi(s, i); const t = s.slice(i + 2, e - 1); lit(t, t); i = e - 1; continue; }
         const m = s.slice(i + 1).match(/^(?:[A-Za-z_]\w*|[0-9@*#?$!-])/);
-        if (m) { out.push({ v: varWords(m[0]), name: m[0] }); i += m[0].length; continue; }
+        if (m) { out.push({ v: varWords(m[0]), code: `$${m[0]}`, name: /^[A-Za-z_]/.test(m[0]) ? m[0] : null }); i += m[0].length; continue; }
       }
-      if (!quoted && /[*?]/.test(c)) out.push({ glob: true });
+      if (!quoted && (/[*?]/.test(c) || (c === '[' && s.indexOf(']', i + 2) > i))) out.push({ glob: true });
       lit(c);
     }
   };
@@ -396,51 +453,125 @@ function partsOf(raw) {
 }
 const isGlob = (raw) => partsOf(raw).some((p) => p.glob);
 
-/** Command output in words: "the output of building the Docker image web". */
+/** Command output in words: "the output of building the Docker image web"; `$(< file)` is the file's contents. */
 function outputWords(cmdText) {
+  const file = String(cmdText).trim().match(/^<\s*(\S+)$/);
+  if (file) return `the contents of ${sayWord(file[1])}`;
   try {
     const nodes = parse(cmdText);
     const n = nodes[0];
     if (!n) return 'the output of a command';
     const say = sayNode(n);
-    return `the output of ${say ? gerund(say) : 'a command'}`;
+    return say && !isCode(say) ? `the output of ${gerund(say)}` : `the output of ${asCode(cmdText)}`;
   } catch { return 'the output of a command'; }
 }
 
-/** One word in plain words: "prod" in quotes, $ENV_NAME as "env name", "$DIR/app.yaml" as "{dir}/app.yaml". */
+/** One value's words: its words when Thunder has them, else its code. */
+function valueWords(p) {
+  if (p.cmd != null) return outputWords(p.cmd);
+  if (p.arith != null) return arithWords(p.arith) ?? asCode(p.code);
+  return p.v ?? asCode(p.code);
+}
+/** One word in plain words: "prod" in quotes, $ENV_NAME as "env name", "$DIR/app.yaml" as "«DIR»/app.yaml". */
 export function sayWord(raw) {
   const parts = partsOf(raw).filter((p) => !p.glob);
   if (!parts.length) return '""';
   if (parts.length === 1) {
     const p = parts[0];
-    if (p.lit != null) return /^-?\d+(\.\d+)?$/.test(p.lit) ? p.lit : `"${p.lit.length > 80 ? `${p.lit.slice(0, 79)}…` : p.lit}"`;
-    if (p.v) return p.v;
-    if (p.cmd != null) return outputWords(p.cmd);
-    if (p.arith != null) return arithWords(p.arith);
+    if (p.lit != null) return /^-?\d+(\.\d+)?$/.test(p.raw) ? p.raw : `"${clip(p.raw, 80)}"`;
+    return valueWords(p);
   }
   return `"${textOf(parts)}"`;
 }
-/** Text with its variables as {words}: "Deploying {app} to {env}". */
+/** Shortened visibly: at the first line break, or at n characters. */
+const clip = (t, n) => { const nl = t.indexOf('\n'); const s = nl >= 0 ? `${t.slice(0, nl)}…` : t; return s.length > n ? `${s.slice(0, n - 1)}…` : s; };
+/** A placeholder for one inserted value: its name when it is a plain variable, else its code as written. */
+const slot = (p) => `«${p.name ?? p.code}»`;
+/** Text with its literal parts exactly as written and each value as a placeholder: "Deploying «APP» to «$1»". */
 function textOf(parts) {
-  const t = parts.map((p) => (p.lit != null ? p.lit : p.v ? `{${p.v}}` : p.cmd != null ? `{${outputWords(p.cmd)}}` : p.arith != null ? `{${arithWords(p.arith)}}` : '')).join('');
-  return t.length > 120 ? `${t.slice(0, 119)}…` : t;
+  return clip(parts.map((p) => (p.lit != null ? p.raw : p.code != null ? slot(p) : '')).join(''), 120);
 }
-const message = (raws) => textOf(raws.flatMap((r, i) => [...(i ? [{ lit: ' ' }] : []), ...partsOf(r).filter((p) => !p.glob)])).replace(/\\[nt]/g, ' ').replace(/\s+/g, ' ').trim();
+/** Words (echo's arguments) as one message: { text } with placeholders, or { value } when it is one value only. */
+function messageOf(raws) {
+  const parts = raws.flatMap((r, i) => [...(i ? [{ lit: ' ', raw: ' ' }] : []), ...partsOf(r).filter((p) => !p.glob)]);
+  if (parts.length === 1 && parts[0].lit == null) return { value: valueWords(parts[0]), text: slot(parts[0]) };
+  return { text: textOf(parts) };
+}
+const message = (raws) => messageOf(raws).text;
 
-const ARITH_OPS = { '==': 'is', '!=': 'is not', '>=': 'is at least', '<=': 'is at most', '>': 'is more than', '<': 'is less than', '&&': 'and', '||': 'or', '+': 'plus', '-': 'minus', '*': 'times', '/': 'divided by', '%': 'remainder after dividing by', '!': 'not' };
-function arithWords(expr) {
-  const toks = String(expr).match(/\$?\{?[A-Za-z_]\w*\}?|\$[0-9#?]|\d+|==|!=|>=|<=|&&|\|\||[-+*/%<>!()]/g) || [];
-  return toks.map((t) => (ARITH_OPS[t] ?? (/^\$?\{?[A-Za-z_]/.test(t) ? varWords(t.replace(/[${}]/g, '')) : /^\$/.test(t) ? varWords(t.slice(1)) : t))).join(' ').replace(/\( /g, '(').replace(/ \)/g, ')');
+/**
+ * printf's format with each conversion paired with its argument: printf '%s/alias %5d\n' "$dir" "$n" ->
+ * "«dir»/alias «n as %5d»\n". Null when they cannot be paired (more or fewer arguments, a format built from values,
+ * an argument that is many values like "$@").
+ */
+function printfText(fmt, args) {
+  const fp = partsOf(fmt ?? '').filter((p) => !p.glob);
+  if (fp.some((p) => p.lit == null)) return null;
+  const f = fp.map((p) => p.raw).join('');
+  const convs = [...f.matchAll(/%%|%([-+ #0]*\d*(?:\.\d+)?)([diouxXfFeEgGaAcsbq])/g)].filter((m) => m[0] !== '%%');
+  if (convs.length !== args.length) return null;
+  if (args.some((a) => /\$\{?[@]|\[[@*]\]\}/.test(a) || isGlob(a))) return null;
+  let k = 0;
+  const slots = args.map((a, i) => {
+    const ps = partsOf(a).filter((p) => !p.glob);
+    const m = convs[i];
+    const plain = !m[1] && /[sb]/.test(m[2]);
+    // A text argument put in as it is (%s) is its own text with placeholders; anything else is one placeholder.
+    if (plain && ps.length !== 1) return textOf(ps);
+    if (plain && ps[0].lit != null) return ps[0].raw;
+    const inner = ps.length === 1 && ps[0].lit == null ? (ps[0].name ?? ps[0].code) : a;
+    return `«${inner}${m[1] || !/[sdb]/.test(m[2]) ? ` as %${m[1]}${m[2]}` : ''}»`;
+  });
+  const text = f.replace(/%%|%([-+ #0]*\d*(?:\.\d+)?)([diouxXfFeEgGaAcsbq])/g, (m) => (m === '%%' ? m : slots[k++]));
+  return { text: clip(text, 120), value: convs.length === 1 && f === convs[0][0] && /^%[sb]$/.test(f) ? (() => { const ps = partsOf(args[0]).filter((p) => !p.glob); return ps.length === 1 && ps[0].lit == null ? valueWords(ps[0]) : null; })() : null };
 }
+
+const ARITH_OPS = { '==': 'is', '!=': 'is not', '>=': 'is at least', '<=': 'is at most', '>': 'is more than', '<': 'is less than', '&&': 'and', '||': 'or', '+': 'plus', '-': 'minus', '*': 'times', '**': 'to the power of', '/': 'divided by', '%': 'remainder after dividing by', '!': 'not' };
+/**
+ * Arithmetic in words, or null when it has anything Thunder cannot say exactly (assignments, commas, ?:, ++, bit
+ * operators, an expansion without words): every character must be accounted for.
+ */
+function arithWords(expr) {
+  const s = String(expr).replace(/"/g, '');
+  const out = [];
+  let i = 0;
+  while (i < s.length) {
+    const rest = s.slice(i);
+    let m;
+    if ((m = rest.match(/^\s+/))) { i += m[0].length; continue; }
+    if ((m = rest.match(/^\d+/))) { out.push(m[0]); i += m[0].length; continue; }
+    // Inside arithmetic only a plain value reads in words (`${x}`, `${#x}`, `${#x[@]}`); `${d:-0}` is shown as code.
+    if ((m = rest.match(/^\$\{(#?[A-Za-z_]\w*(?:\[[@*]\])?|#[@*])\}/))) { out.push(braceWords(m[1])); i += m[0].length; continue; }
+    if ((m = rest.match(/^\$?([A-Za-z_]\w*)(?!\s*\[)/))) { out.push(varWords(m[1])); i += m[0].length; continue; }
+    if ((m = rest.match(/^\$([0-9#?])/))) { out.push(varWords(m[1])); i += m[0].length; continue; }
+    if (/^(?:\+\+|--|[-+*/%]=|<<|>>|=(?!=)|[,?:^~[\]]|&(?!&)|\|(?!\|))/.test(rest)) return null;
+    if ((m = rest.match(/^(?:==|!=|>=|<=|&&|\|\||\*\*|[-+*/%<>!])/))) { out.push(ARITH_OPS[m[0]]); i += m[0].length; continue; }
+    if (rest[0] === '(' || rest[0] === ')') { out.push(rest[0]); i++; continue; }
+    return null;
+  }
+  return out.length ? out.join(' ').replace(/\( /g, '(').replace(/ \)/g, ')') : null;
+}
+/** An arithmetic statement (`(( … ))`) in words, or null. Commas run several statements in order. */
 function arithStatement(expr) {
   const e = String(expr).trim();
-  let m;
+  if (/,/.test(e)) {
+    const parts = [];
+    let depth = 0, from = 0;
+    for (let i = 0; i < e.length; i++) { if (e[i] === '(') depth++; else if (e[i] === ')') depth--; else if (e[i] === ',' && !depth) { parts.push(e.slice(from, i)); from = i + 1; } }
+    parts.push(e.slice(from));
+    const said = parts.map(arithStatement);
+    if (said.some((x) => !x)) return null;
+    return said.map((x, i) => (i ? `then ${x.charAt(0).toLowerCase()}${x.slice(1)}` : x)).join('; ');
+  }
+  let m, w;
   if ((m = e.match(/^(\w+)\s*\+\+$|^\+\+\s*(\w+)$/))) return `Adds one to ${varWords(m[1] ?? m[2])}`;
   if ((m = e.match(/^(\w+)\s*--$|^--\s*(\w+)$/))) return `Subtracts one from ${varWords(m[1] ?? m[2])}`;
-  if ((m = e.match(/^(\w+)\s*([-+])=\s*(.+)$/))) return `${m[2] === '+' ? 'Adds' : 'Subtracts'} ${arithWords(m[3])} ${m[2] === '+' ? 'to' : 'from'} ${varWords(m[1])}`;
-  if ((m = e.match(/^(\w+)\s*=(?!=)\s*(.+)$/))) return `Sets ${varWords(m[1])} to ${arithWords(m[2])}`;
+  if ((m = e.match(/^(\w+)\s*([-+*/])=\s*(.+)$/)) && (w = arithWords(m[3]))) return { '+': `Adds ${w} to ${varWords(m[1])}`, '-': `Subtracts ${w} from ${varWords(m[1])}`, '*': `Multiplies ${varWords(m[1])} by ${w}`, '/': `Divides ${varWords(m[1])} by ${w}` }[m[2]];
+  if ((m = e.match(/^(\w+)\s*=(?!=)\s*(.+)$/)) && (w = arithWords(m[2]))) return `Sets ${varWords(m[1])} to ${w}`;
   return null;
 }
+/** An arithmetic statement's step words: the statement, the value it works out, or null (shown as code). */
+const arithSays = (expr) => { const st = arithStatement(expr); if (st) return st; const w = arithWords(expr); return w ? `Works out ${w}` : null; };
 
 // ── Tests and conditions ──────────────────────────────────────────────────────────────────────────────
 
@@ -485,6 +616,8 @@ function testWords(ws, neg, double) {
       const [a, op, b] = [ws[i], ws[i + 1], ws[i + 2]];
       i += 3;
       if ((op === '==' || op === '=' || op === '!=') && double && isGlob(b)) { const pos = op !== '!='; return `${sayWord(a)} ${pos !== n ? 'matches' : 'does not match'} ${b}`; }
+      // Compared with "" is a question about being empty.
+      if ((op === '=' || op === '==' || op === '!=') && /^(?:""|'')$/.test(b)) return `${sayWord(a)} is ${(op === '!=') !== n ? 'not empty' : 'empty'}`;
       const pair = BINARY[op];
       const right = op === '=~' ? `"${b.replace(/^["']|["']$/g, '')}"` : sayWord(b);
       return `${sayWord(a)} ${pair[n ? 1 : 0]} ${right}`;
@@ -517,7 +650,12 @@ function nodeCond(n, neg) {
   }
   if (n.type === 'andor' && n.rest.every((r) => r.op === '&&')) return [n.first, ...n.rest.map((r) => r.node)].map((x) => nodeCond(x, neg)).join(neg ? ' or ' : ' and ');
   if (n.type === 'andor' && n.rest.every((r) => r.op === '||')) return [n.first, ...n.rest.map((r) => r.node)].map((x) => nodeCond(x, neg)).join(neg ? ' and ' : ' or ');
-  if (n.type === 'arith') { const w = arithWords(n.expr); return neg ? `not: ${w}` : w; }
+  if (n.type === 'arith') {
+    // (( x )) is true when x is not 0.
+    const lone = n.expr.trim().match(/^\$?([A-Za-z_]\w*)$/);
+    const w = lone ? `${varWords(lone[1])} is not 0` : arithWords(n.expr) ?? asCode(`((${n.expr}))`);
+    return neg ? `not: ${w}` : w;
+  }
   if (n.type === 'group' || n.type === 'subshell') return condWords(n.body, neg);
   if (n.type !== 'simple') return `${gerund(sayNode(n) ?? 'Runs the commands')} ${neg ? 'fails' : 'works'}`;
   const [name0, ...args] = n.words;
@@ -592,10 +730,10 @@ function assignWords(a, { exported = false, readonly = false } = {}) {
     return `${plus ? 'Adds' : 'Sets'} ${plus ? `${listWords(items.map(sayWord))} to ${who}` : `${who} to the list ${listWords(items.slice(0, 6).map(sayWord))}${items.length > 6 ? ', …' : ''}`}${tail}`;
   }
   if (val === '' || val === '""' || val === "''") return `Empties ${who}${tail}`;
-  const pos = val.match(/^"?\$\{?([1-9])(?::?[-=]([^}]*))?\}?"?$/);
-  if (pos) return `Takes ${who} from the ${ORDINAL[pos[1]]} input${pos[2] ? ` (${sayWord(pos[2])} when not given)` : ''}${tail}`;
+  const pos = val.match(/^"?\$\{?([1-9])(?:(:?)[-=]([^}]*))?\}?"?$/);
+  if (pos) return `Takes ${who} from the ${ORDINAL[pos[1]]} input${pos[3] ? ` (${sayWord(pos[3])} when it is ${pos[2] ? 'empty or ' : ''}not given)` : ''}${tail}`;
   const parts = partsOf(val).filter((p) => !p.glob);
-  if (parts.length === 1 && parts[0].arith != null) return `Works out ${who}: ${arithWords(parts[0].arith)}${tail}`;
+  if (parts.length === 1 && parts[0].arith != null) return `Works out ${who}: ${arithWords(parts[0].arith) ?? asCode(parts[0].code)}${tail}`;
   if (plus) return `Adds ${sayWord(val)} to ${who}${tail}`;
   return `Sets ${who} to ${sayWord(val)}${tail}`;
 }
@@ -617,7 +755,7 @@ function redirWords(redirs) {
 const toStderr = (redirs) => redirs.some((r) => (r.op === '>&' && r.target === '2' && (!r.fd || r.fd === '1')) || (r.fd === '1' && r.op === '>&' && r.target === '2') || ((r.op === '>' || r.op === '>>') && r.target === '/dev/stderr'));
 
 /** A simple command as { kind, says, ... }, or null when it does nothing a reader needs (`:`, `true`). */
-function simpleSays(n) {
+function simpleSays(n, ctx = null) {
   // `\command`, `\cd`: a leading backslash only skips aliases; the command is the same.
   let ws = n.words.map((w, i) => (i === 0 ? w.replace(/^\\(?=[\w.])/, '') : w));
   if (!ws.length) {
@@ -650,29 +788,39 @@ function simpleSays(n) {
     case 'echo': case 'printf': case 'print': {
       let a = args;
       if (name === 'echo') while (/^-[neE]+$/.test(a[0] ?? '')) a = a.slice(1);
-      let msg;
+      let got;
       if (name === 'printf') {
-        const [fmt, ...rest] = a.filter((x) => x !== '--' && !/^-v$/.test(x));
-        let k = 0;
-        msg = message([fmt ?? '']).replace(/%(?:-?\d*\.?\d*)[sdifbqx]/g, () => (rest[k] != null ? `{${sayWord(rest[k++]).replace(/^"|"$/g, '')}}` : '…')).replace(/%%/g, '%');
-      } else msg = message(a);
+        let pa = a[0] === '--' ? a.slice(1) : a;
+        const into = pa[0] === '-v' ? pa[1] : null;
+        if (into) pa = pa.slice(2);
+        const [fmt, ...rest] = pa;
+        got = printfText(fmt, rest);
+        // Arguments that cannot be paired with the format: the code, not a guess.
+        if (!got) return { kind: 'other', says: '' };
+        if (into) return { kind: 'set', says: `Sets ${varWords(into)} to ${got.value ?? `the text "${got.text}"`}` };
+      } else got = messageOf(a);
+      const { text: msg, value } = got;
       const file = n.redirs.find((r) => (r.op === '>' || r.op === '>>' || r.op === '>|') && !r.fd && !isDevNull(r.target) && r.target !== '/dev/stderr');
-      if (toStderr(n.redirs)) return { kind: 'call', says: `Writes an error message: "${msg}"${suffix}`, stderr: msg };
-      if (file) return { kind: 'call', says: `${file.op === '>>' ? 'Adds' : 'Writes'} "${msg}" ${file.op === '>>' ? 'to the end of' : 'to'} ${sayWord(file.target)}${suffix}` };
+      const what = value ?? `"${msg}"`;
+      if (toStderr(n.redirs)) return { kind: 'call', says: value ? `Writes ${value} as an error message${suffix}` : `Writes an error message: "${msg}"${suffix}`, stderr: msg };
+      if (file) return { kind: 'call', says: `${file.op === '>>' ? 'Adds' : 'Writes'} ${what} ${file.op === '>>' ? 'to the end of' : 'to'} ${sayWord(file.target)}${suffix}` };
       if (n.redirs.some((r) => isDevNull(r.target) && !r.fd)) return null;
-      return { kind: 'call', says: msg ? `Writes a message: "${msg}"${suffix}` : 'Writes an empty line' };
+      return { kind: 'call', says: value ? `Writes out ${value}${suffix}` : msg && msg !== '\\n' ? `Writes a message: "${msg}"${suffix}` : 'Writes an empty line' };
     }
     case 'exit': {
+      // A bare exit ends with the last command's exit code: success only right after a command that worked.
+      if (args[0] == null && ctx !== '&&') return { kind: 'return', says: ctx === '||' ? "Stops the script here, with the failed command's exit code" : "Stops the script here, with the last command's exit code" };
       const code = args[0] ?? '0';
       if (code === '0') return { kind: 'return', says: 'Stops the script here, finished without errors' };
       if (/^\d+$/.test(code)) return { kind: 'fail', says: `Fails with exit code ${code}`, error: `exit code ${code}`, exitCode: code };
-      return { kind: 'return', says: `Stops the script with the exit code in ${sayWord(code)}` };
+      return { kind: 'return', says: code === '$?' || code === '"$?"' ? "Stops the script with the last command's exit code" : `Stops the script with the exit code in ${sayWord(code)}` };
     }
     case 'return': {
+      if (args[0] == null && ctx !== '&&') return { kind: 'return', says: ctx === '||' ? "Returns the failed command's exit code" : "Returns the last command's exit code" };
       const code = args[0] ?? '0';
       if (code === '0') return { kind: 'return', says: 'Returns success' };
       if (/^\d+$/.test(code)) return { kind: 'return', says: `Returns failure (code ${code})`, failCode: code };
-      return { kind: 'return', says: `Returns the code in ${sayWord(code)}` };
+      return { kind: 'return', says: code === '$?' || code === '"$?"' ? "Returns the last command's exit code" : `Returns the code in ${sayWord(code)}` };
     }
     case 'set': return { kind: 'set', says: setWords(args) };
     case 'shopt': return { kind: 'set', says: `${args.includes('-u') ? 'Turns off' : 'Turns on'} the shell option ${positional(args).map(sayWord).join(', ')}` };
@@ -696,14 +844,18 @@ function simpleSays(n) {
       if (!said.length) return null;
       return { kind: 'set', says: said.join('; then ').replace(/; then (\w)/g, (m, c) => `; then ${c.toLowerCase()}`) };
     }
-    case 'unset': return { kind: 'set', says: `Forgets ${listWords(positional(args).map(varWords))}` };
+    case 'unset': return { kind: 'set', says: `Forgets ${listWords(positional(args).map((a) => (/^[A-Za-z_]\w*$/.test(a) ? varWords(a) : sayWord(a))))}` };
     case 'source': case '.': return out(`Loads the commands and settings in ${sayWord(args[0] ?? '?')}`);
     case 'shift': return { kind: 'set', says: args[0] && args[0] !== '1' ? `Moves past the next ${sayWord(args[0])} inputs` : 'Moves on to the next input' };
     case 'read': {
       const prompt = args.includes('-p') ? args[args.indexOf('-p') + 1] : null;
       const names = positional(args, ['-p', '-t', '-n', '-d', '-u', '-a', '-N']).filter((x) => /^\w+$/.test(x));
-      const into = names.length ? listWords(names.map(varWords)) : 'a line';
-      return out(prompt ? `Asks ${sayWord(prompt)} and keeps the answer as ${into}` : `Reads ${into} from what is typed in`);
+      const list = opt(args, ['-a']) ?? (args.some((x) => /^-[a-zA-Z]*a$/.test(x)) ? names.pop() : null);
+      const into = list ? `the list ${varWords(list)}` : names.length ? listWords(names.map(varWords)) : 'a line';
+      const given = n.redirs.find((r) => r.op === '<<<' || r.op === '<');
+      const from = given ? (given.op === '<' ? `the file ${sayWord(given.target)}` : sayWord(given.target)) : 'what is typed in';
+      if (prompt) return out(`Asks ${sayWord(prompt)} and keeps the answer as ${into}`);
+      return { kind: 'call', says: `Reads ${into} from ${from}${suffix}` };
     }
     case 'eval': return out(`Runs the text ${listWords(args.map(sayWord))} as a command`);
     case 'getopts': return { kind: 'set', says: `Reads the next option into ${varWords(args[1] ?? 'opt')}` };
@@ -732,13 +884,14 @@ function simpleSays(n) {
   if (KNOWN_FNS.has(name)) return out(`Runs ${words(name)}${args.length ? ` with ${listWords(args.slice(0, 4).map(sayWord))}${args.length > 4 ? ', …' : ''}` : ''}`, { callee: name });
   const known = sayCommand(name, args, sayWord);
   if (known) return out(known, { callee: name });
-  if (scriptPath(name) || /^"?\$/.test(name)) return out(`Runs the script ${sayWord(name)}`, { callee: name });
+  if (/^"?\$/.test(name)) return out(`Runs the command in ${sayWord(name)}`, { callee: name });
+  if (scriptPath(name)) return out(`Runs the script ${sayWord(name)}`, { callee: name });
   return out(`Runs ${name}${args[0] && /^[a-z][\w-]*$/.test(args[0]) ? ` ${args[0]}` : ''}`, { callee: name });
 }
 
 /** Any node as one short sentence (used inside questions and "the output of …"). */
 function sayNode(n) {
-  if (n.type === 'simple') return simpleSays(n)?.says ?? null;
+  if (n.type === 'simple') { const s = simpleSays(n); return s && s.kind !== 'other' ? s.says : null; }
   if (n.type === 'pipeline') {
     const said = n.cmds.map((c) => sayNode(c)).filter(Boolean);
     if (n.cmds.length === 2 && n.cmds[1].type === 'simple' && /^(?:ba|z)?sh$/.test(n.cmds[1].words[0]) && n.cmds[0].type === 'simple' && /^(curl|wget)$/.test(n.cmds[0].words[0])) {
@@ -747,7 +900,7 @@ function sayNode(n) {
     }
     return said.length ? [said[0], ...said.slice(1).map((s) => `then ${s.charAt(0).toLowerCase()}${s.slice(1)}`)].join(', ') : null;
   }
-  if (n.type === 'arith') return arithStatement(n.expr) ?? `Works out ${arithWords(n.expr)}`;
+  if (n.type === 'arith') return arithSays(n.expr);
   if (n.type === 'andor') return sayNode(n.first);
   if (n.type === 'group' || n.type === 'subshell') return n.body[0] ? sayNode(n.body[0]) : null;
   if (n.type === 'if') return 'Checks a condition';
@@ -791,17 +944,18 @@ function makeStepper(src) {
     return { kind: 'branch', says, ...base(n, headOf(n)), ...(children.length ? { children } : {}), ...extra };
   }
 
-  function nodeSteps(n) {
+  function nodeSteps(n, ctx = null) {
     switch (n.type) {
       case 'simple': {
-        const s = simpleSays(n);
+        const s = simpleSays(n, ctx);
         if (!s) return [];
         const st = { ...s, ...base(n) };
+        if (s.kind === 'other') st.says = codeOf(n);
         if (s.trap) { delete st.trap; const kids = steps(s.trap).map((c) => ({ ...c, line: st.line, span: st.span })); if (kids.length) { st.children = kids; st.nested = true; } }
         return [st];
       }
       case 'function': return [{ kind: 'set', says: `Defines a helper, ${words(n.name)}`, ...base(n, headOf(n)) }];
-      case 'arith': return [{ kind: 'set', says: arithStatement(n.expr) ?? `Works out ${arithWords(n.expr)}`, ...base(n) }];
+      case 'arith': { const says = arithSays(n.expr); return [says ? { kind: 'set', says, ...base(n) } : { kind: 'other', says: codeOf(n), ...base(n) }]; }
       case 'group': return steps(n.body);
       case 'subshell': { const kids = steps(n.body); return [{ kind: 'call', says: 'Runs these steps in a separate shell (folder and setting changes stay inside it)', ...base(n, headOf(n)), ...(kids.length ? { children: kids } : {}) }]; }
       case 'pipeline': return pipelineSteps(n);
@@ -824,7 +978,8 @@ function makeStepper(src) {
         if (n.cstyle != null) {
           const [init, cond] = n.cstyle.split(';').map((x) => x.trim());
           const im = init.match(/^(\w+)\s*=\s*(.+)$/);
-          says = im ? `Counts ${varWords(im[1])} from ${arithWords(im[2])}${cond ? ` while ${arithWords(cond)}` : ''}` : `Repeats while ${arithWords(cond || 'true')}`;
+          const from = im && arithWords(im[2]), wh = cond ? arithWords(cond) : '';
+          says = im && from && wh != null ? `Counts ${varWords(im[1])} from ${from}${wh ? ` while ${wh}` : ''}` : `Repeats: ${asCode(`for ((${n.cstyle}))`)}`;
         } else {
           const items = n.items;
           let what;
@@ -855,8 +1010,8 @@ function makeStepper(src) {
           const pats = a.patterns.filter((p) => p !== '(');
           let says;
           if (pats.length === 1 && pats[0] === '*') says = 'Otherwise';
-          else if (pats.every((p) => !isGlob(p))) says = `When it is ${listWords(pats.map(sayWord)).replace(/, and |\sand\s(?=[^,]*$)/, ' or ')}`;
-          else says = `When it matches ${pats.map((p) => p.replace(/^["']|["']$/g, '')).join(' or ')}`;
+          else if (pats.every((p) => !isGlob(p))) { const ws = pats.map(sayWord); says = `When it is ${ws.length > 1 ? `${ws.slice(0, -1).join(', ')} or ${ws.at(-1)}` : ws[0]}`; }
+          else says = `When it matches ${pats.map((p) => asCode(p)).join(' or ')}`;
           const kids = steps(a.body);
           return { kind: 'check', says, caseLabel: true, code: src.slice(a.at, src.indexOf(')', a.at) + 1).trim().slice(0, 90), line: lineAt(a.at), span: { startLine: lineAt(a.at), endLine: lineAt(Math.max(a.at, a.end - 1)) }, ...(kids.length ? { children: kids } : {}) };
         });
@@ -879,18 +1034,36 @@ function makeStepper(src) {
     return s ? [{ kind: 'call', says: s, ...base(n) }] : [{ kind: 'other', says: codeOf(n), ...base(n) }];
   }
 
+  /** The last command of an && / || list: a bare return or exit there ends with that list's result. */
+  function lastSteps(n, op) { return n.type === 'simple' ? nodeSteps(n, op) : steps([n]); }
+
   function andOrSteps(n) {
     const chain = [n.first, ...n.rest.map((r) => r.node)];
     const ops = n.rest.map((r) => r.op);
     const isTest = (x) => x.type === 'arith' || (x.type === 'simple' && /^(\[\[?|test)$/.test(x.words[0] ?? ''));
-    // `test && a || b` is the shell's if/else.
-    if (ops.length === 2 && ops[0] === '&&' && ops[1] === '||' && isTest(chain[0])) {
+    // `test && a || b` is the shell's if/else, but only when `a` cannot fail (b runs when a fails, too).
+    const cannotFail = (x) => x.type === 'simple' && (!x.words.length || /^(?:echo|printf|:|true|return|exit|break|continue|unset|local|export)$/.test(x.words[0]));
+    if (ops.length === 2 && ops[0] === '&&' && ops[1] === '||' && isTest(chain[0]) && cannotFail(chain[1])) {
       const kids = steps([chain[1]]), other = steps([chain[2]]);
       return [branch(`If ${nodeCond(chain[0], false)}`, n, kids, { otherwise: other })];
     }
+    // Mixed: the shell groups from the left, so `a && b || c` runs c when a or b failed. One change of operator at
+    // the end is said as a condition on the whole group; anything more mixed is shown as code.
+    if (new Set(ops).size > 1) {
+      const head = ops.slice(0, -1);
+      if (new Set(head).size > 1) return [{ kind: 'other', says: codeOf(n), ...base(n) }];
+      const groupOp = head[0], lastOp = ops[ops.length - 1];
+      const group = chain.slice(0, -1);
+      // The group works when all of an && group work, or any of an || group; it fails otherwise.
+      const wantFail = lastOp === '||';
+      const joinWord = (groupOp === '&&') !== wantFail ? ' and ' : ' or ';
+      const cond = group.map((x) => nodeCond(x, wantFail)).join(joinWord);
+      const kids = lastSteps(chain[chain.length - 1], lastOp);
+      return [{ kind: 'branch', says: `If ${cond}`, ...base(n), ...(kids.length ? { children: kids } : {}) }];
+    }
     // a && b && c: each runs only if the one before worked; a || b: b runs only if a failed.
     const build = (i) => {
-      if (i === chain.length - 1) return steps([chain[i]]);
+      if (i === chain.length - 1) return lastSteps(chain[i], ops[i - 1]);
       const op = ops[i];
       const head = chain[i];
       const cond = nodeCond(head, op === '||');
@@ -945,6 +1118,20 @@ function headerDoc(lines) {
   return cleanDoc(run);
 }
 
+/** The text with every single-quoted part (outside double quotes) blanked: what the shell itself expands. */
+function withoutSingleQuoted(t, dq = false) {
+  let out = '';
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '\\') { out += t.slice(i, i + 2); i++; continue; }
+    if (c === '"') { dq = !dq; out += c; continue; }
+    if (c === "'" && !dq) { const e = t.indexOf("'", i + 1); if (e < 0) break; out += ' '; i = e; continue; }
+    // Inside $( … ) quoting starts over.
+    if (c === '$' && t[i + 1] === '(') { const e = skipBalanced(t, i + 1); out += `$(${withoutSingleQuoted(t.slice(i + 2, e - 1))})`; i = e - 1; continue; }
+    out += c;
+  }
+  return out;
+}
 /** Inputs a function (or script) takes, from `local name="$1"` and the positional inputs it uses. */
 function inputsOf(nodes, src) {
   const named = [];
@@ -954,13 +1141,14 @@ function inputsOf(nodes, src) {
       if (n.type === 'function') continue;
       if (n.type === 'simple') {
         const items = /^(local|declare|typeset|readonly|export)$/.test(n.words[0] ?? '') ? n.words.slice(1) : n.assigns;
-        for (const a of items) { const m = a.match(/^([A-Za-z_]\w*)="?\$\{?([1-9])(?:[:?=-][^}]*)?\}?"?$/); if (m && !named[m[2]]) named[m[2]] = m[1]; }
+        for (const a of items) { const m = a.match(/^([A-Za-z_]\w*)="?\$\{?([1-9])(?:[:?=-][^}$]*)?\}?"?$/); if (m && !named[m[2]]) named[m[2]] = m[1]; }
       }
       for (const k of ['body', 'otherwise', 'cond', 'cmds']) if (Array.isArray(n[k])) visit(n[k]);
       if (n.first) visit([n.first, ...n.rest.map((r) => r.node)]);
       if (n.clauses) for (const c of n.clauses) { visit(c.cond); visit(c.body); }
       if (n.arms) for (const a of n.arms) visit(a.body);
-      const text = src.slice(n.at, n.end);
+      // `$2` inside single quotes is another program's (awk '{print $2}'), not this function's input.
+      const text = withoutSingleQuoted(src.slice(n.at, n.end));
       for (const m of text.matchAll(/\$\{?([1-9])\b/g)) if (n.type !== 'function') max = Math.max(max, Number(m[1]));
     }
   };

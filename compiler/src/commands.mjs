@@ -286,7 +286,8 @@ function git(args, v) {
     case 'stash': return pos[0] === 'pop' ? 'Brings back the set-aside changes' : 'Sets the changes aside for later';
     case 'remote': return pos[0] === 'add' ? `Adds the remote ${v(pos[1] ?? '?')} (${v(pos[2] ?? '?')})` : null;
     case 'submodule': return 'Gets the repositories this one includes (submodules)';
-    case 'config': return `Sets the Git setting ${v(pos[0] ?? '?')}${pos[1] ? ` to ${v(pos[1])}` : ''}`;
+    // `git config name` reads the setting; only `git config name value` sets it.
+    case 'config': return pos[1] ? `Sets the Git setting ${v(pos[0])} to ${v(pos[1])}` : pos[0] ? `Reads the Git setting ${v(pos[0])}` : null;
     case 'rev-parse': return has(rest, '--show-toplevel') ? 'Finds the top folder of the repository' : 'Looks up the commit id';
     case 'describe': return 'Looks up the latest version tag';
     case 'branch': return pos[0] ? `Makes the branch ${v(pos[0])}` : 'Lists the branches';
@@ -316,7 +317,9 @@ function npmLike(tool, args, v) {
 // ── Files, text, and everyday tools ───────────────────────────────────────────────────────────────────
 
 function curl(args, v) {
-  const url = args.find((a) => /:\/\/|^\$|^"\$|^"https?/.test(a) && !/^-/.test(a)) ?? positional(args, ['-X', '--request', '-H', '--header', '-d', '--data', '--data-raw', '--data-binary', '-o', '--output', '-u', '--user', '-F', '--form', '--json', '-A', '--user-agent', '-w', '--write-out', '--retry', '-m', '--max-time', '--connect-timeout', '-e', '--cert', '--key', '-T'])[0];
+  if (has(args, '--version', '-V')) return 'Shows the version of curl';
+  // The address: a word with :// in it, else the first word that is not a flag or a flag's value.
+  const url = args.find((a) => /:\/\//.test(a) && !/^-/.test(a)) ?? positional(args, ['-X', '--request', '-H', '--header', '-d', '--data', '--data-raw', '--data-binary', '-o', '--output', '-u', '--user', '-F', '--form', '--json', '-A', '--user-agent', '-w', '--write-out', '--retry', '-m', '--max-time', '--connect-timeout', '-e', '--cert', '--key', '-T'])[0];
   const sends = opt(args, ['-d', '--data', '--data-raw', '--data-binary', '-F', '--form', '--json', '--data-urlencode']) != null;
   const method = String(opt(args, ['-X', '--request']) ?? (has(args, '-T', '--upload-file') ? 'PUT' : sends ? 'POST' : has(args, '-I', '--head') ? 'HEAD' : 'GET')).replace(/^["']|["']$/g, '').toUpperCase();
   const out = opt(args, ['-o', '--output']);
@@ -324,6 +327,12 @@ function curl(args, v) {
 }
 
 const FILE = (verb) => (args, v) => { const p = positional(args); return p.length ? `${verb} ${list(p.map(v))}` : null; };
+
+/** head / tail's line count: -n 5, -n5, -5, --lines=5; 10 when none is given (their default). */
+function lineCount(args, v) {
+  const n = opt(args, ['-n', '--lines']) ?? args.map((a) => a.match(/^-n?(\d+)$/)?.[1]).find(Boolean);
+  return n != null ? v(n) : args.some((a) => /^-[a-z]*[cn]/.test(a)) ? '(some)' : '10';
+}
 
 /** One command (name and its words) in plain words, or null when it is not a well-known command. */
 export function sayCommand(name, args, v) {
@@ -363,7 +372,13 @@ export function sayCommand(name, args, v) {
     case 'scp': return `Copies ${v(p()[0] ?? '?')} to ${v(p()[1] ?? '?')} over SSH`;
     case 'rsync': return `Copies ${v(p()[0] ?? '?')} to ${v(p()[1] ?? '?')}, sending only what changed`;
     case 'curl': return curl(args, v);
-    case 'wget': return `Downloads ${v(positional(args, ['-O', '-o', '-P', '--output-document'])[0] ?? '?')}${opt(args, ['-O', '--output-document']) ? ` and saves it as ${v(opt(args, ['-O', '--output-document']))}` : ''}`;
+    case 'wget': {
+      if (has(args, '--version', '-V')) return 'Shows the version of wget';
+      const url = args.find((a) => /:\/\//.test(a) && !/^-/.test(a)) ?? positional(args, ['-O', '-o', '-P', '--output-document', '-T', '--timeout', '-t', '--tries', '-U', '--user-agent', '--header', '-e'])[0];
+      if (!url) return null;
+      const to = opt(args, ['-O', '--output-document']);
+      return `Downloads ${v(url)}${to === '-' ? ' and prints it' : to ? ` and saves it as ${v(to)}` : ''}`;
+    }
     case 'tar': {
       const f = opt(args, ['-f', '--file']) ?? (args[0] && /^-?[a-z]*f[a-z]*$/.test(args[0]) && !args[0].startsWith('--') ? args[1] : null);
       const mode = args[0] ?? '';
@@ -398,12 +413,17 @@ export function sayCommand(name, args, v) {
     }
     case 'sed': return has(args, '-i') ? `Edits ${list(positional(args, ['-e', '-f']).slice(opt(args, ['-e']) ? 0 : 1).map(v)) || 'the file'} in place` : 'Changes the text';
     case 'awk': case 'gawk': return 'Picks out and rearranges parts of the text';
-    case 'find': return `Finds the files in ${v(p()[0] ?? '.')}${opt(args, ['-name', '-iname']) ? ` named ${v(opt(args, ['-name', '-iname']))}` : ''}${has(args, '-delete') ? ', and deletes them' : ''}`;
+    case 'find': {
+      // Tests Thunder does not put into words (`!`, -o, -prune, -links, -exec …) are shown as code, never dropped.
+      const tests = args.slice(1);
+      if (tests.some((a) => !/^(?:-name|-iname|-type|-maxdepth|-mindepth|-delete|-print)$/.test(a) && /^[-!(]/.test(a) && a !== '-L')) return `Finds the files in ${v(p()[0] ?? '.')} that match \`${tests.join(' ')}\``;
+      return `Finds the ${{ d: 'folders', f: 'files', l: 'links' }[opt(args, ['-type'])] ?? 'files'} in ${v(p()[0] ?? '.')}${opt(args, ['-name', '-iname']) ? ` named ${v(opt(args, ['-name', '-iname']))}` : ''}${has(args, '-delete') ? ', and deletes them' : ''}`;
+    }
     case 'sort': return 'Sorts the lines';
     case 'uniq': return 'Removes repeated lines';
     case 'wc': return has(args, '-l') ? 'Counts the lines' : 'Counts the words';
-    case 'head': return `Takes the first ${v(opt(args, ['-n']) ?? '10')} lines`;
-    case 'tail': return has(args, '-f') ? `Shows the end of ${v(p()[0] ?? '?')} as it grows` : `Takes the last ${v(opt(args, ['-n']) ?? '10')} lines`;
+    case 'head': return `Takes the first ${lineCount(args, v)} lines`;
+    case 'tail': return has(args, '-f') ? `Shows the end of ${v(p()[0] ?? '?')} as it grows` : `Takes the last ${lineCount(args, v)} lines`;
     case 'cut': return 'Takes out part of each line';
     case 'tr': return 'Changes characters in the text';
     case 'tee': return `Writes it to ${list(p().map(v))} too`;
@@ -422,7 +442,8 @@ export function sayCommand(name, args, v) {
     case 'service': return p()[1] ? `${{ start: 'Starts', stop: 'Stops', restart: 'Restarts', reload: 'Reloads', status: 'Shows the state of' }[p()[1]] ?? cap(words(p()[1]))} the service ${v(p()[0])}` : null;
     case 'apt-get': case 'apt': case 'yum': case 'dnf': case 'apk': case 'brew': case 'choco': case 'winget': case 'snap': {
       const verb = p()[0];
-      const pkgs = p().slice(1);
+      // The value after -s / --source (and a --version written apart from its value) is not a package.
+      const pkgs = positional(args, ['-s', '--source', '--version']).slice(1);
       if (verb === 'install' || verb === 'add') return `Installs ${pkgs.length ? list(pkgs.map(v)) : 'the packages'} (${n})`;
       if (verb === 'update') return `Updates the list of packages (${n})`;
       if (verb === 'upgrade') return `Upgrades the installed packages (${n})`;

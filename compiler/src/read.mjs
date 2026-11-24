@@ -1976,7 +1976,7 @@ function scriptReading(lang, src, file, detected) {
     }
     const base = {
       id: `${fn.name}:${fn.line}`, name: fn.name, label: fn.topLevel ? fn.name : displayLabel(fn.name), line: fn.line,
-      inputs: inputs.map((p) => (PLUMBING.test(p.name) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns ?? null),
+      inputs: inputs.map((p) => (fn.route && PLUMBING.test(p.name) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns ?? null),
       ...(fn.route ? { route: fn.route } : {}), ...(fn.doc ? { doc: fn.doc } : {}), ...(fn.topLevel ? { topLevel: true } : {}),
       provenance: 'inferred-from-code',
     };

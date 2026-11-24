@@ -77,10 +77,10 @@ test('shell: tests read as sentences, exits as Stops with the message echoed bef
   const d = item(r, 'deploy');
   assert.deepEqual(d.inputs.map((p) => p.name), ['env']);
   const s = says(d);
-  assert.ok(s.includes('Takes env from the first input ("staging" when not given)'));
+  assert.ok(s.includes('Takes env from the first input ("staging" when it is empty or not given)'));
   assert.ok(s.includes('If env is empty'));
   assert.ok(s.includes('Fails with exit code 2: "No environment given"'), 'the echo >&2 is the Stop\'s message');
-  assert.ok(s.includes('If env is "prod" and there is no file "{the home folder}/.kube/prod"'));
+  assert.ok(s.includes('If env is "prod" and there is no file "«HOME»/.kube/prod"'));
   assert.ok(s.includes('Fails with return code 1: "missing prod config"'));
   assert.ok(s.includes('If the count setting is at least 3') || s.includes('If count is at least 3'), s.join('\n'));
   assert.ok(s.includes('Chooses by env'));
@@ -111,7 +111,7 @@ test('shell: the script itself is one item named after the file, with set -e, tr
     'Fails with exit code 1: "docker is required"',
     'Creates the Azure resource group "my-rg" in "eastus"',
     'Sets version to the output of looking up the latest version tag',
-    'Sets image to "registry.example.com/web:{version}" and shares it with the programs it runs',
+    'Sets image to "registry.example.com/web:«VERSION»" and shares it with the programs it runs',
     'If building the Docker image image works',
     'Uploads the Docker image image',
     'Sends a POST request to "https://hooks.example.com/deployed"',
@@ -221,18 +221,18 @@ test('PowerShell: cmdlets by Verb-Noun, operators in words, throw and Write-Erro
   assert.deepEqual(p.inputs.map((x) => [x.name, x.type]), [['Version', 'string'], ['Retries', 'number']]);
   const s = says(p);
   for (const want of [
-    'If not: ".\\release\\{version}" exists',
-    'Fails with an error: "No build for version {version}"',
+    'If not: ".\\release\\«Version»" exists',
+    'Fails with an error: "No build for version «Version»"',
     'Gets the Azure resource groups, keeping the result as groups',
     'Makes a folder ".\\out"',
     'For each file in files',
-    'Shows a message: "Copying {the file\'s name}"',
+    'Shows a message: "Copying «$($file.Name)»"',
     'Gets the files and folders in ".\\logs" matching "*.log", keeps only those where length is more than 1MB, then removes them',
     'Sends a POST request to "https://deploy.example.com/releases" with a table of version',
     'Fails with an error: "Could not reach the server"',
     'Removes ".\\tmp" and everything in it',
     'If retries is less than 1 or version matches "0.*"',
-    'Tags this version as "v{version}"',
+    'Tags this version as "v«Version»"',
   ]) assert.ok(s.includes(want), `${want}\n--- got:\n${s.join('\n')}`);
   const t = flat(p.steps).find((x) => x.kind === 'try');
   assert.equal(t.handlers[0].says, 'If WebException goes wrong');
@@ -328,7 +328,7 @@ test('R: decisions from if/else chains, return() guards, and switch() (with fall
   assert.equal(size.otherwise.result, 'M');
   assert.deepEqual([item(r, 'late_fee').rules[0].result, item(r, 'late_fee').otherwise.result], ['Small', 'Big']);
   assert.ok(r.items.some((i) => i.kind === 'test' && i.name === 'members get express'));
-  assert.ok(r.items.some((i) => i.kind === 'error' && i.name === 'No orders file at {path}'));
+  assert.ok(r.items.some((i) => i.kind === 'error' && i.name === 'No orders file at «path»'));
 });
 
 test('R: pipelines one verb at a time, stop() as a Stop, tryCatch as handlers and always, the last value given back', () => {
@@ -337,7 +337,7 @@ test('R: pipelines one verb at a time, stop() as a Stop, tryCatch as handlers an
   const s = says(f);
   for (const want of [
     'If not: the file path exists',
-    'Fails with an error: "No orders file at {path}"',
+    'Fails with an error: "No orders file at «path»"',
     'Reads the CSV file path, keeping it as orders',
     'Works out big, step by step',
     'Keeps only the rows where total is more than 100 and status is "paid"',
@@ -348,7 +348,7 @@ test('R: pipelines one verb at a time, stop() as a Stop, tryCatch as handlers an
     'Tries these steps and handles any error (the answer becomes saved)',
     'Saves big to the CSV file "big.csv"',
     'Sets saved to yes',
-    'Warns: "Could not save: {the message of e}"',
+    'Warns: "Could not save: «conditionMessage(e)»"',
     'Sets saved to no',
     'Writes a message: "done"',
     'Returns big',

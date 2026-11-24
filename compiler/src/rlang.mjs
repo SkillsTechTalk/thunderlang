@@ -5,6 +5,7 @@
 // where x is more than 1"), lapply/purrr::map as loops, R6Class / setRefClass / setClass as Things, roxygen #' and
 // plumber #* @get /path annotations, and testthat tests. Deterministic, browser-safe; what it cannot say keeps its code.
 import { words, cap, listWords, gerund } from './commands.mjs';
+import { accountsFor } from './faithful.mjs';
 
 function lineFinder(src) {
   const starts = [0];
@@ -131,6 +132,7 @@ function groups(list) {
 }
 /** Arguments of a call: [{ name, toks }] split at top-level commas. */
 function argsOf(list) {
+  if (!at0(list).length) return [];
   const parts = [[]];
   for (const g of groups(at0(list))) { if (g.length === 1 && isOp(g[0], ',')) parts.push([]); else parts[parts.length - 1].push(...g); }
   return parts.map((p) => (p.length >= 2 && (p[0].t === 'id' || p[0].t === 'str') && isOp(p[1], '=') ? { name: p[0].t === 'str' ? p[0].value : p[0].text, toks: p.slice(2) } : { name: null, toks: p }));
@@ -140,14 +142,65 @@ function argsOf(list) {
 
 const rWords = (name) => { const w = words(String(name).replace(/^\.+/, '').replace(/\./g, ' ')); return w || String(name); };
 const quote = (s) => `"${s.length > 100 ? `${s.slice(0, 99)}…` : s}"`;
+
+// Text with values inside (docs/spec.md): the literal parts are kept exactly as the code writes them (escapes
+// included), and each inserted value is a «placeholder»: a plain variable shows its name, anything else its code.
+let SRC = '';
+/** The code of a token list, as written (on one line). */
+const codeText = (list) => { const v = at0(list); return v.length ? SRC.slice(v[0].at, v[v.length - 1].end).replace(/\s*\n\s*/g, ' ') : ''; };
+/** The text of a string token exactly as written between its quotes (raw strings: their contents). */
+const rawText = (t) => (/^[rR]["']/.test(t.text) ? t.value : t.text.slice(1, -1));
+/** One inserted value: «name» for a plain variable, «code» for anything else. */
+const placeholder = (list) => `«${codeText(list)}»`;
+/** glue / cli text: `{x}` is an inserted value, `{{` and `}}` are literal braces (kept as written). */
+function glueText(s) {
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if ((c === '{' || c === '}') && s[i + 1] === c) { out += c + c; i++; continue; }
+    if (c !== '{') { out += c; continue; }
+    let d = 0, j = i;
+    for (; j < s.length; j++) { if (s[j] === '{') d++; else if (s[j] === '}' && --d === 0) break; }
+    if (j >= s.length) { out += s.slice(i); break; }
+    out += `«${s.slice(i + 1, j).trim()}»`;
+    i = j;
+  }
+  return out;
+}
+/** Text joined from parts (paste0, cat, message, stop): literal strings as written, other parts as placeholders. */
+function textOf(args, sep = '', glue = false) {
+  return args.filter((a) => !a.name).map((a) => { const v = at0(a.toks); return v.length === 1 && v[0].t === 'str' ? (glue ? glueText(rawText(v[0])) : rawText(v[0])) : placeholder(a.toks); }).join(sep);
+}
+/** True when the parts are one inserted value and nothing else: a value, said in words rather than as text. */
+const oneValue = (args) => { const p = args.filter((a) => !a.name); return p.length === 1 && !(at0(p[0].toks).length === 1 && at0(p[0].toks)[0].t === 'str'); };
+/** A named argument's literal text, '' for none, or null when it is not a plain string. */
+const namedText = (args, k, dflt) => { const a = args.find((x) => x.name === k); if (!a) return dflt; const v = at0(a.toks); return v.length === 1 && v[0].t === 'str' ? rawText(v[0]) : null; };
+/** sprintf("%s/%05d", a, n) -> "«a»/«n as %05d»"; null when the arguments cannot be paired with the conversions. */
+function sprintfText(args) {
+  const plain = args.filter((a) => !a.name);
+  const fmt = at0(plain[0]?.toks ?? []);
+  if (fmt.length !== 1 || fmt[0].t !== 'str') return null;
+  const s = rawText(fmt[0]);
+  let k = 1, bad = false;
+  const out = s.replace(/%(?:%|([-+ 0#]*\d*(?:\.\d+)?)([a-zA-Z]))/g, (m, flags, conv) => {
+    if (m === '%%') return m;
+    if (/\$|\*/.test(m) || !plain[k]) { bad = true; return m; }
+    const v = placeholder(plain[k++].toks).slice(1, -1);
+    return flags || !/^[sdi]$/.test(conv) ? `«${v} as ${m}»` : `«${v}»`;
+  });
+  return bad || k !== plain.length ? null : out;
+}
+/** paste0 / paste as text, with how the pieces are joined when they are vectors (collapse). */
+function pasteText(args, sep) {
+  const s = namedText(args, 'sep', sep), collapse = namedText(args, 'collapse', undefined);
+  if (s == null || collapse === null) return null;
+  const t = quote(textOf(args, s));
+  return collapse === undefined ? t : `${t} (each, joined with "${collapse}")`;
+}
 const AGG = { sum: 'the total of', mean: 'the average of', median: 'the middle value of', max: 'the highest', min: 'the lowest', sd: 'how spread out', n_distinct: 'how many different', first: 'the first', last: 'the last' };
 
-/** A call's text parts: paste0("a", x) -> "a{x}". */
-function textOf(args, sep = '') {
-  return args.filter((a) => !a.name).map((a) => { const v = at0(a.toks); return v.length === 1 && v[0].t === 'str' ? v[0].value : `{${(sayValue(a.toks) ?? '…').replace(/^"|"$/g, '')}}`; }).join(sep);
-}
-const glueText = (s) => String(s).replace(/\{([^{}]+)\}/g, (m, x) => `{${rWords(x.trim())}}`);
 
+const VALUE_OPS = new Set(['||', '|', '&&', '&', '==', '!=', '<', '>', '<=', '>=', '+', '-', '*', '/', '^', ':']);
 /** A value in words, or null when Thunder will not guess. */
 function sayValue(list) {
   const v = at0(list);
@@ -155,22 +208,28 @@ function sayValue(list) {
   const g = groups(v);
   if (g.length === 1 && g[0].length === 1) {
     const t = g[0][0];
-    if (t.t === 'str') return quote(t.value);
+    if (t.t === 'str') return quote(rawText(t));
     if (t.t === 'num') return t.text.replace(/L$/, '');
-    if (t.t === 'id') return { TRUE: 'yes', FALSE: 'no', T: 'yes', F: 'no', NULL: 'nothing', NA: 'missing', Inf: 'infinity' }[t.text] ?? rWords(t.text);
+    if (t.t === 'id') return { TRUE: 'yes', FALSE: 'no', T: 'yes', F: 'no', NULL: 'nothing', NA: 'missing (NA)', Inf: 'infinity' }[t.text] ?? rWords(t.text);
   }
   if (g.length === 2 && isOp(g[0][0], '-') && g[1].length === 1 && g[1][0].t === 'num') return `-${g[1][0].text.replace(/L$/, '')}`;
+  if (g.length === 2 && isOp(g[0][0], '-') && g[1].length === 1 && g[1][0].t === 'id') return `minus ${rWords(g[1][0].text)}`;
+  // res <- f(x) inside a value: the value, and the name it is kept as.
+  const inner = g.findIndex((x, k) => k > 0 && x.length === 1 && (isOp(x[0], '<-') || isOp(x[0], '<<-')));
+  if (inner > 0) { const r = sayValue(g.slice(inner + 1).flat()); const n = at0(g.slice(0, inner).flat()); return r && n.length === 1 && n[0].t === 'id' ? `${r} (kept as ${rWords(n[0].text)})` : null; }
+  // A top-level operator decides what the value is; the $field / $method readings below are only for a single chain.
+  const hasOp = g.some((x, k) => k > 0 && x.length === 1 && x[0].t === 'op' && (VALUE_OPS.has(x[0].text) || /^%.*%$/.test(x[0].text)));
   // a %||% b: a, or b when a is not set (rlang and base R 4.4).
   const orNull = g.findIndex((x, k) => k > 0 && x.length === 1 && isOp(x[0], '%||%'));
   if (orNull > 0) { const a = sayValue(g.slice(0, orNull).flat()), b = sayValue(g.slice(orNull + 1).flat()); return a && b ? `${a} (or ${b} when it is not set)` : null; }
   // f(x)$field: a fact about what a call gives back.
-  if (g.length >= 3 && g[g.length - 1].length === 1 && g[g.length - 1][0].t === 'id' && isOp(g[g.length - 2][0], '$') && g.slice(0, -2).some((x) => isOp(x[0], '('))) {
+  if (!hasOp && g.length >= 3 && g[g.length - 1].length === 1 && g[g.length - 1][0].t === 'id' && isOp(g[g.length - 2][0], '$') && g.slice(0, -2).some((x) => isOp(x[0], '('))) {
     const owner = sayValue(g.slice(0, -2).flat());
     if (owner && /^the result of /.test(owner)) return `the ${rWords(g[g.length - 1][0].text)} from ${owner.replace(/^the result of /, '')}`;
   }
   // obj$method(args): what the method gives back.
   const lg = g[g.length - 1];
-  if (g.length >= 4 && isOp(lg[0], '(') && g[g.length - 2][0].t === 'id' && isOp(g[g.length - 3][0], '$')) {
+  if (!hasOp && g.length >= 4 && isOp(lg[0], '(') && g[g.length - 2][0].t === 'id' && isOp(g[g.length - 3][0], '$')) {
     const owner = sayValue(g.slice(0, -3).flat());
     if (owner) return `the result of ${rWords(g[g.length - 2][0].text)} on ${owner}`;
   }
@@ -179,12 +238,12 @@ function sayValue(list) {
     let at = -1;
     for (let k = g.length - 1; k > 0; k--) if (g[k].length === 1 && g[k][0].t === 'op' && ops.includes(g[k][0].text)) { at = k; break; }
     if (at > 0) {
-      if (!say) { const c = condWords(v, false); return c ? `whether ${c}` : null; }
+      if (!say) { const c = condSaid(v); return c ? `whether ${c}` : null; }
       const a = sayValue(g.slice(0, at).flat()), b = sayValue(g.slice(at + 1).flat());
       return a && b ? `${a} ${say[g[at][0].text]} ${b}` : null;
     }
   }
-  if (g.length === 2 && isOp(g[0][0], '!')) { const c = condWords(v, false); return c ? `whether ${c}` : null; }
+  if (g.length === 2 && isOp(g[0][0], '!')) { const c = condSaid(v); return c ? `whether ${c}` : null; }
   // x$y, x[["y"]], x@y, pkg::name
   if (v[0].t === 'id' && g.every((x, k) => k === 0 || (x.length === 1 && (x[0].t === 'id' || isOp(x[0], '$') || isOp(x[0], '@'))) || (x[0].text === '[[' && x.length === 3 && x[1].t === 'str'))) {
     const parts = [v[0].text];
@@ -202,7 +261,7 @@ function sayValue(list) {
     if (owner) {
       const parts = argsOf(last.slice(1, -1));
       const rows = parts[0] && at0(parts[0].toks).length ? parts[0].toks : null;
-      if (parts.length === 2 && rows) { const c = condWords(rows, false); if (c) return `the rows of ${owner} where ${c}`; }
+      if (parts.length === 2 && rows) { const c = condSaid(rows); if (c) return `the rows of ${owner} where ${c}`; }
       return `part of ${owner}`;
     }
   }
@@ -232,12 +291,12 @@ function callOf(v) {
 function callNoun({ bare, args }) {
   const a0 = args[0] ? sayValue(args[0].toks) : null;
   switch (bare) {
-    case 'c': case 'list': case 'vector': return args.length && at0(args[0].toks).length ? `the list ${listWords(args.slice(0, 6).map((a) => (a.name ? `${rWords(a.name)} = ${sayValue(a.toks) ?? '…'}` : sayValue(a.toks) ?? '…')))}` : 'an empty list';
+    case 'c': case 'list': case 'vector': return args.length && at0(args[0].toks).length ? `the list ${listWords(args.slice(0, 6).map((a) => (a.name ? `${/^[A-Za-z.][\w.]*$/.test(a.name) ? rWords(a.name) : quote(a.name)} = ${sayValue(a.toks) ?? '…'}` : sayValue(a.toks) ?? '…')))}${args.length > 6 ? ', …' : ''}` : 'an empty list';
     case 'character': case 'numeric': case 'integer': case 'logical': return 'an empty list';
-    case 'paste0': return quote(textOf(args));
-    case 'paste': return quote(textOf(args, ' '));
-    case 'sprintf': { const fmt = at0(args[0]?.toks ?? [])[0]; let k = 1; return fmt?.t === 'str' ? quote(fmt.value.replace(/%[-\d.]*[sdfi]/g, () => `{${(sayValue(args[k++]?.toks ?? []) ?? '…').replace(/^"|"$/g, '')}}`)) : null; }
-    case 'glue': case 'str_glue': { const s = at0(args[0]?.toks ?? [])[0]; return s?.t === 'str' ? quote(glueText(s.value)) : null; }
+    case 'paste0': return pasteText(args, '');
+    case 'paste': return pasteText(args, ' ');
+    case 'sprintf': { const t = sprintfText(args); return t == null ? null : quote(t); }
+    case 'glue': case 'str_glue': case 'format_inline': { const v = at0(args[0]?.toks ?? []); return v.length === 1 && v[0].t === 'str' && args.filter((a) => !a.name).length === 1 ? quote(glueText(rawText(v[0]))) : null; }
     case 'nrow': return `the number of rows in ${a0 ?? 'it'}`;
     case 'ncol': return `the number of columns in ${a0 ?? 'it'}`;
     case 'length': case 'NROW': return `how many ${a0 ?? 'items'}`;
@@ -246,7 +305,7 @@ function callNoun({ bare, args }) {
     case 'Sys.time': case 'now': return 'the current time';
     case 'Sys.Date': case 'today': return "today's date";
     case 'Sys.getenv': return `the ${at0(args[0]?.toks ?? [])[0]?.value ? rWords(at0(args[0].toks)[0].value) : 'environment'} setting`;
-    case 'file.path': return quote(args.map((a) => { const x = at0(a.toks); return x.length === 1 && x[0].t === 'str' ? x[0].value : `{${(sayValue(a.toks) ?? '…').replace(/^"|"$/g, '')}}`; }).join('/'));
+    case 'file.path': return args.some((a) => a.name) ? null : quote(textOf(args, '/'));
     case 'toupper': return `${a0} in capital letters`;
     case 'tolower': return `${a0} in small letters`;
     case 'round': return `${a0} rounded`;
@@ -286,9 +345,9 @@ function callVerb({ bare, name, args }) {
     case 'Sys.setenv': return `Sets ${listWords(args.filter((x) => x.name).map((x) => `the ${rWords(x.name)} setting to ${sayValue(x.toks) ?? '…'}`))}`;
     case 'set.seed': return `Fixes the random numbers (seed ${a0 ?? '?'}) so results repeat`;
     case 'print': return `Shows ${a0 ?? 'it'}`;
-    case 'cat': return `Shows ${quote(textOf(args).trim())}`;
-    case 'message': case 'inform': case 'cli_alert_info': case 'cli_inform': case 'cli_alert': case 'cli_alert_success': return `Writes a message: ${quote(bare.startsWith('cli') || bare === 'inform' ? glueText(textOf(args)) : textOf(args))}`;
-    case 'warning': case 'warn': case 'cli_warn': case 'cli_alert_warning': return `Warns: ${quote(bare.startsWith('cli') || bare === 'warn' ? glueText(textOf(args)) : textOf(args.filter((x) => x.name !== 'call.')))}`;
+    case 'cat': { const sep = namedText(args, 'sep', ' '); const to = args.find((a) => a.name === 'file'); return sep == null ? null : `Shows ${oneValue(args) ? sayValue(args.find((a) => !a.name).toks) ?? 'a value' : quote(textOf(args, sep))}${to ? ` (to ${sayValue(to.toks) ?? 'a connection'})` : ''}`; }
+    case 'message': case 'inform': case 'cli_alert_info': case 'cli_inform': case 'cli_alert': case 'cli_alert_success': return `Writes a message: ${messageText(args, bare.startsWith('cli'))}`;
+    case 'warning': case 'warn': case 'cli_warn': case 'cli_alert_warning': return `Warns: ${messageText(args, bare.startsWith('cli'))}`;
     case 'ggplot': return `Draws a chart of ${a0 ?? 'the data'}`;
     case 'ggsave': return `Saves the chart to ${a0 ?? '?'}`;
     case 'plot': case 'hist': case 'barplot': case 'boxplot': return `Draws a ${bare === 'hist' ? 'histogram' : bare === 'plot' ? 'chart' : bare} of ${a0 ?? 'the data'}`;
@@ -301,18 +360,31 @@ function callVerb({ bare, name, args }) {
     case 'dbExecute': case 'dbWriteTable': case 'dbAppendTable': return 'Writes to the database';
     case 'dbDisconnect': return 'Disconnects from the database';
     case 'assign': return `Sets ${a0 ?? 'a value'} to ${args[1] ? sayValue(args[1].toks) ?? 'a value' : 'a value'}`;
-    case 'rm': return `Forgets ${listWords(args.filter((x) => !x.name).map((x) => sayValue(x.toks) ?? '…'))}`;
+    case 'rm': { const list = args.find((x) => x.name === 'list'), env = args.find((x) => x.name === 'envir' || x.name === 'pos'); const what = [...args.filter((x) => !x.name).map((x) => rWords(codeText(x.toks))), ...(list ? [`the variables named in ${sayValue(list.toks) ?? 'a list'}`] : [])]; return what.length ? `Removes ${listWords(what)}${env ? ` from ${sayValue(env.toks) ?? 'an environment'}` : ''}` : null; }
     case 'invisible': return null;
-    case 'deprecate_warn': case 'deprecate_soft': return `Warns that ${a0 ? `${a0} is` : 'this is'} out of date (deprecated)`;
+    case 'deprecate_warn': case 'deprecate_soft': { const p = args.filter((x) => !x.name); const pick = (k, i) => args.find((x) => x.name === k) ?? p[i]; const lit = (a) => { if (!a) return null; let v = at0(a.toks); const c = callOf(v); if (c?.bare === 'I' && c.args.length === 1) v = at0(c.args[0].toks); return sayValue(v); }; const when = lit(pick('when', 0)), what = lit(pick('what', 1)), withx = lit(pick('with', 2)); return `Warns that ${what ?? 'this'} is out of date (deprecated${when ? ` in ${when}` : ''})${withx ? `; use ${withx} instead` : ''}`; }
     case 'signal_stage': return `Marks this as ${a0 ?? 'changing'}`;
     default:
       if (/^(?:\w+_)?check_\w+$/.test(bare)) { const what = rWords(bare.replace(/^(?:\w+_)?check_/, '')); return a0 && a0 !== 'nothing' ? `Checks that ${a0} is a valid ${what}` : `Runs the check ${what}`; }
-      return KNOWN_FNS.has(name) ? `Runs ${rWords(bare)}${args.length ? ` with ${listWords(args.slice(0, 4).map((x) => (x.name ? rWords(x.name) : sayValue(x.toks) ?? 'a value')))}` : ''}` : null;
+      return KNOWN_FNS.has(name) ? `Runs ${rWords(bare)}${args.length ? ` with ${argWords(args)}` : ''}` : null;
   }
 }
 
+/** Arguments in words: a named argument keeps its name, and its value unless the value is that same name. */
+function argWords(args, n = 4) {
+  const say = (x) => { const v = at0(x.toks); if (!x.name) return sayValue(x.toks) ?? 'a value'; if (v.length === 1 && v[0].t === 'id' && v[0].text === x.name) return rWords(x.name); return `${rWords(x.name)} = ${sayValue(x.toks) ?? '…'}`; };
+  const shown = args.slice(0, n).map(say);
+  return args.length > n ? `${shown.join(', ')}, …` : listWords(shown);
+}
+/** A message's text: literal parts as written, values as placeholders; one value alone is said in words. */
+function messageText(args, glue) {
+  const parts = args.filter((x) => !x.name);
+  if (oneValue(args)) { const v = sayValue(parts[0].toks); return v ?? placeholder(parts[0].toks); }
+  return quote(textOf(parts, '', glue));
+}
+
 const CMP = { '==': ['is', 'is not'], '!=': ['is not', 'is'], '>': ['is more than', 'is at most'], '>=': ['is at least', 'is less than'], '<': ['is less than', 'is at least'], '<=': ['is at most', 'is more than'], '%in%': ['is one of', 'is not one of'] };
-const KIND_IS = { 'is.character': 'text', 'is.numeric': 'a number', 'is.function': 'a function', 'is.list': 'a list', 'is.data.frame': 'a table', 'is.logical': 'yes or no', 'is.factor': 'a set of categories', 'is.environment': 'an environment' };
+const KIND_IS = { 'is.character': 'text', 'is.numeric': 'a number', 'is.function': 'a function', 'is.list': 'a list', 'is.data.frame': 'a table', 'is.logical': 'a true/false value', 'is.factor': 'a set of categories', 'is.environment': 'an environment' };
 /** A condition in words: `x > 1 && !is.null(y)` -> "x is more than 1 and y is set". */
 function condWords(list, neg, preCall = null) {
   const v = at0(list);
@@ -321,7 +393,9 @@ function condWords(list, neg, preCall = null) {
   for (const [ops, join, flip] of [[['||', '|'], ' or ', ' and '], [['&&', '&'], ' and ', ' or ']]) {
     const parts = [[]];
     for (const x of g) { if (x.length === 1 && x[0].t === 'op' && ops.includes(x[0].text)) parts.push([]); else parts[parts.length - 1].push(...x); }
-    if (parts.length > 1) { const said = parts.map((p) => condWords(p, neg)); return said.some((s) => !s) ? null : said.join(neg ? flip : join); }
+    // A negated compound (!(a && b)) is not rewritten (De Morgan): it is shown as code. A part that is a bare call
+    // must not start with "not:", which the picture reads as negating the whole question.
+    if (parts.length > 1) { if (neg) return null; const said = parts.map((p) => condWords(p, neg)); return said.some((s) => !s || /^not: /.test(s)) ? null : said.join(join); }
   }
   if (!preCall && isOp(g[0]?.[0], '!')) return condWords(v.slice(1), !neg);
   if (!preCall && g.length === 1 && isOp(g[0][0], '(')) return condWords(g[0].slice(1, -1), neg);
@@ -330,7 +404,10 @@ function condWords(list, neg, preCall = null) {
       const x = g[k];
       if (x.length === 1 && x[0].t === 'op' && CMP[x[0].text]) {
         const a = sayValue(g.slice(0, k).flat()), b = sayValue(g.slice(k + 1).flat());
-        return a && b ? `${a} ${CMP[x[0].text][neg ? 1 : 0]} ${b}` : null;
+        // x %in% c("a", "b"): the choices listed, not "the list a and b".
+        const choices = x[0].text === '%in%' ? callOf(at0(g.slice(k + 1).flat())) : null;
+        const b2 = choices?.bare === 'c' && choices.args.length && choices.args.every((y) => !y.name) ? choices.args.map((y) => sayValue(y.toks)).join(', ') : b;
+        return a && b2 && !/\bnull\b/.test(b2) ? `${a} ${CMP[x[0].text][neg ? 1 : 0]} ${b2}` : null;
       }
     }
   }
@@ -339,12 +416,14 @@ function condWords(list, neg, preCall = null) {
     const a0 = call.args[0] ? sayValue(call.args[0].toks) : null;
     const yes = (p, n) => (neg ? n : p);
     switch (call.bare) {
-      case 'is.null': return `${a0} is ${yes('empty', 'set')}`;
+      // NULL, not "empty": an empty text "" is a different thing in R.
+      case 'is.null': case 'is_null': return `${a0} is ${yes('NULL', 'set')}`;
       case 'is.na': return `${a0} is ${yes('missing', 'not missing')}`;
       case 'missing': return `${a0} was ${yes('not given', 'given')}`;
       case 'file.exists': return `the file ${a0} ${yes('exists', 'does not exist')}`;
       case 'dir.exists': return `the folder ${a0} ${yes('exists', 'does not exist')}`;
-      case 'exists': return `${a0} ${yes('exists', 'does not exist')}`;
+      case 'exists': { const where = call.args.find((x) => x.name === 'envir' || x.name === 'where') ?? call.args.filter((x) => !x.name)[1]; return `${a0} ${yes('exists', 'does not exist')}${where ? ` in ${sayValue(where.toks) ?? 'an environment'}` : ''}`; }
+      case 'length': case 'nrow': case 'NROW': case 'ncol': case 'nchar': return `${callNoun(call)} is ${yes('not 0', '0')}`;
       case 'nzchar': return `${a0} is ${yes('not empty', 'empty')}`;
       case 'isTRUE': return `${a0} is ${yes('yes', 'not yes')}`;
       case 'isFALSE': return `${a0} is ${yes('no', 'not no')}`;
@@ -355,14 +434,66 @@ function condWords(list, neg, preCall = null) {
       case 'any': return `${yes('any', 'none')} of ${a0 ?? 'them'}${call.args[0] ? '' : ''} ${neg ? 'holds' : 'holds'}`.replace(/ +/g, ' ');
       case 'all': return `${yes('all', 'not all')} of ${a0 ?? 'them'} hold`;
       default:
-        if (KIND_IS[call.bare]) return `${a0} is ${yes('', 'not ')}${KIND_IS[call.bare]}`;
-        return `${yes('', 'not: ')}${rWords(call.bare)}${a0 ? ` (${a0})` : ''}`;
+        if (KIND_IS[call.bare] && call.args.length === 1) return `${a0} is ${yes('', 'not ')}${KIND_IS[call.bare]}`;
+        // Every argument is kept: is_string(x, string = "C") is not is_string(x).
+        return `${yes('', 'not: ')}${rWords(call.bare)}${call.args.length ? ` (${call.args.map((x) => (x.name ? `${rWords(x.name)} = ${sayValue(x.toks) ?? '…'}` : sayValue(x.toks) ?? '…')).join(', ')})` : ''}`;
     }
   }
   const val = sayValue(v);
   if (!val) return null;
   if (val === 'yes' || val === 'no') return (val === 'yes') !== neg ? 'always' : 'never';
   return neg ? `not ${val}` : val;
+}
+
+// ── The faithfulness gate (faithful.mjs) for R ──
+// R writes some negations inside a function name (`is.null` reads "is not set", `missing` "was not given") and says
+// FALSE as "no"; the code is rewritten so those count the same on both sides before accountsFor compares them.
+const WORDS_NOT = new Set(['missing', 'nzchar', 'isFALSE']);
+const NO_NOT = new Set(['is.null', 'is_null']);
+const LENGTHS = new Set(['length', 'nrow', 'NROW', 'ncol', 'nchar']);
+function rCanon(list) {
+  const v = at0(list);
+  const out = [];
+  const callEnd = (k) => { let j = k; if (isOp(v[j + 1], '::') || isOp(v[j + 1], ':::')) j += 2; const open = v[j + 1]; if (v[k].t !== 'id' || !isOp(open, '(') || open.match == null) return -1; const e = v.findIndex((t) => t.i === open.match); return e < 0 ? -1 : e; };
+  const bare = (k) => (isOp(v[k + 1], '::') || isOp(v[k + 1], ':::') ? v[k + 2]?.text : v[k].text);
+  for (let k = 0; k < v.length; k++) {
+    const t = v[k];
+    const negated = isOp(t, '!');
+    const at = negated ? k + 1 : k;
+    const e = v[at]?.t === 'id' ? callEnd(at) : -1;
+    // length(x) alone is a yes/no ("is not 0"); in length(x) == 1 it is a number.
+    const LOGIC = (t) => !t || (t.t === 'op' && /^(&&|\|\||&|\||\(|\)|!)$/.test(t.text));
+    const whole = e > 0 && LOGIC(v[k - 1]) && LOGIC(v[e + 1]);
+    if (e > 0 && (WORDS_NOT.has(bare(at)) || NO_NOT.has(bare(at)) || (whole && LENGTHS.has(bare(at))))) {
+      const open = isOp(v[at + 1], '(') ? at + 1 : at + 3;
+      const inner = rCanon(v.slice(open + 1, e));
+      // Words: is.null "not set" / !is.null "set"; length(x) "is not 0" / !length(x) "is 0"; isFALSE "is no" / "is not no".
+      if (bare(at) === 'isFALSE') out.push(`${negated ? '! ' : ''}! chk( ${inner} )`);
+      else if (NO_NOT.has(bare(at))) out.push(`chk( ${inner} )`);
+      else out.push(`${negated ? '' : '! '}chk( ${inner} )`);
+      k = e;
+      continue;
+    }
+    if (negated) { out.push('!'); continue; }
+    if (t.t === 'str') out.push('Q');
+    else if (t.t === 'id') out.push(/^(FALSE|F)$/.test(t.text) ? '! Q' : t.text.replace(/\./g, '_'));
+    else if (t.t === 'num') out.push(t.text);
+    else if (t.text === '&') out.push('&&');
+    else if (t.text === '|') out.push('||');
+    else if (t.text === '%in%') out.push(' in ');
+    else if (/^%.*%$/.test(t.text)) out.push(' Q ');
+    else if (t.text === '<-' || t.text === '<<-') out.push(' := ');
+    else if (t.text === '$' || t.text === '@') out.push('.');
+    else out.push(t.text);
+  }
+  return out.join(' ');
+}
+/** A condition in words, only when the words account for every negation and and/or of the code (else null: code). */
+function condSaid(list) {
+  const c = condWords(list, false);
+  // An apostrophe in words ("the req's token") is not a quote: faithful.mjs would read it as one.
+  const counted = c && c.replace(/n't\b/g, ' not').replace(/(\w)'s\b/g, '$1s').replace(/(\w)s'(?=\s|$)/g, '$1s');
+  return c && accountsFor(rCanon(list), counted) ? c : null;
 }
 
 /** A condition as an expression the Thunder decision reader understands (`score >= 90 && member`), or null. */
@@ -398,7 +529,7 @@ function verbStep(call) {
   const { bare, args } = call;
   const plain = args.filter((a) => !a.name);
   switch (bare) {
-    case 'filter': case 'subset': { const c = plain.map((a) => condWords(a.toks, false)); return { kind: 'call', callee: 'filter', says: `Keeps only the rows where ${c.every(Boolean) ? c.join(' and ') : 'a condition holds'}` }; }
+    case 'filter': case 'subset': { const c = plain.map((a) => condSaid(a.toks)); return { kind: 'call', callee: 'filter', says: `Keeps only the rows where ${c.every(Boolean) ? c.join(' and ') : 'a condition holds'}` }; }
     case 'select': { const drop = plain.every((a) => isOp(at0(a.toks)[0], '-')); return { kind: 'call', callee: 'select', says: drop ? `Drops the column${plain.length > 1 ? 's' : ''} ${listWords(plain.map((a) => sayValue(at0(a.toks).slice(1)) ?? '…'))}` : `Keeps only the column${args.length > 1 ? 's' : ''} ${colsOf(args)}` }; }
     case 'mutate': case 'transmute': return { kind: 'set', says: args.filter((a) => a.name).map((a) => `Works out the column ${rWords(a.name)}: ${sayValue(a.toks) ?? 'a calculation'}`).join('; ') || 'Changes some columns' };
     case 'summarise': case 'summarize': return { kind: 'set', says: `Sums up ${args.some((a) => a.name === '.by') ? 'each group' : 'the rows'}: ${args.filter((a) => a.name && a.name !== '.by' && a.name !== '.groups').map((a) => `${rWords(a.name)} is ${sayValue(a.toks) ?? 'a calculation'}`).join(', ')}` };
@@ -435,6 +566,7 @@ function verbStep(call) {
 let KNOWN_FNS = new Set();
 
 function makeReader(src) {
+  SRC = src;
   const toks = tokenize(src);
   const lineAt = lineFinder(src);
   const fns = [], things = [], errors = new Map(), tests = [], defs = [];
@@ -468,7 +600,7 @@ function makeReader(src) {
     let k = next(close + 1, e), thenTo, elseAt = -1;
     if (isOp(toks[k], '{') && toks[k].match != null) { thenTo = toks[k].match + 1; const n2 = next(thenTo, e); if (isId(toks[n2], 'else')) elseAt = n2; }
     else { let d = k; for (; d < e; d++) { if (toks[d].match != null && toks[d].match < e) { d = toks[d].match; continue; } if (isId(toks[d], 'else')) { elseAt = d; break; } } thenTo = elseAt >= 0 ? elseAt : e; }
-    const c = condWords(condT, false);
+    const c = condSaid(condT);
     const step = { kind: 'branch', says: `If ${c ?? `\`${code(open + 1, close)}\``}`, cond: condJs(condT), code: head(s, e), line: lineAt(toks[s].at), span: spanOf(s, e) };
     const kids = stepsOfBody(close + 1, thenTo, ctx);
     if (kids.length) step.children = kids;
@@ -580,7 +712,7 @@ function makeReader(src) {
     if (isId(t0, 'while')) {
       const open = v[1];
       if (!isOp(open, '(') || open.match == null) return [{ kind: 'other', says: code(s, e), ...base(s, e) }];
-      const c = condWords(toks.slice(open.i + 1, open.match), false);
+      const c = condSaid(toks.slice(open.i + 1, open.match));
       const kids = stepsOfBody(open.match + 1, e, { ...ctx, last: false });
       return [{ kind: 'loop', says: c === 'always' ? 'Repeats until something stops it' : `Repeats while ${c ?? 'a condition holds'}`, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
     }
@@ -609,7 +741,16 @@ function makeReader(src) {
 
   function assignSteps(lhs, rhs, s, e, ctx) {
     const lv = at0(lhs);
-    const target = sayValue(lv) ?? (lv[0] ? rWords(lv[0].text) : 'a value');
+    // names(x) <- v, levels(x) <- v, attr(x, "a") <- v: a replacement function sets that part of x.
+    const repl = callOf(lv);
+    const replOf = repl && repl.args.length ? sayValue(repl.args[0].toks) : null;
+    const target = repl && replOf
+      ? (repl.bare === 'attr' && repl.args[1] ? `the ${sayValue(repl.args[1].toks) ?? '…'} attribute of ${replOf}` : `the ${rWords(repl.bare)} of ${replOf}`)
+      : sayValue(lv) ?? (lv[0] ? rWords(lv[0].text) : 'a value');
+    const rv0 = at0(rhs);
+    // x[[k]] <- NULL removes the item; is_x <- is.x makes another name for the same function.
+    if (rv0.length === 1 && isId(rv0[0], 'NULL') && groups(lv).at(-1)?.[0]?.text === '[[') return [{ kind: 'set', says: `Removes ${target}`, ...base(s, e) }];
+    if (lv.length === 1 && rv0.length === 1 && rv0[0].t === 'id' && lv[0].text !== rv0[0].text && rWords(lv[0].text) === rWords(rv0[0].text)) return [{ kind: 'set', says: `Makes ${lv[0].text} another name for ${rv0[0].text}`, ...base(s, e) }];
     const fv = fnValue(rhs);
     if (fv && lv.length === 1) {
       defineFunction(lv[0].text, fv, s, lv[0]);
@@ -620,13 +761,13 @@ function makeReader(src) {
     if (call && /^(R6Class|setRefClass|setClass)$/.test(call.bare)) { defineThing(lv[0]?.text ?? '', call, s, e); return []; }
     if (call && call.bare === 'tryCatch') return [tryStep(call, s, e, ctx, target)];
     if (call && /^(lapply|sapply|vapply|map|map_chr|map_dbl|map_int|map_lgl|map_dfr|purrr::map|Map|mapply)$/.test(call.bare)) { const l = loopOfApply(call, s, e, ctx); if (l) return [{ ...l, says: `${l.says}, keeping the answers as ${target}` }]; }
-    if (isId(rv[0], 'if')) { const st = ifSteps(rv[0].i, e, { ...ctx, last: false }); if (st) { giveValue(st, target); return [st]; } }
+    if (isId(rv[0], 'if')) { const st = ifSteps(rv[0].i, e, { ...ctx, last: true }); if (st) { giveValue(st, target); return [st]; } }
     const pipe = pipeline(rv);
     if (pipe) return [{ kind: 'set', says: `Works out ${target}, step by step`, ...base(s, e, head(s, e)), children: pipelineSteps(pipe, s, e) }];
     if (lv.length >= 3 && isId(lv[0], 'self') && isOp(lv[1], '$') && rv.length === 1 && rv[0].t === 'id' && rv[0].text === lv[2].text) return [{ kind: 'set', says: `Keeps the ${rWords(rv[0].text)} it is given`, ...base(s, e) }];
     if (lv.length === 1 && rv.length === 1 && rv[0].t === 'id' && ctx.fn && rv[0].text === lv[0].text) return [{ kind: 'set', says: `Keeps the ${rWords(rv[0].text)} it is given`, ...base(s, e) }];
     if (call) {
-      if (call.bare === 'switch') { const st = switchStep(call, s, e, { ...ctx, last: false }); giveValue(st, target); return [st]; }
+      if (call.bare === 'switch') { const st = switchStep(call, s, e, { ...ctx, last: true }); giveValue(st, target); return [st]; }
       const verb = callVerb(call);
       if (verb) return [{ kind: 'call', says: `${verb}, keeping it as ${target}`, callee: call.bare, ...base(s, e) }];
       const noun = callNoun(call);
@@ -701,22 +842,26 @@ function makeReader(src) {
       const { bare, args } = call;
       const a0 = args[0] ? sayValue(args[0].toks) : null;
       if (bare === 'stop' || bare === 'abort' || bare === 'cli_abort' || bare === 'stopf') {
-        const parts = args.filter((a) => !a.name || a.name === 'message');
+        // Only cli_abort fills in {…}; stop() and rlang's abort() show their text as written.
+        const parts = args.filter((a) => !a.name || a.name === 'message').map((a) => ({ ...a, name: null }));
         const one = at0(parts[0]?.toks ?? []);
         const isVar = parts.length === 1 && one.length === 1 && one[0].t === 'id';
-        const msg = isVar ? null : (bare === 'cli_abort' || bare === 'abort' ? glueText(textOf(parts)) : textOf(parts));
+        const single = !isVar && oneValue(parts) ? sayValue(parts[0].toks) : null;
+        const msg = isVar || single || !parts.length ? null : textOf(parts, '', bare === 'cli_abort');
         if (msg) errors.set(msg, errors.get(msg) ?? lineAt(toks[s].at));
         const cls = args.find((a) => a.name === 'class');
         const name = cls ? (at0(cls.toks)[0]?.value ?? 'an error') : 'an error';
-        return [{ kind: 'fail', says: isVar ? `Fails with the error in ${rWords(one[0].text)}` : `Fails with ${name}${msg ? `: "${msg}"` : ''}`, error: name, ...(msg ? { message: msg } : {}), ...base(s, e) }];
+        const says = isVar ? `Fails with the error in ${rWords(one[0].text)}` : single ? `Fails with the error ${/^the result of /.test(single) ? single.replace(/^the result of /, 'made by ') : `in ${single}`}` : `Fails with ${name}${msg ? `: "${msg}"` : ''}`;
+        return [{ kind: 'fail', says, error: name, ...(msg ? { message: msg } : {}), ...base(s, e) }];
       }
       if (bare === 'deprecate_stop') {
         const what = at0(args[1]?.toks ?? [])[0]?.value;
+        // lifecycle writes the message; Thunder says what it is about, without inventing its text.
         const msg = `${what ?? 'This'} is no longer available`;
-        return [{ kind: 'fail', says: `Fails with an error: "${msg}"`, error: 'an error', message: msg, ...base(s, e) }];
+        return [{ kind: 'fail', says: `Fails with an error: ${what ? quote(what) : 'this'} is no longer available (deprecated)`, error: 'an error', message: msg, ...base(s, e) }];
       }
       if (bare === 'stopifnot') {
-        const c = args.map((a) => (a.name ? quote(a.name) : condWords(a.toks, false)));
+        const c = args.map((a) => (a.name ? quote(a.name) : condSaid(a.toks)));
         return [{ kind: 'check', says: `Checks that ${c.every(Boolean) ? c.join(' and ') : 'its conditions hold'} (stops with an error if not)`, ...base(s, e) }];
       }
       if (/^(library|require|requireNamespace|suppressPackageStartupMessages|suppressMessages)$/.test(bare)) {

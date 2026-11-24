@@ -6,6 +6,7 @@
 // and Choices, comment-based help (.SYNOPSIS) as the author's note, and Pode routes as actions. Deterministic,
 // browser-safe; what it cannot say keeps its code.
 import { sayCommand, gerund, words, cap, listWords } from './commands.mjs';
+import { accountsFor, asCodeWords } from './faithful.mjs';
 
 function lineFinder(src) {
   const starts = [0];
@@ -102,6 +103,13 @@ function tokenize(src) {
       i += text.length;
       continue;
     }
+    // Redirections: 2>$null, 2>&1, *>>log.txt.
+    if (/[1-6*]/.test(c) && src[i + 1] === '>' && /\s/.test(src[i - 1] ?? ' ')) {
+      const m = src.slice(i).match(/^[1-6*]>(?:&[12]|>)?/);
+      push('punc', m[0], i, i + m[0].length);
+      i += m[0].length;
+      continue;
+    }
     if (/\d/.test(c) || (c === '.' && /\d/.test(src[i + 1] || ''))) {
       const m = src.slice(i).match(/^(?:0x[\da-fA-F]+|\d*\.?\d+(?:[eE][+-]?\d+)?)(?:KB|MB|GB|TB|PB|[lLdD])?(?![\w.-])/i);
       if (m) { push('num', m[0], i, i + m[0].length); i += m[0].length; continue; }
@@ -145,35 +153,58 @@ function tokenize(src) {
 // ── Values and conditions in words ───────────────────────────────────────────────────────────────────
 
 const SPECIAL_VARS = { _: 'it', psitem: 'it', true: 'yes', false: 'no', null: 'nothing', psscriptroot: "this script's folder", pscommandpath: 'this script', args: 'the inputs', lastexitcode: "the last program's exit code", pwd: 'the current folder', home: 'the home folder', error: 'the errors so far', this: 'it' };
+// Inside a catch block, `$_` is the error that was caught.
+let IN_CATCH = 0;
 function varWords(name) {
   const n = String(name);
   const env = n.match(/^env:(.+)$/i);
   if (env) return `the ${words(env[1])} setting`;
   const scoped = n.replace(/^(?:script|global|local|private|using):/i, '');
+  if (IN_CATCH && /^(_|psitem)$/i.test(scoped)) return 'the error';
   return SPECIAL_VARS[scoped.toLowerCase()] ?? words(scoped);
 }
-/** Text of a string with its variables as {words}: "Deploying {name} to {env}". */
+/** Tokens back to their code: the token texts, with a space wherever the source had one. */
+const toksCode = (list) => at0(list).map((t, k, a) => (k && t.at > a[k - 1].end ? ' ' : '') + t.text).join('');
+/** One inserted variable as a placeholder: a plain name as the code spells it; `$_`, `$?`, `$$`, `$^` as code. */
+const insertName = (name) => (/^[_?$^]$/.test(name) ? `«$${name}»` : `«${name}»`);
+/** A value inserted into text (a -f argument) as a placeholder: a plain variable by its name, anything else as code. */
+function insertCode(list) {
+  const v = at0(list);
+  if (v.length === 1 && v[0].t === 'var' && !v[0].splat) return insertName(v[0].name);
+  return `«${toksCode(v)}»`;
+}
+/**
+ * Quoted text exactly as the code writes it (escapes included), with each inserted value as a placeholder:
+ * "Deploying $name to $($cfg.Env)" -> "Deploying «name» to «$($cfg.Env)»". Single-quoted text is literal.
+ * PowerShell expands only `$name` in "…$name.Prop…", so the rest stays text: "«name».Prop".
+ */
 function stringText(tok) {
-  if (tok.quote === "'") return tok.body.replace(/''/g, "'");
+  const oneLine = (x) => (tok.here ? x.replace(/[ \t]*\r?\n[ \t]*/g, ' ').trim() : x);
+  if (tok.quote === "'") return oneLine(tok.body);
   let out = '';
   const b = tok.body;
   for (let i = 0; i < b.length; i++) {
     const c = b[i];
-    if (c === '`') { const e = b[i + 1]; out += e === 'n' || e === 't' || e === 'r' ? ' ' : e ?? ''; i++; continue; }
-    if (c === '$' && b[i + 1] === '(') { const e = skipParen(b, i + 1); const inner = b.slice(i + 2, e - 1); const said = sayValue(tokenize(inner).filter((t) => t.t !== 'nl' && t.t !== 'comment')); out += `{${said ?? inner.trim()}}`; i = e - 1; continue; }
+    if (c === '`') { out += c + (b[i + 1] ?? ''); i++; continue; }
+    if (c === '$' && b[i + 1] === '(') { const e = skipParen(b, i + 1); out += `«${b.slice(i, e)}»`; i = e - 1; continue; }
     if (c === '$') {
-      const m = b.slice(i + 1).match(/^\{([^}]+)\}|^(?:[A-Za-z_]\w*:)?[A-Za-z_]\w*/);
-      if (m) {
-        let name = m[1] ?? m[0], k = i + 1 + m[0].length;
-        out += `{${varWords(name)}}`;
-        i = k - 1;
-        continue;
-      }
+      const m = b.slice(i + 1).match(/^\{([^}]+)\}|^(?:[A-Za-z_]\w*:)?[A-Za-z_]\w*|^[?^$]/);
+      if (m) { out += insertName(m[1] ?? m[0]); i += m[0].length; continue; }
     }
     out += c;
   }
-  return out.replace(/\s+/g, ' ').trim();
+  return oneLine(out);
 }
+/** A double-quoted text that is one inserted value and nothing else ("$name", "$($x.Count)") is that value, in words. */
+function singleInsert(tok) {
+  if (tok.quote !== '"' || tok.here) return null;
+  const b = tok.body;
+  if (b.startsWith('$(') && skipParen(b, 1) === b.length) return sayValue(tokenize(b.slice(2, -1)));
+  const m = b.match(/^\$(?:\{([^}]+)\}|((?:[A-Za-z_]\w*:)?[A-Za-z_]\w*|[?^$]))$/);
+  return m ? varWords(m[1] ?? m[2]) : null;
+}
+/** A message: quoted text as it is; any other value in words, never inside quotes it does not have. */
+const messageOf = (v) => (v == null || v === '' ? '' : v);
 const quoteText = (t) => `"${t.length > 100 ? `${t.slice(0, 99)}…` : t}"`;
 
 const at0 = (toks) => toks.filter((t) => t.t !== 'nl' && t.t !== 'comment');
@@ -194,10 +225,11 @@ function chainWords(base, members) {
   if (!ms.length) return base;
   const last = ms[ms.length - 1];
   const owner = ms.length > 1 ? possessive(base, ms[ms.length - 2]) : base;
+  if (/^count$/i.test(last) && owner === 'it') return 'its count';
   if (/^count$/i.test(last) || (/^length$/i.test(last) && owner !== 'it')) return `how many ${owner}`;
   return possessive(owner, last);
 }
-const owns = (x) => (/s$/.test(x) ? `${x}'` : `${x}'s`);
+const owns = (x) => (/\w\ws$/.test(x) ? `${x}'` : `${x}'s`);
 const possessive = (owner, member) => (owner === 'it' ? words(member) : `${owns(/^the /.test(owner) ? owner : `the ${owner}`)} ${words(member)}`);
 
 /** A value (a group of tokens) in words, or null when it is something Thunder will not guess at. */
@@ -207,9 +239,11 @@ function sayValue(toks, plain = false) {
   while (toks[0].t === 'type' && toks.length > 1 && toks[1].text !== '::') toks = toks.slice(1);
   const g = groups(toks);
   const first = g[0];
+  // An assignment inside a value (`($p = Join-Path …)`) is not a value Thunder can name.
+  if (g.some((x) => x.length === 1 && x[0].t === 'punc' && /^(=|\+=|-=)$/.test(x[0].text))) return null;
   if (g.length === 1 && first.length === 1) {
     const t = first[0];
-    if (t.t === 'str') return quoteText(stringText(t));
+    if (t.t === 'str') return singleInsert(t) ?? quoteText(stringText(t));
     if (t.t === 'num') return t.text;
     if (t.t === 'var') return varWords(t.name);
     if (t.t === 'word') return /^[\w.:\\/*?-]+$/.test(t.text) ? quoteText(t.text) : null;
@@ -223,7 +257,7 @@ function sayValue(toks, plain = false) {
     if ((open === '(' || open === '$(') && first[0].match != null) {
       const all = first[0].all;
       const st = splitStatements(all, first[0].i + 1, first[0].match);
-      if (st.length === 1) { const s = pipelineWords(all.slice(st[0][0], st[0][1])); if (s?.command) return `the result of ${gerund(s.says)}`; if (s) return s.says; }
+      if (st.length === 1) { const s = pipelineWords(all.slice(st[0][0], st[0][1])); if (s?.command) return `the result of ${gerund(s.says)}`; if (s) return /^[A-Z][a-z]/.test(s.says) ? s.says.charAt(0).toLowerCase() + s.says.slice(1) : s.says; }
       return null;
     }
   }
@@ -239,17 +273,33 @@ function sayValue(toks, plain = false) {
     let index = null;
     while (k < g.length) {
       // $matches['ver'], $args[0]: an item of the list or table.
-      if (g[k][0].text === '[' && g[k].length > 2) { const key = at0(g[k].slice(1, -1)); index = key.length === 1 && key[0].t === 'str' ? key[0].body : ''; k++; continue; }
+      if (g[k][0].text === '[' && g[k].length > 2) {
+        if (index != null) return null;
+        const key = at0(g[k].slice(1, -1));
+        index = key.length === 1 && key[0].t === 'str' ? { key: key[0].body } : key.length === 1 && key[0].t === 'num' && /^\d+$/.test(key[0].text) ? { n: Number(key[0].text) } : key.length === 2 && key[0].text === '-' && key[1].text === '1' ? { last: true } : key.length === 1 && key[0].t === 'var' ? { by: varWords(key[0].name) } : null;
+        if (!index) return null;
+        k++; continue;
+      }
       if (g[k][0].text !== '.' && g[k][0].text !== '::') break;
       const m = g[k + 1]?.[0];
       if (!m || m.t !== 'word') break;
       if (g[k + 2]?.[0].text === '(') { call = m.text; k += 3; break; }
-      if (index != null) { members.push(index || 'item'); index = null; }
+      if (index != null) { if (index.key == null) return null; members.push(index.key); index = null; }
       members.push(m.text);
       k += 2;
     }
     const owner = first[0].t === 'var' ? varWords(first[0].name) : `the ${first[0].name.split('.').pop()}`;
-    if (index != null && k === g.length && !call) return index ? possessive(chainWords(owner, members), index) : `an item of ${chainWords(owner, members)}`;
+    if (index != null && (k !== g.length || call)) return null;
+    if (index != null) {
+      const of = chainWords(owner, members);
+      if (index.key != null) return possessive(of, index.key);
+      if (index.last) return `the last item of ${of}`;
+      if (index.by) return `the entry for ${index.by} in ${of}`;
+      const ORD = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
+      if (of === 'the inputs' && index.n < 10) return `the ${ORD[index.n]} input`;
+      // The index as the code writes it (counting from 0), so the number matches the code.
+      return `the item at index ${index.n} of ${of}`;
+    }
     if (k === g.length && first[0].t === 'type' && !call && members.length) return `the ${words(members[members.length - 1])} (${first[0].name.split('.').pop()})`;
     if (k === g.length && first[0].t === 'var' && !call) return chainWords(varWords(first[0].name), members);
     if (k === g.length && call) {
@@ -262,8 +312,11 @@ function sayValue(toks, plain = false) {
   const opAt = g.findIndex((x) => x.length === 1 && AR[x[0].text]);
   if (opAt > 0) { const a = sayValue(g.slice(0, opAt).flat()), b = sayValue(g.slice(opAt + 1).flat()); if (a && b) return `${a} ${AR[g[opAt][0].text]} ${b}`; }
   if (g.some((x) => x.length === 1 && x[0].t === 'op' && /^-[ci]?f$/i.test(x[0].text)) && first[0].t === 'str') {
-    const args = splitCommas(g.slice(g.findIndex((x) => /^-[ci]?f$/i.test(x[0].text)) + 1).flat()).map((x) => sayValue(x) ?? '…');
-    return quoteText(stringText(first[0]).replace(/\{(\d+)(?::[^}]*)?\}/g, (m, d) => `{${String(args[d] ?? '…').replace(/^"|"$/g, '')}}`));
+    // A format string: each {n} is the n-th value after -f, as a placeholder; alignment and format are kept.
+    const args = splitCommas(g.slice(g.findIndex((x) => /^-[ci]?f$/i.test(x[0].text)) + 1).flat()).map(insertCode);
+    let missing = false;
+    const text = stringText(first[0]).replace(/\{\{|\}\}|\{(\d+)(,\s*-?\d+)?(:[^}]*)?\}/g, (m, d, al, fm) => { if (d == null) return m; if (args[d] == null) { missing = true; return m; } return al || fm ? `${args[d].slice(0, -1)} as ${m}»` : args[d]; });
+    return missing ? null : quoteText(text);
   }
   // Text operators: a -join ', ', a -split ',', a -replace 'x', 'y'.
   const tOp = g.findLastIndex((x, k) => k > 0 && x.length === 1 && x[0].t === 'op' && /^(join|replace|split)$/.test(opName(x[0])));
@@ -290,6 +343,38 @@ const CMP = { eq: ['is', 'is not'], ne: ['is not', 'is'], gt: ['is more than', '
 const BASE_OPS = new Set(['eq', 'ne', 'gt', 'ge', 'lt', 'le', 'like', 'notlike', 'match', 'notmatch', 'contains', 'notcontains', 'in', 'notin', 'is', 'isnot', 'as', 'and', 'or', 'xor', 'not', 'replace', 'split', 'join', 'f', 'band', 'bor', 'bxor', 'bnot', 'shl', 'shr']);
 const opName = (t) => { const x = t.text.toLowerCase().slice(1); return BASE_OPS.has(x) ? x : x.replace(/^[ci]/, ''); };
 
+// The faithfulness gate (faithful.mjs) counts `!`, `!=`, `&&`, `||` and comparisons; PowerShell spells them as
+// -not, -ne, -and, -or, -gt, … So the condition is first written with those symbols, then checked against the words.
+const GATE_OPS = { eq: '==', ne: '!=', gt: '>', ge: '>=', lt: '<', le: '<=', and: '&&', or: '||', xor: '||', not: '!', like: '~', match: '~', contains: '~', notlike: '!~', notmatch: '!~', notcontains: '!~', in: 'in', notin: 'not in', is: 'is', isnot: 'is not', as: 'as' };
+export function psCondCode(toks) {
+  const code = at0(toks).map((t, k, a) => {
+    const sp = k && t.at > a[k - 1].end ? ' ' : '';
+    if (t.t === 'op') return ` ${GATE_OPS[opName(t)] ?? opName(t)} `;
+    if (t.t === 'var') return sp + (/^null$/i.test(t.name) ? 'null' : t.name.replace(/^\w+:/, ''));
+    if (t.t === 'str') return `${sp}Q`;
+    if (t.t === 'param') return `${sp}P`;
+    return sp + t.text;
+  }).join('');
+  // `$null -ne $x` is `$x -ne $null`: "x is set" (faithful.mjs reads `!= null` as "is set", not as a negation).
+  return code.replace(/\bnull\s*(==|!=)\s*([\w.]+)/g, '$2 $1 null');
+}
+/** The words for a condition, or null when they do not account for every negation, and/or, and comparison. */
+// While the gate reads a condition, each value inside it is marked (\u0001…\u0002), so a list's "and" or a
+// possessive's apostrophe inside a value is not taken for logic or a quote.
+let MARK = 0;
+const atom = (v) => (MARK && v ? `\u0001${v}\u0002` : v);
+function gated(toks, said) {
+  if (!said || said === 'always' || said === 'never') return said;
+  MARK++;
+  let marked;
+  try { marked = condWords(toks, false); } finally { MARK--; }
+  if (!marked) return null;
+  let checked = marked;
+  for (let n = 0; n < 4 && /\u0001/.test(checked); n++) checked = checked.replace(/\u0001([^\u0001\u0002]*)\u0002/g, (m, v) => v.replace(/\b(?:and|or)\b/g, '&').replace(/'/g, ''));
+  checked = checked.replace(/[\u0001\u0002]/g, '');
+  return accountsFor(psCondCode(toks), checked) ? said : null;
+}
+
 /** A condition in words: `$Count -gt 0 -and -not $Force` -> "count is more than 0 and force is not set". */
 function condWords(toks, neg) {
   const g = groups(at0(toks));
@@ -304,6 +389,8 @@ function condWords(toks, neg) {
     const inner = g[0].slice(1, -1);
     const ig = groups(at0(inner));
     if (ig[0]?.length === 1 && ig[0][0].t === 'word' && /-/.test(ig[0][0].text)) return commandCond(at0(inner), neg);
+    // `-not (a -or b)` stays one negation of the whole: "not (a or b)".
+    if (neg && ig.some((x) => x.length === 1 && x[0].t === 'op' && /^(and|or|xor)$/.test(opName(x[0])))) { const c = condWords(inner, false); return c ? `not (${c})` : null; }
     return condWords(inner, neg);
   }
   if (g[0].length === 1 && g[0][0].t === 'word' && /^[A-Za-z]+-[A-Za-z]/.test(g[0][0].text)) return commandCond(at0(toks), neg);
@@ -315,27 +402,26 @@ function condWords(toks, neg) {
     if (isNull(left) || isNull(right)) {
       const other = sayValue(isNull(left) ? right : left);
       if (!other || !['eq', 'ne'].includes(op)) return null;
-      return `${other} is ${(op === 'eq') !== neg ? 'empty' : 'set'}`;
+      return `${atom(other)} is ${(op === 'eq') !== neg ? 'empty' : 'set'}`;
     }
     const a = sayValue(left), b = right.length === 1 && right[0].t === 'type' ? right[0].name.split('.').pop() : sayValue(right);
     if (!a || !b) return null;
-    if (op === 'contains' || op === 'notcontains') return `${a} ${CMP[op][neg ? 1 : 0]} ${b}`;
-    return `${a} ${CMP[op][neg ? 1 : 0]} ${b}`;
+    return `${atom(a)} ${CMP[op][neg ? 1 : 0]} ${atom(b)}`;
   }
   const v = sayValue(at0(toks), true);
   if (!v) return null;
   if (v === 'yes' || v === 'no') return (v === 'yes') !== neg ? 'always' : 'never';
-  return `${v} is ${neg ? 'not ' : ''}set`;
+  return `${atom(v)} is ${neg ? 'not ' : ''}set`;
 }
 /** A command used as a question: Test-Path -> "the file exists", anything else -> "it finds something". */
 function commandCond(toks, neg) {
   const name = toks[0].text;
   const args = argsOf(toks.slice(1));
-  if (/^test-path$/i.test(name)) { const p = args.named.path ?? args.named.literalpath ?? args.pos[0]; return `${p ? sayValue(p) : 'the path'} ${neg ? 'does not exist' : 'exists'}`; }
-  if (/^get-command$/i.test(name)) { const p = args.named.name ?? args.pos[0]; return `${p ? sayValue(p) : 'the command'} is ${neg ? 'not ' : ''}installed`; }
+  if (/^test-path$/i.test(name)) { const p = args.named.path ?? args.named.literalpath ?? args.pos[0]; const v = p ? sayValue(p) : 'the path'; return v ? `${atom(v)} ${neg ? 'does not exist' : 'exists'}` : null; }
+  if (/^get-command$/i.test(name)) { const p = args.named.name ?? args.pos[0]; const v = p ? sayValue(p) : 'the command'; return v ? `${atom(v)} is ${neg ? 'not ' : ''}installed` : null; }
   const s = commandWords(toks);
-  if (s && /^test-/i.test(name)) return `${gerund(s)} says ${neg ? 'no' : 'yes'}`;
-  return s ? `${gerund(s)} ${neg ? 'finds nothing' : 'finds something'}` : null;
+  if (s && /^test-/i.test(name)) return `${atom(gerund(s))} says ${neg ? 'no' : 'yes'}`;
+  return s ? `${atom(gerund(s))} ${neg ? 'does not find anything' : 'finds something'}` : null;
 }
 
 /** A condition as an expression the Thunder decision reader understands (`score >= 90 && member`), or null. */
@@ -361,14 +447,40 @@ export function condJs(toks) {
 
 // ── Commands ──────────────────────────────────────────────────────────────────────────────────────────
 
+const REDIRECT = /^(?:[1-6*]?>>?|[1-6*]>&[12])$/;
+/**
+ * A command's arguments as PowerShell splits them: at spaces, so `$s.Path.Expand()` or `$x[0]` is one argument.
+ * Redirections (`> $null`, `2>&1`) are not arguments and are left out.
+ */
+function argGroups(toks) {
+  const out = [];
+  let skipNext = false;
+  for (const g of groups(at0(toks))) {
+    if (skipNext) { skipNext = false; continue; }
+    if (g.length === 1 && g[0].t === 'punc' && REDIRECT.test(g[0].text)) {
+      // `2>$null` reads as the number 2 and `>`: the 2 is part of the redirection.
+      const prev = out[out.length - 1];
+      if (prev?.length === 1 && prev[0].t === 'num' && /^\d$/.test(prev[0].text) && prev[0].end === g[0].at) out.pop();
+      skipNext = !/&/.test(g[0].text);
+      continue;
+    }
+    const prev = out[out.length - 1];
+    const last = prev?.[prev.length - 1];
+    if (prev && g[0].at === last.end && g[0].text !== ',' && last.text !== ',' && prev[0].t !== 'param' && g[0].t !== 'param') prev.push(...g);
+    else out.push([...g]);
+  }
+  return out;
+}
+
 /** A command's arguments: { named: { name: tokens }, pos: [tokens], switches: Set, block: tokens|null }. */
 function argsOf(toks) {
-  const named = {}, pos = [], switches = new Set();
-  const g = groups(at0(toks));
+  const named = {}, pos = [], switches = new Set(), spelled = {};
+  const g = argGroups(toks);
   for (let k = 0; k < g.length; k++) {
     const x = g[k];
     if (x.length === 1 && x[0].t === 'param') {
       const name = x[0].text.slice(1).replace(/:$/, '').toLowerCase();
+      spelled[name] = x[0].text.slice(1).replace(/:$/, '');
       const next = g[k + 1];
       if (x[0].text.endsWith(':') && next) { named[name] = next; k++; continue; }
       if (next && !(next.length === 1 && (next[0].t === 'param' || next[0].text === ','))) {
@@ -383,9 +495,9 @@ function argsOf(toks) {
     }
     pos.push(x);
   }
-  return { named, pos, switches };
+  return { named, pos, switches, spelled };
 }
-const SWITCH = new Set(['force', 'recurse', 'whatif', 'confirm', 'passthru', 'asjob', 'noprofile', 'nonewline', 'raw', 'descending', 'unique', 'wait', 'erroraction', 'append', 'notypeinformation']);
+const SWITCH = new Set(['leaf', 'parent', 'verbose', 'debug', 'force', 'recurse', 'whatif', 'confirm', 'passthru', 'asjob', 'noprofile', 'nonewline', 'raw', 'descending', 'unique', 'wait', 'erroraction', 'append', 'notypeinformation']);
 SWITCH.delete('erroraction');
 
 const VERB = { get: 'Gets', set: 'Sets', new: 'Makes', remove: 'Removes', add: 'Adds', clear: 'Clears', copy: 'Copies', move: 'Moves', rename: 'Renames', start: 'Starts', stop: 'Stops', restart: 'Restarts', invoke: 'Runs', test: 'Checks', write: 'Writes', read: 'Reads', import: 'Loads', export: 'Saves', install: 'Installs', uninstall: 'Uninstalls', update: 'Updates', wait: 'Waits for', join: 'Joins', split: 'Splits', enable: 'Turns on', disable: 'Turns off', register: 'Registers', unregister: 'Unregisters', publish: 'Publishes', send: 'Sends', receive: 'Receives', connect: 'Connects to', disconnect: 'Disconnects from', resolve: 'Works out', push: 'Saves and moves to', pop: 'Goes back to', enter: 'Enters', exit: 'Leaves', find: 'Finds', search: 'Searches for', show: 'Shows', hide: 'Hides', format: 'Formats', compare: 'Compares', confirm: 'Confirms', use: 'Uses', grant: 'Grants', revoke: 'Revokes', protect: 'Protects', unprotect: 'Unprotects', lock: 'Locks', unlock: 'Unlocks', mount: 'Mounts', dismount: 'Unmounts', deploy: 'Deploys', build: 'Builds', merge: 'Merges', initialize: 'Sets up', reset: 'Resets', edit: 'Edits', expand: 'Unpacks', compress: 'Packs', save: 'Saves', sync: 'Syncs', restore: 'Restores', backup: 'Backs up', submit: 'Submits', request: 'Requests', close: 'Closes', open: 'Opens', convert: 'Turns', convertto: 'Turns', convertfrom: 'Reads', measure: 'Measures', select: 'Picks', sort: 'Sorts', group: 'Groups', out: 'Sends', assert: 'Checks', approve: 'Approves', block: 'Blocks', unblock: 'Unblocks', suspend: 'Pauses', resume: 'Resumes', repair: 'Repairs', debug: 'Debugs', trace: 'Traces', limit: 'Limits', optimize: 'Optimizes', redo: 'Redoes', undo: 'Undoes', complete: 'Finishes', checkpoint: 'Checkpoints', watch: 'Watches', step: 'Steps', skip: 'Skips', switch: 'Switches', ping: 'Pings', mock: 'Fakes' };
@@ -403,6 +515,16 @@ const ALIASES = { ls: 'Get-ChildItem', dir: 'Get-ChildItem', gci: 'Get-ChildItem
 let STOP_ON_ERROR = false;
 let KNOWN_FNS = new Set();
 
+/** One argument in words, or its code when it cannot be said. */
+const argWords = (x) => sayValue(x) ?? asCodeWords(toksCode(x), 60);
+/** A message argument (-Message or the first one given). */
+const msgArg = (a, key) => (a.named[key] ? argWords(a.named[key]) : a.pos[0] ? argWords(a.pos[0]) : '(empty)');
+/** " with a, b, and c set to d": every argument a command is given, none dropped. */
+function withArgs(a) {
+  const parts = [...a.pos.map(argWords), ...Object.entries(a.named).map(([k, v]) => `${words(a.spelled[k] ?? k)} set to ${argWords(v)}`), ...[...a.switches].map((k) => `the ${words(a.spelled[k] ?? k)} switch`)];
+  return parts.length ? ` with ${listWords(parts)}` : '';
+}
+
 /** One command (name and argument tokens) in words, or null. */
 function commandWords(toks, ctx = {}) {
   toks = at0(toks);
@@ -410,10 +532,15 @@ function commandWords(toks, ctx = {}) {
   let head = toks[0];
   let rest = toks.slice(1);
   if ((head.text === '&' || head.text === '.') && rest.length) {
-    const target = rest[0];
-    const said = target.t === 'word' ? null : sayValue([target]);
-    if (target.t === 'word' && !/[\\/]/.test(target.text)) { head = target; rest = rest.slice(1); }
-    else return `${head.text === '.' ? 'Loads the commands in' : 'Runs'} ${said ?? quoteText(target.text)}`;
+    const ag = argGroups(rest);
+    const target = ag[0];
+    if (target.length === 1 && target[0].t === 'word' && !/[\\/]/.test(target[0].text)) { head = target[0]; rest = rest.slice(1); }
+    else {
+      const said = target.length === 1 && target[0].t === 'word' ? quoteText(target[0].text) : sayValue(target);
+      if (!said) return null;
+      const more = ag.slice(1).map((x) => argWords(x));
+      return `${head.text === '.' ? 'Loads the commands in' : 'Runs'} ${said}${more.length ? ` with ${listWords(more)}` : ''}`;
+    }
   }
   if (head.t !== 'word') return null;
   const raw = head.text;
@@ -426,13 +553,16 @@ function commandWords(toks, ctx = {}) {
   if (/^(mkdir|md)$/i.test(raw)) return `Makes the folder ${target ?? '?'}`;
   switch (lower) {
     case 'write-host': case 'write-output': case 'write-information': {
-      const msg = val('object', 'messagedata') ?? (a.pos.length ? a.pos.map((x) => sayValue(x) ?? '…').join(' ') : '');
-      const text = msg.replace(/^"|"$/g, '');
-      return lower === 'write-output' && !/^"/.test(msg) && msg ? `Writes out ${msg}` : `${lower === 'write-host' ? 'Shows' : 'Writes'} a message: "${text}"`;
+      const m = a.named.object ?? a.named.messagedata;
+      const parts = m ? [m] : a.pos;
+      const msg = parts.length === 1 ? argWords(parts[0]) : parts.length ? `${parts.map(argWords).join(', ')} (joined by spaces)` : '';
+      if (lower === 'write-output') return msg ? (/^"/.test(msg) ? `Writes out the text ${msg}` : `Writes out ${msg}`) : 'Writes out an empty line';
+      return msg ? `${lower === 'write-host' ? 'Shows' : 'Writes'} a message: ${msg}` : `${lower === 'write-host' ? 'Shows' : 'Writes'} an empty line`;
     }
-    case 'write-verbose': return `Writes a detailed message: "${(val('message') ?? p0 ?? '').replace(/^"|"$/g, '')}"`;
-    case 'write-debug': return `Writes a debugging message: "${(val('message') ?? p0 ?? '').replace(/^"|"$/g, '')}"`;
-    case 'write-warning': return `Warns: "${(val('message') ?? p0 ?? '').replace(/^"|"$/g, '')}"`;
+    // A message is quoted text only when the code has quoted text; `$_` is the error, not the word "it".
+    case 'write-verbose': return `Writes a detailed message: ${msgArg(a, 'message')}`;
+    case 'write-debug': return `Writes a debugging message: ${msgArg(a, 'message')}`;
+    case 'write-warning': return `Warns: ${msgArg(a, 'message')}`;
     case 'write-progress': return `Shows progress: ${val('activity') ?? p0 ?? '…'}`;
     case 'new-item': {
       const type = String(val('itemtype', 'type') ?? '').replace(/"/g, '').toLowerCase();
@@ -454,7 +584,7 @@ function commandWords(toks, ctx = {}) {
     case 'get-location': return 'Gets the current folder';
     case 'test-path': return `Checks whether ${target ?? 'the path'} exists`;
     case 'join-path': return `Joins ${target ?? '?'} and ${val('childpath') ?? (a.pos[1] ? sayValue(a.pos[1]) : '?')} into one path`;
-    case 'split-path': return `Takes part of the path ${target ?? '?'}`;
+    case 'split-path': return a.switches.has('leaf') ? `Takes the last part of the path ${target ?? '?'}` : a.switches.has('parent') || !a.switches.size ? `Takes the folder of the path ${target ?? '?'}` : `Takes part of the path ${target ?? '?'}`;
     case 'invoke-restmethod': case 'invoke-webrequest': {
       const method = String(val('method') ?? 'GET').replace(/"/g, '').toUpperCase();
       const url = val('uri') ?? p0 ?? '?';
@@ -472,7 +602,7 @@ function commandWords(toks, ctx = {}) {
     case 'invoke-expression': return `Runs the text ${p0 ?? val('command') ?? '?'} as a command`;
     case 'invoke-command': return a.named.computername ? `Runs these steps on ${val('computername')}` : 'Runs these steps';
     case 'get-command': return `Looks up the command ${target ?? '?'}`;
-    case 'new-object': return `Makes a new ${String(val('typename') ?? p0 ?? 'object').replace(/"/g, '').split('.').pop()}`;
+    case 'new-object': { const props = a.named.property ? sayValue(a.named.property) : null; return `Makes a new ${String(val('typename') ?? p0 ?? 'object').replace(/"/g, '').split('.').pop()}${props ? ` from ${props}` : ''}`; }
     case 'expand-archive': return `Unpacks ${target ?? '?'}${val('destinationpath') ? ` into ${val('destinationpath')}` : ''}`;
     case 'compress-archive': return `Packs ${target ?? '?'} into ${val('destinationpath') ?? '?'}`;
     case 'add-type': return 'Loads .NET code';
@@ -481,22 +611,27 @@ function commandWords(toks, ctx = {}) {
     case 'import-csv': return `Reads the CSV file ${target ?? '?'}`;
     default: break;
   }
-  if (KNOWN_FNS.has(lower)) return `Runs ${words(name)}${a.pos.length || Object.keys(a.named).length ? ` with ${listWords([...Object.keys(a.named).map(words), ...a.pos.map((x) => sayValue(x) ?? 'a value')].slice(0, 4))}` : ''}`;
+  if (KNOWN_FNS.has(lower)) return `Runs ${words(name)}${withArgs(a)}`;
   const vn = name.match(/^([A-Za-z]+)-([A-Za-z]\w*)$/);
   if (vn && (VERB[vn[1].toLowerCase()])) {
     const verb = vn[1].toLowerCase();
     const noun = nounWords(vn[2]);
-    const named = val('name', 'resourcegroupname', 'identity', 'id', 'path', 'displayname', 'vmname', 'servicename', 'username');
+    const OBJ = ['name', 'resourcegroupname', 'identity', 'id', 'path', 'displayname', 'vmname', 'servicename', 'username'];
+    const objKey = OBJ.find((k) => a.named[k]);
+    const named = objKey ? sayValue(a.named[objKey]) : null;
     const object = named ?? (a.pos[0] ? sayValue(a.pos[0]) : null);
+    // Every other value it is given is kept: `Write-Prompt $text -Color $c` is not just "the prompt text".
+    const extra = { named: Object.fromEntries(Object.entries(a.named).filter(([k]) => k !== objKey && k !== 'erroraction')), pos: objKey ? a.pos : a.pos.slice(1), switches: new Set(), spelled: a.spelled };
+    const more = withArgs(extra);
     const many = verb === 'get' && !object;
     const dup = object && !/^"/.test(object) && noun.toLowerCase().endsWith(object.toLowerCase());
-    return `${VERB[verb]} the ${many ? pluralNoun(noun) : noun}${object ? (dup ? ` named by ${object}` : ` ${object}`) : ''}`;
+    return `${VERB[verb]} the ${many ? pluralNoun(noun) : noun}${object ? (dup ? ` named by ${object}` : ` ${object}`) : ''}${more}`;
   }
-  const raws = rest.map((t) => t.text);
+  const raws = argGroups(rest).map(toksCode);
   const known = sayCommand(raw.replace(/\.exe$/i, ''), raws, (w) => sayValue(tokenize(w)) ?? quoteText(w));
   if (known) return known;
-  if (/[\\/]|\.ps1$/i.test(raw)) return `Runs the script ${quoteText(raw)}`;
-  return `Runs ${raw}`;
+  if (/[\\/]|\.ps1$/i.test(raw)) return `Runs the script ${quoteText(raw)}${withArgs(a)}`;
+  return `Runs ${raw}${withArgs(a)}`;
 }
 
 /**
@@ -508,7 +643,7 @@ function pipelineWords(toks) {
   const parts = [[]];
   for (const g of groups(toks)) { if (g.length === 1 && g[0].text === '|') parts.push([]); else parts[parts.length - 1].push(...g); }
   const said = [];
-  let command = false, loop = null;
+  let command = false, loop = null, headValue = null;
   for (let k = 0; k < parts.length; k++) {
     const p = parts[k];
     if (!p.length) continue;
@@ -519,18 +654,33 @@ function pipelineWords(toks) {
     const blockG = groups(p.slice(1)).find((x) => x[0].text === '{');
     const block = blockG?.[0];
     if (lower === 'where-object') {
-      const c = condWords(blockG ? blockG.slice(1, -1) : p.slice(1), false);
-      said.push(`keeps only those where ${c ?? 'a condition holds'}`);
+      const ct = blockG ? blockG.slice(1, -1) : p.slice(1);
+      const c = gated(ct, condWords(ct, false));
+      said.push(`keeps only those where ${c ?? asCodeWords(toksCode(ct))}`);
       command = true;
       continue;
     }
     if (lower === 'foreach-object' && block) {
-      loop = { from: block.i + 1, to: block.match };
+      // Only one block's steps can be shown as the loop body.
+      if (loop) return null;
+      // In the middle of a pipeline, the steps run on each item before the later commands see them.
+      const last = parts.slice(k + 1).every((q) => !q.length || /^out-null$/i.test(q[0].text));
+      loop = { from: block.i + 1, to: block.match, ...(last ? {} : { middle: true }) };
+      if (!last) said.push('runs the steps below on each one');
+      command = true;
+      continue;
+    }
+    if (lower === 'foreach-object') {
+      // `ForEach-Object Name`: each item's Name.
+      const a = argsOf(p.slice(1));
+      const m = at0(a.named.membername ?? a.pos[0] ?? []);
+      if (m.length !== 1 || m[0].t !== 'word' || a.pos.length > 1) return null;
+      said.push(`takes each one's ${words(m[0].text)}`);
       command = true;
       continue;
     }
     if (lower === 'out-null') continue;
-    if (lower === 'select-object') { const a = argsOf(p.slice(1)); const first = a.named.first ? sayValue(a.named.first) : null; const props = a.named.property ?? a.pos[0]; said.push(first ? `takes the first ${first}` : a.named.last ? `takes the last ${sayValue(a.named.last)}` : a.switches.has('unique') ? 'keeps one of each' : props ? `picks ${listWords(splitCommas(props).map((x) => words(at0(x)[0]?.text ?? '')))}` : 'picks some of them'); command = true; continue; }
+    if (lower === 'select-object') { const a = argsOf(p.slice(1)); const first = a.named.first ? sayValue(a.named.first) : null; const props = a.named.property ?? a.pos[0]; const xp = a.named.expandproperty ? at0(a.named.expandproperty) : null; said.push(xp?.length === 1 ? `takes each one's ${words(xp[0].text)}` : first ? `takes the first ${first}` : a.named.last ? `takes the last ${sayValue(a.named.last)}` : a.switches.has('unique') ? 'keeps one of each' : props ? `picks ${listWords(splitCommas(props).map((x) => words(at0(x)[0]?.text ?? '')))}` : 'picks some of them'); command = true; continue; }
     if (lower === 'sort-object') { const a = argsOf(p.slice(1)); const by = a.named.property ?? a.pos[0]; said.push(`sorts them${by ? ` by ${listWords(splitCommas(by).map((x) => words(at0(x)[0]?.text ?? '')))}` : ''}${a.switches.has('descending') ? ', highest first' : ''}`); command = true; continue; }
     if (lower === 'measure-object') { said.push('counts them'); command = true; continue; }
     if (lower === 'group-object') { const a = argsOf(p.slice(1)); const by = a.named.property ?? a.pos[0]; said.push(`groups them${by ? ` by ${words(at0(by)[0]?.text ?? '')}` : ''}`); command = true; continue; }
@@ -538,15 +688,23 @@ function pipelineWords(toks) {
     if (lower === 'tee-object') { said.push('keeps a copy as it goes'); command = true; continue; }
     if (head.t === 'word' || head.text === '&' || (head.text === '.' && p.length > 1 && p[1].t !== 'word')) {
       const s = commandWords(p);
+      if (s && k === 1 && headValue && said.length === 1) {
+        // `$module | Import-Module`: the value is what the command works on.
+        said[0] = / \?(?=$|[\s,])/.test(s) ? s.replace(/ \?(?=$|[\s,])/, ` ${headValue}`) : `Passes ${headValue} into ${gerund(s)}`;
+        headValue = null; command = true; continue;
+      }
       if (s) { said.push(k === 0 ? s : s.charAt(0).toLowerCase() + s.slice(1)); command = true; continue; }
+      if (k > 0) return null;
     }
     const v = sayValue(p);
     if (!v) return null;
+    if (k === 0) headValue = v;
     said.push(k === 0 ? v : `then ${v}`);
   }
   if (!said.length && !loop) return null;
-  const text = said.length ? cap(said[0]) + (said.length > 1 ? `, ${said.slice(1).map((s) => s.replace(/^then /, '')).join(', ').replace(/, ([^,]*)$/, said.length > 2 ? ', then $1' : ' then $1')}` : '') : '';
-  return { says: text, command, ...(loop ? { loop } : {}) };
+  const rest = said.slice(1).map((x) => x.replace(/^then /, ''));
+  const text = said.length ? cap(said[0]) + (rest.length ? `, ${rest.length > 1 ? `${rest.slice(0, -1).join(', ')}, then ${rest[rest.length - 1]}` : `then ${rest[0]}`}` : '') : '';
+  return { says: text, command, ...(loop ? { loop } : {}), ...(headValue && said.length === 1 ? { value: headValue } : {}) };
 }
 
 // ── Statements ────────────────────────────────────────────────────────────────────────────────────────
@@ -655,7 +813,7 @@ function makeReader(src) {
             const blk = blockAt(toks[p].match + 1, e);
             if (!blk) break;
             const cond = toks.slice(p + 1, toks[p].match);
-            const b = { kind: 'branch', says: `If ${condWords(cond, false) ?? `\`${code(p + 1, toks[p].match)}\``}`, cond: condJs(cond), code: head(i, blk[1] + 1), line: lineAt(toks[i].at), span: first ? spanOf(i, e) : spanOf(s, e) };
+            const b = { kind: 'branch', says: `If ${gated(cond, condWords(cond, false)) ?? asCodeWords(code(p + 1, toks[p].match))}`, cond: condJs(cond), code: head(i, blk[1] + 1), line: lineAt(toks[i].at), span: first ? spanOf(i, e) : spanOf(s, e) };
             const kids = stepsIn(blk[0], blk[1], ctx);
             if (kids.length) b.children = kids;
             if (!first) first = b; else { b.elseIf = true; tail.otherwise = [b]; }
@@ -694,7 +852,7 @@ function makeReader(src) {
         const blk = blockAt(toks[p].match + 1, e);
         const kids = blk ? stepsIn(blk[0], blk[1], ctx) : [];
         const init = at0(parts[0] || []);
-        const cond = parts[1] ? condWords(parts[1], false) : null;
+        const cond = parts[1] ? gated(parts[1], condWords(parts[1], false)) ?? (at0(parts[1]).length ? asCodeWords(toksCode(parts[1])) : null) : null;
         const says = init[0]?.t === 'var' && init[1]?.text === '=' ? `Counts ${varWords(init[0].name)} from ${sayValue(init.slice(2)) ?? '…'}${cond ? ` while ${cond}` : ''}` : `Repeats${cond ? ` while ${cond}` : ''}`;
         return [{ kind: 'loop', says, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
       }
@@ -704,8 +862,8 @@ function makeReader(src) {
         const blk = blockAt(toks[p].match + 1, e);
         const kids = blk ? stepsIn(blk[0], blk[1], ctx) : [];
         const c = toks.slice(p + 1, toks[p].match);
-        const cw = condWords(c, false);
-        return [{ kind: 'loop', says: cw === 'always' ? 'Repeats until something stops it' : `Repeats while ${cw ?? `\`${code(p + 1, toks[p].match)}\``}`, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
+        const cw = gated(c, condWords(c, false));
+        return [{ kind: 'loop', says: cw === 'always' ? 'Repeats until something stops it' : `Repeats while ${cw ?? asCodeWords(code(p + 1, toks[p].match))}`, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
       }
       case 'do': {
         const blk = blockAt(s + 1, e);
@@ -713,7 +871,8 @@ function makeReader(src) {
         const k = nextTok(blk[1] + 1, e);
         const until = /^until$/i.test(toks[k]?.text ?? '');
         const p = parenAt(k + 1);
-        const cw = p >= 0 ? condWords(toks.slice(p + 1, toks[p].match), false) : null;
+        const ct = p >= 0 ? toks.slice(p + 1, toks[p].match) : null;
+        const cw = ct ? gated(ct, condWords(ct, false)) ?? asCodeWords(toksCode(ct)) : null;
         const kids = stepsIn(blk[0], blk[1], ctx);
         return [{ kind: 'loop', says: `Runs once, then repeats ${until ? 'until' : 'while'} ${cw ?? 'a condition holds'}`, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
       }
@@ -738,7 +897,7 @@ function makeReader(src) {
           if (!body) break;
           const kids = stepsIn(body[0], body[1], ctx);
           const label = /^default$/i.test(pat.text) ? 'Otherwise'
-            : pat.text === '{' ? `When ${condWords(toks.slice(patStart + 1, pat.match), false) ?? 'a condition holds'}`
+            : pat.text === '{' ? `When ${gated(toks.slice(patStart + 1, pat.match), condWords(toks.slice(patStart + 1, pat.match), false)) ?? asCodeWords(code(patStart + 1, pat.match))}`
             : flags.includes('-regex') ? `When it matches the pattern ${sayValue([pat])}`
             : flags.includes('-wildcard') ? `When it matches ${sayValue([pat])}`
             : `When it is ${sayValue(toks.slice(patStart, k)) ?? pat.text}`;
@@ -763,7 +922,10 @@ function makeReader(src) {
             while (j < e && (toks[j].t === 'type' || toks[j].text === ',' || toks[j].t === 'nl')) { if (toks[j].t === 'type') types.push(toks[j].name.split('.').pop()); j++; }
             const b = blockAt(j, e);
             if (!b) break;
-            (step.handlers ||= []).push({ says: types.length ? `If ${types.join(' or ')} goes wrong` : 'If anything goes wrong', line: lineAt(toks[i].at), steps: stepsIn(b[0], b[1], ctx) });
+            IN_CATCH++;
+            let hs;
+            try { hs = stepsIn(b[0], b[1], ctx); } finally { IN_CATCH--; }
+            (step.handlers ||= []).push({ says: types.length ? `If ${types.join(' or ')} goes wrong` : 'If anything goes wrong', line: lineAt(toks[i].at), steps: hs });
             i = nextTok(b[1] + 1, e);
             continue;
           }
@@ -854,7 +1016,10 @@ function makeReader(src) {
       const v = lhs[0];
       const members = lhs.filter((x, i) => i > 0 && x.t === 'word').map((x) => x.text);
       const isThis = v?.t === 'var' && /^this$/i.test(v.name);
-      const target = v?.t === 'var' ? (isThis ? (members.length ? words(members[members.length - 1]) : 'it') : chainWords(varWords(v.name), members)) : 'a value';
+      // `$args[0] = …` changes one item, not the whole list.
+      const indexed = lhs.some((x) => x.text === '[');
+      const target = indexed ? sayValue(lhs) : v?.t === 'var' ? (isThis ? (members.length ? words(members[members.length - 1]) : 'it') : chainWords(varWords(v.name), members)) : 'a value';
+      if (!target) return [{ kind: 'other', says: code(s, e), ...base(s, e) }];
       const op = g[eqAt][0].text;
       let rhs = g.slice(eqAt + 1).flat();
       // `$null = …` runs it and throws the answer away.
@@ -875,6 +1040,12 @@ function makeReader(src) {
       if (isThis && rhs.length === 1 && rhs[0].t === 'var' && rhs[0].name.toLowerCase() === String(members[members.length - 1]).toLowerCase()) return [{ kind: 'set', says: `Keeps the ${target} it is given`, ...base(s, e) }];
       const piped = groups(rhs).some((x) => x.length === 1 && x[0].text === '|');
       const pw = rhs[0]?.t === 'word' || rhs[0]?.text === '&' || piped ? pipelineWords(rhs) : null;
+      if (pw?.loop) {
+        // `$x = $list | ForEach-Object { … }`: the steps run for each one, and their results become x.
+        const kids = stepsIn(pw.loop.from, pw.loop.to, ctx);
+        const says = pw.loop.middle ? `${pw.says}, keeping the result as ${target}` : `For each ${pw.value ? `one in ${pw.value}` : `result of ${gerund(pw.says)}`}, runs the steps below; the results become ${target}`;
+        return [{ kind: 'loop', says, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
+      }
       if (pw?.command || (piped && pw)) return [{ kind: 'set', says: `${pw.says}, keeping the result as ${target}`, ...(rhs[0].t === 'word' ? { callee: rhs[0].text } : {}), ...base(s, e) }];
       const ifV = rhs[0]?.t === 'word' && /^(if|switch|foreach|try)$/i.test(rhs[0].text);
       if (ifV) { const inner = statement(rhs[0].i, e, ctx); return inner.map((x) => ({ ...x, says: `${x.says} (the answer becomes ${target})` })); }
@@ -904,7 +1075,8 @@ function makeReader(src) {
     const pw = pipelineWords(list);
     if (pw?.loop) {
       const kids = pw.loop.to != null ? stepsIn(pw.loop.from, pw.loop.to, ctx) : [];
-      return [{ kind: 'loop', says: pw.says ? `For each result of ${gerund(pw.says)}` : 'For each one', ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
+      const says = pw.loop.middle ? pw.says : pw.value ? `For each one in ${pw.value}` : pw.says ? `For each result of ${gerund(pw.says)}` : 'For each one';
+      return [{ kind: 'loop', says, ...base(s, e, head(s, e)), ...(kids.length ? { children: kids } : {}) }];
     }
     if (pw) {
       if (!pw.command) {
@@ -925,6 +1097,8 @@ function makeReader(src) {
         return [{ kind: 'return', says: `Returns ${said}`, implicit: true, ...base(s, e), _value: toks.slice(s, e) }];
       }
       const callee = head0?.t === 'word' ? head0.text : undefined;
+      // New-Object on its own line is output: the function gives the new object back.
+      if (/^new-object$/i.test(lower) && groups(list).every((x) => x[0].text !== '|')) return [{ kind: 'return', says: `Returns ${pw.says.replace(/^Makes /, '')}`, implicit: true, ...base(s, e) }];
       return [{ kind: 'call', says: pw.says, ...(callee ? { callee } : {}), ...base(s, e) }];
     }
     return [{ kind: 'other', says: code(s, e), ...base(s, e) }];

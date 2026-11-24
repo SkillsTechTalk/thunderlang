@@ -10,6 +10,7 @@ import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
 import { rThings } from './rlang.mjs';
 import { psThings } from './powershell.mjs';
+import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /**
@@ -198,8 +199,14 @@ export function stepDoes(step) {
   return 'do';
 }
 
-/** "the book's status" for book.status; plain words for everything else. */
-const possessive = (text) => String(text)
+/**
+ * Quoted text ("…"), code (`…`), and placeholders («…») kept exactly as they are, while `fn` rewrites the words
+ * between them.
+ */
+const outsideQuotes = (text, fn) => String(text).split(/("(?:\\.|[^"\\])*"|`[^`]*`|«[^»]*»)/).map((part, i) => (i % 2 ? part : fn(part))).join('');
+/** "the book's status" for book.status; plain words for everything else. Quoted text is never rewritten. */
+const possessive = (text) => outsideQuotes(text, possessiveWords);
+const possessiveWords = (text) => String(text)
   .replace(/\b([a-z_][\w]*)\.([a-z_][\w]*)\b(?!\s*\()/gi, (m, a, b) => (/^(self|this)$/.test(a) ? `the ${words(b)}` : `the ${words(a)}'s ${words(b)}`))
   .replace(/\b([a-z]+(?:_[a-z0-9]+)+|[a-z]+(?:[A-Z][a-z0-9]*)+)\b/g, (m) => words(m)); // days_late, daysLate -> days late
 /** An answer as words: NoFee -> "No fee", true -> "Yes". */
@@ -211,21 +218,45 @@ const answerWords = (r) => (/^true$/i.test(r) ? 'Yes' : /^false$/i.test(r) ? 'No
  * asked by the rule's own name: "Can borrow?".
  */
 export function askAsQuestion(step, ruleLabel) {
+  // " is " inside quoted text or code is not the question's verb: those parts are held aside while the question is
+  // shaped, then put back exactly as written.
+  // "Running x works?": a command's success is the question; words inside it ("nvm is merged …") are not its verb.
+  const run = String(step.says).match(/^If (not: )?([A-Z]?[a-z]+ing\b[^]* (?:works|fails))$/);
+  if (run && !ruleLabel) return { text: `${cap(run[2])}?`, flip: !!run[1] };
+  const held = [];
+  const says = String(step.says).replace(/"(?:\\.|[^"\\])*"|`[^`]*`|«[^»]*»/g, (m) => (isCodeWords(String(step.says).replace(/^If (?:not: )?/, '')) ? m : `\u0001${held.push(m) - 1}\u0002`));
+  const r = askWords({ ...step, says }, ruleLabel);
+  return { ...r, text: r.text.replace(/\u0001(\d+)\u0002/g, (m, k) => held[Number(k)]) };
+}
+function askWords(step, ruleLabel) {
   let c = String(step.says).replace(/^If /, '').replace(/ \(\d+ steps? inside\)$/, '').trim();
   let flip = false;
   if (/^not: /.test(c)) { c = c.slice(5); flip = true; }
+  // The faithfulness gate gave the code back: ask the code itself, Yes when it is true.
+  if (isCodeWords(c)) return { text: `${c}?`, flip, code: true };
   if (ruleLabel) {
     const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*if\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
     // The negation is read from the code alone; the step's wording may already say "not" for the same reason.
     return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated };
   }
   let m;
+  // A compound condition (a and b, a or not b) is asked as written: turning one part positive would flip the
+  // whole question and put the Stop on the wrong side.
+  if (compoundWords(c)) return { text: `${cap(possessive(c))}?`, flip };
+  if ((m = c.match(/^not \((.+)\)$/)) && closeOf(c, 4) === c.length - 1) return { text: `${cap(possessive(m[1]))}?`, flip: !flip };
   if ((m = c.match(/^not (.+)$/))) { c = m[1]; flip = !flip; }
+  if (compoundWords(c)) return { text: `Not ${possessive(c)}?`, flip: !flip };
   if ((m = c.match(/^(.+?) is not (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip: !flip };
   if ((m = c.match(/^(.+?) has no (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip: !flip };
   if ((m = c.match(/^(.+?) is (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip };
   if ((m = c.match(/^(.+?) has (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip };
   return { text: `${cap(possessive(c))}?`, flip };
+}
+
+/** True when words join two or more conditions with and / or outside brackets. */
+function compoundWords(c) {
+  const parts = splitLogic(String(c).replace(/`[^`]*`/g, 'Q').replace(/"[^"]*"/g, 'Q').replace(/'/g, ''));
+  return !parts || parts.terms.length > 1;
 }
 
 /** A rule's own picture: each rule asked in order, the first Yes gives its answer, otherwise the fallback. */
@@ -270,6 +301,13 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
     if (st.callee && /^[\w-]+$/.test(st.callee)) return memberIndex.get(String(st.callee).toLowerCase()) ?? null;
     return null;
   };
+  // A question is asked by a rule's own name only when the condition is that call and nothing else
+  // (`if (!canBorrow(x))`), never when the call is one part of a bigger condition.
+  const askedByRule = (st) => {
+    const cond = String(st.cond ?? '').trim().replace(/^\((.*)\)$/, '$1');
+    const m = cond.match(/^(?:!\s*|not\s+)?(?:(?:self|this)\.)?[A-Za-z_]\w*\s*\(/);
+    return !!m && closeOf(cond, m[0].length - 1) === cond.length - 1;
+  };
   // walk returns { open, blocks }: open = edges still waiting for the next node; blocks = the same nodes as a tree
   // (each question with its yes and no sides, loops with their body, try with its handlers and always), which is
   // what the picture and Thunder Text are drawn from. The edges are the same flow as a graph, for other tools.
@@ -298,9 +336,9 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         continue;
       }
       if (st.kind === 'branch') {
-        const { text, flip } = askAsQuestion(st, base.uses && memberLabel.get(base.uses));
+        const { text, flip, code } = askAsQuestion(st, base.uses && askedByRule(st) && memberLabel.get(base.uses));
         const [into, past] = flip ? ['no', 'yes'] : ['yes', 'no'];
-        const d = node('decision', text, base);
+        const d = node('decision', text, { ...base, ...(code || st.unread ? { code: true } : {}) });
         connect(open, d);
         const inside = walk(st.children || [], [{ id: d, label: into }], lane + 1);
         // The other side of the question: its else (or else-if chain) when the code has one.
