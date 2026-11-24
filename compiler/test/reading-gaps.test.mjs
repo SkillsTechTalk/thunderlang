@@ -53,7 +53,7 @@ test('React effects say when they run, and their steps are read', () => {
   const p = byName(readCode(REACT, { language: 'typescript' }), 'Profile');
   const [first, second, third] = p.steps.slice(2, 5);
   assert.equal(first.says, 'When this first shows on screen, and whenever user id changes');
-  assert.deepEqual(said(first.children), ['If user id is not set', 'Calls another service over HTTP']);
+  assert.deepEqual(said(first.children), ['If user id is not set', 'Sends a GET request to /api/users/…']);
   assert.equal(first.nested, true);
   assert.equal(second.says, 'When this first shows on screen');
   assert.equal(second.children.at(-1).says, 'When this is taken off the screen, cleans up');

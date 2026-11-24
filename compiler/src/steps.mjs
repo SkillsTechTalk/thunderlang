@@ -1,3 +1,4 @@
+import { sayLibraryCall } from './libraries.mjs';
 // Steps: read any function as a short list of plain steps (check, branch, loop, set, call, return, fail).
 // Decisions become rules; everything else becomes steps. Deterministic and pattern-based, like the rest of
 // the reader: a statement it does not recognize is kept as `other` with its original text, never guessed.
@@ -462,6 +463,30 @@ function responseOf(head) {
   return null;
 }
 
+/** A step for a library call written alone, stored in a name, or returned. */
+function libraryStep(head) {
+  const h = head.replace(/;\s*$/, '').trim();
+  let m;
+  // Returned: return await prisma.user.findMany(...)
+  if ((m = h.match(/^return\s+(.+)$/))) {
+    const lib = sayLibraryCall(m[1]);
+    if (lib) return { kind: 'return', says: lib.value ? `Returns ${lib.says}` : `${lib.says}, and gives ${/^(Finds the \w+s\b|Finds all|Finds rows|Finds the [\w ]+ (?:whose|marked))/.test(lib.says) && !/^Finds the first/.test(lib.says) && /s\b/.test(lib.says.split(' ')[2] ?? '') ? 'them' : 'it'} back`, library: true };
+    return null;
+  }
+  // Stored: const user = await prisma.user.findUnique(...) / user = session.query(...).first() / err := db.Create(&u).Error
+  if ((m = h.match(/^(?:(?:const|let|var|val|final|auto)\s+)?(?:[A-Za-z_$][\w$<>[\],.?]*\s+)?([@$]{0,2}[A-Za-z_][\w$.]*|\{[^}]*\}|\[[^\]]*\])\s*(?::\s*[^=]+?)?\s*:?=(?!=)\s*(.+)$/)) && !/^(if|while|for|return)\b/.test(h)) {
+    const lib = sayLibraryCall(m[2].replace(/\.Error$/, ''));
+    if (!lib) return null;
+    const target = words(m[1].replace(/^[@$]+/, '').replace(/^[{[]\s*|\s*[}\]]$/g, '').split('.').pop());
+    if (lib.value) return { kind: 'set', says: `Sets ${target} to ${lib.says}`, library: true };
+    const mentions = new RegExp(`\\b${target.split(' ').pop().replace(/s$/, '')}`, 'i').test(lib.says);
+    return { kind: 'set', says: mentions || /^err(or)?$/.test(target) ? lib.says : `${lib.says} (as ${target})`, library: true, does: lib.does };
+  }
+  // Alone: await prisma.order.create(...) / session.commit()
+  const lib = sayLibraryCall(h);
+  return lib && !lib.value ? { kind: 'call', says: lib.says, library: true, does: lib.does } : null;
+}
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
@@ -531,6 +556,9 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   // A response sent back to the caller: "Returns user (201 Created)", not "Calls json".
   const sent = responseOf(head);
   if (sent) return { ...sent, code };
+  // Common libraries read as what they do (an ORM, an HTTP client, a cache, tokens, payments): see libraries.mjs.
+  const lib = libraryStep(head);
+  if (lib) return { ...lib, code };
   // Middleware handing on: `next()` lets the request go on to the next step; `next(err)` passes an error on.
   let nx;
   if ((nx = head.match(/^(?:return\s+)?(?:await\s+)?next\s*\(\s*(.*?)\s*\)\s*;?$/))) {
@@ -586,7 +614,13 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:while|until|loop)\b\s*\(?(.*?)\)?\s*(?:\{|:|do)?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${sayCodeCondition(m[1])}${innerNote}` : `Repeats${innerNote}`, code };
   // Branches
   // Go: `if err := open(); err != nil` -> "If open fails"; `if v, ok := m[k]; ok` -> "If k is in m".
-  if ((m = head.match(/^(?:if|else\s+if)\s+(?:[\w]+\s*,\s*)?err\s*:?=\s*([\w.]+)\(.*\);\s*err\s*!=\s*nil\s*\{?\s*$/))) return { kind: 'branch', says: `If ${lastWords(m[1])} fails${innerNote}`, code };
+  if ((m = head.match(/^(?:if|else\s+if)\s+(?:[\w]+\s*,\s*)?err\s*:?=\s*(.+?)(?:\.Error)?;\s*err\s*!=\s*nil\s*\{?\s*$/))) {
+    const lib = sayLibraryCall(m[1]);
+    const BASE = { Finds: 'find', Saves: 'save', Sends: 'send', Removes: 'remove', Changes: 'change', Reads: 'read', Turns: 'turn', Makes: 'make', Checks: 'check', Keeps: 'keep', Creates: 'create', Adds: 'add', Counts: 'count', Writes: 'write', Starts: 'start' };
+    if (lib && BASE[lib.says.split(' ')[0]]) return { kind: 'branch', says: `If it cannot ${BASE[lib.says.split(' ')[0]]} ${lib.says.split(' ').slice(1).join(' ')}${innerNote}`, code };
+    const fn = (m[1].match(/^([\w.]+)\s*\(/) || [])[1];
+    if (fn) return { kind: 'branch', says: `If ${lastWords(fn)} fails${innerNote}`, code };
+  }
   if ((m = head.match(/^(?:if|else\s+if)\s+[^;{]*:=[^;{]*;\s*(.+?)\s*\{?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${cond}${innerNote}`, cond: m[1], code }; }
   if ((m = head.match(/^(?:if|elif|else\s+if|unless|when)\b\s*(.*?)\s*(?:\{|:|then)?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${/^unless\b/.test(head) ? 'not: ' : ''}${cond}${innerNote}`, cond: m[1].replace(/^\((.*)\)$/, '$1'), code, negate: /^unless\b/.test(head) }; }
   if (/^switch\s*(?:true\s*)?\{$/.test(head)) return { kind: 'branch', says: `Checks these cases in order${innerNote}`, code };

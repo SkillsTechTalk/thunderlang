@@ -177,6 +177,7 @@ function tsThings(src, file) {
  */
 export function stepDoes(step) {
   const s = step.says || '', c = step.callee || '';
+  if (step.library && step.does) return step.does === 'calculate' ? 'calculate' : step.does === 'check' ? 'check' : step.does;
   if (step.restates || step.kind === 'other') return 'code';
   if (step.kind === 'fail') return 'stop';
   if (step.redirect) return 'redirect';

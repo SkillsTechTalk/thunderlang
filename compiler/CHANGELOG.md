@@ -1,5 +1,13 @@
 # Unreleased
 
+**Language: common libraries, read as what they do** (`compiler/src/libraries.mjs`). Calls into well-known libraries
+read with their arguments instead of "Calls find unique": ORMs (Prisma, Mongoose, Sequelize, Django, SQLAlchemy,
+Spring Data incl. derived names like `findByEmailAndActive`, Entity Framework, GORM, `database/sql`, ActiveRecord,
+Eloquent and Laravel's query builder) say what they find, save, change, or remove and by what ("Finds the user whose
+email is email"); HTTP clients name the method and address ("Sends a POST request to …/orders"); tokens, passwords,
+caches, Stripe, email, background jobs, JSON, files, and the current time read in words. Go's `if err := <call>; err
+!= nil` says what could not be done ("If it cannot find the first user whose id is id").
+
 **Language: inputs and outputs, read accurately.** Measured on eleven open-source repositories with the new
 `scripts/accuracy.mjs` (see docs/accuracy.md):
 - What goes in says where it comes from: "the x-admin-secret header", "force (in the address)", "email (sent in the
