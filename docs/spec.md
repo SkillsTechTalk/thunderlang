@@ -343,6 +343,26 @@ PowerShell, and well-known actions read in words (`actions/checkout`: "Gets the 
 its `if:` is a question, a failing step is a Stop, and an environment that needs approval is a Stop until someone
 approves it.
 
+### In the model (thunder-model-v1, additive)
+
+So every product draws the same thing without guessing, the compiler gives:
+
+| Field | Shape |
+| --- | --- |
+| A Resource | a Thing with `kind: 'resource'`, `resourceType` exactly as written (`azurerm_storage_account`, `docker-image`), and a stable `address` (`azurerm_storage_account.main`, `Deployment/api`). Changes are matched across versions by `address`. |
+| Connections | `links[]` with `kind: 'uses' \| 'runs-in' \| 'reads-from' \| 'sends-to'`, each with `file` and `line`, only where the file says so |
+| Permissions | `permissions[]`: `{ id, who, can, on, wide, why?, file, line }`. Whether a permission is `wide`, and the short reason, is the compiler's call. |
+| Settings | `settings[]`: `{ name, source: 'parameter' \| 'variable' \| 'secret' \| 'literal' \| 'computed', secret, file, line }`, never a secret's value |
+| Pipelines and image builds | members with `kind: 'pipeline'` (with `when`, the trigger in words) or `kind: 'image-build'` |
+| Category | `files[].category: 'application' \| 'infrastructure' \| 'delivery'` |
+| Worked out later | `computed: true` on any value worked out when the file runs or is applied |
+| Facts | `facts[]`: `{ id, kind, says, file, line }`, what the file says, not advice: permissions that can change everything, triggers that run untrusted code with secrets, actions pinned by a tag instead of a commit, images without a pinned digest, containers that run as root, secrets written into plain settings. A tool decides how serious each one is. |
+| Which files | `readableFile(path, head?)` says which language or format a file is, from its name and, when needed, its first lines (Kubernetes YAML by `apiVersion` and `kind`) |
+| Files not read | a per-file `skipped` reason (too large, a construct Thunder does not read yet), never silently dropped |
+
+The original lines are always one click away, so a secret committed to a file is still visible there; finding
+committed secrets is a security check's job, not Thunder's.
+
 ### The five reading levels, for infrastructure and delivery
 
 | Level | What it shows |
