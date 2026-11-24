@@ -7,7 +7,8 @@ import type { ReadItem, ReadKind } from "../../../compiler/src/read.mjs";
 import { parseIntent } from "../../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../../compiler/src/translate.mjs";
 import { HighlightedCode, HighlightedSource } from "@/lib/highlight";
-import { readLang, tokenizeCode, type CodeLang } from "@/lib/code-tokens";
+import type { CodeLang } from "@/lib/code-tokens";
+import { sourceLines } from "@/lib/source-tokens.mjs";
 import { plainFromReading } from "../../../compiler/src/plain-contract.mjs";
 import type { PlainModel } from "../../../compiler/src/plain-contract.d.mts";
 import { RulePictureStatic } from "@/app/try/RuleVisual";
@@ -78,24 +79,23 @@ export function linesOf(item: ReadItem): number[] {
 
 /** Source with line numbers; highlighted lines scroll into view when they change. */
 export function SourceView({ source, highlighted, label, maxHeight = "max-h-[560px]", language = "typescript" }: { source: string; highlighted: Set<number>; label: string; maxHeight?: string; language?: string }) {
-  const lang = readLang(language);
-  // Editor colors, line by line, in the site's shared palette (same as every code block).
-  const colored = useMemo(() => source.split("\n").map((l) => tokenizeCode(l, lang)), [source, lang]);
+  // Editor colors, line by line (a block comment or multi-line string keeps its color across lines).
+  const colored = useMemo(() => sourceLines(source, language), [source, language]);
   const refs = useRef(new Map<number, HTMLElement>());
   const first = useMemo(() => Math.min(...highlighted), [highlighted]);
   useEffect(() => {
     if (Number.isFinite(first)) refs.current.get(first)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [first]);
   return (
-    <pre aria-label={label} className={`${maxHeight} overflow-auto py-3 font-mono text-[12.5px] leading-6 text-haze-300`}>
-      {source.split("\n").map((l, i) => (
+    <pre aria-label={label} className={`${maxHeight} overflow-auto py-3 font-mono text-[12.5px] leading-6 text-haze-200`}>
+      {colored.map((l, i) => (
         <div
           key={i}
           ref={(el) => { if (el) refs.current.set(i + 1, el); else refs.current.delete(i + 1); }}
-          className={`flex ${highlighted.has(i + 1) ? "bg-gold-400/15 text-white" : ""}`}
+          className={`flex border-l-2 ${highlighted.has(i + 1) ? "border-gold-300 bg-gold-400/15" : "border-transparent"}`}
         >
-          <span className="w-12 shrink-0 select-none pr-4 text-right text-haze-500">{i + 1}</span>
-          <span className="whitespace-pre pr-4">{l ? colored[i].map((t, k) => (t.cls ? <span key={k} className={t.cls}>{t.text}</span> : <span key={k}>{t.text}</span>)) : " "}</span>
+          <span className={`w-12 shrink-0 select-none pr-4 text-right ${highlighted.has(i + 1) ? "text-haze-200" : "text-haze-400"}`}>{i + 1}</span>
+          <span className="whitespace-pre pr-4">{l.length ? l.map((t, k) => <span key={k} className={t.cls}>{t.text}</span>) : " "}</span>
         </div>
       ))}
     </pre>

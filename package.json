@@ -10,6 +10,7 @@
     "start": "next start -p 5187",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "site:test": "node --test src/lib/*.test.mjs",
     "intent:check": "node scripts/intent-check.mjs",
     "intent:test": "node --test --test-concurrency=2 compiler/test/*.test.mjs",
     "intent:prove": "node scripts/intent-prove.mjs",
