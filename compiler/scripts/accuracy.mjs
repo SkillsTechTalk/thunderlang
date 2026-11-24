@@ -6,6 +6,7 @@
 //   2. What a step keeps: steps cannot be run, so check what the Thunder wording keeps from the code line: every
 //      number and text value must appear in the code (anything else is invented), and how many of the code's names
 //      the wording mentions. Steps shown as code are counted apart: honest, but not explained.
+//   (2b. Polarity: every question in words keeps the code's negations, and its Stop sits on the side the code takes.)
 //   3. Big Picture against an independent count: classes, routes, and methods counted by a separate, deliberately
 //      simple scan, compared with what Thunder's model draws: missing, misplaced (a method owned by the wrong Thing),
 //      or invented.
@@ -18,7 +19,8 @@ import { readCode } from '../src/read.mjs';
 import { parseIntent } from '../src/parse.mjs';
 import { translateDecisions, TRANSLATE_LANGUAGES } from '../src/translate.mjs';
 import { compareRules } from '../src/same.mjs';
-import { thunderModel, modelText, readLevel } from '../src/model.mjs';
+import { thunderModel, modelText, readLevel, askAsQuestion } from '../src/model.mjs';
+import { codeCounts, wordCounts } from '../src/faithful.mjs';
 
 const args = process.argv.slice(2);
 const dirs = args.filter((a, i) => !a.startsWith('--') && !['--samples', '--per-language'].includes(args[i - 1]));
@@ -71,6 +73,25 @@ function stepFidelity(step, lines = []) {
   const sw = ` ${words(says)} `;
   const kept = names.filter((n) => sw.includes(` ${words(n)} `) || words(n).split(' ').every((w) => sw.includes(` ${w}`)));
   return { names: names.length, kept: kept.length, invented };
+}
+
+// ── 2b. Polarity: the words of each question, and its Yes / No side, against the code's condition ──────────
+
+/**
+ * For a question in words (not shown as code): the number of negations in the code's condition (plus `unless`) must
+ * have the same parity as the negations in the words plus the flip (a question asked the positive way round, whose
+ * No side is where the code's condition holds). A mismatch is a Stop on the wrong side. Returns null when there is
+ * nothing to compare.
+ */
+function polarityOf(step) {
+  if (step.kind !== 'branch' || (step.children || []).every((c) => c.caseLabel && c.kind === 'check') && step.children?.length) return null;
+  const q = askAsQuestion(step);
+  const cond = step.cond;
+  if (!cond || q.code || /`/.test(q.text) || /none/i.test(cond)) return null;
+  const unless = /^If not: /.test(step.says);
+  const code = (codeCounts(cond).neg + (unless ? 1 : 0)) % 2;
+  const said = (wordCounts(q.text.replace(/'s\b/g, '')).neg + (q.flip ? 1 : 0)) % 2;
+  return code === said ? 'same' : 'flipped';
 }
 
 // ── 3. Big Picture against an independent count ──────────────────────────────────────────────────────────
@@ -157,11 +178,11 @@ function inputsOutputs(model, files, details) {
 
 // ── Run ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-const report = { repos: [], totals: { rules: 0, trips: 0, same: 0, different: 0, notReadBack: 0, cannotRun: 0, notWritten: 0, steps: 0, asCode: 0, names: 0, kept: 0, invented: 0 }, failures: [], inventedExamples: [] };
+const report = { repos: [], totals: { rules: 0, trips: 0, same: 0, different: 0, notReadBack: 0, cannotRun: 0, notWritten: 0, steps: 0, asCode: 0, names: 0, kept: 0, invented: 0, questions: 0, polarity: 0 }, failures: [], inventedExamples: [], polarityExamples: [] };
 const samples = [];
 for (const dir of dirs) {
   const files = readFiles(collectReadableFiles(dir, { maxFiles: 3000 }).filter((f) => f.source && !/(^|\/)(test|tests|spec|__tests__|testdata|fixtures?)\//i.test(f.path)));
-  const repo = { repo: dir.split('/').pop(), files: files.length, languages: {}, rules: 0, trips: 0, same: 0, steps: 0, asCode: 0, names: 0, kept: 0, invented: 0 };
+  const repo = { repo: dir.split('/').pop(), files: files.length, languages: {}, rules: 0, trips: 0, same: 0, steps: 0, asCode: 0, names: 0, kept: 0, invented: 0, questions: 0, polarity: 0 };
   for (const f of files) {
     if (!f.reading) continue;
     const lang = f.reading.language;
@@ -180,6 +201,8 @@ for (const dir of dirs) {
       if (it.kind === 'function' && it.steps) {
         const lines = f.source.split('\n');
         for (const s of flat(it.steps)) {
+          const pol = polarityOf(s);
+          if (pol) { repo.questions++; if (pol === 'flipped') { repo.polarity++; if (report.polarityExamples.length < 40) report.polarityExamples.push({ file: `${repo.repo}/${f.path}:${s.line}`, code: s.cond, ask: askAsQuestion(s).text }); } }
           const r = stepFidelity(s, lines);
           repo.steps++;
           if (r.asCode) { repo.asCode++; continue; }
@@ -192,7 +215,7 @@ for (const dir of dirs) {
   const model = thunderModel(files, { name: repo.repo });
   repo.bigPicture = bigPictureCheck(model, files);
   repo.io = inputsOutputs(model, files, (m) => readLevel(model, 'details', m.id));
-  for (const k of ['rules', 'trips', 'steps', 'asCode', 'names', 'kept', 'invented']) report.totals[k] += repo[k];
+  for (const k of ['rules', 'trips', 'steps', 'asCode', 'names', 'kept', 'invented', 'questions', 'polarity']) report.totals[k] += repo[k];
   report.repos.push(repo);
   // Samples for a person to grade: functions and rules, spread across files.
   const per = Number(flag('--per-language', 0));
@@ -217,7 +240,7 @@ else {
     console.log(`${r.repo} | ${r.rules} | ${pct(r.same, r.trips)} (${r.same}/${r.trips}) | ${pct(r.steps - r.asCode, r.steps)} | ${pct(r.kept, r.names)} | ${r.invented} of ${r.steps - r.asCode} | ${pct(b.drawn, b.declared)} (${b.drawn}/${b.declared}) | ${b.routesDrawn}/${b.routesFound} | ${b.misplaced} of ${b.members} | ${pct(r.io.inputsShown, r.io.inputsInCode)} (${r.io.inputsShown}/${r.io.inputsInCode}) | ${pct(r.io.outputsShown, r.io.membersWithOutputs)}`);
   }
   const t = report.totals;
-  console.log(`\nAll: round trips same ${pct(t.same, t.trips)} (${t.same}/${t.trips}; different ${t.different}, not read back ${t.notReadBack}, cannot run ${t.cannotRun}, not written ${t.notWritten}); steps explained ${pct(t.steps - t.asCode, t.steps)}; names kept ${pct(t.kept, t.names)}; steps with an invented value ${t.invented}`);
+  console.log(`\nAll: round trips same ${pct(t.same, t.trips)} (${t.same}/${t.trips}; different ${t.different}, not read back ${t.notReadBack}, cannot run ${t.cannotRun}, not written ${t.notWritten}); steps explained ${pct(t.steps - t.asCode, t.steps)}; names kept ${pct(t.kept, t.names)}; steps with an invented value ${t.invented}; questions whose words or side disagree with the code's polarity ${t.polarity} of ${t.questions}`);
 }
 const out = flag('--samples');
 if (out) {
@@ -225,4 +248,4 @@ if (out) {
   console.error(`wrote ${samples.length} samples to ${out}`);
 }
 if (args.includes('--io')) for (const r of report.repos) { console.log(`\n${r.repo}: missing inputs`); r.io.missingInputs.slice(0, 8).forEach((x) => console.log('  ' + x)); console.log(`${r.repo}: no endings shown`); r.io.membersShowingNone.slice(0, 6).forEach((x) => console.log('  ' + x)); }
-if (args.includes('--failures')) { console.log(JSON.stringify(report.failures.slice(0, 40), null, 1)); console.log(JSON.stringify(report.inventedExamples.slice(0, 30), null, 1)); }
+if (args.includes('--failures')) { console.log(JSON.stringify(report.failures.slice(0, 40), null, 1)); console.log(JSON.stringify(report.inventedExamples.slice(0, 30), null, 1)); console.log(JSON.stringify(report.polarityExamples.slice(0, 30), null, 1)); }

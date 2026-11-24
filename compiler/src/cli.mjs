@@ -45,6 +45,7 @@ import { guardianReport } from './guardian.mjs';
 import { simulateChange } from './simulate.mjs';
 import { verifyLedger, explain as ledgerExplain } from './ledger.mjs';
 import { verifyDiff } from './verify-diff.mjs';
+import { verifyRun, executedText } from './executed.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
 import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
@@ -417,6 +418,9 @@ Prove & verify intent
   proof <file>               the .thunder-proof.json artifact (see also: prove, which emits verdicts)
   proof --schema             emit the canonical proof envelope JSON Schema (intent-proof-v1)
   verify <proof.json> [src]  re-check a proof; reports STALE when impl/deps/compiler moved
+  verify --run <folder> [--lang python|js] [--pytest "<args>" | --tests <dir> | --command "<cmd>"]
+                             proof by running: run the code, compare what happened with Thunder's flows;
+                             marks matching readings executed, exits 1 if a run contradicts a reading
   evidence <file>            emit evidence-event-v1 JSON (tool_verified) for the shared proof spine
                              (also: prove/verify-diff/conform/drift accept --evidence to emit their own event)
   conform <file> [--targets a,b] [--run typescript,python,csharp,java,go,rust,kotlin,scala,elixir | --all-targets] [--results <json>]   conformance matrix across targets
@@ -656,6 +660,24 @@ function main() {
   // This is the "shared envelope" schema siblings sign (STW) and re-verify (RM/OT) against.
   if (cmd === 'proof' && args.schema) {
     console.log(JSON.stringify(intentProofJsonSchema(), null, 2));
+    return;
+  }
+  // `thunder verify --run <folder>`: proof by running. Runs the code (its tests, and made-up inputs for functions that
+  // look free of side effects), records which side of each question it took and how each call ended, and compares
+  // that with the flow Thunder drew. Exit 1 when a run contradicts any reading.
+  if (cmd === 'verify' && restArgv.includes('--run')) {
+    const opt = (name) => { const i = restArgv.indexOf(name); return i >= 0 ? restArgv[i + 1] : undefined; };
+    const folder = opt('--run');
+    if (!folder || folder.startsWith('--')) { console.error('usage: thunder verify --run <folder> [--lang python|js] [--pytest "<args>"] [--tests <dir>] [--command "<test command>"] [--cwd <dir>] [--python <path>] [--max-seconds <n>] [--no-generate] [--trace <saved.json>] [--save-trace <file>] [--all] [--json]'); process.exit(2); return; }
+    let res;
+    try {
+      res = verifyRun(folder, { lang: opt('--lang'), pytest: opt('--pytest'), tests: opt('--tests'), command: opt('--command'), cwd: opt('--cwd'), python: opt('--python'), trace: opt('--trace'),
+        maxSeconds: opt('--max-seconds') ? Number(opt('--max-seconds')) : undefined, generate: !restArgv.includes('--no-generate') });
+    } catch (e) { console.error(`thunder verify --run: ${e.message}`); process.exit(2); return; }
+    if (opt('--save-trace')) writeFileSync(opt('--save-trace'), JSON.stringify(res.trace));
+    if (restArgv.includes('--json')) console.log(JSON.stringify(res.result, null, 2));
+    else console.log(`thunder verify --run ${folder} (${res.result.language})\n${executedText(res.result, { all: restArgv.includes('--all') })}`);
+    if (res.result.summary.contradicted) process.exitCode = 1;
     return;
   }
   // Verify a .thunder-proof.json against its source: the source hash still matches (no

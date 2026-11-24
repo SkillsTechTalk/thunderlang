@@ -39,9 +39,9 @@ test('CHECK and UNIQUE are rules the table enforces: a No stops the row, with wh
   assert.deepEqual(m.members.filter((x) => x.owner === orders.id).map((x) => x.label), ['Total not negative', 'Discount check']);
   const text = modelText(m, member(m, 'Total not negative').id);
   assert.match(text, /Ask: Is total at least 0\?/);
-  assert.match(text, /No:\n\s+- Stop: Refused by the database: "The order needs total is at least 0"/);
+  assert.match(text, /No:\n\s+- Stop: Refused by the database: the order needs total is at least 0/);
   const d = readLevel(m, 'details', member(m, 'Unique email').id);
-  assert.deepEqual(d.stops.map((s) => [s.error, s.message]), [['Refused by the database', 'Each email can be used only once']]);
+  assert.deepEqual(d.stops.map((s) => [s.error, s.message]), [['Refused by the database', 'each email can be used only once']]);
 });
 
 test('a view reads as the steps of its query, with table aliases as their tables', () => {

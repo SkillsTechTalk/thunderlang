@@ -1,5 +1,25 @@
 # Unreleased
 
+**Language: proof by running — readings are checked against what the code actually does** (`compiler/src/executed.mjs`,
+`thunder verify --run <folder>`). Thunder runs real code (the project's own tests, and made-up inputs for functions
+that look free of side effects), records which way every question went and how every call ended, and compares that
+with the flow it drew: when a condition held, the side Thunder says it takes then must hold the next step that ran;
+a loop must reach its "For each" steps; a `return` must be one of Thunder's endings (and a rule's answer the value
+given back); a `raise` / `throw` must be a Stop of the error Thunder names; reaching the end needs a "Done". Each
+member is **executed**, **contradicted** (with the question, side, and line), ran with nothing to check, or not run;
+only a run writes `member.completeness.level = 'executed'` (`markExecuted`). Python uses `sys.monitoring` and `ast`
+(3.12+, no packages); JavaScript uses V8's own debugger in-process (`node:inspector`), no dependencies.
+- Release gate: `npm run accuracy:gate` (`compiler/scripts/accuracy-gate.mjs`, in CI) fails when a run contradicts
+  any reading of the fixtures (or configured repositories), when a step invents a value, or when a question's words
+  or Yes/No side disagree with the code's polarity (a new check in `scripts/accuracy.mjs`: 0 of 4,494 questions in
+  the eleven audit repositories).
+- On real code (docs/accuracy.md): requests, urllib3, and werkzeug run by requests' 619-test suite, and Express by
+  its own 1,290 tests. The runs found reader bugs, now fixed: Python `try … else:` and `for` / `while … else:`
+  bodies were dropped from the picture; `with self.lock:` (no `as`) read "Calls with" and dropped every step inside
+  it; JavaScript `else if` rules were all placed on the first `if`'s line; a SQL CHECK / UNIQUE refusal was quoted as
+  if the database said those words (it is now described, not quoted).
+- Decision nodes carry `whenTrue` ('yes' | 'no'): the side the code takes when its condition holds.
+
 **Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
 review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
 misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep

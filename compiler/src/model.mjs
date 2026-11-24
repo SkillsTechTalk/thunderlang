@@ -321,7 +321,9 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       if (st.kind === 'branch') {
         const { text, flip, code } = askAsQuestion(st, base.uses && askedByRule(st) && memberLabel.get(base.uses));
         const [into, past] = flip ? ['no', 'yes'] : ['yes', 'no'];
-        const d = node('decision', text, { ...base, ...(code || st.unread ? { code: true } : {}) });
+        // whenTrue: the side the code takes when its condition holds (No when the question is asked the positive way
+        // round of a negated condition). Proof by running checks each side against what a run actually did.
+        const d = node('decision', text, { ...base, whenTrue: into, ...(code || st.unread ? { code: true } : {}) });
         connect(open, d);
         const inside = walk(st.children || [], [{ id: d, label: into }], lane + 1);
         // The other side of the question: its else (or else-if chain) when the code has one.
@@ -341,6 +343,14 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         for (const b of body.open) edges.push({ from: b.id, to: l, label: 'next' });
         blocks.push({ id: l, each: body.blocks });
         open = [{ id: l, label: 'done' }];
+        if (st.otherwise?.length) {
+          // Python `for … else:` / `while … else:` runs only when the loop was not left early.
+          const e = node('step', 'If it did not leave the loop early', { line: st.otherwiseLine ?? st.otherwise[0].line, lane, does: 'do' });
+          connect(open, e);
+          const w = walk(st.otherwise, [{ id: e }], lane + 1);
+          blocks.push({ id: e, body: w.blocks });
+          open = w.open;
+        }
       } else if (st.kind === 'fail') {
         const sn = node('stop', st.says.replace(/^Fails with /, 'Stop: '), base);
         connect(open, sn);
@@ -360,6 +370,15 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         connect(open, t);
         const body = walk(st.children || [], [{ id: t }], lane);
         let after = body.open;
+        if (st.otherwise?.length) {
+          // Python `try … else:` — steps that run only when nothing went wrong in the tried steps (their own errors
+          // are not handled here). Drawn at the end of the tried steps, on the path where nothing failed.
+          const e = node('step', 'If nothing went wrong', { line: st.otherwiseLine ?? st.otherwise[0].line, lane, does: 'do' });
+          connect(after, e);
+          const w = walk(st.otherwise, [{ id: e }], lane + 1);
+          body.blocks.push({ id: e, body: w.blocks });
+          after = w.open;
+        }
         const handlers = [];
         for (const h of st.handlers || []) {
           const hn = node('decision', `${h.says}?`, { line: h.line, lane: lane + 1, does: 'decide', handler: true });
@@ -727,7 +746,9 @@ function detailsFacts(model, member) {
   const changes = paths.filter((p) => p.node.kind !== 'decision' && p.node.kind !== 'stop' && p.node.kind !== 'end' && (p.node.does === 'save' || p.node.does === 'send' || (CHANGES.test(p.node.text) && /'s\b|\bto\b|\bfrom\b/.test(p.node.text))))
     .map((p) => ({ text: p.node.text, line: p.node.line ?? null, does: p.node.does, when: p.when }));
   const stops = paths.filter((p) => p.node.kind === 'stop').map((p) => {
-    const m = p.node.text.match(/^Stop:\s*([^:]+?)(?::\s*"(.*)")?$/);
+    // `Stop: Error: "the code's message"`, or `Stop: Refused by the database: why` (a reason Thunder words itself,
+    // never quoted, since the code holds no such message).
+    const m = p.node.text.match(/^Stop:\s*([^:]+?)(?::\s*"(.*)")?$/) ?? p.node.text.match(/^Stop:\s*(Refused by the database):\s*(.+)$/);
     return { error: m ? m[1].trim() : p.node.text, ...(m?.[2] ? { message: m[2] } : {}), line: p.node.line ?? null, when: p.when };
   });
   const givesBack = paths.filter((p) => p.node.kind === 'end' || p.node.answer).map((p) => ({ text: p.node.answer ? answerWords(p.node.text) : p.node.text, line: p.node.line ?? null, when: p.node.otherwise ? [{ question: 'none of the above', answer: 'Otherwise' }] : p.when }));

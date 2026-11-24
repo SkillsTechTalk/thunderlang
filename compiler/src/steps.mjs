@@ -909,6 +909,9 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:expect|t\.(?:Run)|require\.\w+|assert\.\w+)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
   if ((m = head.match(/^(?:async\s+)?with\s+(.+?)\s+as\s+(.+?):\s*$/))) { const what = /^open\s*\(/.test(m[1]) ? 'a file' : words(clip(stripTail(m[1]).replace(/\(.*$/, ''), 40)); return { kind: 'set', says: `Opens ${what} as ${words(m[2].replace(/[()]/g, ''))}`, code }; }
   if ((m = head.match(/^(?:using|lock|synchronized)\s*\((.+?)\)/))) return { kind: 'set', says: `Uses ${clip(m[1], 50)}`, code };
+  // Python `with self.lock:` (no `as`): the steps inside run while holding it. (It read "Calls with", and its steps
+  // were dropped.)
+  if ((m = head.match(/^(?:async\s+)?with\s+(.+?):\s*$/))) return { kind: 'set', says: `Uses ${clip(m[1], 50)}`, code };
   if (/^defer\b/.test(head)) return { kind: 'call', says: `At the end, ${clip(head.replace(/^defer\s+/, ''), 60)}`, code };
   if (/^super\b/.test(head)) return { kind: 'call', says: 'Runs the parent version first', code };
   // yield: in C# (`yield return x`), Python, and JavaScript generators it hands back one more value; in Ruby, bare
@@ -1347,7 +1350,8 @@ export function stepsFrom(statements) {
         steps.push({ kind: 'check', says: 'Otherwise', code: clip(t0, 90), caseLabel: true, line: s.line, span: spanOf(s), ...(kids.length ? { children: kids } : {}) });
         continue;
       }
-      if (prev2 && (prev2.kind === 'branch' || prev2.kind === 'try')) {
+      // Python `for … else:` / `while … else:` — steps for when the loop ran to its end without `break`.
+      if (prev2 && (prev2.kind === 'branch' || prev2.kind === 'try' || (prev2.kind === 'loop' && /^else\s*:/.test(t0)))) {
         const prev = prev2;
         const kw = /^(?:elif|elsif|else\s+if)\b/.test(t0) ? 'elif' : /^else\b/.test(t0) ? 'else' : /^(?:finally|ensure)\b/.test(t0) ? 'finally' : 'catch';
         const inlineElse = kw === 'else' && t0.match(/^else\s+(?!if\b)([^{:\s].*)$/);

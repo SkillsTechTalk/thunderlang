@@ -1287,7 +1287,10 @@ function readBraceStatements(stmts, language, inputs) {
       // Walk the chain: if C B (else if C B)* (else B)?
       let rest = t;
       let ok = true;
+      // Each `else if` / `else` is on its own line of the statement: its rule is placed there, not on the first `if`.
+      const lineOf = (part) => { const at = t.lastIndexOf(part); return st.line + (at > 0 ? (t.slice(0, at).match(/\n/g) || []).length : 0); };
       while (rest) {
+        const here = lineOf(rest);
         const head = rest.match(/^(?:else\s+)?if\b\s*/);
         if (!head) break;
         rest = rest.slice(head[0].length);
@@ -1317,13 +1320,13 @@ function readBraceStatements(stmts, language, inputs) {
           remaining = (semi < 0 ? '' : after.slice(semi + 1)).trim();
         }
         if (value == null) { unread.push({ line: st.line, text: `if ${cond.trim()}`, reason: 'This branch does more than choose an answer.' }); ok = false; break; }
-        if (!take(cond, value, st.line)) { ok = false; break; }
+        if (!take(cond, value, here)) { ok = false; break; }
         if (/^else\s+if\b/.test(remaining)) { rest = remaining; continue; }
         if (/^else\b/.test(remaining)) {
           const elseBody = remaining.replace(/^else\s*/, '');
           const v = elseBody.startsWith('{') ? blockValue(elseBody) : (elseBody.startsWith('return ') ? elseBody.slice(7).replace(/;$/, '') : null);
-          if (v == null) { unread.push({ line: st.line, text: 'else', reason: 'The fallback branch does more than choose an answer.' }); ok = false; }
-          else take(null, v, st.line);
+          if (v == null) { unread.push({ line: lineOf(remaining), text: 'else', reason: 'The fallback branch does more than choose an answer.' }); ok = false; }
+          else take(null, v, lineOf(remaining));
         }
         rest = '';
       }

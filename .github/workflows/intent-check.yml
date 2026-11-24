@@ -28,6 +28,15 @@ jobs:
       - name: intent tests
         run: npm run intent:test
 
+      # Proof by running + static faithfulness checks over the fixtures (fast, offline): fails when a run
+      # contradicts any reading, or a reading invents a value or puts a Stop on the wrong side.
+      # Real repositories: see docs/accuracy.md ("Proof by running").
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: accuracy gate (proof by running)
+        run: npm run accuracy:gate
+
       # Dogfood: `thunder prove` over every example mission. Fails on any FAILED
       # claim, failing in-file test, or semantic error. The site's /proof page
       # renders the same verdicts, so this step keeps its self-proof claim honest.
