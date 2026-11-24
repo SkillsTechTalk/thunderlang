@@ -356,8 +356,178 @@ function findFunctions(src, language) {
       fns.push({ name: `${method.toUpperCase()} ${url}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method: method.toUpperCase(), path: url } });
     }
   }
+  if (language === 'typescript' || language === 'javascript') jsMoreFunctions(src, fns);
   annotateRoutes(fns, src);
   return fns.sort((a, b) => a.line - b.line);
+}
+
+// ── JavaScript / TypeScript: functions that have no declaration of their own ─────────────────────────────
+// `exports.x = function (…) {…}`, `res.json = function json(obj) {…}`, `Foo.prototype.bar = function`,
+// `var app = function (req, res) {…}` inside another function, `{ key: function () {…} }`, and anonymous callbacks
+// (`app.use(function (req, res, next) {…})`, `.then(function (x) {…})`, `items.forEach((x) => {…})`). Each is an item
+// of its own, so a run, a stack frame, or a link can land on it. A one-line arrow (`(x) => x.id`) stays part of the
+// step that uses it. Names: the name it is assigned to, else `<parent> › callback at line N`.
+
+/** What the code just before a function says about it: assigned to `lhs`, a key of an object, or an argument. */
+function jsContext(clean, at) {
+  // (Scanned backwards by hand: a regex anchored at the end of a long slice is slow on big files.)
+  const isSpace = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+  let i = at - 1;
+  while (i >= 0 && isSpace(clean[i])) i--;
+  if (clean.slice(i - 4, i + 1) === 'async' && !/[\w$]/.test(clean[i - 5] || '')) { i -= 5; while (i >= 0 && isSpace(clean[i])) i--; }
+  let m;
+  if (clean[i] === '=' && !/[=!<>+\-*/%&|^?]/.test(clean[i - 1] || '')) {
+    const seg = clean.slice(Math.max(0, i - 160), i);
+    if ((m = seg.match(/(?:^|[^\w$.])(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]{1,120})?$/))) return { kind: 'assign', lhs: m[1], local: true };
+    if ((m = seg.match(/([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*|\[[^\]\n]{1,60}\])*)\s*$/))) return { kind: 'assign', lhs: m[1].replace(/\s+/g, '') };
+  }
+  if (clean[i] === ':' && (m = clean.slice(Math.max(0, i - 80), i).match(/(?:^|[{,\s])([A-Za-z_$][\w$]*|'[^'\n]+'|"[^"\n]+")\s*$/))) return { kind: 'key', key: m[1].replace(/^['"]|['"]$/g, '') };
+  // An argument: find the call it is passed to (the unmatched "(" before it) and that call's name.
+  let depth = 0;
+  for (i = at - 1; i >= Math.max(0, at - 3000); i--) {
+    const c = clean[i];
+    if (c === ')' || c === ']' || c === '}') depth++;
+    else if (c === '(' || c === '[' || c === '{') {
+      if (depth === 0) {
+        if (c !== '(') return { kind: 'arg', callee: null };
+        const name = clean.slice(Math.max(0, i - 120), i).match(/([A-Za-z_$][\w$]*(?:\s*\??\.\s*[A-Za-z_$][\w$]*)*)\s*$/);
+        const callee = name ? name[1].replace(/\s+/g, '').replace(/\?\./g, '.') : null;
+        // A call on the result of another call (`fetch(x).then(…)`) is named by its last part (`then`).
+        // `const save = useCallback(() => {…})`: a wrapper that only keeps the function gives it its name.
+        const kept = callee && WRAPS_FUNCTION.test(callee) && clean.slice(Math.max(0, i - name[0].length - 120), i - name[0].length).match(/(?:^|[^\w$.])(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]{1,80})?=\s*(?:await\s+)?$/);
+        return { kind: 'arg', callee, ...(kept ? { kept: kept[1] } : {}) };
+      }
+      depth--;
+    }
+  }
+  return { kind: 'arg', callee: null };
+}
+
+const WRAPS_FUNCTION = /^(?:React\.)?(?:useCallback|useMemo|memo|forwardRef|useEvent|useEffectEvent)$|^(?:_\.|lodash\.)?(?:debounce|throttle|once|memoize)$/;
+const TEST_CALLS = /^(?:describe|it|test|context|suite|specify|before|after|beforeEach|afterEach|beforeAll|afterAll|setup|teardown|x?it|f?it|xdescribe|fdescribe|xtest|bench)(?:\.\w+)*$/;
+
+function jsMoreFunctions(src, fns) {
+  const clean = stripCommentsKeepLayout(src);
+  const known = new Set(fns.map((f) => f.bodyStart));
+  const found = [];
+  const add = (fnIdx, paramsOpen, paramsClose, arrowParam, bo) => {
+    if (known.has(bo + 1)) return null;
+    const bc = matchClose(src, bo);
+    if (bc < 0) return null;
+    known.add(bo + 1);
+    const line = lineAt(src, fnIdx);
+    const params = arrowParam != null ? parseParams(arrowParam, 'typescript') : parseParams(src.slice(paramsOpen + 1, paramsClose), 'typescript');
+    const f = { key: `fn@${fnIdx}`, line, params, returns: null, bodyStart: bo + 1, body: src.slice(bo + 1, bc), at: fnIdx, end: bc };
+    found.push(f);
+    return f;
+  };
+  // `function (…) {` and `function name(…) {` (a named one was found already; this gives it its assignment).
+  const fnRe = /(?<![\w$.])function\b\s*\*?\s*([A-Za-z_$][\w$]*)?\s*(?:<[^>()]*>)?\s*\(/g;
+  let m;
+  while ((m = fnRe.exec(clean))) {
+    const open = m.index + m[0].length - 1;
+    const close = matchClose(src, open);
+    if (close < 0) continue;
+    const after = clean.slice(close + 1, close + 400);
+    const typed = balancedReturnHead(after);
+    const head = typed ? typed[0] : (after.match(/^\s*\{/) || [''])[0];
+    if (!head.endsWith('{')) continue;
+    const bo = close + head.length;
+    const ctx = jsContext(clean, m.index);
+    if (m[1]) {
+      // Named: already an item; record what it is assigned to (`res.json = function json`, `Foo.prototype.bar = function bar`).
+      const f = fns.find((x) => x.bodyStart === bo + 1);
+      if (f && ctx.kind === 'assign' && !ctx.local) f.assignedTo = ctx.lhs;
+      continue;
+    }
+    const f = add(m.index, open, close, null, bo);
+    if (f) f.ctx = ctx;
+  }
+  // Arrow functions with a block body: `(req, res) => {`, `async x => {`.
+  const arrowRe = /=>\s*\{/g;
+  while ((m = arrowRe.exec(clean))) {
+    const bo = m.index + m[0].length - 1;
+    if (known.has(bo + 1)) continue;
+    // The parameters: `(…)` (with an optional `: Type` after it) or one bare name, just before the arrow.
+    let j = m.index - 1;
+    while (j >= 0 && /\s/.test(clean[j])) j--;
+    let start, paramText = null, pOpen = -1, pClose = -1;
+    if (clean[j] === ')' || /[\w$>\]]/.test(clean[j])) {
+      // Skip a return type: `(a: number): Promise<X> =>` — walk back to the ")" that closes the parameters.
+      let k = j;
+      if (clean[j] !== ')') {
+        const bare = clean.slice(Math.max(0, j - 80), j + 1).match(/([A-Za-z_$][\w$]*)$/);
+        const beforeBare = bare ? clean.slice(Math.max(0, j - bare[1].length - 40), j - bare[1].length + 1).replace(/\s+$/, '') : '';
+        if (bare && !/:$/.test(beforeBare) && clean[j] !== '>' && clean[j] !== ']') { start = j - bare[1].length + 1; paramText = bare[1]; }
+        else {
+          // A typed return: find the ":" at depth 0 going back, then the ")".
+          let d = 0;
+          for (k = j; k >= Math.max(0, j - 300); k--) {
+            const c = clean[k];
+            if (c === '>' || c === ']' || c === ')' || c === '}') d++;
+            else if (c === '<' || c === '[' || c === '(' || c === '{') d--;
+            else if (c === ':' && d === 0) break;
+          }
+          k--; while (k >= 0 && /\s/.test(clean[k])) k--;
+          if (clean[k] !== ')') continue;
+        }
+      }
+      if (paramText == null) {
+        let d = 0;
+        for (pClose = k; k >= Math.max(0, pClose - 2000); k--) {
+          if (clean[k] === ')') d++;
+          else if (clean[k] === '(' && --d === 0) break;
+        }
+        if (d !== 0 || k < 0) continue;
+        pOpen = k; start = k;
+      }
+    } else continue;
+    // `async` and type parameters (`<T,>(x: T) =>`) belong to the function.
+    let s = start;
+    const lead = clean.slice(Math.max(0, s - 60), s).match(/(?:\basync\s*)?(?:<[^<>()]*>\s*)?$/);
+    if (lead) s -= lead[0].length;
+    // A call written `fn(x) => {` is not an arrow function's parameters: the "(" must not follow a name.
+    if (pOpen >= 0) { const prev = clean.slice(Math.max(0, s - 40), s).replace(/\s+$/, ''); if (/[\w$]$/.test(prev) && !/\b(?:async|return|await|yield|default|in|of|case)$/.test(prev)) continue; }
+    const ctx = jsContext(clean, s);
+    // `const f = (…) => {` is already an item (found with its name).
+    if (ctx.kind === 'assign' && ctx.local && fns.some((x) => x.name === ctx.lhs && x.line === lineAt(src, s))) continue;
+    const f = add(s, pOpen, pClose, paramText, bo);
+    if (f) f.ctx = ctx;
+  }
+  if (!found.length) return;
+  // A test's body (`describe(…, function () {…})`, `it(…, () => {…})`) is a test, not part of the app: it and every
+  // function written inside it stay out (tests are listed as tests).
+  const tests = found.filter((f) => f.ctx.kind === 'arg' && TEST_CALLS.test(f.ctx.callee ?? ''));
+  if (tests.length) {
+    const inTest = (f) => tests.some((t) => t === f || (t.bodyStart <= f.at && f.at <= t.end));
+    for (let i = found.length - 1; i >= 0; i--) if (inTest(found[i])) found.splice(i, 1);
+  }
+  // Names. Every function's range, so a callback is named after the function it is written in.
+  const ranges = [...fns, ...found].filter((x) => x.bodyStart != null).map((x) => ({ x, from: x.bodyStart, to: x.end ?? x.bodyStart + (x.body?.length ?? 0) }));
+  const parentOf = (f) => {
+    let best = null;
+    for (const r of ranges) if (r.x !== f && r.x.name && !r.x.callback && r.from <= f.at && f.at <= r.to && (!best || r.from > best.from)) best = r;
+    return best?.x ?? null;
+  };
+  for (const f of found) {
+    const ctx = f.ctx;
+    if (ctx.kind === 'assign' && !/\]$/.test(ctx.lhs)) {
+      const seg = ctx.lhs.split('.').pop();
+      f.name = seg;
+      if (!ctx.local) f.assignedTo = ctx.lhs;
+    } else if (ctx.kind === 'key') f.name = ctx.key;
+    else if (ctx.kept) f.name = ctx.kept;
+    else f.callback = true;
+  }
+  // Callbacks are named once every assigned function has its name (a callback inside `exports.x = function` is "x › …").
+  for (const f of found) {
+    if (!f.callback) continue;
+    const parent = parentOf(f);
+    const via = f.ctx.kind === 'arg' && f.ctx.callee ? f.ctx.callee : f.ctx.kind === 'assign' ? f.ctx.lhs : null;
+    f.name = `${parent?.name ?? via ?? 'function'} › callback at line ${f.line}`;
+    if (via) f.passedTo = via;
+  }
+  for (const f of found) { delete f.ctx; delete f.at; fns.push(f); }
 }
 // ── Labels, plumbing, and completeness: facts views need, so they never re-derive them ─────────────────
 
@@ -1941,6 +2111,8 @@ export function readCode(source, { language, file = '' } = {}) {
       // `Handle(PingResource request, …)` takes a PingResource, which is the real input although it is named request.
       inputs: inputs.map((p) => (isPlumbing(p, inputs, fn) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
+      // JS/TS: what a function is assigned to (`exports.x`, `Foo.prototype.bar`), or that it is a callback.
+      ...(fn.assignedTo ? { assignedTo: fn.assignedTo } : {}), ...(fn.callback ? { callback: true } : {}), ...(fn.passedTo ? { passedTo: fn.passedTo } : {}),
       ...(doc ? { doc } : {}),
       provenance: 'inferred-from-code',
     };

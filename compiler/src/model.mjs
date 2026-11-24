@@ -171,6 +171,41 @@ function tsThings(src, file) {
   return out;
 }
 
+/**
+ * JavaScript Things made by assignment rather than `class`: `Foo.prototype.bar = function` (with `function Foo()` as
+ * how a new Foo starts) and an object given two or more methods (`res.json = function`, `res.send = function` for
+ * `var res = Object.create(…)`). `exports`, `module`, `window`, and `this` are not Things.
+ */
+function jsAssignedThings(items, src, file, existing) {
+  const groups = new Map();
+  for (const it of items) {
+    const a = String(it.assignedTo || '').match(/^([A-Za-z_$][\w$]*)\.(?:prototype\.)?([A-Za-z_$][\w$]*)$/);
+    if (!a || /^(exports|module|window|global|globalThis|this|self|document|console|process)$/.test(a[1])) continue;
+    const g = groups.get(a[1]) ?? { proto: false, items: [] };
+    g.proto ||= /\.prototype\./.test(it.assignedTo);
+    g.items.push(it);
+    groups.set(a[1], g);
+  }
+  const out = [];
+  for (const [name, g] of groups) {
+    if (existing.some((t) => t.name === name)) continue;
+    const ctor = g.proto && items.find((it) => it.name === name && !it.assignedTo && !it.callback && (it.kind === 'function' || it.kind === 'decision'));
+    const declared = new RegExp(`(?:^|[^\\w$.])(?:var|let|const)\\s+${name.replace(/\$/g, '\\$')}\\s*=`).test(src);
+    if (!(g.proto ? true : g.items.length >= 2 && declared)) continue;
+    const lines = g.items.map((it) => it.line);
+    const from = ctor?.line ?? Math.min(...lines);
+    const thing = { kind: 'thing', name, file, lines: [from, Math.max(from, ...g.items.map((it) => it.anchor?.bodyLines?.[1] ?? it.line))], knows: [], choices: [], assigned: g.items.map((it) => `${it.name}:${it.line}`), ...(ctor ? { ctor: `${ctor.name}:${ctor.line}` } : {}) };
+    // What a new one knows: `this.x = …` in the constructor function.
+    if (ctor?.anchor?.bodyLines) {
+      const body = src.split('\n').slice(ctor.anchor.bodyLines[0] - 1, ctor.anchor.bodyLines[1]).join('\n');
+      const params = Object.fromEntries((ctor.inputs || []).map((p) => [p.name, null]));
+      for (const a of body.matchAll(/\bthis\.([A-Za-z_$][\w$]*)\s*=(?!=)\s*([^;\n]+)/g)) if (!thing.knows.some((k) => k.name === a[1])) thing.knows.push({ name: a[1], label: words(a[1]), kind: null, start: startValue(a[2].trim(), params), line: null });
+    }
+    out.push(thing);
+  }
+  return out;
+}
+
 // ── Flow: steps as a graph a person can follow ─────────────────────────────────────────────────────────
 
 /**
@@ -515,6 +550,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     let fileThings = [];
     try { fileThings = language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : thingsFor(language, f.source, f.path); }
     catch (e) { unknowns.push({ file: f.path, line: 1, why: `Classes in this file could not be drawn as Things: ${e.message}` }); } // one file never stops the whole app
+    if (language === 'typescript' || language === 'javascript') fileThings.push(...jsAssignedThings(reading.items, f.source, f.path, fileThings));
     if (!THING_LANGUAGES.includes(language) && /\b(class|struct|record|enum|interface|data class)\s+[A-Z]/.test(f.source)) {
       unknowns.push({ file: f.path, line: 1, why: `Classes, records, and choices in ${language} are not drawn as Things yet; their functions are read.` });
     }
@@ -523,9 +559,13 @@ export function thunderModel(files, { name = 'app' } = {}) {
     fileInfo.push({ path: f.path, language, ...(moduleDoc ? { purpose: moduleDoc } : {}) });
 
     const fns = reading.items.filter((i) => i.kind === 'function' || i.kind === 'decision');
-    const declaredThing = (item) => fileThings.some((t) => t.name === item.name && t.lines[0] === item.line);
+    const declaredThing = (item) => fileThings.some((t) => !t.assigned && t.name === item.name && t.lines[0] === item.line);
     const fileMembers = fns.filter((item) => !declaredThing(item)).map((item) => {
-      const owner = fileThings.filter((t) => (item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b)).sort((a, b) => b.lines[0] - a.lines[0])[0];
+      const inside = fileThings.filter((t) => !t.assigned && ((item.line > t.lines[0] && item.line <= t.lines[1]) || (t.memberRanges || []).some(([a, b]) => item.line >= a && item.line <= b))).sort((a, b) => b.lines[0] - a.lines[0])[0];
+      // A JavaScript method given to a Thing by assignment (`Foo.prototype.bar = function`) belongs to it; its id stays
+      // the one it had before it had an owner, so links and saved places still find it.
+      const key = `${item.name}:${item.line}`;
+      const owner = inside ?? fileThings.find((t) => t.assigned && (t.assigned.includes(key) || t.ctor === key));
       const v = visualFor(item);
       const setup = (/^(__init__|constructor|init|New|__construct|initialize|new)$/.test(item.name) || (owner && item.name === owner.name)) && owner;
       const kind = setup ? 'setup' : v.element === 'action' ? 'action' : v.element === 'decision' ? 'rule' : v.element === 'not-read' ? 'not-read' : 'steps';
@@ -533,10 +573,11 @@ export function thunderModel(files, { name = 'app' } = {}) {
       let rule = null;
       if (kind === 'rule') { try { rule = plainFromReading(item); } catch { rule = null; } }
       const m = {
-        id: idOf(f.path, owner?.name ?? '', item.name, item.line), kind, name: item.name,
+        id: idOf(f.path, inside?.name ?? '', item.name, item.line), kind, name: item.name,
         label: setup ? `A new ${owner.label} starts with` : cap(words(item.name.replace(/^__|__$/g, ''))),
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
+        ...(item.assignedTo ? { assignedTo: item.assignedTo } : {}), ...(item.callback ? { callback: true, ...(item.passedTo ? { passedTo: item.passedTo } : {}) } : {}),
         youGive: youGiveOf(item),
         // Each input's kind in words, when the code says it (days late: a number; request: a PingResource).
         ...(inputKindsOf(item) ? { inputKinds: inputKindsOf(item) } : {}),
@@ -570,7 +611,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
       members.push(m);
     }
   }
-  for (const t of things) delete t.memberRanges; // only used to find which Thing owns a method
+  for (const t of things) { delete t.memberRanges; delete t.assigned; delete t.ctor; } // only used to find which Thing owns a method
   // An empty class (no facts, nothing it can do) is not a Thing a person needs to see: an error type is already shown
   // where it stops a path, and any other empty class is a named record with no facts.
   const owners = new Set(members.map((x) => x.owner).filter(Boolean));
@@ -677,7 +718,7 @@ function detailSteps(flow) {
 const CHANGES = /^(Sets|Adds|Removes|Subtracts|Clears|Marks|Saves|Deletes|Updates|Appends|Increases|Decreases|Sends|Records|Stores|Writes)\b/;
 
 /** Each step with the answers that lead to it: [{ question, answer }] from the top of the flow. */
-function pathsOf(flow) {
+export function pathsOf(flow) {
   const byId = new Map(flow.nodes.map((n) => [n.id, n]));
   const out = [];
   const ends = (blocks) => { const last = byId.get((blocks || []).at(-1)?.id); return !!last && (last.kind === 'stop' || last.kind === 'end'); };
@@ -811,7 +852,8 @@ export function readLevel(model, level, focus, { full = false } = {}) {
       data: thing ? [] : model.things.filter((t) => t.kind !== 'thing').map((t) => ({ id: t.id, label: t.label, symbol: SYMBOL_OF[t.kind], ...(t.choices.length ? { choices: t.choices } : {}), knows: t.knows.map((k) => k.label) })),
       actions: model.members.filter((m) => inScope(m) && m.kind === 'action').map(short),
       rules: model.members.filter((m) => inScope(m) && m.kind === 'rule').map(short),
-      loose: thing ? [] : model.members.filter((m) => !m.owner && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
+      // (A callback is reached from the step that passes it, not listed on its own.)
+      loose: thing ? [] : model.members.filter((m) => !m.owner && !m.callback && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
       unknowns: thing ? [] : model.unknowns };
   }
   if (lv.id === 'flow') return { ...base, ...about, flow: member.flow };

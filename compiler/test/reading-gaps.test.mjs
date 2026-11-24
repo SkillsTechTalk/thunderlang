@@ -85,7 +85,11 @@ test('useMemo remembers a value; useCallback and inner functions define how some
 
 test('item ids stay the same; every step points inside the function and the whole body is covered', () => {
   const r = readCode(REACT, { language: 'typescript' });
-  assert.deepEqual(r.items.filter((i) => i.kind === 'function').map((i) => i.id), ['Profile:1', 'handleChange:29']);
+  // Declared functions keep their ids; functions with no declaration of their own are items too (named by what keeps
+  // them, else by where they are written), so a run or a link can land on them.
+  assert.deepEqual(r.items.filter((i) => i.kind === 'function' && !i.callback && i.name !== 'fullName' && i.name !== 'handleSave').map((i) => i.id), ['Profile:1', 'handleChange:29']);
+  assert.deepEqual(r.items.filter((i) => i.kind === 'function' && (i.callback || i.name === 'fullName' || i.name === 'handleSave')).map((i) => i.id),
+    ['Profile › callback at line 4:4', 'Profile › callback at line 8:8', 'Profile › callback at line 10:10', 'Profile › callback at line 14:14', 'fullName:17', 'handleSave:22', 'Profile › callback at line 33:33']);
   const p = byName(r, 'Profile');
   assert.equal(p.anchor.coverage, 1);
   for (const s of all(p.steps)) assert.ok(s.span.startLine >= 1 && s.span.endLine <= 37 && s.span.startLine <= s.span.endLine, s.says);
