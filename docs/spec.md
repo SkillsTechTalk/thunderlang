@@ -92,10 +92,37 @@ must pass on paper first.
 The picture and the text are not translated from each other. Both are rendered from the same meaning, so they
 cannot disagree. An AI coding agent can change the original code, and both views update from the new reading.
 
-## 3. Zoom levels
+## 3. Reading levels and places
 
-**Read in Thunder** walks five levels, from the whole app to the exact lines (OpenThunder ADR 0035). The Thunder
-Atlas (ADR 0033) adds **Area** between App and File for large apps.
+Reading software in Thunder has two separate questions: **how deep** you are reading (the level) and **where** you
+are (the place). Every Thunder view offers the same five levels, in this order, with these names.
+
+```
+   Big Picture  →  Flow  →  Details  →  Text  →  Original
+   what it is      how it    exactly     the same   the code
+   and can do      goes      what, and   in words   that proves it
+                             how sure
+   └──────── pictures ────────┘          words      evidence
+```
+
+| Level | The question it answers | What it shows |
+| --- | --- | --- |
+| **Big Picture** | What is it, and what can it do? | The Things, what each knows and can do, its doors (actions), its rules, and its data. For one action or rule: what you give it, what you get back, and what it uses. |
+| **Flow** | How does it go? | One action or rule as a path: questions with Yes and No, repeats, the Stops, what happens if something goes wrong, and what always happens at the end. |
+| **Details** | Exactly what happens, and how sure is Thunder? | Every step with its line, what goes in and comes out, what it uses and what uses it, anything Thunder could not explain, and a rule you can try. |
+| **Text** | What does it say, in words? | Thunder Text: the same meaning in structured words, for reading closely, reviewing a change, and keeping a copy. |
+| **Original** | Which code says so? | The exact lines in the original language that Thunder read. The evidence, one click away. |
+
+The compiler defines what each level shows: `LEVELS` (the names and questions) and `readLevel(model, level, focus)`
+(the content for the whole app, one Thing, or one action or rule), both in `/core`. A product decides where to put
+the levels and how to move between them; it does not decide what a level contains. Flow and Details are about one
+action or rule; asked for them without one, `readLevel` gives the list to choose from.
+
+### Places
+
+**Places** are where you are: the App, an Area, a File, a Thing, an Action, or a Rule. **Read in Thunder** walks
+them from the whole app down to one rule (OpenThunder ADR 0035); the Thunder Atlas (ADR 0033) adds **Area** between
+App and File for large apps. At every place, all five levels apply.
 
 | Level | What you see | Example | Atlas |
 | --- | --- | --- | --- |

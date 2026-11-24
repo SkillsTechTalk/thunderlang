@@ -410,7 +410,7 @@ def place_order(order, card):
     slug: "openthunder",
     part: "read",
     title: "Read a whole app in OpenThunder",
-    idea: "A real app has many files. OpenThunder, the IDE for Thunder, reads a whole repository and lets you zoom: the App, then a File, then an Action (a door), then one Rule. Every picture is drawn from the code, and the original code is always one click away.",
+    idea: "A real app has many files. OpenThunder, the IDE for Thunder, reads a whole repository. You move from the App to a File, then an Action (a door), then one Rule, and you can read each of them at five levels: Big Picture, Flow, Details, Text, and Original. Every picture is drawn from the code, and the original code is always one click away.",
     picture: "A map app: zoom out to see the whole city, zoom in to one street, then one house. It is the same map at every level.",
     files: [{ language: "python", label: "Python", code: PIZZA_APP }],
     focus: "place_order",

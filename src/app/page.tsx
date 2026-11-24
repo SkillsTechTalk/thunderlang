@@ -12,6 +12,7 @@ import { PROJECT_FACTS } from "@/lib/facts";
 import { OPENTHUNDER_URL, LEARN_COURSE_URL } from "@/lib/site";
 import { THUNDERED_SAMPLES } from "@/lib/thundered-samples";
 import { ThunderedTabs, type ThunderedSample } from "@/components/ThunderedTabs";
+import { FiveLevels } from "@/components/thunder/FiveLevels";
 
 const PLAIN = fs.readFileSync(path.join(process.cwd(), "examples/human/RefundApproval.thunder-plain"), "utf8");
 
@@ -118,6 +119,9 @@ export default function HomePage() {
         </HeroThunder>
         </div>
       </section>
+
+      {/* The heart of the language: one program, read at five levels. */}
+      <FiveLevels />
 
       {/* Thunder Code: the proof. Any language you already have, read in Thunder. */}
       <Section id="thundered" className="border-t border-white/8">

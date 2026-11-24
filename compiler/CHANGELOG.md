@@ -1,3 +1,17 @@
+# Unreleased
+
+**Language: the five reading levels.** Every Thunder view now offers the same five levels, in this order, with
+these names: **Big Picture** (what is it, and what can it do?), **Flow** (how does it go?), **Details** (exactly
+what happens, and how sure is Thunder?), **Text** (what does it say, in words?), and **Original** (which code says
+so?). They are separate from **places** (App, Area, File, Thing, Action, Rule): where you are versus how deep you
+read. Spec section 3 defines both.
+- `LEVELS` (names, questions, what each shows) and `PLACES` in `THUNDER_VISUAL` and `/core`.
+- `readLevel(model, level, focus)` in `/core`: exactly what a level shows for the whole app, one Thing, or one action
+  or rule. Details lists every step in order with its line, its path (Yes, No, For each), what was not explained,
+  and what it uses and is used by. Flow and Details without an action or rule give back the list to choose from.
+- thunderlang.dev: the home page and /language lead with "One program. Five ways to read it.", and Semantic Zoom
+  (/zoom) uses the same five levels in place of its two separate controls.
+
 # 0.5.6
 
 Entries that change what Thunder means or how it reads (the language itself) start with **Language:**. Courses and

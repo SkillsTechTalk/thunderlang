@@ -20,8 +20,23 @@ export const FORMS = [
 ];
 
 /**
- * Zoom levels. Read in Thunder (OpenThunder ADR 0035) walks App > File > Action > Rule > Original; the Thunder Atlas
- * (ADR 0033) adds Area between App and File for large apps. `atlas` gives the Atlas level for each.
+ * The five reading levels: HOW DEEP you read whatever you are looking at. Every Thunder view offers the same five, in
+ * this order, with these names: from what something means down to the code that proves it. Big Picture, Flow, and
+ * Details are pictures; Text is the same meaning in words; Original is the evidence. `readLevel(model, level, focus)`
+ * (model.mjs) gives exactly what each level shows, so every product shows the same thing at the same level.
+ */
+export const LEVELS = [
+  { id: 'big-picture', name: 'Big Picture', question: 'What is it, and what can it do?', shows: 'The Things, what each knows and can do, its doors (actions), its rules, and its data. For one action or rule: what you give it, what you get back, and what it uses.', form: 'picture' },
+  { id: 'flow', name: 'Flow', question: 'How does it go?', shows: 'One action or rule as a path: questions with Yes and No, repeats, the Stops, what happens if something goes wrong, and what always happens at the end.', form: 'picture' },
+  { id: 'details', name: 'Details', question: 'Exactly what happens, and how sure is Thunder?', shows: 'Every step with its line, what goes in and comes out, what it uses and what uses it, anything Thunder could not explain, and a rule you can try.', form: 'picture' },
+  { id: 'text', name: 'Text', question: 'What does it say, in words?', shows: 'Thunder Text: the same meaning in structured words, for reading closely, reviewing a change, and keeping a copy.', form: 'words' },
+  { id: 'original', name: 'Original', question: 'Which code says so?', shows: 'The exact lines in the original language that Thunder read. The evidence, one click away.', form: 'evidence' },
+];
+
+/**
+ * Places: WHERE you are in an app (App > Area > File > Action or Rule), as opposed to how deep you read it (LEVELS).
+ * Read in Thunder (OpenThunder ADR 0035) walks App > File > Action > Rule; the Thunder Atlas (ADR 0033) adds Area
+ * between App and File for large apps. `atlas` gives the Atlas level for each. (Kept as ZOOM for compatibility.)
  */
 export const ZOOM = [
   { level: 0, name: 'App', from: 'A product or a repository', element: 'app', atlas: 'Z0' },
@@ -247,7 +262,9 @@ export const DOES = {
 export const BEGINNER = ['thing', 'action', 'rule', 'steps', 'data', 'stop'];
 
 /** The whole grammar in one object, for views that want to render a legend or validate themselves against it. */
-export const THUNDER_VISUAL = { schema: VISUAL_SCHEMA, principle: PRINCIPLE, forms: FORMS, zoom: ZOOM, colors: COLORS, lines: LINES, provenance: PROVENANCE, steps: STEP_MARKS, elements: ELEMENTS, languages: LANGUAGES, rules: RULES, symbols: SYMBOLS, does: DOES, beginner: BEGINNER };
+export const PLACES = ZOOM;
+
+export const THUNDER_VISUAL = { schema: VISUAL_SCHEMA, principle: PRINCIPLE, forms: FORMS, levels: LEVELS, places: ZOOM, zoom: ZOOM, colors: COLORS, lines: LINES, provenance: PROVENANCE, steps: STEP_MARKS, elements: ELEMENTS, languages: LANGUAGES, rules: RULES, symbols: SYMBOLS, does: DOES, beginner: BEGINNER };
 
 // ── Thunder Text colors: each word's role, decided by the compiler so every view colors it the same way ──────
 
