@@ -1782,7 +1782,9 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     const bareProperty = /^(not\s+|!)?(?:self\.|this\.)?\w+\.\w+(\(\))?$/.test(st.cond.trim()) && !/\./.test(st.says.replace(/\(\d+ steps? inside\)$/, ''));
     // A plain name used as a yes/no (`if (!slug)`) already reads as "slug is not set"; keep it rather than "not slug".
     const bareName = /^(not\s+|!)?(?:self\.|this\.)?\w+$/.test(st.cond.trim()) && /\bis (not )?set\b/.test(st.says);
-    const cond = bareProperty || bareName ? null : toThunderCondition(st.cond, names);
+    // Request and settings idioms (a header, a value in the address, a setting) already read as words; keep them.
+    const idiom = /\b(?:req|request|ctx|c)\s*\.\s*(?:headers|header|query|params|body|searchParams)\b|\bprocess\s*\.\s*env\b|\bos\s*\.\s*(?:environ|getenv)\b|getenv|GetEnvironmentVariable/.test(st.cond);
+    const cond = bareProperty || bareName || idiom ? null : toThunderCondition(st.cond, names);
     if (cond) st.says = st.says.replace(/^If .*?( \(\d+ steps? inside\))?$/, (_m, inner) => `If ${st.negate ? 'not: ' : ''}${plainEnums(sayCondition(cond)).replace(/ is not ""/g, ' is not empty').replace(/ is ""/g, ' is empty')}${inner || ''}`);
     delete st.cond; delete st.negate;
   }
@@ -1830,7 +1832,9 @@ export function readCode(source, { language, file = '' } = {}) {
     const base = {
       id: `${fn.name}:${fn.line}`, name: fn.name, label: displayLabel(fn.name), line: fn.line,
       // Framework plumbing (a database session, the request, a context) is marked so views can leave it out of "You give it".
-      inputs: inputs.map((p) => (PLUMBING.test(p.name) || PLUMBING_TYPE.test(String(p.type ?? '')) ? { ...p, plumbing: true } : p)), returns: simpleType(fn.returns),
+      // Plumbing (the framework's request, a database session, a context) by its type when it has one, else by name:
+      // `Handle(PingResource request, …)` takes a PingResource, which is the real input although it is named request.
+      inputs: inputs.map((p) => (p.type ? PLUMBING_TYPE.test(String(p.type)) || (/^(self|this|cls)$/i.test(p.name)) : PLUMBING.test(p.name)) ? { ...p, plumbing: true } : p), returns: simpleType(fn.returns),
       ...(fn.route ? { route: fn.route } : {}),
       ...(doc ? { doc } : {}),
       provenance: 'inferred-from-code',

@@ -12,7 +12,7 @@ export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; ea
 /** nodes/edges: the flow as a graph. blocks: the same nodes as a tree, which views draw from. */
 export interface Flow { nodes: FlowNode[]; edges: FlowEdge[]; blocks: FlowBlock[] }
 export interface Thing { id: string; kind: 'thing' | 'record' | 'choices'; name: string; label: string; doc?: string; file: string; lines: [number, number]; knows: { name: string; label: string; kind: string | null; start: string | null; line: number | null }[]; choices: string[]; can: string[] }
-export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read'; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
+export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read'; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
 export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string }[]; things: Thing[]; members: Member[]; links: { from: string; to: string; kind: 'uses'; node: string }[]; unknowns: { id?: string; file: string; line: number; why: string }[] }
 export function thunderModel(files: { path: string; source: string }[], options?: { name?: string }): ThunderModel;
 export function flowOf(steps: unknown[], options?: { start?: string; memberIndex?: Map<string, string>; memberLabel?: Map<string, string> }): Flow;
@@ -41,7 +41,7 @@ export interface LevelView {
   steps?: { id: string; text: string; does: Does; mark: string; line: number | null; depth: number; via?: string; notExplained?: true }[];
   notExplained?: number; tryable?: boolean; rule?: unknown; source?: string;
   /** Details: what goes in, and the lines where each fact is used. */
-  inputs?: { label: string; lines: number[] }[];
+  inputs?: { label: string; lines: number[]; /** Its kind in words when the code says it: "a number", "a PingResource". */ kind?: string }[];
   /** Details: the data it changes, what it saves or sends, and the answers that lead there. */
   changes?: { text: string; line: number | null; does: Does; when: When[] }[];
   /** Details: every way it can stop, with the error, the message people see, and the answers that lead there. */

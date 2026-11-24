@@ -311,6 +311,9 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
         connect(open, sn);
         blocks.push({ id: sn });
         open = [];
+      } else if (st.kind === 'return' && !open.length && /^Stops here$/.test(st.says)) {
+        // `res.status(403).json(...); return` — the bare return only ends the path the Stop already ended.
+        continue;
       } else if (st.kind === 'return') {
         const e = node('end', st.restates ? st.code : st.says.replace(/^Returns /, 'Gives back '), { ...base, ...(st.restates ? { code: true } : {}) });
         connect(open, e);
@@ -379,6 +382,16 @@ const idOf = (...parts) => parts.join('#').replace(/\s+/g, '');
  * session), plus the facts a handler unpacks from the request: `const { slug, name } = request.body`,
  * `const { id } = req.params`, `{ email } = await request.json()`.
  */
+function inputKindsOf(item) {
+  const kinds = {};
+  for (const p of item.inputs || []) {
+    if (/^(self|this|cls)$/.test(p.name) || p.plumbing || !p.type) continue;
+    const k = kindWords(p.type) ?? (/^[A-Z]\w*$/.test(String(p.type).trim()) ? `a ${String(p.type).trim()}` : null);
+    if (k) kinds[words(p.name)] = k;
+  }
+  return Object.keys(kinds).length ? kinds : null;
+}
+
 function youGiveOf(item) {
   const given = (item.inputs || []).filter((p) => !/^(self|this|cls)$/.test(p.name) && !p.plumbing)
     // Destructured parameters (React props `{ userId, name }`) give each name.
@@ -388,11 +401,15 @@ function youGiveOf(item) {
   const walk = (steps) => { for (const s of steps || []) { if (s.code) codes.push(s.code); walk(s.children); walk(s.otherwise); } };
   walk(item.steps);
   for (const c of codes) {
-    const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(?:body|query|params|json\(\))/);
+    // Values read straight from the request: a header, a value in the address, or a field it was sent.
+    for (const r of c.matchAll(/\b(?:req|request|ctx\.request|c\.req)\s*\.\s*headers\s*(?:\[\s*['"`]([^'"`]+)['"`]\s*\]|\.\s*get\(\s*['"`]([^'"`]+)['"`]\s*\))/g)) { const h = `the ${r[1] || r[2]} header`; if (!given.includes(h)) given.push(h); }
+    for (const r of c.matchAll(/\b(?:req|request|ctx\.request|ctx|c\.req)\s*\.\s*(query|params|body)\s*(?:\.\s*([A-Za-z_][\w]*)|\[\s*['"`]([^'"`]+)['"`]\s*\])/g)) { const n = `${words(r[2] || r[3])} ${r[1] === 'body' ? '(sent in the request)' : '(in the address)'}`; if (!given.includes(n)) given.push(n); }
+    const m = c.match(/^(?:const|let|var)\s*\{([^}]+)\}\s*=\s*\(?\s*(?:await\s+)?(?:req|request|ctx\.request|c\.req|event)\s*\.\s*(body|query|params|json\(\))/);
+    const where = m ? (/^(query|params)$/.test(m[2]) ? ' (in the address)' : ' (sent in the request)') : '';
     if (!m) continue;
     for (const part of m[1].split(',')) {
       const name = part.split(/[:=]/)[0].replace(/^\.\.\./, '').trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(name) && !given.includes(words(name))) given.push(words(name));
+      if (/^[A-Za-z_$][\w$]*$/.test(name) && !given.includes(words(name) + where)) given.push(words(name) + where);
     }
   }
   return given;
@@ -431,6 +448,8 @@ export function thunderModel(files, { name = 'app' } = {}) {
         ...(owner ? { owner: owner.id } : {}), file: f.path, language, lines: [item.line, bodyEnd],
         ...(item.doc ? { doc: item.doc } : {}), ...(item.route ? { route: `${item.route.method} ${item.route.path}`.trim() } : {}),
         youGive: youGiveOf(item),
+        // Each input's kind in words, when the code says it (days late: a number; request: a PingResource).
+        ...(inputKindsOf(item) ? { inputKinds: inputKindsOf(item) } : {}),
         ...(item.returns && kind !== 'rule' ? { youGetBack: kindWords(item.returns) ?? item.returns } : {}),
         ...(rule ? { rule, question: rule.question } : {}),
         // A yes/no rule is named as a question ("Can borrow?"); a rule with named answers is not ("Late fee").
@@ -449,6 +468,14 @@ export function thunderModel(files, { name = 'app' } = {}) {
       m.flow = m.kind === 'rule' || (m._item.kind === 'decision' && m._item.rules?.length) ? ruleFlow(m._item, start) : flowOf(m._steps, { start, memberIndex: byName, memberLabel: labels });
       for (const nd of m.flow.nodes) if (nd.uses && nd.uses !== m.id) links.push({ from: m.id, to: nd.uses, kind: 'uses', node: nd.id });
       delete m._steps; delete m._item;
+      // An action's "You get back": every way it ends, from its flow (what it sends back, and the statuses it can stop
+      // with), rather than only a declared return type a web handler rarely has.
+      if (m.route && m.kind !== 'setup') {
+        const ends = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'end' && !/^Stops here$/.test(nd.text)).map((nd) => nd.text.replace(/^Gives back /, '')))];
+        const stopsWith = [...new Set(m.flow.nodes.filter((nd) => nd.kind === 'stop').map((nd) => (nd.text.match(/^Stop:\s*(\d{3})\b/) || [])[1] ?? nd.text.replace(/^Stop:\s*/, '').split(':')[0].trim()))];
+        const parts = [ends.length ? ends.join(', or ') : null, stopsWith.length ? `it stops with ${stopsWith.join(' or ')}` : null].filter(Boolean);
+        if (parts.length) m.youGetBack = parts.join('; or ');
+      }
       members.push(m);
     }
   }
@@ -564,7 +591,10 @@ function pathsOf(flow) {
   const walk = (blocks, when) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);
+      // Nothing after a Stop or an answer on the same path can happen: those steps are not endings.
+      if (out.ended?.has(blocks)) break;
       if (n && n.kind !== 'start') out.push({ node: n, when });
+      if (n && (n.kind === 'stop' || n.kind === 'end')) (out.ended ||= new Set()).add(blocks);
       const q = n?.text ?? '';
       walk(b.yes, [...when, { question: q, answer: 'Yes' }]);
       walk(b.no, [...when, { question: q, answer: 'No' }]);
@@ -626,7 +656,7 @@ function detailsFacts(model, member) {
   const inputs = member.youGive.map((label) => {
     const re = new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
     const lines = [...new Set(paths.filter((p) => re.test(p.node.text) && p.node.line).map((p) => p.node.line))];
-    return { label, lines };
+    return { label, lines, ...(member.inputKinds?.[label] ? { kind: member.inputKinds[label] } : {}) };
   });
   const changes = paths.filter((p) => p.node.kind !== 'decision' && p.node.kind !== 'stop' && p.node.kind !== 'end' && (p.node.does === 'save' || p.node.does === 'send' || (CHANGES.test(p.node.text) && /'s\b|\bto\b|\bfrom\b/.test(p.node.text))))
     .map((p) => ({ text: p.node.text, line: p.node.line ?? null, does: p.node.does, when: p.when }));

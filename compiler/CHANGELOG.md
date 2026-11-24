@@ -1,5 +1,19 @@
 # Unreleased
 
+**Language: inputs and outputs, read accurately.** Measured on eleven open-source repositories with the new
+`scripts/accuracy.mjs` (see docs/accuracy.md):
+- What goes in says where it comes from: "the x-admin-secret header", "force (in the address)", "email (sent in the
+  request)"; Details gives each input's kind when the code says it ("days late: a number", "request: a
+  PingResource"). Plumbing is decided by type when there is one, so `Handle(PingResource request, …)` takes a request.
+- What comes back: an action's "You get back" lists every way it ends ("success (yes) and data (result); or it stops
+  with 403 or 500"); returned objects give their plain values; `yield` gives back one at a time; a redirect and
+  `next()` end the response ("Lets the request go on to the next step"); a bare `return` after a Stop is not a new
+  ending, and nothing after a Stop on the same path is listed as an ending.
+- Conditions: `!==` reads "is not" (it read as a stray "!"); request and settings idioms read as words with their
+  names kept exactly (`req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET`: "Is the x-admin-secret header
+  the ADMIN_SECRET setting?"); dynamic imports read "Loads … from ./lib/…".
+- Text inside quotes is never changed (it was: "charset_normalizer" became "charset normalizer").
+
 **Language: what a handler sends back.** A response sent to the caller reads as what the person gets back:
 `res.json(user)` reads "Returns user" (not "Calls json"), `res.status(201).json(order)` "Returns order (201 Created)",
 `res.sendStatus(204)` "Returns nothing (204 No Content)", `res.render('profile')` "Shows the profile page", across

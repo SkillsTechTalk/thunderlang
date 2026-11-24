@@ -4,7 +4,15 @@
 export const STEPS_SCHEMA = 'thunder-steps-v1';
 const MAX_STEPS = 14;
 
-const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
+// Names become words (deliveryFee, delivery_fee -> "delivery fee"); text inside quotes is never changed.
+const wordsPlain = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase();
+const words = (s) => {
+  const t = String(s);
+  if (!/["'`]/.test(t)) return wordsPlain(t).trim();
+  let out = '', last = 0;
+  for (const m of t.matchAll(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g)) { out += wordsPlain(t.slice(last, m.index)) + m[0]; last = m.index + m[0].length; }
+  return (out + wordsPlain(t.slice(last))).trim();
+};
 const clip = (s, n = 70) => { const t = String(s).replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const stripTail = (s) => String(s).trim().replace(/[;{]\s*$/, '').replace(/:\s*$/, '').trim();
 
@@ -25,7 +33,33 @@ const possessiveWords = (path) => { const parts = String(path).replace(/^\$/, ''
 export const plainEnums = (text) => String(text).replace(/\b[A-Z][A-Za-z0-9]*\.([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*)\b(?!\s*\()/g, (m, v) => (v.length > 1 && v === v.toUpperCase() ? words(v) : m));
 
 /** A condition as words when it can't be fully translated: c.ctx == nil -> "c.ctx is empty". */
+/**
+ * Request and settings idioms in words, before anything else touches them: req.headers['x-admin-secret'] -> "the
+ * x-admin-secret header", process.env.ADMIN_SECRET -> "the ADMIN_SECRET setting", req.query.force -> "the force in
+ * the address", req.body.email -> "the email it was sent". The names inside are kept exactly as written.
+ */
+export function requestIdioms(text) {
+  return String(text)
+    .replace(/\b(?:req|request|ctx\.request|c\.req|ctx\.req|event)\s*\.\s*headers\s*(?:\[\s*['"`]([^'"`]+)['"`]\s*\]|\.\s*get\(\s*['"`]([^'"`]+)['"`]\s*\)|\.\s*([A-Za-z_][\w]*))/g, (m, a, b, c) => `the ${a || b || c} header`)
+    .replace(/\b(?:req|request|c)\s*\.\s*(?:header|get|Header|GetHeader)\(\s*['"`]([^'"`]+)['"`]\s*\)/g, (m, a) => `the ${a} header`)
+    .replace(/\b(?:req|request|ctx\.request|ctx|c\.req)\s*\.\s*(?:query|searchParams|params|args)\s*(?:\.\s*get\(\s*['"`]([^'"`]+)['"`]\s*\)|\[\s*['"`]([^'"`]+)['"`]\s*\]|\.\s*([A-Za-z_][\w]*))/g, (m, a, b, c) => `the ${a || b || c} in the address`)
+    .replace(/\b(?:req|request|ctx\.request)\s*\.\s*(?:body|json|form)\s*(?:\[\s*['"`]([^'"`]+)['"`]\s*\]|\.\s*([A-Za-z_][\w]*))/g, (m, a, b) => `the ${a || b} it was sent`)
+    .replace(/\bprocess\s*\.\s*env\s*(?:\.\s*([A-Za-z_][\w]*)|\[\s*['"`]([^'"`]+)['"`]\s*\])/g, (m, a, b) => `the ${a || b} setting`)
+    .replace(/\bos\s*\.\s*(?:environ\s*\[\s*['"]([^'"]+)['"]\s*\]|environ\.get\(\s*['"]([^'"]+)['"][^)]*\)|getenv\(\s*['"]([^'"]+)['"][^)]*\))/g, (m, a, b, c) => `the ${a || b || c} setting`)
+    .replace(/\b(?:System\.getenv|Environment\.GetEnvironmentVariable|os\.Getenv|std::env::var|ENV\.fetch)\(\s*["']([^"']+)["'][^)]*\)|\bENV\[\s*["']([^"']+)["']\s*\]/g, (m, a, b) => `the ${a || b} setting`);
+}
+
 export function sayCodeCondition(cond) {
+  // Keep request and settings names exactly as written (x-admin-secret, ADMIN_SECRET) while the rest becomes words.
+  const kept = [];
+  const keep = (t) => `\u0000${kept.push(t) - 1}\u0000`;
+  const restore = (t) => String(t).replace(/\u0000(\d+)\u0000/g, (m, i) => kept[Number(i)]);
+  const idioms = requestIdioms(String(cond)).replace(/the [^\u0000]*? (?:header|setting|in the address|it was sent)(?=$|[\s)!=<>&|,;])/g, (m) => keep(m));
+  if (idioms !== String(cond)) return restore(sayCodeConditionInner(idioms).replace(/'([^']*)'/g, '"$1"'));
+  return sayCodeConditionInner(cond);
+}
+
+function sayCodeConditionInner(cond) {
   let c = plainEnums(String(cond)).trim().replace(/\s*(\{|:|then|do)\s*$/, '').trim();
   while (c.startsWith('(') && matchingClose(c, 0) === c.length - 1) c = c.slice(1, -1).trim();
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
@@ -69,7 +103,7 @@ export function sayCodeCondition(cond) {
     .replace(/\s*(!==|!=)\s*(""|'')(?=\s|\)|$)/g, ' is not empty')
     .replace(/\s*(!==|!=)\s*(nil|null|None|undefined)\b/g, ' is set')
     .replace(/\bis not None\b/g, 'is set').replace(/\bis None\b/g, 'is empty')
-    .replace(/\s*(===|==)\s*/g, ' is ').replace(/\s*(!==|!=)\s*/g, ' is not ')
+    .replace(/\s*(!==|!=)\s*/g, ' is not ').replace(/\s*(===|==)\s*/g, ' is ')
     .replace(/\s*&&\s*/g, ' and ').replace(/\s*\|\|\s*/g, ' or ')
     // Membership: `book not in student.books` -> "book is not in student.books".
     .replace(/\s+not\s+in\s+/g, ' is not in ').replace(/(?<!\bis(?: not)?)\s+in\s+(?=[\w$])/g, ' is in ')
@@ -307,7 +341,8 @@ function redirectOf(head) {
     || expr.match(/^redirect\(\s*\)\s*->\s*(route\(.*\))\s*$/);
   if (!m) return null;
   const to = redirectTarget(m[1]);
-  return { kind: isReturn ? 'return' : 'call', says: `Sends the person to ${to}`, redirect: to };
+  // A redirect ends the response whether or not the code writes `return` before it.
+  return { kind: 'return', says: `Sends the person to ${to}`, redirect: to, response: true };
 }
 
 /** The top-level keys of an object literal: `{ org, repos: list, ...rest, 'avg': x }` -> ['org', 'repos', 'avg']. */
@@ -350,8 +385,21 @@ function statusOf(text) {
 function payloadWords(arg) {
   const a = String(arg || '').trim().replace(/^content\s*=\s*/, '');
   if (!a) return null;
-  if (/^\{/.test(a)) { const keys = objectKeys(a); return keys.length ? listWords(keys.map(words)) : 'an object'; }
+  if (/^\{/.test(a)) {
+    // Each key, with its value when the code makes it plain: { success: true, data: result } -> "success (yes) and data (result)".
+    const inner = a.slice(1, a.lastIndexOf('}'));
+    const parts = callArgs(inner).map((p) => {
+      const kv = p.match(/^["']?([A-Za-z_$][\w$]*)["']?\s*:\s*(.+)$/s);
+      if (!kv) return /^[A-Za-z_$][\w$]*$/.test(p) ? words(p) : null;
+      const v = kv[2].trim();
+      const plain = /^(true|false)$/i.test(v) ? (v === 'true' ? 'yes' : 'no') : /^-?\d+(\.\d+)?$/.test(v) ? v : /^["'`][^"'`]{0,40}["'`]$/.test(v) ? `"${v.slice(1, -1)}"` : /^[A-Za-z_$][\w$.]*$/.test(v) && words(v) !== words(kv[1]) ? possessiveWords(v) : null;
+      return plain ? `${words(kv[1])} (${plain})` : words(kv[1]);
+    }).filter(Boolean);
+    return parts.length ? listWords(parts.length > 8 ? [...parts.slice(0, 7), 'more'] : parts) : 'an object';
+  }
   if (/^\[/.test(a)) return 'a list';
+  const made = a.match(/^new\s+([A-Z]\w*)/);
+  if (made) return `a new ${words(made[1])}`;
   if (/^["'`]/.test(a)) return a.length < 50 ? `"${a.replace(/^["'`]|["'`]$/g, '')}"` : 'a message';
   if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(a)) return possessiveWords(a);
   const call = a.match(/^(?:await\s+)?([\w.]+)\s*\(/);
@@ -472,11 +520,22 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code, ...(name ? { error: name } : {}), ...(msg ? { message: msg } : {}) };
   }
   // An HTTP error response (4xx/5xx) is a Stop: the request is refused, with a status and a message.
+  // Loading code at run time: const { a } = await import('./x') -> "Loads a from ./x".
+  let dyn;
+  if ((dyn = head.match(/^(?:const|let|var)\s*(?:\{([^}]*)\}|([A-Za-z_$][\w$]*))\s*=\s*(?:await\s+)?(?:import|require)\(\s*['"`]([^'"`]+)['"`]\s*\)\s*;?$/))) {
+    const names = dyn[1] ? dyn[1].split(',').map((x) => x.split(':').pop().trim()).filter(Boolean).map(words) : [words(dyn[2])];
+    return { kind: 'set', says: `Loads ${listWords(names)} from ${dyn[3]}`, code };
+  }
   const httpFail = httpErrorOf(head);
   if (httpFail) return { ...httpFail, code };
   // A response sent back to the caller: "Returns user (201 Created)", not "Calls json".
   const sent = responseOf(head);
   if (sent) return { ...sent, code };
+  // Middleware handing on: `next()` lets the request go on to the next step; `next(err)` passes an error on.
+  let nx;
+  if ((nx = head.match(/^(?:return\s+)?(?:await\s+)?next\s*\(\s*(.*?)\s*\)\s*;?$/))) {
+    return nx[1] && !/^(undefined|null)$/.test(nx[1]) ? { kind: 'fail', says: `Fails with ${/^new\s+(\w+)/.exec(nx[1])?.[1] ?? 'the error'}: passes it on`, error: /^new\s+(\w+)/.exec(nx[1])?.[1] ?? 'an error', code } : { kind: 'return', says: 'Lets the request go on to the next step', code, passes: true };
+  }
   // A redirect sends the person somewhere else: "Sends the person to the Google auth URL".
   const redirect = redirectOf(head);
   if (redirect) return { ...redirect, code };
@@ -540,6 +599,13 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:using|lock|synchronized)\s*\((.+?)\)/))) return { kind: 'set', says: `Uses ${clip(m[1], 50)}`, code };
   if (/^defer\b/.test(head)) return { kind: 'call', says: `At the end, ${clip(head.replace(/^defer\s+/, ''), 60)}`, code };
   if (/^super\b/.test(head)) return { kind: 'call', says: 'Runs the parent version first', code };
+  // yield: in C# (`yield return x`), Python, and JavaScript generators it hands back one more value; in Ruby, bare
+  // `yield` runs the block the caller gave.
+  let y;
+  if ((y = head.match(/^yield\s+return\s+(.+?);?$/)) || (y = head.match(/^yield\s+(?!break\b)(.+?);?$/)) && !/^\(|^\|/.test(y?.[1] ?? '')) {
+    return { kind: 'return', says: `Gives back, one at a time, ${payloadWords(y[1]) ?? 'a value'}`, code, yields: true };
+  }
+  if (/^yield\s+break\b/.test(head)) return { kind: 'return', says: 'Stops giving back values', code, yields: true };
   if (/^yield\b/.test(head)) return { kind: 'call', says: 'Hands control to the given block', code };
   if ((m = head.match(/^([A-Z]\w*)(?:::\w+)*\s*\{\s*$/)) || (m = head.match(/^([A-Z]\w*)\s*\{.*\}$/))) return { kind: 'return', says: `Returns a new ${words(m[1])}`, code };
   if ((m = head.match(/^(?:[A-Z]\w*::)+([A-Z]\w*)$/))) return { kind: 'return', says: `Returns ${m[1]}`, code };

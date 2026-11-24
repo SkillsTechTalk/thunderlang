@@ -9,7 +9,7 @@ const says = (c) => classifyStatement(c).says;
 test('successful responses in each framework say what is sent back, and the status when it is not a plain OK', () => {
   const cases = [
     ['res.json(user);', 'Returns user'],
-    ['return res.json({ ok: true, user });', 'Returns ok and user'],
+    ['return res.json({ ok: true, user });', 'Returns ok (yes) and user'],
     ['res.status(201).json(order);', 'Returns order (201 Created)'],
     ['reply.send({ items });', 'Returns items'],
     ['res.sendStatus(204);', 'Returns nothing (204 No Content)'],
