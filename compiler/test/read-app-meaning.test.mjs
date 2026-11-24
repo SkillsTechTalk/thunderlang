@@ -104,7 +104,7 @@ test('everyday value shapes are said as what they are', () => {
   assert.equal(says('qop = chal.get("qop")'), 'Sets qop to the "qop" value from chal');
   assert.equal(says('parts = version.split(".")'), 'Sets parts to version split at "."');
   assert.equal(says('prep = r.request.copy()'), 'Sets prep to a copy of request');
-  assert.equal(says('seen[arg] = True'), 'Records arg in seen');
+  assert.equal(says('seen[arg] = True'), 'Stores True under arg in seen');
   assert.equal(says("request.headers.set('Authorization', token)"), 'Sets "Authorization" on headers');
   assert.equal(says('return request.url is not None and request.method is not None'), 'Returns whether request.url is set and request.method is set');
   assert.equal(says('return host_params, pool_kwargs'), 'Returns host params and pool kwargs');

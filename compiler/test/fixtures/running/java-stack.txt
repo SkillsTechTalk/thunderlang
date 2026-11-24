@@ -1,0 +1,9 @@
+Exception in thread "main" java.lang.RuntimeException: Checkout failed for student 4411
+	at com.school.Desk.checkout(Desk.java:31)
+	at com.school.Main.main(Main.java:12)
+Caused by: java.lang.UnsupportedOperationException
+	at java.base/java.util.ImmutableCollections.uoe(ImmutableCollections.java:142)
+	at java.base/java.util.ImmutableCollections$AbstractImmutableCollection.add(ImmutableCollections.java:147)
+	at com.school.Library.borrow(Library.java:22)
+	at com.school.Desk.checkout(Desk.java:27)
+	... 1 more

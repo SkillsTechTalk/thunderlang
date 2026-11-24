@@ -2,7 +2,7 @@
 import type { Does } from './visual.mjs';
 export const MODEL_SCHEMA: 'thunder-model-v1';
 export const THING_LANGUAGES: string[];
-export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true }
+export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'loop' | 'stop' | 'end' | 'code'; text: string; line?: number; lane: number; row: number; does: Does; uses?: string; answer?: boolean; otherwise?: boolean; value?: string; code?: boolean; /** A decision with several cases (see FlowBlock.cases). */ cases?: true; /** On a code branch: the side the code takes when its condition holds. */ whenTrue?: 'yes' | 'no' }
 export interface FlowEdge { from: string; to: string; label?: 'yes' | 'no' | 'each' | 'next' | 'done' | 'error' | 'case' | 'nested'; /** On a 'case' edge: the case it takes ("When it is from 90 to 100", "Otherwise", "None of these"). */ text?: string }
 export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; each?: FlowBlock[]; body?: FlowBlock[];
   /** A choice among several cases (switch, when, match, select): one side per case, in order. The decision node has `cases: true`. */
@@ -26,14 +26,17 @@ export interface Setting { name: string; source: 'parameter' | 'variable' | 'sec
 export interface Fact { id: string; kind: 'write-all-permissions' | 'untrusted-trigger-with-secrets' | 'action-pinned-by-tag' | 'image-not-pinned' | 'runs-as-root' | 'secret-in-plain-env' | 'public-ingress' | 'storage-public' | 'secret-in-plain-config' | 'encryption-off' | 'wide-permission' | 'privileged-container' | 'no-resource-limits'; says: string; file: string; line: number; /** action-pinned-by-tag: an action made by GitHub itself. */ firstParty?: boolean }
 export type LinkKind = 'uses' | 'runs-in' | 'reads-from' | 'sends-to';
 export interface Link { from: string; to: string; kind: LinkKind; node?: string; file?: string; line?: number }
-export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow }
+export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow; /** Set by proof by running (executed.mjs markExecuted) only where a run proved the reading. */ completeness?: { level: 'executed'; reasons: string[] } }
 export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string; category: 'application' | 'infrastructure' | 'delivery'; /** Why this file could not be read. */ skipped?: string }[]; things: Thing[]; members: Member[]; links: Link[]; unknowns: { id?: string; file: string; line: number; why: string }[]; permissions: Permission[]; settings: Setting[]; facts: Fact[] }
 export function thunderModel(files: { path: string; source: string }[], options?: { name?: string }): ThunderModel;
 export function flowOf(steps: unknown[], options?: { start?: string; memberIndex?: Map<string, string>; memberLabel?: Map<string, string> }): Flow;
 export function ruleFlow(item: unknown, start: string): Flow;
 export function askAsQuestion(step: { says: string; code?: string }, ruleLabel?: string): { text: string; flip: boolean };
 export function stepDoes(step: unknown): Does;
-export function modelText(model: ThunderModel, id: string): string;
+/** Thunder Text for a Thing or a member. `note` adds words after a flow node (the running system's counts). */
+export function modelText(model: ThunderModel, id: string, options?: { note?: (node: FlowNode) => string | null | undefined }): string;
+/** Each node of a flow with the answers that lead to it, from the top (the same paths Details shows). */
+export function pathsOf(flow: Flow): { node: FlowNode; when: When[] }[];
 /** One answer on the way to a step: the question, and Yes, No, For each, or Otherwise. */
 export interface When { question: string; answer: string }
 export type LevelId = 'big-picture' | 'flow' | 'details' | 'text' | 'original';
@@ -58,7 +61,7 @@ export interface LevelView {
   steps?: { id: string; text: string; does: Does; mark: string; line: number | null; depth: number; via?: string; notExplained?: true }[];
   notExplained?: number; tryable?: boolean; rule?: unknown; source?: string;
   /** Details: what goes in, and the lines where each fact is used. */
-  inputs?: { label: string; lines: number[] }[];
+  inputs?: { label: string; lines: number[]; /** Its kind in words when the code says it: "a number", "a PingResource". */ kind?: string }[];
   /** Details: the data it changes, what it saves or sends, and the answers that lead there. */
   changes?: { text: string; line: number | null; does: Does; when: When[] }[];
   /** Details: every way it can stop, with the error, the message people see, and the answers that lead there. */

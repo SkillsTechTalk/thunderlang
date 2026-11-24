@@ -119,6 +119,112 @@ languages is still proven the same.
   Setting, Pipeline, and Image build, and Dockerfile and GitHub Actions in LANGUAGES. thunderlang.dev draws a
   Resource card, who can do what, and the settings; /read has a Dockerfile and a workflow sample.
 
+**Language: the running system — what happened when it ran, on Thunder's pictures** (`compiler/src/running.mjs`,
+`thunder runtime <folder>`). Evidence of a run is placed on the flows Thunder draws, so nobody needs to read a stack
+trace or a log in the original language: per question, how many times each side was taken; per Stop, how many times
+it happened with the error and message as seen; per ending, how many times it was reached; per action or rule, its
+calls, failures, and average and slowest time, a Details sentence ("Ran 201 times; stopped with NotAvailable 117
+times (58%), when Is the book's status on shelf? was No"), and the most-taken way through it.
+- Sources, each an adapter to one event shape (`{ file, line, kind, side?, error?, message?, value?, durationMs?,
+  count? }`): proof by running's records (`fromTrace`), stack traces (`fromStack`: Python tracebacks and pytest
+  reports, Node/V8 stacks, Java with its causes, C#, Go panics), structured logs (`fromLogs`: JSON lines with a
+  file/line or function, including Python logging, Google Cloud's sourceLocation, ECS, zap's caller; an error's
+  stack in a log is read too), and OpenTelemetry spans (`fromOtlp`: OTLP/JSON with `code.filepath` / `code.lineno`
+  / `code.function` or the newer `code.file.path` / `code.line.number` / `code.function.name`, with the exception
+  event's stack).
+- `explainError(model, stack)`: "Failed in Borrow, at “Adds book to student's books” (line 42): AttributeError: …;
+  it got there because Is the book's status on shelf? was Yes and Can borrow? was Yes. Called from …". The answers
+  that led there come from the flow as drawn and are left out when it does not show them.
+- Honest by rule: counts only from evidence (no count is not zero); evidence that cannot be placed is listed as
+  **not matched** with the reason (spec section 13).
+- `thunder runtime <folder> --traces <file|dir> [--stack <file>] [--logs <file>] [--otlp <file>] [--member <name>]
+  [--top n] [--json]` prints the flows in Thunder Text with counts ("- Ask: Is the book's status on shelf?  (line
+  36)  (ran 201×: Yes 84, No 117)"), each error explained, and what was not matched.
+- Site: Semantic Zoom's School library (Python) example has "What happened when it ran" at Flow and Details, from a
+  recorded sample run (labeled as one), with counts beside each node and on each side.
+- `modelText(model, id, { note })` and `pathsOf(flow)` are exported for tools that draw their own overlays.
+
+**Language: proof by running — readings are checked against what the code actually does** (`compiler/src/executed.mjs`,
+`thunder verify --run <folder>`). Thunder runs real code (the project's own tests, and made-up inputs for functions
+that look free of side effects), records which way every question went and how every call ended, and compares that
+with the flow it drew: when a condition held, the side Thunder says it takes then must hold the next step that ran;
+a loop must reach its "For each" steps; a `return` must be one of Thunder's endings (and a rule's answer the value
+given back); a `raise` / `throw` must be a Stop of the error Thunder names; reaching the end needs a "Done". Each
+member is **executed**, **contradicted** (with the question, side, and line), ran with nothing to check, or not run;
+only a run writes `member.completeness.level = 'executed'` (`markExecuted`). Python uses `sys.monitoring` and `ast`
+(3.12+, no packages); JavaScript uses V8's own debugger in-process (`node:inspector`), no dependencies.
+- Release gate: `npm run accuracy:gate` (`compiler/scripts/accuracy-gate.mjs`, in CI) fails when a run contradicts
+  any reading of the fixtures (or configured repositories), when a step invents a value, or when a question's words
+  or Yes/No side disagree with the code's polarity (a new check in `scripts/accuracy.mjs`: 0 of 4,494 questions in
+  the eleven audit repositories).
+- On real code (docs/accuracy.md): requests, urllib3, and werkzeug run by requests' 619-test suite, and Express by
+  its own 1,290 tests. The runs found reader bugs, now fixed: Python `try … else:` and `for` / `while … else:`
+  bodies were dropped from the picture; `with self.lock:` (no `as`) read "Calls with" and dropped every step inside
+  it; JavaScript `else if` rules were all placed on the first `if`'s line; a SQL CHECK / UNIQUE refusal was quoted as
+  if the database said those words (it is now described, not quoted).
+- Decision nodes carry `whenTrue` ('yes' | 'no'): the side the code takes when its condition holds.
+
+**Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
+review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53
+misleading ones still are (docs/accuracy.md). Before Thunder shows words for code, it checks that the words keep
+everything the code says, and shows the code (marked "not explained") when they cannot:
+- Conditions are split at their top-level and / or, each part said on its own, and each part must keep its
+  negations (`!`, `not`, `!=`, `!==`, `is not`, `not in`, `unless`) and comparisons. Compound questions are asked as
+  written, so the Stop is always on the side the code takes (`!body || used` read "Body or used? No: stop"); only
+  `unless` flips a whole question. `=== null` and `=== undefined` are told apart, `typeof x === 'string'` reads "x
+  is text", PHP `is_string($x)` "x is text", `x instanceof Foo` "x is a Foo"; a question is asked by a rule's name
+  only when the condition is that call alone; `!==` before `null` no longer reads "! is empty".
+- Values keep what they are made of: `headers[key] = v` reads "Stores v under key in headers" (it read "Sets headers
+  to …"); a returned `a && b` / `a || !b` keeps every part; multi-line returns and assignments are read whole (JSX
+  `return (` reads "what to show on screen"); `a or b` keeps its fallback; `*=`, `??=`, `||=`, `.=`, Go `append`
+  and PHP `$a[] =` say what they do; a call names a value only when it is the whole value; a returned function is
+  shown with its steps.
+- Nothing is dropped or moved: a loop's `continue` / `break` are steps ("Skips to the next one", "Leaves the loop");
+  a brace-less `if (x)\n  stmt;` keeps its statement; a C-like switch is one question with each case's steps under
+  it; Go `t.Fatal` / `t.Errorf` and Rust `cfg!` chains are no longer "Checks: …: nothing"; PHP `foreach ($a as $k =>
+  $v)` is a loop; `//` or PHP `#` inside a string no longer cuts the body short; a loop whose body could not be read
+  is shown as code; a function is drawn as a rule only when every statement was read into it (partial rules hid
+  later checks).
+- `next(…)` passes an error on only in middleware (`(req, res, next)`, a route, a `NextFunction`); a .NET handler
+  delegate "returns the answer of the next handler"; a local helper named `next` is an ordinary call.
+- Smaller fixes: messages are no longer cut at an inner quote; PHP `$a.$b` joins text (it read "the a's b"); Go
+  `return out, err` gives both back; Kotlin `?: return null`, `require`, abstract `fun`s; Ruby implicit last values,
+  `unless`, one-line blocks, `case … else`, `halt`; Python continued lines and bare `self.x`; destructured inputs;
+  a fetch `Request` / `Response` is an input outside web handlers.
+- Tests updated where they encoded a lossy reading: "whether proxy and …" is now "whether proxy is set and …", a
+  keyed store reads "Stores True under arg in seen", a switch's cases hold their steps, and a value keeps its owner
+  ("otherwise the order's total", "Sets name to the user's name").
+
+**Language: common libraries, read as what they do** (`compiler/src/libraries.mjs`). Calls into well-known libraries
+read with their arguments instead of "Calls find unique": ORMs (Prisma, Mongoose, Sequelize, Django, SQLAlchemy,
+Spring Data incl. derived names like `findByEmailAndActive`, Entity Framework, GORM, `database/sql`, ActiveRecord,
+Eloquent and Laravel's query builder) say what they find, save, change, or remove and by what ("Finds the user whose
+email is email"); HTTP clients name the method and address ("Sends a POST request to …/orders"); tokens, passwords,
+caches, Stripe, email, background jobs, JSON, files, and the current time read in words. Go's `if err := <call>; err
+!= nil` says what could not be done ("If it cannot find the first user whose id is id").
+
+**Language: inputs and outputs, read accurately.** Measured on eleven open-source repositories with the new
+`scripts/accuracy.mjs` (see docs/accuracy.md):
+- What goes in says where it comes from: "the x-admin-secret header", "force (in the address)", "email (sent in the
+  request)"; Details gives each input's kind when the code says it ("days late: a number", "request: a
+  PingResource"). Plumbing is decided by type when there is one, so `Handle(PingResource request, …)` takes a request.
+- What comes back: an action's "You get back" lists every way it ends ("success (yes) and data (result); or it stops
+  with 403 or 500"); returned objects give their plain values; `yield` gives back one at a time; a redirect and
+  `next()` end the response ("Lets the request go on to the next step"); a bare `return` after a Stop is not a new
+  ending, and nothing after a Stop on the same path is listed as an ending.
+- Conditions: `!==` reads "is not" (it read as a stray "!"); request and settings idioms read as words with their
+  names kept exactly (`req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET`: "Is the x-admin-secret header
+  the ADMIN_SECRET setting?"); dynamic imports read "Loads … from ./lib/…".
+- Text inside quotes is never changed (it was: "charset_normalizer" became "charset normalizer").
+
+**Language: what a handler sends back.** A response sent to the caller reads as what the person gets back:
+`res.json(user)` reads "Returns user" (not "Calls json"), `res.status(201).json(order)` "Returns order (201 Created)",
+`res.sendStatus(204)` "Returns nothing (204 No Content)", `res.render('profile')` "Shows the profile page", across
+Express, Fastify, Koa, Gin, ASP.NET (`Ok`, `CreatedAtAction`, `NoContent`), Spring (`ResponseEntity`), Flask
+(`jsonify`), and FastAPI (`JSONResponse`). Their error forms (`NotFound(...)`, `ResponseEntity.notFound()`,
+`res.sendStatus(404)`, Gin `c.JSON(http.StatusNotFound, …)`) are Stops with their status. Details lists them under
+what it gives back and when.
+
 # 0.5.11
 
 **Language: choices among cases, and inner functions, in the flow.**

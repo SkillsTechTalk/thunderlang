@@ -109,7 +109,7 @@ test('Java and C#: switch cases, casts, typed declarations, factory-made errors'
 test('plain names used as conditions read as set / not set; yes/no values read as "whether"', () => {
   assert.equal(sayCodeCondition('proxy'), 'proxy is set');
   assert.equal(sayCodeCondition('not proxy_url.host'), "the proxy url's host is not set");
-  assert.equal(classifyStatement('is_proxied = proxy and scheme != "https"').says, 'Works out is proxied: whether proxy and scheme is not "https"');
+  assert.equal(classifyStatement('is_proxied = proxy and scheme != "https"').says, 'Works out is proxied: whether proxy is set and scheme is not "https"');
 });
 
 test('Thunder Text and the model show every branch, the same way', () => {

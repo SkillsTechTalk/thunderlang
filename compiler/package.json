@@ -16,6 +16,14 @@
       "import": "./src/core.mjs",
       "require": "./dist/core.cjs"
     },
+    "./executed": {
+      "types": "./src/executed.d.mts",
+      "import": "./src/executed.mjs"
+    },
+    "./running": {
+      "types": "./src/running.d.mts",
+      "import": "./src/running.mjs"
+    },
     "./learn": {
       "types": "./src/learn.d.mts",
       "import": "./src/learn.mjs",
@@ -42,6 +50,7 @@
   },
   "scripts": {
     "test": "node --test",
+    "accuracy:gate": "node scripts/accuracy-gate.mjs",
     "build:cjs": "node scripts/build-cjs.mjs",
     "prepack": "node scripts/build-cjs.mjs",
     "prepublishOnly": "node scripts/build-cjs.mjs && node --test",

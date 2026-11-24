@@ -41,3 +41,6 @@ next-env.d.ts
 /MAILBOX.md
 /TODO.md
 /CLASSIFICATION.md
+
+# Python bytecode (proof-by-running fixtures)
+__pycache__/

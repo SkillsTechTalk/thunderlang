@@ -374,11 +374,12 @@ export function sqlItems(src) {
     if (r.kind === 'check') {
       const cond = sqlCondition(r.cond);
       const name = r.name || `${(r.cond.match(/[a-z_]\w*/i) || ['value'])[0]}_check`;
-      push(name, r.line, [{ kind: 'branch', says: `If not: ${cond}`, code: `CHECK (${r.cond})`, line: r.line, children: [{ kind: 'fail', says: `Fails with Refused by the database: "The ${singular(table)} needs ${cond.replace(/"/g, "'")}"`, error: 'Refused by the database', message: `The ${singular(table)} needs ${cond.replace(/"/g, "'")}`, code: `CHECK (${r.cond})`, line: r.line }] }],
+      // The database's refusal is described, not quoted: the code holds no such message.
+      push(name, r.line, [{ kind: 'branch', says: `If not: ${cond}`, code: `CHECK (${r.cond})`, line: r.line, children: [{ kind: 'fail', says: `Fails with Refused by the database: the ${singular(table)} needs ${cond.replace(/"/g, "'")}`, error: 'Refused by the database', message: `The ${singular(table)} needs ${cond.replace(/"/g, "'")}`, code: `CHECK (${r.cond})`, line: r.line }] }],
         { says: `Every ${singular(table)} must have ${cond}.`, headline: `Every ${singular(table)} must have ${cond}.` });
     } else {
       const cols = listWords(r.cols.map(words));
-      push(r.name || `unique_${r.cols.join('_and_')}`, r.line, [{ kind: 'branch', says: `If not: no other ${singular(table)} has the same ${cols}`, code: `UNIQUE (${r.cols.join(', ')})`, line: r.line, children: [{ kind: 'fail', says: `Fails with Refused by the database: "Each ${cols} can be used only once"`, error: 'Refused by the database', message: `Each ${cols} can be used only once`, code: `UNIQUE (${r.cols.join(', ')})`, line: r.line }] }],
+      push(r.name || `unique_${r.cols.join('_and_')}`, r.line, [{ kind: 'branch', says: `If not: no other ${singular(table)} has the same ${cols}`, code: `UNIQUE (${r.cols.join(', ')})`, line: r.line, children: [{ kind: 'fail', says: `Fails with Refused by the database: each ${cols} can be used only once`, error: 'Refused by the database', message: `Each ${cols} can be used only once`, code: `UNIQUE (${r.cols.join(', ')})`, line: r.line }] }],
         { says: `Each ${cols} can be used by only one ${singular(table)}.`, headline: `Each ${cols} can be used by only one ${singular(table)}.` });
     }
   }

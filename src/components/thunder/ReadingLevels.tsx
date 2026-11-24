@@ -7,7 +7,9 @@ import { thunderModel, readLevel } from "../../../compiler/src/model.mjs";
 import type { ThunderModel, LevelId, LevelView } from "../../../compiler/src/model.d.mts";
 import { LEVELS, THUNDER_VISUAL, thunderTokens } from "../../../compiler/src/visual.mjs";
 import { explainPlain } from "../../../compiler/src/plain-contract.mjs";
-import { Symbol, ThingCard, DataCard, ResourceCard, PermissionList, SettingList, FlowBlocks, HEX, focus, type SymbolId } from "./ThunderParts";
+import { runtimeOverlay, fromTrace, explainError } from "../../../compiler/src/running.mjs";
+import type { RuntimeOverlay, MemberRun, ErrorExplanation } from "../../../compiler/src/running.d.mts";
+import { Symbol, ThingCard, DataCard, ResourceCard, PermissionList, SettingList, FlowBlocks, HEX, focus, runWords, type SymbolId } from "./ThunderParts";
 import { sourceLines } from "../../lib/source-tokens.mjs";
 
 /** The same answer words the flow uses: BigFee -> Big fee, true -> Yes. */
@@ -84,10 +86,43 @@ function Card({ title, children, tone }: { title: string; children: React.ReactN
   );
 }
 
+/** A recorded run to show on the flows: what was run, and the record itself (thunder-executed-v1 trace). */
+export type RecordedRun = { label: string; trace: { files: Record<string, unknown> }; crash?: string };
+
+/** "What happened when it ran": the switch, and what the run says about this action or rule. */
+function RunPanel({ run, on, setOn, memberRun, label, crash }: { run: RecordedRun; on: boolean; setOn: (v: boolean) => void; memberRun?: MemberRun; label: string; crash: ErrorExplanation | null }) {
+  return (
+    <div className="mt-5 rounded-2xl border border-white/10 bg-ink-850/40 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[15px] text-white">
+          <input type="checkbox" role="switch" aria-checked={on} checked={on} onChange={(e) => setOn(e.target.checked)} className={`h-5 w-5 accent-[#FCD34D] ${focus}`} />
+          What happened when it ran
+        </label>
+        <span aria-hidden="true" className="text-sm text-haze-400">{on ? "showing a sample run" : "off"}</span>
+      </div>
+      {on && (
+        <div aria-live="polite" className="mt-2 space-y-2 text-sm">
+          <p className="text-haze-300"><Chip dashed>Sample run</Chip> <span className="ml-1">{run.label}. Counts come only from this run; a step with no count was not observed, which is not the same as never.</span></p>
+          {memberRun?.says ? <p className="text-[15px] text-white">{memberRun.says}</p> : <p className="text-haze-300">This sample run never reached {label}.</p>}
+          {memberRun && memberRun.hotPath.length > 1 && <p className="text-haze-300"><span className="font-semibold text-haze-200">Most often: </span>{memberRun.hotPath.map((h) => (h.side ? `${h.text.replace(/\?$/, "")}? ${h.side}` : h.text)).join(" → ")}</p>}
+          {crash?.matched && <p className="rounded-xl border border-[#FDBA74]/40 px-3 py-2 text-haze-100"><span className="font-semibold text-[#FDBA74]">One run crashed (not one of its Stops):</span> {crash.text}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const rangeText = (r: { from: number | null; to: number | null }) => (r.from === null ? `${r.to} or less` : r.to === null ? `${r.from} or more` : r.from === r.to ? `exactly ${r.from}` : `${r.from} to ${r.to}`);
 
 /** Details: a fact sheet of what you need to check before you trust or change an action or rule. */
-function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view: LevelView; member: { kind: string; lines: [number, number] }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void }) {
+function DetailsSheet({ view, member, thingLabel, file, open, showLine, memberRun }: { view: LevelView; member: { kind: string; lines: [number, number]; flow: { nodes: { id: string; kind: string; line?: number; text: string }[] } }; thingLabel?: string; file: string; open: (id: string) => void; showLine: (l: number) => void; memberRun?: MemberRun }) {
+  // What the run showed at a Stop or ending on this line (the sample run, when it is switched on).
+  const runAt = (kind: string, line: number | null, text?: string) => {
+    if (!memberRun) return null;
+    const n = member.flow.nodes.find((x) => x.kind === kind && (x.line ?? null) === line && (text == null || x.text === text || x.text === `Gives back ${text}`)) ?? member.flow.nodes.find((x) => x.kind === kind && (x.line ?? null) === line);
+    const w = n ? runWords(memberRun.nodes[n.id], memberRun.calls) : null;
+    return w ? <span className="ml-2 shrink-0 rounded-full border border-white/25 px-2.5 py-0.5 font-mono text-xs text-haze-200"><span className="sr-only">When it ran: </span>{w}</span> : null;
+  };
   const isRule = !!view.answers || member.kind === "rule";
   const stopColor = HEX[THUNDER_VISUAL.does.stop?.color ?? "failure"];
   return (
@@ -129,6 +164,7 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
                   <div className="flex items-start gap-2">
                     <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-[11px]" style={{ color: stopColor, borderColor: `${stopColor}66` }}>■</span>
                     <p className="text-[15px] text-white"><span className="font-semibold" style={{ color: stopColor }}>Stops: {st.error}</span>{st.message && <span className="text-haze-200">, and the person sees “{st.message}”</span>}</p>
+                    {runAt("stop", st.line)}
                     <LineButton line={st.line} showLine={showLine} />
                   </div>
                   <WhenList when={st.when} />
@@ -139,13 +175,14 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
                   <div className="flex items-start gap-2">
                     <span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#67E8F9]/40 text-[11px] text-[#67E8F9]">⇥</span>
                     <p className="text-[15px] text-white">{g.text}</p>
+                    {runAt("end", g.line, g.text)}
                     <LineButton line={g.line} showLine={showLine} />
                   </div>
                   <WhenList when={g.when} />
                 </li>
               ))}
               {!view.givesBack!.some((g) => !g.when.length) && (
-                <li className="flex items-start gap-2 text-[15px] text-haze-200"><span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#86EFAC]/40 text-[11px] text-[#86EFAC]">✓</span>Finishes after its last step{view.stops!.length ? ", when none of the stops above happen" : ""}.</li>
+                <li className="flex items-start gap-2 text-[15px] text-haze-200"><span aria-hidden="true" className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-[#86EFAC]/40 text-[11px] text-[#86EFAC]">✓</span>Finishes after its last step{view.stops!.length ? ", when none of the stops above happen" : ""}.{runAt("end", null)}</li>
               )}
             </ul>
           </Card>
@@ -225,8 +262,12 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine }: { view
   );
 }
 
-export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, onSourceChange }: {
+export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, onSourceChange, run, runHidden }: {
   source: string; file: string; name?: string;
+  /** A recorded run of exactly this code: offers "What happened when it ran" at Flow and Details. */
+  run?: RecordedRun;
+  /** Why a recorded run is not offered right now (e.g. the code was edited after it was recorded). */
+  runHidden?: string;
   /** A member's name (e.g. return_book) to show at Flow, Details, Text, and Original until another is chosen. */
   initialFocus?: string; initialLevel?: LevelId; editable?: boolean; onSourceChange?: (s: string) => void;
 }) {
@@ -237,6 +278,10 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
   const [level, setLevel] = useState<LevelId>(initialLevel);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<[number, number] | null>(null);
+  const [showRun, setShowRun] = useState(false);
+  // The running system: the recorded run placed on this model's flows (only evidence; nothing inferred).
+  const overlay = useMemo<RuntimeOverlay | null>(() => { try { return run && model ? runtimeOverlay(model, fromTrace(run.trace as never)) as RuntimeOverlay : null; } catch { return null; } }, [run, model]);
+  const crash = useMemo<ErrorExplanation | null>(() => { try { return run?.crash && model ? explainError(model, run.crash) as ErrorExplanation : null; } catch { return null; } }, [run, model]);
 
   if (!model) return <p className="text-haze-300">Thunder could not read this code. Check that it is complete.</p>;
   const exists = (id: string | null) => !!id && (model.members.some((m) => m.id === id) || model.things.some((t) => t.id === id));
@@ -328,9 +373,13 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
               </div>
             )}
 
-            {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} /></div>}
+            {!overlay && runHidden && (level === "flow" || level === "details") && <p className="mt-5 text-sm text-haze-400">{runHidden}</p>}
+            {overlay && (level === "flow" || level === "details") && <RunPanel run={run!} on={showRun} setOn={setShowRun} memberRun={overlay.members[member.id]} label={view.title} crash={crash?.member?.id === member.id ? crash : null} />}
 
-            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} />}
+            {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} runs={showRun ? overlay?.members[member.id]?.nodes : undefined} calls={overlay?.members[member.id]?.calls} /></div>}
+            {level === "flow" && showRun && (() => { const done = member.flow.nodes.find((n) => n.kind === "end" && n.line == null); const w = done ? runWords(overlay?.members[member.id]?.nodes[done.id], overlay?.members[member.id]?.calls) : null; return w ? <p className="mt-3 text-sm text-haze-200"><span className="font-semibold text-[#67E8F9]">Done</span> (it finished after its last step): {w}</p> : null; })()}
+
+            {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} memberRun={showRun ? overlay?.members[member.id] : undefined} />}
           </article>
         )}
 

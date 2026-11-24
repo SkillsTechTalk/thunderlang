@@ -156,7 +156,7 @@ test('functions that are not decisions are read as plain steps, with one level o
   const f = readCode(py, { language: 'python' }).items.find(i => i.name === 'issue_refund');
   assert.deepEqual(f.steps.map(s => s.kind), ['set', 'branch', 'return']);
   assert.equal(f.steps[0].says, 'Works out decision from approve refund');
-  assert.deepEqual(f.steps[1].children.map(c => c.says), ['Calls Stripe', 'Writes to the database (insert): refunds', 'Announces an event: refund.issued']);
+  assert.deepEqual(f.steps[1].children.map(c => c.says), ['Creates a Stripe refund', 'Writes to the database (insert): refunds', 'Announces an event: refund.issued']);
   assert.equal(f.stepsReadable, 1);
   const go = 'func Label(order Order) (string, error) {\n\tif order.Address == "" {\n\t\treturn "", ErrNoAddress\n\t}\n\treturn fmt.Sprintf("%s", order.Name), nil\n}\n';
   const g = readCode(go, { language: 'go' }).items.find(i => i.name === 'Label');
