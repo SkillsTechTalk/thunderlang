@@ -1,5 +1,12 @@
 # Unreleased
 
+**Fix (serious): `thunder same` could call different code "same".** It compared steps by their short words and
+ignored the code of steps shown as code, so `x = a + b` and `x = a - b`, or `compute(o.items)` and
+`compute(o.lines)`, were reported as the same. Steps are now also compared by a language-neutral signature of their
+code (names in any convention, operators, values); when the words match but the code does not, the answer is "cannot
+check: Thunder reads these the same, but the code differs at step N", with both lines. A faithful conversion across
+languages is still proven the same.
+
 **Language: no loss — every detail, one level down** (`compiler/src/meaning.mjs`, `compiler/src/round-trip.mjs`).
 Thunder's words stay short, and nothing in the code is lost: every step now carries `expr`, its full meaning as a
 small language-neutral tree (`thunder-expr-v1`): calls with their whole callee path and every argument, assignments
