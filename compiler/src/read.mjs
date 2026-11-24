@@ -531,6 +531,24 @@ function cSuffixOk(s, language) {
   return false;
 }
 
+/**
+ * What a C/C++ function gives back, from the text before its name and the text after its parameters: macros in front
+ * of the type (`FMT_CONSTEXPR void`, `JSON_HEDLEY_ALWAYS_INLINE std::size_t`) are not part of it, `void` is nothing,
+ * and `auto f() -> T` gives back T.
+ */
+function cReturnType(prefix, after) {
+  const toks = String(prefix || '').trim().split(/\s+/).filter(Boolean);
+  // A leading all-caps word is a macro when a real type follows it (`FILE *` keeps FILE: only `*` follows).
+  while (toks.length > 1 && /^[A-Z_][A-Z0-9_]*$/.test(toks[0]) && toks.slice(1).some((t) => /[A-Za-z_]/.test(t))) toks.shift();
+  let t = toks.join(' ');
+  if (/^auto$/.test(t)) {
+    const tr = String(after || '').match(/->\s*([^{;]+?)\s*(?:requires\b[^{;]*)?$/);
+    const trail = tr ? tr[1].replace(/\s+/g, ' ').trim() : '';
+    if (trail && !/^decltype\b/.test(trail)) t = trail;
+  }
+  return t && !/^void$/.test(t) && !/^[A-Z_][A-Z0-9_]*$/.test(t) || /^[A-Z][A-Z0-9]*$/.test(t) ? t : null;
+}
+
 /** A function definition head (the text before a `{` at file, namespace, or class level), or null. */
 function cHead(header, language, container) {
   const h = cleanCHeader(header);
@@ -556,7 +574,7 @@ function cHead(header, language, container) {
     // No return type: only a constructor or destructor has none (`TEST(A, B) {` is a macro, not a function).
     const ctor = /^~/.test(name) || (qualifier && qualifier === name.replace(/^~/, '')) || (container && container === name.replace(/^~/, ''));
     if (!returns && !ctor) return null;
-    return { name, nameAt, open: o, close: c, returns: returns && !/^void$/.test(returns) ? returns : null, qualifier, startAt: start };
+    return { name, nameAt, open: o, close: c, returns: ctor ? null : cReturnType(returns, h.slice(c + 1)), qualifier, startAt: start };
   }
   return null;
 }
@@ -1372,6 +1390,14 @@ function valueLiteral(text) {
 function swiftImplicitValue(text) {
   const t = String(text).trim();
   return !!t && !/\n\s*\S/.test(t) && !/^(?:if|guard|for|while|switch|let|var|return|throw|defer|do|repeat|print|try|await)\b/.test(t) && !/^[\w.]+\s*(?:[-+*/]?=)(?!=)/.test(t) && !/^[\w.]+\s*\(/.test(t);
+}
+
+/** A Swift one-statement body that gives back its value: the function returns something, and the statement is an expression. */
+function swiftImplicitResult(text, returns) {
+  const r = String(returns || '').trim();
+  if (!r || /^(?:Void|\(\s*\)|Never)$/.test(r)) return false;
+  const t = String(text).trim();
+  return !!t && !/^(?:if|guard|for|while|switch|let|var|return|throw|defer|do|repeat|fatalError|preconditionFailure|precondition|assert|assertionFailure|break|continue|case|default)\b/.test(t) && !/^[\w.\[\]]+\s*(?:[-+*/]?=)(?!=)/.test(t) && !/^\$0\s*=/.test(t);
 }
 
 /** Replace a pattern binding (Rust `n if n > 3`) with the subject inside its guard. */
@@ -2231,6 +2257,40 @@ function anchorSpan(span, fn, lang) {
   else { delete span.start; delete span.end; span.exact = 'lines'; }
 }
 
+/**
+ * C and C++ steps inside `#if` / `#ifdef` / `#elif` / `#else` run only in some builds: each says so, with the line that
+ * decides it, so alternatives (`#if A … #elif B …`) are never read as steps that all run one after another.
+ */
+function markBuildOnlySteps(steps, fn, lang, code, srcLines) {
+  const range = srcLines.length ? bodyRange(fn, lang, code) : null;
+  if (!range) return;
+  const only = new Map();
+  const stack = [];
+  const clean = (t) => t.replace(/\s*\/[/*].*$/, '').replace(/\s+/g, ' ').trim();
+  for (let l = range[0]; l <= range[1]; l++) {
+    const t = (srcLines[l - 1] ?? '').trim();
+    let m;
+    if ((m = t.match(/^#\s*(if|ifdef|ifndef)\b(.*)$/))) stack.push({ first: clean(`#${m[1]}${m[2]}`), label: clean(`#${m[1]}${m[2]}`) });
+    else if ((m = t.match(/^#\s*(elif|elifdef|elifndef)\b(.*)$/)) && stack.length) stack[stack.length - 1].label = clean(`#${m[1]}${m[2]}`);
+    else if (/^#\s*else\b/.test(t) && stack.length) stack[stack.length - 1].label = `#else of ${stack[stack.length - 1].first}`;
+    else if (/^#\s*endif\b/.test(t)) stack.pop();
+    else if (stack.length) only.set(l, stack.map((x) => x.label).join(', '));
+  }
+  if (!only.size) return;
+  const walk = (list, outer) => {
+    for (const st of list) {
+      const label = only.get(st.line);
+      // (A question or a loop keeps its own words, which the views turn into "Ask: …?"; the steps under it say it.)
+      const holds = st.kind === 'branch' || st.kind === 'loop' || st.kind === 'try';
+      if (label && label !== outer && !holds) st.says = `${st.says} (only in builds where \`${label}\`)`;
+      const inner = holds ? outer : label || outer;
+      if (st.children) walk(st.children.map((k) => (holds && label && !only.has(k.line) ? (only.set(k.line, label), k) : k)), inner);
+      for (const h of st.handlers || []) if (h.steps) walk(h.steps, inner);
+    }
+  };
+  walk(steps, null);
+}
+
 function functionSteps(fn, lang, code, names, srcLines = []) {
   let stmts = [];
   try {
@@ -2241,7 +2301,9 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   } catch { return null; }
   if (!stmts.length) return null;
   // A Swift body that is one expression gives it back without `return` (`var isEmpty: Bool { count == 0 }`).
-  if (lang === 'swift' && stmts.length === 1 && !stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) stmts[0] = { ...stmts[0], implicitReturn: true };
+  // So does one that is a single call or expression when the function says it gives something back
+  // (`func base32Bytes() -> [UInt8] { Base32.default.encode(…) }` gives back what encode makes).
+  if (lang === 'swift' && stmts.length === 1 && ((!stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) || swiftImplicitResult(stmts[0].text, fn.returns))) stmts[0] = { ...stmts[0], implicitReturn: true };
   const r = withLanguage(lang, () => withFunctionContext({ params: fn.params || [], language: lang, route: !!fn.route }, () => {
     const out = stepsFrom(stmts);
     // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or
@@ -2254,6 +2316,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
     }
     return out;
   }));
+  if (lang === 'c' || lang === 'cpp') markBuildOnlySteps(r.steps, fn, lang, code, srcLines);
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);

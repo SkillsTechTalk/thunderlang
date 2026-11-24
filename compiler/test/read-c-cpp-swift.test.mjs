@@ -113,7 +113,7 @@ test('C: memory, copies, switch with fall-through, goto and labels, do … while
   assert.equal(steps[3].says, 'Repeats until a step inside stops it');
   assert.equal(steps[3].children[0].children[0].says, 'Leaves the loop');
   assert.equal(steps[4].says, 'The "done" part starts here');
-  assert.equal(steps[5].says, 'Sets out to count');
+  assert.equal(steps[5].says, 'Writes count where out points');
   assert.equal(steps[6].says, 'If text is "none"');
   assert.equal(steps[6].children[0].says, 'Stops the program (exit code 1)');
 });
@@ -180,7 +180,7 @@ test('C++: methods in and outside the class, constructors, range-for, lambdas, t
   assert.equal(s[2].says, 'Calls sort with these steps');
   assert.equal(s[3].kind, 'try');
   assert.deepEqual(s[3].handlers.map((h) => h.says), ['If invalid argument goes wrong', 'If anything goes wrong']);
-  assert.deepEqual(said(s[3].handlers[0].steps), ['Writes a log or message', 'Passes the error on']);
+  assert.deepEqual(said(s[3].handlers[0].steps), ['Writes a log or message: "«e.what()»«std::endl»"', 'Passes the error on']);
   assert.equal(s[4].says, 'If sum is more than limit');
   assert.equal(s[4].children[0].says, 'Fails with runtime error: "too many items"');
   assert.deepEqual(said(s.slice(5, 9)), ['Creates a new Node as n', 'Gets memory for 10 ints as arr', 'Frees n', 'Frees arr']);

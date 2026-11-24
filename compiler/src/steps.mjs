@@ -181,7 +181,9 @@ function sayAtom(atom) {
     return inner == null ? null : `not (${inner})`;
   }
   const said = sayAtomWords(a);
-  if (said == null || isCodeWords(said) || !accountsFor(a, said)) return null;
+  // (C and C++ write the empty pointer as NULL or nullptr: for the gate it is null, so `p != nullptr` is "p is set".)
+  const gated = C_FAMILY.has(LANG) ? a.replace(/\b(?:nullptr|NULL)\b/g, 'null') : a;
+  if (said == null || isCodeWords(said) || !accountsFor(gated, said)) return null;
   return said;
 }
 
@@ -303,9 +305,16 @@ function targetWords(path) {
 
 function callee(text) {
   const m = String(text).replace(/\[[^\]]*\]/g, '').match(/^(?:(?:await|try[?!]?|yield|void)\s+)*(?:new\s+)?([A-Za-z_$#@][\w$#]*(?:<[^()]*?>)?(?:(?:\.|::|->)[A-Za-z_$#][\w$#]*(?:<[^()]*?>)?(?:\(\))?)*)!?\s*\(/);
-  return m ? m[1].replace(/<[^()]*?>/g, '').replace(/\(\)/g, '').replace(/::|->/g, '.').replace(/#/g, '') : null;
+  if (!m) return null;
+  let name = m[1];
+  // Template arguments, innermost first, so `unique_ptr<typed_node<T>>` is `unique_ptr` (not `unique_ptr>`).
+  if (C_FAMILY.has(LANG)) for (let k = 0; k < 6 && /<[^<>()]*>/.test(name); k++) name = name.replace(/<[^<>()]*>/g, '');
+  return name.replace(/<[^()]*?>/g, '').replace(/\(\)/g, '').replace(/::|->/g, '.').replace(/#/g, '');
 }
 function sayCall(name, args) {
+  // In C and C++ `fmt::` is the {fmt} library (fmt::format makes text, fmt::format_to fills a buffer): only its print
+  // functions write a message; std::print likewise.
+  if (C_FAMILY.has(LANG) && /^(?:fmt|std)\./.test(name) && !/^(?:fmt|std)\.(?:print|println|cout|cerr)$/.test(name)) return null;
   for (const k of KNOWN_CALLS) if (k.re.test(name)) {
     const target = (args.match(/^\s*["'`]([\w.\-/: ]{1,60})["'`]/) || [])[1];
     const base = k.say(name);
@@ -325,6 +334,8 @@ function sayValue(expr) {
   if (py) return py;
   const common = sayCommon(e);
   if (common) return common;
+  // Swift text with values inside: the literal kept exactly, each value a «placeholder» (docs/spec.md).
+  if (LANG === 'swift' && /^"/.test(e) && /\\\(/.test(e)) { const tv = swiftTextWithValues(e); if (tv) return tv.length > 90 ? `${tv.slice(0, 88)}…"` : tv; }
   if (/^(["'`])(?:\\.|(?!\1)[^\\])*\1$/.test(e) && !(/^`/.test(e) && /\$\{/.test(e))) return `"${clip(e.slice(1, -1), 40)}"`;
   if (/^-?\d+(\.\d+)?$/.test(e) || /^(true|false|True|False|nil|null|None|undefined)$/.test(e)) return e;
   if (C_FAMILY.has(LANG) && /^-?(?:0[xX][\da-fA-F]+|\d+(?:\.\d+)?)[uUlLfF]*$/.test(e)) return e.replace(/(?<=\d|[a-fA-F])[uUlLfF]+$/, '').replace(/^(-?\d+(?:\.\d+)?)[uUlLfF]+$/, '$1');
@@ -345,7 +356,7 @@ function sayValue(expr) {
     if (close >= 0 && close !== e.length - 1) return null;
     if (/^new\s/.test(e)) return `a new ${c.split('.').pop()}`;
     // Swift makes a value by calling its type: Loan(title: t) is a new Loan (so does C++: std::string(s)).
-    if ((LANG === 'swift' || LANG === 'cpp') && /^[A-Z]\w*$/.test(c) && !/^[A-Z][A-Z0-9_]+$/.test(c)) return `a new ${c}`;
+    if ((LANG === 'swift' || LANG === 'cpp') && /^[A-Z]\w*$/.test(c) && !/^[A-Z][A-Z0-9_]+$/.test(c) && !C_STYLE_FUNCTION.test(c)) return `a new ${c}`;
     return `the result of ${lastWords(c)}`;
   }
   if (LANG === 'swift' && /^[A-Za-z_][\w.]*\.count$/.test(e)) return `how many ${possessiveWords(e.replace(/\.count$/, ''))}`;
@@ -475,6 +486,8 @@ const LOGIC = /(&&|\|\||[<>]=?|[!=]==?|\band\b|\bor\b|\bnot\b|\bis\b|^\s*!)/;
 function sayWhether(expr) {
   const e = String(expr).trim();
   if (!LOGIC.test(e) || /=>|\blambda\b|\s\?\s.*:/.test(e)) return null;
+  // (`bin_sig << 4` shifts bits: it is not a comparison.)
+  if ((C_FAMILY.has(LANG) || LANG === 'swift') && /<<|>>/.test(e.replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q'))) return null;
   const said = sayCodeCondition(e);
   return isCodeWords(said) ? null : `whether ${said}`;
 }
@@ -697,7 +710,9 @@ function sayCLibrary(head) {
 }
 
 /** Swift and C++ make a value by calling its type (`Request()`, `Response.Body(…)`, `std::string(s)`). */
-const makesType = (c) => (LANG === 'swift' || LANG === 'cpp') && /^(?:[A-Z]\w*\.)*[A-Z]\w*$/.test(String(c || '')) && !/^[A-Z][A-Z0-9_]+$/.test(String(c).split('.').pop());
+// (Apple's C functions are named like types but are calls: SecPolicyCreateSSL, CFStringCreateCopy, CGRectMake.)
+const C_STYLE_FUNCTION = /[a-z0-9](?:Create|Copy|Get|Make|Set)(?:[A-Z0-9]\w*)?$/;
+const makesType = (c) => (LANG === 'swift' || LANG === 'cpp') && /^(?:[A-Z]\w*\.)*[A-Z]\w*$/.test(String(c || '')) && !/^[A-Z][A-Z0-9_]+$/.test(String(c).split('.').pop()) && !C_STYLE_FUNCTION.test(String(c).split('.').pop());
 
 /** Vapor's HTTP status names (`Abort(.notFound)`) and their numbers. */
 export const VAPOR_STATUS = { badRequest: 400, unauthorized: 401, paymentRequired: 402, forbidden: 403, notFound: 404, methodNotAllowed: 405, conflict: 409, gone: 410, payloadTooLarge: 413, unsupportedMediaType: 415, unprocessableEntity: 422, tooManyRequests: 429, internalServerError: 500, notImplemented: 501, badGateway: 502, serviceUnavailable: 503 };
@@ -716,6 +731,7 @@ function swiftCondition(cond) {
   return parts.filter(Boolean).map((p) => {
     let m;
     if ((m = p.match(/^(?:let|var)\s+(\w+)(?:\s*:\s*[^=]+)?(?:\s*=\s*(.+))?$/))) return `${words(m[1])} is set`;
+    if ((m = p.match(/^case\s+(?:let\s+|var\s+)?\.?(\w+)(?:\s*\([^()]*\))?\s*=\s*(.+)$/)) && /^[\w.]+$/.test(m[2].trim())) return `${possessiveWords(m[2].trim())} is ${words(m[1])}`;
     if ((m = p.match(/^case\s+(?:let\s+|var\s+)?\.?(\w+)/))) return `it is ${words(m[1])}`;
     return sayCodeCondition(p);
   }).join(' and ');
@@ -766,6 +782,7 @@ function sayNativeShape(head, text, innerNote) {
       return { kind: 'loop', says: `Counts ${words(m[1])} ${r.says}${innerNote}` };
     }
   }
+  if (swift && (m = head.match(/^for\s+_\s+in\s+([\w.]+)\s*\{?\s*$/))) return { kind: 'loop', says: `Repeats once for each item in ${possessiveWords(m[1])}${innerNote}` };
   if (swift && (m = head.match(/^while\s+(?:let|var)\s+(\w+)\s*=/))) return { kind: 'loop', says: `Repeats while there is a next ${words(m[1])}${innerNote}` };
   // guard cond else { … }: the else block is the way out; the steps after it run only when the condition holds.
   if (swift && (m = head.match(/^guard\s+(.+?)\s+else\s*(?:\{.*)?$/))) {
@@ -926,6 +943,167 @@ function libraryStep(head) {
   return lib && !lib.value ? { kind: 'call', says: lib.says, library: true, does: lib.does } : null;
 }
 
+// ── Text with values inside (C, C++, Swift) ──────────────────────────────────────────────────────────────
+// Quoted text keeps every literal character exactly as the code writes it; each inserted value is a placeholder in
+// guillemets, holding the code that is inserted (a plain name exactly as spelled). See docs/spec.md, "Text with values
+// inside". Null when the values cannot be paired with their places: the code is then shown as code.
+
+/** The literal text between the quotes of `lit` (a C/C++/Swift "…" literal, with its quotes), or null. */
+function quotedBody(lit) {
+  const t = String(lit).trim();
+  if (!/^"/.test(t) || t.length < 2 || !t.endsWith('"')) return null;
+  for (let i = 1; i < t.length - 1; i++) { if (t[i] === '\\') { i++; continue; } if (t[i] === '"') return null; }
+  return t.slice(1, -1);
+}
+/** Swift: `"Bearer \(token)"` -> `"Bearer «token»"`. Null when the literal is not one plain "…" text. */
+export function swiftTextWithValues(lit) {
+  const t = String(lit).trim();
+  if (!/^"/.test(t) || /^"""/.test(t)) return null;
+  let out = '', i = 1;
+  for (; i < t.length; i++) {
+    const c = t[i];
+    if (c === '"') break;
+    if (c === '\\' && t[i + 1] === '(') {
+      const close = closeOf(t, i + 1);
+      if (close < 0) return null;
+      out += `«${t.slice(i + 2, close).trim()}»`;
+      i = close;
+      continue;
+    }
+    if (c === '\\') { out += c + (t[i + 1] ?? ''); i++; continue; }
+    out += c;
+  }
+  return i === t.length - 1 ? `"${out}"` : null;
+}
+const PLAIN_CONVERSION = /^%(?:hh|h|ll|l|j|z|t|L|q)?[diusc@]$/;
+/** C printf: `"%s/alias %d\n"` with [dir, n] -> `"«dir»/alias «n»\n"`; `%5.2f` with x -> `«x as %5.2f»`. */
+export function printfTextWithValues(lit, args) {
+  const body = quotedBody(lit);
+  if (body == null) return null;
+  let out = '', k = 0, last = 0;
+  for (const m of body.matchAll(/%(?:%|[-+ #0']*(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|h|ll|l|j|z|t|L|q)?[diouxXeEfFgGaAcspn@])/g)) {
+    if (m[0] === '%%') continue;
+    if (/\*/.test(m[0]) || k >= args.length) return null;
+    const a = String(args[k++]).trim();
+    out += body.slice(last, m.index) + (PLAIN_CONVERSION.test(m[0]) ? `«${a}»` : `«${a} as ${m[0]}»`);
+    last = m.index + m[0].length;
+  }
+  if (k !== args.length) return null;
+  return `"${out}${body.slice(last)}"`;
+}
+/** {fmt} / std::format: `"{}/{:>8}"` with [a, b] -> `"«a»/«b as {:>8}»"`; `{0}` is the first argument. */
+export function braceTextWithValues(lit, args) {
+  const body = quotedBody(lit);
+  if (body == null) return null;
+  let out = '', next = 0, last = 0;
+  const used = new Set();
+  for (const m of body.matchAll(/\{\{|\}\}|\{(\d*)(:[^{}]*)?\}/g)) {
+    if (m[0] === '{{' || m[0] === '}}') continue;
+    const at = m[1] === '' ? next++ : Number(m[1]);
+    if (at >= args.length) return null;
+    used.add(at);
+    const a = String(args[at]).trim();
+    out += body.slice(last, m.index) + (m[2] && m[2] !== ':' ? `«${a} as {${m[2]}}»` : `«${a}»`);
+    last = m.index + m[0].length;
+  }
+  if (used.size !== args.length) return null;
+  return `"${out}${body.slice(last)}"`;
+}
+/** `std::cout << "a: " << x << '\n'` -> `"a: «x»\n"` (string and character literals kept, everything else a value). */
+function streamTextWithValues(parts) {
+  let out = '';
+  for (const p0 of parts) {
+    const p = p0.trim();
+    const q = quotedBody(p);
+    if (q != null) { out += q; continue; }
+    const ch = p.match(/^'((?:\\.|[^'\\])+)'$/);
+    if (ch) { out += ch[1]; continue; }
+    if (/^["']/.test(p) || !p) return null;
+    out += `«${p}»`;
+  }
+  return `"${out}"`;
+}
+/** Split at top-level `<<` (strings and brackets skipped). */
+function splitShift(t) {
+  const out = [];
+  let d = 0, from = 0;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '"' || c === "'") { const q = c; for (i++; i < t.length && t[i] !== q; i++) if (t[i] === '\\') i++; continue; }
+    if ('([{'.includes(c)) d++; else if (')]}'.includes(c)) d--;
+    else if (d === 0 && c === '<' && t[i + 1] === '<') { out.push(t.slice(from, i)); from = i + 2; i++; }
+  }
+  out.push(t.slice(from));
+  return out;
+}
+/** The arguments of the call that starts at `name(` in `t`, or null when its parentheses are not closed at the end. */
+function wholeCallArgs(t, name) {
+  const at = t.indexOf('(', name.length - 1);
+  const close = at >= 0 ? closeOf(t, at) : -1;
+  if (close < 0 || t.slice(close + 1).trim().replace(/;$/, '').trim()) return null;
+  return splitTopArgs(t.slice(at + 1, close));
+}
+
+/**
+ * C, C++, and Swift statements that must be said exactly or shown as code: messages with values inside, a value
+ * written where a pointer points, `+=` / `-=` of a call, other compound operators, a statement that is a ternary, and
+ * compile-time checks. Null for anything else (the usual reading takes over).
+ */
+function sayExactly(first, head) {
+  const t = String(first).trim().replace(/;\s*$/, '').trim();
+  const c = C_FAMILY.has(LANG);
+  let m, args;
+  // Messages: printf / fprintf / puts / fmt::print / std::print / cout << … / Swift print("…\(x)").
+  if (c && (m = t.match(/^(?:std::)?(printf|fprintf|dprintf|puts|fputs|perror)\s*\(/)) && (args = wholeCallArgs(t, m[0]))) {
+    const fmtAt = m[1] === 'fprintf' || m[1] === 'dprintf' ? 1 : 0;
+    const to = m[1] === 'fputs' ? args[1] : fmtAt ? args[0] : null;
+    const lit = m[1] === 'fputs' ? args[0] : args[fmtAt];
+    const text = /^(?:puts|fputs|perror)$/.test(m[1]) ? (quotedBody(lit) != null ? `"${quotedBody(lit)}"` : null) : lit && printfTextWithValues(lit, args.slice(fmtAt + 1));
+    if (!text) return { kind: 'other', says: clip(t, 70) };
+    return { kind: 'call', says: `Writes a log or message${to && !/^(?:stdout|stderr)$/.test(to.trim()) ? ` to ${words(to.trim())}` : ''}: ${text}`, callee: m[1] };
+  }
+  if (c && (m = t.match(/^(?:std::)?(sn?printf)\s*\(/)) && (args = wholeCallArgs(t, m[0]))) {
+    const fmtAt = m[1] === 'snprintf' ? 2 : 1;
+    const text = args[fmtAt] && printfTextWithValues(args[fmtAt], args.slice(fmtAt + 1));
+    return text ? { kind: 'set', says: `Writes the text ${text} into ${targetWords(args[0].trim().replace(/^&/, ''))}` } : { kind: 'other', says: clip(t, 70) };
+  }
+  if (c && (m = t.match(/^(?:fmt|std)::(print|println)\s*\(/)) && (args = wholeCallArgs(t, m[0]))) {
+    const lit = /^"/.test(args[0] || '') ? 0 : 1;
+    const text = args[lit] && braceTextWithValues(args[lit], args.slice(lit + 1));
+    return text ? { kind: 'call', says: `Writes a log or message${lit ? ` to ${words(args[0].trim())}` : ''}: ${text}`, callee: m[1] } : { kind: 'other', says: clip(t, 70) };
+  }
+  if (c && /^(?:std::)?(?:cout|cerr|clog)\s*<</.test(t)) {
+    const parts = splitShift(t).slice(1);
+    const text = parts.length && parts.length <= 12 ? streamTextWithValues(parts) : null;
+    return text ? { kind: 'call', says: `Writes a log or message: ${text}`, callee: 'cout' } : { kind: 'other', says: clip(t, 70) };
+  }
+  if (LANG === 'swift' && (m = t.match(/^(print|debugPrint|NSLog)\s*\(\s*(".*")\s*\)$/)) && (args = wholeCallArgs(t, m[1] + '('))?.length === 1) {
+    const text = swiftTextWithValues(args[0]);
+    if (text) return { kind: 'call', says: `Writes a log or message: ${text}`, callee: m[1] };
+  }
+  if (c) {
+    // `*out = v` writes v where out points (out itself does not change); `*p++ = v` is shown as code.
+    if ((m = t.match(/^\*\s*([A-Za-z_][\w.]*(?:->[A-Za-z_]\w*)*)\s*=(?!=)\s*(.+)$/))) {
+      const v = sayValue(m[2]) ?? sayArithmetic(m[2]);
+      return v ? { kind: 'set', says: `Writes ${v} where ${targetWords(m[1].replace(/->/g, '.'))} points` } : { kind: 'other', says: clip(t, 70) };
+    }
+    if (/^static_assert\s*\(/.test(t)) return { kind: 'check', says: 'Checks a fact about the types when the code is compiled' };
+  }
+  // Compound assignment: `x += f(y)` adds (it does not replace x); bit and shift operators are shown as code.
+  if ((m = String(head).trim().replace(/;\s*$/, '').match(/^([A-Za-z_][\w.\[\]>-]*)\s*(\+|-|\||&|\^|<<|>>)=\s*(.+)$/)) && !/[-+]$/.test(m[1])) {
+    if (m[2] !== '+' && m[2] !== '-') return { kind: 'other', says: clip(t, 70) };
+    const value = c ? cNormalize(m[3]) : m[3];
+    const v = sayValue(value) ?? sayArithmetic(value);
+    const target = targetWords(m[1].replace(/->/g, '.'));
+    return v ? { kind: 'set', says: `${m[2] === '+' ? 'Adds' : 'Subtracts'} ${v} ${m[2] === '+' ? 'to' : 'from'} ${target}` } : { kind: 'other', says: clip(t, 70) };
+  }
+  // A statement that is a ternary (`locking ? a(x) : b(x);`) does one of two things: shown as code.
+  const bare = stripQuotedText(t);
+  if (!/^(?:return|throw|if|for|while|switch|case|let|var|guard)\b/.test(t) && !/^[\w.\[\]>-]+\s*[-+*/%|&^]?=(?!=)/.test(t) && /\s\?\s.*\s:\s/.test(bare)) return { kind: 'other', says: clip(t, 70) };
+  return null;
+}
+const stripQuotedText = (s) => String(s).replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g, 'Q');
+
 export function classifyStatement(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
@@ -961,11 +1139,16 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     .replace(/\(\(\s*[A-Z][\w.<>\[\]?, ]*\s*\)\s*([\w$.]+)\s*\)/g, '$1').replace(/^(\w[\w.]*\s*=\s*)\(\s*[A-Z][\w.<>\[\]?]*\s*\)\s*/, '$1')
     // .NET: `.ConfigureAwait(false)` only says which thread carries on; it changes nothing a reader needs.
     .replace(/\.ConfigureAwait\(\s*(?:false|true)\s*\)/g, '');
-  const code = clip(head, 90);
+  // (C, C++, and Swift show the code exactly as written: `window!.root` stays `window!.root`.)
+  const code = clip(C_FAMILY.has(LANG) || LANG === 'swift' ? first : head, 90);
   let m;
   const innerNote = inner ? ` (${inner} step${inner === 1 ? '' : 's'} inside)` : '';
+  const exact = C_FAMILY.has(LANG) || LANG === 'swift' ? sayExactly(first, head) : null;
+  if (exact) return { ...exact, code };
   // C and C++ read like the rest once `p->x` is `p.x`, C casts are dropped, and `Type *name = v` is `var name = v`.
   if (C_FAMILY.has(LANG)) head = cNormalize(head);
+  // `if (x) [[unlikely]] {`: the attribute is a hint to the compiler, not part of the check or the block.
+  if (C_FAMILY.has(LANG)) head = head.replace(/^((?:else\s+)?(?:if|while|for|switch)\s*\(.*\))\s*\[\[[^\[\]]*\]\]\s*(?=\{)/, '$1 ');
   // Swift marks a call that can fail with `try` (and one that waits with `await`): the step is the call itself.
   if (LANG === 'swift' && !/^do\b/.test(head)) head = head.replace(/^(return\s+)?(?:(?:try[?!]?|await)\s+)+/, '$1').replace(/(\w|\))\?(?=\()/g, '$1');
   if (LANG === 'swift' && /^self\.init\s*\(/.test(head)) return { kind: 'call', says: 'Sets up the way another init does', code };
@@ -993,7 +1176,8 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
   if ((inl = head.match(/^(if|else\s+if)\s*\(/))) {
     const c = closeOf(head, head.indexOf('('));
     const body = c > 0 ? head.slice(c + 1).trim() : '';
-    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && !/^(?:&&|\|\||and\b|or\b|is\b|in\b|not\b|instanceof\b|[-+*/%<>=!?.])/.test(body) && !/:\s*$/.test(body)) {
+    // (`if (x) ++q;` has a statement after its condition: `++q` is not the condition going on.)
+    if (body && !/^[{:]/.test(body) && !/^then\b/.test(body) && !/\belse\b/.test(body) && (!/^(?:&&|\|\||and\b|or\b|is\b|in\b|not\b|instanceof\b|[-+*/%<>=!?.])/.test(body) || /^(?:\+\+|--)[A-Za-z_][\w.]*\s*;?$/.test(body)) && !/:\s*$/.test(body)) {
       const cond = head.slice(head.indexOf('(') + 1, c);
       return { kind: 'branch', says: `If ${sayCodeCondition(cond)}`, cond, code, inline: body };
     }
@@ -1137,6 +1321,11 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (fn) return { kind: 'branch', says: `If ${lastWords(fn)} fails${innerNote}`, code };
   }
   if ((m = head.match(/^(?:if|else\s+if)\s+[^;{]*:=[^;{]*;\s*(.+?)\s*\{?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${cond}${innerNote}`, cond: m[1], code }; }
+  // C/C++ `if (x) { y; }` on one line: the condition is what is inside the parentheses, not the block after it.
+  if (C_FAMILY.has(LANG) && (m = head.match(/^(?:else\s+)?if\s*\(/))) {
+    const close = closeOf(head, head.indexOf('('));
+    if (close > 0 && /^\s*(?:\[\[[^\[\]]*\]\]\s*)?\{/.test(head.slice(close + 1))) { const cond = head.slice(head.indexOf('(') + 1, close); return { kind: 'branch', says: `If ${sayCodeCondition(cond)}${innerNote}`, cond, code }; }
+  }
   if ((m = head.match(/^(?:if|elif|else\s+if|unless|when)\b\s*(.*?)\s*(?:\{|:|then)?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${/^unless\b/.test(head) ? 'not: ' : ''}${cond}${innerNote}`, cond: m[1].replace(/^\((.*)\)$/, '$1'), code, negate: /^unless\b/.test(head) }; }
   if (/^switch\s*(?:true\s*)?\{$/.test(head)) return { kind: 'branch', says: `Checks these cases in order${innerNote}`, code };
   if ((m = head.match(/^(?:switch|match|case|select)\b\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
@@ -1251,9 +1440,13 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     if (m[2] === '.=') { const v = valueWords(value); return { kind: 'set', says: v ? `Adds ${v} to the end of ${target}` : `Adds to the end of ${target}`, code }; }
     if (m[2] === '%=' || m[2] === '&&=') return { kind: 'other', says: clip(head, 70), code };
     // A yes/no value: `ok = proxy and scheme != "https"` -> "Works out ok: whether proxy and scheme is not https".
-    if (m[2] === '=' && fb == null && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.').replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, 'Q')) && !/=>/.test(value)) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
+    if (m[2] === '=' && fb == null && !/^(?:if|unless|match|when|case)\b/.test(value) && !/[(?]/.test(value.replace(/^\(|\)$/g, '')) && /(&&|\|\||\band\b|\bor\b|[!=]==?|(?<![-=])[<>]=?)/.test(value.replace(/->|=>/g, '.').replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, 'Q')) && !/=>/.test(value) && !((C_FAMILY.has(LANG) || LANG === 'swift') && /<<|>>/.test(stripQuotedText(value)))) return { kind: 'set', says: `Works out ${target}: whether ${sayCodeCondition(value)}`, code };
     // self.max_books = max_books: the Thing keeps what it was given.
-    if (m[2] === '=' && /^[A-Za-z_]\w*$/.test(value) && m[1].split('.').pop() === value && /^(self|this)\./.test(m[1])) return { kind: 'set', says: `Keeps the ${words(value)} it is given`, code };
+    if (m[2] === '=' && /^[A-Za-z_]\w*$/.test(value) && m[1].split('.').pop() === value && /^(self|this)\./.test(m[1])) {
+      // Only an input is "given": a value made in this function is kept, not given (C, C++, Swift check the inputs).
+      const given = !(C_FAMILY.has(LANG) || LANG === 'swift') || !FN_CONTEXT?.params || FN_CONTEXT.params.some((p) => p.name === value);
+      return { kind: 'set', says: given ? `Keeps the ${words(value)} it is given` : `Keeps ${words(value)} as its own ${words(value)}`, code };
+    }
     const chain = value ? (sayPython(value) || sayChain(value)) : null;
     if (chain) return { kind: 'set', says: `Works out ${target}: ${chain}`, code };
     const common = value ? sayCommon(m[3].trim().replace(/;$/, '')) || sayCommon(value) : null;
@@ -1647,6 +1840,8 @@ export function stepsFrom(statements) {
     if (/^(?:"""|'''|r"""|\/\*\*|\*(?![\w(*]))/.test(t0)) { skipped.push(spanOf(s)); continue; } // docstrings and doc comments (not C's `*out = n`)
     // C/C++ `(void)x;` and `static_cast<void>(x);` only tell the compiler x is unused on purpose: nothing happens.
     if (C_FAMILY.has(LANG) && /^(?:\(\s*void\s*\)|static_cast\s*<\s*void\s*>)\s*\(?\s*[\w.]+\s*\)?\s*;?$/.test(t0)) { skipped.push(spanOf(s)); continue; }
+    // C++ `using traits = …;`, `using namespace detail;`, `using std::get;` only name things for the code below: no step.
+    if (LANG === 'cpp' && /^using\s+(?:namespace\s+)?[\w:]+(?:\s*=[^;{]*)?;?$/.test(t0.replace(/<[^;{}]*>/g, ''))) { skipped.push(spanOf(s)); continue; }
     if (/^[)\]}]+[):;,]*$/.test(t0) || /^\.\.\.$/.test(t0) || /^\.[A-Za-z_]/.test(t0) || /^@\w+(?:\(.*\))?$/.test(t0) || /^#?\[[\w:]+(?:\(.*\))?\]$/.test(t0) || /^:(?:param|rtype|return|raises|type)\b/.test(t0)) { skipped.push(spanOf(s)); continue; }
     const head0 = headLine(s.text);
     // A bare block `{ … }` (a case's own scope) adds nothing to read: its statements are read in its place.
@@ -1676,6 +1871,19 @@ export function stepsFrom(statements) {
     }
     let step = { ...classifyStatement(s.implicitReturn ? `return ${s.text}` : s.text, { inner: s.inner || 0 }), line: s.line, span: spanOf(s) };
     if (s.implicitReturn) step.code = clip(headLine(s.text), 90);
+    // A Swift body that is one call with a trailing closure gives back what the last call makes, with the closure's
+    // steps under it: `parseDirectives(…).compactMap { … }` -> "Returns the result of compact map".
+    const closureHead = headLine(s.text).replace(/\{[^{}]*?(?<![\w$])in\s*$/, '{');
+    if (s.implicitReturn && s.children?.length && /\{\s*$/.test(closureHead)) {
+      const last = closureHead.replace(/\{\s*$/, '').trim().replace(/\([^()]*\)\s*$/, '').match(/([A-Za-z_]\w*)\s*$/);
+      if (last) {
+        const kids = stepsFrom(s.children).steps;
+        if (kids.length) steps.push({ kind: 'call', says: `Calls ${words(last[1])} with these steps`, code: step.code, line: s.line, span: spanOf(s), children: kids, nested: true });
+        steps.push({ ...step, kind: 'return', says: `Returns the result of ${words(last[1])}` });
+        delete steps[steps.length - 1].value;
+        continue;
+      }
+    }
     // `val label = if (user == null) { … } else { … }` over several lines reads as the question it asks, each side
     // ending in "Sets label to …".
     if (choice && /^(?:if|unless|case)\b/.test(choice.rest) && (s.endLine ?? s.line) > s.line) {
@@ -1942,7 +2150,7 @@ export function braceStatements(stmts, split = null) {
     const lit = BLOCK_HEAD.test(head0) && !/^func\s*\(/.test(head0) ? null : fnLiteral(text);
     // The block is the first brace outside brackets: in Swift and C++ a condition can hold a closure or lambda
     // (`if let i = list.firstIndex(where: { $0 > 1 }) {`). (Other headers: see blockOpen.)
-    let open = lit?.open ?? (LANG === 'swift' || (C_FAMILY.has(LANG) && !/^(?:if|else\s+if|for|while|switch|catch)\s*\(/.test(head0)) ? blockBrace(text) : blockOpen(text, head0));
+    let open = lit?.open ?? (LANG === 'swift' || (C_FAMILY.has(LANG) && !/^(?:if|else\s+if|for|while|switch|catch)\s*\(/.test(head0)) ? blockBrace(text) : C_FAMILY.has(LANG) ? cBlockOpen(text, head0) : blockOpen(text, head0));
     const lineAtPos = (pos) => s.line + (text.slice(0, pos).match(/\n/g) || []).length;
     const read = (o, e) => {
       let from = o + 1;
@@ -2014,6 +2222,13 @@ export function braceStatements(stmts, split = null) {
   });
 }
 
+/** blockOpen, with C++ attributes between the header and its block skipped: `if (x) [[unlikely]] {`. */
+function cBlockOpen(text, head0) {
+  const o = text.indexOf('(');
+  const c = o >= 0 ? closeOf(text, o) : -1;
+  const attr = c > 0 ? text.slice(c + 1).match(/^\s*\[\[[^\[\]]*\]\]\s*\{/) : null;
+  return attr ? c + attr[0].length : blockOpen(text, head0);
+}
 /** The first `{` that is not inside parentheses or brackets (strings skipped), or -1. */
 function blockBrace(text) {
   let depth = 0;
