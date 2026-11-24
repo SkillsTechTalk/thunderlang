@@ -6,12 +6,17 @@
 //   2. What a step keeps: steps cannot be run, so check what the Thunder wording keeps from the code line: every
 //      number and text value must appear in the code (anything else is invented), and how many of the code's names
 //      the wording mentions. Steps shown as code are counted apart: honest, but not explained.
-//   (2b. Polarity: every question in words keeps the code's negations, and its Stop sits on the side the code takes.)
+//      Names are counted twice: in the short words, and in Details (the words plus every detail one level down,
+//      from the step's meaning tree), which is what a reader can see at Details or in the full Thunder Text.
+//   2b. Polarity: every question in words keeps the code's negations, and its Stop sits on the side the code takes.
+//   2c. Steps round trip (TypeScript, JavaScript, Python, Go): each step's meaning tree is written back as code,
+//      read again, and compared; conditions and values made of names and operators are also run, before and after,
+//      on generated inputs. "exact" = the same tree came back.
 //   3. Big Picture against an independent count: classes, routes, and methods counted by a separate, deliberately
 //      simple scan, compared with what Thunder's model draws: missing, misplaced (a method owned by the wrong Thing),
 //      or invented.
 //
-// Usage: node scripts/accuracy.mjs <folder>... [--json] [--samples out.md --per-language 30]
+// Usage: node scripts/accuracy.mjs <folder>... [--json] [--steps] [--samples out.md --per-language 30]
 import { writeFileSync } from 'node:fs';
 import { collectReadableFiles } from '../src/read-repo-fs.mjs';
 import { readableLanguage, readFiles } from '../src/read-repo.mjs';
@@ -21,6 +26,8 @@ import { translateDecisions, TRANSLATE_LANGUAGES } from '../src/translate.mjs';
 import { compareRules } from '../src/same.mjs';
 import { thunderModel, modelText, readLevel, askAsQuestion } from '../src/model.mjs';
 import { codeCounts, wordCounts } from '../src/faithful.mjs';
+import { detailParts, wordsAgree } from '../src/meaning.mjs';
+import { stepRoundTrip, behaviorCase, runBehavior, ROUND_TRIP_LANGUAGES } from '../src/round-trip.mjs';
 
 const args = process.argv.slice(2);
 const dirs = args.filter((a, i) => !a.startsWith('--') && !['--samples', '--per-language'].includes(args[i - 1]));
@@ -30,7 +37,9 @@ if (!dirs.length) { console.error('Use: node scripts/accuracy.mjs <folder>... [-
 const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_\-.$]+/g, ' ').toLowerCase().trim();
 const flat = (steps) => (steps || []).flatMap((s) => [s, ...flat(s.children), ...flat(s.otherwise), ...(s.handlers || []).flatMap((h) => flat(h.steps)), ...flat(s.always?.steps)]);
 const TARGETS = TRANSLATE_LANGUAGES.map((l) => l.key);
-const KEYWORDS = new Set('if else elif for while do return const let var new await async function def fn func public private protected static final void int string bool boolean true false null nil none undefined this self try catch finally throw raise import from as in of is not and or the let mut pub use val fun class struct enum interface type when match switch case break continue yield lambda end then begin elsif unless puts echo print println printf console log'.split(' '));
+const KEYWORDS = new Set('if else elif for while do return const let var new await async function def fn func public private protected static final void int string bool boolean true false null nil none undefined this self try catch finally throw raise import from as in of is not and or the let mut pub use val fun class struct enum interface type when match switch case break continue yield lambda end then begin elsif unless puts echo print println printf console log with assert del pass global nonlocal except go defer range chan select fallthrough typeof instanceof delete void foreach out ref params open override internal sealed abstract virtual readonly extends implements throws'.split(' '));
+// A line's comment is not code: `x = f(y)  # noqa: F811` has the names x, f, y.
+const withoutComment = (line) => String(line).replace(/\/\*.*?\*\/|\/\/.*$|(?:^|\s)#(?![[!{]).*$/, ' ');
 
 // ── 1. Round trip for rules ──────────────────────────────────────────────────────────────────────────────
 
@@ -69,10 +78,13 @@ function stepFidelity(step, lines = []) {
   const whole = says.match(/"[^]{1,200}"/);
   for (const q of says.match(/"[^"]{0,80}"/g) || []) if (!inCode(q) && !(whole && inCode(whole[0]))) invented.push(q);
   // Kept: how many of the code's names the wording mentions (as words).
-  const names = [...new Set((firstLine.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, ' ').match(/[A-Za-z_][\w]*/g) || []).filter((t) => !KEYWORDS.has(t.toLowerCase()) && t.length > 1))];
-  const sw = ` ${words(says)} `;
-  const kept = names.filter((n) => sw.includes(` ${words(n)} `) || words(n).split(' ').every((w) => sw.includes(` ${w}`)));
-  return { names: names.length, kept: kept.length, invented };
+  const names = [...new Set((withoutComment(firstLine.replace(/(["'`])(?:\\.|(?!\1).)*\1/g, ' ')).match(/[A-Za-z_][\w]*/g) || []).filter((t) => !KEYWORDS.has(t.toLowerCase()) && t.length > 1))];
+  // (Details is code-like text: its brackets and commas are separators, as spaces are in words.)
+  const keptIn = (text, code = false) => { const sw = ` ${words(code ? String(text).replace(/[^\w\s$.-]+/g, " ") : text)} `; return names.filter((n) => sw.includes(` ${words(n)} `) || words(n).split(" ").every((w) => sw.includes(` ${w}`))).length; };
+  // Details: the words, every detail one level down, and the steps written on the same line (a one-line if's body).
+  const sameLine = (st) => [st, ...(st.children || []).filter((c) => c.line === st.line).flatMap(sameLine)];
+  const details = sameLine(step).map((st) => [st.says, ...detailParts(st).map((x) => `${x.label} ${x.text.replace(/["'`]/g, ' ')}`)].join(' ')).join(' ');
+  return { names: names.length, kept: keptIn(says), keptDetails: keptIn(details, true), invented };
 }
 
 // ── 2b. Polarity: the words of each question, and its Yes / No side, against the code's condition ──────────
@@ -178,11 +190,14 @@ function inputsOutputs(model, files, details) {
 
 // ── Run ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-const report = { repos: [], totals: { rules: 0, trips: 0, same: 0, different: 0, notReadBack: 0, cannotRun: 0, notWritten: 0, steps: 0, asCode: 0, names: 0, kept: 0, invented: 0, questions: 0, polarity: 0 }, failures: [], inventedExamples: [], polarityExamples: [] };
+const report = { repos: [], totals: { rules: 0, trips: 0, same: 0, different: 0, notReadBack: 0, cannotRun: 0, notWritten: 0, steps: 0, asCode: 0, names: 0, kept: 0, keptDetails: 0, invented: 0, disagree: 0, questions: 0, polarity: 0, rtSteps: 0, rtExact: 0, rtDifferent: 0, rtCode: 0, rtNotWritten: 0, rtNotReadBack: 0, bhCases: 0, bhSame: 0, bhDifferent: 0, bhNotRun: 0 }, failures: [], inventedExamples: [], disagreeExamples: [], polarityExamples: [], stepTripFailures: [], behaviorFailures: [] };
+const RT = { exact: 'rtExact', different: 'rtDifferent', code: 'rtCode', 'not-written': 'rtNotWritten', 'not-read-back': 'rtNotReadBack' };
+const sourceOf = (step, f, lines) => (step.span?.exact === 'offset' && step.span.start != null ? f.source.slice(step.span.start, step.span.end) : step.span ? lines.slice(step.span.startLine - 1, step.span.endLine).join('\n') : lines[step.line - 1] ?? '');
 const samples = [];
 for (const dir of dirs) {
   const files = readFiles(collectReadableFiles(dir, { maxFiles: 3000 }).filter((f) => f.source && !/(^|\/)(test|tests|spec|__tests__|testdata|fixtures?)\//i.test(f.path)));
-  const repo = { repo: dir.split('/').pop(), files: files.length, languages: {}, rules: 0, trips: 0, same: 0, steps: 0, asCode: 0, names: 0, kept: 0, invented: 0, questions: 0, polarity: 0 };
+  const repo = { repo: dir.split('/').pop(), files: files.length, languages: {}, rules: 0, trips: 0, same: 0, steps: 0, asCode: 0, names: 0, kept: 0, keptDetails: 0, invented: 0, disagree: 0, questions: 0, polarity: 0, rtSteps: 0, rtExact: 0, rtDifferent: 0, rtCode: 0, rtNotWritten: 0, rtNotReadBack: 0, bhCases: 0, bhSame: 0, bhDifferent: 0, bhNotRun: 0, rtByLanguage: {} };
+  const behavior = {};
   for (const f of files) {
     if (!f.reading) continue;
     const lang = f.reading.language;
@@ -203,19 +218,36 @@ for (const dir of dirs) {
         for (const s of flat(it.steps)) {
           const pol = polarityOf(s);
           if (pol) { repo.questions++; if (pol === 'flipped') { repo.polarity++; if (report.polarityExamples.length < 40) report.polarityExamples.push({ file: `${repo.repo}/${f.path}:${s.line}`, code: s.cond, ask: askAsQuestion(s).text }); } }
+          // 2c. Round trip of the step's meaning (in the languages Thunder writes steps back to).
+          if (ROUND_TRIP_LANGUAGES.includes(lang)) {
+            const t = stepRoundTrip(s, lang);
+            repo.rtSteps++; repo[RT[t.result]]++;
+            const bl = (repo.rtByLanguage[lang] ||= { steps: 0, exact: 0 }); bl.steps++; if (t.result === 'exact') bl.exact++;
+            if ((t.result === 'different' || t.result === 'not-read-back') && report.stepTripFailures.length < 80) report.stepTripFailures.push({ file: `${repo.repo}/${f.path}:${s.line}`, result: t.result, code: String(s.code).slice(0, 120), written: t.code?.split('\n')[0], why: t.why });
+            if (t.result === 'exact') { const c = behaviorCase(s, sourceOf(s, f, lines), lang); if (c) (behavior[lang] ||= []).push({ ...c, at: `${repo.repo}/${f.path}:${s.line}` }); }
+          }
           const r = stepFidelity(s, lines);
           repo.steps++;
           if (r.asCode) { repo.asCode++; continue; }
-          repo.names += r.names; repo.kept += r.kept;
+          repo.names += r.names; repo.kept += r.kept; repo.keptDetails += r.keptDetails;
+          const dis = wordsAgree(s);
+          if (dis.length) { repo.disagree++; if (report.disagreeExamples.length < 60) report.disagreeExamples.push({ file: `${repo.repo}/${f.path}:${s.line}`, code: String(s.code).slice(0, 120), says: s.says, why: dis }); }
           if (r.invented.length) { repo.invented++; if (report.inventedExamples.length < 60) report.inventedExamples.push({ file: `${repo.repo}/${f.path}:${s.line}`, code: String(s.code).slice(0, 160), says: s.says, invented: r.invented }); }
         }
       }
     }
   }
+  for (const [lang, cases] of Object.entries(behavior)) {
+    const results = runBehavior(cases, lang);
+    results.forEach((r, i) => {
+      repo.bhCases++;
+      if (r.result === 'same') repo.bhSame++; else if (r.result === 'different') { repo.bhDifferent++; if (report.behaviorFailures.length < 40) report.behaviorFailures.push({ at: cases[i].at, original: cases[i].original, written: cases[i].written, why: r.why }); } else repo.bhNotRun++;
+    });
+  }
   const model = thunderModel(files, { name: repo.repo });
   repo.bigPicture = bigPictureCheck(model, files);
   repo.io = inputsOutputs(model, files, (m) => readLevel(model, 'details', m.id));
-  for (const k of ['rules', 'trips', 'steps', 'asCode', 'names', 'kept', 'invented', 'questions', 'polarity']) report.totals[k] += repo[k];
+  for (const k of ['rules', 'trips', 'steps', 'asCode', 'names', 'kept', 'keptDetails', 'invented', 'disagree', 'questions', 'polarity', 'rtSteps', 'rtExact', 'rtDifferent', 'rtCode', 'rtNotWritten', 'rtNotReadBack', 'bhCases', 'bhSame', 'bhDifferent', 'bhNotRun']) report.totals[k] += repo[k];
   report.repos.push(repo);
   // Samples for a person to grade: functions and rules, spread across files.
   const per = Number(flag('--per-language', 0));
@@ -234,13 +266,16 @@ for (const dir of dirs) {
 const pct = (a, b) => (b ? `${Math.round((a / b) * 1000) / 10}%` : 'n/a');
 if (args.includes('--json')) console.log(JSON.stringify(report, null, 2));
 else {
-  console.log('Repo | rules | round trips same | steps explained | names kept | steps with an invented value | classes drawn | routes drawn | methods misplaced | inputs shown | endings shown');
+  console.log('Repo | rules | round trips same | steps explained | names kept (short words) | names kept (Details) | steps round-trip exact | steps with an invented value | classes drawn | routes drawn | methods misplaced | inputs shown | endings shown');
   for (const r of report.repos) {
     const b = r.bigPicture;
-    console.log(`${r.repo} | ${r.rules} | ${pct(r.same, r.trips)} (${r.same}/${r.trips}) | ${pct(r.steps - r.asCode, r.steps)} | ${pct(r.kept, r.names)} | ${r.invented} of ${r.steps - r.asCode} | ${pct(b.drawn, b.declared)} (${b.drawn}/${b.declared}) | ${b.routesDrawn}/${b.routesFound} | ${b.misplaced} of ${b.members} | ${pct(r.io.inputsShown, r.io.inputsInCode)} (${r.io.inputsShown}/${r.io.inputsInCode}) | ${pct(r.io.outputsShown, r.io.membersWithOutputs)}`);
+    const rt = r.rtSteps ? `${pct(r.rtExact, r.rtSteps)} (${r.rtExact}/${r.rtSteps})` : 'n/a';
+    console.log(`${r.repo} | ${r.rules} | ${pct(r.same, r.trips)} (${r.same}/${r.trips}) | ${pct(r.steps - r.asCode, r.steps)} | ${pct(r.kept, r.names)} | ${pct(r.keptDetails, r.names)} | ${rt} | ${r.invented} of ${r.steps - r.asCode} | ${pct(b.drawn, b.declared)} (${b.drawn}/${b.declared}) | ${b.routesDrawn}/${b.routesFound} | ${b.misplaced} of ${b.members} | ${pct(r.io.inputsShown, r.io.inputsInCode)} (${r.io.inputsShown}/${r.io.inputsInCode}) | ${pct(r.io.outputsShown, r.io.membersWithOutputs)}`);
   }
   const t = report.totals;
-  console.log(`\nAll: round trips same ${pct(t.same, t.trips)} (${t.same}/${t.trips}; different ${t.different}, not read back ${t.notReadBack}, cannot run ${t.cannotRun}, not written ${t.notWritten}); steps explained ${pct(t.steps - t.asCode, t.steps)}; names kept ${pct(t.kept, t.names)}; steps with an invented value ${t.invented}; questions whose words or side disagree with the code's polarity ${t.polarity} of ${t.questions}`);
+  console.log(`\nAll: round trips same ${pct(t.same, t.trips)} (${t.same}/${t.trips}; different ${t.different}, not read back ${t.notReadBack}, cannot run ${t.cannotRun}, not written ${t.notWritten}); steps explained ${pct(t.steps - t.asCode, t.steps)}; names kept ${pct(t.kept, t.names)} in the short words, ${pct(t.keptDetails, t.names)} in Details; steps with an invented value ${t.invented}; words that disagree with the meaning tree ${t.disagree}; questions whose words or side disagree with the code's polarity ${t.polarity} of ${t.questions}`);
+  console.log(`Steps round trip (${ROUND_TRIP_LANGUAGES.join(', ')}): exact ${pct(t.rtExact, t.rtSteps)} (${t.rtExact}/${t.rtSteps}); different ${t.rtDifferent}; kept as code ${t.rtCode}; not written ${t.rtNotWritten}; not read back ${t.rtNotReadBack}. Run before and after: ${t.bhSame} same, ${t.bhDifferent} different, ${t.bhNotRun} not run (of ${t.bhCases}).`);
+  for (const r of report.repos) if (r.rtSteps) console.log(`  ${r.repo}: ${Object.entries(r.rtByLanguage).map(([l, x]) => `${l} ${pct(x.exact, x.steps)} (${x.exact}/${x.steps})`).join(', ')}; exact of steps read into a tree ${pct(r.rtExact, r.rtSteps - r.rtCode)}; run ${r.bhSame}/${r.bhCases} same, ${r.bhDifferent} different`);
 }
 const out = flag('--samples');
 if (out) {
@@ -249,3 +284,4 @@ if (out) {
 }
 if (args.includes('--io')) for (const r of report.repos) { console.log(`\n${r.repo}: missing inputs`); r.io.missingInputs.slice(0, 8).forEach((x) => console.log('  ' + x)); console.log(`${r.repo}: no endings shown`); r.io.membersShowingNone.slice(0, 6).forEach((x) => console.log('  ' + x)); }
 if (args.includes('--failures')) { console.log(JSON.stringify(report.failures.slice(0, 40), null, 1)); console.log(JSON.stringify(report.inventedExamples.slice(0, 30), null, 1)); console.log(JSON.stringify(report.polarityExamples.slice(0, 30), null, 1)); }
+if (args.includes('--steps')) { console.log(JSON.stringify({ stepTripFailures: report.stepTripFailures, behaviorFailures: report.behaviorFailures, disagree: report.disagreeExamples }, null, 1)); }

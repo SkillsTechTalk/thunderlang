@@ -1212,7 +1212,8 @@ function splitStatements(body, baseLine) {
         // A brace-less `if (x)` / `for (…)` / `else` carries on into the one statement on the next line.
         if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
         if (/^(?:\}\s*)?else$/.test(before)) continue;
-        if (before && !/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) &&!/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
+        // (`i++` / `n--` at the end of a line is a whole statement, not an operator waiting for more.)
+        if (before && (!/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) || /[\w)\]](?:\+\+|--)$/.test(before)) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after)) { i++; break; }
       }
     }
     const raw = src.slice(start, i);
@@ -1881,6 +1882,14 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   // Anchoring: every step (and child step) points at its exact place in the original file.
   const walk = (list) => { for (const st of list) { anchorSpan(st.span, fn, lang); if (st.children) walk(st.children); } };
   walk(r.steps);
+  // Every step carries its meaning tree (`expr`); a step made without one keeps its code, never a guess.
+  const withExpr = (list) => {
+    for (const st of list || []) {
+      if (!st.expr) st.expr = { kind: 'code', text: String(st.code ?? '').replace(/\s+/g, ' ').trim() };
+      withExpr(st.children); withExpr(st.otherwise); for (const h of st.handlers || []) withExpr(h.steps); withExpr(st.always?.steps);
+    }
+  };
+  withExpr(r.steps);
   for (const sk of r.skipped) anchorSpan(sk, fn, lang);
   const range = bodyRange(fn, lang, code);
   if (range) {
@@ -1911,7 +1920,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   return r;
 }
 
-export function readCode(source, { language, file = '' } = {}) {
+export function readCode(source, { language, file = '', allSteps = false } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
   const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions').replace(/^(tf|hcl|opentofu|tofu)$/, 'terraform').replace(/^(k8s|kube|kubectl)$/, 'kubernetes').replace(/^(compose|docker[ -]?compose)$/, 'docker-compose');
@@ -1970,6 +1979,8 @@ export function readCode(source, { language, file = '' } = {}) {
         says: (fn.route ? `Handles ${fn.route.method} ${fn.route.path}. ` : '') + sayDecision(read.rules, read.otherwise) + guardNote, guards,
         thunder: decisionSource(fn.name, inputs, read.rules, read.otherwise),
         unread: read.unread,
+        // `allSteps`: a decision also carries its steps (for writing in Thunder, which edits any function by its steps).
+        ...(allSteps ? (() => { const st = functionSteps(fn, lang, code, names, srcLines); return st ? { steps: st.steps, ...(st.anchor ? { anchor: st.anchor } : {}) } : {}; })() : {}),
       });
     } else {
       const st = functionSteps(fn, lang, code, names, srcLines);

@@ -179,6 +179,105 @@ any" tells a reader nothing the code did not, so Thunder marks such steps `resta
 and does not count them as read. A function is drawn as a steps card when at least half its steps explain something.
 Otherwise it is a not-read-yet card.
 
+### Every detail, one level down (works today)
+
+Thunder's words are short on purpose: "Calls save" is easier to read than the call. Nothing is lost by being short,
+because every step also carries its **meaning tree** (`expr`, schema `thunder-expr-v1`): a small, language-neutral
+tree of exactly what the statement says.
+
+| The code has | The tree keeps |
+| --- | --- |
+| a call | what is called (the whole path: `this.repo.save`) and every argument, named or not |
+| an assignment | the whole target (with its index or key), the operator, the value, a declared type |
+| a condition | every operand, every comparison, every `and` / `or`, every negation |
+| a value | its exact value (`0x1F` is 31, `"a\tb"` has a tab), text with values in it part by part |
+| an object, list, or JSX | every key and item; every tag, attribute, and child |
+| a function written inside | its parameters (and types); its body is the step's own children |
+| a return or a failure | the value; the error's type and its message |
+
+The tree is read from the code, never guessed: what Thunder cannot read exactly is kept as `{ kind: 'code', text }`.
+Three places show it:
+
+- **Details** gives each step its tree (`expr`) and what the short words leave out (`detail`): `Calls save` has the
+  detail `with: order, { validate: false }`, shown as **Calls save — with: order, { validate: false }**. A step whose
+  words already say everything has no detail.
+- **Thunder Text** stays short by default. The full form (`modelText(model, id, { full: true })`, or Text with
+  `{ full: true }`) adds every detail after the words on the same line, so nothing in the code is out of reach.
+- **The faithfulness gate** counts a condition's negations and comparisons from its tree, so a TypeScript non-null
+  `x!` is not mistaken for a negation, and an operator inside a string is never counted.
+
+**Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, each step's tree can be written back as code
+(`renderStatement`), read again, and compared (`stepRoundTrip`). Where a condition or value is made only of names,
+values, and operators, the original code and the code written back are also run on the same generated inputs and
+must give the same answers. `scripts/accuracy.mjs` reports the share of steps whose round trip is exact, and how many
+of the code's names a reader can see in the short words and in Details ([accuracy](./accuracy.md)).
+
+### Writing in Thunder (works today)
+
+A person changes software in Thunder, and never has to edit the original language. A change is a **Thunder edit**: a
+small, explicit operation on the meaning model, addressed by function (its model id, `file:name`, or `{ file, name,
+line }`) and step (`line:12`, a path such as `"1.0"`, or a Flow node id such as `n4`).
+
+| Edit | What it changes |
+| --- | --- |
+| `setValue` | a value in a step: `7` → `10`, `"gold"` → `"platinum"`, `false` → `true` |
+| `setCondition` | a question: its whole condition (`when`), a comparison (`compare`), one side (`operand`), its negation (`negate`), a new `and` / `or` part (`addClause`), or one part removed (`removeClause`) |
+| `addStep`, `removeStep`, `moveStep` | a step before or after another, at the start or end of a question's Yes or No side; removed (with what is inside it); moved |
+| `addStop`, `removeStop` | a Stop with its error and message: a new question that stops, or a Stop on a question's side; removing a Stop also removes its question when stopping was all the question did |
+| `addInput`, `removeInput` | an input (with a type and a default where the language needs them); an input is only removed when no step uses it |
+| `setGivesBack` | what a step gives back, or the declared kind of answer |
+| `rename` | an input or a name inside a function, or the function itself with every call to it in the files given; the meaning must not change |
+| `addFunction` | a new function made of Thunder steps: code, `{ if, then, else }`, `{ stop, error }` |
+
+Every edit is checked against the meaning tree before anything is written: a value that is not in the step, a
+question that is not a question, a Stop after a step that already ends, an input that is still used, or a new name that
+is already taken is **refused**, with the reason, and nothing changes.
+
+**Written by the compiler.** For TypeScript, JavaScript, Python, and Go the compiler writes the code itself, as a
+minimal patch: only the lines the edit touches change, often only the characters (`> 7` becomes `> 10`, the trailing
+comment stays). Indentation, quote style, `===`, comments, and blank lines are kept byte for byte. A Go Stop gives back
+the function's empty values and `errors.New(…)`, and adds the `"errors"` import when the file has neither it nor `fmt`.
+
+**Written by AI, labeled.** Other languages, and edits the writers cannot express exactly (a Go function that gives
+back no error cannot stop without a new signature; a step that shares its line with other code), are answered with
+`needs-ai` and a precise, self-contained instruction for an AI coding agent: the function's code with line numbers, the
+edit as JSON and in words, what must stay the same, and how it will be checked. The compiler makes no network or AI
+call. Code an AI wrote is checked with the same proof (`options.candidate`, or `thunder write --candidate`) and is
+labeled **AI-written**; the AI's own account of its change is never the evidence.
+
+**Proven.** After writing, the changed files are read again:
+
+1. **Edited:** the edited function's steps must equal the intended steps, tree for tree (`thunder-expr-v1`): what the
+   edit asked for, and nothing more.
+2. **Unchanged:** every other function in every changed file must mean the same: its steps are identical trees, and
+   `thunder same` must call it the same. A function written inside the edited one is checked as part of it; one that
+   holds the edited function is compared step by step without the step it sits in. A different reading is never called
+   the same.
+3. **Run (optional):** `thunder write … --test "<command>"` runs the command on the changed code and reports it.
+
+A patch that fails its own proof is never returned as written: the answer becomes `needs-ai`, and the rejected patch is
+shown for inspection only. Nothing is written to disk by the API; the CLI writes only with `--apply` (and, with
+`--test`, only when the command passes).
+
+```js
+import { thunderWrite } from '@skillstech/thunderlang/core';
+
+const r = thunderWrite([{ path: 'refunds.py', source }], { op: 'setValue', member: 'can_refund', step: 'line:11', to: 10 });
+r.status;  // 'written' | 'needs-ai' | 'refused'
+r.patch;   // a unified diff of only the changed lines
+r.proof;   // { edited: { status: 'proven', … }, unchanged: { status: 'same', checked: 2, … } }
+r.says;    // 'Changed 7 to 10 in "If days_since is more than 7"; it now reads "If days_since is more than 10"; nothing else changed: 2 other functions in the file mean exactly the same.'
+```
+
+```text
+thunder write refunds.py --edit '{"op":"addStop","member":"can_refund","before":"line:13","when":"order.amount <= 0","message":"nothing to refund"}' [--apply] [--test "pytest -q"]
+```
+
+On five of the audit repositories (requests, cobra, ky, formik, express), one edit of each kind that fits each function
+(`compiler/scripts/write-sweep.mjs`, 3,069 edits): 2,846 were written and proven (92.7%), 210 needed AI (6.8%; 127 of
+them a Stop in a Go function that gives back no error), and 13 were refused as ambiguous (a value written more than
+once in a step). Python: 906 of 909 written; TypeScript and JavaScript: 1,123 of 1,205; Go: 817 of 955.
+
 ## 6. Thunder cards and the Thunder Text contract
 
 A **decision** is a function that chooses between fixed answers. It is drawn as a **Thunder card** and written in
@@ -300,7 +399,8 @@ A view that breaks one of these is wrong, however good it looks.
 5. An AI summary is labeled, dashed, and always sits above the exact reading it summarizes, never instead of it.
 6. An Author's note is shown verbatim as the author's statement, separate from what the code does.
 7. Say the action that is really possible: **Propose rule change** until a change is written back and checked; never
-   **Update code**.
+   **Update code**. A change written by Thunder write is shown with its patch and its proof; one written by AI is
+   labeled **AI-written**.
 8. Use the reader's words: plain names, no syntax. A step that would only restate the code shows the code instead.
 
 ## 11. Using the grammar in a tool

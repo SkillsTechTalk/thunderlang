@@ -4,7 +4,7 @@ Thunder is only useful if people can trust it: a picture that is wrong gives a f
 measures it on real open-source code, with `compiler/scripts/accuracy.mjs`, and is updated as the reader changes.
 
 ```
-node compiler/scripts/accuracy.mjs <repo>... [--io] [--failures] [--samples out.md --per-language 40]
+node compiler/scripts/accuracy.mjs <repo>... [--io] [--failures] [--steps] [--samples out.md --per-language 40]
 ```
 
 ## What is measured
@@ -13,36 +13,70 @@ node compiler/scripts/accuracy.mjs <repo>... [--io] [--failures] [--samples out.
    writes (TypeScript, Python, Go, Rust, C#, Java), read again, and both are run on every edge case. "Same" means the
    same answer everywhere. "Different" would mean Thunder changed what a rule decides.
 2. **What a step keeps.** Every number and quoted text in Thunder's wording must appear in the code ("invented"
-   counts the steps where one does not), and how many of the code's names the wording mentions ("names kept").
-   Steps Thunder shows as code are honest but not explained.
-3. **Big Picture against an independent count.** Classes, routes, and methods counted by a separate, simple scan:
+   counts the steps where one does not), and how many of the code's names a reader can see: in the short words, and
+   in Details (the words plus every detail one level down, from the step's meaning tree). Steps Thunder shows as code
+   are honest but not explained. Names in a line's comment, and keywords, are not counted.
+3. **Steps round trip (TypeScript, JavaScript, Python, Go).** Each step's meaning tree (`expr`) is written back as
+   code, read again by the same reader, and compared. "Exact" means the same tree came back. Conditions and values
+   made only of names, values, and operators are also run, original against written-back code, on generated inputs.
+4. **Big Picture against an independent count.** Classes, routes, and methods counted by a separate, simple scan:
    classes drawn, routes drawn, and methods owned by the wrong Thing.
-4. **Inputs and outputs.** Parameter names and values read from a request, against "You give it"; functions whose
+5. **Inputs and outputs.** Parameter names and values read from a request, against "You give it"; functions whose
    code returns, sends, or throws something, against whether Thunder shows an ending.
 
 ## Latest results (eleven repositories, nine languages)
 
-| Repo | rules | round trips same | steps explained | names kept | steps with an invented value | classes drawn | routes drawn | methods misplaced | inputs shown | endings shown |
-|---|---|---|---|---|---|---|---|---|---|---|
-| JakeWharton__timber | 0 | n/a (0/0) | 94.5% | 53.3% | 0 of 497 | 100% (10/10) | 0/0 | 0 of 94 | 80.4% (123/153) | 100% |
-| expressjs__express | 3 | 33.3% (6/18) | 90.2% | 57.6% | 0 of 739 | n/a (0/0) | 51/68 | 0 of 143 | 100% (98/98) | 87.7% |
-| google__gson | 11 | 9.1% (6/66) | 90.3% | 65.3% | 0 of 5232 | 100% (164/164) | 0/0 | 0 of 1214 | 100% (898/898) | 96% |
-| guzzle__guzzle | 10 | 18.3% (11/60) | 88.5% | 60.8% | 3 of 4901 | 96.2% (51/53) | 0/0 | 0 of 714 | 99.8% (664/665) | 99.4% |
-| jaredpalmer__formik | 3 | 66.7% (12/18) | 91.6% | 62.5% | 0 of 1148 | 100% (7/7) | 0/0 | 0 of 202 | 93.7% (208/222) | 97.7% |
-| jbogard__MediatR | 2 | 100% (12/12) | 89.9% | 47.7% | 0 of 1014 | 100% (90/90) | 0/0 | 0 of 228 | 81.9% (254/310) | 99.2% |
-| psf__requests | 1 | 0% (0/6) | 92.4% | 69.8% | 0 of 1519 | 100% (40/40) | 0/0 | 0 of 268 | 99.7% (295/296) | 98.9% |
-| rust-lang__log | 1 | 0% (0/6) | 87.1% | 45% | 0 of 858 | 100% (30/30) | 0/0 | 0 of 412 | 75.9% (202/266) | 100% |
-| sinatra__sinatra | 17 | 0% (0/102) | 79.9% | 50.8% | 0 of 1541 | 100% (44/44) | 3/4 | 0 of 542 | 78.5% (402/512) | 96.5% |
-| sindresorhus__ky | 0 | n/a (0/0) | 92% | 64.2% | 0 of 689 | 0% (0/2) | 0/7 | 0 of 117 | 95.5% (127/133) | 100% |
-| spf13__cobra | 0 | n/a (0/0) | 95.5% | 53% | 0 of 5249 | 100% (9/9) | 0/0 | 0 of 589 | 99.7% (648/650) | 81.3% |
+| Repo | rules | round trips same | steps explained | names kept (short words) | names kept (Details) | steps round-trip exact | steps with an invented value | classes drawn | routes drawn | methods misplaced | inputs shown | endings shown |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| JakeWharton__timber | 0 | n/a (0/0) | 94.5% | 54.1% | 95.3% | n/a | 0 of 497 | 100% (10/10) | 0/0 | 0 of 94 | 80.4% (123/153) | 100% |
+| expressjs__express | 3 | 33.3% (6/18) | 90.2% | 58.9% | 96.6% | 100% (819/819) | 0 of 739 | n/a (0/0) | 51/68 | 0 of 143 | 100% (98/98) | 87.7% |
+| google__gson | 11 | 9.1% (6/66) | 90.3% | 68.2% | 99.1% | n/a | 0 of 5232 | 100% (164/164) | 0/0 | 0 of 1214 | 100% (898/898) | 96% |
+| guzzle__guzzle | 10 | 18.3% (11/60) | 88.5% | 62.1% | 96.3% | n/a | 3 of 4901 | 96.2% (51/53) | 0/0 | 0 of 714 | 99.8% (664/665) | 99.4% |
+| jaredpalmer__formik | 3 | 66.7% (12/18) | 91.8% | 63.1% | 96.4% | 97% (1216/1253) | 0 of 1150 | 100% (7/7) | 0/0 | 0 of 202 | 93.7% (208/222) | 97.7% |
+| jbogard__MediatR | 2 | 100% (12/12) | 90.1% | 50.1% | 94.8% | n/a | 0 of 1016 | 100% (90/90) | 0/0 | 0 of 228 | 81.9% (254/310) | 99.2% |
+| psf__requests | 1 | 0% (0/6) | 92.4% | 73.9% | 100% | 99.8% (1641/1644) | 0 of 1519 | 100% (40/40) | 0/0 | 0 of 268 | 99.7% (295/296) | 98.9% |
+| rust-lang__log | 1 | 0% (0/6) | 87.1% | 45.9% | 95.4% | n/a | 0 of 858 | 100% (30/30) | 0/0 | 0 of 412 | 75.9% (202/266) | 100% |
+| sinatra__sinatra | 17 | 0% (0/102) | 79.9% | 51% | 90.6% | n/a | 0 of 1541 | 100% (44/44) | 3/4 | 0 of 542 | 78.5% (402/512) | 96.5% |
+| sindresorhus__ky | 0 | n/a (0/0) | 92% | 66.2% | 96.4% | 99.5% (745/749) | 0 of 689 | 0% (0/2) | 0/7 | 0 of 117 | 95.5% (127/133) | 100% |
+| spf13__cobra | 0 | n/a (0/0) | 95.5% | 53.8% | 99.9% | 99.7% (5483/5500) | 0 of 5251 | 100% (9/9) | 0/0 | 0 of 589 | 99.7% (648/650) | 81.3% |
 
-All: round trips same 16.3% (47/288; different 0, not read back 108, cannot run 133, not written 0); steps explained 90.4%; names kept 58%; steps with an invented value 3
+All: round trips same 16.3% (47/288; different 0, not read back 108, cannot run 133, not written 0); steps explained
+90.4%; names kept 59.5% in the short words, 97.4% in Details; steps with an invented value 3; words that disagree
+with the meaning tree 0. Steps round trip (TypeScript, JavaScript, Python, Go): exact 99.4% (9,904 of 9,965;
+different 0; kept as code 61). Run before and after: 1,069 same, 0 different (Go's 1,060 cases are not run: its
+values need declared types; 17 TypeScript cases use type syntax plain JavaScript cannot run).
+
+(Names kept in the short words was 58% before this measure stopped counting names inside a line's comment and a few
+more keywords; the same correction applies to both columns.)
 
 Before the faithfulness gate (same repositories): steps explained 89.3%, names kept 59%, 72 rules and 65 of 372 round
 trips the same. The rule count fell because a function is now drawn as a rule only when the rule covers its whole
 body (see below); the 18 round trips that left with them had only ever checked part of those functions. The three
 "invented" values are PHP steps whose line is off by one in one file (a line-numbering gap, not a made-up value:
 the numbers are in the code one line below).
+
+## No loss: every detail, one level down
+
+Thunder's words are short on purpose, so they leave things out: "Calls save" does not say what is saved. Since the
+meaning tree (`expr`, see [the spec](./spec.md#every-detail-one-level-down-works-today)), every step keeps everything
+its statement says, and a reader opens it one level down: Details shows each step's tree and what the words left
+out ("Calls save — with: order, { validate: false }"), and the full Thunder Text puts it after the words.
+
+- **Names a reader can see**: 59.5% in the short words, **97.4% in Details** (from 90.6% for Ruby to 100% for Python).
+- **Round trip of meaning** (TypeScript, JavaScript, Python, Go): 99.4% of steps come back exactly; every step that
+  was read into a tree comes back exactly; none comes back different. 1,069 conditions and values were run before
+  and after on generated inputs; all gave the same answers.
+- **What is still kept as code** (no tree, shown as code, never guessed), all eleven repositories: 465 of 25,864
+  steps (1.8%). By repository: Sinatra (Ruby) 199 of 1,928, MediatR (C#) 60 of 1,128, log (Rust) 58 of 985, guzzle
+  (PHP) 46 of 5,538, formik 37 of 1,253, gson 24 of 5,794, timber 17 of 526, cobra 17 of 5,500, ky 4 of 749, requests
+  3 of 1,644, express 0 of 819. The rest: Ruby commands written without brackets inside conditions and endless ranges,
+  C# `using` / `out var` / local functions, Rust `use`, `impl`, patterns (`Some(ref x)`), and `#[cfg]`, type and
+  import declarations inside functions, JSX that a statement splitter cut short, and a Go `if` whose first statement
+  ends a line.
+- **Limits**: the tree is checked against the same reader that made it (a round trip proves the tree is complete and
+  writable, not that the reader understood the language perfectly); behavior is run only for conditions and values
+  made of names, values, and operators (not calls); Go is compared by tree only. Names in the remaining 2.6% are mostly
+  in parts the reader keeps as code, or written on the same line as a step that is another step's child.
 
 ## The faithfulness gate
 
@@ -195,8 +229,9 @@ numbering gap, see above) would fail it today.
   is coverage to win, and it is never reported as "same".
 - **Inputs and endings are near complete** for Java, Go, PHP, Python, TypeScript, and JavaScript; Rust, Ruby,
   Kotlin, and C# miss some inputs, and some Go and Express endings are missed.
-- **Names kept** is about how much detail the wording carries ("Calls save" without what it saves); it is the main
-  place Thunder still loses information on purpose to stay short, and the next target.
+- **Names kept** is about how much detail the wording carries ("Calls save" without what it saves). The words still
+  leave detail out on purpose to stay short, but the detail is no longer lost: 97.4% of the names are one level down
+  in Details and the full Thunder Text, and the remaining gap is mostly code Thunder keeps as code.
 
 This is measured on code, not by watching people read it. A person's own check of hundreds of sampled readings is
 the next step.

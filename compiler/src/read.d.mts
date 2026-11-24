@@ -1,3 +1,4 @@
+import type { Expr } from './meaning.mjs';
 export type ReadKind = 'decision' | 'function' | 'error' | 'test';
 export interface ReadInput { name: string; type: string | null; /** Framework plumbing (db, request, ctx): not something a person gives. */ plumbing?: true }
 export interface ReadRule { when: string; result: string; line: number; says: string }
@@ -45,6 +46,11 @@ export interface ReadStep {
   restates?: true;
   /** A command Thunder only names ("Runs `x`"), without explaining it. */
   unknownCommand?: true;
+  /**
+   * The full meaning underneath the short words (thunder-expr-v1, see meaning.d.mts): every name, argument, and value
+   * of the statement, or `{ kind: 'code', text }` when it is not fully understood. Never guessed.
+   */
+  expr?: Expr;
 }
 export interface Reading {
   schema: 'thunder-reading-v1'; language: string; detected: boolean; items: ReadItem[];
@@ -59,7 +65,7 @@ export const READ_LANGUAGES: string[];
 /** Formats read as infrastructure and delivery (spec section 12). */
 export const INFRA_LANGUAGES: string[];
 export function detectLanguage(source: string, file?: string): string;
-export function readCode(source: string, options?: { language?: string; file?: string }): Reading;
+export function readCode(source: string, options?: { language?: string; file?: string; /** Decisions also carry their steps. */ allSteps?: boolean }): Reading;
 export function searchReading(reading: Reading, filter?: { query?: string; kinds?: Array<ReadKind | 'route' | 'guard'>; status?: string[] }): ReadItem[];
 export function terminatorEffect(stmt: string, language: string): ReadGuard['effect'] | { kind: 'passes-error' } | null;
 export function toThunderCondition(text: string, inputs?: string[]): string | null;

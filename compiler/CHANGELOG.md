@@ -1,5 +1,27 @@
 # Unreleased
 
+**Language: writing in Thunder** (`compiler/src/write-steps.mjs`; `thunderWrite` in `/core`; `thunder write <file>
+--edit '<json>' [--apply] [--test "<cmd>"] [--candidate <file>]`). A person changes software in Thunder and the code is
+written for them, then proven.
+- **Thunder edits**, by function and step: `setValue`, `setCondition` (whole condition, comparison, one side,
+  negation, add or remove an `and`/`or` part), `addStep`, `removeStep`, `moveStep`, `addStop`, `removeStop`,
+  `addInput`, `removeInput`, `setGivesBack`, `rename` (an input, a name, or the function with its calls), and
+  `addFunction` (simple cases). Each is validated against the meaning tree; one that does not fit is refused with the
+  reason.
+- **Written deterministically** for TypeScript, JavaScript, Python, and Go as a minimal patch: only the touched lines
+  (often characters) change; comments, quotes, indentation, and formatting stay byte for byte.
+- **Otherwise `needs-ai`** with a self-contained instruction for an AI coding agent (the compiler makes no AI or
+  network call); code an AI wrote is checked by the same proof (`options.candidate`) and labeled **AI-written**.
+- **Proven** by reading the changed files again: the edited steps equal the intended steps tree for tree, and every
+  other function means the same (identical trees, and `thunder same`). A patch that fails its proof is never returned
+  as written. `--test` runs a command on the change; `--apply` saves only then.
+- On five audit repositories, 2,846 of 3,069 generated edits (92.7%) were written and proven, 210 needed AI, 13 were
+  refused (`scripts/write-sweep.mjs`).
+- `/zoom` Details has **Change this**: change a limit or add a Stop on the sample and see the Thunder edit, the code
+  change, and the proof, computed in the browser; nothing is saved.
+- `readCode(…, { allSteps: true })` also gives decisions their steps; `parseStatementSpans` gives each part's offsets.
+- Fix: `thunder --help` is flushed before exit, so a long help is never cut off in a pipe.
+
 **Fix (serious): `thunder same` could call different code "same".** It compared steps by their short words and
 ignored the code of steps shown as code, so `x = a + b` and `x = a - b`, or `compute(o.items)` and
 `compute(o.lines)`, were reported as the same. Steps are now also compared by a language-neutral signature of their
@@ -181,6 +203,31 @@ prints Markdown for a pull request comment; `.github/actions/thunder-review` pos
 adopting repository's own token (not enabled on this repository). Decision nodes in the model now carry `holds` (each
 side of a yes/no question as a statement) and Details' `when` entries a `says`, so sentences read "when the header is
 not the setting" rather than quoting the question. /zoom shows a sample review computed by the compiler.
+
+**Language: no loss — every detail, one level down** (`compiler/src/meaning.mjs`, `compiler/src/round-trip.mjs`).
+Thunder's words stay short, and nothing in the code is lost: every step now carries `expr`, its full meaning as a
+small language-neutral tree (`thunder-expr-v1`): calls with their whole callee path and every argument, assignments
+with their full target (index, keys) and value, conditions with every operand and negation, exact literals, object,
+list, and JSX contents, lambdas (their body is the step's children), returns and throws with value, error type, and
+message. What the reader cannot read exactly is `{ kind: 'code', text }`, never a guess.
+- **Details** gives each step its `expr` and `detail`, what the short words leave out ("Calls save — with: order,
+  { validate: false }"). **Thunder Text** stays short; `modelText(model, id, { full: true })` (and Text with
+  `{ full: true }`) shows every argument and value. On the eleven audit repositories, a reader can now see 97.4% of
+  each step's code names in Details, against 59.5% in the short words (58% before, counted the old way).
+- **Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, a step's tree is written back as code, read
+  again by the same reader, and compared: 99.4% of 9,965 steps come back exactly (every step that was read into a
+  tree; the rest are kept as code), none different. Conditions and values made of names and operators are also run
+  before and after on generated inputs (Node, Python): 1,069 run the same, none differently (Go is compared by tree
+  only). `scripts/accuracy.mjs` adds "names kept (Details)" and "steps round-trip exact" (and `--steps` to list
+  failures); 465 of 25,864 steps across all eleven repositories are still kept as code (docs/accuracy.md).
+- **The faithfulness gate reads the tree**: a condition's negations and comparisons are counted from `expr` when it
+  parses (a TypeScript non-null `x!` is no longer a negation; operators inside strings never count), and
+  `wordsAgree(step)` checks that every number, quoted text, and "Calls X" in the words is in the tree (no step on the
+  eleven repositories disagrees).
+- Reader fixes the tree found: `i++` at the end of a line (Go, JavaScript without semicolons) no longer swallows the
+  next statement; a one-line `if (x) { a(); }` no longer puts its block in its words; `case A: case B:` keeps both
+  labels in its tree; Kotlin `require(x) { "message" }` keeps its message.
+- No existing test changed.
 
 **Language: readings never say something false — the faithfulness gate** (`compiler/src/faithful.mjs`). A hand
 review of 330 real readings found 57 false ones; re-graded after this change, none of them is false and 5 of the 53

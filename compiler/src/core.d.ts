@@ -10,7 +10,11 @@ export { runTests, TEST_SCHEMA, TestReport, resolveObligations, ObligationResolu
 export { HumanContractPreview, compileHumanContract, previewHumanContract, renderHumanContract, renderExampleTable } from './human-contract.mjs';
 export { ANCHOR_SCHEMA, spanRange, spanText, replaceSpan, editStep, anchorReport } from './anchor.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
+export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from './write-steps.mjs';
+export type { ThunderEdit, ThunderWriteResult, WriteProof } from './write-steps.mjs';
 export { STEPS_SCHEMA, classifyStatement } from './steps.mjs';
+export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, renderStatement, sayFull, detailParts, detailOf, exprCounts, normalizeExpr, sameExpr, wordsAgree } from './meaning.mjs';
+export type { Expr } from './meaning.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';

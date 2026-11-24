@@ -7,6 +7,7 @@
 // shown as code, marked "not explained", instead of a paraphrase. Vague but true beats precise but false.
 //
 // Everything here is linear in the length of the text: single passes and regexes with no nested quantifiers.
+import { exprCounts } from './meaning.mjs';
 
 /** Text with every quoted string replaced by Q (so operators inside strings are not counted). */
 export const stripQuoted = (s) => String(s).replace(/(["'`])(?:\\.|(?!\1)[^\\\n])*\1/g, 'Q');
@@ -117,12 +118,16 @@ export function wordCounts(said) {
   return { neg, logic, compare };
 }
 
-/** True when the words keep every negation and every and/or of the code, and do not drop a comparison. */
-export function accountsFor(code, said) {
+/**
+ * True when the words keep every negation and every and/or of the code, and do not drop a comparison. With `tree`
+ * (the condition's meaning tree, meaning.mjs) the code's operators are counted from the tree, which knows exactly
+ * which `!` is a negation (not a TypeScript non-null claim) and which words are inside strings.
+ */
+export function accountsFor(code, said, tree = null) {
   // Operators left as symbols mean the code was not put into words.
   const bare = stripQuoted(String(said).replace(/`[^`]*`/g, 'Q'));
   if (/&&|\|\||[!=]==?|<=|>=|\s[<>]\s|^\s*[<>]|\bis is\b/.test(bare)) return false;
-  const c = codeCounts(code), w = wordCounts(said);
+  const c = tree && tree.kind !== 'code' ? exprCounts(tree) : codeCounts(code), w = wordCounts(said);
   return c.neg === w.neg && c.logic === w.logic && w.compare >= c.compare;
 }
 

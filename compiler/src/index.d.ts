@@ -743,6 +743,9 @@ export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } 
 export { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
 export { sameMeaning, renderSame } from './same.mjs';
 export { thunderReview, renderReview, REVIEW_SCHEMA } from './review.mjs';
+export { EXPR_SCHEMA, parseStatement, renderStatement, sayFull, detailOf, sameExpr } from './meaning.mjs';
+export type { Expr } from './meaning.mjs';
+export { stepRoundTrip, runBehavior, ROUND_TRIP_LANGUAGES } from './round-trip.mjs';
 export type { Reading, ReadItem, ReadKind } from './read.mjs';
 export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
@@ -751,3 +754,5 @@ export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
 export type { Promotion } from './promote.mjs';
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from './write.mjs';
 export type { ChangedCase, ChangedCases, WriteChange, RulePart } from './write.mjs';
+export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from './write-steps.mjs';
+export type { ThunderEdit, ThunderWriteResult, WriteProof } from './write-steps.mjs';
