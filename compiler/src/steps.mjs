@@ -252,7 +252,7 @@ export function classifyStatement(raw, { inner = 0 } = {}) {
     const name = m?.[1] ? m[1].split('.').pop() : null;
     const msg = (head.match(/["'`]([^"'`]{1,60})["'`]/) || [])[1];
     const said = name && /^[a-z]/.test(name) ? `the error made by ${words(name)}` : name;
-    return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code };
+    return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code, ...(name ? { error: name } : {}), ...(msg ? { message: msg } : {}) };
   }
   // Returns (Go/Rust error returns read as failures)
   if ((m = head.match(/^return\b\s*(.*)$/))) {

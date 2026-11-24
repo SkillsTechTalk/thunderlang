@@ -151,3 +151,8 @@ test('a step that calls another function in the file links to it, wherever the c
   assert.equal(step.uses, m.members.find((x) => x.name === 'delivery_fee').id);
   assert.equal(m.links.length, 1);
 });
+
+test('a constructor that stores a call result never breaks the model (found by the performance test on Django)', () => {
+  const m = thunderModel([{ path: 'a.py', source: 'class Window:\n    def __init__(self, params):\n        self.value = get_last_value_from_parameters(params, "x(")\n        self.size = size\n' }]);
+  assert.equal(m.things[0].knows.find((k) => k.name === 'value').start, 'worked out when it starts');
+});

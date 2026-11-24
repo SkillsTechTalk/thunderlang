@@ -248,3 +248,57 @@ export const BEGINNER = ['thing', 'action', 'rule', 'steps', 'data', 'stop'];
 
 /** The whole grammar in one object, for views that want to render a legend or validate themselves against it. */
 export const THUNDER_VISUAL = { schema: VISUAL_SCHEMA, principle: PRINCIPLE, forms: FORMS, zoom: ZOOM, colors: COLORS, lines: LINES, provenance: PROVENANCE, steps: STEP_MARKS, elements: ELEMENTS, languages: LANGUAGES, rules: RULES, symbols: SYMBOLS, does: DOES, beginner: BEGINNER };
+
+// ── Thunder Text colors: each word's role, decided by the compiler so every view colors it the same way ──────
+
+const STRUCTURE_WORDS = /^(?:Ask:|Yes:|No:|Otherwise:|Otherwise,|Always, at the end:|For each:|When done:|You give it:|You get back:|Takes|Author's note:|It knows|It can|One of:|We need|Examples|Why:|When someone calls|What|Thing|Record|Choices|Area|File|App|Not read)(?=\s|$)/;
+const COMPARISON_RE = /\b(?:is at least|is at most|is less than|is more than|is not in|is in|is not|at least|at most|less than|more than|under|over|exactly|whether|is set|is not set|is empty|is not empty|has no|has|is)\b/;
+
+/**
+ * Split one line of Thunder Text into tokens tagged with a COLORS role, so views color Thunder Text like an IDE
+ * without guessing: { text, role } where role is a COLORS key, or null for plain text. Line numbers ("(line 12)")
+ * are role 'unread' (quiet). Deterministic; whitespace is preserved, so joining the texts gives the line back.
+ */
+export function thunderTokens(line) {
+  const out = [];
+  const push = (text, role = null) => { if (text) out.push({ text, role }); };
+  let rest = String(line);
+  const lead = rest.match(/^\s*(?:- )?/)[0];
+  push(lead.includes('-') ? lead.slice(0, lead.indexOf('-')) : lead, null);
+  if (lead.includes('-')) push('- ', 'structure');
+  rest = rest.slice(lead.length);
+  const lineNo = rest.match(/\s+\(line \d+\)\s*$/);
+  const tail = lineNo ? lineNo[0] : '';
+  if (lineNo) rest = rest.slice(0, rest.length - tail.length);
+  // Whole-line kinds first.
+  let m;
+  if ((m = rest.match(/^(Stop|Fails with)(:?\s*)([\w.]*)(:?\s*)(.*)$/)) && (/^Stop/.test(rest) || /^Fails with/.test(rest))) {
+    push(m[1], 'failure'); push(m[2]); push(m[3], 'failure'); push(m[4]); words(m[5]);
+  } else if ((m = rest.match(/^(Answer:|Gives back|Returns)(\s*)(.*)$/))) {
+    push(m[1], 'structure'); push(m[2]); push(m[3], 'outcome');
+  } else if ((m = rest.match(/^(Ask:)(\s*)(.*)$/))) {
+    push(m[1], 'structure'); push(m[2]); words(m[3], 'question');
+  } else if ((m = rest.match(/^`(.*)`(.*)$/))) {
+    push(`\`${m[1]}\``, 'unread'); push(m[2], 'unread');
+  } else {
+    const s = rest.match(STRUCTURE_WORDS);
+    if (s) { push(s[0], 'structure'); words(rest.slice(s[0].length)); } else words(rest);
+  }
+  push(tail, 'unread');
+  return out;
+
+  // Inside a phrase: comparisons pink, numbers and money orange, quoted text lime, structure words violet.
+  function words(text, base = null) {
+    const re = /("[^"]*")|(\$?-?\d[\d,]*(?:\.\d+)?%?)|\b(and|or|not|if|otherwise|for each|in|from|to|of)\b|\b(is at least|is at most|is less than|is more than|is not in|is in|is not set|is set|is not empty|is empty|is not|at least|at most|less than|more than|exactly|whether|has no)\b/g;
+    let last = 0, x;
+    while ((x = re.exec(text))) {
+      push(text.slice(last, x.index), base);
+      if (x[1]) push(x[1], 'name');
+      else if (x[2]) push(x[2], 'amount');
+      else if (x[3]) push(x[3], 'structure');
+      else push(x[4], 'comparison');
+      last = x.index + x[0].length;
+    }
+    push(text.slice(last), base);
+  }
+}

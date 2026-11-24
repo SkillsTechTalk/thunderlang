@@ -1,5 +1,5 @@
 export type ReadKind = 'decision' | 'function' | 'error' | 'test';
-export interface ReadInput { name: string; type: string | null }
+export interface ReadInput { name: string; type: string | null; /** Framework plumbing (db, request, ctx): not something a person gives. */ plumbing?: true }
 export interface ReadRule { when: string; result: string; line: number; says: string }
 export interface ReadUnread { line: number; text: string; reason: string }
 export interface ReadGuard {
@@ -13,6 +13,14 @@ export interface ReadItem {
   rules?: ReadRule[]; otherwise?: { result: string; line: number } | null;
   thunder?: string; unread?: ReadUnread[]; guards?: ReadGuard[];
   route?: { method: string; path: string };
+  /** A display name: "Late fee". */
+  label?: string;
+  /** For functions: what it handles or takes, without notes (unlike `says`). */
+  headline?: string;
+  /** Why no rules are drawn, kept apart from `says`. */
+  note?: string;
+  /** How completely Thunder explains it, and why. */
+  completeness?: { level: 'explained' | 'partly explained' | 'found' | 'executed'; reasons: string[] };
   /** The author's own words for what the function means (docstring or doc comment), first paragraph only. Not inferred. */
   doc?: string;
   steps?: ReadStep[]; stepsMore?: number;
@@ -23,6 +31,10 @@ export interface ReadItem {
 export interface ReadStep {
   kind: 'check' | 'branch' | 'loop' | 'set' | 'call' | 'return' | 'fail' | 'try' | 'other';
   says: string; code: string; line: number; callee?: string; children?: ReadStep[];
+  /** On a fail step: the error's name and its message, apart from `says`. */
+  error?: string; message?: string;
+  /** The other side of an If; error handlers; what always runs at the end. */
+  otherwise?: ReadStep[]; handlers?: { says: string; line: number; steps: ReadStep[] }[]; always?: { line: number; steps: ReadStep[] };
   /** The wording only restates the code's syntax ("Works out actives"); show the code, do not count it as read. */
   restates?: true;
 }
