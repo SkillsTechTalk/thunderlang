@@ -1,0 +1,31 @@
+# The founder's example: a discount rule, kept values, records, and a list filtered with "where".
+
+To calculate discount:
+  Receive total and member
+  When member is true and total is at least 100:
+    Give 20% of total
+  Otherwise:
+    Give 0
+
+Keep tax rate at 7%
+
+An Order has:
+  Item is text
+  Price is money
+  Paid is yes/no
+
+Set orders to [an Order with item "pen" and price $1.50 and paid true, an Order with item "ink" and price $3.25 and paid false, an Order with item "pad" and price $2.10 and paid true]
+Set total to the sum of prices from orders where paid is true
+Set tax to round (total * tax rate) to 2 places
+say "Paid orders come to {total}, plus {tax} tax."
+
+say "A member spending 150 saves {calculate discount with 150 and true}."
+say "A guest spending 150 saves {calculate discount with 150 and false}."
+
+Test "members spending at least 100 get 20% off":
+  Expect calculate discount with 150 and true to be 30
+  Expect calculate discount with 100 and true to be 20
+
+Test "no discount below 100 or for guests":
+  Expect calculate discount with 99 and true to be 0
+  Expect calculate discount with 150 and false to be 0

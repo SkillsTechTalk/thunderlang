@@ -46,7 +46,8 @@ test('thunder --help exits 0 and lists every pre-existing command', () => {
 
 test('thunder --help lists the documented aliases next to their canonical commands', () => {
   const { stdout } = help();
-  assert.match(stdout, /^  new \[Name\].*\[alias: init\]$/m);
+  assert.match(stdout, /^  init \[Name\].*\[alias: new --mission Name\]$/m);
+  assert.match(stdout, /^  new <dir> .*Thunder Core project/m);
   assert.match(stdout, /^  twelve-factor .*\[alias: 12factor\]$/m);
 });
 

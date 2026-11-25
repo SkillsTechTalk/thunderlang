@@ -1,0 +1,684 @@
+// Thunder Core checker: resolves every name, works out the kind (type) of every value where it can be known,
+// and reports what is wrong in plain words with a stable code. It annotates the syntax tree in place:
+//   expression.type = { k: 'whole' | 'number' | 'money' | 'text' | 'bool' | 'date' | 'nothing' | 'unknown' |
+//                          'list' (of) | 'map' (key, of) | 'record' (name) | 'optional' (of) | 'module' }
+//   name.ref        = { kind: 'var' | 'const' | 'param' | 'module' | 'elemField' | 'elemKey', py, ... }
+// Unknown types are allowed (values from Python modules, inputs without a declared kind); the runtime then
+// checks them (for example, Money refuses to be added to a plain number).
+
+import { diag, closest } from './diagnostics.mjs';
+import { RESERVED, LIST_ACTIONS, STATEMENT_WORDS } from './parser.mjs';
+
+const T = (k, extra = {}) => ({ k, ...extra });
+const UNKNOWN = T('unknown');
+const numeric = (t) => t.k === 'whole' || t.k === 'number';
+const known = (t) => t && t.k !== 'unknown';
+export const typeWords = (t) => {
+  if (!t) return 'a value';
+  switch (t.k) {
+    case 'whole': return 'a whole number';
+    case 'number': return 'a number';
+    case 'money': return 'money';
+    case 'text': return 'text';
+    case 'bool': return 'yes/no';
+    case 'date': return 'a date';
+    case 'nothing': return 'nothing';
+    case 'list': return known(t.of) ? `a list of ${typeWords(t.of).replace(/^an? /, '')}` : 'a list';
+    case 'map': return 'a map';
+    case 'record': return `a ${t.text ?? t.name}`;
+    case 'optional': return `${typeWords(t.of)} or nothing`;
+    case 'module': return 'a Python module';
+    default: return 'a value';
+  }
+};
+
+// Python words a Thunder name must not become.
+const PY_TAKEN = new Set(`False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case
+print len sorted range list dict str int float bool object super isinstance getattr setattr type id input open sum min max any all map filter iter next round abs format repr hash vars dir set tuple
+Decimal date dataclass field main THUNDER_SOURCE THUNDER_TESTS failure
+Money Stop RuleBroken ExpectationFailed ThunderError show divide modulo to_number to_whole to_money to_text to_yes_no to_date total_of average_of smallest_of largest_of first_of last_of item_at set_item entry get_field set_field add_to remove_from round_to read_file never expect_value expect_true expect_failure explain run run_tests pairs_of`.split(/\s+/));
+
+export function pyName(key, style = 'snake') {
+  const words = key.split(' ').map((w) => w.replace(/[^\p{L}\p{N}_]/gu, '_'));
+  let n = style === 'upper' ? words.join('_').toUpperCase() : style === 'pascal' ? words.map((w) => w[0].toUpperCase() + w.slice(1)).join('') : words.join('_').toLowerCase();
+  if (/^[0-9]/.test(n)) n = `_${n}`;
+  while (PY_TAKEN.has(n)) n += '_';
+  return n;
+}
+
+class Scope {
+  constructor(parent, kind) { this.parent = parent; this.kind = kind; this.vars = new Map(); }
+  get(key) { return this.vars.get(key) ?? this.parent?.get(key); }
+}
+
+export function checkCore(program, { imported = [] } = {}) {
+  const c = new Checker(program);
+  c.imported = imported;
+  c.run();
+  return { program, diagnostics: [...program.diagnostics, ...c.d].sort((a, b) => a.line - b.line), info: c.info };
+}
+
+class Checker {
+  constructor(program) {
+    this.p = program;
+    this.d = [];
+    this.global = new Scope(null, 'global');
+    this.records = new Map(); // key -> record stmt
+    this.funcs = new Map();
+    this.rules = []; // top-level and record Never rules
+    this.mainNames = new Map(); // key -> first line it is set in the main program
+    this.elem = []; // stack of { type } for where / from / sorted
+    this.info = { records: [], funcs: [], consts: [], modules: [], tests: [], rules: [], usesDecimal: false };
+  }
+  err(code, line, msg, hint) { this.d.push(diag(code, line, msg, hint)); }
+
+  run() {
+    const top = this.p.body;
+    // 0. Declarations from other files of the project (tests see everything in src/).
+    this.info.imported = new Set();
+    for (const inf of this.imported ?? []) {
+      for (const r of inf.records) { this.records.set(r.name, r); this.info.imported.add(r); }
+      for (const f of inf.funcs) { this.global.vars.set(f.name, { kind: 'func', line: f.line, name: f.name, text: f.text, py: f.py, stmt: f, ret: f.ret ?? UNKNOWN }); this.funcs.set(f.name, f); this.info.imported.add(f); }
+      for (const k of inf.consts) { this.global.vars.set(k.name, { kind: 'const', line: k.line, name: k.name, text: k.text, py: k.py, type: k.e.type ?? UNKNOWN }); this.info.imported.add(k); }
+      for (const m of inf.modules) { this.global.vars.set(m.name, { kind: 'module', line: m.line, name: m.name, text: m.text, py: m.py, type: T('module') }); this.info.imported.add(m); }
+    }
+    // 1. Global declarations, hoisted: records, functions, modules, kept values.
+    for (const s of top) {
+      if (s.k === 'record') this.declare(s, 'record', s.line, { py: pyName(s.name, 'pascal'), stmt: s });
+      else if (s.k === 'func') this.declare(s, 'func', s.line, { py: pyName(s.name), stmt: s, ret: UNKNOWN });
+      else if (s.k === 'use') this.declare(s, 'module', s.line, { py: pyName(s.name), module: s.module, type: T('module') });
+    }
+    for (const s of top) if (s.k === 'record') this.checkRecordShape(s);
+    collectMainNames(top, this.mainNames);
+    // 2. Kept values, in order (they may use each other and functions).
+    for (const s of top) {
+      if (s.k !== 'keep') continue;
+      const t = this.ex(s.e, this.global, { keep: true });
+      this.declare(s, 'const', s.line, { py: pyName(s.name, 'upper'), type: t });
+      this.info.consts.push(s);
+    }
+    // 3. Never rules written at the top level or inside records.
+    for (const s of top) if (s.k === 'never') this.addRule(s, null);
+    for (const r of this.records.values()) for (const rule of r.rules) this.addRule(rule, r);
+    // 4. Functions, then tests, then the main program.
+    for (const s of top) if (s.k === 'func') this.checkFunc(s);
+    for (const s of top) if (s.k === 'test') { s.py = `test_${pyName(s.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() || 'unnamed')}`.replace(/_+$/, ''); this.uniqueTestName(s); const sc = new Scope(this.global, 'test'); this.block(s.body, sc, { inTest: true }); this.info.tests.push(s); }
+    const main = new Scope(this.global, 'main');
+    this.mainScope = main;
+    const mainBody = top.filter((s) => !['record', 'func', 'use', 'keep', 'never', 'test'].includes(s.k));
+    this.block(mainBody, main, {});
+    this.p.main = mainBody;
+    this.info.records = [...this.records.values()];
+    this.info.funcs = [...this.funcs.values()];
+    this.info.modules = top.filter((s) => s.k === 'use');
+    this.info.rules = this.rules;
+  }
+
+  uniqueTestName(s) {
+    this.testNames ??= new Set();
+    let n = s.py, k = 2;
+    while (this.testNames.has(n)) n = `${s.py}_${k++}`;
+    s.py = n; this.testNames.add(n);
+  }
+
+  declare(s, kind, line, extra) {
+    const prev = kind === 'record' ? this.records.get(s.name) : this.global.vars.get(s.name);
+    if (prev) { this.err('TC203', line, `"${s.text}" is already defined on line ${prev.line}.`, 'Give one of them a different name.'); return; }
+    const entry = { kind, line, name: s.name, text: s.text, ...extra };
+    if (kind === 'record') { this.records.set(s.name, s); s.py = extra.py; return; }
+    this.global.vars.set(s.name, entry);
+    if (kind === 'func') this.funcs.set(s.name, s);
+    s.py = extra.py;
+  }
+
+  checkRecordShape(r) {
+    const seen = new Set();
+    r.fieldMap = new Map();
+    for (const f of r.fields) {
+      if (seen.has(f.name)) this.err('TC203', f.line, `${r.text} already has a field "${f.text}".`);
+      seen.add(f.name);
+      f.py = pyName(f.name);
+      this.resolveType(f.type, f.line);
+      r.fieldMap.set(f.name, f);
+    }
+  }
+  resolveType(t, line) {
+    if (!t) return;
+    if (t.k === 'record') {
+      const r = this.records.get(t.name);
+      if (!r) this.err('TC209', line, `I don't know a record called "${t.name}".`); else { t.text = r.text; t.py = r.py; }
+    }
+    if (t.of) this.resolveType(t.of, line);
+    if (t.key) this.resolveType(t.key, line);
+  }
+
+  addRule(rule, record) {
+    // A rule is about exactly one value that changes (a name or a field); kept values may also appear.
+    const names = [];
+    walkExpr(rule.cond, (e) => { if (e.k === 'name') names.push(e); });
+    const changing = [...new Set(names.filter((n) => this.global.vars.get(n.name)?.kind !== 'const').map((n) => n.name))];
+    if (changing.length !== 1) {
+      this.err('TC403', rule.line, changing.length ? `"${rule.text}" names ${changing.length} changing values (${changing.join(', ')}). In Thunder Core a Never rule is about one value.` : `"${rule.text}" does not name a value to watch.`,
+        'Split it into one rule per value, or check the combination with "When … : Stop with …".');
+      return;
+    }
+    const subject = changing[0];
+    const fieldOf = record ? (record.fieldMap.has(subject) ? [record] : []) : [...this.records.values()].filter((r) => r.fieldMap.has(subject));
+    if (record && !fieldOf.length) { this.err('TC206', rule.line, `${record.text} has no field "${subject}" for this rule to watch.`); return; }
+    const isVar = !record && (this.mainNames.has(subject) || this.anyParamOrLocal(subject));
+    if (!fieldOf.length && !isVar) { this.err('TC201', rule.line, `"${rule.text}" watches "${subject}", but nothing in this program is called that.`); return; }
+    // Type the condition with the subject as an unknown value (it is checked against each place it is set).
+    const sc = new Scope(this.global, 'rule');
+    const fieldType = fieldOf[0]?.fieldMap.get(subject).type ?? UNKNOWN;
+    sc.vars.set(subject, { kind: 'subject', py: 'value', type: fieldType });
+    this.ex(rule.cond, sc, {});
+    const entry = { rule, subject, records: fieldOf, watchesVar: isVar, line: rule.line, text: rule.text };
+    this.rules.push(entry);
+    for (const r of fieldOf) (r.rulesToCheck ??= []).push(entry);
+  }
+  anyParamOrLocal(key) {
+    let hit = false;
+    const visit = (body) => { for (const s of body) { if (s.k === 'set' && s.target.k === 'name' && s.target.name === key) hit = true; for (const b of childBlocks(s)) visit(b); } };
+    for (const f of this.funcs.values()) { if (f.params.some((p) => p.name === key)) hit = true; visit(f.body); }
+    for (const s of this.p.body) if (s.k === 'test') visit(s.body);
+    return hit;
+  }
+  rulesFor(key) { return this.rules.filter((r) => r.watchesVar && r.subject === key); }
+
+  checkFunc(f) {
+    const sc = new Scope(this.global, 'func');
+    sc.func = f;
+    f.gives = [];
+    for (const p of f.params) {
+      if (sc.vars.has(p.name)) this.err('TC203', p.line, `"${p.text}" is received twice.`);
+      if (this.global.vars.has(p.name)) this.err('TC203', p.line, `"${p.text}" is already the name of ${this.global.vars.get(p.name).kind === 'func' ? 'a function' : 'something else'} (line ${this.global.vars.get(p.name).line}).`, 'Receive it under a different name.');
+      this.resolveType(p.type, p.line);
+      p.py = pyName(p.name);
+      p.rules = this.rulesFor(p.name);
+      sc.vars.set(p.name, { kind: 'param', py: p.py, type: p.type ?? UNKNOWN, line: p.line });
+    }
+    this.block(f.body, sc, { inFunc: true });
+    // The result's kind is known only when every Give gives the same known kind.
+    const ts = f.gives;
+    const entry = this.global.vars.get(f.name);
+    if (entry) entry.ret = ts.length && ts.every(known) && ts.every((t) => sameKind(t, ts[0])) ? (ts.some((t) => t.k === 'number') ? T('number') : ts[0]) : UNKNOWN;
+    f.ret = entry?.ret;
+  }
+
+  block(body, sc, ctx) { for (const s of body) this.stmt(s, sc, ctx); }
+
+  stmt(s, sc, ctx) {
+    const line = s.line;
+    switch (s.k) {
+      case 'say': this.ex(s.e, sc); return;
+      case 'set': return this.checkSet(s, sc, ctx);
+      case 'keep': this.err('TC402', line, '"Keep" is written at the left edge of the file, not inside a block.', 'Keep values are fixed for the whole program.'); return;
+      case 'give': {
+        if (!ctx.inFunc || ctx.inTest) { this.err('TC208', line, '"Give" can only be used inside a "To" block, to give back a result.'); return; }
+        const t = this.ex(s.e, sc);
+        sc.func ? sc.func.gives.push(t) : (findFunc(sc)?.gives.push(t));
+        return;
+      }
+      case 'stop': this.ex(s.e, sc); return;
+      case 'if':
+        for (const b of s.branches) { this.cond(b.cond, sc); this.block(b.body, sc, ctx); }
+        if (s.otherwise) this.block(s.otherwise, sc, ctx);
+        return;
+      case 'each': {
+        const it = this.ex(s.iter, sc);
+        const inner = new Scope(sc, 'loop');
+        const [a, b] = s.vars;
+        let ta = UNKNOWN, tb = UNKNOWN;
+        if (it.k === 'list') { ta = it.of ?? UNKNOWN; if (b && it.of?.k === 'pair') { ta = it.of.a; tb = it.of.b; } }
+        else if (it.k === 'map') { ta = it.key ?? UNKNOWN; tb = it.of ?? UNKNOWN; }
+        else if (it.k === 'text') ta = T('text');
+        else if (known(it) && it.k !== 'optional') this.err('TC305', line, `"For each" goes through a list, a map, or text, but this is ${typeWords(it)}.`);
+        if (b && it.k === 'list' && it.of?.k !== 'pair' && known(it.of)) this.err('TC305', line, `"For each ${a.text} and ${b.text}" needs a map (or a sorted map), but this is ${typeWords(it)}.`);
+        s.iterKind = it.k === 'map' ? 'map' : it.k === 'list' && it.of?.k === 'pair' ? 'pairs' : it.k === 'list' || it.k === 'text' ? 'list' : 'unknown';
+        for (const [v, t] of [[a, ta], [b, tb]]) if (v) { v.py = this.localPy(v.name, sc); inner.vars.set(v.name, { kind: 'var', py: v.py, type: t, line }); }
+        this.block(s.body, inner, ctx);
+        return;
+      }
+      case 'range': {
+        for (const e of [s.from, s.to]) { const t = this.ex(e, sc); if (known(t) && t.k !== 'whole') this.err('TC305', line, `"For each … from … to" counts in whole numbers, but this is ${typeWords(t)}.`); }
+        const inner = new Scope(sc, 'loop');
+        s.v.py = this.localPy(s.v.name, sc);
+        inner.vars.set(s.v.name, { kind: 'var', py: s.v.py, type: T('whole'), line });
+        this.block(s.body, inner, ctx);
+        return;
+      }
+      case 'while': this.cond(s.cond, sc); this.block(s.body, sc, ctx); return;
+      case 'times': { const t = this.ex(s.count, sc); if (known(t) && t.k !== 'whole') this.err('TC305', line, `"Repeat … times" needs a whole number, but this is ${typeWords(t)}.`); this.block(s.body, sc, ctx); return; }
+      case 'func': case 'record': case 'use': case 'test': this.err('TC402', line, 'This must be written at the left edge of the file.'); return;
+      case 'never': this.err('TC402', line, 'In Thunder Core, "Never allow" is written at the left edge of the file or inside a record ("A … has:").', 'It then watches the value everywhere it is set.'); return;
+      case 'expect': return this.checkExpect(s, sc);
+      case 'add': case 'remove': {
+        const tt = this.ex(s.target, sc);
+        const te = this.ex(s.e, sc);
+        this.lvalue(s.target, sc, line);
+        s.targetKind = tt.k === 'list' ? 'list' : (numeric(tt) || tt.k === 'money') ? 'number' : tt.k === 'map' && s.k === 'remove' ? 'map' : 'unknown';
+        if (known(tt) && s.targetKind === 'unknown') this.err('TC305', line, `I can only ${s.k} ${s.k === 'add' ? 'to' : 'from'} a list or a number, but this is ${typeWords(tt)}.`);
+        if (s.targetKind === 'number') this.arith(s.k === 'add' ? '+' : '-', tt, te, line);
+        if (s.targetKind === 'list' && known(tt.of) && known(te) && !compatible(tt.of, te)) this.err('TC303', line, `This list holds ${typeWords(tt.of)}, so ${typeWords(te)} can't be added to it.`);
+        // An empty list learns what it holds from the first thing added to it.
+        if (s.k === 'add' && s.targetKind === 'list' && !known(tt.of) && known(te) && s.target.k === 'name' && s.target.ref?.type?.k === 'list') s.target.ref.type = T('list', { of: te });
+        this.afterAssign(s, s.target, sc);
+        return;
+      }
+      case 'increase': case 'decrease': {
+        const tt = this.ex(s.target, sc);
+        const te = this.ex(s.e, sc);
+        this.lvalue(s.target, sc, line);
+        if (known(tt) && !numeric(tt) && tt.k !== 'money') this.err('TC305', line, `Only a number or money can be ${s.k}d, but this is ${typeWords(tt)}.`);
+        this.arith(s.k === 'increase' ? '+' : '-', tt, te, line);
+        this.afterAssign(s, s.target, sc);
+        return;
+      }
+      case 'sort': case 'reverse': {
+        const tt = this.ex(s.target, sc);
+        if (known(tt) && tt.k !== 'list') this.err('TC305', line, `Only a list can be ${s.k === 'sort' ? 'sorted' : 'reversed'}, but this is ${typeWords(tt)}.`);
+        if (s.k === 'sort' && s.by) s.field = this.fieldOfElem(tt.of ?? UNKNOWN, s.by, s.text, line);
+        return;
+      }
+      case 'unknownVerb': return this.unknownVerb(s, sc);
+      case 'do': this.ex(s.e, sc); return;
+      case 'tryFail': {
+        this.stmt(s.stmt, sc, ctx);
+        const inner = new Scope(sc, 'handler');
+        s.errPy = this.localPy('error', sc);
+        inner.vars.set('error', { kind: 'var', py: s.errPy, type: T('text'), line });
+        this.block(s.handler, inner, ctx);
+        return;
+      }
+      default: this.err('TC402', line, `Thunder Core does not support "${s.k}" here yet.`);
+    }
+  }
+
+  localPy(key, sc) { return pyName(key); }
+
+  checkSet(s, sc, ctx) {
+    const line = s.line;
+    const tv = this.ex(s.e, sc);
+    const tgt = s.target;
+    if (tgt.k === 'name') {
+      const g = this.global.vars.get(tgt.name);
+      if (g && g.kind === 'const') { this.err('TC205', line, `"${tgt.text}" is kept at a fixed value (line ${g.line}), so it can't be set.`, 'Use a different name for a value that changes, or change the Keep line.'); return; }
+      if (g && g.kind !== 'const') { this.err('TC203', line, `"${tgt.text}" is already the name of ${g.kind === 'func' ? 'a function' : g.kind === 'record' ? 'a record' : 'a module'} (line ${g.line}).`, 'Give this value a different name.'); return; }
+      const cur = sc.get(tgt.name);
+      if (cur && cur.kind !== 'subject') {
+        if (cur.kind === 'param' && cur.type && known(cur.type) && known(tv) && !compatible(cur.type, tv)) this.err('TC303', line, `"${tgt.text}" is ${typeWords(cur.type)}, so it can't be set to ${typeWords(tv)}.`);
+        else if (known(cur.type) && known(tv) && !compatible(cur.type, tv)) this.err('TC303', line, `"${tgt.text}" was ${typeWords(cur.type)} (line ${cur.line}); now it is set to ${typeWords(tv)}. A name keeps one kind of value.`, 'Use a new name for the new kind of value.');
+        else if (!known(cur.type) && known(tv)) cur.type = tv;
+        else if (cur.type?.k === 'whole' && tv.k === 'number') cur.type = tv;
+        tgt.ref = cur; tgt.type = cur.type;
+      } else {
+        // A new name lives in the nearest function, test, or main program (not only in a loop or a branch).
+        let home = sc;
+        while (home.kind === 'loop' || home.kind === 'handler') home = home.parent;
+        const entry = { kind: 'var', py: pyName(tgt.name), type: tv, line };
+        home.vars.set(tgt.name, entry);
+        tgt.ref = entry; tgt.type = tv;
+      }
+    } else {
+      const tt = this.ex(tgt, sc);
+      this.lvalue(tgt, sc, line);
+      if (known(tt) && known(tv) && !compatible(tt, tv)) this.err('TC303', line, `${tgt.k === 'field' ? `The field "${tgt.text}"` : 'This entry'} holds ${typeWords(tt)}, so it can't be set to ${typeWords(tv)}.`);
+    }
+    this.afterAssign(s, tgt, sc);
+  }
+  lvalue(e, sc, line) {
+    if (e.k === 'name') {
+      if (e.ref?.kind === 'const') this.err('TC205', line, `"${e.text}" is kept at a fixed value, so it can't be changed.`);
+    } else if (e.k === 'field' || e.k === 'at') {
+      if (e.obj.k === 'name' && e.obj.ref?.kind === 'const') this.err('TC205', line, `"${e.obj.text}" is kept at a fixed value, so it can't be changed.`);
+    } else this.err('TC305', line, 'Only a name, a field, or an entry can be changed here.');
+  }
+  // Never rules on a name are checked right after it is set (the check names the line where it was set).
+  afterAssign(s, tgt, sc) {
+    if (tgt.k === 'name') s.rules = this.rulesFor(tgt.name);
+  }
+
+  checkExpect(s, sc) {
+    const line = s.line;
+    if (s.mode === 'true') { this.cond(s.e, sc); return; }
+    if (s.mode === 'fail') { this.ex(s.e, sc); if (s.msg) this.ex(s.msg, sc); return; }
+    const ta = this.ex(s.e, sc);
+    if (s.mode === 'cmp') { this.ex(s.want, sc); return; }
+    const c = s.check;
+    const hole = (e) => { if (e && e.k === 'hole') e.type = ta; };
+    hole(c.l); hole(c.e);
+    const inner = c.k === 'not' ? c.e : c;
+    hole(inner.l); hole(inner.e);
+    walkExpr(c, (e) => { if (e.k === 'hole') e.type = ta; });
+    this.ex(c, sc);
+  }
+
+  unknownVerb(s, sc) {
+    const verb = s.verb.toLowerCase();
+    const t = s.object ? this.exQuiet(s.object, sc) : UNKNOWN;
+    const funcs = [...this.funcs.values()].map((f) => f.name);
+    const guess = closest(verb, [...funcs, ...STATEMENT_WORDS]);
+    if (t.k === 'list') this.err('TC401', s.line, `I don't know how to '${verb}' a list yet. Supported: ${LIST_ACTIONS.join(', ')}.`, guess ? `Did you mean "${guess}"?` : 'You can also write a "To" block that does it.');
+    else this.err('TC401', s.line, `I don't know how to '${verb}' yet.`, guess ? `Did you mean "${guess}"?` : `A line starts with one of: ${STATEMENT_WORDS.join(', ')}, or the name of a "To" block.`);
+  }
+  exQuiet(e, sc) { const n = this.d.length; try { return this.ex(e, sc); } finally { this.d.length = n; } }
+
+  cond(e, sc) {
+    const t = this.ex(e, sc);
+    if (known(t) && t.k !== 'bool') this.err('TC304', e.line, `A condition must be yes or no, but this is ${typeWords(t)}.`, t.k === 'list' || t.k === 'text' ? 'Did you mean "is empty" or "is not empty"?' : 'Compare it with something, for example: is at least 10.');
+  }
+
+  // ------------------------------------------------------------ expressions
+  ex(e, sc, o = {}) { const t = this.ex1(e, sc, o) ?? UNKNOWN; e.type = t; return t; }
+
+  ex1(e, sc, o) {
+    const line = e.line;
+    switch (e.k) {
+      case 'num': if (!e.whole) this.info.usesDecimal = true; return T(e.whole ? 'whole' : 'number');
+      case 'money': return T('money');
+      case 'percent': this.info.usesDecimal = true; return T('number');
+      case 'str': for (const p of e.parts) if (typeof p !== 'string') this.ex(p.e, sc, o); return T('text');
+      case 'bool': return T('bool');
+      case 'nothing': return T('nothing');
+      case 'hole': return e.type ?? UNKNOWN;
+      case 'today': case 'date': return T('date');
+      case 'paren': return this.ex(e.e, sc, o);
+      case 'list': {
+        if (!e.items) return T('map', { key: UNKNOWN, of: UNKNOWN });
+        const ts = e.items.map((x) => this.ex(x, sc, o));
+        if (e.of) { this.resolveType(e.of, line); return T('list', { of: e.of }); }
+        const kt = ts.find(known);
+        if (kt && ts.some((x) => known(x) && !compatible(x, kt))) this.err('TC303', line, 'All items in a list should be the same kind of value.', `This list mixes ${[...new Set(ts.filter(known).map(typeWords))].join(' and ')}.`);
+        return T('list', { of: kt ?? UNKNOWN });
+      }
+      case 'map': return T('map', { key: UNKNOWN, of: UNKNOWN });
+      case 'name': return this.name(e, sc, o);
+      case 'call': return this.call(e, sc, o);
+      case 'new': return this.newRecord(e, sc, o);
+      case 'field': {
+        const ot = this.ex(e.obj, sc, o);
+        const r = ot.k === 'record' ? this.records.get(ot.name) : null;
+        if (r) {
+          const f = r.fieldMap.get(e.name);
+          if (!f) { const g = closest(e.name, [...r.fieldMap.keys()]); this.err('TC206', line, `A ${r.text} has no field "${e.text}".`, g ? `Did you mean "${g}"? Fields: ${[...r.fieldMap.keys()].join(', ')}.` : `Fields: ${[...r.fieldMap.keys()].join(', ')}.`); return UNKNOWN; }
+          e.py = f.py; e.static = true;
+          return f.type;
+        }
+        if (known(ot) && ot.k !== 'map' && ot.k !== 'optional') { this.err('TC305', line, `"'s ${e.text}" reads a field of a record, but this is ${typeWords(ot)}.`); return UNKNOWN; }
+        return UNKNOWN;
+      }
+      case 'at': {
+        const ot = this.ex(e.obj, sc, o);
+        const kt = this.ex(e.key, sc, o);
+        if (e.dflt) this.ex(e.dflt, sc, o);
+        e.objKind = ot.k === 'map' ? 'map' : ot.k === 'list' ? 'list' : 'unknown';
+        if (ot.k === 'list') { if (known(kt) && kt.k !== 'whole') this.err('TC305', line, `A position in a list is a whole number (1 is the first item), but this is ${typeWords(kt)}.`); return ot.of ?? UNKNOWN; }
+        if (ot.k === 'map') return ot.of ?? UNKNOWN;
+        if (known(ot)) this.err('TC305', line, `"at" looks up an entry in a map or a position in a list, but this is ${typeWords(ot)}.`);
+        return UNKNOWN;
+      }
+      case 'conv': {
+        const from = this.ex(e.e, sc, o);
+        this.resolveType(e.type, line);
+        const to = e.type;
+        if (!['number', 'whole', 'money', 'text', 'bool', 'date', 'list'].includes(to.k)) { this.err('TC402', line, `Converting to ${typeWords(to)} is not supported yet. Supported: number, whole number, money, text, yes/no, date, list.`); return UNKNOWN; }
+        if (to.k === 'list') { e.to = 'list'; return T('list', { of: to.of ?? UNKNOWN }); }
+        if (to.k === 'number' || to.k === 'money') this.info.usesDecimal = true;
+        e.to = to.k; e.from = from;
+        return T(to.k);
+      }
+      case 'where': {
+        const lt = this.ex(e.list, sc, o);
+        if (known(lt) && lt.k !== 'list') this.err('TC305', line, `"where" picks items from a list, but this is ${typeWords(lt)}.`);
+        this.elem.push({ type: lt.of ?? UNKNOWN });
+        this.cond(e.cond, sc);
+        this.elem.pop();
+        return lt.k === 'list' ? lt : T('list', { of: UNKNOWN });
+      }
+      case 'from': {
+        const lt = this.ex(e.list, sc, o);
+        if (known(lt) && lt.k !== 'list') { this.err('TC305', line, `"${e.text} from …" takes a field from each item of a list, but this is ${typeWords(lt)}.`); return UNKNOWN; }
+        const f = this.fieldOfElem(lt.of ?? UNKNOWN, e.name, e.text, line, true);
+        e.field = f;
+        return T('list', { of: f?.type ?? UNKNOWN });
+      }
+      case 'sorted': {
+        const lt = this.ex(e.list, sc, o);
+        if (lt.k === 'map') {
+          if (e.by !== 'key' && e.by !== 'value') { this.err('TC305', line, 'A map is sorted by "key" or by "value".'); return UNKNOWN; }
+          e.mapSort = true;
+          return T('list', { of: T('pair', { a: lt.key ?? UNKNOWN, b: lt.of ?? UNKNOWN }) });
+        }
+        if (known(lt) && lt.k !== 'list') { this.err('TC305', line, `Only a list or a map can be sorted, but this is ${typeWords(lt)}.`); return UNKNOWN; }
+        e.field = this.fieldOfElem(lt.of ?? UNKNOWN, e.by, e.text, line, true);
+        return lt.k === 'list' ? lt : T('list', { of: UNKNOWN });
+      }
+      case 'dot': {
+        const ot = this.ex(e.obj, sc, o);
+        if (ot.k !== 'module') this.err('TC402', line, `"${e.attr}" with a dot reaches into a Python module brought in with "Use". ${e.obj.k === 'name' ? `"${e.obj.text}"` : 'This'} is not one.`, 'Write "Use <module> as <name>" at the top of the file first.');
+        for (const a of e.args ?? []) this.ex(a, sc, o);
+        return UNKNOWN;
+      }
+      case 'op': return this.op(e, sc, o);
+      case 'round': {
+        const t = this.ex(e.e, sc, o);
+        if (e.places) { const pt = this.ex(e.places, sc, o); if (known(pt) && pt.k !== 'whole') this.err('TC305', line, 'The number of places to round to is a whole number.'); }
+        if (known(t) && !numeric(t) && t.k !== 'money') this.err('TC305', line, `Only a number or money can be rounded, but this is ${typeWords(t)}.`);
+        return t.k === 'money' ? t : !e.places && numeric(t) ? T('whole') : known(t) ? T('number') : UNKNOWN;
+      }
+      case 'readFile': { const t = this.ex(e.path, sc, o); if (known(t) && t.k !== 'text') this.err('TC305', line, 'A file is named with text, for example: read file "orders.csv".'); return T('text'); }
+      case 'neg': { const t = this.ex(e.e, sc, o); if (known(t) && !numeric(t) && t.k !== 'money') this.err('TC305', line, `Only numbers and money can be negative, but this is ${typeWords(t)}.`); return t; }
+      case 'not': this.cond(e.e, sc); return T('bool');
+      case 'bin': {
+        if (e.op === 'and' || e.op === 'or') { this.cond(e.l, sc); this.cond(e.r, sc); return T('bool'); }
+        const l = this.ex(e.l, sc, o), r = this.ex(e.r, sc, o);
+        return this.arith(e.op, l, r, line);
+      }
+      case 'cmp': {
+        const l = this.ex(e.l, sc, o), r = this.ex(e.r, sc, o);
+        this.comparable(l, r, line, e.op);
+        return T('bool');
+      }
+      case 'between': { const t = this.ex(e.e, sc, o); this.comparable(t, this.ex(e.lo, sc, o), line, '<='); this.comparable(t, this.ex(e.hi, sc, o), line, '<='); return T('bool'); }
+      case 'contains': {
+        const l = this.ex(e.l, sc, o), r = this.ex(e.r, sc, o);
+        if (known(l) && !['list', 'text', 'map'].includes(l.k)) this.err('TC305', line, `"contains" looks inside a list, a map, or text, but this is ${typeWords(l)}.`);
+        if (l.k === 'text' && known(r) && r.k !== 'text') this.err('TC302', line, `Text can only contain text, but this is ${typeWords(r)}.`);
+        return T('bool');
+      }
+      case 'adj': {
+        const t = this.ex(e.e, sc, o);
+        if (e.adj === 'empty') { if (known(t) && !['list', 'text', 'map'].includes(t.k)) this.err('TC305', line, `Only a list, a map, or text can be empty, but this is ${typeWords(t)}.`); }
+        else if (known(t) && !numeric(t) && t.k !== 'money') this.err('TC305', line, `Only numbers and money can be ${e.adj}, but this is ${typeWords(t)}.`);
+        return T('bool');
+      }
+      case 'isNothing': this.ex(e.e, sc, o); return T('bool');
+      default: this.err('TC402', line, `Thunder Core can't use "${e.k}" here yet.`); return UNKNOWN;
+    }
+  }
+
+  name(e, sc, o) {
+    const line = e.line;
+    // Inside "where" / "sorted by": a field of each item comes first.
+    const el = this.elem[this.elem.length - 1];
+    if (el) {
+      const r = el.type.k === 'record' ? this.records.get(el.type.name) : null;
+      if (r && r.fieldMap.has(e.name)) { const f = r.fieldMap.get(e.name); e.ref = { kind: 'elemField', py: f.py }; return f.type; }
+      if (!r && !sc.get(e.name) && !el.type.k.match(/^(whole|number|money|text|bool|date)$/)) { e.ref = { kind: 'elemKey', key: e.text }; return UNKNOWN; }
+      if (!r && !sc.get(e.name) && e.name === 'it') { e.ref = { kind: 'elem' }; return el.type; }
+    }
+    if (e.name === 'it' && el) { e.ref = { kind: 'elem' }; return el.type; }
+    const v = sc.get(e.name);
+    if (v) {
+      if (o.keep && v.kind !== 'const' && v.kind !== 'func' && v.kind !== 'module') this.err('TC204', line, `A kept value can only use numbers, text, and other kept values, but "${e.text}" changes.`);
+      if (v.kind === 'record') { this.err('TC305', line, `"${e.text}" is a record. Make one with: a ${v.text} with …`); return UNKNOWN; }
+      e.ref = v;
+      return v.type ?? UNKNOWN;
+    }
+    // Not found: explain why, as precisely as possible.
+    const inFunc = findScope(sc, 'func') ?? findScope(sc, 'test');
+    if (inFunc && this.mainNames.has(e.name)) {
+      this.err('TC204', line, `${inFunc.func ? `"${inFunc.func.text}"` : 'A test'} can't use "${e.text}", because it is set in the main program (line ${this.mainNames.get(e.name)}).`, inFunc.func ? 'Give it to the function with "Receive", or make it fixed with "Keep".' : 'Set it inside the test, or make it fixed with "Keep".');
+      return UNKNOWN;
+    }
+    if (!inFunc && this.mainNames.has(e.name) && this.mainNames.get(e.name) >= line) {
+      this.err('TC211', line, `"${e.text}" is used before it is set (it is first set on line ${this.mainNames.get(e.name)}).`);
+      return UNKNOWN;
+    }
+    const all = [...allNames(sc)];
+    const g = closest(e.name, all);
+    const fieldHint = [...this.records.values()].find((r) => r.fieldMap.has(e.name));
+    this.err('TC201', line, `I don't know what "${e.text}" is.`, g ? `Did you mean "${g}"?` : fieldHint ? `"${e.text}" is a field of ${fieldHint.text}. Write it with an owner: customer's ${e.text}.` : 'Set it first (Set … to …), receive it, or check the spelling.');
+    return UNKNOWN;
+  }
+
+  call(e, sc, o) {
+    const f = this.funcs.get(e.name);
+    const entry = this.global.vars.get(e.name);
+    if (!f) { this.err('TC201', e.line, `I don't know a function called "${e.text}".`); return UNKNOWN; }
+    e.py = f.py;
+    const ts = e.args.map((a) => this.ex(a, sc, o));
+    if (ts.length !== f.params.length) {
+      this.err('TC207', e.line, `"${f.text}" receives ${f.params.length} value${f.params.length === 1 ? '' : 's'} (${f.params.map((p) => p.text).join(', ') || 'none'}), but ${ts.length} ${ts.length === 1 ? 'was' : 'were'} given.`,
+        f.params.length > 1 && ts.length === 1 ? `Separate the values with commas or "and": ${f.text} with ${f.params.map((p) => p.text).join(' and ')}. To give a yes/no made with "and", put it in parentheses.` : null);
+    } else f.params.forEach((p, k) => { if (p.type && known(p.type) && known(ts[k]) && !compatible(p.type, ts[k])) this.err('TC303', e.line, `"${f.text}" receives ${p.text} as ${typeWords(p.type)}, but ${typeWords(ts[k])} was given.`); });
+    return entry?.ret ?? UNKNOWN;
+  }
+
+  newRecord(e, sc, o) {
+    const r = this.records.get(e.record);
+    if (!r) { this.err('TC209', e.line, `I don't know a record called "${e.record}".`); return UNKNOWN; }
+    e.py = r.py;
+    const given = new Set();
+    for (const f of e.fields) {
+      const def = r.fieldMap.get(f.name);
+      const t = this.ex(f.e, sc, o);
+      if (!def) { const g = closest(f.name, [...r.fieldMap.keys()]); this.err('TC206', e.line, `A ${r.text} has no field "${f.text}".`, g ? `Did you mean "${g}"?` : `Fields: ${[...r.fieldMap.keys()].join(', ')}.`); continue; }
+      f.py = def.py;
+      if (given.has(f.name)) this.err('TC203', e.line, `The field "${f.text}" is given twice.`);
+      given.add(f.name);
+      if (known(def.type) && known(t) && !compatible(def.type, t)) this.err('TC303', e.line, `A ${r.text}'s ${def.text} is ${typeWords(def.type)}, but ${typeWords(t)} was given.`);
+    }
+    const missing = r.fields.filter((f) => !given.has(f.name) && f.type.k !== 'optional' && f.type.k !== 'list' && f.type.k !== 'map');
+    if (missing.length) this.err('TC210', e.line, `A ${r.text} needs ${missing.map((f) => f.text).join(', ')}.`, `Write: a ${r.text} with ${r.fields.map((f) => `${f.text} …`).join(' and ')}.`);
+    return T('record', { name: r.name, text: r.text });
+  }
+
+  op(e, sc, o) {
+    const t = this.ex(e.arg, sc, o);
+    const line = e.line;
+    const need = (kinds, what) => { if (known(t) && !kinds.includes(t.k)) this.err('TC305', line, `"the ${e.word} of" needs ${what}, but this is ${typeWords(t)}.`); };
+    const el = t.k === 'list' ? (t.of ?? UNKNOWN) : UNKNOWN;
+    switch (e.op) {
+      case 'sum': need(['list'], 'a list of numbers or money'); if (known(el) && !numeric(el) && el.k !== 'money') this.err('TC305', line, `Only numbers or money can be added up, but this list holds ${typeWords(el)}.`); return el;
+      case 'average': need(['list'], 'a list of numbers or money'); this.info.usesDecimal = true; return el.k === 'money' ? el : known(el) ? T('number') : UNKNOWN;
+      case 'count': need(['list', 'map', 'text'], 'a list, a map, or text'); return T('whole');
+      case 'length': need(['list', 'map', 'text'], 'text or a list'); return T('whole');
+      case 'min': case 'max': case 'first': case 'last': need(['list'], 'a list'); return el;
+      case 'words': case 'lines': need(['text'], 'text'); return T('list', { of: T('text') });
+      case 'lowercase': case 'uppercase': case 'trimmed': need(['text'], 'text'); return T('text');
+      case 'keys': need(['map'], 'a map'); return T('list', { of: t.key ?? UNKNOWN });
+      case 'values': need(['map'], 'a map'); return T('list', { of: t.of ?? UNKNOWN });
+      default: return UNKNOWN;
+    }
+  }
+
+  // A field of each item of a list (for "from", "sorted by", "Sort … by"). Plural words name a field only when
+  // removing a final "s" or "es" gives exactly a field's name (prices -> price); otherwise the words are used as is.
+  fieldOfElem(et, key, text, line, plural = false) {
+    const r = et.k === 'record' ? this.records.get(et.name) : null;
+    if (!r) return { dynamic: true, key: text, type: UNKNOWN };
+    const options = [key, ...(plural ? [key.replace(/es$/, ''), key.replace(/s$/, '')] : [])];
+    for (const k of options) if (r.fieldMap.has(k)) { const f = r.fieldMap.get(k); return { py: f.py, type: f.type }; }
+    const g = closest(key, [...r.fieldMap.keys()]);
+    this.err('TC206', line, `A ${r.text} has no field "${text}".`, g ? `Did you mean "${g}"?` : `Fields: ${[...r.fieldMap.keys()].join(', ')}.`);
+    return { dynamic: true, key: text, type: UNKNOWN };
+  }
+
+  arith(op, l, r, line) {
+    const sym = { '+': 'add', '-': 'subtract', '*': 'multiply', '/': 'divide', mod: 'take the remainder of' }[op];
+    if (!known(l) || !known(r)) {
+      if ((l.k === 'text' || r.k === 'text') && op !== '+') this.err('TC305', line, `Text can't be used to ${sym}.`);
+      return op === '/' ? (l.k === 'money' || r.k === 'money' ? UNKNOWN : UNKNOWN) : (l.k === 'text' || r.k === 'text') && op === '+' ? T('text') : UNKNOWN;
+    }
+    if (op === '+' && l.k === 'text' && r.k === 'text') return T('text');
+    if (op === '+' && l.k === 'list' && r.k === 'list') return l;
+    if (l.k === 'text' || r.k === 'text') { this.err('TC305', line, `Text can't be used to ${sym}${op === '+' ? ' with other kinds of values' : ''}.`, op === '+' ? 'To put a value into text, write it in braces: "Total: {total}".' : null); return UNKNOWN; }
+    if (numeric(l) && numeric(r)) return op === '/' ? (this.info.usesDecimal = true, T('number')) : l.k === 'whole' && r.k === 'whole' ? T('whole') : T('number');
+    if (l.k === 'money' && r.k === 'money') {
+      if (op === '*') { this.err('TC305', line, 'Money can\'t be multiplied by money.', 'Multiply money by a plain number: price * 3.'); return UNKNOWN; }
+      return op === '/' ? T('number') : T('money');
+    }
+    if ((l.k === 'money' && numeric(r)) || (numeric(l) && r.k === 'money')) {
+      if (op === '*' || (op === '/' && l.k === 'money')) return T('money');
+      if (op === '/') { this.err('TC305', line, 'A plain number can\'t be divided by money.'); return UNKNOWN; }
+      this.err('TC301', line, `I can't ${sym} money and a plain number.`, `Write the number as money (for example $${'5'}), or turn it into money with "as money".`);
+      return T('money');
+    }
+    this.err('TC305', line, `I can't ${sym} ${typeWords(l)} and ${typeWords(r)}.`);
+    return UNKNOWN;
+  }
+
+  comparable(l, r, line, op) {
+    if (!known(l) || !known(r) || l.k === 'nothing' || r.k === 'nothing') return;
+    const order = ['<', '<=', '>', '>='].includes(op);
+    if (numeric(l) && numeric(r)) return;
+    if (l.k === 'money' && r.k === 'money') return;
+    if ((l.k === 'money' && numeric(r)) || (numeric(l) && r.k === 'money')) {
+      this.err('TC302', line, 'Money is compared with money, not with a plain number.', `Write the amount as money, for example $100.`);
+      return;
+    }
+    if (l.k !== r.k && !(l.k === 'optional' || r.k === 'optional')) { this.err('TC302', line, `I can't compare ${typeWords(l)} with ${typeWords(r)}.`); return; }
+    if (order && (l.k === 'bool' || l.k === 'list' || l.k === 'map' || l.k === 'record')) this.err('TC302', line, `${typeWords(l)} can't be more or less than another; only equal or not.`);
+  }
+}
+
+function sameKind(a, b) { return a.k === b.k || (numeric(a) && numeric(b)); }
+export function compatible(a, b) {
+  if (!known(a) || !known(b)) return true;
+  if (a.k === 'nothing' || b.k === 'nothing') return a.k === 'optional' || b.k === 'optional' || a.k === b.k || true;
+  if (a.k === 'optional') return compatible(a.of, b.k === 'optional' ? b.of : b);
+  if (b.k === 'optional') return compatible(a, b.of);
+  if (numeric(a) && numeric(b)) return true;
+  if (a.k !== b.k) return false;
+  if (a.k === 'record') return a.name === b.name;
+  if (a.k === 'list') return compatible(a.of ?? UNKNOWN, b.of ?? UNKNOWN);
+  return true;
+}
+
+function findScope(sc, kind) { for (let s = sc; s; s = s.parent) if (s.kind === kind) return s; return null; }
+function findFunc(sc) { for (let s = sc; s; s = s.parent) if (s.func) return s.func; return null; }
+function allNames(sc) { const out = new Set(); for (let s = sc; s; s = s.parent) for (const k of s.vars.keys()) out.add(k); return out; }
+
+export function childBlocks(s) {
+  switch (s.k) {
+    case 'if': return [...s.branches.map((b) => b.body), ...(s.otherwise ? [s.otherwise] : [])];
+    case 'each': case 'range': case 'while': case 'times': case 'func': case 'test': return [s.body];
+    case 'tryFail': return [[s.stmt], s.handler];
+    default: return [];
+  }
+}
+function collectMainNames(top, out) {
+  const visit = (body) => {
+    for (const s of body) {
+      if (s.k === 'func' || s.k === 'test' || s.k === 'record') continue;
+      if (s.k === 'set' && s.target.k === 'name' && !out.has(s.target.name)) out.set(s.target.name, s.line);
+      if (s.k === 'each') for (const v of s.vars) if (!out.has(v.name)) out.set(v.name, s.line);
+      if (s.k === 'range' && !out.has(s.v.name)) out.set(s.v.name, s.line);
+      for (const b of childBlocks(s)) visit(b);
+    }
+  };
+  visit(top);
+}
+
+export function walkExpr(e, fn) {
+  if (!e || typeof e !== 'object') return;
+  fn(e);
+  for (const k of ['e', 'l', 'r', 'obj', 'key', 'dflt', 'list', 'cond', 'arg', 'places', 'path', 'lo', 'hi']) if (e[k]) walkExpr(e[k], fn);
+  for (const a of e.args ?? []) walkExpr(a, fn);
+  for (const a of e.items ?? []) walkExpr(a, fn);
+  for (const f of e.fields ?? []) walkExpr(f.e, fn);
+  if (e.k === 'str') for (const p of e.parts) if (typeof p !== 'string') walkExpr(p.e, fn);
+}
+
+export { RESERVED };

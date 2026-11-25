@@ -1,0 +1,43 @@
+# A trading journal: records, exact money, a Never rule, a failure handled, and tests.
+
+A Trade has:
+  Symbol is text
+  Quantity is whole number
+  Buy price is money
+  Sell price is money
+  Never allow a negative quantity
+
+To calculate profit:
+  Receive trade as a Trade
+  Give (trade's sell price - trade's buy price) * trade's quantity
+
+Set trades to an empty list
+Add a Trade with symbol "ACME" and quantity 10 and buy price $20.00 and sell price $40.00 to trades
+Add a Trade with symbol "GLOBEX" and quantity 3 and buy price $15.10 and sell price $12.35 to trades
+Add a Trade with symbol "INITECH" and quantity 100 and buy price $0.10 and sell price $0.30 to trades
+
+Set total profit to $0
+For each trade in trades:
+  Set profit to calculate profit with trade
+  Increase total profit by profit
+  say "{trade's symbol}: {profit}"
+say "Total profit: {total profit}"
+say "Winning trades: {the count of trades where sell price is more than buy price} of {the count of trades}"
+
+Set mistake to a Trade with symbol "OOPS" and quantity -5 and buy price $1 and sell price $2
+If this fails:
+  say "Refused: {error}"
+
+Test "profit on a winning trade":
+  Set trade to a Trade with symbol "ACME" and quantity 10 and buy price $20.00 and sell price $40.00
+  Expect calculate profit with trade to be $200
+
+Test "a losing trade is negative money":
+  Set trade to a Trade with symbol "GLOBEX" and quantity 3 and buy price $15.10 and sell price $12.35
+  Expect calculate profit with trade to be -$8.25
+
+Test "money is exact":
+  Expect $0.10 + $0.20 to be $0.30
+
+Test "a negative quantity is refused":
+  Expect a Trade with symbol "BAD" and quantity -1 and buy price $1 and sell price $2 to fail with "Never allow a negative quantity"

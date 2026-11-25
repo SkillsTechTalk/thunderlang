@@ -49,6 +49,7 @@ import { verifyDiff } from './verify-diff.mjs';
 import { verifyRun, executedText, mergeTraces } from './executed.mjs';
 import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, parseStacks, explainError, countWords } from './running.mjs';
 import { thunderModel } from './model.mjs';
+import { coreMain } from './core/cli.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
 import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
@@ -355,6 +356,8 @@ function parseArgs(argv) {
     else if (a === '--when') args.when = argv[++i];
     else if (a === '--to') args.to = argv[++i];
     else if (a === '--force') args.force = true;
+    else if (a === '--mission') args.mission = true;
+    else if (a === '--core') args.core = true;
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
@@ -455,8 +458,13 @@ The flow: author intent, inspect it, run and prove it, then keep real code align
 usage: thunder <command> <file> [options]
        thunder mission <Name> <command>     run any command on a mission by name
 
+Write and run programs (Thunder Core, docs/core.md)
+  new <dir>                  create a Thunder Core project: thunder.toml, src/main.thunder, tests/
+  run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file in one;
+                             add --core for a single file with no project. run/test need Python 3.10+
+
 Author
-  new [Name]                 scaffold a runnable starter mission (Name.thunder)   [alias: init]
+  init [Name]                scaffold a runnable starter mission (Name.thunder)   [alias: new --mission Name]
   mission <Name> [cmd]       resolve a mission by name and run a command on it (list | <Name> | <Name> <cmd>)
   draft --brief <json|->     scaffold a rigorous intent draft + gap checklist from a brief
   edit <file> [--edits <json|->] [--set-goal ..] [--add-guarantee ..] [--write]   structural edits, comments kept
@@ -578,6 +586,10 @@ function main() {
     process.exitCode = cmd ? 0 : 2;
     return;
   }
+  // Thunder Core (programs you write and run): thunder new <dir>, and run/build/test/check/format inside a
+  // project with thunder.toml (or with --core). Mission files fall through unchanged. See src/core/cli.mjs.
+  const coreCode = coreMain(cmd, restArgv);
+  if (coreCode !== null) { process.exitCode = coreCode; return; }
   if (cmd === 'read') {
     try {
       if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');

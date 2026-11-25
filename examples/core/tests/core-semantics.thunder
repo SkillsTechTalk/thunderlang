@@ -1,0 +1,29 @@
+# Semantics that must be the same in every target language (docs/core.md, "What a value means").
+
+Test "division is exact, never cut to a whole number":
+  Expect 7 / 2 to be 3.5
+  Expect 1 / 4 to be 0.25
+
+Test "decimals are exact":
+  Expect 0.10 + 0.20 to be 0.3
+
+Test "rounding goes half away from zero":
+  Expect round 2.5 to be 3
+  Expect round -2.5 to be -3
+  Expect round 2.675 to 2 places to be 2.68
+
+Test "remainder has the sign of the divisor":
+  Expect 7 mod 3 to be 1
+  Expect -7 mod 3 to be 2
+
+Test "positions start at 1":
+  Set letters to ["a", "b", "c"]
+  Expect letters at 1 to be "a"
+  Expect letters at 3 to be "c"
+
+Test "nothing is its own value":
+  Set note to nothing
+  Expect note to be nothing
+
+Test "dividing by zero fails with a clear message":
+  Expect 1 / 0 to fail with "divided by zero"

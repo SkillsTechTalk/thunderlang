@@ -1,0 +1,20 @@
+# Summarize a CSV file with Python's own csv module (the "Use" escape hatch to the Python ecosystem).
+
+Use csv as csv
+
+Set text to read file "orders.csv"
+Set rows to csv.DictReader(the lines of text) as list
+
+Set total to $0
+Set totals to an empty map
+For each row in rows:
+  Set amount to row's amount as money
+  Increase total by amount
+  Set totals at row's status to (totals at row's status otherwise $0) + amount
+
+say "Orders: {the count of rows}"
+say "Total: {total}"
+say "Average: {round (total / the count of rows) to 2 places}"
+say "By status:"
+For each status and subtotal in totals sorted by key:
+  say "  {status}: {subtotal}"

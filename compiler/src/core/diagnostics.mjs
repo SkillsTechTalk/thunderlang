@@ -1,0 +1,80 @@
+// Thunder Core diagnostics: stable codes, plain words, always a line number.
+//
+// Codes never change meaning once released. TC1xx = layout and spelling of a line, TC2xx = names,
+// TC3xx = kinds of values (types), TC4xx = things Thunder Core does not support yet, TC5xx = runtime
+// (reported by the generated program, listed here so the docs and the runtime agree).
+
+export const CODES = {
+  TC101: 'Tabs are not used for indentation',
+  TC102: 'A line is indented but nothing opens a block above it',
+  TC103: 'A line ends with ":" but has nothing indented under it',
+  TC104: 'Indentation does not line up with an earlier line',
+  TC105: 'A line could not be read',
+  TC106: 'Text is missing its closing quote',
+  TC107: 'Brackets or parentheses do not match',
+  TC108: 'Something is missing from this statement',
+  TC109: '"Otherwise" without a "When" or "If" before it',
+  TC110: '"If this fails:" without a statement before it',
+  TC111: '"Receive" is not the first line of a "To" block',
+  TC112: 'Something extra at the end of a line',
+  TC201: 'Unknown name',
+  TC202: 'A name uses a word that belongs to Thunder',
+  TC203: 'A name is defined twice',
+  TC204: 'A function uses a value from the main program',
+  TC205: 'A kept value is changed',
+  TC206: 'Unknown field',
+  TC207: 'Wrong number of values given to a function',
+  TC208: '"Give" outside a "To" block',
+  TC209: 'Unknown record',
+  TC210: 'A record is missing a field',
+  TC211: 'A name is used before it is set',
+  TC301: 'Money and a plain number are mixed',
+  TC302: 'Values of different kinds are compared',
+  TC303: 'A name changes kind',
+  TC304: 'A condition is not yes/no',
+  TC305: 'This kind of value cannot do that',
+  TC306: 'Unknown kind of value',
+  TC401: 'Thunder Core does not know this action yet',
+  TC402: 'Thunder Core does not support this yet',
+  TC403: 'A "Never" rule names more than one changing value',
+  TC501: 'Divided by zero (runtime)',
+  TC502: 'Nothing used where a value was needed (runtime)',
+  TC503: 'A field or entry is missing (runtime)',
+  TC504: 'A Never rule was broken (runtime)',
+  TC505: 'An Expect check failed (runtime)',
+  TC506: 'Values of different kinds were mixed (runtime)',
+  TC507: 'The program stopped with a message (runtime)',
+  TC508: 'Python code used through "Use" failed (runtime)',
+  TC509: 'A value could not be converted (runtime)',
+};
+
+export class CoreError extends Error {
+  constructor(diag) { super(formatDiagnostic(diag)); this.diagnostic = diag; }
+}
+
+/** A diagnostic: { code, line, message, hint?, severity }. `message` already reads as a sentence. */
+export function diag(code, line, message, hint) {
+  return { code, severity: 'error', line: line ?? 1, message, ...(hint ? { hint } : {}) };
+}
+
+export function formatDiagnostic(d, file) {
+  const where = file ? `${file}, line ${d.line}` : `Line ${d.line}`;
+  return `${where}: ${d.message}${d.hint ? `\n  ${d.hint}` : ''}  [${d.code}]`;
+}
+
+// Small edit distance, for "did you mean".
+export function closest(word, options) {
+  let best = null, bestD = Infinity;
+  for (const o of options) {
+    const d = lev(word, o);
+    if (d < bestD) { bestD = d; best = o; }
+  }
+  return best && bestD <= Math.max(1, Math.floor(word.length / 3)) ? best : null;
+}
+function lev(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 1; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return dp[m][n];
+}

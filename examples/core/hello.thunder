@@ -1,0 +1,5 @@
+# The first program: say something, remember a value, and use it in text.
+say "Hello, world!"
+
+Set name to "Ada"
+say "Nice to meet you, {name}."
