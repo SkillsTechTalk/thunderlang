@@ -60,3 +60,15 @@ test('intent_read_repo reads a folder locally and is never offered to remote cli
   assert.equal(r.items[0].file, 'api/routes.ts');
   assert.ok(!REMOTE_SAFE_TOOLS.includes('intent_read_repo'));
 });
+
+test('intent_trace answers what a change affects in other repositories, locally only', async () => {
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const fix = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'trace');
+  const r = call(createMcpHandler(), 'intent_trace', { paths: ['orders', 'web', 'billing'].map((n) => join(fix, n)), thing: 'POST /api/orders' });
+  assert.deepEqual(r.findings.map((f) => [f.risk, f.kind, f.dependents.map((d) => d.repo)]), [['high', 'route-changed', ['web']], ['high', 'event-published', ['billing']]]);
+  assert.match(r.text, /Stops at the first hop/);
+  const links = call(createMcpHandler(), 'intent_trace', { paths: ['orders', 'web'].map((n) => join(fix, n)) });
+  assert.equal(links.trace.links.length, 2);
+  assert.ok(!REMOTE_SAFE_TOOLS.includes('intent_trace'));
+});

@@ -18,6 +18,8 @@ import { runTests } from './testing.mjs';
 import { resolveObligations } from './obligations.mjs';
 import { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from './review-atlas.mjs';
 import { evaluateDecision } from './runtime.mjs';
+import { buildTrace, traceImpact, traceImpactOf, renderImpact } from './trace.mjs';
+import { readRepoDir, gitChanges } from './trace-fs.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildConformance } from './conformance.mjs';
 import { checkDrift } from './drift.mjs';
@@ -259,6 +261,27 @@ const TOOLS = [
       const items = searchRepo(index, { query, kinds, languages, path: folder, answer, input });
       const { files, ...rest } = index;
       return { ...rest, files: files.length, matched: items.length, items: items.slice(0, Math.max(1, Math.min(500, Number(limit) || 50))) };
+    },
+  },
+  {
+    name: 'intent_trace',
+    description: 'ASK THUNDER TRACE BEFORE CHANGING CODE THAT OTHER REPOSITORIES USE (local only). Give the repository folders. With "thing" (a route like "POST /api/orders", an event name, or "repo:file[:line]") or "diff": true (the branch and uncommitted changes), it answers what the change can affect in the OTHER repositories: callers of a changed or removed route, listeners of a published event, ranked high/medium/low, one hop out, every item cited repo@sha:file:line. With neither, it gives the links between the repositories. Read from code; nothing is run; a call whose address is worked out when it runs is listed as not linked, never guessed.',
+    inputSchema: {
+      type: 'object', required: ['paths'],
+      properties: {
+        paths: { type: 'array', minItems: 1, maxItems: 50, items: { ...str, description: 'a repository folder' } },
+        thing: { ...str, description: 'what changes: "POST /api/orders", "order.placed", or "repo:src/file.ts:12"' },
+        diff: { type: 'boolean', description: 'use the current changes (since the branch left main, plus uncommitted)' },
+        base: { ...str, description: 'with diff: the commit or branch to compare against' },
+      },
+    },
+    run: ({ paths, thing, diff = false, base }) => {
+      if (!Array.isArray(paths) || !paths.length || paths.length > 50) throw new Error('Give 1 to 50 repository folders in "paths".');
+      const repos = paths.map((p) => readRepoDir(resolve(String(p))));
+      const trace = buildTrace(repos);
+      if (!thing && !diff) return { trace };
+      const r = thing ? traceImpactOf(trace, String(thing)) : traceImpact(trace, repos.flatMap((repo) => gitChanges(repo, base).changes));
+      return { ...r, text: renderImpact(r) };
     },
   },
   {

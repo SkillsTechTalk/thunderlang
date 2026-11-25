@@ -304,6 +304,64 @@ const EVENT_DECORATOR = /@(OnEvent|EventPattern|MessagePattern|KafkaListener|Rab
 /** Names any emitter uses (a stream's 'error', a socket's 'close'): matching them across files would be a guess. */
 const GENERIC_EVENTS = new Set(['error', 'close', 'end', 'data', 'finish', 'open', 'message', 'connect', 'connection', 'request', 'response', 'listening', 'drain', 'pipe', 'unpipe', 'readable', 'timeout', 'abort', 'change', 'click', 'input', 'submit', 'load', 'ready', 'exit', 'mount', 'start', 'stop', 'done', 'update', 'success', 'fail', 'progress', 'headers', 'upgrade', 'secureConnection', 'disconnect', 'reconnect']);
 
+/** The HTTP routes this app handles: [{ member, method, segs, path }]. (Next.js route files included.) */
+function routesIn(model, isDefaultExport) {
+  const routes = [];
+  for (const m of model.members) {
+    if (!m.route) continue;
+    const r = m.route.match(/^(\w+)\s+(.*)$/);
+    if (r) routes.push({ member: m, method: r[1].toUpperCase(), segs: routeSegs(r[2]), path: r[2] });
+  }
+  // Next.js route files: app/api/orders/[id]/route.ts exports GET, POST, …; pages/api/orders.ts handles any method.
+  for (const m of model.members) {
+    if (m.route || m.owner) continue;
+    const app = m.file.match(/(?:^|\/)app\/(.*?)\/?route\.(?:ts|js|tsx|jsx|mjs)$/);
+    if (app && /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(m.name)) routes.push({ member: m, method: m.name, segs: routeSegs('/' + app[1].replace(/\([^)]*\)\/?/g, '')), path: '/' + app[1] });
+    const pages = m.file.match(/(?:^|\/)pages\/(api\/.*?)(?:\/index)?\.(?:ts|js|tsx|jsx)$/);
+    if (pages && isDefaultExport(m)) routes.push({ member: m, method: 'ANY', segs: routeSegs('/' + pages[1]), path: '/' + pages[1] });
+  }
+  return routes;
+}
+
+/** Who listens for each event or queue name: Map(name -> [{ member, how }]). */
+function listenersIn(model, sources, membersOf) {
+  const listeners = new Map();
+  const addListener = (name, member, how) => { if (!member) return; const l = listeners.get(name) ?? listeners.set(name, []).get(name); if (!l.some((x) => x.member === member)) l.push({ member, how }); };
+  for (const f of model.files) {
+    const src = sources.get(f.path);
+    if (!src || !/\.(on|once|addListener|subscribe|consume|listen|handle)\(|@\w+(Listener|Pattern|Event|Handler)\b|@Subscribe|@Consumer|new\s+Worker\(/.test(src)) continue;
+    const ms = membersOf.get(f.path) || [];
+    for (const m of src.matchAll(EVENT_SUBSCRIBE)) {
+      if (GENERIC_EVENTS.has(m[3])) continue;
+      const line = lineAt(src, m.index);
+      // The handler: a function written right there (an item since it has no name of its own), or one named.
+      const handler = m[4] ? (ms.find((x) => x.name === m[4].replace(/^(this|self)\./, '') && !x.callback) ?? null) : ms.filter((x) => x.lines[0] >= line && x.lines[0] <= line + 2).sort((a, b) => a.lines[0] - b.lines[0])[0];
+      addListener(m[3], handler, m[1]);
+    }
+    for (const m of src.matchAll(/new\s+Worker\(\s*(['"`])([^'"`]+)\1\s*,/g)) {
+      const line = lineAt(src, m.index);
+      addListener(m[2], ms.filter((x) => x.lines[0] >= line && x.lines[0] <= line + 2).sort((a, b) => a.lines[0] - b.lines[0])[0], 'worker');
+    }
+    for (const m of src.matchAll(EVENT_DECORATOR)) {
+      const line = lineAt(src, m.index);
+      addListener(m[3], ms.filter((x) => x.lines[0] > line && x.lines[0] <= line + 6).sort((a, b) => a.lines[0] - b.lines[0])[0], m[1]);
+    }
+  }
+  return listeners;
+}
+
+/** `const emails = new Queue('emails')`: Map(`file|emails` -> 'emails'). */
+  // `const emails = new Queue('emails')` then `emails.add(…)`: the queue's name.
+function queueNamesIn(model, sources) {
+  const queueNames = new Map();
+  for (const f of model.files) {
+    const src = sources.get(f.path);
+    if (!src || !/new\s+Queue\(/.test(src)) continue;
+    for (const m of src.matchAll(/(?:\b(?:const|let|var)\s+|this\.)([\w$]+)\s*=\s*new\s+Queue\(\s*(['"`])([^'"`]+)\2/g)) queueNames.set(`${f.path}|${m[1]}`, m[3]);
+  }
+  return queueNames;
+}
+
 // ── Linking ──────────────────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -711,49 +769,9 @@ export function linkSystem(model, files) {
   };
 
   // ── Routes and listeners ──
-  const routes = [];
-  for (const m of model.members) {
-    if (!m.route) continue;
-    const r = m.route.match(/^(\w+)\s+(.*)$/);
-    if (r) routes.push({ member: m, method: r[1].toUpperCase(), segs: routeSegs(r[2]), path: r[2] });
-  }
-  // Next.js route files: app/api/orders/[id]/route.ts exports GET, POST, …; pages/api/orders.ts handles any method.
-  for (const m of model.members) {
-    if (m.route || m.owner) continue;
-    const app = m.file.match(/(?:^|\/)app\/(.*?)\/?route\.(?:ts|js|tsx|jsx|mjs)$/);
-    if (app && /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(m.name)) routes.push({ member: m, method: m.name, segs: routeSegs('/' + app[1].replace(/\([^)]*\)\/?/g, '')), path: '/' + app[1] });
-    const pages = m.file.match(/(?:^|\/)pages\/(api\/.*?)(?:\/index)?\.(?:ts|js|tsx|jsx)$/);
-    if (pages && topOf(m.file).get(m.name)?.[0] === m && jsExp(m.file).def === m.name) routes.push({ member: m, method: 'ANY', segs: routeSegs('/' + pages[1]), path: '/' + pages[1] });
-  }
-  const listeners = new Map();
-  const addListener = (name, member, how) => { if (!member) return; const l = listeners.get(name) ?? listeners.set(name, []).get(name); if (!l.some((x) => x.member === member)) l.push({ member, how }); };
-  for (const f of model.files) {
-    const src = sources.get(f.path);
-    if (!src || !/\.(on|once|addListener|subscribe|consume|listen|handle)\(|@\w+(Listener|Pattern|Event|Handler)\b|@Subscribe|@Consumer|new\s+Worker\(/.test(src)) continue;
-    const ms = membersOf.get(f.path) || [];
-    for (const m of src.matchAll(EVENT_SUBSCRIBE)) {
-      if (GENERIC_EVENTS.has(m[3])) continue;
-      const line = lineAt(src, m.index);
-      // The handler: a function written right there (an item since it has no name of its own), or one named.
-      const handler = m[4] ? (ms.find((x) => x.name === m[4].replace(/^(this|self)\./, '') && !x.callback) ?? null) : ms.filter((x) => x.lines[0] >= line && x.lines[0] <= line + 2).sort((a, b) => a.lines[0] - b.lines[0])[0];
-      addListener(m[3], handler, m[1]);
-    }
-    for (const m of src.matchAll(/new\s+Worker\(\s*(['"`])([^'"`]+)\1\s*,/g)) {
-      const line = lineAt(src, m.index);
-      addListener(m[2], ms.filter((x) => x.lines[0] >= line && x.lines[0] <= line + 2).sort((a, b) => a.lines[0] - b.lines[0])[0], 'worker');
-    }
-    for (const m of src.matchAll(EVENT_DECORATOR)) {
-      const line = lineAt(src, m.index);
-      addListener(m[3], ms.filter((x) => x.lines[0] > line && x.lines[0] <= line + 6).sort((a, b) => a.lines[0] - b.lines[0])[0], m[1]);
-    }
-  }
-  // `const emails = new Queue('emails')` then `emails.add(…)`: the queue's name.
-  const queueNames = new Map();
-  for (const f of model.files) {
-    const src = sources.get(f.path);
-    if (!src || !/new\s+Queue\(/.test(src)) continue;
-    for (const m of src.matchAll(/(?:\b(?:const|let|var)\s+|this\.)([\w$]+)\s*=\s*new\s+Queue\(\s*(['"`])([^'"`]+)\2/g)) queueNames.set(`${f.path}|${m[1]}`, m[3]);
-  }
+  const routes = routesIn(model, (m) => topOf(m.file).get(m.name)?.[0] === m && jsExp(m.file).def === m.name);
+  const listeners = listenersIn(model, sources, membersOf);
+  const queueNames = queueNamesIn(model, sources);
 
   // ── Walk every step of every member ──
   const seen = new Set();
@@ -818,6 +836,87 @@ export function linkSystem(model, files) {
   model.notLinked = notLinked;
   return model;
 }
+
+// ── Service facts: what an app offers and what it calls, for linking ACROSS repositories ─────────────
+
+/** Paths every service has: linking them across repositories would be a guess, not a fact. */
+export const GENERIC_PATHS = new Set(['/', '/health', '/healthz', '/health/live', '/health/ready', '/ready', '/readyz', '/live', '/livez', '/status', '/metrics', '/ping', '/version', '/info', '/favicon.ico', '/robots.txt']);
+
+/**
+ * The path an HTTP call reaches once its base address is set. `${ORDERS_URL}/api/orders` reaches /api/orders on
+ * whatever ORDERS_URL names (base 'computed'); 'http://orders:8080/api/orders' reaches it on host orders:8080.
+ * null when the path itself is worked out when the code runs.
+ */
+function requestTarget(e) {
+  const u = urlOf(e);
+  if (u.segs) return { path: u.path, segs: u.segs, base: 'this app' };
+  let text = null;
+  if (e?.kind === 'template') text = e.parts.map((p) => (typeof p === 'string' ? p : PLACEHOLDER)).join('');
+  else if (e?.kind === 'literal' && e.type === 'text') text = String(e.value);
+  else if (e?.kind === 'literal' && e.interpolated) text = String(e.value).replace(/\$\{[^}]*\}|\$\w+|#\{[^}]*\}|\{[^}]*\}/g, PLACEHOLDER);
+  else if (e?.kind === 'binary' && e.op === '+') {
+    const parts = [];
+    const flat = (x) => { if (x.kind === 'binary' && x.op === '+') { flat(x.left); flat(x.right); } else parts.push(x); };
+    flat(e);
+    text = parts.map((x) => (x.kind === 'literal' && x.type === 'text' ? String(x.value) : PLACEHOLDER)).join('');
+  }
+  if (text == null) return null;
+  let base;
+  const abs = text.match(/^[a-z][a-z0-9+.-]*:\/\/([^/]*)(.*)$/i);
+  if (abs) { if (abs[1].includes(PLACEHOLDER)) base = 'computed'; else base = abs[1]; text = abs[2] || '/'; }
+  else if (text.startsWith(PLACEHOLDER)) { base = 'computed'; text = text.slice(PLACEHOLDER.length); }
+  else return null;
+  if (!text.startsWith('/') || text.slice(1).startsWith(PLACEHOLDER) && text.length === 1 + PLACEHOLDER.length) return null;
+  const path = text.replace(/[?#].*$/s, '');
+  const segs = path.split('/').filter(Boolean).map((s) => (s.includes(PLACEHOLDER) ? '*' : s));
+  return { path: '/' + segs.map((s) => (s === '*' ? ':value' : s)).join('/'), segs, base };
+}
+
+/**
+ * What this app offers other apps (routes it handles, events it listens for) and what it asks of them (HTTP
+ * requests, events it publishes), each with its member and line. Read from the same steps linkSystem walks, with
+ * the same matchers; nothing is guessed: a request whose path is worked out when it runs is left out with a reason.
+ * { routes, listeners, requests, publishes, unknown }
+ */
+export function serviceFacts(model, files) {
+  const sources = new Map(files.map((f) => [f.path, String(f.source ?? '')]));
+  const membersOf = new Map();
+  for (const m of model.members) (membersOf.get(m.file) ?? membersOf.set(m.file, []).get(m.file)).push(m);
+  const at = (m, line) => ({ member: m.id, label: m.label, file: m.file, line: line ?? m.lines?.[0] ?? null, lines: m.lines ?? null });
+  const routes = routesIn(model, (m) => !m.owner && !m.callback && jsExports(sources.get(m.file) || '').def === m.name)
+    .map((r) => ({ method: r.method, path: r.path, segs: r.segs, ...at(r.member) }));
+  const listeners = [];
+  for (const [event, ls] of listenersIn(model, sources, membersOf)) if (event.trim()) for (const x of ls) listeners.push({ event, how: x.how, ...at(x.member) });
+  const queueNames = queueNamesIn(model, sources);
+  const requests = [], publishes = [], unknown = [];
+  for (const m of model.members) {
+    for (const nd of m.flow?.nodes || []) {
+      if (!nd.expr) continue;
+      const http = HTTP_SAYS.exec(nd.text || '');
+      let httpDone = false;
+      for (const call of callsIn(nd.expr)) {
+        const path = calleePath(call.callee);
+        if (!path) continue;
+        if (http && !httpDone && /^(fetch|get|post|put|patch|delete|head|request|Get|Post|Put|Patch|Delete|Head|NewRequest|NewRequestWithContext|\w+Async|\w+ForObject|\w+ForEntity|exchange)$/.test(path.at(-1))) {
+          httpDone = true;
+          const t = requestTarget(urlArg(call));
+          if (t) requests.push({ method: http[1], path: t.path, segs: t.segs, base: t.base, ...at(m, nd.line) });
+          else unknown.push({ ...at(m, nd.line), call: `${http[1]} request`, why: urlOf(urlArg(call)).why ?? 'the path is worked out when it runs' });
+          continue;
+        }
+        const last = path.at(-1);
+        const queue = path.length === 2 && /^(add|addBulk)$/.test(last) ? queueNames.get(`${m.file}|${path[0]}`) : null;
+        if (queue || (EVENT_PUBLISH.test(last) && call.args?.[0]?.kind === 'literal' && call.args[0].type === 'text')) {
+          const name = queue ?? String(call.args[0].value);
+          if (name.trim() && !GENERIC_EVENTS.has(name)) publishes.push({ event: name, how: queue ? 'queue' : last, ...at(m, nd.line) });
+        }
+      }
+    }
+  }
+  return { routes, listeners, requests, publishes, unknown };
+}
+
+export { segsMatch };
 
 // ── The app's map: which areas call which ────────────────────────────────────────────────────────────
 
