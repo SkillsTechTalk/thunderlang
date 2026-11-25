@@ -1,5 +1,6 @@
 # Unreleased
 
+- **Fix (writing in Thunder):** an inline route handler's own model id (`auth.ts##POST/api/auth/register#3`) now resolves in `thunderWrite`, and `says` names only the changed step, once, when a one-line `if` holds several steps. Reported by OpenThunder.
 - **Thunder review on every pull request (GitHub Action).** `uses: SkillsTechTalk/thunderlang@main` (the repository's
   root `action.yml`) runs `thunder review` on the pull request's two commits with the published compiler, writes the
   review to the job summary, and keeps one pull request comment up to date (found by `<!-- thunder-review -->`), with
