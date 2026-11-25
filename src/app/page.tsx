@@ -137,7 +137,8 @@ export default function HomePage() {
         <div className="mt-8"><ThunderedTabs samples={SAMPLES} /></div>
         <p className="mt-6 text-sm text-haze-300">
           <span className="font-medium text-white">Thunder reads today:</span> {THUNDERED_SAMPLES.map((x) => x.label).join(", ")}.{" "}
-          <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your own code in Thunder →</Link>
+          <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your own code in Thunder →</Link>{" "}
+          <Link href="/gallery" className="font-medium text-gold-300 hover:text-gold-200">See it on famous code →</Link>
         </p>
       </Section>
 
