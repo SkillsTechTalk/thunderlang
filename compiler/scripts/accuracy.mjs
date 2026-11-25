@@ -65,7 +65,7 @@ function roundTrip(item, fromLang) {
 // ── 2. What a step keeps ─────────────────────────────────────────────────────────────────────────────────
 
 function stepFidelity(step, lines = [], yamlFile = false) {
-  if (step.restates || step.kind === 'other') return { asCode: true };
+  if (step.restates || step.kind === 'other' || step.explained === false) return { asCode: true };
   // Compare with the step's full source lines (a step's `code` may be shortened for display).
   let span = step.span ? lines.slice(step.span.startLine - 1, step.span.endLine).join('\n') : lines[step.line - 1] ?? '';
   // A workflow or YAML step is its whole block (`uses:` with its `with:` lines under it), not its first line.

@@ -13,7 +13,8 @@ test('axios#6: `bytesSent += chunk.length` adds to a running total; it is never 
 test('jquery#15: `return queue || []` gives back the queue (or a new list), not yes or no', () => {
   const t = thunderText('a.js', 'function q(elem, type) {\n  type = ( type || "fx" ) + "queue";\n  var queue = get(elem, type);\n  return queue || [];\n}\n');
   assert.doesNotMatch(t, /whether/);
-  assert.match(t, /Gives back queue, or an empty list when that has no value/);
+  // Say less: `||` also skips false, 0, and "" (it is not "when that has no value"), so the ending is its code.
+  assert.match(t, /`return queue \|\| \[\];` \(code, not explained\)/);
 });
 
 test('a `switch` case `break` leaves the switch, not a loop around it', () => {

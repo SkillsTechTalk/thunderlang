@@ -14,7 +14,8 @@ test('Kingfisher#6: `guard self.onShouldApply() else { return }` (a known closur
 test('Kingfisher#2: `guard case KingfisherError.responseError = context.error` asks about that case', () => {
   const t = thunderText('a.swift', 'struct R {\n    func retry(context: C) {\n        guard case KingfisherError.responseError = context.error else {\n            handler(.stop)\n            return\n        }\n        handler(.retry)\n    }\n}\n');
   assert.doesNotMatch(t, /Is it kingfisher error\?/);
-  assert.match(t, /response error/);
+  // Say less: `guard case` is asked as its code; its steps are on the No side (they run when it does not match).
+  assert.equal(sideOf(t, /Ask: `case KingfisherError\.responseError = context\.error`\?/, /Calls handler/), 'no');
 });
 
 test('Kingfisher#12: `do { … }` with no catch is a scope, not error handling', () => {
@@ -30,5 +31,6 @@ test('Rectangle#2: `default: break` in a switch leaves the switch (there is no l
 test('Rectangle#5: `for x in [ … ] where cond` names the list and keeps the filter', () => {
   const t = thunderText('a.swift', 'class S {\n    func title(processName: String) -> String {\n        for separator in [" — ", " - "] where !processName.isEmpty {\n            use(separator)\n        }\n        return processName\n    }\n}\n');
   assert.doesNotMatch(t, /For each separator in is empty/);
-  assert.match(t, /only those where process name is not empty/);
+  // Say less: a `for … where` loop is shown as code, filter included.
+  assert.match(t, /`for separator in \[" — ", " - "\] where !processName\.isEmpty` \(code, not explained\)/);
 });

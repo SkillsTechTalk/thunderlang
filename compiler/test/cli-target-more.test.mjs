@@ -131,8 +131,8 @@ test('emitted Elixir renders `in` as x in [..]', () => {
 
 test('the Go adapter compiles + executes the generated decision', { skip: !(NATIVE && goAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Go toolchain to run' }, () => {
   const out = runGoTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target go runs the tests against generated Go', { skip: !(NATIVE && goAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Go toolchain to run' }, () => {
@@ -143,8 +143,8 @@ test('thunder test --target go runs the tests against generated Go', { skip: !(N
 
 test('the Rust adapter compiles + executes the generated decision', { skip: !(NATIVE && rustAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Rust toolchain to run' }, () => {
   const out = runRustTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target rust runs the tests against generated Rust', { skip: !(NATIVE && rustAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Rust toolchain to run' }, () => {
@@ -155,8 +155,8 @@ test('thunder test --target rust runs the tests against generated Rust', { skip:
 
 test('the Kotlin adapter compiles + executes the generated decision', { skip: !(NATIVE && kotlinAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Kotlin toolchain to run' }, () => {
   const out = runKotlinTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target kotlin runs the tests against generated Kotlin', { skip: !(NATIVE && kotlinAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Kotlin toolchain to run' }, () => {
@@ -167,8 +167,8 @@ test('thunder test --target kotlin runs the tests against generated Kotlin', { s
 
 test('the Scala adapter compiles + executes the generated decision', { skip: !(NATIVE && scalaAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Scala toolchain to run' }, () => {
   const out = runScalaTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target scala runs the tests against generated Scala', { skip: !(NATIVE && scalaAvailable()) && 'set TL_NATIVE_TARGETS=1 with a Scala toolchain to run' }, () => {
@@ -179,8 +179,8 @@ test('thunder test --target scala runs the tests against generated Scala', { ski
 
 test('the Elixir adapter compiles + executes the generated decision', { skip: !(NATIVE && elixirAvailable()) && 'set TL_NATIVE_TARGETS=1 with an Elixir runtime to run' }, () => {
   const out = runElixirTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target elixir runs the tests against generated Elixir', { skip: !(NATIVE && elixirAvailable()) && 'set TL_NATIVE_TARGETS=1 with an Elixir runtime to run' }, () => {

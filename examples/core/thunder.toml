@@ -1,0 +1,13 @@
+# The Thunder Core demo programs. Each .thunder file here is its own program:
+#   thunder run examples/core/hello.thunder
+#   thunder test examples/core          (runs every Test block)
+[project]
+name = "thunder-core-examples"
+version = "0.1.0"
+
+[build]
+target = "python"
+source = "."
+tests = "tests"
+output = "generated/python"
+entry = "hello.thunder"

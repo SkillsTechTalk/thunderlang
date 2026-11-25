@@ -21,7 +21,8 @@ test('Alamofire#4/#9/#10/#14/#15/#16, vapor#4/#7/#17/#20/#21/#22: a one-expressi
 test('vapor#8/#9, Alamofire#11: a one-expression body with a trailing closure gives back what the last call makes, closure kept', () => {
   const t = thunderText('a.swift', 'struct H {\n    public var accept: [HTTPMediaTypePreference] {\n        self.parseDirectives(name: .accept).compactMap {\n            HTTPMediaTypePreference(directives: $0)\n        }\n    }\n    public func httpResponses(policy: Policy = .unbounded) -> StreamOf<HTTPURLResponse> {\n        stream(bufferingPolicy: policy) { [unowned self] continuation in\n            continuation.yield(1)\n        }\n    }\n}\n');
   assert.match(t, /Calls compact map with these steps.*\n    - Calls httpmedia type preference.*\n  - Gives back the result of compact map/);
-  assert.match(t, /Calls stream with these steps.*\n    - Calls yield.*\n  - Gives back the result of stream/);
+  // Say less: a closure with a capture list (`{ [unowned self] continuation in`) is not parsed; the ending is its code.
+  assert.match(t, /Calls stream with these steps.*\n    - Calls yield.*\n  - Gives back `stream\(bufferingPolicy: policy\)/);
 });
 
 test('Alamofire#15: an Apple C function named like a type is a call, not a new value', () => {
@@ -37,7 +38,8 @@ test('Alamofire#1: code shown as "not explained" is the code exactly as written'
 
 test('Alamofire#3: `guard case let .stream(result) = event` asks about event, not "it"', () => {
   const t = thunderText('a.swift', 'struct S {\n    public var result: Result<Int, Error>? {\n        guard case let .stream(result) = event else { return nil }\n        return result\n    }\n}\n');
-  assert.equal(sideOf(t, /Ask: Is event stream\?/, /Gives back nil/), 'no');
+  // Say less: `guard case let` is asked as its code; `return nil` is on the No side (it runs when event is not .stream).
+  assert.equal(sideOf(t, /Ask: `case let \.stream\(result\) = event`\?/, /Gives back nil/), 'no');
 });
 
 test('vapor#16: a value made in the function is not one "it is given"', () => {

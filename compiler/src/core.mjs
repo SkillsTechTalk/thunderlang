@@ -22,6 +22,7 @@ export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } 
 export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
 // Review in Thunder: what a change did to the meaning of the code, in plain sentences (pure; the CLI does the git work).
 export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
+export { renderReviewComment, reviewCounts, GITHUB_COMMENT_LIMIT } from './review-comment.mjs';
 export { plainFromReading, conditionText } from './plain-contract.mjs';
 // Editor help (browser-safe): completions, hover, autocorrect, quick fixes, and the semantic type vocabulary.
 export { getCompletions, getHover, autocorrectSource, getCodeActions, SEMANTIC_TYPES } from './intellisense.mjs';
@@ -101,7 +102,9 @@ export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, i
 // Comprehension Contract: the C0..C7 understanding level (browser-safe; every product reads it).
 export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
 // Code generation: deterministic scaffolds from intent (browser-safe, so the playground renders it).
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython } from './codegen.mjs';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, generateWithDiagnostics } from './codegen.mjs';
+export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage } from './target-result.mjs';
+export { parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
 // Change Lens: what a branch/PR changed by meaning (pure; the CLI supplies the git-diffed graphs).
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { subjectName, intentRefId, skillRefId } from './parse.mjs';
@@ -115,7 +118,7 @@ export { graphToSource, GRAPH_SOURCE_SCHEMA } from './graph-source.mjs';
 export { resolveObligations } from './obligations.mjs';
 export { runTests, TEST_SCHEMA } from './testing.mjs';
 // Decisions -> readable typed source in six languages (browser-safe; same translators as the targets).
-export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
+export { translateDecisions, translateDecisionsWithDiagnostics, TRANSLATE_LANGUAGES } from './translate.mjs';
 // Read code you don't know: decisions recovered from six languages as ThunderLang + plain English.
 export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, INFRA_LANGUAGES, completenessOf, displayLabel } from './read.mjs';
 // Read a whole repository (pure: the caller passes file contents) and turn a recovered decision into a contract.

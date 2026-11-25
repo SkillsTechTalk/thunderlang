@@ -1,0 +1,653 @@
+// thunder_runtime.py: written next to every generated Python program. It is plain Python (3.10+, standard
+// library only), so the generated program runs without Thunder installed. Each function implements one rule
+// from the "Semantics" section of docs/core.md; change both together.
+
+export const RUNTIME_VERSION = '0.1.0';
+
+export const PYTHON_RUNTIME = String.raw`"""Thunder runtime for generated Python (Thunder Core v0, runtime 0.1.0).
+
+Written by the Thunder compiler next to the code it generates. Standard library only.
+The rules implemented here are the Thunder semantics that must be the same in every target language:
+exact decimals, money, division, rounding, positions that start at 1, "nothing", and errors that name
+the Thunder line (read from the "# thunder:N" comments in the generated files).
+"""
+import linecache
+import re
+import sys
+import traceback
+from contextlib import contextmanager
+from dataclasses import fields, is_dataclass
+from datetime import date
+from decimal import ROUND_HALF_UP, Decimal, DivisionByZero, InvalidOperation
+
+
+class ThunderError(Exception):
+    """An error with a plain-words message. code is the stable Thunder code (TC5xx)."""
+
+    code = "TC500"
+
+
+class Stop(ThunderError):
+    code = "TC507"
+
+
+class RuleBroken(ThunderError):
+    code = "TC504"
+
+
+class ExpectationFailed(ThunderError):
+    code = "TC505"
+
+
+class KindMismatch(ThunderError, TypeError):
+    code = "TC506"
+
+
+class ConversionFailed(ThunderError, ValueError):
+    code = "TC509"
+
+
+class MissingValue(ThunderError, LookupError):
+    code = "TC503"
+
+
+class DividedByZero(ThunderError, ZeroDivisionError):
+    code = "TC501"
+
+
+# ---------------------------------------------------------------- numbers and money
+
+def _is_number(x):
+    return isinstance(x, (int, Decimal)) and not isinstance(x, bool)
+
+
+def _decimal(x):
+    if isinstance(x, Decimal):
+        return x
+    if isinstance(x, bool):
+        raise KindMismatch("A yes/no value was used where a number was needed.")
+    if isinstance(x, int):
+        return Decimal(x)
+    if isinstance(x, float):
+        return Decimal(repr(x))
+    if x is None:
+        raise KindMismatch("A value was nothing where a number was needed.")
+    raise KindMismatch("%s was used where a number was needed." % _describe(x))
+
+
+class Money:
+    """An exact amount of money. Money adds to money; it multiplies and divides by plain numbers."""
+
+    __slots__ = ("amount",)
+
+    def __init__(self, amount):
+        if isinstance(amount, Money):
+            amount = amount.amount
+        elif isinstance(amount, str):
+            amount = Decimal(amount.replace(",", "").replace("$", "").strip())
+        else:
+            amount = _decimal(amount)
+        object.__setattr__(self, "amount", amount)
+
+    def __setattr__(self, name, value):
+        raise AttributeError("Money cannot be changed; make new money instead.")
+
+    def _other(self, other, verb):
+        if isinstance(other, Money):
+            return other.amount
+        if other == 0 and _is_number(other):
+            return Decimal(0)
+        raise KindMismatch("I can't %s money and %s. Write the number as money, for example $5." % (verb, _describe(other)))
+
+    def __add__(self, other):
+        return Money(self.amount + self._other(other, "add"))
+
+    __radd__ = __add__
+
+    def __sub__(self, other):
+        return Money(self.amount - self._other(other, "subtract"))
+
+    def __rsub__(self, other):
+        return Money(self._other(other, "subtract") - self.amount)
+
+    def __mul__(self, other):
+        if isinstance(other, Money):
+            raise KindMismatch("Money can't be multiplied by money.")
+        return Money(self.amount * _decimal(other))
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, other):
+        return divide(self, other)
+
+    def __neg__(self):
+        return Money(-self.amount)
+
+    def __abs__(self):
+        return Money(abs(self.amount))
+
+    def _cmp(self, other):
+        if other is None:
+            return None
+        return self._other(other, "compare")
+
+    def __eq__(self, other):
+        if other is None or isinstance(other, (str, bool)):
+            return False
+        return self.amount == self._cmp(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return self.amount < self._cmp(other)
+
+    def __le__(self, other):
+        return self.amount <= self._cmp(other)
+
+    def __gt__(self, other):
+        return self.amount > self._cmp(other)
+
+    def __ge__(self, other):
+        return self.amount >= self._cmp(other)
+
+    def __hash__(self):
+        return hash(("Money", self.amount))
+
+    def __str__(self):
+        a = self.amount
+        places = max(2, -a.as_tuple().exponent) if a.as_tuple().exponent < 0 else 2
+        text = format(abs(a), ",.%df" % places)
+        return ("-$" if a < 0 else "$") + text
+
+    def __repr__(self):
+        return "Money(%r)" % format(self.amount, "f")
+
+
+def divide(a, b):
+    """Division always gives the exact answer as a decimal: 7 / 2 is 3.5, never 3."""
+    if isinstance(a, Money):
+        if isinstance(b, Money):
+            if b.amount == 0:
+                raise DividedByZero("You divided by zero.")
+            return a.amount / b.amount
+        d = _decimal(b)
+        if d == 0:
+            raise DividedByZero("You divided by zero.")
+        return Money(a.amount / d)
+    if isinstance(b, Money):
+        raise KindMismatch("A plain number can't be divided by money.")
+    x, y = _decimal(a), _decimal(b)
+    if y == 0:
+        raise DividedByZero("You divided by zero.")
+    return x / y
+
+
+def modulo(a, b):
+    """The remainder after dividing, with the sign of the divisor (7 mod 3 is 1, -7 mod 3 is 2)."""
+    money = isinstance(a, Money)
+    x = a.amount if money else _decimal(a)
+    y = b.amount if isinstance(b, Money) else _decimal(b)
+    if y == 0:
+        raise DividedByZero("You divided by zero.")
+    r = x % y
+    if r != 0 and (r < 0) != (y < 0):
+        r += y
+    if money:
+        return Money(r)
+    return int(r) if isinstance(a, int) and isinstance(b, int) else r
+
+
+def round_to(x, places=0):
+    """Rounds half away from zero (2.5 -> 3, -2.5 -> -3), the way people round by hand."""
+    if isinstance(x, Money):
+        return Money(x.amount.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+    if isinstance(x, int) and not isinstance(x, bool):
+        return x
+    d = _decimal(x).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+    return int(d) if places == 0 else d
+
+
+# ---------------------------------------------------------------- showing values
+
+def show(v):
+    """A value the way Thunder says it: yes/no, nothing, $1.50, 3.5 (no trailing zeros), [1, 2]."""
+    if v is None:
+        return "nothing"
+    if v is True:
+        return "yes"
+    if v is False:
+        return "no"
+    if isinstance(v, Decimal):
+        text = format(v, "f")
+        return text.rstrip("0").rstrip(".") if "." in text else text
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(show(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{" + ", ".join("%s: %s" % (show(k), show(x)) for k, x in v.items()) + "}"
+    if is_dataclass(v) and not isinstance(v, type):
+        return "%s(%s)" % (type(v).__name__, ", ".join("%s: %s" % (f.name.replace("_", " "), show(getattr(v, f.name))) for f in fields(v)))
+    if isinstance(v, date):
+        return v.isoformat()
+    return str(v)
+
+
+def _describe(v):
+    if v is None:
+        return "nothing"
+    if isinstance(v, bool):
+        return "a yes/no value"
+    if isinstance(v, str):
+        return 'the text "%s"' % v
+    if _is_number(v):
+        return "the number %s" % show(v)
+    if isinstance(v, Money):
+        return str(v)
+    return "a value (%s)" % type(v).__name__
+
+
+# ---------------------------------------------------------------- conversions
+
+_NUMBER = re.compile(r"^[+-]?(\d[\d_]*)(\.\d+)?$")
+
+
+def to_number(x):
+    if _is_number(x):
+        return x
+    if isinstance(x, Money):
+        return x.amount
+    if isinstance(x, float):
+        return Decimal(repr(x))
+    if isinstance(x, str):
+        s = x.strip().replace(",", "")
+        if _NUMBER.match(s):
+            return int(s.replace("_", "")) if "." not in s else Decimal(s)
+    raise ConversionFailed("%s is not a number." % _describe(x))
+
+
+def to_whole(x):
+    n = to_number(x)
+    if isinstance(n, int):
+        return n
+    if n == n.to_integral_value():
+        return int(n)
+    raise ConversionFailed("%s is not a whole number." % show(n))
+
+
+def to_money(x):
+    if isinstance(x, Money):
+        return x
+    if isinstance(x, str):
+        s = x.strip().replace(",", "")
+        neg = s.startswith("-")
+        s = s.lstrip("-").lstrip("$")
+        if _NUMBER.match(s):
+            return Money(("-" if neg else "") + s)
+        raise ConversionFailed("%s is not an amount of money." % _describe(x))
+    return Money(to_number(x))
+
+
+def to_text(x):
+    return show(x)
+
+
+def to_yes_no(x):
+    if isinstance(x, bool):
+        return x
+    if isinstance(x, str) and x.strip().lower() in ("yes", "true"):
+        return True
+    if isinstance(x, str) and x.strip().lower() in ("no", "false"):
+        return False
+    raise ConversionFailed("%s is not yes or no." % _describe(x))
+
+
+def to_date(x):
+    if isinstance(x, date):
+        return x
+    try:
+        return date.fromisoformat(str(x).strip())
+    except ValueError:
+        raise ConversionFailed("%s is not a date (write it as YYYY-MM-DD)." % _describe(x)) from None
+
+
+# ---------------------------------------------------------------- lists, maps, records
+
+def total_of(items):
+    items = list(items)
+    if not items:
+        return 0
+    result = items[0]
+    for x in items[1:]:
+        result = result + x
+    return result
+
+
+def words_of(text):
+    """The words in text: split at spaces, with punctuation at either end removed ("dog." is "dog"; "don't" stays)."""
+    words = []
+    for piece in str(text).split():
+        word = piece.strip(_PUNCTUATION)
+        if word:
+            words.append(word)
+    return words
+
+
+_PUNCTUATION = ".,;:!?\"'()[]{}<>\u201c\u201d\u2018\u2019\u2026-"
+
+
+def average_of(items):
+    items = list(items)
+    if not items:
+        raise MissingValue("I can't take the average of an empty list.")
+    return divide(total_of(items), len(items))
+
+
+def smallest_of(items):
+    items = list(items)
+    if not items:
+        raise MissingValue("An empty list has no smallest item.")
+    return min(items)
+
+
+def largest_of(items):
+    items = list(items)
+    if not items:
+        raise MissingValue("An empty list has no largest item.")
+    return max(items)
+
+
+def first_of(items):
+    items = list(items)
+    if not items:
+        raise MissingValue("An empty list has no first item.")
+    return items[0]
+
+
+def last_of(items):
+    items = list(items)
+    if not items:
+        raise MissingValue("An empty list has no last item.")
+    return items[-1]
+
+
+def item_at(items, position, *default):
+    """Positions start at 1: item 1 is the first item."""
+    if not isinstance(position, int) or isinstance(position, bool):
+        raise KindMismatch("A position in a list is a whole number, not %s." % _describe(position))
+    if 1 <= position <= len(items):
+        return items[position - 1]
+    if default:
+        return default[0]
+    raise MissingValue("There is no item %d: the list has %d item%s." % (position, len(items), "" if len(items) == 1 else "s"))
+
+
+def set_item(items, position, value):
+    item_at(items, position)
+    items[position - 1] = value
+
+
+def entry(container, key, *default):
+    if isinstance(container, list):
+        return item_at(container, key, *default)
+    if isinstance(container, dict):
+        if key in container:
+            return container[key]
+        if default:
+            return default[0]
+        raise MissingValue("There is no entry for %s." % show(key))
+    if container is None:
+        raise MissingValue("This value is nothing, so it has no entry for %s." % show(key))
+    raise KindMismatch("%s has no entries." % _describe(container))
+
+
+def _field_names(key):
+    yield key
+    yield key.replace(" ", "_")
+    yield key.lower()
+    yield key.lower().replace(" ", "_")
+
+
+def get_field(obj, key):
+    """A field read from a value whose kind is not known in advance (a CSV row, a value from Python)."""
+    if obj is None:
+        raise MissingValue("This value is nothing, so it has no %s." % key)
+    if isinstance(obj, dict):
+        for k in _field_names(key):
+            if k in obj:
+                return obj[k]
+        lowered = {str(k).strip().lower(): v for k, v in obj.items()}
+        if key.lower() in lowered:
+            return lowered[key.lower()]
+        raise MissingValue('There is no field "%s". Fields here: %s.' % (key, ", ".join(str(k) for k in obj)))
+    for k in _field_names(key):
+        if hasattr(obj, k):
+            return getattr(obj, k)
+    raise MissingValue('%s has no field "%s".' % (_describe(obj), key))
+
+
+def set_field(obj, key, value):
+    if isinstance(obj, dict):
+        obj[key] = value
+        return
+    for k in _field_names(key):
+        if hasattr(obj, k):
+            setattr(obj, k, value)
+            return
+    raise MissingValue('%s has no field "%s".' % (_describe(obj), key))
+
+
+def add_to(target, value):
+    if isinstance(target, list):
+        target.append(value)
+        return target
+    return target + value
+
+
+def remove_from(target, value):
+    if isinstance(target, dict):
+        if value not in target:
+            raise MissingValue("There is no entry for %s to remove." % show(value))
+        del target[value]
+        return
+    if value not in target:
+        raise MissingValue("%s is not in the list, so it can't be removed." % show(value))
+    target.remove(value)
+
+
+def pairs_of(container):
+    if isinstance(container, dict):
+        return list(container.items())
+    return list(container)
+
+
+def read_file(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise MissingValue('There is no file "%s" (looked in the folder the program runs in).' % path) from None
+
+
+# ---------------------------------------------------------------- rules and tests
+
+def never(broken, text, rule=0, value=None):
+    """A Never rule: raise RuleBroken when the forbidden thing has happened."""
+    if broken:
+        raise RuleBroken("%s (the rule on line %d), but the value is %s." % (text, rule, show(value)))
+
+
+
+def expect_true(ok, text):
+    if ok is not True:
+        raise ExpectationFailed("%s, but it was not true." % text)
+
+
+_CHECKS = {
+    "is": lambda a, b: a == b,
+    "is not": lambda a, b: a != b,
+    "at least": lambda a, b: a >= b,
+    "at most": lambda a, b: a <= b,
+    "more than": lambda a, b: a > b,
+    "less than": lambda a, b: a < b,
+    "nothing": lambda a, b: a is None,
+    "not nothing": lambda a, b: a is not None,
+    "empty": lambda a, b: len(a) == 0,
+    "positive": lambda a, b: a > 0,
+    "negative": lambda a, b: a < 0,
+    "zero": lambda a, b: a == 0,
+    "between": lambda a, b: b[0] <= a <= b[1],
+    "in": lambda a, b: a in b,
+    "contains": lambda a, b: b in a,
+}
+
+
+def expect_value(actual, check, expected, text):
+    negate = check.startswith("not ") and check not in _CHECKS
+    ok = _CHECKS[check[4:] if negate else check](actual, expected)
+    if negate:
+        ok = not ok
+    if not ok:
+        raise ExpectationFailed("%s, but it was %s." % (text, show(actual)))
+
+
+@contextmanager
+def expect_failure(text, message=None):
+    try:
+        yield
+    except ThunderError as e:
+        if message is not None and message not in str(e):
+            raise ExpectationFailed('%s, but it failed with "%s".' % (text, e)) from None
+        return
+    except Exception:
+        return
+    raise ExpectationFailed("%s, but it did not fail." % text)
+
+
+# ---------------------------------------------------------------- errors in Thunder words
+
+def explain(error):
+    """The error as a sentence a person can act on."""
+    if isinstance(error, ThunderError):
+        return str(error)
+    if isinstance(error, (ZeroDivisionError, DivisionByZero)):
+        return "You divided by zero."
+    if isinstance(error, InvalidOperation):
+        return "This calculation has no answer (for example, zero divided by zero)."
+    if isinstance(error, KeyError):
+        return "There is no entry for %s." % show(error.args[0] if error.args else None)
+    if isinstance(error, (TypeError, AttributeError)) and "NoneType" in str(error):
+        return "A value was nothing where a value was needed."
+    if isinstance(error, TypeError):
+        return "Values of different kinds were mixed (%s)." % error
+    if isinstance(error, RecursionError):
+        return "A function called itself too many times."
+    if isinstance(error, FileNotFoundError):
+        return "There is no file %s." % error.filename
+    return "%s: %s" % (type(error).__name__, error)
+
+
+def _code(error):
+    if isinstance(error, ThunderError):
+        return error.code
+    if isinstance(error, (ZeroDivisionError, DivisionByZero)):
+        return "TC501"
+    if isinstance(error, (TypeError, AttributeError)) and "NoneType" in str(error):
+        return "TC502"
+    if isinstance(error, KeyError):
+        return "TC503"
+    if isinstance(error, TypeError):
+        return "TC506"
+    return "TC508"
+
+
+_MARK = re.compile(r"#\s*thunder:(\d+)\s*$")
+_SOURCE = re.compile(r"^# Generated by the Thunder compiler from (.+)\.$")
+
+
+def _source_of(filename):
+    first = linecache.getline(filename, 1).strip()
+    m = _SOURCE.match(first)
+    return m.group(1) if m else None
+
+
+def thunder_place(tb):
+    """(thunder file, line, from_python): the innermost generated line the error passed through."""
+    frames = traceback.extract_tb(tb)
+    innermost_generated = None
+    for i in range(len(frames) - 1, -1, -1):
+        f = frames[i]
+        if f.name == "__setattr__":
+            continue
+        src = _source_of(f.filename)
+        if not src:
+            continue
+        m = _MARK.search(linecache.getline(f.filename, f.lineno).rstrip())
+        if m:
+            innermost_generated = (src, int(m.group(1)), i)
+            break
+    if not innermost_generated:
+        return None, None, False
+    src, line, i = innermost_generated
+    outside = frames[i + 1:]
+    from_python = any(_source_of(f.filename) is None and not f.filename.endswith("thunder_runtime.py") and f.filename != "<string>" for f in outside)
+    return src, line, from_python
+
+
+def _callers(tb):
+    """The Thunder lines that led to the error, outermost first (where each function was called from)."""
+    lines = []
+    for f in traceback.extract_tb(tb):
+        if f.name in ("__setattr__", "run", "run_tests") or not _source_of(f.filename):
+            continue
+        m = _MARK.search(linecache.getline(f.filename, f.lineno).rstrip())
+        if m:
+            lines.append(int(m.group(1)))
+    return lines[:-1]
+
+
+def describe_error(error):
+    src, line, from_python = thunder_place(error.__traceback__)
+    message = explain(error)
+    code = _code(error)
+    # Any error Thunder has no words for came from Python code reached through "Use" (TC508), even when that
+    # code is built into Python and leaves no Python frame of its own (math.sqrt(-1)).
+    if (from_python or code == "TC508") and not isinstance(error, ThunderError):
+        message = "Python code used by this line failed: " + message
+        code = "TC508"
+    where = "%s, line %d" % (src, line) if src else "In the program"
+    callers = _callers(error.__traceback__)
+    if callers and src:
+        where += " (reached from line %s)" % ", then line ".join(str(n) for n in reversed(callers))
+    return "%s: %s  [%s]" % (where, message, code)
+
+
+def run(main, file=None):
+    """Runs a generated program; an error is reported against the Thunder line, then the program exits with 1."""
+    try:
+        main()
+    except KeyboardInterrupt:
+        raise
+    except Exception as error:  # noqa: BLE001 - every error is reported in Thunder words
+        print(describe_error(error), file=sys.stderr)
+        sys.exit(1)
+
+
+def run_tests(modules):
+    """Runs every Test block (THUNDER_TESTS in each module). Prints one line per test; exits 1 if any failed."""
+    passed = failed = 0
+    for module in modules:
+        source = getattr(module, "THUNDER_SOURCE", module.__name__)
+        for name, test, line in getattr(module, "THUNDER_TESTS", []):
+            try:
+                test()
+            except Exception as error:  # noqa: BLE001
+                failed += 1
+                print("FAIL  %s (%s, line %d)" % (name, source, line))
+                print("      " + describe_error(error))
+            else:
+                passed += 1
+                print("PASS  %s (%s, line %d)" % (name, source, line))
+    total = passed + failed
+    print("%d test%s: %d passed, %d failed" % (total, "" if total == 1 else "s", passed, failed))
+    sys.exit(1 if failed else 0)
+`;

@@ -2,36 +2,41 @@
 // typed static method (using the same exprToJava translator the codegen uses), calls every test
 // case with typed literal arguments, and prints the results as one JSON line. It runs through the
 // JDK 11+ single-file source launcher (`java ThunderTarget.java`) , no separate javac step , so a
-// live Java run grades real executed code. Returns null (skip cleanly) when no usable JDK exists.
+// live Java run grades real executed code.
+//
+// Results are honest (see target-result.mjs): a missing toolchain, a compile failure, a crash, or a
+// timeout is a structured error, never a null answer; a decision with a rule Thunder cannot
+// translate is refused ('not-translated'). Money inputs are java.math.BigDecimal, never double.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { exprToJava } from './expr.mjs';
-import { inputNames, inferInputTypes, buildCases, parseLastJsonObject, cachedSmoke, strLit, litFor } from './target-util.mjs';
+import { parseLastJsonObject, cachedSmoke, strLit, litFor, prepareRun, plansFor, argLit, finishRun, runFailure, classifySpawn, spawnStep } from './target-util.mjs';
 
-const JAVA_TYPE = { number: 'double', bool: 'boolean', string: 'String' };
+const JAVA_TYPE = { number: 'double', bool: 'boolean', string: 'String', money: 'java.math.BigDecimal' };
+const JAVA_RUN = { translate: exprToJava, target: 'Java', dialect: 'java' };
+const JAVA_RUNTIME = /Exception in thread|\n\s+at ThunderTarget\./;
 
 // The emitted Java source (also usable for display / `gen`-parity).
-export function emitJavaModule(ast, cases = buildCases(ast)) {
+export function emitJavaModule(ast, cases = prepareRun(ast, JAVA_RUN).cases, plans = plansFor(ast, exprToJava, 'Java')) {
   const L = [
     'import java.util.LinkedHashMap;',
     'import java.util.Map;',
     '',
     'public class ThunderTarget {',
   ];
-  const typesByDec = {};
-  for (const d of ast.decisions || []) {
-    const names = inputNames(d);
-    const types = inferInputTypes(ast, d);
-    typesByDec[d.name] = types;
-    const params = names.map((n) => `${JAVA_TYPE[types[n]] || 'String'} ${n}`).join(', ');
-    L.push(`  static String ${d.name}(${params}) {`);
-    for (const r of d.rules || []) {
-      let cond; try { cond = exprToJava(r.when, { inputs: names }); } catch { cond = 'false'; }
-      L.push(`    if (${cond}) return ${strLit(r.result)};`);
+  if ([...plans.values()].some((p) => p.refused)) {
+    L.push('  // IL-GEN-001: a rule Thunder could not translate throws instead of guessing.');
+    L.push('  static boolean thunderUntranslated(String message) { throw new UnsupportedOperationException(message); }');
+  }
+  for (const p of plans.values()) {
+    const params = p.names.map((n) => `${JAVA_TYPE[p.types[n]] || 'String'} ${n}`).join(', ');
+    L.push(`  static String ${p.decision.name}(${params}) {`);
+    for (const { rule: r, code, message } of p.rules) {
+      L.push(`    if (${code ?? `thunderUntranslated(${strLit(message)})`}) return ${strLit(r.result)};`);
     }
-    L.push(`    return ${d.default == null ? 'null' : strLit(d.default)};`, '  }');
+    L.push(`    return ${p.decision.default == null ? 'null' : strLit(p.decision.default)};`, '  }');
   }
   L.push('  static String j(String s) {');
   L.push('    if (s == null) return "null";');
@@ -43,10 +48,9 @@ export function emitJavaModule(ast, cases = buildCases(ast)) {
   L.push('  public static void main(String[] args) {');
   L.push('    Map<String,String> out = new LinkedHashMap<>();');
   for (const c of cases) {
-    const dec = (ast.decisions || []).find((d) => d.name === c.fn);
-    if (!dec) continue;
-    const types = typesByDec[c.fn];
-    const argList = inputNames(dec).map((n) => litFor(types[n], c.given[n])).join(', ');
+    const p = plans.get(c.fn);
+    if (!p) continue;
+    const argList = p.names.map((n) => argLit(c, p, n, litFor)).join(', ');
     L.push(`    out.put(${strLit(c.key)}, ${c.fn}(${argList}));`);
   }
   L.push('    StringBuilder sb = new StringBuilder("{"); boolean first = true;');
@@ -71,17 +75,20 @@ export function javaAvailable() {
   });
 }
 
-// Run every decision test case through generated, compiled Java. Returns { "Test / case": actual }
-// or null when no usable JDK is present.
+// Run every decision test case through generated, compiled Java. Returns { status: 'ok', results }
+// or a whole-run { status: 'error', kind, message }.
 export function runJavaTarget(ast) {
-  if (!javaAvailable()) return null;
-  const cases = buildCases(ast);
+  if (!javaAvailable()) return runFailure('missing-toolchain', 'No usable JDK (java single-file launcher) on this machine.');
+  const { plans, cases, refused } = prepareRun(ast, JAVA_RUN);
+  if (!cases.length) return { status: 'ok', results: { ...refused } };
   const dir = mkdtempSync(join(tmpdir(), 'tl-java-'));
   try {
     const f = join(dir, 'ThunderTarget.java');
-    writeFileSync(f, emitJavaModule(ast, cases));
-    const r = spawnSync('java', [f], { encoding: 'utf8', timeout: 120000 });
-    if (r.status !== 0) return null;
-    return parseLastJsonObject(r.stdout);
+    writeFileSync(f, emitJavaModule(ast, cases, plans));
+    const out = spawnStep('java', [f], { timeout: 120000 }, (r) => classifySpawn(r, { tool: 'java', phase: 'build+run', runtimePattern: JAVA_RUNTIME }));
+    if (!out.ok) return out.failure;
+    const parsed = parseLastJsonObject(out.stdout);
+    if (!parsed) return runFailure('runtime-error', 'java ran but printed no results.');
+    return finishRun({ cases, parsed, refused, target: 'Java' });
   } finally { try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ } }
 }

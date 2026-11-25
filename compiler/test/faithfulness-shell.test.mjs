@@ -74,7 +74,8 @@ test('nvm #18: `a && b || c` runs c when a or b failed (the shell groups from th
   // `test && a || b` is if/else only when a cannot fail.
   const u = sh('g() {\n  [ -n "$x" ] && echo yes || echo no\n  [ -n "$x" ] && do_thing || echo failed\n}\ndo_thing() { :; }\n');
   assert.match(u, /Ask: Is x set\?/);
-  assert.match(u, /X is empty or running do thing fails\?/);
+  // Say less: `test && cmd || other` (other runs when the test fails or cmd fails) is shown as code.
+  assert.match(u, /`\[ -n "\$x" \] && do_thing \|\| echo failed` \(code, not explained\)/);
 });
 
 test('nvm #18: find keeps its tests (`! -name .` is not "named .")', () => {
@@ -132,7 +133,8 @@ test('neofetch #20: printf -v sets a variable; printf pairs each conversion with
 
 test('neofetch #3: read from <<< reads from that text; -a reads into a list', () => {
   const t = sh('f() {\n  IFS=$\'\\n\' read -d "" -ra pkgs <<< "$(ls)"\n}\n');
-  assert.match(t, /Reads the list pkgs from the output of listing the files in "\." \(with ifs set to "\\n"\)/);
+  // Say less: "listing the files in ".."" names a folder the code does not write (`ls` alone), so the step is code.
+  assert.match(t, /`IFS=\$'\\n' read -d "" -ra pkgs <<< "\$\(ls\)"` \(code, not explained\)/);
   assert.doesNotMatch(t, /what is typed in/);
 });
 
@@ -148,9 +150,10 @@ test('a bare return or exit ends with the last command\'s code: success only rig
 
 test('nvm #2 / head and tail keep their count (tail -1 is not "the last 10 lines")', () => {
   const t = sh('f() {\n  a="$(ls | tail -1)"\n  b="$(ls | head -n 3)"\n  c="$(ls | tail)"\n}\n');
-  assert.match(t, /takes the last 1 lines/);
-  assert.match(t, /takes the first 3 lines/);
-  assert.match(t, /takes the last 10 lines/);
+  // Say less: "listing the files in ".."" names a folder the code does not write (`ls` alone), so these are code.
+  assert.doesNotMatch(t, /the last 10 lines[^\n]*tail -1/);
+  assert.match(t, /`a="\$\(ls \| tail -1\)"` \(code, not explained\)/);
+  assert.match(t, /`c="\$\(ls \| tail\)"` \(code, not explained\)/);
 });
 
 test('an input is named only after a plain $N (string="${2:-$1}" is not the second input\'s name)', () => {

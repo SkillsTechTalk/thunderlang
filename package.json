@@ -13,6 +13,7 @@
     "site:test": "node --test src/lib/*.test.mjs",
     "intent:check": "node scripts/intent-check.mjs",
     "intent:test": "node --test --test-concurrency=2 compiler/test/*.test.mjs",
+    "action:test": "node --test action/*.test.mjs",
     "intent:prove": "node scripts/intent-prove.mjs",
     "accuracy:gate": "node compiler/scripts/accuracy-gate.mjs",
     "docs:check": "node scripts/docs-check.mjs",

@@ -7,7 +7,9 @@ import { exportIntent } from '../src/exporters.mjs';
 test('typeToJsonSchema maps semantic types, lists, ids, and custom entities', () => {
   assert.deepEqual(typeToJsonSchema('Email'), { type: 'string', format: 'email' });
   assert.deepEqual(typeToJsonSchema('DateTime'), { type: 'string', format: 'date-time' });
-  assert.deepEqual(typeToJsonSchema('Money'), { type: 'number' });
+  // Money is an exact decimal string, never a JSON number (float) , the old { type: 'number' } was the bug.
+  assert.deepEqual(typeToJsonSchema('Money'), { type: 'string', pattern: '^-?[0-9]+(\\.[0-9]{1,2})?$', description: 'Thunder Money: an exact decimal amount with up to 2 minor units, as a string.' });
+  assert.equal(typeToJsonSchema('Money(JPY)').pattern, '^-?[0-9]+$');
   assert.deepEqual(typeToJsonSchema('Boolean'), { type: 'boolean' });
   assert.deepEqual(typeToJsonSchema('Secret'), { type: 'string', writeOnly: true });
   assert.deepEqual(typeToJsonSchema('Percentage'), { type: 'number', minimum: 0, maximum: 100 });

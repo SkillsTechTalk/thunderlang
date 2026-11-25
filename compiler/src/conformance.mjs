@@ -1,8 +1,14 @@
-// Cross-target conformance. ThunderLang can't execute generated TypeScript/Python, so it does
-// the honest thing: the deterministic engine defines the canonical contract (what every target
-// must produce for each test case), and target outputs fed via results are graded against it.
-// A target case that diverges is a CONFORMANCE FAILURE. Same tests, every implementation.
+// Cross-target conformance. The deterministic engine defines the canonical contract (what every
+// target must produce for each test case); target outputs , executed live or fed via results , are
+// graded against it. A target case that diverges is a CONFORMANCE FAILURE. Same tests, every
+// implementation.
+//
+// A target result is either a plain value (fed via --results) or a structured case result from a
+// live run ({ status: 'ok', value } | { status: 'error', kind, message }). An error is graded as
+// 'error' with its kind and message , not translated, compile failure, crash, timeout , and counts
+// as a failure. It is never compared as if it were a null answer.
 import { runTests } from './testing.mjs';
+import { isCaseResult } from './target-result.mjs';
 
 export function buildConformance(ast, { targets = [], results = null } = {}) {
   const sem = runTests(ast);
@@ -16,7 +22,9 @@ export function buildConformance(ast, { targets = [], results = null } = {}) {
     for (const col of columns) {
       const tr = results && results[col];
       if (!tr || !(c.key in tr)) { t[col] = { status: 'declared' }; continue; }
-      const actual = tr[c.key];
+      const raw = tr[c.key];
+      if (isCaseResult(raw) && raw.status === 'error') { t[col] = { status: 'error', kind: raw.kind, message: raw.message }; continue; }
+      const actual = isCaseResult(raw) ? raw.value : raw;
       t[col] = { status: String(actual) === String(c.expected) ? 'pass' : 'fail', actual };
     }
     return { ...c, targets: t };
@@ -24,7 +32,8 @@ export function buildConformance(ast, { targets = [], results = null } = {}) {
   const failures = [];
   for (const row of rows) for (const col of columns) {
     const tr = row.targets[col];
-    if (tr.status === 'fail') failures.push({ target: col, case: row.key, expected: row.expected, actual: tr.actual });
+    if (tr.status === 'fail') failures.push({ target: col, case: row.key, expected: row.expected, actual: tr.actual, kind: 'assertion-failed' });
+    if (tr.status === 'error') failures.push({ target: col, case: row.key, expected: row.expected, kind: tr.kind, message: tr.message });
   }
   return {
     schema: 'thunder-conformance-v1', mission: ast.mission,
