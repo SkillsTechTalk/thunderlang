@@ -4,6 +4,8 @@
 // triggers are steps a person can follow. Deterministic, browser-safe, no SQL engine: read by pattern, like every
 // other language Thunder reads. Dialects: PostgreSQL first; MySQL, SQLite, and SQL Server syntax where it agrees.
 
+import { sqlRoutines } from './sql-proc.mjs';
+
 const words = (s) => String(s).replace(/^["`[]|["`\]]$/g, '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().trim();
 const unquote = (s) => String(s).trim().replace(/^["`[](.*)["`\]]$/, '$1');
 const bare = (name) => unquote(String(name).split('.').pop());
@@ -83,29 +85,69 @@ function defaultWords(v) {
   return 'worked out when it is saved';
 }
 
+const LOGIC_WORD = /^(?:is|and|or|not|no)$/;
+const SQL_KEYWORD = /^(?:AND|OR|NOT|IS|IN|NULL|LIKE|ILIKE|BETWEEN|TRUE|FALSE|EXISTS|NO)$/i;
+/** True for a name whose words would read as logic: v_is_default, v_not_found, read_or_write (not the keywords). */
+export const sqlLogicName = (id) => !SQL_KEYWORD.test(id) && String(id).split('.').some((p) => words(p.replace(/^(?:p|v|l|in|out|var)_(?=\w)/i, '')).split(' ').some((w) => LOGIC_WORD.test(w)));
+
 /** A SQL condition as Thunder words: total >= 0 AND status IN ('a','b') -> "total is at least 0 and status is one of a, b". */
-export function sqlCondition(cond, { aliases = {}, vars = false } = {}) {
-  let c = String(cond).trim().replace(/\s+/g, ' ');
+export function sqlCondition(cond, { aliases = {}, vars = false, keepAt = true, raw = false } = {}) {
+  // Quoted text is held aside first and put back exactly as written: no rewrite (words, `=` -> "is") reaches inside
+  // it. `"…"` is a quoted text; a held raw value (an IN list's item, a MySQL @variable) is put back as it is.
+  const held = [];
+  const hold = (text) => `\u0001${held.push(text) - 1}\u0002`;
+  const back = (s) => { let out = String(s); for (let k = 0; k < 4 && /\u0001\d+\u0002/.test(out); k++) out = out.replace(/\u0001(\d+)\u0002/g, (m, n) => held[Number(n)]); return out; };
+  // (N'…' is SQL Server's Unicode text and E'…' PostgreSQL's text with escapes: the text is as written.)
+  let c = String(cond).trim().replace(/(?<![\w$])[NnEe](?=')/g, '').replace(/'((?:[^']|'')*)'/g, (m, v) => hold(`"${v.replace(/''/g, "'")}"`));
+  // A system value (@@ROWCOUNT, @@FETCH_STATUS) is a name as written.
+  c = c.replace(/@@[A-Za-z_][\w$.]*/g, (m) => hold(`\`${m}\``));
+  // An extension's schema placeholder (@extschema@.fn(…)) is not part of the name.
+  c = c.replace(/@\w+@\.([A-Za-z_]\w*)(?=\s*\()/g, (m, fn) => hold(words(fn))).replace(/@\w+@/g, (m) => hold(`\`${m}\``));
+  // A MySQL @variable is a name as written, shown as code so no rewrite turns `@sys.debug` into words.
+  if (keepAt) c = c.replace(/@@?[A-Za-z_][\w.$]*/g, (m) => hold(`\`${m}\``));
+  else c = c.replace(/@(?=[A-Za-z_])/g, '');
+  // A name whose words would read as logic (v_is_default, v_not_found, read_or_write) is kept as written: in words
+  // it would be mistaken for the question's own "is", "not", or "or".
+  c = c.replace(/(?<![\w.$\u0001])[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*(?![\w$])/g, (m) => (sqlLogicName(m) ? hold(`\`${m}\``) : m));
+  c = c.replace(/\s+/g, ' ');
   while (/^\(.*\)$/.test(c) && parenEnd(mask(c), 0) === c.length - 1) c = c.slice(1, -1).trim();
-  // Strings first, in Thunder's quotes, so a possessive apostrophe is never mistaken for one.
-  c = c.replace(/'((?:[^']|'')*)'/g, (m, v) => `"${v.replace(/''/g, "'")}"`);
-  const plain = (x) => words(vars ? String(x).replace(/^(?:p|v|l|in|out|var)_(?=\w)/i, '') : x);
-  const name = (x) => { const p = String(x).split('.'); if (p.length < 2) return plain(x); const table = aliases[p[0].toLowerCase()] ?? p[0]; return `the ${singular(words(table))}'s ${words(p[1])}`; };
-  return c
+  // In a routine, v_total and p_total read as "total"; when that would make both sides of a comparison the same
+  // words ("parent table is parent table"), the prefixed names are kept as written instead (raw).
+  const prefixed = /^(?:p|v|l|in|out|var)_(?=\w)/i;
+  const plain = (x) => (raw && prefixed.test(x) ? `\`${x}\`` : words(vars ? String(x).replace(prefixed, '') : x));
+  // Two names compared (a = b) read "a is the same as b": "Is parent interval the same as interval?", not "Is
+  // parent interval interval?".
+  if (vars) c = c.replace(/(?<![\w."@\u0002])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*(=|<>|!=)\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)(?![\w.(\u0001])/g, (m, a, op, b) => (/^(?:NULL|TRUE|FALSE|AND|OR|NOT|IS|IN|CURRENT_TIMESTAMP|CURRENT_DATE|NOW)$/i.test(a) || /^(?:NULL|TRUE|FALSE|AND|OR|NOT|IS|IN)$/i.test(b) ? m : `${a} ${op === '=' ? '\u0003' : '\u0004'} ${b}`));
+  const name = (x) => {
+    if (/^\u0001\d+\u0002$/.test(x) || /\(/.test(x)) return x;
+    const p = String(x).split('.');
+    if (p.length < 2) return plain(x);
+    const table = aliases[p[0].toLowerCase()];
+    return table ? `the ${singular(words(table))}'s ${words(p[1])}` : vars ? `the ${plain(p[0])}'s ${words(p[1])}` : `the ${singular(words(p[0]))}'s ${words(p[1])}`;
+  };
+  // An IN list's items, exactly as they are written (a quoted text stays quoted).
+  const items = (l) => l.split(',').map((x) => hold(x.trim())).join(', ');
+  const pattern = (n) => held[Number(n)].slice(1, -1);
+  const out = c
     .replace(/\b(NEW|OLD)\.(\w+)/g, (m, which, col) => `the ${which === 'NEW' ? 'new' : 'old'} ${words(col)}`)
-    .replace(/([\w."]+)\s+NOT\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => `${name(a)} is not one of ${l.split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).join(', ')}`)
-    .replace(/([\w."]+)\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => (/^\s*select\b/i.test(l) ? `${name(a)} is in the results of a query` : `${name(a)} is one of ${l.split(',').map((x) => x.trim().replace(/^["']|["']$/g, '')).join(', ')}`))
-    .replace(/([\w."]+)\s+IS\s+NOT\s+NULL/gi, (m, a) => `${name(a)} is set`)
-    .replace(/([\w."]+)\s+IS\s+NULL/gi, (m, a) => `${name(a)} is empty`)
-    .replace(/([\w.]+)\s+NOT\s+LIKE\s+"([^"]*)"/gi, (m, a, p) => `${name(a)} does not match "${p.replace(/%/g, '…')}"`)
-    .replace(/([\w.]+)\s+I?LIKE\s+"([^"]*)"/gi, (m, a, p) => (/^[^%]+%$/.test(p) ? `${name(a)} starts with "${p.slice(0, -1)}"` : /^%[^%]+%$/.test(p) ? `${name(a)} contains "${p.slice(1, -1)}"` : `${name(a)} matches "${p.replace(/%/g, '…')}"`))
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+NOT\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => `${name(a)} is not one of ${items(l)}`)
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => (/^\s*select\b/i.test(l) ? `${name(a)} is in the results of a query` : `${name(a)} is one of ${items(l)}`))
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NOT\s+NULL/gi, (m, a) => `${name(a)} is set`)
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NULL/gi, (m, a) => `${name(a)} is empty`)
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w.]+)\s+NOT\s+LIKE\s+\u0001(\d+)\u0002/gi, (m, a, n) => `${name(a)} does not match ${hold(`"${pattern(n).replace(/%/g, '…')}"`)}`)
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w.]+)\s+I?LIKE\s+\u0001(\d+)\u0002/gi, (m, a, n) => { const p = pattern(n); return /^[^%_]+%$/.test(p) ? `${name(a)} starts with ${hold(`"${p.slice(0, -1)}"`)}` : /^%[^%_]+%$/.test(p) ? `${name(a)} contains ${hold(`"${p.slice(1, -1)}"`)}` : `${name(a)} matches ${hold(`"${p.replace(/%/g, '…')}"`)}`; })
     .replace(/([\w."]+)\s+BETWEEN\s+(\S+)\s+AND\s+(\S+)/gi, (m, a, lo, hi) => `${name(a)} is from ${lo} to ${hi}`)
     .replace(/\s*(<>|!=)\s*/g, ' is not ').replace(/\s*>=\s*/g, ' is at least ').replace(/\s*<=\s*/g, ' is at most ')
     .replace(/\s*>\s*/g, ' is more than ').replace(/\s*<\s*/g, ' is less than ').replace(/\s*=\s*/g, ' is ')
     .replace(/\bAND\b/gi, 'and').replace(/\bOR\b/gi, 'or').replace(/\bNOT\s+/gi, 'not ')
     .replace(/\b(?:length|char_length)\s*\(\s*([\w."]+)\s*\)/gi, (m, a) => `the length of ${name(a)}`)
-    .replace(/\b(?!is\b|and\b|or\b|not\b|at\b|least\b|most\b|more\b|less\b|than\b|one\b|of\b|the\b|set\b|empty\b|from\b|to\b|new\b|old\b|starts\b|with\b|contains\b|does\b|match\b|matches\b|in\b|results\b|a\b|query\b|length\b|s\b)([a-z_][\w]*\.)?([a-z_][\w]*)\b(?![^"]*"(?:[^"]*"[^"]*")*[^"]*$)/gi, (m, t, col) => (t ? name(`${t}${col}`) : /^[A-Z_]+$/.test(col) && col.length > 1 ? m : plain(col)))
+    .replace(/\b[a-z_]\w*\.([a-z_]\w*)(?=\s*\()/gi, (m, fn) => hold(/^[A-Z_]+$/.test(fn) ? fn : words(fn)))
+    .replace(/\b(?!is\b|and\b|or\b|not\b|at\b|least\b|most\b|more\b|less\b|than\b|one\b|of\b|the\b|set\b|empty\b|from\b|to\b|new\b|old\b|starts\b|with\b|contains\b|does\b|match\b|matches\b|in\b|results\b|a\b|query\b|length\b|s\b(?!\.))([a-z_][\w]*\.)?([a-z_][\w]*)\b/gi, (m, t, col) => (t ? name(`${t}${col}`) : /^[A-Z_]+$/.test(col) && col.length > 1 ? m : plain(col)))
+    .replace(/\s*\u0003\s*/g, ' is the same as ').replace(/\s*\u0004\s*/g, ' is not the same as ')
     .replace(/\s+/g, ' ').trim();
+  const said = back(out);
+  if (vars && !raw && /(?:^|\(|\b(?:and|or|not) )((?:the [\w ]+'s )?[a-z][\w ]*?) (?:is (?:not )?(?:the same as )?|and |or )\1(?=$|[\s),])/.test(said)) return sqlCondition(cond, { aliases, vars, keepAt, raw: true });
+  return said;
 }
 
 // ── Tables, types: Things, Data, and Choices ─────────────────────────────────────────────────────────────
@@ -191,7 +233,7 @@ const colWords = (expr) => {
 const listWords = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')}${xs.length > 2 ? ',' : ''} and ${xs.at(-1)}`);
 
 /** The steps of one SELECT: finds, joins, keeps only, groups, sorts, takes, gives back. */
-function selectSteps(sql, line, { give = true, vars = false } = {}) {
+export function selectSteps(sql, line, { give = true, vars = false } = {}) {
   const s = sql.replace(/\s+/g, ' ').trim().replace(/;$/, '');
   const m = mask(s);
   const at = (kw) => { const r = new RegExp(`\\b${kw}\\b`, 'i').exec(m); return r ? r.index : -1; };
@@ -234,89 +276,21 @@ function selectSteps(sql, line, { give = true, vars = false } = {}) {
   return steps;
 }
 
-/** One statement in a function or procedure body, read as a step. */
-function bodyStatement(text, line) {
-  const cnd = (x) => sqlCondition(x, { vars: true });
-  const v = (x) => words(String(x).replace(/^(?:p|v|l|var)_(?=\w)/i, ''));
-  const t = text.replace(/\s+/g, ' ').trim().replace(/;$/, '');
-  const code = t;
-  let x;
-  if ((x = t.match(/^RAISE\s+(?:EXCEPTION|ERROR)\s+'((?:[^']|'')*)'/i))) { const msg = x[1].replace(/''/g, "'").replace(/%/g, '…'); return { kind: 'fail', says: `Fails with an error: "${msg}"`, error: 'an error', message: msg, code, line }; }
-  if ((x = t.match(/^(?:RAISERROR|THROW)\s*\(?\s*(?:\d+\s*,\s*)?N?'((?:[^']|'')*)'/i)) || (x = t.match(/^SIGNAL\s+SQLSTATE\s+'\w+'\s+SET\s+MESSAGE_TEXT\s*=\s*'((?:[^']|'')*)'/i))) return { kind: 'fail', says: `Fails with an error: "${x[1].replace(/''/g, "'")}"`, error: 'an error', message: x[1].replace(/''/g, "'"), code, line };
-  if ((x = t.match(/^RETURN\s+QUERY\s+(SELECT\b.*)$/i))) return { kind: 'return', says: selectSteps(x[1], line).at(-1)?.says ?? 'Returns the rows a query finds', code, line, query: selectSteps(x[1], line, { give: false }) };
-  if ((x = t.match(/^RETURN\s+(NEW|OLD)$/i))) return { kind: 'return', says: x[1].toUpperCase() === 'NEW' ? 'Lets the change go ahead' : 'Keeps the old row', code, line };
-  if ((x = t.match(/^RETURN\s*(.*)$/i))) return { kind: 'return', says: x[1] ? (/^'(.*)'$/.test(x[1]) ? `Returns "${x[1].slice(1, -1)}"` : /^(true|false)$/i.test(x[1]) ? `Returns ${x[1].toLowerCase() === 'true' ? 'yes' : 'no'}` : `Returns ${cnd(x[1])}`) : 'Stops here', code, line };
-  if ((x = t.match(/^INSERT\s+INTO\s+([\w."]+)(?:\s*\(([^)]*)\))?/i))) return { kind: 'call', says: `Records a new ${singular(words(bare(x[1])))}${x[2] ? ` with ${listWords(x[2].split(',').map((c) => words(c.trim())))}` : ''}`, code, line };
-  if ((x = t.match(/^UPDATE\s+([\w."]+)\s+SET\s+(.*?)(?:\s+WHERE\s+(.*))?$/i))) {
-    const sets = splitTop(x[2]).map((p) => { const kv = p.text.match(/^\s*([\w."]+)\s*=\s*(.*)$/s); return kv ? `${words(bare(kv[1]))} to ${/^'.*'$/.test(kv[2].trim()) ? `"${kv[2].trim().slice(1, -1)}"` : cnd(kv[2])}` : null; }).filter(Boolean);
-    return { kind: 'call', says: `Records the change in ${words(bare(x[1]))}: sets ${listWords(sets)}${x[3] ? ` where ${cnd(x[3])}` : ''}`, code, line };
-  }
-  if ((x = t.match(/^DELETE\s+FROM\s+([\w."]+)(?:\s+WHERE\s+(.*))?$/i))) return { kind: 'call', says: `Removes ${words(bare(x[1]))}${x[2] ? ` where ${cnd(x[2])}` : ''}`, code, line };
-  if ((x = t.match(/^SELECT\s+(.*?)\s+INTO\s+(?:STRICT\s+)?([\w,\s]+?)\s+FROM\s+(.*)$/i))) {
-    const from = x[3].match(/^([\w."]+)(?:\s+(?:AS\s+)?\w+)?(?:\s+WHERE\s+(.*))?$/i);
-    const what = listWords(x[2].split(',').map((n) => v(n.trim())));
-    if (from) return { kind: 'call', callee: 'find', says: `Finds ${what} in the ${words(bare(from[1]))}${from[2] ? ` where ${cnd(from[2])}` : ''}`, code, line };
-    const found = selectSteps(`SELECT ${x[1]} FROM ${x[3]}`, line, { give: false, vars: true });
-    return { kind: 'call', callee: 'find', says: `Finds ${what}: ${found.map((f) => f.says.charAt(0).toLowerCase() + f.says.slice(1)).join(', ')}`, code, line };
-  }
-  if ((x = t.match(/^(?:PERFORM|CALL|EXEC(?:UTE)?)\s+([\w.]+)\s*\(/i))) return { kind: 'call', says: `Runs ${words(bare(x[1]))}`, code, line };
-  if ((x = t.match(/^(?:SET\s+)?@?([\w.]+)\s*:?=\s*(.+)$/i))) return { kind: 'set', says: `Sets ${v(bare(x[1]))} to ${/^'.*'$/.test(x[2].trim()) ? `"${x[2].trim().slice(1, -1)}"` : cnd(x[2])}`, code, line };
-  return { kind: 'other', says: code, code, line, restates: code };
+/** The offset where a (1-based) line starts. */
+function srcIndexOfLine(src, line) {
+  let at = 0;
+  for (let k = 1; k < line && at >= 0; k++) at = src.indexOf('\n', at) + 1;
+  return Math.max(0, at);
 }
 
 /**
- * The steps of a procedural body (PL/pgSQL and friends): IF/ELSIF/ELSE/END IF become branches with their other
- * side, everything else one step per statement.
+ * Why a .sql file is not read, when it is a template (dbt, Jinja): its SQL is only known once the template is filled
+ * in, so reading it would be a guess. Null for plain SQL.
  */
-function procSteps(body, firstLine) {
-  const m = mask(body);
-  const stmts = [];
-  let start = 0;
-  // Split at semicolons and around THEN/ELSE/ELSIF/END IF/LOOP keywords so IF headers stand alone.
-  const re = /;|\bTHEN\b|\bELSE\b(?!\s*IF)|\bELSIF\b|\bELSEIF\b|\bEND\s+IF\b|\bBEGIN\b|\bEND\b(?!\s+IF)/gi;
-  const lineAt = lineFinder(body);
-  let r;
-  while ((r = re.exec(m))) {
-    const kw = r[0].toUpperCase().replace(/\s+/g, ' ');
-    if (kw === ';') { const text = body.slice(start, r.index).trim(); if (text) stmts.push({ text, line: firstLine + lineAt(start + (body.slice(start).length - body.slice(start).trimStart().length)) - 1 }); start = r.index + 1; continue; }
-    if (kw === 'THEN') { stmts.push({ text: body.slice(start, r.index).trim(), line: firstLine + lineAt(start + (body.slice(start).length - body.slice(start).trimStart().length)) - 1, then: true }); start = r.index + r[0].length; continue; }
-    const before = body.slice(start, r.index).trim();
-    if (before) stmts.push({ text: before, line: firstLine + lineAt(start) - 1 });
-    stmts.push({ keyword: kw === 'ELSEIF' ? 'ELSIF' : kw });
-    start = r.index + r[0].length;
-  }
-  const tail = body.slice(start).trim();
-  if (tail) stmts.push({ text: tail, line: firstLine + lineAt(start) - 1 });
-  let i = 0;
-  const block = (stop) => {
-    const out = [];
-    while (i < stmts.length) {
-      const s = stmts[i];
-      if (s.keyword && stop.includes(s.keyword)) return out;
-      i++;
-      if (s.keyword === 'BEGIN' || s.keyword === 'END') continue;
-      if (s.then && /^(IF|ELSIF)\b/i.test(s.text)) {
-        const cond = s.text.replace(/^(IF|ELSIF)\s+/i, '');
-        const step = { kind: 'branch', says: `If ${sqlCondition(cond, { vars: true })}`, code: s.text, line: s.line, children: block(['ELSIF', 'ELSE', 'END IF']) };
-        let tail = step;
-        while (stmts[i]?.keyword === 'ELSIF') {
-          i++;
-          const h = stmts[i++];
-          const next = { kind: 'branch', says: `If ${sqlCondition(h.text.replace(/^ELSIF\s+/i, ''), { vars: true })}`, code: h.text, line: h.line, children: block(['ELSIF', 'ELSE', 'END IF']) };
-          tail.otherwise = [next]; tail = next;
-        }
-        if (stmts[i]?.keyword === 'ELSE') { i++; tail.otherwise = block(['END IF']); }
-        if (stmts[i]?.keyword === 'END IF') i++;
-        out.push(step);
-        continue;
-      }
-      if (s.text && !/^(DECLARE|LANGUAGE|AS)\b/i.test(s.text) && !/^\w+\s+[\w(),]+(\s*:=.*)?$/.test(s.text) || /:=/.test(s.text ?? '')) {
-        if (s.text && !/^DECLARE\b/i.test(s.text)) out.push(bodyStatement(s.text.replace(/^DECLARE\s+/i, ''), s.line));
-      }
-    }
-    return out;
-  };
-  return block([]);
+export function sqlTemplateReason(src) {
+  const m = mask(src);
+  if (/\{\{[\s\S]{0,400}?\}\}|\{%-?[\s\S]{0,400}?-?%\}/.test(m)) return 'A dbt or Jinja template ({{ … }} / {% … %}): its SQL is only known once the template is filled in, so it is not read, never guessed.';
+  return null;
 }
 
 /** Functions, procedures, views, triggers, and CHECK/UNIQUE rules as reading items (kind 'function'). */
@@ -329,37 +303,26 @@ export function sqlItems(src) {
     items.push({ id: `${name}:${line}`, name, label: words(name).charAt(0).toUpperCase() + words(name).slice(1), line, inputs: extra.inputs ?? [], returns: extra.returns ?? null,
       ...(extra.doc ? { doc: extra.doc } : {}), provenance: 'inferred-from-code', kind: 'function', status: 'signature-only', steps, stepsMore: 0,
       stepsReadable: steps.length ? Math.round(((steps.length - code) / steps.length) * 100) / 100 : 0,
-      says: extra.says ?? `${words(name)} has ${steps.length} step${steps.length === 1 ? '' : 's'}.`, headline: extra.headline ?? `${words(name)}.`, guards: [], unread: [] });
+      says: extra.says ?? `${words(name)} has ${steps.length} step${steps.length === 1 ? '' : 's'}.`, headline: extra.headline ?? `${words(name)}.`, guards: [], unread: extra.unread ?? [],
+      // The member spans its whole definition, not only its first line.
+      ...(extra.endLine && extra.endLine > line ? { endLine: extra.endLine } : {}) });
   };
   // Views: the query, as steps.
   for (const v of m.matchAll(/\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w."]+)(?:\s*\([^)]*\))?\s+AS\s+/gi)) {
     const end = m.indexOf(';', v.index);
     const query = src.slice(v.index + v[0].length, end < 0 ? src.length : end);
     const name = bare(v[1]);
-    push(name, lineAt(v.index), selectSteps(query, lineAt(v.index + v[0].length)), { doc: docAbove(src, v.index), says: `${words(name)} is a saved query.`, headline: `${words(name)}: a saved query.` });
+    push(name, lineAt(v.index), selectSteps(query, lineAt(v.index + v[0].length)), { doc: docAbove(src, v.index), endLine: lineAt(end < 0 ? src.length : end), says: `${words(name)} is a saved query.`, headline: `${words(name)}: a saved query.` });
   }
-  // Functions and procedures: their parameters and body.
-  for (const f of m.matchAll(/\bCREATE\s+(?:OR\s+(?:REPLACE|ALTER)\s+)?(?:DEFINER\s*=\s*\S+\s+)?(FUNCTION|PROCEDURE|PROC)\s+([\w."[\]]+)\s*\(/gi)) {
-    const open = f.index + f[0].length - 1;
-    const close = parenEnd(m, open);
-    if (close < 0) continue;
-    const name = bare(f[2]);
-    const inputs = splitTop(src.slice(open + 1, close)).map((p) => {
-      const pm = p.text.trim().match(/^(?:IN\s+|OUT\s+|INOUT\s+)?@?([\w"]+)\s+(.+?)(?:\s+(?:DEFAULT|=)\s+.+)?$/i);
-      return pm ? { name: unquote(pm[1]).replace(/^p_|^_/, ''), type: pm[2].trim() } : null;
-    }).filter(Boolean);
-    const after = src.slice(close + 1);
-    const ret = after.match(/^\s*RETURNS\s+(TABLE\s*\([^)]*\)|SETOF\s+[\w.]+|[\w.]+(?:\[\])?)/i);
-    const dollar = after.match(/\$(\w*)\$([\s\S]*?)\$\1\$/);
-    const beginAt = mask(after).search(/\bBEGIN\b/i);
-    const bodyText = dollar ? dollar[2] : beginAt >= 0 ? after.slice(beginAt) : '';
-    const bodyStart = close + 1 + (dollar ? dollar.index + dollar[0].indexOf(dollar[2]) : Math.max(beginAt, 0));
-    const isTrigger = ret && /^trigger$/i.test(ret[1]);
-    const steps = procSteps(bodyText, lineAt(bodyStart));
-    const returns = ret && !isTrigger ? (typeWords(ret[1]) ?? (/^(SETOF|TABLE)\b/i.test(ret[1]) ? 'rows' : words(ret[1]))) : null;
-    push(name, lineAt(f.index), steps, { inputs, returns, doc: docAbove(src, f.index),
-      says: `${words(name)} takes ${inputs.length ? inputs.map((p) => words(p.name)).join(', ') : 'no inputs'}${returns ? ` and returns ${returns}` : ''}.`,
-      headline: `${words(name)} takes ${inputs.length ? inputs.map((p) => words(p.name)).join(', ') : 'no inputs'}.` });
+  // Functions and procedures: their inputs and their body, read block by block (sql-proc.mjs).
+  for (const r of sqlRoutines(src, lineAt)) {
+    const inputs = r.inputs.map(({ name, type }) => ({ name, type }));
+    const returns = r.returns ?? (r.outs.length ? listWords(r.outs.map((o) => words(o.name))) : null);
+    const steps = r.unreadWhy ? [] : r.steps;
+    push(r.name, r.line, steps, { inputs, returns, doc: docAbove(src, srcIndexOfLine(src, r.line)), endLine: r.endLine,
+      ...(r.unreadWhy ? { unread: [{ line: r.line, text: src.split('\n')[r.line - 1].trim().slice(0, 120), reason: `Not read: ${r.unreadWhy}. Its code is shown instead.` }] } : {}),
+      says: `${words(r.name)} takes ${inputs.length ? inputs.map((p) => words(p.name)).join(', ') : 'no inputs'}${returns ? ` and returns ${returns}` : ''}.`,
+      headline: `${words(r.name)} takes ${inputs.length ? inputs.map((p) => words(p.name)).join(', ') : 'no inputs'}.` });
   }
   // Triggers: when the database runs a function by itself.
   for (const t of m.matchAll(/\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\s+([\w."]+)\s+(BEFORE|AFTER|INSTEAD\s+OF)\s+([\w\s,]+?)\s+ON\s+([\w."]+)[\s\S]*?EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+([\w.]+)/gi)) {
@@ -386,3 +349,6 @@ export function sqlItems(src) {
   items.sort((a, b) => a.line - b.line);
   return items;
 }
+
+// Shared with the routine reader (sql-proc.mjs).
+export { words as sqlWords, bare as sqlBare, singular as sqlSingular, typeWords as sqlTypeWords, listWords as sqlListWords };

@@ -56,10 +56,10 @@ test('a PL/pgSQL function: its inputs, IF/ELSIF as questions, RAISE as Stops, an
   assert.deepEqual([pay.youGive, pay.youGetBack], [['order id', 'amount'], 'words']);
   const d = readLevel(m, 'details', pay.id);
   assert.deepEqual(d.stops.map((s) => [s.message, s.when.map((w) => `${w.question} ${w.answer}`)]), [
-    ['Order … does not exist', ['Is total empty? Yes']],
+    ['Order «p_order_id» does not exist', ['Is total empty? Yes']],
     ['Not enough money', ['Is total empty? No', 'Is amount less than total? Yes']],
   ]);
-  assert.deepEqual(d.changes.map((c) => c.text), ['Records the change in orders: sets status to "paid" where id is order id', 'Records a new payment with order id and amount']);
+  assert.deepEqual(d.changes.map((c) => c.text), ['Records the change in orders: sets status to "paid" where id is the same as order id', 'Records a new payment with order id and amount']);
 });
 
 test('a trigger says when the database runs it', () => {
@@ -74,7 +74,7 @@ test('MySQL and SQLite tables read the same way', () => {
 });
 
 test('conditions read as words', () => {
-  assert.equal(sqlCondition("status IN ('paid', 'shipped') AND deleted_at IS NULL"), 'status is one of paid, shipped and deleted at is empty');
+  assert.equal(sqlCondition("status IN ('paid', 'shipped') AND deleted_at IS NULL"), 'status is one of "paid", "shipped" and deleted at is empty');
   assert.equal(sqlCondition("email LIKE '%@school.org'"), 'email matches "…@school.org"');
   assert.equal(sqlCondition("name LIKE 'A%'"), 'name starts with "A"');
   assert.equal(sqlCondition('o.total >= 100', { aliases: { o: 'orders' } }), "the order's total is at least 100");

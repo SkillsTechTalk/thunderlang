@@ -10,7 +10,7 @@
 //   return cond ? X : Y   (nested ternaries)  Python: return X if cond else Y
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
-import { sqlItems } from './sql.mjs';
+import { sqlItems, sqlTemplateReason } from './sql.mjs';
 import { readDockerfile } from './infra-docker.mjs';
 import { readWorkflow } from './infra-gha.mjs';
 import { readTerraform } from './infra-terraform.mjs';
@@ -2726,6 +2726,9 @@ export function searchReading(reading, { query = '', kinds = [], status = [] } =
 
 /** A reading of a SQL file in the same shape as every other language's. */
 function sqlReading(src) {
+  // A dbt / Jinja template is listed as skipped with the reason: its SQL is not known until the template is filled in.
+  const template = sqlTemplateReason(src);
+  if (template) return { schema: READ_SCHEMA, language: 'sql', detected: false, items: [], counts: { decision: 0, function: 0, error: 0, test: 0, partial: 0, guarded: 0, route: 0 }, skipped: template, limitations: [template] };
   const items = sqlItems(src);
   for (const it of items) it.completeness = completenessOf(it);
   const counts = { decision: 0, function: items.length, error: 0, test: 0, partial: 0, guarded: 0, route: 0 };
@@ -2734,6 +2737,7 @@ function sqlReading(src) {
     limitations: [
       'Read by pattern, not by running it on a database. PostgreSQL first; other dialects where their syntax agrees.',
       'Tables are drawn as Data or Things; CHECK and UNIQUE as rules the database enforces; views, functions, procedures, and triggers as steps.',
+      'Routine bodies (PL/pgSQL, MySQL stored programs, T-SQL) are read block by block; a statement Thunder cannot say exactly is shown as code, and a body whose blocks do not match is shown as not read.',
     ],
   };
 }
