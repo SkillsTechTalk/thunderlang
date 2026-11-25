@@ -55,7 +55,7 @@ const VIEWS = [
   { name: "Thunder Review", what: "a pull request as before-and-after pictures", href: "https://openthunder.dev", status: "Later" },
 ];
 
-const AUTHORITY = [PROJECT_FACTS[0], { value: "10", label: "languages read in Thunder", href: "/read" }, PROJECT_FACTS[3]];
+const AUTHORITY = [PROJECT_FACTS[0], { value: "17", label: "languages read in Thunder", href: "/read" }, PROJECT_FACTS[3]];
 
 // The same refund rule in every language the reader supports, Thundered at build time by the real reader.
 const SAMPLES: ThunderedSample[] = THUNDERED_SAMPLES.map((x) => {
