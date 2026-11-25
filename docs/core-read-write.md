@@ -28,13 +28,13 @@ The gap is mostly mechanical, listed below by how often each shape appears.
 | Answer: | 9 | `Answer: Yes` | `Give <value>` | In a rule card, an answer is what the function gives back: print `Give "A"`, `Give 15`, `Give yes`. |
 | Writes a log or message | 6 | `Writes a log or message — calls: print("Hello, {name}!")` | `say <value>` | A print/log call becomes `say "…"` with `{name}` holes (already the reader's text style). |
 | code shown as code (`…` (code, not explained)) | 5 | `return total * 0.2 (code, not explained) — means: return total * 0.2` | the expression itself | Expressions the reader shows as code (`return total * 0.2`) need the No-loss meaning model to print as Core expressions (`Give total * 0.2`). |
-| For each | 4 | `For each o in orders` | `For each <item> in <list>:` | Add the closing ":" and drop the separate "For each:" line; a `range(...)` loop becomes `For each i from 1 to n:`. |
+| Repeats | 4 | `Repeats: for i in range(1, n + 1): (code, not explained)` | `Repeat while <condition>:` | Imperative verb ("Repeat", not "Repeats") and a closing ":". |
 | Sets | 3 | `Sets total to 0` | `Set <name> to <value>` | Imperative verb ("Set", not "Sets"). Same words otherwise. |
 | Adds | 2 | `Adds o price to total` | `Increase <name> by <value>` / `Add <item> to <list>` | Print "Increase total by o price" for numbers and "Add … to …" for lists; possessives become `o's price`. |
+| For each | 1 | `For each o in orders` | `For each <item> in <list>:` | Add the closing ":" and drop the separate "For each:" line; a `range(...)` loop becomes `For each i from 1 to n:`. |
 | Stores | 1 | `Stores the word entry in counts under word in counts — value: counts.g` | `Set <map> at <key> to <value>` | Print `Set counts at word to (counts at word otherwise 0) + 1`; needs the meaning model for `.get(k, 0)` (shown as code today). |
 | Tries | 1 | `Tries the next steps and handles the errors named below` | the protected statement, then `If this fails:` | Core attaches `If this fails:` to the statement before it; the reader should print the protected steps, then `If this fails:` (a block of several steps needs a Core `Try:` block, planned). |
 | Stop: | 1 | `Stop: ValueError: "Insufficient funds"` | `Stop with "<message>"` | Print `Stop with "Insufficient funds"`; the error kind stays in Details. |
-| Repeats | 1 | `Repeats while n is more than 0` | `Repeat while <condition>:` | Imperative verb ("Repeat", not "Repeats") and a closing ":". |
 | Subtracts | 1 | `Subtracts 1 from n` | `Decrease <name> by <value>` | Print "Decrease n by 1". |
 
 The mechanical rewrites measured above: 
@@ -262,7 +262,7 @@ What the reader prints today (Thunder Text):
 ```text
 Fizzbuzz
   You give it: n
-  - For each i in range(1, n + 1  (line 2)
+  - Repeats: `for i in range(1, n + 1):` (code, not explained)  (line 2)
     For each:
       - Ask: Is i % 15 0?  (line 3)
         Yes:
@@ -342,7 +342,7 @@ What the reader prints today (Thunder Text):
 Count words
   You give it: text
   - Sets counts to an empty lookup table  (line 2)
-  - For each word in split( — in: text.lower().split()  (line 3)
+  - Repeats: `for word in text.lower().split():` (code, not explained)  (line 3)
     For each:
       - Stores the word entry in counts under word in counts — value: counts.get(word, 0) + 1  (line 4)
   - Gives back counts  (line 5)
@@ -559,7 +559,7 @@ What the reader prints today (Thunder Text):
 Sum up
   You give it: n
   - Sets total to 0  (line 2)
-  - For each i in range(1, n + 1  (line 3)
+  - Repeats: `for i in range(1, n + 1):` (code, not explained)  (line 3)
     For each:
       - Adds i to total  (line 4)
   - Gives back total  (line 5)
@@ -724,7 +724,7 @@ What the reader prints today (Thunder Text):
 ```text
 Is empty cart
   You give it: cart
-  - Gives back whether how many cart is 0 — value: len(cart) == 0  (line 2)
+  - Gives back whether the length of cart is 0 — value: len(cart) == 0  (line 2)
 ```
 
 Thunder Core a person would write (compiles):
