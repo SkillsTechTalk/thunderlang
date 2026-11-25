@@ -11,11 +11,11 @@ export const PROJECT_FACTS: { value: string; label: string; href?: string }[] = 
   { value: "39", label: "worked examples", href: "/examples" },
   { value: "14", label: "languages lifted to intent", href: "/docs/language-support-matrix" },
   { value: "10", label: "export formats (DMN, BPMN, OpenAPI, ...)" },
-  { value: "v1.0.3", label: "deterministic, no AI required" },
+  { value: "v1.0.4", label: "deterministic, no AI required" },
 ];
 
 export const NPM_PACKAGE = "@skillstech/thunderlang";
 
 // The version npm installs today. Update this when a new release is published, so the install page
 // never promises a command people can't run yet.
-export const PUBLISHED_VERSION = "1.0.3";
+export const PUBLISHED_VERSION = "1.0.4";
