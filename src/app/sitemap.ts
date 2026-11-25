@@ -3,6 +3,7 @@ import { absoluteUrl } from "@/lib/site";
 import { discoverRoutes, priorityOf } from "@/lib/site-map";
 import { posts } from "./blog/posts";
 import { getDocSlugs, getExampleList } from "@/lib/docs";
+import { GALLERY } from "@/gallery/entries.mjs";
 
 /**
  * sitemap.xml. Pages are discovered from src/app at build time (see src/lib/site-map.ts), so every page is listed
@@ -38,6 +39,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.5,
   }));
 
+  const galleryEntries = GALLERY.map((e) => ({
+    url: absoluteUrl(`/gallery/${e.slug}`),
+    lastModified: built,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }));
+
   const seen = new Set<string>();
-  return [...pages, ...postEntries, ...docEntries, ...exampleEntries].filter((e) => !seen.has(e.url) && seen.add(e.url));
+  return [...pages, ...postEntries, ...docEntries, ...exampleEntries, ...galleryEntries].filter((e) => !seen.has(e.url) && seen.add(e.url));
 }

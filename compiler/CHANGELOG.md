@@ -23,6 +23,21 @@
     (`out var`), vapor#8 (a closure with a capture list), the Swift `if let …, cond` reading, httr#19 (quotes inside a
     value), jquery#15 (`queue || []` is not "when that has no value"), #165 (the shown code is the source as written),
     and four expectations of "how many x" that now read "the length of x".
+- **Fix (writing in Thunder):** an inline route handler's own model id (`auth.ts##POST/api/auth/register#3`) now resolves in `thunderWrite`, and `says` names only the changed step, once, when a one-line `if` holds several steps. Reported by OpenThunder.
+- **Thunder review on every pull request (GitHub Action).** `uses: SkillsTechTalk/thunderlang@main` (the repository's
+  root `action.yml`) runs `thunder review` on the pull request's two commits with the published compiler, writes the
+  review to the job summary, and keeps one pull request comment up to date (found by `<!-- thunder-review -->`), with
+  the workflow's own `GITHUB_TOKEN`. Inputs: `base`, `head`, `comment`, `fail-on` (none | risk), `paths` (globs),
+  `version`. Pull requests from forks get the job summary only, and it says why; `pull_request_target` is never
+  needed. Runs in your CI: no code leaves GitHub, no AI. Docs: `docs/github-action.md`. The `.thunder` check action
+  moved to `SkillsTechTalk/thunderlang/check` (the old root action pointed at a package name that does not exist).
+- **`renderReviewComment(review)`** (core, browser-safe): the comment, grouped by changed action, rule, or function,
+  risks first, with honest counts (explained in sentences, shown as code, Thunder cannot check), a link to
+  thunderlang.dev, and a size cap that leaves out whole entries and says "N more not shown".
+- **`thunder review --base <ref> --head <ref> --format markdown|json --paths <glob,...>`**: flag forms of the existing
+  positional arguments and `--json`, and `--paths` to review only matching files.
+
+# 1.0.4
 
 - **Fix: no false readings left in the fresh audit outside SQL.** An independent review of 1.0.3 on 32 repositories
   it had never seen (480 non-SQL samples) graded 53 readings false (11%). Each now reads true or is shown as code, and

@@ -7,6 +7,8 @@ import { READ_SAMPLES } from "./samples.mjs";
 import type { CodeLang } from "@/lib/code-tokens";
 import { KNOW, ReadCard, SourceView, field, linesOf, isDrawable, hasSteps, type ReadFacet } from "./parts";
 import { FolderReader } from "./FolderReader";
+import { ShareLink } from "@/components/thunder/ShareLink";
+import { makePastedLink } from "@/lib/share-messages";
 
 const LANGS: { key: string; label: string }[] = [
   { key: "auto", label: "Detect automatically" },
@@ -104,6 +106,7 @@ function FileReader({ know }: { know: CodeLang }) {
     () => (reading ? searchReading(reading, { query, kinds, status: partialOnly ? ["partial", "signature-only"] : [] }) : []),
     [reading, query, kinds, partialOnly],
   );
+  const selectedItem = reading?.items.find((i) => i.id === selected && (i.kind === "decision" || i.kind === "function")) ?? null;
   const highlighted = useMemo(() => {
     if (written) return new Set(written.lines);
     const it = reading?.items.find((i) => i.id === selected);
@@ -247,6 +250,12 @@ function FileReader({ know }: { know: CodeLang }) {
                 {asSteps.length > 0 && <> and read <strong className="text-white">{asSteps.length} function{asSteps.length === 1 ? "" : "s"}</strong> as steps</>}.{" "}
                 {forPerson.length > 0 ? <><strong className="text-white">{forPerson.length}</strong> {forPerson.length === 1 ? "function needs" : "functions need"} a person to read.</> : "Nothing else needs a person."}
               </p>
+              <div className="rounded-xl border border-white/10 p-3">
+                <ShareLink resetKey={`${selected}|${source.length}|${sample}`}
+                  label={selectedItem ? `Copy link to ${selectedItem.name}` : "Copy link to this reading"}
+                  make={() => makePastedLink({ code: source, file, fn: selectedItem?.name ?? null, level: selectedItem ? "flow" : "big-picture" })} />
+                <p className="mt-1 text-xs text-haze-400">{selectedItem ? "The link opens this function in Thunder's reading levels." : "Select a card’s title to link to that one function."} Reading a public GitHub file? <Link href="/r" className="text-gold-300 hover:text-gold-200">Open it by its GitHub address</Link> for a shorter link.</p>
+              </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div role="radiogroup" aria-label="Show" className="inline-flex rounded-lg border border-white/12 p-0.5">
                   {([["all", "Everything", main.length], ["rules", "Rules", rulesDrawn.length], ["steps", "Steps", asSteps.length], ["person", "Needs a person", forPerson.length]] as const).map(([k, label, n]) => (
