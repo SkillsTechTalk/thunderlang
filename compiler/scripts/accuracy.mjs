@@ -73,8 +73,9 @@ function stepFidelity(step, lines = []) {
   const invented = [];
   for (const n of says.match(/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/g) || []) if (!code.includes(n) && !/^(1|0)$/.test(n)) invented.push(n);
   // A quoted text may hold quotes of its own (`"The "multiplex" option …"`): it is invented only when neither the
-  // shortest nor the longest reading of the quote is in the code.
-  const inCode = (q) => { const inner = q.slice(1, -1).replace(/…$/, ''); const parts = inner.split('…').map((x) => x.trim()).filter((x) => x.length > 2); return parts.every((p) => code.includes(p) || code.includes(p.replace(/\\"/g, '"')) || code.includes(p.replace(/`/g, '\\`'))); };
+  // shortest nor the longest reading of the quote is in the code. A «placeholder» stands for a value the code inserts
+  // (spec: text with values inside), so only the literal parts around it must appear in the code.
+  const inCode = (q) => { const inner = q.slice(1, -1).replace(/…$/, ''); const parts = inner.split(/…|«[^»]*»/).map((x) => x.trim()).filter((x) => x.length > 2); return parts.every((p) => code.includes(p) || code.includes(p.replace(/\\"/g, '"')) || code.includes(p.replace(/`/g, '\\`'))); };
   const whole = says.match(/"[^]{1,200}"/);
   for (const q of says.match(/"[^"]{0,80}"/g) || []) if (!inCode(q) && !(whole && inCode(whole[0]))) invented.push(q);
   // Kept: how many of the code's names the wording mentions (as words).
