@@ -1,23 +1,83 @@
-name: 'ThunderLang Check'
-description: 'Gate .thunder files with the deterministic ThunderLang compiler. No AI. Fails the build if any intent has errors.'
-author: 'SkillsTech'
+name: 'Thunder Review'
+description: 'Say what a pull request does, in plain sentences, in one pull request comment. Deterministic: no AI, nothing leaves your CI, no code from the pull request is run.'
+author: 'Skills Tech Talk'
 branding:
-  icon: 'check-circle'
+  icon: 'zap'
   color: 'yellow'
 
+# How a repository adds it: docs/github-action.md. It is not enabled on this repository's own pull requests.
+# The .thunder check action moved to SkillsTechTalk/thunderlang/check.
+
 inputs:
+  base:
+    description: 'The commit to compare from. Default: the pull request base.'
+    required: false
+    default: ${{ github.event.pull_request.base.sha }}
+  head:
+    description: 'The commit to compare to. Default: the pull request head.'
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+  comment:
+    description: 'Post the review as one pull request comment, updated in place on every push (true or false). The job summary is always written.'
+    required: false
+    default: 'true'
+  fail-on:
+    description: 'none: never fail the job. risk: fail it when something needs a careful look (a Stop removed, a new address, code that now reaches outside the program, or code Thunder cannot check).'
+    required: false
+    default: 'none'
   paths:
-    description: 'File or directory to check. A directory is recursed; every .thunder under it is gated. Default: the whole repo.'
+    description: 'Only review files matching these globs, separated by commas or new lines (for example `src/**, api/*.py`). Default: every changed file.'
     required: false
-    default: '.'
+    default: ''
   version:
-    description: 'npm version or tag of @skillstechtalk/thunderlang. Directory checking needs >= 0.1.1. Default: latest.'
+    description: 'The @skillstech/thunderlang version that reads the code. Default: the compiler version released with this action.'
     required: false
-    default: 'latest'
+    default: '1.0.4'
+  github-token:
+    description: 'Token used for the comment. Default: the workflow''s own GITHUB_TOKEN (needs permissions: pull-requests: write).'
+    required: false
+    default: ${{ github.token }}
+  thunder:
+    description: 'Advanced: a command that runs the Thunder compiler instead of npx, for example `node compiler/src/cli.mjs` in a checkout of the compiler.'
+    required: false
+    default: ''
+
+outputs:
+  says:
+    description: 'The summary line, for example "3 changes in meaning, 1 risk, 12 form-only."'
+    value: ${{ steps.review.outputs.says }}
+  risks:
+    description: 'How many items need a careful look.'
+    value: ${{ steps.review.outputs.risks }}
+  meaning:
+    description: 'How many changes in meaning.'
+    value: ${{ steps.review.outputs.meaning }}
+  cannot-check:
+    description: 'How many changes Thunder cannot check (a person has to).'
+    value: ${{ steps.review.outputs.cannot-check }}
+  comment:
+    description: 'What happened to the pull request comment: created, updated, skipped, or failed.'
+    value: ${{ steps.review.outputs.comment }}
+  comment-url:
+    description: 'The link to the pull request comment, when one was posted or updated.'
+    value: ${{ steps.review.outputs.comment-url }}
+  markdown-file:
+    description: 'Path of the review as Markdown (the same text as the job summary).'
+    value: ${{ steps.review.outputs.markdown-file }}
 
 runs:
   using: 'composite'
   steps:
-    - name: intent check
+    - name: Review in Thunder
+      id: review
       shell: bash
-      run: npx --yes "@skillstechtalk/thunderlang@${{ inputs.version }}" check "${{ inputs.paths }}"
+      env:
+        INPUT_BASE: ${{ inputs.base }}
+        INPUT_HEAD: ${{ inputs.head }}
+        INPUT_COMMENT: ${{ inputs.comment }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_PATHS: ${{ inputs.paths }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_THUNDER: ${{ inputs.thunder }}
+      run: node "$GITHUB_ACTION_PATH/action/thunder-review.mjs"

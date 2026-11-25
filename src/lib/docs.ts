@@ -36,6 +36,7 @@ const DOC_ORDER = [
   "mcp",
   "reading-code",
   "review-in-thunder",
+  "github-action",
   "runtime-enforcement",
   "intent-scanner",
   "syntax-overview",
@@ -105,6 +106,7 @@ const DOC_LABELS: Record<string, string> = {
   "mcp": "ThunderLang for AI agents (MCP)",
   "reading-code": "Read any code in Thunder",
   "review-in-thunder": "Review in Thunder",
+  "github-action": "Thunder review on every pull request",
   "runtime-enforcement": "Runtime enforcement",
   "intent-scanner": "Intent Scanner and Fable",
   "syntax-overview": "Syntax overview",
@@ -150,7 +152,7 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 const DOC_BLURBS: Record<string, string> = {
-  manifesto: "Why ThunderLang exists, and prompt vs durable intent.",
+  manifesto: "Why Thunder exists: the human programming language for the AI era, and what works today.",
   "intent-oriented-programming": "The paradigm above OOP and FP: build around meaning, prove the code still honors it.",
   "language-principles": "The ten design rules the language holds itself to.",
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",
@@ -160,6 +162,7 @@ const DOC_BLURBS: Record<string, string> = {
   "mcp": "Connect Claude Code, Codex, ChatGPT, or Cursor, and give your agent the rules for when to call each tool.",
   "reading-code": "See what code in TypeScript, Python, Go, Rust, C#, or Java decides, in plain English and in a language you know.",
   "review-in-thunder": "See what a pull request changed in meaning, in plain sentences, and keep it as one pull request comment.",
+  "github-action": "Add one step to a workflow and every pull request gets one comment that says what the change does. Runs in your CI, no AI.",
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
   "intent-scanner": "Scan a project into Intent IR and explainable Fable findings grouped by risk.",
   "syntax-overview": "The keywords, three layers, types, and blocks.",
@@ -244,7 +247,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Understand software",
     blurb: "Scan, map, and reason about existing and AI-written code.",
-    slugs: ["reading-code", "review-in-thunder", "intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "atlas-review", "mission-chains", "ai-generated-missions"],
+    slugs: ["reading-code", "review-in-thunder", "github-action", "intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "atlas-review", "mission-chains", "ai-generated-missions"],
   },
   {
     title: "Build and verify",

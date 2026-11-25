@@ -2,7 +2,7 @@
 // The five reading levels (Big Picture, Flow, Details, Text, Original) for any code. ThunderLang defines what each
 // level shows (LEVELS and readLevel in the compiler); this component only lays it out, so the site shows exactly what
 // OpenThunder shows at the same level. Used by the home page, /language, and Semantic Zoom.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { thunderModel, readLevel } from "../../../compiler/src/model.mjs";
 import type { ThunderModel, LevelId, LevelView } from "../../../compiler/src/model.d.mts";
 import { LEVELS, THUNDER_VISUAL, thunderTokens } from "../../../compiler/src/visual.mjs";
@@ -12,6 +12,7 @@ import type { RuntimeOverlay, MemberRun, ErrorExplanation } from "../../../compi
 import { Symbol, ThingCard, DataCard, ResourceCard, PermissionList, SettingList, FlowBlocks, HEX, focus, runWords, type SymbolId } from "./ThunderParts";
 import { sourceLines } from "../../lib/source-tokens.mjs";
 import { ChangeThis } from "./ChangeThis";
+import { memberRef } from "../../lib/share-link.mjs";
 
 /** The same answer words the flow uses: BigFee -> Big fee, true -> Yes. */
 const answerWords = (r: string) => (/^true$/i.test(r) ? "Yes" : /^false$/i.test(r) ? "No" : ((w) => w.charAt(0).toUpperCase() + w.slice(1))(String(r).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ").toLowerCase()));
@@ -266,8 +267,17 @@ function DetailsSheet({ view, member, thingLabel, file, open, showLine, memberRu
   );
 }
 
-export function ReadingLevels({ source, file, name, initialFocus, initialLevel = "big-picture", editable = false, canChange = false, onSourceChange, run, runHidden }: {
+/** What a reader is looking at right now: the level, and the action or rule (with the name a share link uses). */
+export type ReadingView = { level: LevelId; memberId: string | null; fn: string | null };
+
+export function ReadingLevels({ source, file, name, initialFocus, initialFocusId, initialLevel = "big-picture", editable = false, canChange = false, onSourceChange, run, runHidden, model: given, onViewChange }: {
   source: string; file: string; name?: string;
+  /** The model of exactly this source and file, when the caller already built it (so it is not read twice). */
+  model?: ThunderModel;
+  /** A member's id to start on (exact, unlike initialFocus, when a name is used more than once). */
+  initialFocusId?: string;
+  /** Told whenever the level or the action or rule being read changes (e.g. to keep a share link up to date). */
+  onViewChange?: (view: ReadingView) => void;
   /** A recorded run of exactly this code: offers "What happened when it ran" at Flow and Details. */
   run?: RecordedRun;
   /** Why a recorded run is not offered right now (e.g. the code was edited after it was recorded). */
@@ -277,10 +287,10 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
   /** A member's name (e.g. return_book) to show at Flow, Details, Text, and Original until another is chosen. */
   initialFocus?: string; initialLevel?: LevelId; editable?: boolean; onSourceChange?: (s: string) => void;
 }) {
-  const model = useMemo<ThunderModel | null>(() => { try { return thunderModel([{ path: file, source }], { name: name ?? file }) as ThunderModel; } catch { return null; } }, [source, file, name]);
+  const model = useMemo<ThunderModel | null>(() => { if (given) return given; try { return thunderModel([{ path: file, source }], { name: name ?? file }) as ThunderModel; } catch { return null; } }, [given, source, file, name]);
   // The Original level in editor colors, language from the file name (plain text if unsupported).
   const lines = useMemo(() => sourceLines(source, file), [source, file]);
-  const firstMember = model?.members.find((m) => m.name === initialFocus)?.id ?? null;
+  const firstMember = (initialFocusId && model?.members.some((m) => m.id === initialFocusId) ? initialFocusId : null) ?? model?.members.find((m) => m.name === initialFocus)?.id ?? null;
   const [level, setLevel] = useState<LevelId>(initialLevel);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<[number, number] | null>(null);
@@ -288,6 +298,18 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
   // The running system: the recorded run placed on this model's flows (only evidence; nothing inferred).
   const overlay = useMemo<RuntimeOverlay | null>(() => { try { return run && model ? runtimeOverlay(model, fromTrace(run.trace as never)) as RuntimeOverlay : null; } catch { return null; } }, [run, model]);
   const crash = useMemo<ErrorExplanation | null>(() => { try { return run?.crash && model ? explainError(model, run.crash) as ErrorExplanation : null; } catch { return null; } }, [run, model]);
+
+  // The action or rule on screen (the same choice focusFor makes below), reported for share links.
+  const shownMember = useMemo(() => {
+    if (!model) return null;
+    const isMember = (id: string | null) => !!id && model.members.some((m) => m.id === id);
+    const picked = isMember(focusId) ? focusId : null;
+    const id = level === "big-picture" ? picked : picked ?? (isMember(firstMember) ? firstMember : null);
+    return id ? model.members.find((m) => m.id === id) ?? null : null;
+  }, [model, focusId, level, firstMember]);
+  useEffect(() => {
+    onViewChange?.({ level, memberId: shownMember?.id ?? null, fn: shownMember && model ? memberRef(shownMember, model.members) : null });
+  }, [level, shownMember, model, onViewChange]);
 
   if (!model) return <p className="text-haze-300">Thunder could not read this code. Check that it is complete.</p>;
   const exists = (id: string | null) => !!id && (model.members.some((m) => m.id === id) || model.things.some((t) => t.id === id));
@@ -318,7 +340,7 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
 
       <nav aria-label="Where you are" className="flex flex-wrap items-center gap-2 text-sm">
         <span className="text-haze-400">You are reading:</span>
-        <button type="button" onClick={() => { setFocusId(null); setLevel("big-picture"); }} className={`rounded text-haze-300 hover:text-white ${focus}`}>{file}</button>
+        <button type="button" onClick={() => { setFocusId(null); setLevel("big-picture"); }} className={`rounded break-all text-left text-haze-300 hover:text-white ${focus}`}>{file}</button>
         {thing && <><span aria-hidden="true" className="text-haze-500">›</span><button type="button" onClick={() => open(thing.id)} className={`rounded text-haze-300 hover:text-white ${focus}`}>{thing.label}</button></>}
         {member && <><span aria-hidden="true" className="text-haze-500">›</span><span className="font-medium text-white">{view.title}</span></>}
       </nav>
@@ -388,7 +410,7 @@ export function ReadingLevels({ source, file, name, initialFocus, initialLevel =
             {!overlay && runHidden && (level === "flow" || level === "details") && <p className="mt-5 text-sm text-haze-400">{runHidden}</p>}
             {overlay && (level === "flow" || level === "details") && <RunPanel run={run!} on={showRun} setOn={setShowRun} memberRun={overlay.members[member.id]} label={view.title} crash={crash?.member?.id === member.id ? crash : null} />}
 
-            {level === "flow" && <div className="mt-6"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} runs={showRun ? overlay?.members[member.id]?.nodes : undefined} calls={overlay?.members[member.id]?.calls} /></div>}
+            {level === "flow" && <div className="mt-6 overflow-x-auto"><FlowBlocks blocks={member.flow.blocks} flow={member.flow} onOpen={open} onLine={showLine} model={model} runs={showRun ? overlay?.members[member.id]?.nodes : undefined} calls={overlay?.members[member.id]?.calls} /></div>}
             {level === "flow" && showRun && (() => { const done = member.flow.nodes.find((n) => n.kind === "end" && n.line == null); const w = done ? runWords(overlay?.members[member.id]?.nodes[done.id], overlay?.members[member.id]?.calls) : null; return w ? <p className="mt-3 text-sm text-haze-200"><span className="font-semibold text-[#67E8F9]">Done</span> (it finished after its last step): {w}</p> : null; })()}
 
             {level === "details" && <DetailsSheet view={view} member={member} thingLabel={thing?.label} file={file} open={open} showLine={showLine} memberRun={showRun ? overlay?.members[member.id] : undefined} change={canChange ? { source, onUse: onSourceChange } : undefined} />}

@@ -1,7 +1,7 @@
 {
   "name": "@skillstech/thunderlang",
   "version": "1.0.4",
-  "description": "ThunderLang, the programming language: its deterministic compiler, CLI, and Language Server. No AI required. Turns .thunder files into the canonical Intent Graph, docs, and a proof, and EXECUTES the intent: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
+  "description": "Thunder, the human programming language: the deterministic ThunderLang compiler, CLI, and Language Server. No AI required. Reads code in seventeen languages into Thunder, changes TypeScript, JavaScript, Python, and Go code from Thunder with a proof, compiles rules to six languages, and executes them: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
   "type": "module",
   "main": "./src/index.mjs",
   "types": "./src/index.d.ts",

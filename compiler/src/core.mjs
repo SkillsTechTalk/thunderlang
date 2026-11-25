@@ -22,6 +22,7 @@ export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } 
 export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
 // Review in Thunder: what a change did to the meaning of the code, in plain sentences (pure; the CLI does the git work).
 export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
+export { renderReviewComment, reviewCounts, GITHUB_COMMENT_LIMIT } from './review-comment.mjs';
 export { plainFromReading, conditionText } from './plain-contract.mjs';
 // Editor help (browser-safe): completions, hover, autocorrect, quick fixes, and the semantic type vocabulary.
 export { getCompletions, getHover, autocorrectSource, getCodeActions, SEMANTIC_TYPES } from './intellisense.mjs';

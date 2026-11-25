@@ -743,6 +743,7 @@ export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } 
 export { thunderizeFiles, THUNDER_TEXT_EXT } from './thunderize.mjs';
 export { sameMeaning, renderSame } from './same.mjs';
 export { thunderReview, renderReview, REVIEW_SCHEMA } from './review.mjs';
+export { renderReviewComment, reviewCounts } from './review-comment.mjs';
 export { EXPR_SCHEMA, parseStatement, renderStatement, sayFull, detailOf, sameExpr } from './meaning.mjs';
 export type { Expr } from './meaning.mjs';
 export { stepRoundTrip, runBehavior, ROUND_TRIP_LANGUAGES } from './round-trip.mjs';
