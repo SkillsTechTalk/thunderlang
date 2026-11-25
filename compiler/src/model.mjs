@@ -334,7 +334,7 @@ function compoundWords(c) {
 export function ruleFlow(item, start) {
   const nodes = [], edges = [];
   let n = 0;
-  const node = (kind, text, extra = {}) => { const id = `n${n++}`; nodes.push({ id, kind, text, row: nodes.length, ...extra }); return id; };
+  const node = (kind, text, extra = {}) => { const id = `n${n++}`; nodes.push({ id, kind, text, row: nodes.length, explained: true, ...extra }); return id; };
   let prev = node('start', start, { lane: 0, does: 'start' });
   let label;
   for (const r of item.rules || []) {
@@ -379,6 +379,10 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
     const id = `n${n++}`;
     const { [DETAIL_OF]: of, ...rest } = extra;
     const nd = { id, kind, text, ...rest };
+    // `explained`: false for every node shown as code ("code, not explained"), with `notExplainedWhy` when known.
+    nd.explained = !(kind === 'code' || nd.code || rest.explained === false);
+    if (nd.explained) delete nd.notExplainedWhy;
+    else if (!nd.notExplainedWhy) nd.notExplainedWhy = 'the reader did not recognize this form';
     if (of) lazyDetail(nd, of);
     nodes.push(nd);
     return id;
@@ -411,7 +415,7 @@ export function flowOf(steps, { start = 'Start', memberIndex = new Map(), member
       const does = stepDoes(st);
       // Every node keeps its step's meaning tree (`expr`) and, when the short words leave something out, `detail`:
       // the rest, one level down ("with: order, { validate: false }"). Details and the full Thunder Text show it.
-      const base = { line: st.line, lane, does, ...(usesOf(st) ? { uses: usesOf(st) } : {}), ...(st.expr ? { expr: st.expr, [DETAIL_OF]: { says: st.says, kind: st.kind, code: st.code, restates: st.restates, expr: st.expr } } : {}) };
+      const base = { line: st.line, lane, does, ...(st.explained === false ? { explained: false, ...(st.notExplainedWhy ? { notExplainedWhy: st.notExplainedWhy } : {}) } : {}), ...(st.codeWords ? { code: true } : {}), ...(usesOf(st) ? { uses: usesOf(st) } : {}), ...(st.expr ? { expr: st.expr, [DETAIL_OF]: { says: st.says, kind: st.kind, code: st.code, restates: st.restates, expr: st.expr } } : {}) };
       // A choice among several cases (switch, when, match, select): one question with one side per case.
       const arms = st.kind === 'branch' && st.children?.length && st.children.every((c) => c.kind === 'check' && c.caseLabel) ? st.children : null;
       if (arms) {
@@ -809,7 +813,8 @@ function flowLines(flow, depth = 1, note = null, full = false) {
   // `note` (optional) adds words after a node: the running system's counts (running.mjs).
   const at = (n) => `${n.line ? `  (line ${n.line})` : ''}${(note && note(n)) || ''}`;
   // (A value given back that could not be put into words still says it is given back: the ending is never hidden.)
-  const say = (n) => (n.kind === 'end' && n.code && !/^(?:return|yield)\b/.test(String(n.text).trim()) ? `Gives back \`${n.text}\` (code, not explained)` : n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
+  // (A restated ending that is not a value — `exit 0`, `exec prog`, `die` — is shown as its code, never as "Gives back".)
+  const say = (n) => (n.kind === 'end' && n.code && !/^(?:return|yield|exit|exec|die|abort|quit|halt|throw|raise|panic|break|continue|Exit|Throw|Write-Error)\b/.test(String(n.text).trim()) ? `Gives back \`${n.text}\` (code, not explained)` : n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : (n.kind === 'loop' || n.kind === 'stop' || n.kind === 'step') && n.code ? `${n.text} (code, not explained)` : n.kind === 'decision' && n.cases ? `${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
   const go = (blocks, d) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);

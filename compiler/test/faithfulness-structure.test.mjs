@@ -38,7 +38,8 @@ test('#176 C# brace-less `if (…)\\n throw` is one question; `*=` multiplies', 
 
 test('#179 C# one-line `if (!TryGetValue(…)) into[k] = …` keeps its assignment on the right side', () => {
   const t = thunderText('A.cs', 'class S {\n    private static void Merge(Dictionary<Type, HashSet<Type>> into, Dictionary<Type, HashSet<Type>> from)\n    {\n        foreach (var pair in from)\n        {\n            if (!into.TryGetValue(pair.Key, out var types)) into[pair.Key] = types = new HashSet<Type>();\n            types.UnionWith(pair.Value);\n        }\n    }\n}\n');
-  assert.equal(sideOf(t, /Ask: Into\.TryGetValue/, /Stores a new HashSet under the pair's key in into/), 'no');
+  // Say less: `out var` is not parsed, so the question is its code; the assignment is still on the Yes side of `!…`.
+  assert.equal(sideOf(t, /Ask: `!into\.TryGetValue/, /Stores a new HashSet under the pair's key in into/), 'yes');
 });
 
 test('#199 Python `if not chunk: break` leaves the loop on the No side of "Is chunk set?"', () => {

@@ -6,8 +6,9 @@ import { thunderText, sideOf } from './faithfulness-helpers.mjs';
 
 test('gin#13: an `if init; cond` written over lines keeps its whole condition and its body', () => {
   const t = thunderText('a.go', 'package x\n\nfunc F(out io.Writer) bool {\n\tisTerm := true\n\tif w, ok := out.(*os.File); !ok || os.Getenv("TERM") == "dumb" ||\n\t\t(!isatty.IsTerminal(w.Fd()) && !isatty.IsCygwinTerminal(w.Fd())) {\n\t\tisTerm = false\n\t}\n\treturn isTerm\n}\n');
-  assert.match(t, /IsCygwinTerminal/);
-  assert.equal(sideOf(t, /Ask: .*IsCygwinTerminal/, /Sets is term to false/), 'yes');
+  assert.match(t, /IsCygwinTerminal|isatty\.IsTerminal/);
+  // Say less: an `if` with a setup statement other than the err idiom is asked as its code, Yes when it holds.
+  assert.equal(sideOf(t, /Ask: `w, ok := /, /Sets is term to false/), 'yes');
 });
 
 test('fzf#11: an early return before the rules is part of the answer (no rule card that drops it)', () => {

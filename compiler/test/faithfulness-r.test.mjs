@@ -31,7 +31,8 @@ test('httr #15: cat keeps "\\r" and every space; sep = "" joins with nothing', (
 
 test('httr #19 / dplyr #21: paste0 keeps how the pieces are joined, and nested text is shown as code', () => {
   assert.match(read('  paste0(names, "=", values, collapse = "&")'), /Gives back "«names»=«values»" \(each, joined with "&"\)/);
-  assert.ok(read('  by <- paste0("c(", paste0(old, collapse = ", "), ")")').includes('Sets by to "c(«paste0(old, collapse = ", ")»)"'));
+  // Say less: quoted text with quotes inside a value cannot be matched to the code exactly, so the step is code.
+  assert.ok(read('  by <- paste0("c(", paste0(old, collapse = ", "), ")")').includes('`by <- paste0("c(", paste0(old, collapse = ", "), ")")` (code, not explained)'));
   assert.doesNotMatch(read('  by <- paste0("c(", paste0(old, collapse = ", "), ")")'), /\{\{/);
 });
 

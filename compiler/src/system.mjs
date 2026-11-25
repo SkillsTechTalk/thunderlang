@@ -298,6 +298,15 @@ function urlArg(call) {
   return args[0];
 }
 
+/** [, METHOD] for a call such as `axios.delete(…)` / `http.get(…)` in a step shown as code, else null. */
+function httpOfCode(calls) {
+  for (const call of calls) {
+    const path = calleePath(call.callee) || [];
+    if (path.length === 2 && /^(?:axios|http|https|client|api|request|superagent|ky|got|\$http|httpClient|HttpClient|requests|session)$/i.test(path[0]) && /^(get|post|put|patch|delete|head)$/i.test(path[1])) return [null, path[1].toUpperCase()];
+  }
+  return null;
+}
+
 const EVENT_PUBLISH = /^(emit|publish|publishEvent|sendToQueue|enqueue|basic_publish|produce|dispatch)$/;
 const EVENT_SUBSCRIBE = /\.(on|once|addListener|subscribe|consume|listen|handle)\(\s*(['"`])([^'"`]+)\2\s*,\s*(?:(?:async\s*)?(?:function\b|\(|[\w$]+\s*=>)|((?:this\.|self\.)?[\w$]+)\s*[,)])/g;
 const EVENT_DECORATOR = /@(OnEvent|EventPattern|MessagePattern|KafkaListener|RabbitListener|SqsListener|JmsListener|StreamListener|Subscribe|EventHandler|Consumer)\s*\(\s*(?:\{?\s*)?(?:(?:topics|queues|destination|value|pattern|event)\s*[:=]\s*)?(?:\[\s*)?(['"])([^'"]+)\2/g;
@@ -765,7 +774,8 @@ export function linkSystem(model, files) {
       if (!nd.expr) continue;
       const calls = callsIn(nd.expr);
       if (!calls.length) continue;
-      const http = HTTP_SAYS.exec(nd.text || '');
+      // (A step shown as code still sends its request: an HTTP client's get/post/… names the method.)
+      const http = HTTP_SAYS.exec(nd.text || '') || (nd.explained === false ? httpOfCode(calls) : null);
       let httpDone = false;
       for (const call of calls) {
         const path = calleePath(call.callee);
