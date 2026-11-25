@@ -33,6 +33,10 @@ export interface ReadItem {
   steps?: ReadStep[]; stepsMore?: number;
   /** Share of steps that explain the code: not `other` and not `restates`. */
   stepsReadable?: number;
+  /** How sure: steps put into words (`explained: true`), of every step at every depth (`totalSteps`). */
+  explainedSteps?: number; totalSteps?: number;
+  /** Inputs left out because they were not written as parameters in the signature (a macro, a type, a lifetime). */
+  inputsDropped?: number;
 }
 /** One plain step of a function (thunder-steps-v1). */
 export interface ReadStep {
@@ -51,6 +55,13 @@ export interface ReadStep {
    * of the statement, or `{ kind: 'code', text }` when it is not fully understood. Never guessed.
    */
   expr?: Expr;
+  /**
+   * Say less (say-less.mjs): true when the words are Thunder's own and account for the code; false when the step is
+   * shown as code, "code, not explained" (its `says` is then the code in backticks). Set on every step.
+   */
+  explained?: boolean;
+  /** When `explained` is false: why, in a few plain words ("the reader did not recognize this form", "block structure uncertain"). */
+  notExplainedWhy?: string;
 }
 export interface Reading {
   schema: 'thunder-reading-v1'; language: string; detected: boolean; items: ReadItem[];

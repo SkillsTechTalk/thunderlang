@@ -32,6 +32,42 @@
   and the others with `0`, `false`, `""` (or `$0` for Money), so a typed target answered for a value nobody wrote and
   its FAIL blamed the target (Python crashed instead). Every target now reports such a case as `missing-input`,
   naming the inputs to add. Target names print as TypeScript and C# (not Typescript and Csharp).
+- **Say less: words only where Thunder is sure (`src/say-less.mjs`).** Every worded step is now checked after it is
+  read, and a step stays in words only when its form is recognized and the words account for its code (every word from
+  the code or Thunder's own wording, every value exact, no negation, and/or, comparison, arithmetic, cast, or named
+  argument part dropped, no ambiguous names, recognized endings, certain block structure, inputs from the signature).
+  Anything else is shown as its code, exactly as written. On new repositories graded independently the false rate fell
+  from 10.4% to 3–4% (target 1% not yet reached; see docs/accuracy.md); steps explained fell from 90.0% to 81.7%.
+  - **New fields (OpenThunder):** every step and flow node has `explained` and, when false, `notExplainedWhy`;
+    functions and members have `explainedSteps` / `totalSteps`; the model has `explainedSteps` / `totalSteps`.
+  - **C and C++ meaning trees:** `->`, unary `*` / `&`, C casts, typed and array declarations, `struct` / `static`
+    declarations, C++ template calls (`static_cast<T>(x)` is a call, never a comparison), range-for with `const auto&`.
+    Swift `try f()` is an expression, not a try block.
+  - **Rules** are drawn only for a certain yes/no answer (`state.copy_ || state.base_` is not a rule); **doc comments**
+    only from the `/** … */` right above a function (a `/*#__PURE__*/` no longer pulls in another function's doc).
+  - **Reviews:** a question's two sides keep quoted text exactly (`hasattr(fp, "read")`, never `hasattr(fp, 0)`).
+  - A length reads one way: "the length of password" (never "how many password").
+  - `scripts/form-words.mjs` regenerates the readers' fixed wording list; `SAYLESS_DEBUG=1` prints why each step was
+    shown as code.
+  - Tests changed only where a reading correctly became code: gin#13 (an `if` with a setup statement other than the
+    err idiom), ripgrep#3 (a loop over a pattern), Kingfisher#2 / Alamofire#3 (`guard case`), Rectangle#5 (`for …
+    where`), nvm#18 (`test && cmd || other`), neofetch#3 and nvm#2 (`ls` alone is not "the files in ".""), #179
+    (`out var`), vapor#8 (a closure with a capture list), the Swift `if let …, cond` reading, httr#19 (quotes inside a
+    value), jquery#15 (`queue || []` is not "when that has no value"), #165 (the shown code is the source as written),
+    and four expectations of "how many x" that now read "the length of x".
+- **Fix (writing in Thunder):** an inline route handler's own model id (`auth.ts##POST/api/auth/register#3`) now resolves in `thunderWrite`, and `says` names only the changed step, once, when a one-line `if` holds several steps. Reported by OpenThunder.
+- **Thunder review on every pull request (GitHub Action).** `uses: SkillsTechTalk/thunderlang@main` (the repository's
+  root `action.yml`) runs `thunder review` on the pull request's two commits with the published compiler, writes the
+  review to the job summary, and keeps one pull request comment up to date (found by `<!-- thunder-review -->`), with
+  the workflow's own `GITHUB_TOKEN`. Inputs: `base`, `head`, `comment`, `fail-on` (none | risk), `paths` (globs),
+  `version`. Pull requests from forks get the job summary only, and it says why; `pull_request_target` is never
+  needed. Runs in your CI: no code leaves GitHub, no AI. Docs: `docs/github-action.md`. The `.thunder` check action
+  moved to `SkillsTechTalk/thunderlang/check` (the old root action pointed at a package name that does not exist).
+- **`renderReviewComment(review)`** (core, browser-safe): the comment, grouped by changed action, rule, or function,
+  risks first, with honest counts (explained in sentences, shown as code, Thunder cannot check), a link to
+  thunderlang.dev, and a size cap that leaves out whole entries and says "N more not shown".
+- **`thunder review --base <ref> --head <ref> --format markdown|json --paths <glob,...>`**: flag forms of the existing
+  positional arguments and `--json`, and `--paths` to review only matching files.
 
 # 1.0.4
 

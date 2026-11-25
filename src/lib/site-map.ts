@@ -48,6 +48,8 @@ const SECTIONS: MapSection[] = [
     links: [
       { href: "/zoom", label: "Semantic Zoom (preview)", says: "Big picture, flow, and details of a program, as Thunder, Thunder Text, or the original." },
       { href: "/read", label: "Thunder Code", says: "Paste code in seventeen languages, C, C++, Swift, R, shell, PowerShell, and SQL included, and read it in Thunder." },
+      { href: "/gallery", label: "Gallery: famous code, read in Thunder", says: "Real functions from Flask, Express, Go, Redis, and more, with honest counts of what Thunder put into words." },
+      { href: "/r", label: "Share a reading", says: "Open a public GitHub file in Thunder and copy a link that opens one function at one level." },
       { href: "/try", label: "Try it on a refund rule", says: "Ask a rule questions and change it safely." },
       { href: "/map", label: "Thunder Atlas", says: "Zoom from a whole product down to one rule." },
       { href: "/review", label: "Review", says: "See an AI change as before-and-after Thunder." },

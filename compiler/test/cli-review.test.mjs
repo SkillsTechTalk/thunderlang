@@ -70,3 +70,19 @@ test('thunder review explains a missing ref instead of failing quietly', () => {
   assert.match(r.stderr, /no-such-ref is not a commit in this repository/);
   assert.equal(run(mkdtempSync(join(tmpdir(), 'tl-review-nogit-')), 'HEAD').status, 2);
 });
+
+test('thunder review --base --head --format json|markdown, and --paths keeps only matching files', () => {
+  const { dir } = repo();
+  const j = JSON.parse(run(dir, '--base', 'HEAD~1', '--head', 'HEAD', '--format', 'json').stdout);
+  assert.equal(j.schema, 'thunder-review-v1');
+  assert.equal(j.head, 'HEAD');
+  const md = run(dir, '--base', 'HEAD~1', '--head', 'HEAD', '--format', 'markdown');
+  assert.equal(md.status, 0, md.stderr);
+  assert.ok(md.stdout.startsWith('<!-- thunder-review -->'));
+  const only = JSON.parse(run(dir, '--base', 'HEAD~1', '--head', 'HEAD', '--format', 'json', '--paths', 'app/*.py').stdout);
+  assert.deepEqual([...new Set(only.items.map((x) => x.where.file))], ['app/fees.py']);
+  assert.deepEqual(only.notRead, []);
+  const bad = run(dir, '--base', 'HEAD~1', '--format', 'html');
+  assert.equal(bad.status, 2);
+  assert.match(bad.stderr, /--format html is not one of markdown, json/);
+});

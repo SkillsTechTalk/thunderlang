@@ -66,6 +66,19 @@ thunder read grading.py --json
 
 The `intent_read` MCP tool takes the same options (`query`, `kinds`, `in`). For a repository, `intent_read_repo` takes a folder plus the same filters as the terminal (`kinds`, `languages`, `folder`, `answer`, `input`). It reads your local files, so it runs only in local agents such as Claude Code and Codex, never on the hosted endpoint. Ask your agent "what does this file decide?" and it can answer from the reading instead of guessing. See [ThunderLang for AI agents](/docs/mcp) to connect Claude Code, Codex, or ChatGPT.
 
+## Share a reading
+
+Every reading on the site has a **Copy link to this reading** button. The link opens the same function at the same level (Big Picture, Flow, Details, Text, or Original) for anyone who opens it.
+
+- **A public GitHub file:** `https://thunderlang.dev/r/<owner>/<repo>/<branch, tag, or commit>/<path>?fn=<name>&level=<level>`. The reader's own browser fetches the file from `raw.githubusercontent.com` and reads it with the Thunder compiler. Nothing is sent to or stored by thunderlang.dev. Files up to 300 KB, public repositories only. A link to a commit always shows the same code; a link to a branch shows the file as it is now. Open one by pasting a GitHub address at [thunderlang.dev/r](https://thunderlang.dev/r).
+- **Pasted code:** the code is compressed into the link after the `#` (`/r#code=…`). Browsers never send that part of a link to a server, so the code stays between you and the person you send it to. Code that would make the link longer than 8,000 characters can't be shared this way. Thunder says so instead of storing it somewhere.
+- `fn` names the function: `send`, or `Session.send` for a method, plus `@<line>` when a file uses the same name twice (`BooleanUtils.toBooleanObject@851`).
+- The preview image a chat app shows is drawn from the names in the link only (repository, file, function, level). It never includes the code.
+
+## Famous code, read in Thunder
+
+The [gallery](https://thunderlang.dev/gallery) shows functions from well-known open-source projects (Flask, Requests, Express, axios, NestJS, Go's `net/http`, fd, Apache Commons Lang, Json.NET, Redis, and the Sakila sample database), each pinned to a commit. Only the one source file each function lives in is kept on the site, with its license. Its readings aren't stored: the site reads those files with the current compiler at every build, so the pages improve when the reader does. A gallery page fails the build if the compiler can no longer find its function. Each page shows how many steps Thunder put into words and how many it shows as code. Every entry was checked by hand against its code, and readings that said something false or misleading were left out.
+
 ## What it reads, and what it does not
 
 The reader recognizes the common ways code chooses an answer:
