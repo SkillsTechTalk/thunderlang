@@ -161,6 +161,21 @@ class Gen {
     for (const rule of s.rules ?? []) this.emit(`${this.R('never')}(${this.x(rule.rule.cond, { subject: targetPy }).c}, ${py(rule.text)}, rule=${rule.line}, value=${targetPy})`, s.line);
   }
 
+  /** Store a value into a name, a field, or an entry (a list position from 1, or a map key). */
+  store(t, v, L) {
+    if (t.k === 'name') { this.emit(`${t.ref?.py ?? 'unknown'} = ${v}`, L); return; }
+    if (t.k === 'field') {
+      if (t.static) this.emit(`${wrap(this.x(t.obj), P.atom)}.${t.py} = ${v}`, L);
+      else this.emit(`${this.R('set_field')}(${this.x(t.obj).c}, ${py(t.text)}, ${v})`, L);
+      return;
+    }
+    if (t.k === 'at') {
+      if (t.objKind === 'list') this.emit(`${this.R('set_item')}(${this.x(t.obj).c}, ${this.x(t.key).c}, ${v})`, L);
+      else if (t.objKind === 'map') this.emit(`${wrap(this.x(t.obj), P.atom)}[${this.x(t.key).c}] = ${v}`, L);
+      else this.emit(`${this.R('set_entry')}(${this.x(t.obj).c}, ${this.x(t.key).c}, ${v})`, L);
+    }
+  }
+
   lv(e) {
     if (e.k === 'name') return e.ref?.py ?? 'unknown';
     return this.x(e).c;
@@ -183,10 +198,7 @@ class Gen {
           else this.emit(`${this.R('set_field')}(${this.x(t.obj).c}, ${py(t.text)}, ${v})`, L);
           return;
         }
-        if (t.k === 'at') {
-          if (t.objKind === 'list') this.emit(`${this.R('set_item')}(${this.x(t.obj).c}, ${this.x(t.key).c}, ${v})`, L);
-          else this.emit(`${wrap(this.x(t.obj), P.atom)}[${this.x(t.key).c}] = ${v}`, L);
-        }
+        this.store(t, v, L);
         return;
       }
       case 'give': this.emit(s.e.k === 'nothing' ? 'return None' : `return ${this.x(s.e).c}`, L); return;
@@ -227,14 +239,17 @@ class Gen {
         if (s.targetKind === 'list') this.emit(s.k === 'add' ? `${target}.append(${v})` : `${this.R('remove_from')}(${target}, ${v})`, L);
         else if (s.targetKind === 'map') this.emit(`${this.R('remove_from')}(${target}, ${v})`, L);
         else if (s.targetKind === 'number') { if (s.target.k === 'name' && s.rules?.length) { this.assign(s, target, `${target} ${s.k === 'add' ? '+' : '-'} ${v}`); return; } this.emit(`${target} ${s.k === 'add' ? '+' : '-'}= ${v}`, L); }
-        else this.emit(s.k === 'add' ? `${target} = ${this.R('add_to')}(${target}, ${v})` : `${this.R('remove_from')}(${target}, ${v})`, L);
+        else if (s.k === 'add') { if (s.target.k === 'name') this.emit(`${target} = ${this.R('add_to')}(${target}, ${v})`, L); else this.store(s.target, `${this.R('add_to')}(${target}, ${v})`, L); }
+        else this.emit(`${this.R('remove_from')}(${target}, ${v})`, L);
         if (s.target.k === 'name') this.rulesAfter(s, target);
         return;
       }
       case 'increase': case 'decrease': {
         const target = this.lv(s.target);
         if (s.target.k === 'name' && s.rules?.length) { this.assign(s, target, `${target} ${s.k === 'increase' ? '+' : '-'} ${wrap(this.x(s.e), P.add + 1)}`); return; }
-        this.emit(`${target} ${s.k === 'increase' ? '+' : '-'}= ${this.x(s.e).c}`, L);
+        if (s.target.k === 'name') { this.emit(`${target} ${s.k === 'increase' ? '+' : '-'}= ${this.x(s.e).c}`, L); return; }
+        // A field or an entry: read it, then store the new value (a dynamic field cannot be written with +=).
+        this.store(s.target, `${wrap(this.numv(s.target, { c: target, p: P.atom }), P.add)} ${s.k === 'increase' ? '+' : '-'} ${wrap(this.numv(s.e, this.x(s.e)), P.add + 1)}`, L);
         return;
       }
       case 'sort': {

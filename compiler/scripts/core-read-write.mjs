@@ -223,6 +223,76 @@ export const INPUTS = {
   clamp: ['5, 0, 10', '-1, 0, 10', '11, 0, 10', '0, 0, 10'],
 };
 
+// Methods: two small classes. Each method is printed as a Core function that receives the object first, and run next
+// to the original on the inputs below (the first input is the object; for a method the object afterwards is compared too).
+export const METHOD_CASES = [
+  {
+    name: 'Account',
+    python: `class Account:
+    rate = 0.02
+
+    def __init__(self, owner, balance):
+        self.owner = owner
+        self.balance = balance
+
+    def deposit(self, amount):
+        if amount <= 0:
+            raise ValueError("amount must be positive")
+        self.balance += amount
+        return self.balance
+
+    def can_withdraw(self, amount):
+        return amount <= self.balance
+
+    def withdraw(self, amount):
+        if not self.can_withdraw(amount):
+            raise ValueError("insufficient")
+        self.balance -= amount
+
+    def interest(self):
+        return self.balance * self.rate
+
+    @staticmethod
+    def fee(amount):
+        return amount * 0.01`,
+    calls: [
+      ['__init__', 'method', ['Account("a", 1), "b", 7']],
+      ['deposit', 'method', ['Account("a", 10), 5', 'Account("a", 10), 0', 'Account("a", 0.1), 0.2']],
+      ['can_withdraw', 'method', ['Account("a", 10), 10', 'Account("a", 10), 11']],
+      ['withdraw', 'method', ['Account("a", 10), 4', 'Account("a", 10), 50']],
+      ['interest', 'method', ['Account("a", 100)', 'Account("a", 0)']],
+      ['fee', 'static', ['100', '3.3']],
+    ],
+  },
+  {
+    name: 'Cart',
+    python: `class Cart:
+    def __init__(self):
+        self.items = []
+
+    def add(self, item):
+        self.items.append(item)
+
+    def total(self):
+        total = 0
+        for item in self.items:
+            total += item.price
+        return total
+
+    def is_empty(self):
+        return len(self.items) == 0
+
+    def __len__(self):
+        return len(self.items)`,
+    calls: [
+      ['__init__', 'method', ['Cart()']],
+      ['add', 'method', ['Cart(), O(price=2)', '(lambda c: (c.items.append(O(price=1)), c)[1])(Cart()), O(price=3)']],
+      ['total', 'method', ['(lambda c: (c.items.extend([O(price=1.5), O(price=2.25)]), c)[1])(Cart())', 'Cart()']],
+      ['is_empty', 'method', ['Cart()', '(lambda c: (c.items.append(1), c)[1])(Cart())']],
+    ],
+  },
+];
+
 const stepOf = (line) => line.replace(/^\s*-\s*/, '').replace(/\s+\(line \d+\)\s*$/, '').trim();
 const STRUCTURE = /^(You give it:|Yes:|No:|No: continue|For each:|Otherwise[,:]?)/;
 
@@ -282,7 +352,17 @@ export function measure({ runRoundTrip = !findPython().error } = {}) {
     rows.push({ name, python, text, core, whole, steps: steps.length, parsed, coreOk: coreResult.ok, coreDiagnostics: coreResult.diagnostics,
       printed: printed.core.trimEnd(), printedCompiles, exact, notTranslated: [...printed.module.notTranslated, ...(fn?.notTranslated ?? [])], assumptions: fn?.assumptions ?? [], roundTrip });
   }
-  return { rows, lineStats, gaps: [...gaps].sort((a, b) => b[1].count - a[1].count), ranRoundTrip: runRoundTrip };
+  const classes = METHOD_CASES.map((c) => {
+    const printed = pythonToCore(c.python);
+    const compiles = compileCore(printed.core).ok;
+    const methods = printed.functions.map((f) => {
+      const call = c.calls.find(([n]) => n === f.name);
+      const rt = f.exact && compiles && call && runRoundTrip ? verifyRoundTrip({ python: c.python, core: printed.core, name: f.name, coreFunction: f.coreName, kind: call[1], cls: c.name, inputs: call[2] }) : null;
+      return { name: f.name, coreName: f.coreName, exact: f.exact, notTranslated: f.notTranslated, assumptions: f.assumptions, roundTrip: rt };
+    });
+    return { name: c.name, python: c.python, printed: printed.core.trimEnd(), compiles, methods };
+  });
+  return { rows, lineStats, gaps: [...gaps].sort((a, b) => b[1].count - a[1].count), ranRoundTrip: runRoundTrip, classes };
 }
 
 const fence = (lang, s) => `\`\`\`${lang}\n${s}\n\`\`\``;
@@ -290,7 +370,7 @@ const fence = (lang, s) => `\`\`\`${lang}\n${s}\n\`\`\``;
 export const RT_START = '<!-- round trip: run by the script when Python 3.10+ is installed -->';
 export const RT_END = '<!-- /round trip -->';
 
-export function renderDoc({ rows, lineStats, gaps, ranRoundTrip }) {
+export function renderDoc({ rows, lineStats, gaps, ranRoundTrip, classes = [] }) {
   const printedOk = rows.filter((r) => r.printedCompiles).length;
   const exactN = rows.filter((r) => r.exact).length;
   const rtRows = rows.filter((r) => r.roundTrip?.ran);
@@ -335,6 +415,28 @@ export function renderDoc({ rows, lineStats, gaps, ranRoundTrip }) {
     'condition (`if member:`) is printed as `member is true`, and the compiled Core stops with an error if the value is',
     'not yes/no, where Python would quietly treat 1, "x", or a non-empty list as true.',
     '',
+    '## Methods',
+    '',
+    'A method is printed as a Core function that receives the object first (Core has functions and records, not',
+    'methods): `Account.deposit(self, amount)` becomes `To Account deposit:` with `Receive self and amount`, and',
+    '`self.can_withdraw(x)` becomes `Account can withdraw with self and x` (written down as an assumption: a subclass',
+    'could replace it). Special methods such as `__len__` change how Python treats the object and are not translated.',
+    'Each method is run next to the original, and the object afterwards is compared too.',
+    '',
+    '| Class | Methods printed exactly | Same results as the original (object afterwards included) |',
+    '| --- | --- | --- |',
+    ...classes.map((c) => {
+      const ex = c.methods.filter((m) => m.exact);
+      const ran = ex.filter((m) => m.roundTrip?.ran);
+      const cases = ran.reduce((n, m) => n + m.roundTrip.cases.length, 0);
+      const same = ran.reduce((n, m) => n + m.roundTrip.cases.filter((x) => x.same).length, 0);
+      const tol = ran.reduce((n, m) => n + m.roundTrip.cases.filter((x) => x.same && x.tolerance).length, 0);
+      return `| \`${c.name}\` | ${ex.length} of ${c.methods.length}${c.methods.some((m) => !m.exact) ? ` (not: ${c.methods.filter((m) => !m.exact).map((m) => `\`${m.name}\``).join(', ')})` : ''} | ${RT_START} ${ranRoundTrip ? `${ran.filter((m) => m.roundTrip.cases.every((x) => x.same)).length} of ${ran.length} methods, ${same} of ${cases} inputs${tol ? ` (${tol} within 1e-9: Python float, Core exact)` : ''}` : 'not run (Python 3.10+ was not found)'} ${RT_END} |`;
+    }),
+    '',
+    ...classes.flatMap((c) => [`### \`${c.name}\``, '', fence('python', c.python), '', `Printed as Core${c.compiles ? '' : ' (**does not compile**)'}:`, '', fence('text', c.printed), '',
+      ...c.methods.filter((m) => !m.exact).map((m) => `- \`${m.name}\` not translated: ${m.notTranslated.map((n) => n.why).join('; ')}.`),
+      ...c.methods.flatMap((m) => m.assumptions.map((a) => `- \`${m.name}\` assumes: ${a.says}.`)), '']),
     '## The reader\'s English (Thunder Text)',
     '',
     'Thunder Text describes code for people ("Sets total to 0"); it is not meant to compile. These numbers show how far',

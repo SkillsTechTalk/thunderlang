@@ -167,3 +167,95 @@ test('thunder read <file.py> --as-core prints the Core, and says what is exact a
     assert.deepEqual(j.functions.map((f) => [f.name, f.exact]), [['total', true], ['words', false]]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── methods ──
+
+const ACCOUNT = `class Account:
+    def __init__(self, owner, balance):
+        self.owner = owner
+        self.balance = balance
+
+    def can_withdraw(self, amount):
+        return amount <= self.balance
+
+    def withdraw(self, amount):
+        if not self.can_withdraw(amount):
+            raise ValueError("insufficient")
+        self.balance -= amount
+
+    def add_tag(self, tag):
+        self.tags.append(tag)
+
+    @staticmethod
+    def fee(amount):
+        return amount * 0.01
+
+    @property
+    def rich(self):
+        return self.balance > 1000
+
+    def __repr__(self):
+        return self.owner
+
+    def helper_from_parent(self):
+        return self.inherited()
+`;
+
+test('a method is a Core function that receives the object first; self.other() is a written-down assumption', () => {
+  const r = pythonToCore(ACCOUNT);
+  assert.equal(compileCore(r.core).ok, true);
+  assert.match(r.core, /To Account set up:\n {2}Receive self, owner and balance\n {2}Set self's owner to owner\n {2}Set self's balance to balance\n/);
+  assert.match(r.core, /To Account withdraw:\n {2}Receive self and amount\n {2}When not \(\(Account can withdraw with self and amount\) is true\):\n {4}Stop with "insufficient"\n {2}Set self's balance to self's balance - amount\n/);
+  assert.match(r.core, /To Account add tag:\n {2}Receive self and tag\n {2}Add tag to self's tags\n/);
+  assert.match(r.core, /To Account fee:\n {2}Receive amount\n {2}Give amount \* 0\.01\n/); // a static method has no self
+  const by = Object.fromEntries(r.functions.map((f) => [f.name, f]));
+  assert.equal(by.withdraw.exact, true);
+  assert.match(by.withdraw.assumptions.map((a) => a.says).join(' | '), /self\.can_withdraw\(\) is read as Account's own can_withdraw; a subclass that replaces it would run its own version/);
+  assert.equal(by.fee.exact, true);
+  assert.equal(by.rich.exact, false);
+  assert.match(by.rich.notTranslated[0].why, /decorator/);
+  assert.equal(by.__repr__.exact, false);
+  assert.match(by.__repr__.notTranslated[0].why, /special method/);
+  assert.match(by.helper_from_parent.notTranslated[0].why, /not a method written in Account here \(it may come from a parent class\)/);
+});
+
+test('an inner function, a method of a nested class, and a multi-line signature with a default are not exact', () => {
+  const r = pythonToCore('def outer(x):\n    def inner(y):\n        return y\n    return x\n\nclass A:\n    class B:\n        def m(self):\n            return 1\n\n    def n(self, a,\n          b=None):\n        return a\n');
+  const by = Object.fromEntries(r.functions.map((f) => [f.name, f]));
+  assert.equal(by.inner.exact, false);
+  assert.equal(by.m.exact, false);
+  assert.equal(by.n.exact, false);
+  assert.match(by.n.notTranslated[0].why, /default value/);
+  assert.match(r.core, /# Not translated: 2 inner functions or methods of a nested class/);
+  assert.equal(compileCore(r.core).ok, true);
+});
+
+test('round trip for methods compares the object afterwards too', { skip }, () => {
+  const r = pythonToCore(ACCOUNT);
+  const v = verifyRoundTrip({ python: ACCOUNT, core: r.core, name: 'withdraw', coreFunction: 'Account withdraw', kind: 'method', cls: 'Account', inputs: ['Account("a", 10), 4', 'Account("a", 10), 50'] });
+  assert.equal(v.ran, true, v.error);
+  assert.deepEqual(v.cases.map((c) => c.same), [true, true]);
+  assert.deepEqual(v.cases[0].core.after, { record: { balance: { number: '6', float: false }, owner: 'a' } });
+  const wrong = r.core.replace("Set self's balance to self's balance - amount", "Set self's balance to self's balance + amount");
+  const w = verifyRoundTrip({ python: ACCOUNT, core: wrong, name: 'withdraw', coreFunction: 'Account withdraw', kind: 'method', cls: 'Account', inputs: ['Account("a", 10), 4'] });
+  assert.deepEqual(w.cases.map((c) => [c.same, c.why]), [[false, 'the object is different afterwards']]);
+  const s = verifyRoundTrip({ python: ACCOUNT, core: r.core, name: 'fee', coreFunction: 'Account fee', kind: 'static', cls: 'Account', inputs: ['100', '3.3'] });
+  assert.deepEqual(s.cases.map((c) => c.same), [true, true]);
+});
+
+test('Core: Add, Increase, and Set on a field or entry whose kind is not known (tuples read from 1 too)', { skip }, () => {
+  const core = [
+    'To grow:', '  Receive box', '  Add 3 to box\'s items', '  Increase box\'s count by 1', '  Set box\'s items at 1 to 9', '  Give box',
+    '', 'To first:', '  Receive pair', '  Give pair at 1',
+  ].join('\n');
+  const r = compileCore(core, { file: 'm.thunder' });
+  assert.deepEqual(r.diagnostics, []);
+  const dir = mkdtempSync(join(tmpdir(), 'thunder-store-'));
+  try {
+    writeFileSync(join(dir, 'm.py'), r.python);
+    writeFileSync(join(dir, 'thunder_runtime.py'), PYTHON_RUNTIME);
+    const out = spawnSync(PY.cmd, ['-c', 'import m\nfrom types import SimpleNamespace as O\nb = m.grow(O(items=[1], count=0.5))\nprint(b.items, b.count)\nprint(m.first((7, 8)))'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(out.stderr, '');
+    assert.equal(out.stdout.trim(), '[9, 3] 1.5\n7');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

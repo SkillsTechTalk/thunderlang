@@ -401,8 +401,20 @@ def set_item(items, position, value):
     items[position - 1] = value
 
 
-def entry(container, key, *default):
+def set_entry(container, key, value):
+    """Set an entry when the kind is not known in advance: a list position (from 1) or a map key."""
     if isinstance(container, list):
+        set_item(container, key, value)
+    elif isinstance(container, dict):
+        container[key] = value
+    elif container is None:
+        raise MissingValue("This value is nothing, so it has no entry for %s." % show(key))
+    else:
+        raise KindMismatch("%s has no entries that can be changed." % _describe(container))
+
+
+def entry(container, key, *default):
+    if isinstance(container, (list, tuple)):
         return item_at(container, key, *default)
     if isinstance(container, dict):
         if key in container:
