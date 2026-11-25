@@ -1,0 +1,27 @@
+name: 'ThunderLang Check'
+description: 'Gate .thunder files with the deterministic ThunderLang compiler. No AI. Fails the build if any intent has errors.'
+author: 'SkillsTech'
+# Use: uses: SkillsTechTalk/thunderlang/check@main (the repository root action is the Thunder review).
+branding:
+  icon: 'check-circle'
+  color: 'yellow'
+
+inputs:
+  paths:
+    description: 'File or directory to check. A directory is recursed; every .thunder under it is gated. Default: the whole repo.'
+    required: false
+    default: '.'
+  version:
+    description: 'npm version or tag of @skillstech/thunderlang. Default: latest.'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: thunder check
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        PATHS: ${{ inputs.paths }}
+      run: npx --yes --package "@skillstech/thunderlang@$VERSION" thunder check "$PATHS"

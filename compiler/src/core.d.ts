@@ -23,6 +23,7 @@ export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
 export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
+export { renderReviewComment, reviewCounts, GITHUB_COMMENT_LIMIT } from './review-comment.mjs';
 export type { ColorRole, ElementKind, Provenance as VisualProvenance, Visual } from './visual.mjs';
 export { plainFromReading } from './plain-contract.mjs';
 export function conditionText(model: unknown, condition: unknown): string;

@@ -26,6 +26,22 @@ const COMMANDS: Array<{ cmd: string; what: string; since: string }> = [
   { cmd: "thunder anchor checkout.py", what: "See each step of a file in Thunder, pinned to its exact place in the code", since: "0.5.4" },
 ];
 
+// The whole workflow file for the Thunder review action (docs/github-action.md has the options).
+const PR_WORKFLOW = `name: Thunder review
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write   # post and update the one review comment
+
+jobs:
+  thunder-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SkillsTechTalk/thunderlang@main`;
+
 const newer = (a: string, b: string) => {
   const [x, y] = [a, b].map((v) => v.split(".").map(Number));
   for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
@@ -74,6 +90,21 @@ export default function InstallPage() {
             </ul>
           </li>
         </ol>
+      </Section>
+      <Section className="!pt-0" id="pull-requests">
+        <div className="max-w-3xl">
+          <h2 className="text-xl font-semibold text-white">Add Thunder to your pull requests</h2>
+          <p className="mt-2 text-haze-300">
+            Every pull request gets one comment that says what the change does, in plain sentences, with anything that needs a careful look first.
+            Each push updates the same comment. Save this as <code className="font-mono text-haze-100">.github/workflows/thunder-review.yml</code>:
+          </p>
+          <Code>{PR_WORKFLOW}</Code>
+          <p className="mt-2 text-sm text-haze-400">
+            It runs in your own GitHub Actions job: no code leaves GitHub, no AI is called, and nothing from the pull request is run.
+            On pull requests from forks, GitHub allows no comment, so the review goes to the job summary instead.{" "}
+            <Link href="/docs/github-action" className="text-gold-300 hover:text-gold-200">Options and what it posts →</Link>
+          </p>
+        </div>
       </Section>
       <Section className="!pt-0">
         <h2 className="text-xl font-semibold text-white">Other ways to use Thunder</h2>

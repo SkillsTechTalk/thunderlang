@@ -83,6 +83,18 @@ only question that matters: *which one does the business want?* [See the Thunder
 (prototype: the rules come from the real code reader; service connections use simple patterns that OpenThunder's
 discovery replaces).
 
+## Thunder in your pull requests
+
+One step in a GitHub workflow, and every pull request gets one comment that says what the change does, in plain
+sentences, with anything that needs a careful look first. It runs in your own CI: no code leaves GitHub, no AI.
+
+```yaml
+      - uses: actions/checkout@v4
+      - uses: SkillsTechTalk/thunderlang@main   # needs permissions: pull-requests: write
+```
+
+[The whole workflow file and what it posts →](./docs/github-action.md)
+
 ## OpenThunder: the IDE for AI-written code
 
 **Thunder is the language. [OpenThunder™](https://openthunder.dev) is where you use it on your app.** Open your
@@ -177,6 +189,8 @@ More: [Thunder vocabulary](./docs/thunder-vocabulary.md) · [Language principles
   code generation, export adapters (DMN, BPMN, NuSMV, JSON Schema, OpenAPI, design tokens, CSS, Mermaid,
   Playwright), a proof envelope, and SARIF output.
 - **`editors/vscode/`**: a VS Code extension (grammar and language client).
+- **`action.yml`, `action/`**: the Thunder review GitHub Action ([docs](./docs/github-action.md)); `check/` gates
+  `.thunder` files in CI.
 - **`src/`, `docs/`, `examples/`**: the [thunderlang.dev](https://thunderlang.dev) website (including the visual
   Thunder card and the Thunder map), the docs, and worked examples. Working on the website: [WEBSITE.md](./WEBSITE.md).
 

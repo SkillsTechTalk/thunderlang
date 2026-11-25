@@ -245,7 +245,7 @@ command , `thunder check .` , with no wrapper script. Any project can add the ga
 three lines with the published GitHub Action:
 
 ```yaml
-- uses: SkillsTechTalk/intent-language@main
+- uses: SkillsTechTalk/thunderlang/check@main
   with:
     paths: ./intent   # a file or directory; default is the whole repo
 ```
