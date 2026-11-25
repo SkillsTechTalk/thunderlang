@@ -397,7 +397,8 @@ class Parser {
 
   // ── expressions ──
   expr(min = 0) {
-    if (this.spans) { const a = this.peek().s; const e = this.expr0(min); this.spans.set(e, [a, this.L.at(this.k - 1).e]); return e; }
+    // (An expression that took no token, such as JSX read as code, has an empty span rather than none.)
+    if (this.spans) { const a = this.peek().s; const e = this.expr0(min); const last = this.k > 0 ? this.L.at(this.k - 1) : null; this.spans.set(e, [a, last ? last.e : a]); return e; }
     return this.expr0(min);
   }
   expr0(min) {

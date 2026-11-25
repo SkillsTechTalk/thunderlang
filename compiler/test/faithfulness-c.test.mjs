@@ -57,7 +57,7 @@ test('redis#5: a brace-less for holding a brace-less if keeps the return inside 
 
 test('redis#1: a brace-less for keeps its one statement, and an indexed field keeps its index and field', () => {
   const t = thunderText('a.c', 'void init(aeEventLoop *eventLoop) {\n    int i;\n    for (i = 0; i < eventLoop->nevents; i++)\n        eventLoop->events[i].mask = AE_NONE;\n}\n');
-  assert.match(t, /For each:\n\s+- Sets the mask of eventLoop\.events\[i\] to ae none/);
+  assert.match(t, /For each:\n\s+- Sets the mask of eventLoop\.events\[i\] to AE_NONE/);
   assert.doesNotMatch(t, /Sets the event loop's events to/);
 });
 

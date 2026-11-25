@@ -16,7 +16,10 @@
 //      simple scan, compared with what Thunder's model draws: missing, misplaced (a method owned by the wrong Thing),
 //      or invented.
 //
-// Usage: node scripts/accuracy.mjs <folder>... [--json] [--steps] [--samples out.md --per-language 30]
+// Usage: node scripts/accuracy.mjs <folder>... [--json] [--steps] [--samples out.md --per-language 30 [--seed N] [--only lang]]
+//   Samples come from production code only (test files, `*_test.go`, `*.test.ts`, `*Tests.swift`, `*Spec.*`, and Rust
+//   `#[cfg(test)]` modules are left out). With --seed, the members are picked in a seeded random order (the same seed
+//   picks the same samples), so a grader sees code the reader was not tuned on; without it, evenly spaced.
 import { writeFileSync } from 'node:fs';
 import { collectReadableFiles } from '../src/read-repo-fs.mjs';
 import { readableLanguage, readFiles } from '../src/read-repo.mjs';
@@ -25,12 +28,12 @@ import { parseIntent } from '../src/parse.mjs';
 import { translateDecisions, TRANSLATE_LANGUAGES } from '../src/translate.mjs';
 import { compareRules } from '../src/same.mjs';
 import { thunderModel, modelText, readLevel, askAsQuestion } from '../src/model.mjs';
-import { codeCounts, wordCounts } from '../src/faithful.mjs';
+import { codeCounts, wordCounts, balancedText } from '../src/faithful.mjs';
 import { detailParts, wordsAgree } from '../src/meaning.mjs';
 import { stepRoundTrip, behaviorCase, runBehavior, ROUND_TRIP_LANGUAGES } from '../src/round-trip.mjs';
 
 const args = process.argv.slice(2);
-const dirs = args.filter((a, i) => !a.startsWith('--') && !['--samples', '--per-language'].includes(args[i - 1]));
+const dirs = args.filter((a, i) => !a.startsWith('--') && !['--samples', '--per-language', '--seed', '--only', '--json-out'].includes(args[i - 1]));
 const flag = (name, d) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : d; };
 if (!dirs.length) { console.error('Use: node scripts/accuracy.mjs <folder>... [--json] [--samples out.md --per-language 30]'); process.exit(2); }
 
@@ -61,14 +64,19 @@ function roundTrip(item, fromLang) {
 
 // ── 2. What a step keeps ─────────────────────────────────────────────────────────────────────────────────
 
-function stepFidelity(step, lines = []) {
+function stepFidelity(step, lines = [], yamlFile = false) {
   if (step.restates || step.kind === 'other') return { asCode: true };
   // Compare with the step's full source lines (a step's `code` may be shortened for display).
-  const span = step.span ? lines.slice(step.span.startLine - 1, step.span.endLine).join('\n') : lines[step.line - 1] ?? '';
+  let span = step.span ? lines.slice(step.span.startLine - 1, step.span.endLine).join('\n') : lines[step.line - 1] ?? '';
+  // A workflow or YAML step is its whole block (`uses:` with its `with:` lines under it), not its first line.
+  // (The block ends at the next line indented no further than the step's own: the next step, or the next key.)
+  if (yamlFile && step.line) { const first = lines[step.line - 1] ?? ''; const ind = first.replace(/^(\s*)-\s+/, '$1  ').search(/\S/); const out = [first]; for (let k = step.line; k < lines.length && k < step.line + 60; k++) { const l = lines[k]; if (l.trim() && (l.search(/\S/) < ind || (l.search(/\S/) <= ind && /^\s*-\s/.test(l)))) break; out.push(l); } span = `${span}\n${out.join('\n')}`; }
   const code = `${String(step.code || '').replace(/…$/, '')}\n${span}`;
   const firstLine = lines[step.line - 1] ?? String(step.code || '');
   // Thunder's own counts ("or 28 other values", "(3 steps inside)") are not values from the code.
-  const says = String(step.says || '').replace(/\bor \d+ other values?\b/g, '').replace(/\(\d+ steps? inside\)/g, '');
+  // A «placeholder» stands for a value written in the code (`«secrets.TOKEN»` for `${{ secrets.TOKEN }}`): only the
+  // literal text around it can be invented.
+  const says = String(step.says || '').replace(/\bor \d+ other values?\b/g, '').replace(/\(\d+ steps? inside\)/g, '').replace(/\ba list of \d+ items\b|\band \d+ more\b|\b\d+ more\b/g, '').replace(/«[^»]*»|‹[^›]*›|\(worked out when it runs\)/g, "…");
   // Invented: a number or a quoted text in the wording that the code does not contain.
   const invented = [];
   for (const n of says.match(/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/g) || []) if (!code.includes(n) && !/^(1|0)$/.test(n)) invented.push(n);
@@ -96,15 +104,45 @@ function stepFidelity(step, lines = []) {
  * No side is where the code's condition holds). A mismatch is a Stop on the wrong side. Returns null when there is
  * nothing to compare.
  */
+// Negation words inside names (`notlogged`, `isNotFound`, `NoColor`) are part of the name, on both sides.
+const nameNegs = (text) => (String(text).match(/[A-Za-z_][\w]*/g) || []).filter((id) => !/^(?:not|no|and|or|is|in|unless)$/i.test(id)).reduce((n, id) => n + (` ${words(id)} `.match(/ (?:no|not|non|never) /g) || []).length, 0);
+/** A condition's own negations, with the empty-pointer and C text checks read the way the reader reads them. */
+function codeNegations(cond, said = '') {
+  const c = String(cond)
+    // `p != nullptr` / `p != NULL` is "p is set" (as `!= null` is); `!strcmp(a, b)` and `strcmp(a, b) == 0` are "a is b".
+    .replace(/!=\s*(?:nullptr|NULL)\b/g, '!= null')
+    // (Rust macros `matches!(…)` / `cfg!(…)`: that `!` names a macro; it negates nothing.)
+    .replace(/\b([a-z_]\w*)!(?=\s*[(\[])/g, '$1')
+    // (TypeScript `x!` only says x is there; a regular expression's `(?!…)` is part of the pattern.)
+    .replace(/(^|[=(,:!&|?\s])\/(?:\\.|[^/\n])+\/[gimsuy]*/g, '$1R')
+    .replace(/(?<=[\w\])])!!?(?!=)/g, '')
+    // (`!(a >= 7)` is said "a is less than 7": the negation is in the comparison.)
+    // (Only when the words say the turned-round comparison.)
+    .replace(/!\s*\(\s*([^()&|!]+?)\s*(>=|<=|>|<)\s*([^()&|]+?)\s*\)/g, (m, a, op, b) => (new RegExp(`\\b${{ '>=': 'less than', '<=': 'more than', '>': 'at most', '<': 'at least' }[op]}\\b`).test(said) ? `${a} ${{ '>=': '<', '<=': '>', '>': '<=', '<': '>=' }[op]} ${b}` : m))
+    .replace(/!\s*(?=(?:std::)?\b(?:strcmp|strcasecmp|strncmp|strncasecmp)\s*\([^()]*\))/g, '')
+    .replace(/\b((?:strcmp|strcasecmp|strncmp|strncasecmp)\s*\([^()]*\))\s*!=\s*0\b/g, '!$1');
+  return codeCounts(c).neg - nameNegs(c.replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, ' '));
+}
 function polarityOf(step) {
   if (step.kind !== 'branch' || (step.children || []).every((c) => c.caseLabel && c.kind === 'check') && step.children?.length) return null;
   const q = askAsQuestion(step);
   const cond = step.cond;
   if (!cond || q.code || /`/.test(q.text) || /none/i.test(cond)) return null;
-  const unless = /^If not: /.test(step.says);
-  const code = (codeCounts(cond).neg + (unless ? 1 : 0)) % 2;
-  const said = (wordCounts(q.text.replace(/'s\b/g, '')).neg + (q.flip ? 1 : 0)) % 2;
-  return code === said ? 'same' : 'flipped';
+  // A question with unbalanced brackets was split in the wrong place (`Is ((a 0) and …`): its side cannot be trusted.
+  if (!balancedText(q.text.replace(/(?<=\w)'s\b/g, '').replace(/"(?:\\.|[^"\\])*"/g, 'Q'))) return 'flipped';
+  // A question turned round at an "is" inside brackets: `(a is not 0) is not (b)` asked as "Is ((a 0) …".
+  const words0 = String(step.says).replace(/^If (?:not: )?/, '').replace(/"(?:\\.|[^"\\])*"/g, 'Q');
+  if (/^Is /.test(q.text) && / is /.test(words0) && /[()]/.test(words0) && !balancedText(words0.split(/ is | has /)[0])) return 'flipped';
+  // Swift `guard`, Ruby `unless`: the steps under the question run when the condition does not hold.
+  const unless = /^If not: /.test(step.says) || /^\s*(?:guard|unless)\b/.test(String(step.code || ''));
+  const code = (codeNegations(cond, q.text) + (unless ? 1 : 0)) % 2;
+  // (A name the words keep as written, `ERROR_NO_MORE_FILES`, holds its own "no"; one put into words, "not found", says it.)
+  const keptNames = (String(cond).replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, ' ').match(/[A-Za-z_][\w]*/g) || []).filter((id) => !q.text.includes(id));
+  const said = (wordCounts(q.text.replace(/(?<=\w)'s\b/g, '')).neg - nameNegs(keptNames.join(' ')) + (q.flip ? 1 : 0) + 4) % 2;
+  if (code !== said) return 'flipped';
+  // A question asked by a rule's name (the model does this for a call to a known rule) must flip the same way.
+  if (/^(?:!|not\s+)?(?:self\.|this\.)?\w+\s*\(\s*\)$/.test(String(cond).trim())) { const r = askAsQuestion(step, 'Rule?'); if (((r.flip ? 1 : 0) + 2) % 2 !== (codeNegations(cond) + (unless ? 1 : 0)) % 2) return 'flipped'; }
+  return 'same';
 }
 
 // ── 3. Big Picture against an independent count ──────────────────────────────────────────────────────────
@@ -195,7 +233,25 @@ const report = { repos: [], totals: { rules: 0, trips: 0, same: 0, different: 0,
 const RT = { exact: 'rtExact', different: 'rtDifferent', code: 'rtCode', 'not-written': 'rtNotWritten', 'not-read-back': 'rtNotReadBack' };
 const sourceOf = (step, f, lines) => (step.span?.exact === 'offset' && step.span.start != null ? f.source.slice(step.span.start, step.span.end) : step.span ? lines.slice(step.span.startLine - 1, step.span.endLine).join('\n') : lines[step.line - 1] ?? '');
 const samples = [];
+// Test code is left out of the samples (it stays in the automatic counts): folders, and files named as tests.
+const TESTFILE = /(^|\/)(tests?|specs?|__tests__|testdata|fixtures?|androidTest|jvmTest|testDemo|testProd|runtime-tests|benchmarks?|\w*Tests)\/|[._-](test|spec)s?\.\w+$|_test\.\w+$|Tests?\.(java|kt|cs|swift)$|Spec\.\w+$|(^|\/)test\.c$/;
+/** Rust `#[cfg(test)] mod … { … }` blocks: file -> [[firstLine, lastLine]]. */
+function rustTestModules(files) {
+  const out = new Map();
+  for (const f of files) {
+    if (!/\.rs$/.test(f.path) || !f.source?.includes('cfg(test)')) continue;
+    const src = f.source;
+    for (const m of src.matchAll(/#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{/g)) {
+      let d = 0, end = src.length;
+      for (let i = m.index + m[0].length - 1; i < src.length; i++) { if (src[i] === '{') d++; else if (src[i] === '}' && --d === 0) { end = i; break; } }
+      const lineOf = (i) => src.slice(0, i).split('\n').length;
+      (out.get(f.path) || out.set(f.path, []).get(f.path)).push([lineOf(m.index), lineOf(end)]);
+    }
+  }
+  return out;
+}
 for (const dir of dirs) {
+  const only = flag('--only');
   const files = readFiles(collectReadableFiles(dir, { maxFiles: 3000 }).filter((f) => f.source && !/(^|\/)(test|tests|spec|__tests__|testdata|fixtures?)\//i.test(f.path)));
   const repo = { repo: dir.split('/').pop(), files: files.length, languages: {}, rules: 0, trips: 0, same: 0, steps: 0, asCode: 0, names: 0, kept: 0, keptDetails: 0, invented: 0, disagree: 0, questions: 0, polarity: 0, rtSteps: 0, rtExact: 0, rtDifferent: 0, rtCode: 0, rtNotWritten: 0, rtNotReadBack: 0, bhCases: 0, bhSame: 0, bhDifferent: 0, bhNotRun: 0, rtByLanguage: {} };
   const behavior = {};
@@ -225,9 +281,10 @@ for (const dir of dirs) {
             repo.rtSteps++; repo[RT[t.result]]++;
             const bl = (repo.rtByLanguage[lang] ||= { steps: 0, exact: 0 }); bl.steps++; if (t.result === 'exact') bl.exact++;
             if ((t.result === 'different' || t.result === 'not-read-back') && report.stepTripFailures.length < 80) report.stepTripFailures.push({ file: `${repo.repo}/${f.path}:${s.line}`, result: t.result, code: String(s.code).slice(0, 120), written: t.code?.split('\n')[0], why: t.why });
-            if (t.result === 'exact') { const c = behaviorCase(s, sourceOf(s, f, lines), lang); if (c) (behavior[lang] ||= []).push({ ...c, at: `${repo.repo}/${f.path}:${s.line}` }); }
+            // (A step the run check cannot build a case for is not run; it never stops the whole measurement.)
+            if (t.result === 'exact') { let c = null; try { c = behaviorCase(s, sourceOf(s, f, lines), lang); } catch (e) { report.behaviorFailures.length < 40 && report.behaviorFailures.push({ at: `${repo.repo}/${f.path}:${s.line}`, original: String(s.code).slice(0, 120), why: `could not build a run case: ${e.message}` }); } if (c) (behavior[lang] ||= []).push({ ...c, at: `${repo.repo}/${f.path}:${s.line}` }); }
           }
-          const r = stepFidelity(s, lines);
+          const r = stepFidelity(s, lines, /\.ya?ml$/i.test(f.path));
           repo.steps++;
           if (r.asCode) { repo.asCode++; continue; }
           repo.names += r.names; repo.kept += r.kept; repo.keptDetails += r.keptDetails;
@@ -253,8 +310,17 @@ for (const dir of dirs) {
   // Samples for a person to grade: functions and rules, spread across files.
   const per = Number(flag('--per-language', 0));
   if (per) {
-    const members = model.members.filter((m) => m.kind !== 'setup' && m.flow.nodes.length > 2);
-    const step = Math.max(1, Math.floor(members.length / per));
+    const testRanges = rustTestModules(files);
+    const members = model.members.filter((m) => m.kind !== 'setup' && m.flow.nodes.length > 2 && (!only || m.language === only) && !TESTFILE.test(m.file) && !(testRanges.get(m.file) || []).some(([a, b]) => m.lines[0] >= a && m.lines[0] <= b));
+    let step = Math.max(1, Math.floor(members.length / per));
+    const seed = flag('--seed');
+    if (seed != null) {
+      // Seeded shuffle (mulberry32, mixed with the repo's name): the same seed picks the same members.
+      let h = Number(seed) >>> 0; for (const ch of repo.repo) h = Math.imul(h ^ ch.charCodeAt(0), 2654435761) >>> 0;
+      const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+      for (let i = members.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [members[i], members[j]] = [members[j], members[i]]; }
+      step = 1;
+    }
     for (let i = 0; i < members.length && samples.filter((x) => x.repo === repo.repo).length < per; i += step) {
       const m = members[i];
       const src = files.find((f) => f.path === m.file)?.source.split('\n').slice(m.lines[0] - 1, m.lines[1]).join('\n') ?? '';
@@ -265,6 +331,7 @@ for (const dir of dirs) {
 }
 
 const pct = (a, b) => (b ? `${Math.round((a / b) * 1000) / 10}%` : 'n/a');
+if (flag('--json-out')) writeFileSync(flag('--json-out'), JSON.stringify(report, null, 2));
 if (args.includes('--json')) console.log(JSON.stringify(report, null, 2));
 else {
   console.log('Repo | rules | round trips same | steps explained | names kept (short words) | names kept (Details) | steps round-trip exact | steps with an invented value | classes drawn | routes drawn | methods misplaced | inputs shown | endings shown');

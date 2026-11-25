@@ -10,7 +10,7 @@ import { makeThingReaders } from './things-langs.mjs';
 import { sqlThings } from './sql.mjs';
 import { rThings } from './rlang.mjs';
 import { psThings } from './powershell.mjs';
-import { splitLogic, closeOf, isCodeWords } from './faithful.mjs';
+import { splitLogic, closeOf, isCodeWords, balancedText } from './faithful.mjs';
 import { detailParts } from './meaning.mjs';
 import { linkSystem, callsSummary } from './system.mjs';
 
@@ -269,7 +269,8 @@ const possessiveWords = (text) => String(text)
   .replace(/\b([a-z_][\w]*)\.([a-z_][\w]*)\b(?!\s*\()/gi, (m, a, b) => (/^(self|this)$/.test(a) ? `the ${words(b)}` : `the ${words(a)}'s ${words(b)}`))
   .replace(/\b([a-z]+(?:_[a-z0-9]+)+|[a-z]+(?:[A-Z][a-z0-9]*)+)\b/g, (m) => words(m)); // days_late, daysLate -> days late
 /** An answer as words: NoFee -> "No fee", true -> "Yes". */
-const answerWords = (r) => (/^true$/i.test(r) ? 'Yes' : /^false$/i.test(r) ? 'No' : cap(words(r)));
+// (Quoted text is an answer as written: its case, signs, and spaces are kept.)
+const answerWords = (r) => (/^true$/i.test(r) ? 'Yes' : /^false$/i.test(r) ? 'No' : /^(["'`]).*\1$/s.test(String(r).trim()) ? String(r).trim() : cap(words(r)));
 
 /**
  * A branch as a question a kid can answer with yes or no, asked the positive way round. "If book.status is not on
@@ -296,9 +297,11 @@ function askWords(step, ruleLabel) {
   // The faithfulness gate gave the code back: ask the code itself, Yes when it is true.
   if (isCodeWords(c)) return { text: `${c}?`, flip, code: true };
   if (ruleLabel) {
-    const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*if\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
+    const negated = /^not\b|^!/.test(String(step.code || '').replace(/^\s*(?:if|guard|unless|elsif)\s*\(?\s*/, '')) || /\bnot\s+(self|this)\./.test(step.code || '') || /!\s*(this|self)\./.test(step.code || '');
     // The negation is read from the code alone; the step's wording may already say "not" for the same reason.
-    return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated };
+    // (Swift `guard x else { return }` and Ruby `unless x` take their steps when x does not hold.)
+    const outer = /^\s*(?:guard|unless)\b/.test(String(step.code || '')) || (/\bunless\b/.test(String(step.code || '')) && /^If not: /.test(String(step.says || '')));
+    return { text: `${ruleLabel.replace(/\?$/, '')}?`, flip: negated !== outer };
   }
   let m;
   // A compound condition (a and b, a or not b) is asked as written: turning one part positive would flip the
@@ -311,6 +314,9 @@ function askWords(step, ruleLabel) {
   // as a review's "Now stops with 403 when …". Only where the question splits cleanly into a subject and the rest.
   const is = (a, b) => ({ yes: `${possessive(a)} is ${possessive(b)}`, no: `${possessive(a)} is not ${possessive(b)}` });
   const has = (a, b) => ({ yes: `${possessive(a)} has ${b}`, no: `${possessive(a)} has no ${b}` });
+  // (The subject of "is" must be whole: in `(a is not 0) is not (b is not 0)` the first "is not" is inside brackets,
+  // and turning that round would flip the question. A comparison of comparisons is asked as written.)
+  if (/[()]/.test(c) && !balancedText(c.split(/ is | has /)[0])) return { text: `${cap(possessive(c))}?`, flip };
   if ((m = c.match(/^(.+?) is not (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip: !flip, holds: is(m[1], m[2]) };
   if ((m = c.match(/^(.+?) has no (.+)$/))) return { text: `Does ${possessive(m[1])} have ${m[2]}?`, flip: !flip, holds: has(m[1], m[2]) };
   if ((m = c.match(/^(.+?) is (.+)$/))) return { text: `Is ${possessive(m[1])} ${possessive(m[2])}?`, flip, holds: is(m[1], m[2]) };
@@ -802,7 +808,8 @@ function flowLines(flow, depth = 1, note = null, full = false) {
   const pad = (d) => '  '.repeat(d);
   // `note` (optional) adds words after a node: the running system's counts (running.mjs).
   const at = (n) => `${n.line ? `  (line ${n.line})` : ''}${(note && note(n)) || ''}`;
-  const say = (n) => (n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
+  // (A value given back that could not be put into words still says it is given back: the ending is never hidden.)
+  const say = (n) => (n.kind === 'end' && n.code && !/^(?:return|yield)\b/.test(String(n.text).trim()) ? `Gives back \`${n.text}\` (code, not explained)` : n.kind === 'code' || (n.kind === 'end' && n.code) ? `\`${n.text}\` (code, not explained)` : n.kind === 'decision' && n.cases ? n.text : n.kind === 'decision' ? `Ask: ${n.text}${n.code ? ' (code, not explained)' : ''}` : n.kind === 'end' && n.answer ? `Answer: ${n.text}` : n.text);
   const go = (blocks, d) => {
     for (const b of blocks || []) {
       const n = byId.get(b.id);

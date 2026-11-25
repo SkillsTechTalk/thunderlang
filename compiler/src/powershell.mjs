@@ -35,6 +35,8 @@ function skipParen(s, i) {
   let d = 0;
   for (let j = i; j < s.length; j++) {
     const c = s[j];
+    // (A backtick escapes the next character, as in `"Apps$(if($q) { `" matching`"})"`.)
+    if (c === '`') { j++; continue; }
     if (c === "'" || c === '"') { j = skipString(s, j) - 1; continue; }
     if (c === '(') d++;
     else if (c === ')' && --d === 0) return j + 1;
@@ -205,7 +207,8 @@ function singleInsert(tok) {
 }
 /** A message: quoted text as it is; any other value in words, never inside quotes it does not have. */
 const messageOf = (v) => (v == null || v === '' ? '' : v);
-const quoteText = (t) => `"${t.length > 100 ? `${t.slice(0, 99)}…` : t}"`;
+// (Shortened only between placeholders: a «value» is never cut in half.)
+const quoteText = (t) => { if (t.length <= 100) return `"${t}"`; let cut = 99; const open = t.lastIndexOf('«', cut); if (open >= 0 && t.indexOf('»', open) >= cut) cut = open; return `"${t.slice(0, cut)}…"`; };
 
 const at0 = (toks) => toks.filter((t) => t.t !== 'nl' && t.t !== 'comment');
 /** Tokens grouped at the top level: each item is one token, or a bracket with everything inside it. */
@@ -251,9 +254,10 @@ function sayValue(toks, plain = false) {
   if (g.length === 1 && first.length > 1) {
     const open = first[0].text;
     const inner = first.slice(1, -1);
-    if (open === '@(') return inner.length ? `the list ${listWords(splitCommas(inner).map((x) => sayValue(x) ?? 'a value').slice(0, 6))}` : 'an empty list';
+    // (Every item is counted: a list said with fewer items than it has would be a different list.)
+    if (open === '@(') { if (!inner.length) return 'an empty list'; const items = splitCommas(inner).map((x) => sayValue(x) ?? 'a value'); if (items.length === 1 && items[0] === 'a value') return 'a list of what the commands inside give'; return items.length > 6 ? `a list of ${items.length} items: ${items.slice(0, 5).join(', ')}, and ${items.length - 5} more` : `the list ${listWords(items)}`; }
     if (open === '{') return 'a set of steps to run later (a script block)';
-    if (open === '@{') { const keys = at0(inner).filter((t, k, a) => (t.t === 'word' || t.t === 'str') && a[k + 1]?.text === '=').map((t) => words(t.t === 'str' ? t.body : t.text)); return keys.length ? `a table of ${listWords(keys.slice(0, 6))}` : 'an empty table'; }
+    if (open === '@{') { const ks = groups(at0(inner)).map((g) => g[0]).filter((t, k, a) => (t.t === 'word' || t.t === 'str' || t.t === 'var') && a[k + 1]?.text === '=').map((t) => (t.t === 'var' ? `the key in ${varWords(t.name)}` : words(t.t === 'str' ? t.body : t.text))); const keys = ks.length > 6 ? [...ks.slice(0, 5), `${ks.length - 5} more`] : ks; return keys.length ? `a table of ${listWords(keys)}` : at0(inner).some((t) => t.t !== 'nl' && t.t !== 'comment') ? 'a table' : 'an empty table'; }
     if ((open === '(' || open === '$(') && first[0].match != null) {
       const all = first[0].all;
       const st = splitStatements(all, first[0].i + 1, first[0].match);
@@ -328,7 +332,8 @@ function sayValue(toks, plain = false) {
   }
   // Several values separated by commas are a list.
   if (g.some((x) => x.length === 1 && x[0].text === ',')) { const items = splitCommas(toks).map((x) => sayValue(x, true)); if (items.every(Boolean)) return `the list ${listWords(items.slice(0, 6))}${items.length > 6 ? ', …' : ''}`; }
-  if (!plain && g.some((x) => x.length === 1 && x[0].t === 'op')) { const c = condWords(toks, false); if (c) return `whether ${c}`; }
+  // (A pipeline is the values it gives: `-Match` after `Where-Object` is that command's switch, not a yes/no.)
+  if (!plain && !g.some((x) => x.length === 1 && x[0].text === '|') && g.some((x) => x.length === 1 && x[0].t === 'op')) { const c = condWords(toks, false); if (c) return `whether ${c}`; }
   const cmd = toks[0].t === 'word' || toks[0].text === '&' ? pipelineWords(toks) : null;
   if (cmd?.command) return `the result of ${gerund(cmd.says)}`;
   return null;
@@ -653,6 +658,19 @@ function pipelineWords(toks) {
     const lower = name.toLowerCase();
     const blockG = groups(p.slice(1)).find((x) => x[0].text === '{');
     const block = blockG?.[0];
+    // `Where-Object Name -Match "x"` / `Where-Object -Property Name -Value "x" -Match` (no script block).
+    if (lower === 'where-object' && !blockG) {
+      const opTok = p.slice(1).find((t) => t.t === 'op');
+      const a = argsOf(p.slice(1).filter((t) => t !== opTok));
+      if (opTok) a.switches.add(opTok.text.slice(1).toLowerCase());
+      const prop = at0(a.named.property ?? a.pos[0] ?? []);
+      const val = a.named.value ?? a.pos[1];
+      const OPS = { match: 'matches the pattern', notmatch: 'does not match the pattern', eq: 'is', ne: 'is not', like: 'is like', notlike: 'is not like', gt: 'is more than', ge: 'is at least', lt: 'is less than', le: 'is at most', contains: 'contains', in: 'is one of' };
+      const op = [...a.switches].map((x) => String(x).toLowerCase().replace(/^c|^i(?=[a-z]{2})/, '')).find((x) => OPS[x]);
+      const v = val ? sayValue(val) : null;
+      if (prop.length === 1 && prop[0].t === 'word' && op && v) { said.push(`keeps only those whose ${words(prop[0].text)} ${OPS[op]} ${v}`); command = true; continue; }
+      return null;
+    }
     if (lower === 'where-object') {
       const ct = blockG ? blockG.slice(1, -1) : p.slice(1);
       const c = gated(ct, condWords(ct, false));
@@ -682,7 +700,8 @@ function pipelineWords(toks) {
     if (lower === 'out-null') continue;
     if (lower === 'select-object') { const a = argsOf(p.slice(1)); const first = a.named.first ? sayValue(a.named.first) : null; const props = a.named.property ?? a.pos[0]; const xp = a.named.expandproperty ? at0(a.named.expandproperty) : null; said.push(xp?.length === 1 ? `takes each one's ${words(xp[0].text)}` : first ? `takes the first ${first}` : a.named.last ? `takes the last ${sayValue(a.named.last)}` : a.switches.has('unique') ? 'keeps one of each' : props ? `picks ${listWords(splitCommas(props).map((x) => words(at0(x)[0]?.text ?? '')))}` : 'picks some of them'); command = true; continue; }
     if (lower === 'sort-object') { const a = argsOf(p.slice(1)); const by = a.named.property ?? a.pos[0]; said.push(`sorts them${by ? ` by ${listWords(splitCommas(by).map((x) => words(at0(x)[0]?.text ?? '')))}` : ''}${a.switches.has('descending') ? ', highest first' : ''}`); command = true; continue; }
-    if (lower === 'measure-object') { said.push('counts them'); command = true; continue; }
+    // (`Measure-Object -Property Length -Sum` adds up their lengths; with no -Sum / -Average / … it counts them.)
+    if (lower === 'measure-object') { const a = argsOf(p.slice(1)); const prop = at0(a.named.property ?? a.pos[0] ?? []); const what = prop.length === 1 && prop[0].t === 'word' ? words(prop[0].text) : null; const kinds = ['sum', 'average', 'maximum', 'minimum'].filter((k) => [...a.switches].some((x) => String(x).toLowerCase() === k)); said.push(kinds.length ? `works out the ${listWords(kinds.map((k) => ({ sum: 'total', average: 'average', maximum: 'largest', minimum: 'smallest' }[k])))} of ${what ? `their ${what}` : 'them'}` : 'counts them'); command = true; continue; }
     if (lower === 'group-object') { const a = argsOf(p.slice(1)); const by = a.named.property ?? a.pos[0]; said.push(`groups them${by ? ` by ${words(at0(by)[0]?.text ?? '')}` : ''}`); command = true; continue; }
     if (lower === 'format-table' || lower === 'format-list') { said.push(`shows them as a ${lower === 'format-table' ? 'table' : 'list'}`); command = true; continue; }
     if (lower === 'tee-object') { said.push('keeps a copy as it goes'); command = true; continue; }

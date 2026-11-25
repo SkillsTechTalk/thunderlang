@@ -7,6 +7,87 @@ measures it on real open-source code, with `compiler/scripts/accuracy.mjs`, and 
 node compiler/scripts/accuracy.mjs <repo>... [--io] [--failures] [--steps] [--samples out.md --per-language 40]
 ```
 
+## Fresh audit: code Thunder was not tuned on
+
+The hand reviews further down this page re-graded samples from the same repositories the fixes were written
+against, so their 0 false readings are a measure of those samples, not of code in general. An independent audit of
+1.0.3 drew seeded random samples (production code only, 15 per language per repository; `accuracy.mjs --seed`) from
+34 repositories Thunder had never been run on, and graded each reading against its code with the rubric "an
+inaccurate reading is worse than none": **A** accurate, **B** true but vague (including steps shown as code),
+**C** misleading or missing something important, **D** states something false.
+
+**The same samples, before and after this round of fixes** (480 non-SQL samples from 32 repositories; SQL, read by its
+own reader, is measured separately). Readings that did not change keep their grade; every changed reading was
+graded again independently, without the earlier grade.
+
+| Language | before A / B / C / D | after A / B / C / D |
+|---|---|---|
+| TypeScript | 6 / 16 / 8 / 0 | 6 / 16 / 8 / 0 |
+| JavaScript | 9 / 15 / 4 / 2 | 9 / 17 / 4 / 0 |
+| Python | 9 / 9 / 8 / 4 | 11 / 15 / 4 / 0 |
+| Go | 15 / 7 / 6 / 2 | 18 / 10 / 2 / 0 |
+| Rust | 2 / 9 / 14 / 5 | 11 / 16 / 3 / 0 |
+| C# | 9 / 9 / 11 / 1 | 10 / 10 / 10 / 0 |
+| Java | 10 / 12 / 6 / 2 | 11 / 15 / 4 / 0 |
+| Kotlin | 5 / 15 / 9 / 1 | 6 / 17 / 7 / 0 |
+| PHP | 13 / 10 / 5 / 2 | 14 / 10 / 6 / 0 |
+| Ruby | 4 / 10 / 14 / 2 | 6 / 11 / 13 / 0 |
+| C | 15 / 7 / 1 / 7 | 21 / 7 / 2 / 0 |
+| C++ | 10 / 10 / 3 / 7 | 15 / 12 / 3 / 0 |
+| Swift | 7 / 15 / 3 / 5 | 7 / 19 / 4 / 0 |
+| R | 5 / 8 / 12 / 5 | 11 / 8 / 11 / 0 |
+| Shell | 10 / 12 / 5 / 3 | 11 / 14 / 5 / 0 |
+| PowerShell | 8 / 10 / 7 / 5 | 11 / 11 / 8 / 0 |
+| **All** | **137 / 174 / 116 / 53 (11.0% false)** | **178 / 208 / 94 / 0** |
+
+These samples are now tuned: every one of the 53 is a regression test (`compiler/test/faithfulness-fresh-*.test.mjs`),
+so "0 false" here is what those tests guarantee, not a claim about new code.
+
+**New repositories, one per language, graded once** (240 samples, never used to write a fix). Eight were graded on
+an intermediate build (Rust, C#, Kotlin, C, C++, Swift, R, PowerShell); eight on this branch's final build
+(TypeScript, JavaScript, Python, Go, Java, PHP, Ruby, shell).
+
+| Language (repository) | A / B / C / D |
+|---|---|
+| TypeScript (pmndrs/zustand) | 2 / 6 / 4 / 3 |
+| JavaScript (jashkenas/backbone) | 2 / 5 / 6 / 2 |
+| Python (pallets/click) | 7 / 6 / 2 / 0 |
+| Go (urfave/cli) | 3 / 9 / 2 / 1 |
+| Rust (dtolnay/anyhow) | 1 / 4 / 3 / 7 |
+| C# (restsharp/RestSharp) | 2 / 6 / 3 / 4 |
+| Java (square/javapoet) | 5 / 10 / 0 / 0 |
+| Kotlin (coil-kt/coil) | 8 / 2 / 5 / 0 |
+| PHP (thephpleague/flysystem) | 3 / 12 / 0 / 0 |
+| Ruby (rack/rack) | 2 / 7 / 5 / 1 |
+| C (redis/hiredis) | 7 / 6 / 1 / 1 |
+| C++ (gabime/spdlog) | 3 / 10 / 0 / 2 |
+| Swift (SwiftyJSON/SwiftyJSON) | 11 / 4 / 0 / 0 |
+| R (tidyverse/stringr) | 0 / 9 / 6 / 0 |
+| Shell (dehydrated-io/dehydrated) | 7 / 4 / 0 / 4 |
+| PowerShell (dahlbyk/posh-git) | 6 / 8 / 1 / 0 |
+| **All** | **69 / 108 / 38 / 25 (10.4% false)** |
+
+(A first pick for the second eight languages turned out to be repositories earlier reviews had used: ky, express,
+requests, cobra, gson, guzzle, sinatra, neofetch. Graded on the intermediate build, they showed 7 false readings in
+120; five are fixed with tests in `faithfulness-fresh-followup.test.mjs`. They are not counted in the table.)
+
+So the false rate on code Thunder has not seen is about the same as before this round (11.0% → 10.4%): the fixes
+removed the classes of error they target, and new code shows new classes. Of the 14 false readings on the
+intermediate build, 11 are fixed on this branch (Rust `unsafe { … }` read as a call, `&'a self` listed as an input,
+a struct literal followed by `.write_str(…)` read as a return, C# `using var` / brace-less `foreach` read as calls, a
+narrowing `static_cast` dropped; checked by re-rendering those samples, not by a new independent grade). Still false on this branch: a
+one-line arrow function given its outer function's `try`/`catch` (TypeScript), `Promise.reject(e)` read as a filter,
+TypeScript `type` aliases read as calls, `options || (options = {})` read as a call (JavaScript), a Go type-switch
+case folded into the case before it, a C attribute macro (`G_GNUC_UNUSED`) listed as an input, C++ `if constexpr`
+with an unconditional-looking return, a PHP `catch` whose following steps are drawn inside it, Ruby `x unless y`
+shown as a return, a C# expression-bodied member read as "Calls return", and in shell: `grep -v` read as "contains", `<<<"$1"` read as running $1, `while read a b c` loops whose
+reads are miscounted, and `X="${__X}"` read as "Sets x to x".
+
+The automatic self-check over every question on the 32 repositories (polarity of the words and the Yes/No side
+against the code, with the checker's own false alarms on `!= nullptr`, `!strcmp`, names containing "no", Rust
+macros, and TypeScript/Kotlin `!`/`!!` removed, and a check added for a question turned round inside brackets)
+finds 0 mismatches in 22,123 questions.
+
 ## What is measured
 
 1. **Round trip (exact).** A rule is read into a Thunder card, written back as code in every language Thunder
@@ -107,7 +188,8 @@ finds no mismatch, against 63 before.
 ### Hand review, re-graded
 
 The 110 samples graded misleading (C) or false (D) were re-read against the new Thunder Text (same functions, same
-code):
+code). These were the samples the fixes were written from; on fresh code the false rate was still about 11% (see
+"Fresh audit" above):
 
 | | false (D) | misleading (C) | true but vague (B) | accurate (A) |
 |---|---|---|---|---|
@@ -248,8 +330,10 @@ is checked with its «placeholders» removed: every literal part must appear in 
 
 ## What the numbers say
 
-- **No false readings in the re-graded sample, and no changed answers.** Every condition keeps its polarity or is
-  shown as code; no rule gave a different answer after the round trip.
+- **No false readings in the re-graded samples, but about one in ten on code Thunder has not seen.** The 0-false
+  results on this page are re-grades of the samples the fixes were written from. On new repositories, about 10% of
+  readings still state something false (see "Fresh audit"); the original fresh samples now read with none. No rule
+  gave a different answer after the round trip.
 - **The round trip is mostly unchecked, not wrong.** Most rules cannot yet be written back or run on both sides
   (string comparisons, calls, and rules that use facts the class keeps), so they are counted as not checked. That
   is coverage to win, and it is never reported as "same".
