@@ -477,8 +477,18 @@ Thunder reads `.sql` files (PostgreSQL first; MySQL, SQLite, and SQL Server wher
   database: The order needs total is at least 0".
 - **Views** are steps: finds, adds the matching rows, keeps only, groups, sorts, takes the first N, gives back the
   named columns. Table aliases read as their tables ("the order's status").
-- **Functions and procedures** are steps: their inputs, `IF`/`ELSIF`/`ELSE` as questions, `RAISE` as Stops with
-  their message, `INSERT`/`UPDATE`/`DELETE` as what they record, `SELECT … INTO` as what they find, `RETURN`.
+- **Functions and procedures** (PL/pgSQL, MySQL/MariaDB stored programs, T-SQL) are steps, read block by block:
+  their inputs (`IN`/`INOUT`, T-SQL `@params`; `OUT` parameters are what it gives back), `IF`/`ELSIF`/`ELSE` and
+  `CASE` as questions with each step on its own side (a `CASE` with no `ELSE` fails when no `WHEN` matches), loops
+  (`LOOP`, `WHILE`, `FOR`, `FOREACH`, `REPEAT … UNTIL`) with their body, `EXIT`/`LEAVE`/`BREAK` ("Leaves the loop")
+  and `CONTINUE`/`ITERATE` ("Skips to the next round of the loop"), `RAISE EXCEPTION`/`SIGNAL`/`THROW` as Stops with
+  their message (`%` paired with its argument as a «placeholder»), `RAISE NOTICE`/`PRINT` and low-severity
+  `RAISERROR` as messages, `BEGIN … EXCEPTION … END` and `TRY … CATCH` as handlers, `INSERT`/`UPDATE`/`DELETE` as
+  what they record, `SELECT … INTO` as what they find, dynamic SQL as the text it runs, and `RETURN` (`RETURN NEXT`
+  and `RETURN QUERY` add rows and carry on). A statement or condition that words cannot say exactly is shown as code;
+  a body whose blocks do not match is shown as not read. A member spans the whole routine.
+- **dbt models and other Jinja templates** (`{{ … }}`, `{% … %}`) are listed as skipped with the reason: their SQL is
+  only known once the template is filled in.
 - **Triggers** say when the database runs them: "After an order is added or changed, runs log order change".
 - Planned: **SQL inside app code** (`db.execute("SELECT …")`) read in place, as a step; `CASE` expressions as cards.
 
