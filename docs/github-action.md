@@ -40,7 +40,7 @@ your team prefers fixed versions.
           comment: true          # false: only write the job summary
           fail-on: none          # risk: fail the job when something needs a careful look
           paths: 'src/**, api/*.py'   # only review files matching these globs
-          version: 1.0.4         # the @skillstech/thunderlang version that reads the code
+          version: 1.1.0         # the @skillstech/thunderlang version that reads the code
           # base: <sha>          # default: the pull request's base commit
           # head: <sha>          # default: the pull request's head commit
 ```
