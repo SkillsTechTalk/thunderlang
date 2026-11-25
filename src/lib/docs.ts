@@ -150,7 +150,7 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 const DOC_BLURBS: Record<string, string> = {
-  manifesto: "Why ThunderLang exists, and prompt vs durable intent.",
+  manifesto: "Why Thunder exists: the human programming language for the AI era, and what works today.",
   "intent-oriented-programming": "The paradigm above OOP and FP: build around meaning, prove the code still honors it.",
   "language-principles": "The ten design rules the language holds itself to.",
   "getting-started": "Ten minutes from install to running, testing, and gating intent.",

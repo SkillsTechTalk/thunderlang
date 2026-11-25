@@ -5,6 +5,9 @@ import { parseIntent } from "../../compiler/src/parse.mjs";
 import { translateDecisions } from "../../compiler/src/translate.mjs";
 import type { OutputKey } from "@/components/LanguageOutput";
 
+/** The languages a Thunder decision compiles to today (the real translator, compiler/src/translate.mjs). */
+export const RULE_TARGETS = ["typescript", "python", "go", "rust", "csharp", "java"] as const;
+
 export type Compiled = { report: HumanContractPreview; code: Record<OutputKey, string> };
 
 /** Compile a readable contract. Throws an Error whose message names the line and the fix. */
@@ -14,12 +17,7 @@ export function compileContract(source: string): Compiled {
   return {
     report,
     code: {
-      typescript: translateDecisions(ast, "typescript"),
-      python: translateDecisions(ast, "python"),
-      go: translateDecisions(ast, "go"),
-      rust: translateDecisions(ast, "rust"),
-      csharp: translateDecisions(ast, "csharp"),
-      java: translateDecisions(ast, "java"),
+      ...(Object.fromEntries(RULE_TARGETS.map((k) => [k, translateDecisions(ast, k)])) as Record<(typeof RULE_TARGETS)[number], string>),
       thunder: report.canonicalSource,
     },
   };

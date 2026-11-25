@@ -1,0 +1,100 @@
+// The status data behind the home page's "one language, every ecosystem" story. Every label is derived from the
+// compiler's own constants or from CAPABILITIES, so the site can only advertise a compilation capability once it
+// exists. When the compiler grows (a new reader, a new writer, a new target), these labels follow without a copy edit.
+import { READ_LANGUAGES, INFRA_LANGUAGES } from "../../compiler/src/read.mjs";
+import { WRITE_STEPS_LANGUAGES } from "../../compiler/src/write-steps.mjs";
+import { THUNDER_VISUAL } from "../../compiler/src/visual.mjs";
+import { RULE_TARGETS } from "@/lib/thunder-compile";
+import { CAPABILITIES, type Capability, type CapabilityStatus } from "@/lib/capabilities";
+
+const capability = (key: string): Capability => {
+  const c = CAPABILITIES.find((x) => x.key === key);
+  if (!c) throw new Error(`Unknown capability "${key}" in src/lib/capabilities.ts`);
+  return c;
+};
+
+/** Programming languages Thunder reads today (the code reader's list, without infrastructure formats). */
+export const READ_PROGRAMMING = READ_LANGUAGES.filter((l) => !INFRA_LANGUAGES.includes(l) && THUNDER_VISUAL.languages[l]?.status === "available");
+const nameOf = (key: string) => THUNDER_VISUAL.languages[key]?.name ?? key;
+const list = (keys: readonly string[]) => {
+  const names = keys.map(nameOf);
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}` : names.join("");
+};
+
+/** Thunder Core (whole programs written in Thunder): the status shown on the home page's hello-world preview. */
+export const CORE_STATUS: CapabilityStatus = capability("thunderCore").status;
+
+/** What works today, and what does not yet, in the order a person meets it. */
+export const CAPABILITY_ROWS: { what: string; detail: string; status: CapabilityStatus; href?: string; cta?: string }[] = [
+  {
+    what: "Read existing code in Thunder",
+    detail: `${READ_PROGRAMMING.length} languages, including ${list(["python", "typescript", "java", "csharp", "go", "rust"])}, plus infrastructure files.`,
+    status: capability("thunderedRead").status,
+    href: "/read",
+    cta: "Read code in Thunder",
+  },
+  {
+    what: "Change existing code from Thunder",
+    detail: `The compiler writes and proves the patch in ${list(WRITE_STEPS_LANGUAGES)}. Other languages are handed to an AI agent and labeled AI-written.`,
+    status: capability("thunderedEdit").status,
+    href: "/read",
+    cta: "Change a rule in code",
+  },
+  {
+    what: "Compile decisions and rules",
+    detail: `A rule written in Thunder compiles to ${list(RULE_TARGETS)}, and its examples run against the generated code.`,
+    status: capability("decisionTargets").status,
+    href: "/learn/write-rules",
+    cta: "Write a rule",
+  },
+  {
+    what: "Write whole programs in Thunder (Thunder Core)",
+    detail: "Being built now, compiling to Python first. Not available yet.",
+    status: capability("thunderCore").status,
+  },
+  {
+    what: "Compile Thunder Core to Java, C#, TypeScript, Go, and Rust",
+    detail: "Designed, not built. Each target will be announced only when it works.",
+    status: capability("coreTargets").status,
+  },
+];
+
+/** The founder's architecture picture: the six ecosystems Thunder compiles to, with what works for each today. */
+export type Target = {
+  key: string;
+  name: string;
+  role: string;
+  reads: boolean;
+  edits: boolean;
+  rules: boolean;
+  program: CapabilityStatus;
+};
+
+const TARGET_ROLES: [key: string, role: string][] = [
+  ["python", "AI and ML"],
+  ["java", "Enterprise"],
+  ["typescript", "Web"],
+  ["csharp", ".NET"],
+  ["go", "Cloud"],
+  ["rust", "Systems"],
+];
+
+export const TARGETS: Target[] = TARGET_ROLES.map(([key, role]) => ({
+  key,
+  name: nameOf(key),
+  role,
+  reads: READ_PROGRAMMING.includes(key),
+  edits: WRITE_STEPS_LANGUAGES.includes(key),
+  rules: (RULE_TARGETS as readonly string[]).includes(key),
+  // Thunder Core compiles to Python first; the rest follow. Status comes from CAPABILITIES, never from copy.
+  program: key === "python" ? capability("thunderCore").status : capability("coreTargets").status,
+}));
+
+/** Thunder gives access to each ecosystem's libraries rather than recreating them. */
+export const ECOSYSTEMS: { name: string; libraries: string[] }[] = [
+  { name: "Python", libraries: ["NumPy", "pandas", "PyTorch", "TensorFlow", "FastAPI"] },
+  { name: "Java", libraries: ["Spring Boot", "Hibernate", "Kafka", "Maven"] },
+  { name: ".NET", libraries: ["ASP.NET Core", "Entity Framework", "Azure SDK"] },
+  { name: "TypeScript", libraries: ["React", "Next.js", "Node.js", "npm"] },
+  { name: "Go", libraries: ["cloud infrastructure", "Kubernetes", "networking"] },
+];
