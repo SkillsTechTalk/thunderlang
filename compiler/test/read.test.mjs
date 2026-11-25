@@ -186,6 +186,13 @@ function b(y: number) { return y * 2; }`, { language: 'typescript' });
   assert.equal(r.counts.guarded, 1);
 });
 
+test('routes: a controller\'s prefix is part of each route (ASP.NET [Route], Spring @RequestMapping)', () => {
+  const cs = readCode(`[ApiController]\n[Route("api/[controller]")]\npublic class OrdersController : ControllerBase {\n  [HttpGet("{id}")]\n  public IActionResult One(int id) { return Ok(); }\n\n  [HttpPost]\n  public IActionResult Create() { return Ok(); }\n\n  [HttpGet("/status/orders")]\n  public IActionResult Status() { return Ok(); }\n}`, { language: 'csharp' });
+  assert.deepEqual(cs.items.filter((i) => i.route).map((i) => `${i.route.method} ${i.route.path}`), ['GET /api/Orders/{id}', 'POST /api/Orders', 'GET /status/orders']);
+  const java = readCode(`@RestController\n@RequestMapping("/api/items")\npublic class ItemsController {\n  @GetMapping("/{id}")\n  public String one() { return "ok"; }\n  @PostMapping\n  public String create() { return "ok"; }\n}`, { language: 'java' });
+  assert.deepEqual(java.items.filter((i) => i.route).map((i) => `${i.route.method} ${i.route.path}`), ['GET /api/items/{id}', 'POST /api/items']);
+});
+
 test('routes: anonymous and decorated HTTP handlers are named by method and path', () => {
   const ts = readCode(`router.post("/refunds", requireAuth, async (req, res) => {
   if (!req.user) return res.status(401).end();
@@ -201,7 +208,7 @@ app.get('/health', (_req, res) => { res.send("ok"); });`, { language: 'typescrip
   const java = readCode(`public class C {\n  @GetMapping("/accounts/{id}")\n  public Account get(String id) {\n    return repo.find(id);\n  }\n}`, { language: 'java' }).items[0];
   assert.deepEqual(java.route, { method: 'GET', path: '/accounts/{id}' });
   const cs = readCode(`public class C {\n  [HttpDelete("docs/{id}")]\n  public IActionResult Remove(string id)\n  {\n    if (!User.IsAdmin()) return Forbid();\n    return Ok();\n  }\n}`, { language: 'csharp' }).items[0];
-  assert.deepEqual(cs.route, { method: 'DELETE', path: 'docs/{id}' });
+  assert.deepEqual(cs.route, { method: 'DELETE', path: '/docs/{id}' });
   assert.equal(cs.guards[0].effect.kind, 'responds');
   const go = readCode(`package api\nfunc Routes(r chi.Router) {\n\tr.Get("/orders/{id}", func(w http.ResponseWriter, req *http.Request) {\n\t\tif req.Header.Get("X-Key") == "" {\n\t\t\thttp.Error(w, "no key", 401)\n\t\t\treturn\n\t\t}\n\t\twrite(w)\n\t})\n}`, { language: 'go' });
   assert.ok(go.items.some((i) => i.name === 'GET /orders/{id}'));

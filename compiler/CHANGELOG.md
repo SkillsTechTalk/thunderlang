@@ -1,5 +1,16 @@
 # Unreleased
 
+- **Thunder Trace: how your repositories depend on each other.** `thunder trace <folder…>` links HTTP requests to
+  the routes that handle them and published events to their listeners, across repositories, and cites every link
+  `repo@sha:file:line`. `thunder trace impact "<route | event | repo:file[:line]>" <folder…>` and
+  `thunder trace impact --diff [--base ref] <folder…>` list what a change can affect, ranked high/medium/low, one
+  hop out. A route or event that was removed is caught by reading each changed file as it was before. Links are made
+  only on a fact: `/health`-style paths, paths with no fixed part, and two equal matches are never linked, and each
+  is listed with the reason. The graph (`thunder-trace-v1`) is fingerprinted. The MCP server offers it as
+  `intent_trace` (local only). Reference: `docs/trace.md`.
+- **Routes include their controller's prefix.** ASP.NET `[Route("api/[controller]")]` and Spring
+  `@RequestMapping("/api")` on a class now prefix each handler's path (`POST /api/Orders`, not `POST`). An ASP.NET
+  path with no prefix now starts at the root (`/docs/{id}`).
 - **Thunder Core: write a program in Thunder and run it (Python first).** `thunder new <dir>` creates a project
   (`thunder.toml`, `src/main.thunder`, `tests/`); `thunder run`, `build`, `test`, `check` and `format` work in it,
   or on one file with `--core`. Core has values, kept values, functions, conditions, loops, lists, maps, records with

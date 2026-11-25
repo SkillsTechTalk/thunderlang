@@ -49,6 +49,7 @@ import { verifyDiff } from './verify-diff.mjs';
 import { verifyRun, executedText, mergeTraces } from './executed.mjs';
 import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, parseStacks, explainError, countWords } from './running.mjs';
 import { thunderModel } from './model.mjs';
+import { traceMain } from './trace-cli.mjs';
 import { coreMain } from './core/cli.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -541,6 +542,8 @@ Graph & IR
                             Thunder write: change a number, comparison, text value, or answer in a recovered rule;
                             previews the exact code change and the cases whose answer changes; --write saves it
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
+  trace <folder…> [--json] [--out f]   Thunder Trace: routes, requests, and events linked across repositories, cited repo@sha:file:line
+  trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
   thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
   review <base-ref> [head-ref] [--format markdown|json] [--paths <glob,...>] [--out <file>]
                             review in Thunder: what changed in meaning between two git commits (head: the working tree
@@ -586,6 +589,8 @@ function main() {
     process.exitCode = cmd ? 0 : 2;
     return;
   }
+  // Thunder Trace: links between repositories and what a change can affect (src/trace-cli.mjs).
+  if (cmd === 'trace') { process.exitCode = traceMain(restArgv); return; }
   // Thunder Core (programs you write and run): thunder new <dir>, and run/build/test/check/format inside a
   // project with thunder.toml (or with --core). Mission files fall through unchanged. See src/core/cli.mjs.
   const coreCode = coreMain(cmd, restArgv);

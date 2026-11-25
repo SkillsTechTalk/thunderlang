@@ -1123,6 +1123,29 @@ function leadingDoc(lines, fnLine, language) {
   return got.length ? cleanDoc(got.join('\n')) : null;
 }
 
+/**
+ * A controller's route prefix joined to a method's path: ASP.NET `[Route("api/[controller]")]` on the class (with
+ * [controller] the class name less "Controller") or Spring `@RequestMapping("/api")` on the class. A method path
+ * that starts at the root (`/x`, or `~/x` in ASP.NET) keeps no prefix. With neither, the method's own path, from "/".
+ */
+function withClassPrefix(lines, fnLine, path, style) {
+  // ASP.NET: a method template starting at the root (/x or ~/x) replaces the controller's. Spring always joins them.
+  if (style === 'aspnet' && /^~?\//.test(path)) return '/' + path.replace(/^~?\/+/, '');
+  let prefix = '';
+  for (let i = fnLine - 2; i >= 0; i--) {
+    const c = lines[i].match(/\bclass\s+(\w+)/);
+    if (!c) continue;
+    for (let j = i - 1; j >= Math.max(0, i - 6); j--) {
+      const t = lines[j].trim();
+      const r = style === 'aspnet' ? t.match(/^\[(?:Route|RoutePrefix)\(\s*"([^"]*)"/) : t.match(/^@RequestMapping\(\s*(?:value\s*=\s*|path\s*=\s*)?(?:\{\s*)?["']([^"']*)["']/);
+      if (r) { prefix = r[1].replace(/\[controller\]/gi, c[1].replace(/Controller$/, '')); break; }
+      if (t && !/^(\[|@|\/\/|\*|\/\*)/.test(t)) break;
+    }
+    break;
+  }
+  return '/' + [prefix, path].map((x) => x.replace(/^\/+|\/+$/g, '')).filter(Boolean).join('/');
+}
+
 /** Mark functions that a decorator or annotation binds to an HTTP route. */
 function annotateRoutes(fns, src) {
   // Decorated handlers: @app.get("/x") / @router.post (Python), @GetMapping (Spring), [HttpGet] (ASP.NET), @Get() (NestJS).
@@ -1137,9 +1160,9 @@ function annotateRoutes(fns, src) {
       let m;
       if ((m = l.match(/^@\w+\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/i))) { fn.route = { method: m[1].toUpperCase(), path: m[2] }; break; }
       if ((m = l.match(/^@\w+\.route\(\s*['"]([^'"]*)['"](?:.*methods\s*=\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'GET').toUpperCase(), path: m[1] }; break; }
-      if ((m = l.match(/^@(Get|Post|Put|Patch|Delete|Request)Mapping(?:\(\s*(?:value\s*=\s*|path\s*=\s*)?(?:\{\s*)?["']([^"']*)["'])?/))) { fn.route = { method: m[1] === 'Request' ? 'ANY' : m[1].toUpperCase(), path: m[2] || '/' }; break; }
+      if ((m = l.match(/^@(Get|Post|Put|Patch|Delete|Request)Mapping(?:\(\s*(?:value\s*=\s*|path\s*=\s*)?(?:\{\s*)?["']([^"']*)["'])?/))) { fn.route = { method: m[1] === 'Request' ? 'ANY' : m[1].toUpperCase(), path: withClassPrefix(lines, fn.line, m[2] || '', 'spring') }; break; }
       if ((m = l.match(/^#\[Route\(\s*(?:path:\s*)?['"]([^'"]*)['"](?:.*methods:\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'ANY').toUpperCase(), path: m[1] }; break; }
-      if ((m = l.match(/^\[Http(Get|Post|Put|Patch|Delete)(?:\(\s*"([^"]*)")?/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
+      if ((m = l.match(/^\[Http(Get|Post|Put|Patch|Delete)(?:\(\s*"([^"]*)")?/))) { fn.route = { method: m[1].toUpperCase(), path: withClassPrefix(lines, fn.line, m[2] || '', 'aspnet') }; break; }
       if ((m = l.match(/^@(Get|Post|Put|Patch|Delete)\(\s*(?:['"]([^'"]*)['"])?\s*\)/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
       if (!/^(@|\[|\/\/|#|\*|\/\*)/.test(l) && l) break;
     }
