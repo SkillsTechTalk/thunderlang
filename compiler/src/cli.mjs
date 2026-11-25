@@ -51,6 +51,7 @@ import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, 
 import { thunderModel } from './model.mjs';
 import { traceMain } from './trace-cli.mjs';
 import { coreMain } from './core/cli.mjs';
+import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
 import { liftSource, liftAll, liftRepo, languageForFile } from './lift.mjs';
@@ -359,6 +360,7 @@ function parseArgs(argv) {
     else if (a === '--force') args.force = true;
     else if (a === '--mission') args.mission = true;
     else if (a === '--core') args.core = true;
+    else if (a === '--as-core') args.asCore = true;
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
@@ -551,6 +553,7 @@ Graph & IR
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+  read <file.py> --as-core      the same code as Thunder Core you can edit and run (Python for now); lines it cannot say exactly are marked
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
                              read code you don't know: its decision rules as ThunderLang + plain English,
@@ -599,6 +602,20 @@ function main() {
     try {
       if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');
       if (statSync(file).isDirectory()) { readFolder(file, args); return; }
+      if (args.asCore) {
+        // Reading and writing are one language: the reader's meaning tree printed as Thunder Core (docs/core.md).
+        if (!/\.py$/i.test(file) && (args.from || 'python') !== 'python') throw new Error('--as-core reads Python for now (other languages next).');
+        const r = pythonToCore(readFileSync(file, 'utf8'));
+        if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
+        console.log(r.core.trimEnd());
+        const all = [...r.module.notTranslated, ...r.functions.flatMap((f) => f.notTranslated)];
+        const exact = r.functions.filter((f) => f.exact);
+        console.error(`\nthunder read --as-core: ${exact.length} of ${r.functions.length} function${r.functions.length === 1 ? '' : 's'} printed exactly as Thunder Core${all.length ? `; ${all.length} line${all.length === 1 ? '' : 's'} not translated (each stops with a clear error if it runs)` : ''}.`);
+        for (const f of r.functions.filter((x) => !x.exact)) console.error(`  ${f.name}: not safely editable: ${f.notTranslated.map((n) => `line ${n.line}: ${n.why}`).join('; ')}`);
+        const assumes = r.functions.flatMap((f) => f.assumptions.map((a) => `${f.name}, line ${a.line}: ${a.says}`));
+        for (const a of assumes) console.error(`  assumes: ${a}`);
+        return;
+      }
       if (args.promote) {
         const items = statSync(file).isDirectory()
           ? searchRepo(readRepo(collectReadableFiles(file)), { path: args.pathPrefix || '' })

@@ -61,6 +61,14 @@ def _is_number(x):
     return isinstance(x, (int, Decimal)) and not isinstance(x, bool)
 
 
+def num(x):
+    """A Python float that reaches Thunder becomes the exact decimal it is written as (19.99, never
+    19.989999999999998). Everything else is left as it is, so text, lists and records pass through."""
+    if isinstance(x, float) and not isinstance(x, bool):
+        return Decimal(repr(x))
+    return x
+
+
 def _decimal(x):
     if isinstance(x, Decimal):
         return x
@@ -230,6 +238,13 @@ def show(v):
     if isinstance(v, date):
         return v.isoformat()
     return str(v)
+
+
+def yes_no(v):
+    """A condition or a comparison with yes/no needs a real yes/no value: "truthy" differs between languages."""
+    if isinstance(v, bool):
+        return v
+    raise KindMismatch("This needs a yes/no value, but it is %s. Compare it instead, for example: is 0, is empty, is nothing." % _describe(v))
 
 
 def _describe(v):

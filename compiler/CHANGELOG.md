@@ -1,5 +1,17 @@
 # Unreleased
 
+- **Read Python as Thunder Core: reading and writing are one language.** `thunder read <file.py> --as-core` prints
+  the reader's meaning tree as Core you can edit, compile, and run. It never prints from the English. A line Core
+  cannot say with the same meaning becomes `# Not translated (line N): <why>` plus a `Stop with` line. Such a
+  function is reported as not safely editable; Thunder never rewrites a line into something close. Assumptions are
+  written next to the line. The output always compiles. On the 20-function benchmark (`docs/core-read-write.md`),
+  the printed Core compiles 20 of 20, is exact 18 of 20, and the 18 exact ones give the same results as the
+  original Python on 52 of 52 sample inputs, checked by running both (`verifyRoundTrip`, `compiler/src/core/round-trip.mjs`).
+- **Core is strict about yes/no and exact with Python floats.** A condition, `and`/`or`/`not`, or a comparison with
+  `true`/`false` on a value of unknown kind now checks it is yes/no while running. `1` or `"yes"` stops with a
+  clear error instead of being treated as true or false. A Python float reaching Core arithmetic or a comparison
+  becomes the exact decimal it is written as (`19.99`). Before, `float * Decimal` crashed, and a float `0.1`
+  compared as more than `0.1`.
 - **Thunder Trace: how your repositories depend on each other.** `thunder trace <folder…>` links HTTP requests to
   the routes that handle them and published events to their listeners, across repositories, and cites every link
   `repo@sha:file:line`. `thunder trace impact "<route | event | repo:file[:line]>" <folder…>` and

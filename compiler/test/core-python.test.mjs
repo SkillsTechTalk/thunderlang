@@ -43,7 +43,7 @@ test('comparisons, and/or/not, yes/no', () => {
 
 test('functions with Receive and Give; calls', () => {
   has('To calculate discount:\n  Receive total and member\n  When member is true and total is at least 100:\n    Give 20% of total\n  Otherwise:\n    Give 0\nsay calculate discount with 150 and true',
-    'def calculate_discount(total, member):  # thunder:1', '        return Decimal("0.20") * total  # thunder:4', '    else:', 'print(show(calculate_discount(150, True)))');
+    'def calculate_discount(total, member):  # thunder:1', '        return Decimal("0.20") * num(total)  # thunder:4', '    else:', 'print(show(calculate_discount(150, True)))');
 });
 
 test('For each, Repeat while, Repeat N times, ranges', () => {
@@ -89,7 +89,7 @@ test('Use <module> imports the module and calls stay Python', () => {
 
 test('maps: entries with a default, keys, sorted by value', () => {
   has('Set counts to an empty map\nSet counts at "a" to (counts at "a" otherwise 0) + 1\nFor each word and seen in counts sorted by value descending:\n  say word',
-    'counts = {}', 'counts["a"] = counts.get("a", 0) + 1', 'for word, seen in sorted(counts.items(), key=lambda entry: entry[1], reverse=True):');
+    'counts = {}', 'counts["a"] = num(counts.get("a", 0)) + 1', 'for word, seen in sorted(counts.items(), key=lambda entry: entry[1], reverse=True):');
 });
 
 test('positions in a list start at 1', () => {
