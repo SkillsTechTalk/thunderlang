@@ -133,7 +133,7 @@ export function sqlCondition(cond, { aliases = {}, vars = false, keepAt = true, 
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+NOT\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => `${name(a)} is none of ${items(l)}`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => (/^\s*select\b/i.test(l) ? `${name(a)} is in the results of a query` : `${name(a)} is one of ${items(l)}`))
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NOT\s+NULL/gi, (m, a) => `${name(a)} is set`)
-    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NULL/gi, (m, a) => `${name(a)} is empty`)
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NULL/gi, (m, a) => `${name(a)} is missing`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w.]+)\s+NOT\s+LIKE\s+\u0001(\d+)\u0002/gi, (m, a, n) => `${name(a)} does not match ${hold(`"${pattern(n).replace(/%/g, '…')}"`)}`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w.]+)\s+I?LIKE\s+\u0001(\d+)\u0002/gi, (m, a, n) => { const p = pattern(n); return /^[^%_]+%$/.test(p) ? `${name(a)} starts with ${hold(`"${p.slice(0, -1)}"`)}` : /^%[^%_]+%$/.test(p) ? `${name(a)} contains ${hold(`"${p.slice(1, -1)}"`)}` : `${name(a)} matches ${hold(`"${p.replace(/%/g, '…')}"`)}`; })
     .replace(/([\w."]+)\s+BETWEEN\s+(\S+)\s+AND\s+(\S+)/gi, (m, a, lo, hi) => `${name(a)} is from ${lo} to ${hi}`)

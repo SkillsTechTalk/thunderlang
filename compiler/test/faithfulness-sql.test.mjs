@@ -28,7 +28,7 @@ FOR v_row IN SELECT parent_table, last_partition FROM part_config LOOP
 END LOOP;
 END`);
   assert.equal(sideOf(t, /Ask: Is the row's last partition set\?/, /Last known partition missing from config table/), 'no');
-  assert.equal(sideOf(t, /Ask: Is tablename empty\?/, /Last known partition table missing/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is tablename missing\?/, /Last known partition table missing/), 'yes');
   // The step after the IF runs on every pass that did not stop: it is not inside either side.
   assert.equal(sideOf(t, /Ask: Is the row's last partition set\?/, /Runs run step/), null);
   assert.match(t, /For each row \(row\) the query finds/);
@@ -53,10 +53,10 @@ LOOP
 END LOOP outer_child_loop;
 RETURN;
 END`, 'CREATE FUNCTION f(p_keep_table boolean) RETURNS void AS $$');
-  assert.equal(sideOf(t, /Ask: Is child min empty\?/, /Sets undo count to undo count \+ 1/), 'yes');
-  assert.equal(sideOf(t, /Ask: Is child min empty\?/, /Runs the SQL "ALTER TABLE «'a' as %I»\.«'b' as %I» NO INHERIT «'c' as %I»"/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is child min missing\?/, /Sets undo count to undo count \+ 1/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is child min missing\?/, /Runs the SQL "ALTER TABLE «'a' as %I»\.«'b' as %I» NO INHERIT «'c' as %I»"/), 'yes');
   assert.equal(sideOf(t, /Ask: Is keep table false\?/, /Runs update step/), 'no');
-  assert.equal(sideOf(t, /Ask: Is child min empty\?/, /Skips to the next round of the loop \(outer_child_loop\)/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is child min missing\?/, /Skips to the next round of the loop \(outer_child_loop\)/), 'yes');
   assert.match(t, /Leaves the loop \(outer_child_loop\)/);
 });
 
@@ -97,10 +97,10 @@ END LOOP;
 END`);
   const lines = t.split('\n');
   const skip = lines.findIndex((l) => /Skips to the next round of the loop/.test(l));
-  const outer = lines.findIndex((l) => /Ask: Is current partition timestamp empty\?/.test(l));
+  const outer = lines.findIndex((l) => /Ask: Is current partition timestamp missing\?/.test(l));
   assert.ok(skip > outer && outer >= 0, t);
-  assert.equal(sideOf(t, /Ask: Is current partition timestamp empty\?/, /Skips to the next round/), 'yes');
-  assert.equal(sideOf(t, /Ask: Is current partition timestamp empty\?/, /Runs make partition/), null);
+  assert.equal(sideOf(t, /Ask: Is current partition timestamp missing\?/, /Skips to the next round/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is current partition timestamp missing\?/, /Runs make partition/), null);
 });
 
 test('pg_partman #11 / #12: steps inside a CASE ELSE and inside a FOR loop stay there; a CASE with no ELSE fails when nothing matches', () => {
@@ -197,7 +197,7 @@ END`);
 test('mysql-sys #6: IF bytes IS NULL THEN RETURN NULL gives back NULL; the input is shown', () => {
   const t = thunderText('f.sql', "DELIMITER $$\nCREATE DEFINER='root'@'localhost' FUNCTION format_bytes (\n  -- a comment\n  bytes TEXT\n)\n  RETURNS TEXT\n  COMMENT 'x'\n  SQL SECURITY INVOKER\n  DETERMINISTIC\n  NO SQL\nBEGIN\n  IF bytes IS NULL THEN RETURN NULL;\n  ELSEIF bytes >= 1024 THEN RETURN CONCAT(ROUND(bytes / 1024, 2), ' KiB');\n  ELSE RETURN CONCAT(ROUND(bytes, 0), ' bytes');\n  END IF;\nEND$$\nDELIMITER ;\n");
   assert.match(t, /You give it: bytes/);
-  assert.equal(sideOf(t, /Ask: Is bytes empty\?/, /Gives back NULL/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is bytes missing\?/, /Gives back NULL/), 'yes');
   assert.equal(sideOf(t, /Ask: Is bytes at least 1024\?/, /" bytes"/), 'no');
 });
 
