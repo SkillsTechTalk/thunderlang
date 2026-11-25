@@ -286,7 +286,9 @@ export function askAsQuestion(step, ruleLabel) {
   const held = [];
   const says = String(step.says).replace(/"(?:\\.|[^"\\])*"|`[^`]*`|«[^»]*»/g, (m) => (isCodeWords(String(step.says).replace(/^If (?:not: )?/, '')) ? m : `\u0001${held.push(m) - 1}\u0002`));
   const r = askWords({ ...step, says }, ruleLabel);
-  return { ...r, text: r.text.replace(/\u0001(\d+)\u0002/g, (m, k) => held[Number(k)]) };
+  // (Every text made from the held words gets them back: the question and both sides of `holds`, which a review quotes.)
+  const back = (t) => String(t).replace(/\u0001(\d+)\u0002/g, (m, k) => held[Number(k)]);
+  return { ...r, text: back(r.text), ...(r.holds ? { holds: { yes: back(r.holds.yes), no: back(r.holds.no) } } : {}) };
 }
 function askWords(step, ruleLabel) {
   let c = String(step.says).replace(/^If /, '').replace(/ \(\d+ steps? inside\)$/, '').trim();

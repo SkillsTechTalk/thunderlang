@@ -502,6 +502,21 @@ function checkStep(step, ctx) {
   }
   // PowerShell `Get-ChildItem -File` / `-Directory` gets only files / only folders.
   if (lang === 'powershell' && /files and folders/.test(says) && /-(?:File|Directory)\b/i.test(full)) return WHY.meaning;
+  // A PowerShell switch changes what a command does (`-File`, `-Recurse`, `-Raw`, `-Unique`): the words name it, or
+  // the switch is one that does not change the result (`-Force`, `-ErrorAction`, `-Verbose`).
+  if (lang === 'powershell' && step.kind !== 'branch' && step.kind !== 'loop') {
+    const said = ` ${splitWords(says).join(' ')} `;
+    // (Only a cmdlet's switches: `Get-ChildItem -File`; an outside program's flags, `git branch -r`, are its own.)
+    const cmdletParts = stripQuoted(code).split('|').filter((p) => /^\s*(?:\$[\w:]+\s*=\s*)?(?:&\s*)?[A-Z][a-z]+-[A-Z]\w*/.test(p)).join(' | ');
+    for (const m of `${cmdletParts} `.matchAll(/(?:^|\s)-([A-Za-z][A-Za-z]+)(?=\s+-|\s*$|\s*[|;)}])/g)) {
+      const sw = m[1];
+      if (/^(?:Force|ErrorAction|WarningAction|InformationAction|Verbose|Debug|Confirm|WhatIf|NoNewline|ForegroundColor|BackgroundColor|OutVariable|ErrorVariable|Scope|Global|Script|Not|Contains|NotContains|Match|NotMatch|Like|NotLike|And|Or|Eq|Ne|Gt|Lt|Ge|Le|Is|IsNot|In|NotIn|Replace|Split|Join|F|As|Band|Bor|PassThru|Mandatory|Online|NoElement|NoTypeInformation)$/i.test(sw)) continue;
+      const map = { recurse: / everything | all | recursive| and every /, raw: / whole | as one | raw /, unique: / unique | once | duplicate /, file: / files? /, directory: / folders? /, leaf: / last part | leaf /, parent: / parent | folder /, descending: / descending | highest | largest | last /, first: / first /, last: / last /, sum: / total | sum /, count: / how many | count /, resolve: / full /, literalpath: / path /, encoding: / encoding /, append: / adds? | append /, nonewline: / /, quiet: / quiet /, simplematch: / plain text | as text /, casesensitive: / case /, asplaintext: / plain /, aspath: / path /, include: / including /, exclude: / except | excluding | without /, skip: / skip /, wait: / wait /, nowait: / without waiting /, nologo: / /, noprofile: / without the profile /, hidden: / hidden /, wrap: / wrap /, autosize: / size /, expandproperty: / /, property: / /, typename: / type /, list: / list /, all: / all /, tail: / last /, totalcount: / first /, delimiter: / separated /, header: / header /, noclobber: / not overwrite | replace nothing /, depth: / deep | depth /, compress: / compact | compress /, asjob: / background /, isvalid: / valid /, pathtype: / folder | file /, erroraction: / / };
+      const key = sw.toLowerCase();
+      if (said.includes(` ${splitWords(sw).join(' ')} `) || (map[key] && map[key].test(said))) continue;
+      return WHY.meaning;
+    }
+  }
   // "x, or y when that has no value" is a default; `||` gives back yes or no in PHP, Java, C#, Go, Rust, C and C++.
   if (/when (?:that|it) has no value/.test(says) && tree && [...nodesOf(tree)].some((n) => n.kind === 'logic' && n.op === 'or') && !/^(?:javascript|typescript|python|ruby|r|shell|powershell|perl|lua)$/.test(lang)) return WHY.meaning;
   // `this.options` read as "the options" while the function also has its own `options`.

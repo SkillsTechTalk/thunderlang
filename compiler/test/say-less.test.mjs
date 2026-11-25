@@ -106,3 +106,16 @@ test('C and C++ statements are read into meaning trees: ->, *, &, casts, declara
   assert.ok(s.every((x) => x.expr && x.expr.kind !== 'code'), 'every C statement has a tree');
   assert.ok(s.every((x) => x.explained), s.filter((x) => !x.explained).map((x) => x.says).join(' | '));
 });
+
+test('psf/requests 6f205ff → 6f66281 _encode_files: a review keeps quoted text in a compound condition exactly (never "hasattr(fp, 0)")', async () => {
+  const { askAsQuestion } = await import('../src/model.mjs');
+  const q = askAsQuestion({ says: 'If fp is a _SupportsRead or hasattr(fp, "read")', code: 'elif isinstance(fp, _SupportsRead) or hasattr(fp, "read"):' });
+  assert.equal(q.holds.yes, 'fp is a _SupportsRead or hasattr(fp, "read")');
+  assert.equal(q.holds.no, 'it is not true that fp is a _SupportsRead or hasattr(fp, "read")');
+  const { thunderReview, renderReview } = await import('../src/review.mjs');
+  const before = 'def encode(files):\n    for k, fp in files:\n        if isinstance(fp, (str, bytes)):\n            fdata = fp\n        elif isinstance(fp, _SupportsRead) or hasattr(fp, "read"):\n            fdata = fp.read()\n        elif fp is None:\n            continue\n        else:\n            fdata = fp\n        send(fdata)\n';
+  const after = before.replace('isinstance(fp, _SupportsRead) or hasattr(fp, "read")', '_t.has_read(fp)');
+  const md = renderReview(thunderReview([{ path: 'm.py', source: before }], [{ path: 'm.py', source: after }]));
+  assert.doesNotMatch(md, /hasattr\(fp, \d\)|\u0001/);
+  assert.match(md, /hasattr\(fp, "read"\)/);
+});
