@@ -49,7 +49,9 @@ test('generated Python has the provenance header, dataclasses, decision logic, a
   const py = toPython(parseIntent('mission CreateInvoice\ninput\n  email: Email\n  amount: Money\noutput\n  invoice: Invoice\nguarantee it holds\n  verify t\nnever leak a secret\n' + DECISION.split('\n').slice(1).join('\n')));
   assert.match(py, /generated from ThunderLang/);
   assert.match(py, /Deterministic, no AI/);
-  assert.match(py, /@dataclass\nclass CreateInvoiceInput:\n    email: str\n    amount: float/);
+  // Money is decimal.Decimal, never float (the old `amount: float` was the bug).
+  assert.match(py, /from decimal import Decimal/);
+  assert.match(py, /@dataclass\nclass CreateInvoiceInput:\n    email: str\n    amount: Decimal/);
   assert.match(py, /def can_reset\(tokenAgeMinutes: float, attempts: float\) -> str:/); // snake_case fn, verbatim input names, typed from how the rules use them
   assert.match(py, /if \(tokenAgeMinutes > 15\):\n        return "Denied"  # rule expired/);
   assert.match(py, /return "Denied"  # default/);
@@ -59,11 +61,22 @@ test('generated Python has the provenance header, dataclasses, decision logic, a
   assert.match(py, /class Invoice: pass  # TODO: fields/);
 });
 
-test('a rule with an untranslatable condition degrades to a marked TODO, never a crash', () => {
+test('a rule with an untranslatable condition raises IL-GEN-001, never a silent False', () => {
+  // The old scaffold emitted `if False:` with no diagnostic, silently skipping the rule , the bug this replaces.
   const ast = parseIntent('mission M\ndecision D\n  inputs\n    x\n  rule bad\n    when x +\n    return A\n  default\n    return B\n');
-  const py = toPython(ast);
-  assert.match(py, /if False:  # TODO: could not translate/);
   assert.doesNotThrow(() => toPython(ast));
+  const py = toPython(ast);
+  assert.doesNotMatch(py, /if False/);
+  assert.match(py, /def _thunder_untranslated\(message: str\) -> bool:\n    raise NotImplementedError\(message\)/);
+  assert.match(py, /if _thunder_untranslated\("Thunder could not translate the condition 'x \+' for Python: [^"]*"\):  # IL-GEN-001 not translated/);
+});
+
+test('the generated Python refuses to decide an untranslated rule (raises with the message)', { skip: !HAVE_PY && 'python3 not available' }, () => {
+  const ast = parseIntent('mission M\ndecision D\n  inputs\n    x\n  rule bad\n    when x +\n    return A\n  default\n    return B\n');
+  const program = `${toPython(ast)}\ntry:\n    print("ANSWER", d(1))\nexcept NotImplementedError as e:\n    print("REFUSED", e)\n`;
+  const out = spawnSync('python3', ['-'], { input: program, encoding: 'utf8' }).stdout;
+  assert.match(out, /^REFUSED Thunder could not translate the condition 'x \+' for Python/m);
+  assert.doesNotMatch(out, /ANSWER/);
 });
 
 test('the generated Python decision is behaviorally identical to the runtime evaluator', { skip: !HAVE_PY && 'python3 not available' }, () => {

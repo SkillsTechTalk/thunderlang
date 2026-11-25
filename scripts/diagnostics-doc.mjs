@@ -23,7 +23,7 @@ const AREA_TITLES = {
   outcome: 'Outcome contracts', decision: 'Decisions', distributed: 'Distributed & failure',
   lifecycle: 'Lifecycle', temporal: 'Temporal', style: 'Style intent',
   security: 'Security', type: 'Types', core: 'Core checks', architecture: 'Architecture',
-  ai: 'AI implementation', note: 'ThunderLens notes',
+  ai: 'AI implementation', note: 'ThunderLens notes', generation: 'Code generation',
 };
 
 function generate() {

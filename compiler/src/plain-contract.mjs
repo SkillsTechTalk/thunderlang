@@ -7,6 +7,7 @@ import { parseIntent } from './parse.mjs';
 import { compileExpr } from './expr.mjs';
 import { runTests } from './testing.mjs';
 import { evaluateDecision } from './runtime.mjs';
+import { parseMoney, formatMoney, MoneyError } from './money.mjs';
 
 export const PLAIN_SCHEMA = 'thunder-plain-v1';
 
@@ -33,8 +34,16 @@ const RESERVED = new Set(['and', 'or', 'not', 'in', 'true', 'false', 'case', 'ex
 export function formatValue(input, value) {
   if (input.kind === 'yesno') return value ? input.yes : input.no;
   if (input.kind === 'text') return value === '' ? 'empty' : JSON.stringify(String(value));
-  if (input.kind === 'dollars') return `${value < 0 ? '-' : ''}$${Math.abs(value)}`;
+  if (input.kind === 'dollars') return `${value < 0 ? '-' : ''}$${dollarText(Math.abs(value))}`;
   return String(value);
+}
+
+// Dollars read exactly from cents: $12.30 (not $12.3), whole dollars stay $100.
+function dollarText(value) {
+  try {
+    const minor = parseMoney(value);
+    return minor % 100n === 0n ? String(minor / 100n) : formatMoney(minor);
+  } catch { return String(value); }
 }
 
 function parseNumber(text, input, line) {
@@ -42,7 +51,14 @@ function parseNumber(text, input, line) {
   const dollars = t.match(/^(-?)\$(-?)(\d+(?:\.\d+)?)$/);
   if (input.kind === 'dollars') {
     if (!dollars) fail(line, `${input.label} is in dollars. Write an amount such as $100.`);
-    return Number(`${dollars[1] || dollars[2] ? '-' : ''}${dollars[3]}`);
+    // Thunder Money: the amount is read as exact cents from its text (never through a float), and an
+    // amount finer than a cent is an error instead of being rounded. The decision engine then
+    // compares the amount at cent precision, where every comparison is exact.
+    let minor;
+    try { minor = parseMoney(t, { allowDollar: true }); }
+    catch (e) { if (e instanceof MoneyError) fail(line, `${input.label} is in dollars and cents. ${t} is finer than a cent; write at most two decimal places, such as $12.30.`); throw e; }
+    if (minor > BigInt(Number.MAX_SAFE_INTEGER) || -minor > BigInt(Number.MAX_SAFE_INTEGER)) fail(line, `${t} is too large to compare exactly.`);
+    return Number(formatMoney(minor));
   }
   if (dollars) fail(line, `${input.label} is a plain number, not dollars. Write it without $.`);
   if (!/^-?\d+(?:\.\d+)?$/.test(t)) fail(line, `Write a number for ${input.label}, such as 18.`);

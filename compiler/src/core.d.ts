@@ -78,7 +78,9 @@ export {
 } from './index';
 
 // Code generation , deterministic scaffolds from intent.
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, subjectName, intentRefId, skillRefId } from './index';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, generateWithDiagnostics, subjectName, intentRefId, skillRefId } from './index';
+export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage, parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './index';
+export type { CaseResult, TargetRun, TargetErrorKind, GenerationDiagnostic } from './index';
 
 // 12-Factor Agents conformance lens (twelve-factor-v1).
 export { TWELVE_FACTOR_SCHEMA, TwelveFactorResult, twelveFactorReport, twelveFactorSummary } from './index';
@@ -127,7 +129,7 @@ export {
 } from './index';
 
 // Decisions -> readable typed source in six languages.
-export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
+export { translateDecisions, translateDecisionsWithDiagnostics, TRANSLATE_LANGUAGES } from './translate.mjs';
 export type { TranslateLanguage } from './translate.mjs';
 
 // Read code you don't know.

@@ -3,8 +3,13 @@
 // inference as the executable target adapters (target-*.mjs), minus their test harness, so what
 // a reader sees here matches what `thunder test <file> --target <lang>` compiles and runs.
 // Deterministic, no AI, no Node imports.
+//
+// A rule condition a language cannot express is never shown as `false`: the rule calls a helper
+// that throws with the IL-GEN-001 message, and translateDecisionsWithDiagnostics() reports it.
+// Money inputs render with each language's exact type (bigint minor units, Decimal, BigDecimal,
+// decimal, int64/i64 minor units), never a float.
 import { exprToJs, exprToPython, exprToGo, exprToRust, exprToCSharp, exprToJava } from './expr.mjs';
-import { inputNames, inferInputTypes, strLit } from './target-types.mjs';
+import { inputNames, inferInputTypes, strLit, planDecision } from './target-types.mjs';
 
 const RELATIONAL = /^(<=|>=|<|>)$/;
 
@@ -25,6 +30,7 @@ function typesFor(ast, dec) {
   }
   for (const n of names) {
     if (declared[n]) { types[n] = declared[n]; continue; }
+    if (types[n] === 'money') continue; // a declared Money input keeps its exact type
     if (hasExample(n)) continue;
     let guess = 'string';
     for (const r of dec.rules || []) {
@@ -40,71 +46,82 @@ function typesFor(ast, dec) {
   return types;
 }
 
-const tryExpr = (fn, when, inputs, fallback) => { try { return fn(when, { inputs }); } catch { return fallback; } };
-
 const LANGS = {
   typescript: {
-    label: 'TypeScript',
-    types: { number: 'number', bool: 'boolean', string: 'string' },
-    emit(d, names, types) {
+    label: 'TypeScript', translate: exprToJs,
+    types: { number: 'number', bool: 'boolean', string: 'string', money: 'bigint' },
+    helper: ['function thunderUntranslated(message: string): boolean { throw new Error(message); }'],
+    untranslated: (m) => `thunderUntranslated(${strLit(m)})`,
+    emit(d, names, types, conds) {
       const params = names.map((n) => `${n}: ${this.types[types[n]]}`).join(', ');
       const L = [`export function ${d.name}(${params}): string {`];
-      for (const r of d.rules || []) L.push(`  if (${tryExpr(exprToJs, r.when, names, 'false')}) return ${strLit(r.result)};`);
+      (d.rules || []).forEach((r, i) => L.push(`  if (${conds[i]}) return ${strLit(r.result)};`));
       L.push(`  return ${strLit(d.default ?? '')};`, '}');
       return L;
     },
   },
   python: {
-    label: 'Python',
-    types: { number: 'float', bool: 'bool', string: 'str' },
-    emit(d, names, types) {
+    label: 'Python', translate: exprToPython,
+    types: { number: 'float', bool: 'bool', string: 'str', money: 'Decimal' },
+    moneyImport: 'from decimal import Decimal',
+    helper: ['def _thunder_untranslated(message: str) -> bool:', '    raise NotImplementedError(message)'],
+    untranslated: (m) => `_thunder_untranslated(${strLit(m)})`,
+    emit(d, names, types, conds) {
       const params = names.map((n) => `${n}: ${this.types[types[n]]}`).join(', ');
       const L = [`def ${d.name}(${params}) -> str:`];
-      for (const r of d.rules || []) L.push(`    if ${tryExpr(exprToPython, r.when, names, 'False')}:`, `        return ${strLit(r.result)}`);
+      (d.rules || []).forEach((r, i) => L.push(`    if ${conds[i]}:`, `        return ${strLit(r.result)}`));
       L.push(`    return ${strLit(d.default ?? '')}`);
       return L;
     },
   },
   go: {
-    label: 'Go',
-    types: { number: 'float64', bool: 'bool', string: 'string' },
-    emit(d, names, types) {
+    label: 'Go', translate: exprToGo,
+    types: { number: 'float64', bool: 'bool', string: 'string', money: 'int64' },
+    helper: ['func thunderUntranslated(message string) bool {', '\tpanic(message)', '}'],
+    untranslated: (m) => `thunderUntranslated(${strLit(m)})`,
+    emit(d, names, types, conds) {
       const params = names.map((n) => `${n} ${this.types[types[n]]}`).join(', ');
       const L = [`func ${d.name}(${params}) string {`];
-      for (const r of d.rules || []) L.push(`\tif ${tryExpr(exprToGo, r.when, names, 'false')} {`, `\t\treturn ${strLit(r.result)}`, '\t}');
+      (d.rules || []).forEach((r, i) => L.push(`\tif ${conds[i]} {`, `\t\treturn ${strLit(r.result)}`, '\t}'));
       L.push(`\treturn ${strLit(d.default ?? '')}`, '}');
       return L;
     },
   },
   rust: {
-    label: 'Rust',
-    types: { number: 'f64', bool: 'bool', string: '&str' },
-    emit(d, names, types) {
+    label: 'Rust', translate: exprToRust,
+    types: { number: 'f64', bool: 'bool', string: '&str', money: 'i64' },
+    helper: ['fn thunder_untranslated(message: &str) -> bool {', '    panic!("{}", message)', '}'],
+    untranslated: (m) => `thunder_untranslated(${strLit(m)})`,
+    emit(d, names, types, conds) {
       const params = names.map((n) => `${n}: ${this.types[types[n]]}`).join(', ');
       const L = [`fn ${d.name}(${params}) -> &'static str {`];
-      for (const r of d.rules || []) L.push(`    if ${tryExpr(exprToRust, r.when, names, 'false')} {`, `        return ${strLit(r.result)};`, '    }');
+      (d.rules || []).forEach((r, i) => L.push(`    if ${conds[i]} {`, `        return ${strLit(r.result)};`, '    }'));
       L.push(`    ${strLit(d.default ?? '')}`, '}');
       return L;
     },
   },
   csharp: {
-    label: 'C#',
-    types: { number: 'double', bool: 'bool', string: 'string' },
-    emit(d, names, types) {
+    label: 'C#', translate: exprToCSharp,
+    types: { number: 'double', bool: 'bool', string: 'string', money: 'decimal' },
+    helper: ['public static bool ThunderUntranslated(string message) => throw new NotImplementedException(message);'],
+    untranslated: (m) => `ThunderUntranslated(${strLit(m)})`,
+    emit(d, names, types, conds) {
       const params = names.map((n) => `${this.types[types[n]]} ${n}`).join(', ');
       const L = [`public static string ${d.name}(${params})`, '{'];
-      for (const r of d.rules || []) L.push(`    if (${tryExpr(exprToCSharp, r.when, names, 'false')}) return ${strLit(r.result)};`);
+      (d.rules || []).forEach((r, i) => L.push(`    if (${conds[i]}) return ${strLit(r.result)};`));
       L.push(`    return ${strLit(d.default ?? '')};`, '}');
       return L;
     },
   },
   java: {
-    label: 'Java',
-    types: { number: 'double', bool: 'boolean', string: 'String' },
-    emit(d, names, types) {
+    label: 'Java', translate: exprToJava,
+    types: { number: 'double', bool: 'boolean', string: 'String', money: 'java.math.BigDecimal' },
+    helper: ['public static boolean thunderUntranslated(String message) { throw new UnsupportedOperationException(message); }'],
+    untranslated: (m) => `thunderUntranslated(${strLit(m)})`,
+    emit(d, names, types, conds) {
       const params = names.map((n) => `${this.types[types[n]]} ${n}`).join(', ');
       const L = [`public static String ${d.name}(${params}) {`];
-      for (const r of d.rules || []) L.push(`    if (${tryExpr(exprToJava, r.when, names, 'false')}) return ${strLit(r.result)};`);
+      (d.rules || []).forEach((r, i) => L.push(`    if (${conds[i]}) return ${strLit(r.result)};`));
       L.push(`    return ${strLit(d.default ?? '')};`, '}');
       return L;
     },
@@ -113,14 +130,27 @@ const LANGS = {
 
 export const TRANSLATE_LANGUAGES = Object.entries(LANGS).map(([key, l]) => ({ key, label: l.label }));
 
-/** Translate every decision in a parsed ThunderLang AST into `lang`. Returns source text. */
-export function translateDecisions(ast, lang) {
+/**
+ * Translate every decision into `lang` and report generation diagnostics: one IL-GEN-001 error per
+ * rule condition the language cannot express (that rule throws in the output instead of guessing).
+ */
+export function translateDecisionsWithDiagnostics(ast, lang) {
   const L = LANGS[lang];
   if (!L) throw new Error(`Unknown language ${lang}. Use one of: ${Object.keys(LANGS).join(', ')}.`);
   const comment = lang === 'python' ? '#' : '//';
+  const plans = (ast.decisions || []).map((d) => planDecision(ast, d, { translate: L.translate, target: L.label }));
+  const diagnostics = plans.flatMap((p) => p.diagnostics);
   const out = [`${comment} Generated from ThunderLang. Deterministic, no AI. The first matching rule wins.`];
-  for (const d of ast.decisions || []) {
-    out.push('', ...L.emit(d, inputNames(d), typesFor(ast, d)));
+  if (L.moneyImport && plans.some((p) => Object.keys(p.money).length)) out.push(L.moneyImport);
+  if (diagnostics.length) out.push('', `${comment} IL-GEN-001: Thunder could not translate some rule conditions. Those rules throw instead of guessing.`, ...L.helper);
+  for (const p of plans) {
+    const conds = p.rules.map(({ code, message }) => code ?? L.untranslated(message));
+    out.push('', ...L.emit(p.decision, p.names, typesFor(ast, p.decision), conds));
   }
-  return out.join('\n');
+  return { code: out.join('\n'), diagnostics };
+}
+
+/** Translate every decision in a parsed ThunderLang AST into `lang`. Returns source text. */
+export function translateDecisions(ast, lang) {
+  return translateDecisionsWithDiagnostics(ast, lang).code;
 }

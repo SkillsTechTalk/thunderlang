@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseIntent } from '../src/parse.mjs';
-import { toTypeScript, CODEGEN_SCHEMA } from '../src/codegen.mjs';
+import { toTypeScript, CODEGEN_SCHEMA, generateWithDiagnostics } from '../src/codegen.mjs';
 import { exprToJs } from '../src/expr.mjs';
 import { evaluateDecision } from '../src/runtime.mjs';
 import * as barrel from '../src/index.mjs';
@@ -44,7 +44,10 @@ test('generated TypeScript has the provenance header, typed interfaces, and hone
   const ts = toTypeScript(parseIntent('mission CreateInvoice\ninput\n  email: Email\n  amount: Money\noutput\n  invoice: Invoice\nguarantee it holds\n  verify t\nnever leak a secret\n'));
   assert.match(ts, /generated from ThunderLang/);
   assert.match(ts, /Deterministic, no AI/);
-  assert.match(ts, /export interface CreateInvoiceInput \{[\s\S]*email: string;[\s\S]*amount: number;/);
+  // Money is exact bigint minor units with a generated helper, never `number` (the old `amount: number` was the bug).
+  assert.match(ts, /export interface CreateInvoiceInput \{[\s\S]*email: string;[\s\S]*amount: Money;/);
+  assert.match(ts, /export type Money = bigint;/);
+  assert.match(ts, /export function parseMoney\(text: string, minorUnits = 2\): Money/);
   assert.match(ts, /GUARANTEE: it holds/);
   assert.match(ts, /NEVER: leak a secret/);
   assert.match(ts, /TODO: implement/);
@@ -65,12 +68,34 @@ test('the generated decision function is behaviorally identical to the runtime e
   }
 });
 
-test('a rule with an untranslatable condition degrades to a marked TODO, never a crash', () => {
-  // force a parse failure inside a rule condition
+test('a rule with an untranslatable condition throws at runtime with IL-GEN-001, never a silent false', () => {
+  // force a parse failure inside a rule condition. The old scaffold emitted `if (false /* TODO */)`,
+  // which silently skipped the rule and returned the default , the bug this replaces.
   const ast = parseIntent('mission M\ndecision D\n  inputs\n    x\n  rule bad\n    when x +\n    return A\n  default\n    return B\n');
-  const ts = toTypeScript(ast);
-  assert.match(ts, /TODO: could not translate/);
   assert.doesNotThrow(() => toTypeScript(ast));
+  const { code: ts, diagnostics } = generateWithDiagnostics(ast, 'typescript');
+  assert.doesNotMatch(ts, /if \(false/);
+  assert.match(ts, /IL-GEN-001/);
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].code, 'IL-GEN-001');
+  assert.equal(diagnostics[0].severity, 'error');
+  assert.equal(diagnostics[0].rule, 'bad');
+  assert.match(diagnostics[0].message, /^Thunder could not translate the condition 'x \+' for TypeScript: /);
+  // The generated decision refuses to decide: it throws with the same message instead of returning B.
+  const helper = new Function(`${ts.match(/function thunderUntranslated[^\n]*/)[0].replace(': string', '').replace('): boolean', ')')}; return thunderUntranslated;`)();
+  const body = ts.match(/export function d\([^)]*\)[^{]*\{([\s\S]*?)\n\}/)[1];
+  const d = new Function('thunderUntranslated', 'x', body);
+  assert.throws(() => d(helper, 1), /Thunder could not translate the condition 'x \+' for TypeScript/);
+});
+
+test('every scaffold target reports IL-GEN-001 and emits a throwing rule, not false', () => {
+  const ast = parseIntent('mission M\ndecision D\n  inputs\n    x\n  rule bad\n    when x ~ 1\n    return A\n  default\n    return B\n');
+  for (const [target, throwing] of [['typescript', /thunderUntranslated\("Thunder could not translate/], ['python', /_thunder_untranslated\("Thunder could not translate/], ['csharp', /ThunderUntranslated\("Thunder could not translate/], ['java', /thunderUntranslated\("Thunder could not translate/]]) {
+    const { code, diagnostics } = generateWithDiagnostics(ast, target);
+    assert.equal(diagnostics.length, 1, target);
+    assert.match(code, throwing, target);
+    assert.doesNotMatch(code, /\bif \(?false\b|\bif False\b/i, target);
+  }
 });
 
 test('non-mission roots (event/api/service) generate under their real name, never "null"', () => {

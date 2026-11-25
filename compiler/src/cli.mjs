@@ -61,7 +61,7 @@ import { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from './revi
 import { buildFocusGraph, intentBrief, makeScope } from './focus.mjs';
 import { comprehensionLevel, comprehensionReport, LEVELS as COMPREHENSION_LEVELS } from './comprehension.mjs';
 import { twelveFactorReport } from './twelve-factor.mjs';
-import { GENERATORS } from './codegen.mjs';
+import { GENERATORS, generateWithDiagnostics } from './codegen.mjs';
 import { changeReport } from './changes.mjs';
 import { execSync, execFileSync, spawnSync } from 'node:child_process';
 import { diffGraphs, mergeGraphs } from './semantic-diff.mjs';
@@ -82,6 +82,7 @@ import { runRustTarget, rustAvailable } from './target-rust.mjs';
 import { runKotlinTarget, kotlinAvailable } from './target-kotlin.mjs';
 import { runScalaTarget, scalaAvailable } from './target-scala.mjs';
 import { runElixirTarget, elixirAvailable } from './target-elixir.mjs';
+import { errorResult, runFailure } from './target-result.mjs';
 
 // The live-target registry: one entry per canonical target that can be compiled + executed.
 // `available()` is a (cached) toolchain probe; TypeScript/JS runs in-process so it is always live.
@@ -110,12 +111,42 @@ const TARGET_ALIASES = {
   golang: 'go', rs: 'rust', kt: 'kotlin', sc: 'scala', ex: 'elixir',
 };
 const canonicalTarget = (t) => TARGET_ALIASES[String(t).toLowerCase()] || String(t).toLowerCase();
-// Execute a live target. Returns { "Test / case": actual } or null if the target can't run
-// (e.g. the runtime/SDK is not installed). Unknown targets return null.
+// Execute a live target. Returns { status: 'ok', results: { "Test / case": caseResult } } or a
+// whole-run { status: 'error', kind, message } (e.g. kind 'missing-toolchain' when the SDK is not
+// installed). A failure is never turned into a null answer.
 function runLiveTarget(ast, target) {
   const entry = LIVE_BY_KEY.get(canonicalTarget(target));
-  return entry ? entry.run(ast) : null;
+  if (!entry) return runFailure('missing-toolchain', `Thunder has no live runner for "${target}".`);
+  return entry.run(ast);
 }
+// Grade a live run against the intent's test cases. A case the target could not produce (not
+// translated, compile failure, crash, timeout) is an error, never a pass and never a null answer.
+function gradeRun(ast, run) {
+  const cs = [];
+  for (const t of ast.tests || []) {
+    if (!(ast.decisions || []).some((d) => d.name === t.name)) continue;
+    for (const c of t.cases || []) {
+      const key = `${t.name} / ${c.name || 'case'}`;
+      const r = run.status === 'ok'
+        ? (run.results[key] || errorResult('runtime-error', `The target reported no result for ${key}.`))
+        : errorResult(run.kind, run.message);
+      if (r.status === 'error') { cs.push({ key, expected: c.expect, status: 'error', kind: r.kind, message: r.message, pass: false }); continue; }
+      const pass = c.expect == null || String(r.value) === String(c.expect);
+      cs.push({ key, expected: c.expect, actual: r.value, status: pass ? 'pass' : 'fail', ...(pass ? {} : { kind: 'assertion-failed' }), pass });
+    }
+  }
+  return cs;
+}
+// Per-case results for conformance: the run's own results, or the whole-run failure on every case.
+function caseResultsOf(ast, run) {
+  if (run.status === 'ok') return run.results;
+  const out = {};
+  for (const t of ast.tests || []) for (const c of t.cases || []) out[`${t.name} / ${c.name || 'case'}`] = errorResult(run.kind, run.message);
+  return out;
+}
+const caseLine = (c) => (c.status === 'error'
+  ? `ERROR ${c.key} , ${c.kind === 'not-translated' ? 'not translated' : c.kind === 'missing-input' ? 'missing input' : c.kind}: ${c.message}`
+  : `FAIL ${c.key} , expected ${c.expected}, got ${c.actual === null ? 'null' : c.actual}`);
 import { importIntent, importReport, detectFormat, IMPORT_FORMATS } from './importers.mjs';
 import { runTests } from './testing.mjs';
 import { resolveObligations } from './obligations.mjs';
@@ -1059,7 +1090,14 @@ function main() {
     const generate = GENERATORS[target];
     if (!generate) { console.error(`thunder gen: unknown target "${target}" (have: ${Object.keys(GENERATORS).join(', ')})`); process.exit(2); return; }
     const ast = parseIntent(readFileSync(file, 'utf8'));
-    const code = generate(ast);
+    // IL-GEN-001: a rule condition the target cannot express fails generation for that rule. The code
+    // is still emitted (that rule throws at runtime with the same message), and the command exits 1.
+    const { code, diagnostics } = generateWithDiagnostics(ast, target);
+    const reportGen = () => {
+      for (const d of diagnostics) console.error(`thunder gen: error ${d.code} (decision ${d.decision}, rule ${d.rule}): ${d.message}`);
+      if (diagnostics.length) console.error(`thunder gen: ${diagnostics.length} rule condition(s) not translated; those rules throw instead of deciding. Run "thunder explain ${diagnostics[0].code}".`);
+    };
+    if (args.json) { console.log(JSON.stringify({ schema: 'intent-codegen-v1', target, code, diagnostics }, null, 2)); process.exit(diagnostics.length ? 1 : 0); return; }
     if (args.outExplicit) {
       const ext = target.startsWith('ts') || target === 'typescript' ? 'ts' : target === 'python' ? 'py' : target === 'csharp' ? 'cs' : target;
       // Java requires a public class to live in a file of exactly its name (RefundDecision.java).
@@ -1067,9 +1105,13 @@ function main() {
       const fileName = ext === 'java' ? `${(subject[0].toUpperCase() + subject.slice(1)).replace(/[^A-Za-z0-9]/g, '')}.java` : `${slug(subject)}.${ext}`;
       const p = writeText(args.out, fileName, code.endsWith('\n') ? code : code + '\n');
       console.log(`wrote ${p.replace(process.cwd() + '/', '')}`);
+      reportGen();
+      if (diagnostics.length) process.exit(1);
       return;
     }
     console.log(code);
+    reportGen();
+    if (diagnostics.length) { process.exit(1); return; }
     return;
   }
 
@@ -1672,34 +1714,26 @@ test Example
     // All-targets mode: run the tests against EVERY target whose toolchain is available, in one
     // pass, and report each target's pass count side by side. `thunder test <file> --all-targets`.
     if (args.allTargets) {
-      const gradeCases = (actual) => {
-        const cs = [];
-        for (const t of ast.tests || []) {
-          if (!(ast.decisions || []).some((d) => d.name === t.name)) continue;
-          for (const c of t.cases || []) {
-            const key = `${t.name} / ${c.name || 'case'}`;
-            const act = actual[key];
-            cs.push({ key, expected: c.expect, actual: act, pass: c.expect == null || String(act) === String(c.expect) });
-          }
-        }
-        return cs;
-      };
       const report = LIVE_TARGETS.map((t) => {
-        const actual = t.available() ? t.run(ast) : null;
-        if (actual === null) return { target: t.key, status: 'skipped', reason: `${t.key} toolchain not available` };
-        const cases = gradeCases(actual);
+        const run = t.available() ? t.run(ast) : runFailure('missing-toolchain', `${t.key} toolchain not available`);
+        if (run.status === 'error' && run.kind === 'missing-toolchain') return { target: t.key, status: 'skipped', reason: run.message, kind: run.kind };
+        // A compile failure, crash, or timeout is an error for the whole target, not a skip and not a pass.
+        if (run.status === 'error') return { target: t.key, status: 'error', kind: run.kind, message: run.message, total: 0, passed: 0, cases: gradeRun(ast, run) };
+        const cases = gradeRun(ast, run);
         const passed = cases.filter((c) => c.pass).length;
-        return { target: t.key, status: passed === cases.length ? 'pass' : 'fail', total: cases.length, passed, cases };
+        const errors = cases.filter((c) => c.status === 'error').length;
+        return { target: t.key, status: passed === cases.length ? 'pass' : 'fail', total: cases.length, passed, errors, cases };
       });
-      const bad = report.some((r) => r.status === 'fail');
+      const bad = report.some((r) => r.status === 'fail' || r.status === 'error');
       if (args.json) { console.log(JSON.stringify({ schema: 'thunder-all-targets-v1', mission: ast.mission, file: basename(file), targets: report }, null, 2)); process.exit(bad ? 1 : 0); return; }
-      const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+      const cap = (s) => ({ typescript: 'TypeScript', csharp: 'C#', javascript: 'JavaScript' })[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
       const ran = report.filter((r) => r.status !== 'skipped');
       console.log(`thunder test ${basename(file)} --all-targets: ${ran.length}/${report.length} target(s) executed`);
       for (const r of report) {
         if (r.status === 'skipped') { console.log(`  SKIP  ${cap(r.target).padEnd(12)} (toolchain not available)`); continue; }
-        console.log(`  ${r.status === 'pass' ? 'PASS' : 'FAIL'}  ${cap(r.target).padEnd(12)} ${r.passed}/${r.total} passed (executed generated code)`);
-        for (const c of r.cases) if (!c.pass) console.log(`          FAIL ${c.key} , expected ${c.expected}, got ${c.actual}`);
+        if (r.status === 'error') { console.log(`  ERROR ${cap(r.target).padEnd(12)} ${r.kind}: ${r.message}`); continue; }
+        console.log(`  ${r.status === 'pass' ? 'PASS' : 'FAIL'}  ${cap(r.target).padEnd(12)} ${r.passed}/${r.total} passed (executed generated code)${r.errors ? `, ${r.errors} could not run` : ''}`);
+        for (const c of r.cases) if (!c.pass) console.log(`          ${caseLine(c)}`);
       }
       process.exit(bad ? 1 : 0);
       return;
@@ -1710,29 +1744,28 @@ test Example
     // `thunder test <file> --target typescript`.
     if (args.target && RUNNABLE_TARGETS.has(String(args.target).toLowerCase())) {
       const targetKey = canonicalTarget(args.target);
-      const actual = runLiveTarget(ast, targetKey);
-      // Live target could not run (e.g. python3 not installed) , skip cleanly, don't fail.
-      if (actual === null) {
-        if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, skipped: true, reason: `${targetKey} runtime unavailable` }, null, 2)); return; }
+      const run = runLiveTarget(ast, targetKey);
+      // Live target could not run because its toolchain is missing (e.g. python3 not installed) , skip cleanly, don't fail.
+      if (run.status === 'error' && run.kind === 'missing-toolchain') {
+        if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, skipped: true, reason: `${targetKey} runtime unavailable`, error: { kind: run.kind, message: run.message } }, null, 2)); return; }
         console.log(`thunder test ${basename(file)} --target ${targetKey}: skipped (the ${targetKey} runtime is not available on this machine).`);
         return;
       }
-      const cases = [];
-      for (const t of ast.tests || []) {
-        const dec = (ast.decisions || []).find((d) => d.name === t.name);
-        if (!dec) continue;
-        for (const c of t.cases || []) {
-          const key = `${t.name} / ${c.name || 'case'}`;
-          const act = actual[key];
-          cases.push({ key, expected: c.expect, actual: act, pass: c.expect == null || String(act) === String(c.expect) });
-        }
+      // Any other whole-run failure (compile failure, crash, timeout) is an error with its reason, never a null answer.
+      if (run.status === 'error') {
+        if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, status: 'error', error: { kind: run.kind, message: run.message }, cases: gradeRun(ast, run) }, null, 2)); process.exit(1); return; }
+        console.log(`thunder test ${basename(file)} --target ${targetKey}: ERROR (${run.kind}) , ${run.message}`);
+        process.exit(1);
+        return;
       }
+      const cases = gradeRun(ast, run);
       const passed = cases.filter((c) => c.pass).length;
+      const errors = cases.filter((c) => c.status === 'error').length;
       const bad = passed !== cases.length;
-      if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, total: cases.length, passed, cases }, null, 2)); process.exit(bad ? 1 : 0); return; }
+      if (args.json) { console.log(JSON.stringify({ schema: 'thunder-target-v1', target: targetKey, total: cases.length, passed, errors, cases }, null, 2)); process.exit(bad ? 1 : 0); return; }
       if (!cases.length) { console.log(`thunder test ${basename(file)} --target ${targetKey}: no decision test cases to run.`); return; }
-      console.log(`thunder test ${basename(file)} --target ${targetKey}: ${passed}/${cases.length} passed (executed generated code)`);
-      for (const c of cases) console.log(`  ${c.pass ? 'PASS' : 'FAIL'}  ${c.key}${c.pass ? '' : `  , expected ${c.expected}, got ${c.actual}`}`);
+      console.log(`thunder test ${basename(file)} --target ${targetKey}: ${passed}/${cases.length} passed (executed generated code)${errors ? `, ${errors} could not run` : ''}`);
+      for (const c of cases) console.log(`  ${c.pass ? `PASS  ${c.key}` : caseLine(c).replace(/^(FAIL|ERROR) /, (m) => m.trim().padEnd(6))}`);
       process.exit(bad ? 1 : 0);
       return;
     }
@@ -1960,19 +1993,23 @@ test Example
       targets = Array.from(new Set([...targets, ...LIVE_TARGETS.map((t) => t.key)]));
       for (const t of LIVE_TARGETS) {
         if (!t.available()) { skippedTargets.push(t.key); continue; }
-        const actual = t.run(ast);
-        if (actual !== null) results[t.key] = actual; else skippedTargets.push(t.key);
+        const run = t.run(ast);
+        if (run.status === 'error' && run.kind === 'missing-toolchain') skippedTargets.push(t.key);
+        else results[t.key] = caseResultsOf(ast, run);
       }
     }
     // --run <targets>: execute specific live targets (TypeScript/JS/Python/C#/Java) and grade real
-    // outputs. A null result (e.g. the SDK is not installed) is skipped, leaving it "declared".
+    // outputs. A missing toolchain is skipped, leaving it "declared"; any other failure (not
+    // translated, compile failure, crash, timeout) is graded as an error with its reason.
     if (args.run && args.run.length) {
       results = results || {};
       for (const rt of args.run) {
         if (!RUNNABLE_TARGETS.has(rt.toLowerCase())) continue;
         const key = canonicalTarget(rt);
-        const actual = runLiveTarget(ast, key);
-        if (actual !== null) results[key] = actual;
+        if (!targets.includes(key)) targets = [...targets, key]; // a target you ran is always shown
+        const run = runLiveTarget(ast, key);
+        if (run.status === 'error' && run.kind === 'missing-toolchain') skippedTargets.push(key);
+        else results[key] = caseResultsOf(ast, run);
       }
     }
     const rep = buildConformance(ast, { targets, results });
@@ -1986,7 +2023,7 @@ test Example
     if (args.json) { console.log(JSON.stringify(rep, null, 2)); process.exit(bad ? 1 : 0); return; }
     if (!rep.total) { console.log(`thunder conform ${basename(file)}: no test cases to conform.`); return; }
 
-    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    const cap = (s) => ({ typescript: 'TypeScript', csharp: 'C#', javascript: 'JavaScript' })[s] ?? s.charAt(0).toUpperCase() + s.slice(1);
     const cols = ['Semantic', ...rep.columns.map(cap)];
     const labelW = Math.max(12, ...rep.cases.map((c) => c.key.length));
     const cw = (h) => Math.max(h.length, 8);
@@ -1997,7 +2034,7 @@ test Example
       const sem = c.semanticPass ? 'PASS' : 'FAIL';
       const tcells = rep.columns.map((col) => {
         const s = c.targets[col].status;
-        return cell(s === 'pass' ? 'PASS' : s === 'fail' ? 'FAIL' : '—', cw(cap(col)));
+        return cell(s === 'pass' ? 'PASS' : s === 'fail' ? 'FAIL' : s === 'error' ? 'ERROR' : '—', cw(cap(col)));
       });
       console.log(`  ${cell(c.key, labelW)}  ${cell(sem, cw('Semantic'))}  ${tcells.join('  ')}`);
     }
@@ -2007,7 +2044,8 @@ test Example
       console.log(`    Target:   ${cap(f.target)}`);
       console.log(`    Case:     ${f.case}`);
       console.log(`    Expected: ${f.expected}`);
-      console.log(`    Actual:   ${f.actual}`);
+      if (f.kind && f.kind !== 'assertion-failed') console.log(`    Result:   ${f.kind === 'not-translated' ? 'not translated' : f.kind === 'missing-input' ? 'missing input' : f.kind} , ${f.message}`);
+      else console.log(`    Actual:   ${f.actual === null ? 'null' : f.actual}`);
     }
     if (rep.skipped && rep.skipped.length) {
       console.log('');

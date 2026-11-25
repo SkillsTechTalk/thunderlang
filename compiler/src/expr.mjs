@@ -13,6 +13,8 @@
 //   unary   := '-' unary | primary
 //   primary := number | string | bool | ident(.ident)* | '(' or ')' | '[' list ']'
 
+import { moneyLiteral, moneyCompare, numberToDecimalText, MONEY_TYPES } from './money.mjs';
+
 export class ExprError extends Error {}
 
 const OPS = ['>=', '<=', '==', '!=', '&&', '||', '>', '<', '=', '+', '-', '*', '/', '%', '!', '(', ')', '[', ']', ','];
@@ -155,6 +157,10 @@ function evalNode(n, inputs) {
     case 'neg': { const r = -Number(evalNode(n.a, inputs)); return Number.isFinite(r) ? r : null; }
     case 'arith': {
       const a = Number(evalNode(n.a, inputs)); const b = Number(evalNode(n.b, inputs));
+      // Thunder numbers are decimals: + - * are exact on decimal operands (0.1 + 0.2 == 0.3), so a
+      // money or percentage rule never decides on a binary floating point artefact.
+      const exact = decimalArith(n.op, a, b);
+      if (exact !== null) return exact;
       const r = n.op === '+' ? a + b : n.op === '-' ? a - b : n.op === '*' ? a * b : n.op === '/' ? a / b : a % b;
       // Non-finite results (divide/modulo by zero, NaN from non-numeric operands) are
       // neutralized to null so they can never leak a surprising truthy comparison (e.g.
@@ -182,6 +188,36 @@ function evalNode(n, inputs) {
     }
     default: throw new ExprError(`unknown node ${n.k}`);
   }
+}
+
+// Exact decimal + - * for finite numbers whose shortest decimal text has no exponent: scale both to
+// integers (BigInt), operate, and scale back. Returns null when the operands are not plain decimals
+// (the caller then uses ordinary number arithmetic) or the operator is / or %.
+const PLAIN_DECIMAL = /^(-)?(\d+)(?:\.(\d+))?$/;
+function decimalParts(x) {
+  if (!Number.isFinite(x)) return null;
+  const m = String(x).match(PLAIN_DECIMAL);
+  if (!m) return null;
+  const frac = m[3] || '';
+  const int = BigInt(m[2] + frac);
+  return { int: m[1] ? -int : int, scale: frac.length };
+}
+function decimalArith(op, a, b) {
+  if (op !== '+' && op !== '-' && op !== '*') return null;
+  const x = decimalParts(a); const y = decimalParts(b);
+  if (!x || !y) return null;
+  let int; let scale;
+  if (op === '*') { int = x.int * y.int; scale = x.scale + y.scale; }
+  else {
+    scale = Math.max(x.scale, y.scale);
+    const xi = x.int * 10n ** BigInt(scale - x.scale); const yi = y.int * 10n ** BigInt(scale - y.scale);
+    int = op === '+' ? xi + yi : xi - yi;
+  }
+  const neg = int < 0n;
+  const digits = (neg ? -int : int).toString().padStart(scale + 1, '0');
+  const text = scale ? `${digits.slice(0, -scale)}.${digits.slice(-scale)}` : digits;
+  const r = Number(`${neg ? '-' : ''}${text}`);
+  return Number.isFinite(r) ? r : null;
 }
 
 function eq(a, b) {
@@ -219,9 +255,47 @@ const DIALECTS = {
   elixir: { and: (a, b) => `(${a} and ${b})`, or: (a, b) => `(${a} or ${b})`, not: (a) => `(not ${a})`, bool: (v) => String(v), eq: (a, b) => `${a} == ${b}`, neq: (a, b) => `${a} != ${b}`, inList: (list, x) => `${x} in [${list.join(', ')}]`, nil: 'nil' },
 };
 
-function renderExpr(src, inputs, D) {
+// The literal decimal text of a numeric literal node (or a negated one), or null.
+function literalDecimal(n) {
+  if (n.k === 'lit' && typeof n.v === 'number') return numberToDecimalText(n.v);
+  if (n.k === 'neg' && n.a.k === 'lit' && typeof n.a.v === 'number') return `-${numberToDecimalText(n.a.v)}`;
+  return null;
+}
+
+function renderExpr(src, inputs, D, money = {}, dialect = 'js') {
   const known = new Set(inputs);
+  const isMoney = (n) => n.k === 'ref' && Object.prototype.hasOwnProperty.call(money, n.path);
+  const moneyRefs = (n, out = []) => {
+    if (isMoney(n)) out.push(n.path);
+    else if (n.k === 'arith' || n.k === 'cmp') { moneyRefs(n.a, out); moneyRefs(n.b, out); }
+    else if (n.k === 'neg') moneyRefs(n.a, out);
+    return out;
+  };
+  // A comparison that involves a Money input renders with the target's exact Money type. Each side
+  // may be a Money input, an amount such as 12.30, or a sum/difference of those (exact in every Money
+  // representation). Anything else (multiplication, division, mixing currencies) is refused.
+  const moneyCmp = (n) => {
+    if (!MONEY_TYPES[dialect]) throw new ExprError(`Money inputs have no exact representation in this target yet, and Thunder will not compare money as binary floating point`);
+    const refs = moneyRefs(n);
+    const units = money[refs[0]];
+    const other = refs.find((p) => money[p] !== units);
+    if (other) throw new ExprError(`"${refs[0]}" and "${other}" are Money with different minor units (different currencies)`);
+    const side = (x) => {
+      if (isMoney(x)) return x.path;
+      const dec = literalDecimal(x);
+      if (dec != null) { try { return moneyLiteral(dialect, dec, units); } catch (e) { throw new ExprError(e.message); } }
+      if (x.k === 'arith' && (x.op === '+' || x.op === '-')) {
+        const a = side(x.a); const b = side(x.b);
+        if (dialect === 'java') return `${a}.${x.op === '+' ? 'add' : 'subtract'}(${b})`;
+        return `(${a} ${x.op} ${b})`;
+      }
+      throw new ExprError(`Money can only be compared with Money inputs, amounts such as 12.30, or their sums and differences; multiplication, division, and other computed values are not translated exactly`);
+    };
+    return moneyCompare(dialect, n.op, side(n.a), side(n.b));
+  };
   const r = (n) => {
+    if (n.k === 'cmp' && moneyRefs(n).length) return moneyCmp(n);
+    if (isMoney(n)) throw new ExprError(`Money input "${n.path}" is used outside a comparison (arithmetic, lists, or yes/no use are not translated exactly)`);
     switch (n.k) {
       case 'or': return D.or(r(n.a), r(n.b));
       case 'and': return D.and(r(n.a), r(n.b));
@@ -274,10 +348,13 @@ export function simplifyExpr(src) {
 /**
  * Render a `when` condition as an equivalent expression in a target language, for code generation.
  * Input names render as identifiers; any other bare token is an enum literal (a string). Reuses
- * the parser, so precedence is exact. `dialect` is js (default) | csharp | java.
+ * the parser, so precedence is exact. `dialect` is js (default) | csharp | java | python | go | rust |
+ * kotlin | scala | elixir. `money` maps Money input names to their minor units; comparisons on them
+ * render with the target's exact Money type (money.mjs), and any other use throws ExprError.
  */
-export function exprToCode(src, { inputs = [], dialect = 'js' } = {}) {
-  return renderExpr(src, inputs, DIALECTS[dialect] || DIALECTS.js);
+export function exprToCode(src, { inputs = [], dialect = 'js', money = {} } = {}) {
+  const d = DIALECTS[dialect] ? dialect : 'js';
+  return renderExpr(src, inputs, DIALECTS[d], money || {}, d);
 }
 export const exprToJs = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'js' });
 export const exprToCSharp = (src, opts = {}) => exprToCode(src, { ...opts, dialect: 'csharp' });
