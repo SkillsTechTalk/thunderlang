@@ -36,6 +36,7 @@ const DOC_ORDER = [
   "mcp",
   "reading-code",
   "review-in-thunder",
+  "trace",
   "runtime-enforcement",
   "intent-scanner",
   "syntax-overview",
@@ -104,6 +105,7 @@ const DOC_LABELS: Record<string, string> = {
   "verifying-ai-changes": "Verifying AI code changes",
   "mcp": "ThunderLang for AI agents (MCP)",
   "reading-code": "Read any code in Thunder",
+  "trace": "Thunder Trace: how your repositories depend on each other",
   "review-in-thunder": "Review in Thunder",
   "runtime-enforcement": "Runtime enforcement",
   "intent-scanner": "Intent Scanner and Fable",
@@ -158,6 +160,7 @@ const DOC_BLURBS: Record<string, string> = {
   "case-study-feature-flags": "A worked adoption: lift a feature-flag evaluator, prove four languages agree, and gate a bad AI change.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
   "mcp": "Connect Claude Code, Codex, ChatGPT, or Cursor, and give your agent the rules for when to call each tool.",
+  "trace": "Which repositories call which, and what a change can affect in the others, each answer cited to a file and line.",
   "reading-code": "See what code in TypeScript, Python, Go, Rust, C#, or Java decides, in plain English and in a language you know.",
   "review-in-thunder": "See what a pull request changed in meaning, in plain sentences, and keep it as one pull request comment.",
   "runtime-enforcement": "Compile intent into a guard that blocks forbidden actions and redacts secrets at runtime.",
@@ -254,7 +257,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Scale across a system",
     blurb: "Navigate many missions and large changes.",
-    slugs: ["large-changes", "build-session-digest", "mvp-readiness", "release-story-tutorial"],
+    slugs: ["trace", "large-changes", "build-session-digest", "mvp-readiness", "release-story-tutorial"],
   },
   {
     title: "Reference",
