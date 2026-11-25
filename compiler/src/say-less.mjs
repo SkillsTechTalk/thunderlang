@@ -148,6 +148,9 @@ function unsourcedWord(says, code) {
   return null;
 }
 
+// Languages where $ / @ mark a name (PHP, shell, PowerShell, Ruby, Perl) rather than being part of it (JavaScript).
+const SIGIL_LANGS = new Set(['php', 'shell', 'powershell', 'ruby', 'perl', 'r', 'sql']);
+let currentLang = '';
 /** Two different spellings in the code that read as the same words, and appear in the words. */
 function ambiguousName(says, code) {
   // Cheap first look: no word said twice, nothing can read the same twice.
@@ -156,7 +159,7 @@ function ambiguousName(says, code) {
   const byWords = new Map();
   const inserted = [...String(code).matchAll(/\$\{([^}]*)\}|#\{([^}]*)\}|\$\(([^)]*)\)|\$([A-Za-z_]\w*)/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4]).join(' ');
   for (const id of `${stripQuoted(code)} ${inserted}`.match(/[A-Za-z_$@][\w$]*/g) || []) {
-    const bare = id.replace(/^[$@]+/, '');
+    const bare = SIGIL_LANGS.has(currentLang) ? id.replace(/^[$@]+/, '') : id;
     const w = splitWords(bare).join(' ');
     if (!w) continue;
     if (!byWords.has(w)) byWords.set(w, new Set());
@@ -461,6 +464,7 @@ const IMPLICIT_RETURN_LANGS = new Set(['ruby', 'rust', 'kotlin', 'scala', 'swift
 function checkStep(step, ctx) {
   const says = String(step.says ?? '');
   const code = String(step.code ?? '');
+  currentLang = ctx.lang;
   // The words' values and names are checked against the whole statement (the display copy can be cut short).
   let full = `${sourceOf(step, ctx)}${ctx.valueTarget ? `\n${ctx.valueTarget}` : ''}`;
   // A shell helper that always exits (`die() { …; exit 3; }`): its exit code is written in its own body, in this file.
@@ -489,6 +493,19 @@ function checkStep(step, ctx) {
   if (ambiguousName(says, full)) return WHY.ambiguous;
   // Shell here-strings (`<<<"$x"`) feed text to a command; the readers do not tell that apart from running it.
   if (lang === 'shell' && /<<</.test(`${code}\n${full}`)) return WHY.form;
+  // Words with a token that is only punctuation ("--", "?", "-") put a flag or a symbol where a name should be.
+  if (/(?:^|\s)(?:--?|\?|\*)(?:\s|$)/.test(claimText(says).replace(/\s+\?$/, ''))) return WHY.words;
+  if (lang === 'shell') {
+    // Brace expansion (`mkdir "$d/"{a,b}`) makes several words from one; `-` alone means standard input.
+    if (/\{[^{}\s"'$]*,[^{}\s"']*\}/.test(stripQuoted(full).replace(/\$\{[^}]*\}/g, ''))) return WHY.form;
+    if (/"-"/.test(says) && /(?:^|\s)-(?:\s|$)/.test(full)) return WHY.form;
+  }
+  // PowerShell `Get-ChildItem -File` / `-Directory` gets only files / only folders.
+  if (lang === 'powershell' && /files and folders/.test(says) && /-(?:File|Directory)\b/i.test(full)) return WHY.meaning;
+  // "x, or y when that has no value" is a default; `||` gives back yes or no in PHP, Java, C#, Go, Rust, C and C++.
+  if (/when (?:that|it) has no value/.test(says) && tree && [...nodesOf(tree)].some((n) => n.kind === 'logic' && n.op === 'or') && !/^(?:javascript|typescript|python|ruby|r|shell|powershell|perl|lua)$/.test(lang)) return WHY.meaning;
+  // `this.options` read as "the options" while the function also has its own `options`.
+  if (tree && ctx.ownNames && [...nodesOf(tree)].some((n) => n.kind === 'member' && n.object?.kind === 'name' && /^(?:this|self)$/.test(n.object.name) && ctx.ownNames.has(n.property)) && !/\b(?:this|self|its own|it is given)\b/.test(says)) return WHY.ambiguous;
   // Words with a bracket left open are garbled.
   if (!bracketsClosed(claimText(says))) return WHY.words;
   // "Sets x to x" is a real self-assignment, or it hides where the value comes from.
@@ -544,6 +561,14 @@ function checkStep(step, ctx) {
     default: break;
   }
 
+  // "Adds X to Y" (a push, an append, an add): what is added is said in full (`push(items[0])` is not "Adds items").
+  const adds = /^Adds (.+?) to (?:the end of )?(.+?)(?: \(.*\))?$/.exec(says);
+  if (adds && tree) {
+    const core = coreOf(tree.kind === 'assign' ? tree.value : tree);
+    if (tree.kind === 'assign' && tree.op !== '=' && tree.op !== ':=') { if (!namesKept(tree.value, adds[1])) return M('adds-value'); }
+    else if (core?.kind === 'call' && core.args?.length && !core.args.some((a) => namesKept(a, adds[1]))) return M('adds-value');
+    else if (core?.kind === 'call' && core.args?.some((a) => a.kind === 'index') && !core.args.every((a) => namesKept(a, adds[1]) || a.kind === 'name')) return M('adds-value');
+  }
   // Calls, settings, and everything else: the words must not drop a negation, a comparison, or and/or in the tree.
   if (/^Calls /.test(says)) return callKept(step, tree, says, code, lang);
   if (tree) {
@@ -914,7 +939,10 @@ function implicitReturnOk(step, ctx, code) {
   if (ctx.only) return !/\b(?:unless|if|while|until)\b/.test(code) || ctx.lang === 'kotlin' || ctx.lang === 'rust' || ctx.lang === 'scala';
   if (!ctx.last) return false;
   if (ctx.exprValue) return true;
-  if (!/^(?:ruby|rust|kotlin|scala|swift|r|elixir|powershell)$/.test(ctx.lang)) return false;
+  // Swift: an if / switch that is the whole body gives back each side's value (an if-expression); a bare value among
+  // other statements is a result-builder part, not a return.
+  if (ctx.lang === 'swift') return !!ctx.singleTop;
+  if (!/^(?:ruby|rust|scala|r|elixir|powershell)$/.test(ctx.lang) && !(ctx.lang === 'kotlin' && ctx.inLambda)) return false;
   // Ruby/Rust: a modifier form (`x unless y`) or a statement ending in `;` (Rust) is not the value of the function.
   if (ctx.lang === 'ruby' && /\s(?:unless|if|while|until|rescue)\s/.test(code)) return false;
   if (ctx.lang === 'rust' && /;\s*$/.test(code)) return false;
@@ -1008,8 +1036,29 @@ function braceClose(lines, at) {
 
 /** Turn a step into "code, not explained", keeping its kind's place in the flow (a question stays a question). */
 const keepOriginal = (s) => { if (!('origSays' in s)) Object.defineProperty(s, 'origSays', { value: s.says, enumerable: false }); };
+const PAREN_IF = new Set(['c', 'cpp', 'java', 'csharp', 'javascript', 'typescript', 'php', 'kotlin', 'scala', 'dart', 'r', 'powershell']);
+let currentLines = null;
+const squash = (t) => String(t).replace(/\s+/g, '');
+/**
+ * The code a step shows must be the code: a reader's own copy can be normalized (`set(x as S, true)` kept as `set(x)`,
+ * `gsub!` as `gsub`, a here-string's `<<<` dropped). When the copy is not in the source line, the source line is shown.
+ */
+function exactCode(s) {
+  const sp = s.span;
+  if (!currentLines || !sp?.startLine) return;
+  const end = Math.min(sp.endLine ?? sp.startLine, sp.startLine + 7);
+  const text = currentLines.slice(sp.startLine - 1, end).join(' ');
+  const short = String(s.code ?? '').replace(/…$/, '');
+  if (!short.trim() || squash(text).includes(squash(short))) return;
+  const block = isBlock(s) || s.children?.length;
+  // (A block's header: its lines up to the one that opens the block.)
+  let head = '';
+  if (block) for (let l = sp.startLine; l <= Math.min(end, sp.startLine + 5); l++) { const t = String(currentLines[l - 1] ?? ''); head += ` ${t}`; if (/[{:]\s*$|\b(?:then|do)\s*$/.test(t)) break; }
+  s.code = (block ? head : text).replace(/\s+/g, ' ').trim();
+}
 function asCode(s, why) {
   keepOriginal(s);
+  exactCode(s);
   s.explained = false;
   s.notExplainedWhy = why;
   const code = String(s.code ?? s.says ?? '').replace(/\s+/g, ' ').trim();
@@ -1018,7 +1067,9 @@ function asCode(s, why) {
     const m = /^(?:\}\s*)?(?:else\s*)?(if|elif|elsif|else if|while|unless|guard)\s*(.*)$/.exec(head);
     if (m && m[2]) {
       let cond = m[2].trim();
-      if (/^\(/.test(cond) && closeIdx(cond, 0) > 0) cond = cond.slice(1, closeIdx(cond, 0)).trim();
+      // Languages whose `if` needs brackets: the condition is the bracketed group (what follows it is a one-line body).
+      // Elsewhere (Swift, Go, Rust, Python, Ruby) `(a) || (b)` is all condition.
+      if (PAREN_IF.has(currentLang) && /^\(/.test(cond) && closeIdx(cond, 0) > 0) cond = cond.slice(1, closeIdx(cond, 0)).trim();
       // A guard's steps (its else) run when its condition does not hold; so do an unless's.
       const neg = m[1] === 'unless' || m[1] === 'guard';
       if (m[1] === 'guard') cond = cond.replace(/\s+else\b[^]*$/, '');
@@ -1078,6 +1129,13 @@ function sayLessList(list, ctx, depth, top) {
     if (ended && s.kind === 'return' && /^Stops here$/.test(String(s.says)) && /^\s*return\s*;?\s*$/.test(String(s.code ?? ''))) { s.explained = true; continue; }
     if (ended && /^Defines (?:a helper|how)\b/.test(String(s.says))) ended = false;
     if (ended) { regionAsCode(s, WHY.structure); continue; }
+    // An `else` / `catch` / `finally` read as a step of its own: the block before it was misread.
+    if (/^\s*\}?\s*(?:else|elseif|elsif|elif|catch|finally|rescue|ensure)\b(?!\s*(?:->|=>|:\s*$))/.test(String(s.code ?? '')) && s.kind !== 'branch' && s.kind !== 'check' && !s.caseLabel) {
+      regionAsCode(s, WHY.structure);
+      const prev = list[i - 1];
+      if (prev && prev.kind === 'branch' && prev.explained !== false) regionAsCode(prev, WHY.structure);
+      continue;
+    }
     // Blocks first: when their structure is uncertain, the whole region is code.
     if (isBlock(s) && structureProblem(s, ctx.lang, ctx.lines)) {
       const empty = s.kind === 'branch' && !s.children?.length && !s.otherwise?.length;
@@ -1099,6 +1157,9 @@ function sayLessList(list, ctx, depth, top) {
       else s.explained = true;
     } else {
       s.explained = false;
+      const before = s.code;
+      exactCode(s);
+      if (s.code !== before && (s.kind === 'other' || s.restates)) s.says = asCodeWords(s.code);
       if (!s.notExplainedWhy) s.notExplainedWhy = s.restates && s.kind === 'return' && s.expr && s.expr.kind !== 'code' ? WHY.form : s.expr?.kind === 'code' ? WHY.unparsed : WHY.form;
     }
     // The last thing a function does: the last step, and (inside it) the last step of each of its sides and cases.
@@ -1108,7 +1169,7 @@ function sayLessList(list, ctx, depth, top) {
     const armsLast = s.kind === 'branch' && lastPath;
     const inner = { ...ctx, lastPath, armsLast, exprValue: ctx.exprValue || valueOf, ...(valueTarget(s) ? { valueTarget: valueTarget(s) } : {}) };
     // An inner function (a callback, a lambda) is a function of its own: its last step is its own value.
-    if (s.children) sayLessList(s.children, s.nested ? { ...ctx, lastPath: false, armsLast: false, exprValue: false } : inner, depth + 1, !!s.nested);
+    if (s.children) sayLessList(s.children, s.nested ? { ...ctx, lastPath: false, armsLast: false, exprValue: false, inLambda: true } : inner, depth + 1, !!s.nested);
     if (s.otherwise) sayLessList(s.otherwise, inner, depth + 1, false);
     for (const h of s.handlers || []) sayLessList(h.steps, inner, depth + 1, false);
     if (s.always) sayLessList(s.always.steps, { ...ctx, lastPath: false }, depth + 1, false);
@@ -1124,6 +1185,30 @@ function markOnly(list) {
   for (const s of everyStep(list)) {
     if (alreadyCode(s)) { s.explained = false; s.notExplainedWhy ??= WHY.form; } else s.explained = true;
   }
+}
+
+/**
+ * True when a condition is certainly yes or no: comparisons, negations, yes/no values, calls named as questions
+ * (is…, has…, can…), and and/or of those. In JavaScript, TypeScript, Python, and Ruby `a || b` gives back a or b, so
+ * an and/or of plain values is not a yes/no answer there.
+ */
+export function certainlyYesNo(text, lang) {
+  const valueLogic = /^(?:javascript|typescript|python|ruby)$/.test(lang);
+  const t = parseExpr(String(text ?? ''), lang);
+  // (Where and/or always give back yes or no, a condition the tree reader cannot parse keeps the reader's call.)
+  if (!t) return !valueLogic;
+  const yesNo = (n) => {
+    if (!n) return false;
+    switch (n.kind) {
+      case 'compare': case 'chain': case 'not': return true;
+      case 'literal': return n.type === 'bool';
+      case 'logic': return valueLogic ? n.operands.every(yesNo) : true;
+      case 'call': { const name = n.callee?.kind === 'member' ? n.callee.property : n.callee?.name; return /^(?:is|has|can|should|does|did|was|are|needs?|contains|includes|exists|matches|equals|starts|ends|any|all|every|some|isinstance|is_a\?|kind_of\?|[a-z_]+\?)/i.test(String(name ?? '')) || /\?$/.test(String(name ?? '')); }
+      case 'name': case 'member': { const w = n.kind === 'name' ? n.name : n.property; return !valueLogic && /^(?:is|has|can|should)[A-Z_]/.test(String(w)); }
+      default: return false;
+    }
+  };
+  return yesNo(t);
 }
 
 /** Inputs: only names written as parameters in the function's own signature, never a macro, type, or lifetime. */
@@ -1162,8 +1247,13 @@ export function sayLess(reading, source) {
     if (!it.steps?.length) continue;
     // SQL is read by its own reader, which already shows what its gate cannot account for as code (sql-proc.mjs):
     // its steps are only marked here.
+    currentLines = lines; currentLang = lang;
     if (lang === 'sql' || INFRA.has(lang)) markOnly(it.steps);
-    else sayLessList(it.steps, { lang, lines, helperExits }, 0, true);
+    else {
+      const ownNames = new Set((it.inputs || []).map((p) => String(p.name).replace(/^[$@&*]+/, '')));
+      for (const s of everyStep(it.steps)) { const e = s.expr; const t = e?.kind === 'assign' && e.declare ? e.target : null; if (t?.kind === 'name') ownNames.add(t.name); }
+      sayLessList(it.steps, { lang, lines, helperExits, ownNames, singleTop: it.steps.length === 1 }, 0, true);
+    }
     let total = 0, explained = 0;
     for (const s of everyStep(it.steps)) { total++; if (s.explained !== false) explained++; }
     it.totalSteps = total;

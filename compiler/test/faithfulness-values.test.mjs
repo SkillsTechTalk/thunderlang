@@ -52,7 +52,8 @@ test('#165 / #178 a returned `a && b` / `a || !b` keeps every part; a C# local f
   assert.match(t, /Gives back whether how many segments is 3 and segments\[2\]\.Length is SignatureLength/);
   assert.doesNotMatch(t, /Calls static/);
   assert.match(t, /Defines a helper, is base64 url char/);
-  assert.match(t, /`return c is >= 'A' and <= 'Z' or '-' or '_';` \(code, not explained\)/, 'a C# pattern the words cannot keep is code');
+  // (Say less: a step shown as code shows the source as written, not the reader's `return …` copy.)
+  assert.match(t, /`c is >= 'A' and <= 'Z' or '-' or '_';` \(code, not explained\)/, 'a C# pattern the words cannot keep is code');
   const s = thunderText('B.cs', 'class S {\n    private static bool RequiresExplicitClosing(Type a, Type b)\n    {\n        var interfaces = Get(a, b);\n        if (interfaces.Length == 0) return false;\n        return interfaces.Length > 1\n            || !interfaces[0].GetGenericArguments().SequenceEqual(a.GetGenericArguments());\n    }\n}\n');
   assert.match(s, /Gives back whether how many interfaces is more than 1 or not interfaces\[0\]/);
 });
