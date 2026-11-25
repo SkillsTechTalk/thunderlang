@@ -1,3 +1,7 @@
+# Unreleased
+
+- **Fix (writing in Thunder):** an inline route handler's own model id (`auth.ts##POST/api/auth/register#3`) now resolves in `thunderWrite`, and `says` names only the changed step, once, when a one-line `if` holds several steps. Reported by OpenThunder.
+
 # 1.0.4
 
 - **Fix: no false readings left in the fresh audit outside SQL.** An independent review of 1.0.3 on 32 repositories
