@@ -4,14 +4,15 @@
 //
 // Honesty rule: a capability is only "available" if it ships in the compiler and is tested.
 // "experimental" = shipped but inferred/incomplete. "concept-preview" = demonstrable but not a
-// contract. "planned" = designed, not built.
+// contract. "coming" = being built now, not usable yet. "planned" = designed, not built.
 
-export type CapabilityStatus = "available" | "experimental" | "concept-preview" | "planned";
+export type CapabilityStatus = "available" | "experimental" | "concept-preview" | "coming" | "planned";
 
 export const STATUS_LABEL: Record<CapabilityStatus, string> = {
   available: "Available",
   experimental: "Experimental",
   "concept-preview": "Concept preview",
+  coming: "Coming",
   planned: "Planned",
 };
 
@@ -20,6 +21,7 @@ export const STATUS_STYLE: Record<CapabilityStatus, string> = {
   available: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   experimental: "border-gold-400/30 bg-gold-400/10 text-gold-300",
   "concept-preview": "border-sky-400/30 bg-sky-400/10 text-sky-300",
+  coming: "border-dashed border-gold-300/50 bg-transparent text-gold-200",
   planned: "border-white/15 bg-white/5 text-haze-400",
 };
 
@@ -46,10 +48,13 @@ export const CAPABILITIES: Capability[] = [
   { key: "editor", name: "Editor + Language Server", status: "available", blurb: "thunder lsp gives diagnostics, completion, and hover over LSP, with a VS Code extension in editors/vscode." },
   { key: "mcp", name: "MCP server for AI agents", status: "available", blurb: "thunder mcp exposes check, lift, verify-diff, prove, conform, and drift so an agent can drive the verify-real-code loop." },
   { key: "thunderVisual", name: "Thunder visual decisions", status: "experimental", blurb: "Read, ask, and change a decision as a Thunder picture at /try; every edit reruns its examples. One decision per contract for now." },
-  { key: "thunderedRead", name: "Thunder read (Thundered code)", status: "experimental", blurb: "Read a file or folder of TypeScript, Python, Go, Rust, C#, Java, Kotlin, PHP, or Ruby in Thunder at /read. The original code stays the source of truth." },
+  { key: "thunderedRead", name: "Thunder read (Thundered code)", status: "available", blurb: "Read a file or folder in Thunder at /read, with thunder read, or in OpenThunder: seventeen programming languages (compiler/src/read.mjs READ_LANGUAGES, every one marked available in THUNDER_VISUAL.languages) plus six infrastructure formats. The original code stays the source of truth." },
   { key: "codeToIntent", name: "Code to candidate intent", status: "experimental", blurb: "thunder lift infers a humble .thunder draft from 14 languages (TypeScript, Python, Java, C#, Go, Rust, Kotlin, Scala, Elixir, and more); always human-reviewed." },
   { key: "visualAtlas", name: "Visual Intent Atlas", status: "experimental", blurb: "An interactive map ships at /atlas (lifted-intent + proof-status views); the CLI graph (thunder atlas / index) is available today." },
-  { key: "thunderedEdit", name: "Thunder write", status: "experimental", blurb: "thunder write changes a number, comparison, text value, or answer in a recovered rule, writes only those characters back, and checks the result by reading the file again. On Read in Thunder, Change a rule does the same on the page's copy of the code, with Undo. Shape changes stay Propose rule change." },
+  { key: "thunderedEdit", name: "Thunder write", status: "available", blurb: "Change existing code in Thunder: thunder write writes and proves the patch itself for TypeScript, JavaScript, Python, and Go (compiler/src/write-steps.mjs WRITE_STEPS_LANGUAGES); other languages get an instruction for an AI agent, and its result is labeled AI-written and checked the same way. At the rule level, thunder write changes a number, comparison, text value, or answer in a recovered rule, writes only those characters back, and checks the result by reading the file again. On Read in Thunder, Change a rule does the same on the page's copy of the code, with Undo. Shape changes stay Propose rule change." },
+  { key: "decisionTargets", name: "Decisions and rules compiled to six languages", status: "available", blurb: "A decision written in Thunder compiles to TypeScript, Python, Go, Rust, C#, and Java (src/lib/thunder-compile.ts RULE_TARGETS), and thunder test --target runs it for real in nine languages." },
+  { key: "thunderCore", name: "Thunder Core: whole programs written in Thunder", status: "coming", blurb: "Write a complete program in Thunder, not only its rules, and compile it. Being built now, Python first. Not available yet." },
+  { key: "coreTargets", name: "Thunder Core compiled to Java, C#, TypeScript, Go, and Rust", status: "planned", blurb: "After Python, the same Thunder Core programs compile to the other ecosystems. Designed, not built." },
   { key: "intentEngine", name: "Intent Engine (AI assist)", status: "planned", blurb: "Optional, traced, human-approved prompt-to-intent and generation. Deterministic core needs no model." },
 ];
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/readme-hero.svg" alt="Introducing the Thunder programming language, also called ThunderLang. Programming, made human. AI can write the code; humans should understand it." width="100%">
+  <img src="docs/assets/readme-hero.svg" alt="Thunder, the Human-Native Programming Language, also called ThunderLang. The Human Programming Language. One language. Every ecosystem. Write software in a language you understand. Build with AI. Compile to the ecosystem you choose. Beside it, what works today: a refund rule read in Thunder." width="100%">
 </p>
 
 <p align="center">
@@ -11,20 +11,42 @@
   <a href="https://app.skillstechtalk.com/learn/technology/t/thunderlang"><img alt="Learn ThunderLang: the full course" src="https://img.shields.io/badge/learn-the%20full%20course-F472B6"></a>
 </p>
 
-# Thunder™: programming, made human
+# Thunder™: The Human Programming Language
 
-**Thunder™ (also called ThunderLang™) is a visual language for reading and changing the rules in software.**
-AI can write the code; humans should understand it. Thunder shows a rule as a picture you can read, ask, and
-change, and a real compiler checks it, runs its examples, and turns it into the code you ship. Think Go and
-Golang: one language, two names.
+**One language. Every ecosystem.**
 
-> **AI should handle the complexity of writing software. Humans should keep the clarity and control to understand it.**
+**Thunder™ (also called ThunderLang™) is the human-native programming language.** Write software in a language you
+understand. Build with AI. Compile to the ecosystem you choose. Think Go and Golang: one language, two names.
+
+> **Humans should not have to learn a new programming language every time they want to use a different technology.**
+> Our north star: read anything, write once, run anywhere. ([The Thunder Manifesto](./docs/manifesto.md))
+
+Thunder is designed to work in both directions: read existing software in Thunder, or create new software directly
+in Thunder. AI helps build; the open-source Thunder compiler preserves precision; people keep understanding and
+control.
+
+### What works today, and what is coming
+
+Each compilation capability is advertised only once it works.
+
+| Capability | Status |
+|---|---|
+| **Read** existing code in Thunder: 17 languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available |
+| **Change** existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available |
+| **Compile rules**: decisions written in Thunder compile to TypeScript, Python, Go, Rust, C#, and Java, and their examples run against the generated code | Available |
+| **Write whole programs** in Thunder (Thunder Core), compiled to Python first | Coming |
+| **Compile Thunder Core** to Java, C#, TypeScript, Go, and Rust | Planned |
+
+Thunder is not yet a general-purpose programming language: until Thunder Core ships, you write rules in Thunder and
+read and change everything else.
+
+**Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
+AI-written code.** Like Python and PyCharm: Thunder stands on its own, and OpenThunder is the IDE built for it.
 
 **Learn Thunder:** start with the [10-minute tutorial](https://thunderlang.dev/learn), then take the
 [full ThunderLang course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
 
-Today Thunder covers decisions and business rules (refunds, access, pricing, eligibility). It is not yet a
-general-purpose programming language.
+*Thunder. Programming, made human.*
 
 ## Read it. Understand it. Change it.
 
@@ -97,7 +119,7 @@ compiler is built in.
 | **Change** | **Thunder write**: change the picture; OpenThunder patches and checks the original code | Planned |
 | **Verify** | Every change, by a person or an AI, checked against your rules before it merges | Available |
 
-Until Thunder write ships, a Thundered rule offers **Propose rule change**, never "Update code". Nothing is ever
+Until Thunder write ships in OpenThunder, a Thundered rule there offers **Propose rule change**, never "Update code". Nothing is ever
 transformed silently.
 
 ## Thunder Text, the compiler, and the CLI

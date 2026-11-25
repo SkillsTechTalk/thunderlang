@@ -7,16 +7,16 @@
 export const siteConfig = {
   name: "Intent",
   wordmark: "ThunderLang",
-  tagline: "Thunder. Programming, made human",
+  tagline: "Thunder. The Human Programming Language",
   builtBy: "SkillsTech",
   // Production base URL. Override locally with NEXT_PUBLIC_SITE_URL if needed.
   url:
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://thunderlang.dev",
   description:
-    "Thunder (also called ThunderLang) is the human-native programming language: AI can write the code, and Thunder shows what it does in pictures and plain words, checked by an open-source compiler. Read, learn, change, and verify software in Thunder.",
+    "Thunder (also called ThunderLang) is the human programming language. Write software in a language you understand, build with AI, and compile to the ecosystem you choose. Today Thunder reads code in seventeen languages and compiles rules to six; writing whole programs in Thunder is coming, Python first.",
   promise:
-    "Write what your software should do. Let AI and the compiler help determine how to build it, verify it, and keep it understandable.",
+    "Write software in a language you understand. Build with AI. Compile to the ecosystem you choose.",
   twitter: "@skillstech",
   keywords: [
     "Thunder programming language",
@@ -24,6 +24,8 @@ export const siteConfig = {
     "ThunderLang",
     "Thunder",
     "human-native programming language",
+    "human programming language",
+    "one language every ecosystem",
     "visual programming language",
     "learn Thunder",
     "Intent programming language",
@@ -60,6 +62,7 @@ export const learnNav: NavItem[] = [
   { href: "/learn", label: "Tutorial" },
   { href: LEARN_COURSE_URL, label: "Full course ↗" },
   { href: "/zoom", label: "Semantic Zoom (preview)" },
+  { href: "/manifesto", label: "Manifesto" },
   { href: "/vision", label: "Vision" },
   { href: "/architecture", label: "Architecture" },
   { href: "/docs/thunder-vocabulary", label: "Thunder vocabulary" },
