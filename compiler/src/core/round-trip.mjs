@@ -33,7 +33,7 @@ def norm(v):
         return [norm(x) for x in v]
     if isinstance(v, dict):
         return {"map": [[norm(k), norm(x)] for k, x in v.items()]}
-    if isinstance(v, O):
+    if isinstance(v, O) or hasattr(v, "__dict__"):
         return {"record": {k: norm(x) for k, x in sorted(vars(v).items())}}
     return {"other": repr(v)}
 
@@ -46,12 +46,25 @@ def call(fn, args):
     except Exception as e:
         return {"value": None, "printed": out.getvalue(), "error": str(e), "kinds": [c.__name__ for c in type(e).__mro__]}
 
+def python_fn(args):
+    kind = plan.get("kind", "function")
+    if kind == "method":          # obj.method(rest): the object is the first input
+        return lambda *a: getattr(a[0], plan["python"])(*a[1:])
+    if kind == "static":
+        return getattr(getattr(orig, plan["cls"]), plan["python"])
+    return getattr(orig, plan["python"])
+
+env = {"O": O, **{k: v for k, v in vars(orig).items() if not k.startswith("__")}}
 results = []
 for case in plan["inputs"]:
-    args = eval("(" + case + ",)", {"O": O})
-    a = call(getattr(orig, plan["python"]), args)
-    args = eval("(" + case + ",)", {"O": O})
+    args = eval("(" + case + ",)", env)
+    a = call(python_fn(args), args)
+    if plan.get("kind") == "method":
+        a["after"] = norm(args[0])
+    args = eval("(" + case + ",)", env)
     b = call(getattr(core, plan["core"]), args)
+    if plan.get("kind") == "method":
+        b["after"] = norm(args[0])
     results.append({"input": case, "python": a, "core": b})
 print(json.dumps(results))
 `;
@@ -98,12 +111,17 @@ function samePrinted(a, b) {
  * { python: source, core: Thunder Core text, name: python function name, inputs: ['150, True', …] }
  * Gives back { ran, error?, cases: [{ input, same, tolerance, why?, python, core }] }.
  */
-export function verifyRoundTrip({ python, core, name, inputs }) {
+export function verifyRoundTrip({ python, core, name, inputs, coreFunction = null, kind = 'function', cls = null }) {
   const py = findPython();
   if (py.error) return { ran: false, error: `Python 3.10+ is needed to check by running: ${py.error}`, cases: [] };
   const compiled = compileCore(core, { file: `${name}.thunder` });
   if (compiled.diagnostics.length) return { ran: false, error: `The Core does not compile: ${compiled.diagnostics[0].message}`, cases: [] };
-  const coreName = /^def (\w+)\(/m.exec(compiled.python.split('\n').filter((l) => !l.startsWith('    ')).join('\n').replace(/^def (main|_\w+)\(.*$/gm, ''))?.[1];
+  // The compiled function: the def whose "# thunder:N" marks the "To <coreFunction>:" line (else the first def).
+  let coreName;
+  if (coreFunction) {
+    const line = core.split('\n').findIndex((l) => l === `To ${coreFunction}:`) + 1;
+    coreName = line ? new RegExp(`^def (\\w+)\\(.*# thunder:${line}$`, 'm').exec(compiled.python)?.[1] : undefined;
+  } else coreName = /^def (\w+)\(/m.exec(compiled.python.split('\n').filter((l) => !l.startsWith('    ')).join('\n').replace(/^def (main|_\w+)\(.*$/gm, ''))?.[1];
   if (!coreName) return { ran: false, error: 'The compiled Core has no function to call', cases: [] };
   const dir = mkdtempSync(join(tmpdir(), 'thunder-roundtrip-'));
   try {
@@ -111,7 +129,7 @@ export function verifyRoundTrip({ python, core, name, inputs }) {
     writeFileSync(join(dir, 'from_core.py'), compiled.python);
     writeFileSync(join(dir, 'thunder_runtime.py'), PYTHON_RUNTIME);
     writeFileSync(join(dir, 'harness.py'), HARNESS);
-    writeFileSync(join(dir, 'plan.json'), JSON.stringify({ python: name, core: coreName, inputs }));
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({ python: name, core: coreName, inputs, kind, cls }));
     const r = spawnSync(py.cmd, ['harness.py', 'plan.json'], { cwd: dir, encoding: 'utf8', timeout: 30000, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
     if (r.status !== 0) return { ran: false, error: `The check did not run: ${(r.stderr || r.error?.message || '').trim().split('\n').at(-1)}`, cases: [] };
     const cases = JSON.parse(r.stdout).map((c) => {
@@ -121,9 +139,11 @@ export function verifyRoundTrip({ python, core, name, inputs }) {
       // ZeroDivisionError too). The messages may be worded differently; both are shown.
       const pk = c.python.kinds?.[0];
       const err = (c.python.error == null) === (c.core.error == null) && (c.python.error == null || c.core.error.includes(c.python.error) || c.python.error.includes(c.core.error) || (pk && pk !== 'Exception' && (c.core.kinds || []).includes(pk)));
-      const same = v.same && p.same && err;
-      const why = same ? undefined : !err ? `errors differ (Python: ${c.python.error ?? 'none'}; Core: ${c.core.error ?? 'none'})` : !v.same ? 'the values given back differ' : 'what was printed differs';
-      return { input: c.input, same, tolerance: v.tolerance || p.tolerance, ...(why ? { why } : {}), python: c.python, core: c.core };
+      // A method may change its object: the object afterwards must match too.
+      const after = kind === 'method' ? sameValue(c.python.after, c.core.after) : { same: true, tolerance: false };
+      const same = v.same && p.same && err && after.same;
+      const why = same ? undefined : !err ? `errors differ (Python: ${c.python.error ?? 'none'}; Core: ${c.core.error ?? 'none'})` : !v.same ? 'the values given back differ' : !after.same ? 'the object is different afterwards' : 'what was printed differs';
+      return { input: c.input, same, tolerance: v.tolerance || p.tolerance || after.tolerance, ...(why ? { why } : {}), python: c.python, core: c.core };
     });
     return { ran: true, cases };
   } finally { rmSync(dir, { recursive: true, force: true }); }

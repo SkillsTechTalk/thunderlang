@@ -30,6 +30,141 @@ Assumptions written next to the Core (kept only for some inputs, never hidden): 
 condition (`if member:`) is printed as `member is true`, and the compiled Core stops with an error if the value is
 not yes/no, where Python would quietly treat 1, "x", or a non-empty list as true.
 
+## Methods
+
+A method is printed as a Core function that receives the object first (Core has functions and records, not
+methods): `Account.deposit(self, amount)` becomes `To Account deposit:` with `Receive self and amount`, and
+`self.can_withdraw(x)` becomes `Account can withdraw with self and x` (written down as an assumption: a subclass
+could replace it). Special methods such as `__len__` change how Python treats the object and are not translated.
+Each method is run next to the original, and the object afterwards is compared too.
+
+| Class | Methods printed exactly | Same results as the original (object afterwards included) |
+| --- | --- | --- |
+| `Account` | 6 of 6 | <!-- round trip: run by the script when Python 3.10+ is installed --> 6 of 6 methods, 12 of 12 inputs (1 within 1e-9: Python float, Core exact) <!-- /round trip --> |
+| `Cart` | 4 of 5 (not: `__len__`) | <!-- round trip: run by the script when Python 3.10+ is installed --> 4 of 4 methods, 7 of 7 inputs <!-- /round trip --> |
+
+### `Account`
+
+```python
+class Account:
+    rate = 0.02
+
+    def __init__(self, owner, balance):
+        self.owner = owner
+        self.balance = balance
+
+    def deposit(self, amount):
+        if amount <= 0:
+            raise ValueError("amount must be positive")
+        self.balance += amount
+        return self.balance
+
+    def can_withdraw(self, amount):
+        return amount <= self.balance
+
+    def withdraw(self, amount):
+        if not self.can_withdraw(amount):
+            raise ValueError("insufficient")
+        self.balance -= amount
+
+    def interest(self):
+        return self.balance * self.rate
+
+    @staticmethod
+    def fee(amount):
+        return amount * 0.01
+```
+
+Printed as Core:
+
+```text
+To Account set up:
+  Receive self, owner and balance
+  Set self's owner to owner
+  Set self's balance to balance
+
+To Account deposit:
+  Receive self and amount
+  When amount is at most 0:
+    Stop with "amount must be positive"
+  Set self's balance to self's balance + amount
+  Give self's balance
+
+To Account can withdraw:
+  Receive self and amount
+  Give amount is at most self's balance
+
+To Account withdraw:
+  Receive self and amount
+  When not ((Account can withdraw with self and amount) is true):
+    Stop with "insufficient"
+  Set self's balance to self's balance - amount
+
+To Account interest:
+  Receive self
+  Give self's balance * self's rate
+
+To Account fee:
+  Receive amount
+  Give amount * 0.01
+```
+
+- `withdraw` assumes: self.can_withdraw() is read as Account's own can_withdraw; a subclass that replaces it would run its own version.
+- `withdraw` assumes: Account can withdraw with self and amount is read as yes/no (Python would also accept other values here); Core stops with an error if it is not yes/no.
+
+### `Cart`
+
+```python
+class Cart:
+    def __init__(self):
+        self.items = []
+
+    def add(self, item):
+        self.items.append(item)
+
+    def total(self):
+        total = 0
+        for item in self.items:
+            total += item.price
+        return total
+
+    def is_empty(self):
+        return len(self.items) == 0
+
+    def __len__(self):
+        return len(self.items)
+```
+
+Printed as Core:
+
+```text
+To Cart set up:
+  Receive self
+  Set self's items to []
+
+To Cart add:
+  Receive self and item
+  Add item to self's items
+
+To Cart total:
+  Receive self
+  Set total to 0
+  For each item in self's items:
+    Increase total by item's price
+  Give total
+
+To Cart_is_empty:
+  Receive self
+  Give (the count of self's items) is 0
+
+To Cart_len:
+  Receive self
+  # Not translated (line 17): __len__ is a special method: it changes how Python treats the object (operators, printing, comparing), which Core cannot say
+  Stop with "__len__ was not translated from Python: __len__ is a special method: it changes how Python treats the object (operators, printing, comparing), which Core cannot say"
+```
+
+- `__len__` not translated: __len__ is a special method: it changes how Python treats the object (operators, printing, comparing), which Core cannot say.
+
 ## The reader's English (Thunder Text)
 
 Thunder Text describes code for people ("Sets total to 0"); it is not meant to compile. These numbers show how far
@@ -447,7 +582,7 @@ Printed as Core by `thunder read --as-core` (exact):
 ```text
 To average:
   Receive numbers
-  Give the sum of numbers / the count of numbers
+  Give (the sum of numbers) / (the count of numbers)
 ```
 
 <!-- round trip: run by the script when Python 3.10+ is installed -->
@@ -1020,7 +1155,7 @@ Printed as Core by `thunder read --as-core` (exact):
 ```text
 To is_empty_cart:
   Receive cart
-  Give the count of cart is 0
+  Give (the count of cart) is 0
 ```
 
 <!-- round trip: run by the script when Python 3.10+ is installed -->

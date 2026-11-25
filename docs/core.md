@@ -285,7 +285,23 @@ A function with such a line is **not safe to edit**. `--as-core` says so on stde
 - Tuples outside `in`.
 - Decorators.
 - A function passed as a value: in Core, writing a function's name calls it.
-- Methods and inner functions: Core has records and functions, not methods yet.
+- Special methods (`__len__`, `__eq__`, `__repr__`, …), inner functions, and methods of nested classes.
+
+**Methods.** A method of a class becomes a Core function that receives the object first. Core has functions and
+records, not methods:
+
+```python
+class Account:                          To Account withdraw:
+    def withdraw(self, amount):           Receive self and amount
+        if not self.can_withdraw(amount):    When not ((Account can withdraw with self and amount) is true):
+            raise ValueError("insufficient")   Stop with "insufficient"
+        self.balance -= amount             Set self's balance to self's balance - amount
+```
+
+`self.can_withdraw(x)` is printed as `Account`'s own `can withdraw`. That is written down as an assumption: Python
+picks the method when it runs, so a subclass could replace it. A static method is printed as a plain function.
+`__init__` is printed as `<Class> set up`. A `self.other()` that this class does not define (it may come from a
+parent class) is not translated.
 
 **Assumptions are written down, never hidden.** Python `if member:` is printed as `member is true`. The compiled
 Core checks that `member` really is yes/no when it runs (rule 6 above). `xs[0]` is printed as `xs at 1`, and the

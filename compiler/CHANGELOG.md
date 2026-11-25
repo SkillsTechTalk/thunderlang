@@ -1,5 +1,16 @@
 # Unreleased
 
+- **Methods read as Core.** `thunder read <file.py> --as-core` now prints each method of a class as a Core function
+  that receives the object first (`To Account withdraw:` / `Receive self and amount`). `self.other()` calls that
+  class's own function, and this is written down as an assumption, since a subclass could replace it. Static methods
+  are printed as plain functions. Special methods, inner functions, and `self.other()` calls the class does not
+  define are refused. The round trip now runs methods too, and compares the object afterwards. Benchmark:
+  `Account` 6 of 6 and `Cart` 4 of 5 methods printed exactly, all giving the same results. On 150 real Python
+  files, exact functions rose from 66 to 236 (3% to 12%), and every file's Core still compiles.
+- **Fix (Core): changing a field or an entry whose kind is not known.** `Add 3 to box's items`, `Increase box's count
+  by 1`, and `Set xs at 1 to v` on a value from Python compiled to invalid Python (`get_field(...) = …`) or set the
+  wrong list position (`xs[1]` for Core's position 1). They now read and store through the same helpers as `Set`.
+  Reading `pair at 1` works on a Python tuple.
 - **Read Python as Thunder Core: reading and writing are one language.** `thunder read <file.py> --as-core` prints
   the reader's meaning tree as Core you can edit, compile, and run. It never prints from the English. A line Core
   cannot say with the same meaning becomes `# Not translated (line N): <why>` plus a `Stop with` line. Such a

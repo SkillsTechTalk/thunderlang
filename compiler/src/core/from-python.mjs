@@ -33,6 +33,16 @@ export function coreName(id) {
   return RESERVED.has(lower) || STATEMENT_START.has(lower) ? `${id}_` : id;
 }
 
+/** A method's Core name: the class, then the method ("Account deposit"); __init__ is "set up". */
+export function methodName(cls, method) {
+  // Inside a name that starts with the class, a word like "add" cannot start a statement; only Thunder's own words
+  // ("is", "of", "to") are kept out.
+  const words = String(method).split('_').filter(Boolean);
+  const m = method === '__init__' ? 'set up' : words.length && !method.startsWith('_') && words.every((w) => /^[A-Za-z][A-Za-z0-9]*$/.test(w) && !RESERVED.has(w.toLowerCase())) ? words.join(' ') : coreName(method);
+  const c = coreName(cls);
+  return /^[A-Za-z]+( [A-Za-z]+)*$/.test(`${c} ${m}`) ? `${c} ${m}` : `${cls}_${method.replace(/^_+|_+$/g, '')}`;
+}
+
 /** Text as a Core text literal: quotes, backslashes, and braces escaped ({ starts a hole in Core text). */
 export const coreText = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\{/g, '{{').replace(/\n/g, '\\n').replace(/\t/g, '\\t')}"`;
 
@@ -42,7 +52,8 @@ const isName = (e, n) => e?.kind === 'name' && (n === undefined || e.name === n)
 const lit = (e) => (e?.kind === 'literal' ? e : null);
 // A value needs no parentheses when it is one thing: a number, a text, a name (words), or a field chain (o's a's b).
 const ATOM = /^(-?\d[\d.]*|"(?:[^"\\]|\\.)*"|[A-Za-z_]\w*(?: [A-Za-z_]\w*)*(?:'s [A-Za-z_]\w*)*|\((?:[^()]|\([^()]*\))*\)|\[(?:[^[\]"]|"(?:[^"\\]|\\.)*")*\])$/;
-const paren = (s) => (ATOM.test(s) ? s : `(${s})`);
+// (A run of words is one name only when none of them belongs to Thunder: "price of item with tax" is not a name.)
+const paren = (s) => (ATOM.test(s) && !(/^[A-Za-z_]/.test(s) && s.split(/ |'s /).some((w) => RESERVED.has(w.toLowerCase()))) ? s : `(${s})`);
 
 /**
  * Print Python source as Thunder Core.
@@ -53,9 +64,36 @@ export function pythonToCore(source) {
   const reading = readCode(source, { language: 'python', allSteps: true, sayEverything: true });
   const srcLines = String(source).split('\n');
   const all = reading.items.filter((i) => (i.kind === 'function' || i.kind === 'decision') && Array.isArray(i.steps));
-  // A method or an inner function is not a Core function: it is listed, as a comment, not printed as "To …:".
-  const nested = all.filter((i) => /^\s/.test(srcLines[i.line - 1] ?? ''));
-  const fns = all.filter((i) => !nested.includes(i));
+  // A method of a top-level class becomes a Core function that receives the object first (Core has functions, not
+  // methods): Account.deposit(self, amount) → "To Account deposit:" with "Receive self and amount". An inner function,
+  // or a method of a nested class, is not translated: it is listed as a comment.
+  const indentOf = (t) => /^\s*/.exec(t)[0].length;
+  const classOf = (item) => {
+    const own = indentOf(srcLines[item.line - 1] ?? '');
+    for (let i = item.line - 2; i >= 0; i--) {
+      const t = srcLines[i];
+      if (!t.trim() || /^\s*(#|@)/.test(t) || indentOf(t) >= own) continue;
+      const m = /^class\s+([A-Za-z_]\w*)\s*(?:\(([^)]*)\))?\s*:/.exec(t);
+      return m ? { name: m[1], bases: (m[2] ?? '').split(',').map((b) => b.trim()).filter((b) => b && b !== 'object') } : null;
+    }
+    return null;
+  };
+  const methodsByClass = new Map();
+  const nested = [];
+  const fns = [];
+  for (const item of all) {
+    if (!/^\s/.test(srcLines[item.line - 1] ?? '')) { fns.push(item); continue; }
+    const cls = classOf(item);
+    const decorators = [];
+    for (let i = item.line - 2; i >= 0 && /^\s*(@|#)/.test(srcLines[i]); i--) if (/^\s*@/.test(srcLines[i])) decorators.push(srcLines[i].trim());
+    // A static method has no self, and Account.fee(x) means the same as a plain function: it is printed as one.
+    const isStatic = decorators.includes('@staticmethod');
+    const self = isStatic ? null : /\bdef\s+\w+\s*\(\s*([A-Za-z_]\w*)/.exec(srcLines[item.line - 1] ?? '')?.[1];
+    if (!cls || (!self && !isStatic)) { nested.push(item); continue; }
+    const m = { ...item, inputs: [...(self ? [{ name: self, type: null }] : []), ...(item.inputs || [])], method: { cls: cls.name, bases: cls.bases, self, name: item.name, isStatic } };
+    (methodsByClass.get(cls.name) ?? methodsByClass.set(cls.name, new Map()).get(cls.name)).set(item.name, m);
+    fns.push(m);
+  }
   // Functions and values share one set of names in Core. A function whose name is also a value somewhere in the file
   // (an input, a variable, a module value) is renamed "<name> function", and every call to it follows. Core names
   // ignore case (MARKET and market are one name), so every comparison here is in lower case.
@@ -88,12 +126,12 @@ export function pythonToCore(source) {
   const own = new Map();
   const taken = new Set();
   for (const f of fns) {
-    let n = coreName(f.name);
+    let n = f.method ? methodName(f.method.cls, f.name) : coreName(f.name);
     if (valueNames.has(n.toLowerCase())) n = /^[A-Za-z]+( [A-Za-z]+)*$/.test(n) ? `${n} function` : `${n}_function`;
     // Python lets a later def replace an earlier one; in Core each gets its own name.
     for (let k = 2; taken.has(n.toLowerCase()); k++) n = `${n.replace(/_\d+$/, '')}_${k}`;
     taken.add(n.toLowerCase());
-    if (!own.has(f.name)) own.set(f.name, n);
+    if (!f.method && !own.has(f.name)) own.set(f.name, n);
     f.coreName = n;
   }
   const lines = String(source).split('\n');
@@ -113,7 +151,7 @@ export function pythonToCore(source) {
     }
   });
   if (kept.length) out.push(...kept, '');
-  const printed = fns.map((f) => new FunctionPrinter(f, own, lines, { moduleNames, locals: localsOf.get(f) }).print());
+  const printed = fns.map((f) => new FunctionPrinter(f, own, lines, { moduleNames, locals: localsOf.get(f), classMethods: f.method ? methodsByClass.get(f.method.cls) : null }).print());
   // The printed Core must compile, whatever the Python looked like. A function that does not (a name set only by a
   // line that was not translated, say) keeps what was printed as comments, so a reader still sees it, and its body
   // becomes one Stop line; it is reported as not translated, never as exact.
@@ -136,7 +174,8 @@ export function pythonToCore(source) {
     for (const p of printed) { if (d.line >= at && d.line < at + p.lines.length) { owner = p; break; } at += p.lines.length + 1; }
     if (!owner || owner.commented) break; // nothing more Thunder can do; the diagnostics stay visible
     const [header, ...rest] = owner.lines;
-    const receive = rest[0]?.startsWith('  Receive ') ? [rest.shift()] : [];
+    // Keep the Receive line, unless the problem is on it (then it is shown as a comment too).
+    const receive = rest[0]?.startsWith('  Receive ') && d.line !== at + 1 ? [rest.shift()] : [];
     owner.info.exact = false;
     owner.info.notTranslated.push({ line: null, code: owner.info.name, why: `the printed Core did not compile (${d.message}), so the function is shown as comments` });
     owner.lines = [header, ...receive, ...rest.map((l) => `  # ${l.trimStart().startsWith('#') ? l.trim().replace(/^#\s*/, '') : l.slice(2)}`), `  Stop with ${coreText(`${owner.info.name} was not translated from Python: the printed Core did not compile`)}`];
@@ -150,18 +189,18 @@ export function pythonToCore(source) {
     for (const p of printed) if (p.info.exact) { p.info.exact = false; p.info.notTranslated.push({ line: null, code: p.info.name, why: 'the file as a whole did not compile as Core, so it is shown as comments' }); }
   }
   if (nested.length) {
-    core += `${core.endsWith('\n') || !core ? '' : '\n'}\n# Not translated: ${nested.length} method${nested.length === 1 ? '' : 's'} or inner function${nested.length === 1 ? '' : 's'} (Core has records and functions, not methods or inner functions yet):\n`
+    core += `${core.endsWith('\n') || !core ? '' : '\n'}\n# Not translated: ${nested.length} inner function${nested.length === 1 ? '' : 's'} or method${nested.length === 1 ? '' : 's'} of a nested class (Core has no inner functions yet):\n`
       + nested.map((f) => `#   line ${f.line}: ${f.name}`).join('\n') + '\n';
   }
   for (const p of printed) functions.push(p.info);
-  for (const f of nested) functions.push({ name: f.name, coreName: null, line: f.line, exact: false, notTranslated: [{ line: f.line, code: (srcLines[f.line - 1] ?? '').trim(), why: 'a function inside a class or another function (Core has records and functions, not methods or inner functions yet)' }], assumptions: [] });
+  for (const f of nested) functions.push({ name: f.name, coreName: null, line: f.line, exact: false, notTranslated: [{ line: f.line, code: (srcLines[f.line - 1] ?? '').trim(), why: 'a function inside another function, or a method of a nested class (Core has no inner functions yet)' }], assumptions: [] });
   functions.sort((a, b) => a.line - b.line);
   return { core, functions, module: { notTranslated: top.notTranslated } };
 }
 
 class FunctionPrinter {
-  constructor(fn, own, srcLines, { moduleNames = new Map(), locals = new Set() } = {}) {
-    this.fn = fn; this.own = own; this.src = srcLines; this.moduleNames = moduleNames; this.locals = locals;
+  constructor(fn, own, srcLines, { moduleNames = new Map(), locals = new Set(), classMethods = null } = {}) {
+    this.fn = fn; this.own = own; this.src = srcLines; this.moduleNames = moduleNames; this.locals = locals; this.classMethods = classMethods;
     this.lines = []; this.notTranslated = []; this.assumptions = [];
     this.kinds = new Map(); // name -> 'number' | 'text' | 'list' | 'map' (what this function set it to)
   }
@@ -172,7 +211,11 @@ class FunctionPrinter {
     const params = (f.inputs || []).map((p) => p.name);
     const head = (n, ps) => [`To ${n}:`, ...(ps.length ? [`  Receive ${ps.length === 1 ? coreName(ps[0]) : `${ps.slice(0, -1).map(coreName).join(', ')} and ${coreName(ps.at(-1))}`}`] : [])];
     if (f.stepsMore || (f.totalSteps != null && f.steps.length === 0 && f.totalSteps > 0)) this.notTranslated.push({ line: f.line, code: f.name, why: 'the reader did not list every step of this function' });
-    if (/^\s/.test(this.src[f.line - 1] ?? '')) {
+    if (f.method && /^__\w+__$/.test(f.name) && f.name !== '__init__') {
+      this.notTranslated.push({ line: f.line, code: (this.src[f.line - 1] ?? '').trim(), why: `${f.name} is a special method: it changes how Python treats the object (operators, printing, comparing), which Core cannot say` });
+      return this.refuseWhole(head(name, params), name);
+    }
+    if (!f.method && /^\s/.test(this.src[f.line - 1] ?? '')) {
       this.notTranslated.push({ line: f.line, code: (this.src[f.line - 1] ?? '').trim(), why: 'a function inside a class or another function (Core has records and functions, not methods or inner functions yet)' });
       return this.refuseWhole(head(name, params), name);
     }
@@ -181,10 +224,21 @@ class FunctionPrinter {
       return this.refuseWhole([`To ${name}:`], name);
     }
     for (let i = f.line - 2; i >= 0 && /^\s*(@|#)/.test(this.src[i]); i--) {
-      if (/^\s*@/.test(this.src[i])) { this.notTranslated.push({ line: i + 1, code: this.src[i].trim(), why: 'a decorator changes what this function is (it may cache it, register it, or replace it), which Core cannot say' }); break; }
+      if (/^\s*@/.test(this.src[i]) && !(f.method?.isStatic && this.src[i].trim() === '@staticmethod')) { this.notTranslated.push({ line: i + 1, code: this.src[i].trim(), why: 'a decorator changes what this function is (it may cache it, register it, or replace it), which Core cannot say' }); break; }
     }
-    const defaults = /\bdef\s+\w+\s*\(([^)]*)\)/.exec(this.src[f.line - 1] ?? '')?.[1] ?? '';
-    if (/=/.test(defaults)) this.notTranslated.push({ line: f.line, code: this.src[f.line - 1].trim(), why: 'an input has a default value, which Core does not have yet' });
+    // The signature may run over several lines: read it until its parentheses close.
+    let sig = '';
+    for (let i = f.line - 1, depth = 0, started = false; i < this.src.length; i++) {
+      for (const ch of this.src[i]) {
+        if (ch === '(') { depth++; started = true; } else if (ch === ')') depth--;
+        if (started) sig += ch;
+        if (started && depth === 0) break;
+      }
+      if (started && depth === 0) break;
+      sig += ' ';
+    }
+    // (A default is "name=value" at the top level of the signature, not "=" inside a type like Literal["a"].)
+    if (/[(,]\s*\*{0,2}[A-Za-z_]\w*\s*(?::[^,=]*)?=(?!=)/.test(sig)) this.notTranslated.push({ line: f.line, code: this.src[f.line - 1].trim(), why: 'an input has a default value, which Core does not have yet' });
     this.block(f.steps, 1);
     const exact = this.notTranslated.length === 0;
     const body = this.lines.length ? this.lines : ['  Give nothing'];
@@ -306,10 +360,13 @@ class FunctionPrinter {
       const args = e.args || [];
       if (!args.length) nt('an empty print() prints a blank line, which Core has no form for yet');
       if (args.length === 1) return this.emit(d, `say ${this.value(args[0])}`);
-      return this.emit(d, `say ${coreText('').slice(0, -1)}${args.map((a) => `{${this.value(a)}}`).join(' ')}"`);
+      // print(a, b) separates its values with one space; text written in the call is kept as text.
+      return this.emit(d, `say "${args.map((a) => (lit(a)?.type === 'text' && !a.bytes ? coreText(a.value).slice(1, -1) : `{${this.value(a)}}`)).join(' ')}"`);
     }
-    if (path?.length === 2 && path[1] === 'append' && (e.args || []).length === 1) return this.emit(d, `Add ${this.value(e.args[0])} to ${this.owner(e.callee.object)}`);
+    if (e.callee?.kind === 'member' && e.callee.property === 'append' && (e.args || []).length === 1 && e.args[0].kind !== 'named') return this.emit(d, `Add ${this.value(e.args[0])} to ${this.owner(e.callee.object)}`);
     if (path?.length === 1 && this.own.has(path[0])) return this.emit(d, this.ownCall(path[0], e.args || []));
+    const sm = this.selfCall(e);
+    if (sm) return this.emit(d, sm);
     nt(`calls ${path ? path.join('.') : 'a computed function'}, which Core does not know`);
     return undefined;
   }
@@ -461,6 +518,8 @@ class FunctionPrinter {
     const args = e.args || [];
     if ((args).some((a) => a.kind === 'spread')) nt('*args in a call has no Core form');
     const one = args.length === 1 && args[0].kind !== 'named' ? args[0] : null;
+    const sm = this.selfCall(e, item);
+    if (sm) return sm;
     if (path?.length === 1) {
       const f = path[0];
       if (f === 'len' && one) return `the count of ${paren(this.value(one, item))}`;
@@ -511,6 +570,19 @@ class FunctionPrinter {
     if (!conds.length) return src;
     if (conds.length > 1) nt('several if clauses in one comprehension have no Core form yet');
     return `${paren(src)} where ${this.condition(conds[0], null, v)}`;
+  }
+
+  /** self.other(args) inside a class: the Core function for that method, given the object first. Python picks the
+   * method when it runs, so a subclass could replace it; that is written down as an assumption. */
+  selfCall(e, item = null) {
+    const m = this.fn.method;
+    if (!m || e.callee?.kind !== 'member' || !isName(e.callee.object, m.self)) return null;
+    const target = this.classMethods?.get(e.callee.property);
+    if (!target) nt(`calls ${m.self}.${e.callee.property}(), which is not a method written in ${m.cls} here (it may come from a parent class)`);
+    if ((e.args || []).some((a) => a.kind === 'named' || a.kind === 'spread')) nt('a call with name=value or *args inputs has no Core form yet');
+    this.assumptions.push({ line: this.line ?? null, says: `${m.self}.${e.callee.property}() is read as ${m.cls}'s own ${e.callee.property}; a subclass that replaces it would run its own version` });
+    const vs = [coreName(m.self), ...(e.args || []).map((a) => paren(this.value(a, item)))];
+    return `${target.coreName} with ${vs.length === 1 ? vs[0] : `${vs.slice(0, -1).join(', ')} and ${vs.at(-1)}`}`;
   }
 
   ownCall(f, args, item = null) {
