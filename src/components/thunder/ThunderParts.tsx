@@ -70,7 +70,7 @@ export function FlowNodeCard({ n, onOpen, onLine, model, run, calls }: { n: Flow
   );
   if (n.kind === "stop") return <div className="flex items-center gap-3 rounded-2xl border-2 border-[#FDBA74]/70 bg-[#FDBA74]/[0.07] px-4 py-3"><Symbol id="stop" size={26} /><span className="text-[16px] text-white">{n.text}</span>{line}</div>;
   if (n.kind === "end") return <div className="flex items-center gap-3 px-1 py-1"><span className="rounded-full border border-[#67E8F9]/60 px-3 py-1 text-[15px] text-[#67E8F9]">{n.answer ? n.text : n.text === "Done" ? "Done" : n.text}</span>{n.otherwise && <span className="text-sm text-haze-400">otherwise</span>}{line}</div>;
-  if (n.kind === "code") return <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/25 px-4 py-2.5"><Symbol id="not-read" size={22} label="Not read yet" /><code className="font-mono text-[13px] text-haze-300">{n.text}</code>{line}</div>;
+  if (n.kind === "code") return <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/25 px-4 py-2.5"><Symbol id="not-read" size={22} label="Not read yet" /><code className="min-w-0 break-all font-mono text-[13px] text-haze-300">{n.text}</code>{line}</div>;
   return (
     <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-ink-850/50 px-4 py-2.5">
       <span aria-hidden="true" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border text-sm font-semibold" style={{ color: HEX[d.color], borderColor: `${HEX[d.color]}66` }}>{d.mark}</span>
