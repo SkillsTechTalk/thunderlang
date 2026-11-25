@@ -722,6 +722,8 @@ export function thunderModel(files, { name = 'app' } = {}) {
         ...(rule ? { rule, question: rule.question } : {}),
         // A yes/no rule is named as a question ("Can borrow?"); a rule with named answers is not ("Late fee").
         ...(kind === 'rule' ? { yesNo: [...(item.rules || []).map((r) => r.result), item.otherwise?.result].every((r) => r == null || /^(true|false)$/i.test(r)) } : {}),
+        // How sure: of the steps Thunder read, how many it put into words (the rest are shown as code, not explained).
+        ...(item.totalSteps != null ? { explainedSteps: item.explainedSteps, totalSteps: item.totalSteps } : {}),
         _steps: item.steps || [], _item: item, ...(item.qualifier && !owner ? { _qualifier: item.qualifier } : {}),
       };
       if (owner) owner.can.push(m.id);
@@ -797,7 +799,10 @@ export function thunderModel(files, { name = 'app' } = {}) {
     if (t.kind !== 'thing' || t.knows.length || owners.has(t.id)) continue;
     if (/(Exception|Error)$/.test(t.name)) things.splice(i, 1); else t.kind = 'record';
   }
-  const model = { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns, permissions, settings, facts };
+  // How sure, for the whole app: steps put into words, of all steps read.
+  const totalSteps = members.reduce((n, m) => n + (m.totalSteps ?? 0), 0);
+  const explainedSteps = members.reduce((n, m) => n + (m.explainedSteps ?? 0), 0);
+  const model = { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns, permissions, settings, facts, explainedSteps, totalSteps };
   // The whole system: calls that go to another file, HTTP requests to this repo's routes, events to listeners.
   try { linkSystem(model, files); } catch (e) { model.notLinked = [{ file: fileInfo[0]?.path ?? null, line: 1, why: `Calls across files could not be linked: ${e.message}` }]; }
   return model;

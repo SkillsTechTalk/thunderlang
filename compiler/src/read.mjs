@@ -2682,7 +2682,7 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
 export function readCode(source, opts = {}) {
   const reading = readCodeAsIs(source, opts);
   // Say less (say-less.mjs): a step stays in words only when the words account for its code; the rest is code.
-  return INFRA_LANGUAGES.includes(reading.language) || opts.sayEverything ? reading : sayLess(reading, String(source ?? ''));
+  return opts.sayEverything ? reading : sayLess(reading, String(source ?? ''));
 }
 
 function readCodeAsIs(source, { language, file = '', allSteps = false } = {}) {

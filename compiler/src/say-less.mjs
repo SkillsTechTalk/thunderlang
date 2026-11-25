@@ -333,7 +333,8 @@ function newThing(v, says) {
 
 const ARITH = new Set(['+', '-', '*', '/', '%', '**', '//', '<<', '>>', '>>>', '&', '|', '^', '&^']);
 const arithCount = (tree) => { let n = 0; for (const x of nodesOf(tree)) if (x.kind === 'binary' && ARITH.has(x.op)) n++; return n; };
-const castCount = (tree) => { let n = 0; for (const x of nodesOf(tree)) if (x.kind === 'cast' && x.form !== 'nonnull') n++; return n; };
+// (A C pointer cast `(T *)p` changes how a value is read, not the value; it is not counted.)
+const castCount = (tree) => { let n = 0; for (const x of nodesOf(tree)) if (x.kind === 'cast' && x.form !== 'nonnull' && !(x.form === 'c' && /\*\s*$/.test(String(x.type)))) n++; return n; };
 
 // Names a reader says by what they stand for.
 const SAID_AS = {
@@ -487,7 +488,7 @@ function checkStep(step, ctx) {
   if (u) return `${WHY.words} ("${u}" has no source in the code)`;
   if (ambiguousName(says, full)) return WHY.ambiguous;
   // Shell here-strings (`<<<"$x"`) feed text to a command; the readers do not tell that apart from running it.
-  if (lang === 'shell' && /<<</.test(code)) return WHY.form;
+  if (lang === 'shell' && /<<</.test(`${code}\n${full}`)) return WHY.form;
   // Words with a bracket left open are garbled.
   if (!bracketsClosed(claimText(says))) return WHY.words;
   // "Sets x to x" is a real self-assignment, or it hides where the value comes from.
@@ -1073,7 +1074,14 @@ function sayLessList(list, ctx, depth, top) {
     if (ended && /^Defines (?:a helper|how)\b/.test(String(s.says))) ended = false;
     if (ended) { regionAsCode(s, WHY.structure); continue; }
     // Blocks first: when their structure is uncertain, the whole region is code.
-    if (isBlock(s) && structureProblem(s, ctx.lang, ctx.lines)) { regionAsCode(s, WHY.structure); continue; }
+    if (isBlock(s) && structureProblem(s, ctx.lang, ctx.lines)) {
+      const empty = s.kind === 'branch' && !s.children?.length && !s.otherwise?.length;
+      regionAsCode(s, WHY.structure);
+      // A question whose body was not attached (`if constexpr (…)` then `return …;`): the next step is probably its
+      // body, so it is not drawn as something that always happens.
+      if (empty && list[i + 1]) { regionAsCode(list[i + 1], WHY.structure); i++; }
+      continue;
+    }
     const last = top && i === list.length - 1;
     if (!alreadyCode(s)) {
       lastTag = null;
@@ -1100,9 +1108,12 @@ function sayLessList(list, ctx, depth, top) {
     for (const h of s.handlers || []) sayLessList(h.steps, inner, depth + 1, false);
     if (s.always) sayLessList(s.always.steps, { ...ctx, lastPath: false }, depth + 1, false);
     // Nothing follows an ending in the same list (a step after `return` means the structure was misread).
-    if (isEnding(s) && s.kind !== 'other' && !s.restates) ended = true;
+    if (isEnding(s) && s.kind !== 'other') ended = true;
   }
 }
+
+// Infrastructure and delivery files are read by their own readers (infra-*.mjs) into fixed forms; their steps are marked.
+const INFRA = new Set(['dockerfile', 'github-actions', 'terraform', 'bicep', 'kubernetes', 'docker-compose']);
 
 function markOnly(list) {
   for (const s of everyStep(list)) {
@@ -1142,11 +1153,11 @@ export function sayLess(reading, source) {
   if (lang === 'shell') for (const m of String(source ?? '').matchAll(/^\s*(?:function\s+)?([\w-]+)\s*\(\)\s*\{[^}\n]*\bexit\s+(\d+)\s*;?\s*\}/gm)) helperExits.set(m[1], m[2]);
   for (const it of reading.items) {
     if (it.kind !== 'function' && it.kind !== 'decision') continue;
-    checkInputs(it, lang, lines);
+    if (!INFRA.has(lang)) checkInputs(it, lang, lines);
     if (!it.steps?.length) continue;
     // SQL is read by its own reader, which already shows what its gate cannot account for as code (sql-proc.mjs):
     // its steps are only marked here.
-    if (lang === 'sql') markOnly(it.steps);
+    if (lang === 'sql' || INFRA.has(lang)) markOnly(it.steps);
     else sayLessList(it.steps, { lang, lines, helperExits }, 0, true);
     let total = 0, explained = 0;
     for (const s of everyStep(it.steps)) { total++; if (s.explained !== false) explained++; }
