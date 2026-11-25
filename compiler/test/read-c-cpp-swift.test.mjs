@@ -246,7 +246,8 @@ test('Swift: guard as a Stop, if let as "is set", defer, ranges, do/try/catch by
   assert.equal(s[1].children[0].kind, 'fail');
   assert.equal(s[2].says, 'At the end, runs these steps');
   assert.equal(s[3].says, 'Counts i from 0 to 2');
-  assert.equal(s[4].says, 'If book is set and book is available');
+  // Say less: an `if let` with a further condition is asked as its code.
+  assert.equal(s[4].says, 'If `let book = catalog.find(title), book.available`');
   assert.equal(s[4].otherwise.length, 1);
   assert.equal(s[5].kind, 'try');
   assert.deepEqual(s[5].handlers.map((h) => h.says), ['If DatabaseError goes wrong', 'If anything goes wrong']);

@@ -7,7 +7,8 @@ import { thunderText } from './faithfulness-helpers.mjs';
 test('ripgrep#3: `static MSG: &str = "…"` names a value; nothing is called "static"', () => {
   const t = thunderText('a.rs', 'impl T {\n    pub fn add_defaults(&mut self) {\n        static MSG: &\'static str = "never fail";\n        for &(names, exts) in DEFAULT_TYPES {\n            for name in names {\n                self.add(name).expect(MSG);\n            }\n        }\n    }\n}\n');
   assert.doesNotMatch(t, /Calls static/);
-  assert.match(t, /For each names and exts in default types/);
+  // Say less: a loop over a pattern (`&(names, exts)`) is shown as code; the loop inside it is still worded.
+  assert.match(t, /Repeats: `for &\(names, exts\) in DEFAULT_TYPES` \(code, not explained\)/);
   assert.match(t, /For each name in names/);
 });
 

@@ -7,6 +7,92 @@ measures it on real open-source code, with `compiler/scripts/accuracy.mjs`, and 
 node compiler/scripts/accuracy.mjs <repo>... [--io] [--failures] [--steps] [--samples out.md --per-language 40]
 ```
 
+## Say less: words only where Thunder is sure
+
+Fixing false readings one by one did not carry over to code Thunder had not seen (the fresh audit below: 11.0% false
+before that round, 10.4% after it on new repositories). So the reader now works from an **allowlist**
+(`compiler/src/say-less.mjs`): after a function is read, every worded step is checked, and a step is put into words
+only when its form is one Thunder recognizes and the words account for its code. Everything else is shown as its code,
+marked "code, not explained": honest, never false. What is checked:
+
+- **Every word has a source**: each word is a word of the step's own code, one of the readers' fixed form words
+  (`compiler/src/form-words.mjs`, generated from the readers' own wording), or an idiom word whose trigger is in the code
+  ("log" for a print or log call, "matches" for a filter or pattern, "how many" for a length).
+- **Every value is exact**: each number and quoted text is a whole text of the code (a part such as `Usage` of
+  `"# Usage: "*` is not enough).
+- **Nothing that changes the meaning is dropped**: negations, and/or, each kind of ordering comparison (more than, at
+  least, less than, at most), arithmetic, casts, and the parts of a call's argument the words name; a question names
+  every name in it (or is one call named by its words); "whether" only for a yes/no value.
+- **No ambiguous names**: two spellings that read the same (`KEY_ALGO` / `__KEY_ALGO`, `this.options` / `options`) are
+  not put into the same words.
+- **Recognized forms only**: "Calls X" is a call of X (never a keyword such as `unsafe`, `using`, `type`, `use`); an
+  ending is a return, throw, raise, or exit (an implicit return only where the language returns it and only as the
+  last thing the function does); a library phrase is not used for a function the file defines itself; a statement
+  whose meaning tree was not parsed is worded only in a fixed safe form checked against its text.
+- **Certain structure**: the steps inside a block lie inside its lines (checked against the braces); nothing follows an
+  ending in the same list; an `else` read as a step of its own, a question with nothing inside it, a lost case body,
+  or a one-expression function that took its outer function's steps is shown as code (or cut back to its own body).
+- **Inputs** are names written as parameters in the signature (never a macro, a type, or a lifetime).
+- **The code shown is the code**: a step shown as code shows the source as written, never a reader's normalized copy.
+
+Every step and flow node now carries `explained` (true/false) and, when false, `notExplainedWhy`; each function and
+member carries `explainedSteps` / `totalSteps`, and the model `explainedSteps` / `totalSteps`, so a view can say how
+sure it is. SQL keeps its own gate (sql-proc.mjs); its steps are only marked.
+
+**The trade-off: steps explained, before and after** (every production step of the 51 new repositories below, counted
+the same way for both builds: a step is explained unless it is shown as code).
+
+| Language | before | after |
+|---|---|---|
+| TypeScript | 88.0% | 82.8% |
+| JavaScript | 87.6% | 83.6% |
+| Python | 89.3% | 81.7% |
+| Go | 90.1% | 81.2% |
+| Rust | 81.5% | 53.9% |
+| C# | 90.2% | 81.4% |
+| Java | 92.2% | 87.5% |
+| Kotlin | 86.7% | 80.6% |
+| PHP | 87.2% | 80.0% |
+| Ruby | 77.2% | 68.2% |
+| C | 87.7% | 80.2% |
+| C++ | 90.6% | 73.7% |
+| Swift | 88.4% | 70.5% |
+| R | 98.5% | 93.8% |
+| Shell | 99.9% | 92.1% |
+| PowerShell | 91.3% | 85.4% |
+| SQL (marked only) | 62.0% | 62.0% |
+| **All (220,655 steps)** | **90.0%** | **81.7%** |
+
+Rust drops most: its macros, patterns, struct literals, and `impl` blocks were often worded wrongly before ("Calls
+unsafe", "Calls pub"). C and C++ are read into meaning trees now (`->`, `*`, `&`, casts, declarations, template
+calls), which keeps much of C.
+
+**New repositories, graded independently** (16 non-SQL repositories plus one SQL repository per set, never used
+before, 15 seeded random production functions each, graded by reviewers who saw only the rubric, the code, and the
+reading). Each set was graded once; after each, the structural causes of its false readings were fixed and a new set
+was drawn.
+
+| Set (build) | A / B / C / D, non-SQL (240) | false | SQL (15) |
+|---|---|---|---|
+| Before this change (fresh audit, new repositories) | 69 / 108 / 38 / 25 | 10.4% | |
+| Set 1: immer, handlebars, httpx, viper, reqwest, Serilog, Retrofit, Koin, symfony/console, Devise, zlib, tinyxml2, swift-argument-parser, purrr, pyenv, Pester; pgTAP | 75 / 105 / 47 / 13 | 5.4% | 0 / 15 / 0 / 0 |
+| Set 2: jotai, request, marshmallow, chi, rand, FluentValidation, JUnit 4, Okio, Carbon, Sidekiq, linenoise, CLI11, SnapKit, testthat, bash-it, ImportExcel; pg_jobmon | 68 / 133 / 31 / 8 | 3.3% | 4 / 5 / 6 / 0 |
+| Set 3: pinia, mocha, Jinja, negroni, semver, AutoMapper, Moshi, KotlinPoet, league/csv, rack-attack, lz4, fifo_map, AlamofireImage, cli, bash-completion, PSResourceGet; periods | 100 / 79 / 51 / 10 | 4.2% | 9 / 6 / 0 / 0 |
+
+The same 240 samples of the earlier new-repository audit, read again (an intermediate build of this change; 5 samples
+whose function now starts on another line were not re-read): 66 / 113 / 53 / 3, **1.3% false** (from 10.4%). Readings
+that did not change kept their grade; the 75 that changed were graded again independently.
+
+**The target (at most 1% false on new code) is not reached.** The false readings left are a long tail, one or two per
+kind: a function boundary or owner the reader gets wrong (a top-level statement read as a function, a method given to
+the wrong class), a library phrase whose name means something else in that code (`git branch --show-current` read as
+listing branches, a `select` of columns read as a filter), an expression-`if` or `return if … else` split into steps,
+and R named options read as values (`stringsAsFactors = FALSE`). Each fix generalizes to its class, but each new set
+shows new classes. What did generalize: the false rate on new code fell from about 10% to 3–4%, and SQL (read by its
+own gated reader) had none in 45 samples.
+
+Reading time: 1.03× to 1.28× of origin/main (CPU time, five repositories, five warm rounds each; the machine was under heavy load, so the spread is wide).
+
 ## Fresh audit: code Thunder was not tuned on
 
 The hand reviews further down this page re-graded samples from the same repositories the fixes were written

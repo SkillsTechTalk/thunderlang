@@ -7,7 +7,9 @@ export interface FlowNode { id: string; kind: 'start' | 'decision' | 'step' | 'l
   /** A yes/no question as a statement on each side, when it splits cleanly: { yes: "the x header is the KEY setting", no: "… is not …" }. */
   holds?: { yes: string; no: string };
   /** The step's full meaning (thunder-expr-v1). */ expr?: Expr;
-  /** What the short words leave out, one level down: "with: order, { validate: false }". Shown in Details and the full Thunder Text. */ detail?: string }
+  /** What the short words leave out, one level down: "with: order, { validate: false }". Shown in Details and the full Thunder Text. */ detail?: string;
+  /** False for a node shown as code ("code, not explained"); true for every node in Thunder's own words. Always set. */ explained: boolean;
+  /** When `explained` is false: why, in a few plain words. */ notExplainedWhy?: string }
 export interface FlowEdge { from: string; to: string; label?: 'yes' | 'no' | 'each' | 'next' | 'done' | 'error' | 'case' | 'nested'; /** On a 'case' edge: the case it takes ("When it is from 90 to 100", "Otherwise", "None of these"). */ text?: string }
 export interface FlowBlock { id: string; yes?: FlowBlock[]; no?: FlowBlock[]; each?: FlowBlock[]; body?: FlowBlock[];
   /** A choice among several cases (switch, when, match, select): one side per case, in order. The decision node has `cases: true`. */
@@ -42,8 +44,10 @@ export interface Link { from: string; to: string; kind: LinkKind; node?: string;
 export type ModelLink = Link;
 export interface Member { id: string; kind: 'action' | 'rule' | 'steps' | 'setup' | 'not-read' | 'pipeline' | 'image-build'; /** Pipelines: when it runs, in words. */ when?: string; name: string; label: string; owner?: string; file: string; language: string; lines: [number, number]; doc?: string; route?: string;
   /** JS/TS: what the function is assigned to (`exports.normalizeType`, `View.prototype.lookup`, `res.json`). */ assignedTo?: string;
-  /** JS/TS: an anonymous function passed to a call (named `<parent> › callback at line N`); `passedTo` is the call. */ callback?: true; passedTo?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow; /** Set by proof by running (executed.mjs markExecuted) only where a run proved the reading. */ completeness?: { level: 'executed'; reasons: string[] } }
-export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string; category: 'application' | 'infrastructure' | 'delivery'; /** Why this file could not be read. */ skipped?: string }[]; things: Thing[]; members: Member[]; links: Link[]; unknowns: { id?: string; file: string; line: number; why: string }[]; permissions: Permission[]; settings: Setting[]; facts: Fact[]; notLinked?: NotLinked[] }
+  /** JS/TS: an anonymous function passed to a call (named `<parent> › callback at line N`); `passedTo` is the call. */ callback?: true; passedTo?: string; youGive: string[]; /** Each input's kind in words, by its label, when the code says it. */ inputKinds?: Record<string, string>; youGetBack?: string; rule?: unknown; question?: string; yesNo?: boolean; flow: Flow;
+  /** How sure: steps put into words, of every step Thunder read in this member (absent for rules). */ explainedSteps?: number; totalSteps?: number; /** Set by proof by running (executed.mjs markExecuted) only where a run proved the reading. */ completeness?: { level: 'executed'; reasons: string[] } }
+export interface ThunderModel { schema: 'thunder-model-v1'; name: string; files: { path: string; language: string; purpose?: string; category: 'application' | 'infrastructure' | 'delivery'; /** Why this file could not be read. */ skipped?: string }[]; things: Thing[]; members: Member[]; links: Link[]; unknowns: { id?: string; file: string; line: number; why: string }[]; permissions: Permission[]; settings: Setting[]; facts: Fact[]; notLinked?: NotLinked[];
+  /** How sure, for the whole app: steps put into words, of every step read. */ explainedSteps: number; totalSteps: number }
 /** A call, request, event, or import worth linking that was not linked, and why (dynamic import, computed URL, external package, two routes match, an interface). */
 export interface NotLinked { from?: string; node?: string; file: string | null; line: number | null; call?: string; import?: string; why: string; /** For an external package: how many imports of it. */ files?: number }
 /** Which areas (folders, two levels deep) call which, from cross-file and service links. */

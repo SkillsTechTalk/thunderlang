@@ -250,6 +250,14 @@ Three places show it:
   `{ full: true }`) adds every detail after the words on the same line, so nothing in the code is out of reach.
 - **The faithfulness gate** counts a condition's negations and comparisons from its tree, so a TypeScript non-null
   `x!` is not mistaken for a negation, and an operator inside a string is never counted.
+- **Say less (the allowlist rule).** A step is put into words only when its form is one Thunder recognizes and the
+  words account for its meaning tree: every word comes from the code or from Thunder's fixed wording; every number and
+  quoted text is exact; no negation, and/or, comparison, arithmetic, cast, or named argument part is dropped; no two
+  names that read the same share words; endings come only from recognized return/throw/raise/exit forms; inputs only
+  from the parameter list; and block structure only where the reader's blocks match the code's. Anything else is shown
+  as its code, exactly as written, marked "code, not explained". Every step and flow node carries `explained` (true or
+  false) and, when false, `notExplainedWhy` (for example "the reader did not recognize this form", "block structure
+  uncertain"); functions, members, and the model carry `explainedSteps` and `totalSteps`.
 
 **Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, each step's tree can be written back as code
 (`renderStatement`), read again, and compared (`stepRoundTrip`). Where a condition or value is made only of names,

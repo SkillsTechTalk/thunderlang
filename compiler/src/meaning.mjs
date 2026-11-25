@@ -521,6 +521,7 @@ class Parser {
       if (t.v === '...' && (fam === 'c')) { this.next(); return { kind: 'spread', value: this.expr(1), form: '...' }; }
       if ((t.v === '*' || t.v === '**') && (fam === 'py' || fam === 'rb' || this.lang === 'kotlin')) { this.next(); return { kind: 'spread', value: this.expr(fam === 'py' ? 13 : 15), form: t.v }; }
       if (t.v === '&' && fam === 'rb') { this.next(); return { kind: 'spread', value: this.expr(15), form: '&' }; }
+      if ((t.v === '*' || t.v === '&') && (this.lang === 'c' || this.lang === 'cpp')) { this.next(); return { kind: 'unary', op: t.v, value: this.expr(17) }; }
       if ((t.v === '*' || t.v === '&' || t.v === '<-') && (fam === 'go' || fam === 'rs')) {
         this.next();
         if (t.v === '&' && fam === 'rs' && this.isId('mut')) { this.next(); return { kind: 'unary', op: '&mut', value: this.expr(16) }; }
@@ -754,6 +755,13 @@ class Parser {
           node = { kind: 'member', object: node, property: p.v };
           continue;
         }
+        if (t.v === '->' && (lang === 'c' || lang === 'cpp')) {
+          this.next();
+          const p = this.next();
+          if (p.t !== 'id') fail('expected a name after ->');
+          node = { kind: 'member', object: node, property: p.v, arrow: true };
+          continue;
+        }
         if (t.v === '&.' && fam === 'rb') { this.next(); const pn = this.next(); if (pn.t !== 'id') fail('a name after &.'); node = { kind: 'member', object: node, property: pn.v, optional: true }; continue; }
         if (t.v === '?.' && fam === 'c') {
           this.next();
@@ -776,7 +784,7 @@ class Parser {
         if (t.v === '!!' && lang === 'kotlin') { this.next(); node = { kind: 'unary', op: '!!', value: node, postfix: true }; continue; }
         if (t.v === '?' && fam === 'rs' && !t.sp) { this.next(); node = { kind: 'unary', op: '?', value: node, postfix: true }; continue; }
         if ((t.v === '++' || t.v === '--') && !t.nl && fam !== 'py') { this.next(); node = { kind: 'unary', op: t.v, value: node, postfix: true }; continue; }
-        if (t.v === '<' && (lang === 'typescript' || lang === 'csharp' || lang === 'java' || lang === 'kotlin') && !t.sp && this.looksLikeTypeArgs()) { node = { ...node, typeArgs: this.typeArgs() }; continue; }
+        if (t.v === '<' && (lang === 'typescript' || lang === 'csharp' || lang === 'java' || lang === 'kotlin' || lang === 'cpp') && !t.sp && this.looksLikeTypeArgs()) { node = { ...node, typeArgs: this.typeArgs() }; continue; }
         if (t.v === '{' && !this.noBrace && (fam === 'go' || fam === 'rs') && this.isTypeName(node)) { node = this.compositeLit(node); continue; }
         if (t.v === '{' && lang === 'kotlin' && !this.noBrace && (node.kind === 'call' || node.kind === 'name' || node.kind === 'member')) { node = this.withTrailing(node, this.kotlinLambda()); continue; }
         // Ruby: braces after a call are its block (`items.each { |x| … }`, `loop { … }`); a hash is only ever an argument.
@@ -810,7 +818,7 @@ class Parser {
       if (t.t === 'op') {
         if (t.v === '<') depth++;
         else if (t.v === '>' || t.v === '>>') { depth -= t.v.length; if (depth <= 0) { const nx = this.peek(o + 1); return nx.t === 'op' && (nx.v === '(' || (nx.v === '{' && this.lang === 'csharp')); } }
-        else if (!/^(?:,|\.|\[|\]|\||&|\?|=>|\(|\)|:)$/.test(t.v)) return false;
+        else if (!/^(?:,|\.|\[|\]|\||&|\?|=>|\(|\)|:)$/.test(t.v) && !(this.lang === 'cpp' && /^(?:::|\*|&&)$/.test(t.v))) return false;
       } else if (t.t !== 'id' && t.t !== 'str' && t.t !== 'num') return false;
     }
     return false;
@@ -881,6 +889,8 @@ class Parser {
   }
 
   paren() {
+    // C / C++: a cast `(redisPollEvents *)data`, `(int)n`, `(const char *)p`.
+    if (this.lang === 'c' || this.lang === 'cpp') { const c = this.cCast(); if (c) return c; }
     // An arrow function `(a, b) => …` / `(a: T): R => …`?
     if (this.fam === 'c' && (isJs(this.lang) || this.lang === 'csharp' || this.lang === 'java')) {
       // JSX inside brackets (`return (\n  <div>…`) is read as JSX, not scanned as code.
@@ -889,6 +899,22 @@ class Parser {
       try { return this.arrowOrParen(); } catch (e) { if (!(e instanceof Fail) || this.k !== k0) throw e; return this.plainParen(); }
     }
     return this.plainParen();
+  }
+  cCast() {
+    const src = this.L.src, open = this.peek().s;
+    const close = src.indexOf(')', open);
+    if (close < 0) return null;
+    const inner = src.slice(open + 1, close);
+    const m = /^\s*((?:(?:const|volatile|struct|enum|union|unsigned|signed|long|short)\s+)*)([A-Za-z_][\w:]*)(\s*<[^()]*>)?((?:\s*(?:const\s*)?[*&])*)\s*$/.exec(inner);
+    if (!m) return null;
+    const clearlyType = /\*|&/.test(m[4]) || !!m[1] || /^(?:int|char|long|short|float|double|void|bool|size_t|ssize_t|unsigned|signed|u?int\d+_t|uintptr_t|intptr_t|ptrdiff_t|time_t|off_t|wchar_t|char\d+_t|uint|uchar|BOOL|DWORD|HANDLE)$/.test(m[2]) || /_t$/.test(m[2]);
+    if (!clearlyType) return null;
+    const after = src.slice(close + 1).trimStart();
+    if (!/^[A-Za-z_\d("'*&!~-]/.test(after)) return null;
+    while (this.peek().t !== 'eof' && this.peek().s < close) this.next();
+    if (!this.isOp(')')) return null;
+    this.next();
+    return { kind: 'cast', type: inner.trim(), value: this.expr(16), form: 'c' };
   }
   arrowOrParen() {
     // Find the matching ) and look for => (or ->, Java) after it, past an optional return type.
@@ -1563,6 +1589,8 @@ function statement(p) {
       return node;
     }
     if (v === 'default' && fam !== 'py' && (p.isOp(':', 1) || p.isOp('->', 1))) { p.next(); p.next(); return p.peek().t === 'eof' ? { kind: 'case', default: true } : { kind: 'case', default: true, inline: true }; }
+    // Swift `try f()` / `try? f()` / Rust-like `try await f()`: an expression that may throw, not a try block.
+    if (v === 'try' && lang === 'swift' && !p.isOp('{', 1)) { p.next(); if (p.isOp('?') || p.isOp('!')) p.next(); if (p.isId('await')) p.next(); return statement(p); }
     if (v === 'try' || v === 'begin') { p.next(); return { kind: 'try' }; }
     if (v === 'return' && !(p.isOp('=', 1))) {
       p.next();
@@ -1613,6 +1641,7 @@ function statement(p) {
     if (v === 'async' && fam === 'py' && (p.isId('with', 1) || p.isId('for', 1) || p.isId('def', 1))) { p.next(); const s = statement(p); return { ...s, async: true }; }
     if (v === 'pass' && fam === 'py') { p.next(); return endStatement(p, { kind: 'pass' }); }
     if (v === 'def' || (v === 'function' && p.peek(1).t === 'id') || (v === 'func' && p.peek(1).t === 'id') || (v === 'fn' && fam === 'rs') || (v === 'fun' && lang === 'kotlin') || (v === 'async' && isJs(lang) && p.isId('function', 1) && p.peek(2).t === 'id')) return functionHeader(p);
+    if ((lang === 'c' || lang === 'cpp') && /^(?:const|static|struct|enum|union|constexpr|unsigned|signed|long|short|register|extern|volatile|inline|mutable)$/.test(v) && typedDeclAhead(p)) return typedDeclaration(p);
     if (/^(?:class|struct|interface|enum|impl|trait|object|record|module|type|namespace|import|export|from|package|use|using|lock|synchronized|unsafe|goto|static|public|private|protected|internal|abstract|override|virtual|final|readonly|global|nonlocal|extern|template|typedef|label)$/.test(v) && !(p.isOp('(', 1) && !/^(?:using|lock|synchronized)$/.test(v)) && !(p.isOp('.', 1)) && !(p.peek(1).t === 'op' && (ASSIGN_OPS.has(p.peek(1).v) || p.peek(1).v === ',' || p.peek(1).v === '['))) {
       if (v === 'export' && (p.isId('const', 1) || p.isId('let', 1) || p.isId('function', 1))) { p.next(); return statement(p); }
       if ((v === 'global' || v === 'nonlocal') && fam === 'py') { p.next(); const names = []; while (p.peek().t === 'id') { names.push(p.next().v); if (p.isOp(',')) p.next(); } return endStatement(p, { kind: 'declare', names, scope: v }); }
@@ -1820,14 +1849,15 @@ function methodHeader(p) {
 function typedDeclAhead(p, method = false) {
   // Type name = …;  Type<A, B>[] name;  final Type name = …
   let o = 0;
-  while (p.peek(o).t === 'id' && /^(?:final|static|readonly|const|volatile|var|unsigned|signed)$/.test(p.peek(o).v) && p.peek(o + 1).t === 'id') o++;
+  const cLike = p.lang === 'c' || p.lang === 'cpp';
+  while (p.peek(o).t === 'id' && (/^(?:final|static|readonly|const|volatile|var|unsigned|signed)$/.test(p.peek(o).v) || (cLike && /^(?:struct|enum|union|constexpr|long|short|register|extern|inline|mutable|thread_local)$/.test(p.peek(o).v))) && p.peek(o + 1).t === 'id') o++;
   if (p.peek(o).t !== 'id') return false;
   if (/^(?:return|throw|new|await|yield|case|goto|else|in|is|as|out|ref|params|this|base|super)$/.test(p.peek(o).v)) return false;
   o++;
   let depth = 0;
   for (let guard = 0; guard < 40; guard++) {
     const t = p.peek(o);
-    if (t.t === 'op' && (t.v === '.' || t.v === '?' || t.v === '*' || t.v === '&') && depth === 0) { o++; if (p.peek(o).t === 'id' && t.v === '.') o++; continue; }
+    if (t.t === 'op' && (t.v === '.' || t.v === '?' || t.v === '*' || t.v === '&' || (cLike && (t.v === '::' || t.v === '&&'))) && depth === 0) { o++; if (p.peek(o).t === 'id' && (t.v === '.' || t.v === '::')) o++; continue; }
     if (t.t === 'op' && t.v === '<') { depth++; o++; continue; }
     if (t.t === 'op' && (t.v === '>' || t.v === '>>')) { depth -= t.v.length; o++; continue; }
     if (t.t === 'op' && t.v === '[' && p.isOp(']', o + 1)) { o += 2; continue; }
@@ -1837,7 +1867,7 @@ function typedDeclAhead(p, method = false) {
   if (depth !== 0 || p.peek(o).t !== 'id') return false;
   const after = p.peek(o + 1);
   if (method) return after.t === 'op' && after.v === '(' ? o : false;
-  return after.t === 'eof' || (after.t === 'op' && (after.v === '=' || after.v === ';' || after.v === ',')) ? o : false;
+  return after.t === 'eof' || (after.t === 'op' && (after.v === '=' || after.v === ';' || after.v === ',' || (cLike && after.v === '['))) ? o : false;
 }
 function typedDeclaration(p, inner = false) {
   const a = p.k;
@@ -1848,6 +1878,10 @@ function typedDeclaration(p, inner = false) {
   const items = [];
   for (;;) {
     const name = p.next().v;
+    // C / C++ arrays: `char port[6];`
+    let dims = '';
+    while ((p.lang === 'c' || p.lang === 'cpp') && p.isOp('[')) { const d0 = p.k; let depth = 0; do { const x = p.next(); if (x.t === 'eof') fail('array size'); if (x.v === '[') depth++; else if (x.v === ']') depth--; } while (depth > 0); dims += p.text(d0, p.k); }
+    if (dims) { if (p.isOp('=')) fail('array initializer'); items.push({ kind: 'declare', declare: 'typed', type: `${type}${dims}`, names: [name] }); if (p.isOp(',')) { p.next(); continue; } break; }
     if (p.isOp('=')) { p.next(); items.push({ kind: 'assign', op: '=', declare: 'typed', type, target: { kind: 'name', name }, value: p.isOp('{') ? p.objectLit() : p.expr(0.6) }); }
     else items.push({ kind: 'declare', declare: 'typed', type, names: [name] });
     if (p.isOp(',')) { p.next(); continue; }
@@ -1938,12 +1972,17 @@ function forHeader(p) {
   }
   let declare = null;
   if (p.peek().t === 'id' && /^(?:const|let|var|val|final|auto)$/.test(p.peek().v) && (p.peek(1).t === 'id' || p.isOp('[', 1) || p.isOp('{', 1) || p.isOp('(', 1))) declare = p.next().v;
+  // C++: `auto &t : threads` / `auto* p : ps`.
+  if (declare === 'auto' && (lang === 'cpp' || lang === 'c')) while (p.isOp('&') || p.isOp('*') || p.isOp('&&')) p.next();
+  if (declare === 'const' && (lang === 'cpp' || lang === 'c')) declare = null;
   // Java/C#: the element's type before its name.
   let type = null;
   if (p.peek().t === 'id' && !declare) {
     const k0 = p.k;
     let o = 0;
-    while (p.peek(o).t === 'id' || (p.peek(o).t === 'op' && /^(?:\.|<|>|\[|\]|,|\?)$/.test(p.peek(o).v))) { if (p.peek(o).t === 'id' && (/^(?:of|in)$/.test(p.peek(o).v))) break; if (p.isOp(':', o)) break; o++; }
+    // (C++: `const auto& item`, `std::string *s`.)
+    const cLike = lang === 'c' || lang === 'cpp';
+    while (p.peek(o).t === 'id' || (p.peek(o).t === 'op' && (/^(?:\.|<|>|\[|\]|,|\?)$/.test(p.peek(o).v) || (cLike && /^(?:&|\*|&&|::)$/.test(p.peek(o).v))))) { if (p.peek(o).t === 'id' && (/^(?:of|in)$/.test(p.peek(o).v))) break; if (p.isOp(':', o)) break; o++; }
     if (o >= 2 && p.peek(o - 1).t === 'id') { type = p.text(k0, k0 + o - 1); p.k = k0 + o - 1; }
   }
   const targets = [];
