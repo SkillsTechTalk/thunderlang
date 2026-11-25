@@ -270,7 +270,8 @@ const possessiveWords = (text) => String(text)
   .replace(/\b([a-z]+(?:_[a-z0-9]+)+|[a-z]+(?:[A-Z][a-z0-9]*)+)\b/g, (m) => words(m)); // days_late, daysLate -> days late
 /** An answer as words: NoFee -> "No fee", true -> "Yes". */
 // (Quoted text is an answer as written: its case, signs, and spaces are kept.)
-const answerWords = (r) => (/^true$/i.test(r) ? 'Yes' : /^false$/i.test(r) ? 'No' : /^(["'`]).*\1$/s.test(String(r).trim()) ? String(r).trim() : cap(words(r)));
+// (A short name that would split into one-letter pieces, such as NaN, is kept as written: "Na n" is not a word.)
+const answerWords = (r) => (/^true$/i.test(r) ? 'Yes' : /^false$/i.test(r) ? 'No' : /^(["'`]).*\1$/s.test(String(r).trim()) ? String(r).trim() : /^[A-Za-z]{2,4}$/.test(String(r).trim()) && /[a-z][A-Z]|[A-Z][a-z]+[A-Z]/.test(String(r)) ? String(r).trim() : cap(words(r)));
 
 /**
  * A branch as a question a kid can answer with yes or no, asked the positive way round. "If book.status is not on

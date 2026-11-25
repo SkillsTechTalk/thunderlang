@@ -63,7 +63,23 @@ const splitWords = (s) => {
   return w;
 };
 /** The parts of Thunder's words that are claims in words (quoted text, code in backticks, and placeholders removed). */
-const claimText = (says) => String(says).replace(/\((?:the loop )?only in builds where[^()]*(?:\([^()]*\)[^()]*)*\)/g, ' ').replace(/`[^`]*`/g, ' ').replace(/"(?:\\.|[^"\\])*"/g, ' ').replace(/«[^»]*»/g, ' ').replace(/(?<=\w)'s\b/g, '');
+const claimTextRaw = (says) => String(says).replace(/\((?:the loop )?only in builds where[^()]*(?:\([^()]*\)[^()]*)*\)/g, ' ').replace(/`[^`]*`/g, ' ').replace(/"(?:\\.|[^"\\])*"/g, ' ').replace(/«[^»]*»/g, ' ').replace(/(?<=\w)'s\b/g, '');
+const CLAIM_CACHE = new Map();
+const CLAIM_WORDS = new Map();
+/** The words of the claims (remembered). */
+const claimWords = (says) => {
+  const k = String(says);
+  let v = CLAIM_WORDS.get(k);
+  if (v === undefined) { if (CLAIM_WORDS.size > 20000) CLAIM_WORDS.clear(); v = splitWordsRaw(claimText(k)); CLAIM_WORDS.set(k, v); }
+  return v;
+};
+/** The parts of Thunder's words that are claims (remembered: every check asks for them). */
+const claimText = (says) => {
+  const k = String(says);
+  let v = CLAIM_CACHE.get(k);
+  if (v === undefined) { if (CLAIM_CACHE.size > 20000) CLAIM_CACHE.clear(); v = claimTextRaw(k); CLAIM_CACHE.set(k, v); }
+  return v;
+};
 
 // The fixed words Thunder's step forms are written with. Each carries no claim of its own beyond the form; meaning
 // words (negations, comparisons, and/or) are counted separately against the code.
@@ -129,6 +145,7 @@ function codeWordSet(code) {
 }
 
 /** The first word that has no source: not in the code, not a fixed word, and not an idiom with its trigger. */
+const IDIOM_OF = new Map();
 function unsourcedWord(says, code) {
   let have = null;
   const inCode = (w) => {
@@ -136,9 +153,10 @@ function unsourcedWord(says, code) {
     // Plurals and simple forms of a code word: "orders" for `order`, "named" for `name`.
     return have.has(w) || have.has(w.replace(/(?:es|s|ed|d|ing)$/, '')) || have.has(`${w}s`) || have.has(w.replace(/ies$/, 'y'));
   };
-  for (const w of splitWords(claimText(says))) {
+  for (const w of claimWords(says)) {
     if (/^\d+$/.test(w)) continue;
-    const idiom = IDIOM.find(([re]) => re.test(w));
+    let idiom = IDIOM_OF.get(w);
+    if (idiom === undefined) { idiom = IDIOM.find(([re]) => re.test(w)) ?? null; IDIOM_OF.set(w, idiom); }
     if (idiom) { if (idiom[1].test(code) || inCode(w)) continue; return w; }
     if (GLUE.has(w) || FORM_WORDS.has(w)) continue;
     if (/ing$/.test(w)) { const st = w.slice(0, -3); if ([`${st}s`, `${st}es`, `${st}e`, `${st.slice(0, -1)}s`].some((x) => FORM_WORDS.has(x))) continue; }
@@ -151,10 +169,11 @@ function unsourcedWord(says, code) {
 // Languages where $ / @ mark a name (PHP, shell, PowerShell, Ruby, Perl) rather than being part of it (JavaScript).
 const SIGIL_LANGS = new Set(['php', 'shell', 'powershell', 'ruby', 'perl', 'r', 'sql']);
 let currentLang = '';
+let LIBRARY_STEP = false;
 /** Two different spellings in the code that read as the same words, and appear in the words. */
 function ambiguousName(says, code) {
   // Cheap first look: no word said twice, nothing can read the same twice.
-  const sw = splitWords(claimText(says));
+  const sw = claimWords(says);
   if (new Set(sw).size === sw.length) return null;
   const byWords = new Map();
   const inserted = [...String(code).matchAll(/\$\{([^}]*)\}|#\{([^}]*)\}|\$\(([^)]*)\)|\$([A-Za-z_]\w*)/g)].map((m) => m[1] ?? m[2] ?? m[3] ?? m[4]).join(' ');
@@ -237,6 +256,8 @@ function textSkeleton(t, words = false, open = false) {
  * stands in the code between quote marks or inserted values, not inside a longer text. "Usage" is not the pattern
  * `"# Usage: "*`; a text the words cut short with "…" only has to start a text of the code.
  */
+const SKELETON_CACHE = new Map();
+const FRAG_RE = new Map();
 function exactText(inner, code) { return exactIn(inner, code, false) || exactIn(inner, code, true); }
 function exactIn(inner, code, open) {
   if (!/«|…/.test(inner) && inner.length && [`'${inner}'`, `"${inner}"`, `\`${inner}\``].some((q) => String(code).includes(q))) return true;
@@ -246,7 +267,9 @@ function exactIn(inner, code, open) {
   }
   const cut = /…$/.test(inner);
   const w = textSkeleton(inner.replace(/…$/, ''), true);
-  const c = `\u0002${textSkeleton(code, false, open)}\u0002`;
+  const key = `${open ? 1 : 0}${code}`;
+  let c = SKELETON_CACHE.get(key);
+  if (c === undefined) { if (SKELETON_CACHE.size > 5000) SKELETON_CACHE.clear(); c = `\u0002${textSkeleton(code, false, open)}\u0002`; SKELETON_CACHE.set(key, c); }
   const parts = w.split('\u0001');
   const B = '[\u0001\u0002"\'`\\s=(,;:\\[|]', E = '[\u0001\u0002"\'`\\s),;:\\]|]';
   for (let i = 0; i < parts.length; i++) {
@@ -255,7 +278,10 @@ function exactIn(inner, code, open) {
     const esc = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const lead = i === 0 ? B : '[\u0001"\'`\\s,|]';
     const tail = i === parts.length - 1 ? (cut ? '' : E) : '[\u0001"\'`\\s,]';
-    if (!new RegExp(`${lead}${esc}${tail ? `(?=${tail})` : ''}`).test(c) && !(f.length > 12 && c.includes(f))) return false;
+    const src = `${lead}${esc}${tail ? `(?=${tail})` : ''}`;
+    let re = FRAG_RE.get(src);
+    if (!re) { if (FRAG_RE.size > 5000) FRAG_RE.clear(); re = new RegExp(src); FRAG_RE.set(src, re); }
+    if (!re.test(c) && !(f.length > 12 && c.includes(f))) return false;
   }
   return true;
 }
@@ -369,6 +395,7 @@ function namesKept(tree, said) {
     if (isX) { const t = isX[1]; const as = SAID_AS[t]; return new RegExp(` is (?:not )?(?:an? )?${t} `).test(sw) || (!!as && / is /.test(sw) && as.test(sw)); }
     return false;
   };
+  const rawSaid = String(said);
   const howMany = / how many | length | size | count | number of /.test(sw);
   const isA = / is | are /.test(sw);
   const setWords = / set | empty | nothing | missing | null | nil | none | undefined | given | there | exists? /.test(sw);
@@ -377,7 +404,8 @@ function namesKept(tree, said) {
     if (Array.isArray(n)) return n.every(ok);
     switch (n.kind) {
       case 'name': return n.type === true || (NULL_NAME.test(n.name) ? setWords : has(n.name));
-      case 'literal': return n.type === 'null' ? setWords : n.type === 'bool' ? true : n.type === 'number' ? sw.includes(` ${String(n.raw ?? n.value).replace(/[^\w]+/g, ' ').trim().toLowerCase()} `) || has(String(n.value)) || /^[01]$/.test(String(n.value)) : true;
+      case 'literal': if (n.type === 'text') return rawSaid.includes(String(n.value)) || String(n.value).length === 0 || rawSaid.includes(String(n.raw ?? '').slice(1, -1)) || n.interpolated || /\\\(|\$\{|#\{|\{\w/.test(String(n.raw ?? n.value)) || (SAID_AS[String(n.value).toLowerCase()]?.test(sw) ?? false);
+        return n.type === 'null' ? setWords : n.type === 'bool' ? true : n.type === 'number' ? sw.includes(` ${String(n.raw ?? n.value).replace(/[^\w]+/g, ' ').trim().toLowerCase()} `) || has(String(n.value)) || /^[01]$/.test(String(n.value)) : true;
       case 'member': {
         if (/^(?:length|size|count|len|Length|Count|Size)$/.test(n.property) && howMany) return ok(n.object);
         // A constant on a type or namespace (`numeric_system::standard`, `PixelOpacity.TRANSLUCENT`): its own name is enough.
@@ -421,7 +449,7 @@ function namesKept(tree, said) {
 // ── Forms ───────────────────────────────────────────────────────────────────────────────────────────────────
 
 // Words that start a statement but are not functions: "Calls unsafe" is never true.
-const KEYWORD_CALLEE = /^(?:unsafe|using|foreach|for|type|return|pub|public|private|protected|internal|static|final|var|let|const|val|if|while|switch|match|case|new|await|async|yield|throw|raise|def|fn|func|function|class|struct|enum|interface|impl|do|else|try|catch|lock|fixed|checked|unchecked|goto|typedef|template|typename|constexpr|sizeof|defer|go|select|when|loop|override|virtual|abstract|sealed|readonly|extern|inline|volatile|register|auto|signed|unsigned|operator|delegate|event|where|from|import|export|package|module|namespace|begin|end|unless|until|elsif|then|ensure|rescue|lambda|proc|mut|ref|out|in|is|as|not|and|or)$/;
+const KEYWORD_CALLEE = /^(?:use|unsafe|using|foreach|for|type|return|pub|public|private|protected|internal|static|final|var|let|const|val|if|while|switch|match|case|new|await|async|yield|throw|raise|def|fn|func|function|class|struct|enum|interface|impl|do|else|try|catch|lock|fixed|checked|unchecked|goto|typedef|template|typename|constexpr|sizeof|defer|go|select|when|loop|override|virtual|abstract|sealed|readonly|extern|inline|volatile|register|auto|signed|unsigned|operator|delegate|event|where|from|import|export|package|module|namespace|begin|end|unless|until|elsif|then|ensure|rescue|lambda|proc|mut|ref|out|in|is|as|not|and|or)$/;
 
 const coreOf = (e) => {
   let c = e;
@@ -486,15 +514,23 @@ function checkStep(step, ctx) {
     var safeOk = true;
   }
 
+  LIBRARY_STEP = !!step.library;
+  // A library phrase ("Checks that x is set; otherwise stops with …") for a call of a name this file defines itself
+  // (`require(byteCount)` in okio is its own method) is not that library's call.
+  if (step.library && ctx.ownFunctions) {
+    const callee = (/^\s*(?:return\s+)?(?:await\s+)?(?:(?:this|self)\s*\.\s*)?([A-Za-z_]\w*)\s*\(/.exec(code) || [])[1];
+    if (callee && ctx.ownFunctions.has(callee)) return WHY.form;
+  }
   // Values, sources, ambiguity: every form.
   if (inventedValue(says, full)) return WHY.value;
   const u = unsourcedWord(says, full);
   if (u) return `${WHY.words} ("${u}" has no source in the code)`;
   if (ambiguousName(says, full)) return WHY.ambiguous;
+  const said0 = claimText(says);
   // Shell here-strings (`<<<"$x"`) feed text to a command; the readers do not tell that apart from running it.
   if (lang === 'shell' && /<<</.test(`${code}\n${full}`)) return WHY.form;
   // Words with a token that is only punctuation ("--", "?", "-") put a flag or a symbol where a name should be.
-  if (/(?:^|\s)(?:--?|\?|\*)(?:\s|$)/.test(claimText(says).replace(/\s+\?$/, ''))) return WHY.words;
+  if (/(?:^|\s)(?:--|\?)(?:\s|$)/.test(claimText(says).replace(/\s+\?$/, ''))) return WHY.words;
   if (lang === 'shell') {
     // Brace expansion (`mkdir "$d/"{a,b}`) makes several words from one; `-` alone means standard input.
     if (/\{[^{}\s"'$]*,[^{}\s"']*\}/.test(stripQuoted(full).replace(/\$\{[^}]*\}/g, ''))) return WHY.form;
@@ -518,9 +554,30 @@ function checkStep(step, ctx) {
     }
   }
   // "x, or y when that has no value" is a default; `||` gives back yes or no in PHP, Java, C#, Go, Rust, C and C++.
-  if (/when (?:that|it) has no value/.test(says) && tree && [...nodesOf(tree)].some((n) => n.kind === 'logic' && n.op === 'or') && !/^(?:javascript|typescript|python|ruby|r|shell|powershell|perl|lua)$/.test(lang)) return WHY.meaning;
+  if (tree && /when (?:that|it) has no value/.test(says) && [...nodesOf(tree)].some((n) => n.kind === 'logic' && n.op === 'or') && !/^(?:javascript|typescript|python|ruby|r|shell|powershell|perl|lua)$/.test(lang)) return WHY.meaning;
   // `this.options` read as "the options" while the function also has its own `options`.
-  if (tree && ctx.ownNames && [...nodesOf(tree)].some((n) => n.kind === 'member' && n.object?.kind === 'name' && /^(?:this|self)$/.test(n.object.name) && ctx.ownNames.has(n.property)) && !/\b(?:this|self|its own|it is given)\b/.test(says)) return WHY.ambiguous;
+  if (tree && ctx.ownNames && /\b(?:this|self)\b/.test(code) && [...nodesOf(tree)].some((n) => n.kind === 'member' && n.object?.kind === 'name' && /^(?:this|self)$/.test(n.object.name) && ctx.ownNames.has(n.property)) && !/\b(?:this|self|its own|it is given)\b/.test(says)) return WHY.ambiguous;
+  // "whether …" says yes or no: the value must be a comparison, a negation, and/or, or a yes/no call (`x as T` and
+  // `a << 17` are not).
+  if (tree && /\bwhether\b/.test(says)) {
+    const v = coreOf(tree.kind === 'assign' ? tree.value : tree.kind === 'return' ? tree.value : tree);
+    const yn = (n) => n && (n.kind === 'compare' || n.kind === 'chain' || n.kind === 'not' || (n.kind === 'logic' && n.operands.every(yn)) || (n.kind === 'literal' && n.type === 'bool') || (n.kind === 'call' && /^(?:is|has|can|should|does|contains|includes|exists|matches|match|fnmatch|equals|starts|ends|any|all|every|some|isinstance|[a-z_]+\?)/i.test(String(n.callee?.property ?? n.callee?.name ?? ''))) || (n.kind === 'name' && /^(?:is|has|can|should)[A-Z_]/.test(n.name)) || (n.kind === 'member' && /^(?:is|has|can|should)[A-Z_]/.test(n.property)));
+    if (v && !yn(v)) return M('whether-not-yes-no');
+  }
+  // Java compares text with `==` by reference: `s == "true"` is not "s is true".
+  if (lang === 'java' && tree && [...nodesOf(tree)].some((n) => n.kind === 'compare' && /^[!=]=$/.test(n.op) && [n.left, n.right].some((x) => x?.kind === 'literal' && x.type === 'text'))) return WHY.meaning;
+  // "or y when that has no value" is a default (`??`, `?:`); `||` / `or` also skip false, 0, and "", so it is not that.
+  if (tree && /when (?:that|it) has no value/.test(says) && [...nodesOf(tree)].some((n) => n.kind === 'logic' && n.op === 'or') && ![...nodesOf(tree)].some((n) => n.kind === 'binary' && (n.op === '??' || n.op === '?:'))) return WHY.meaning;
+  // `kwargs.setdefault(k, v)` / `putIfAbsent` set only when nothing is there yet.
+  if (tree && [...nodesOf(tree)].some((n) => n.kind === 'call' && /^(?:setdefault|putIfAbsent|computeIfAbsent|getOrPut|get_or_insert|get_or_insert_with|or_insert|or_insert_with|TryAdd|GetOrAdd)$/.test(n.callee?.property ?? n.callee?.name ?? '')) && !/\b(?:if|unless|yet|missing|not there|nothing)\b/.test(said0)) return WHY.meaning;
+  // A name split into one-letter pieces (`NaN` as "na n") is not a name a reader can use.
+  for (const id of String(full).match(/\b[A-Za-z][a-z]*[A-Z][A-Za-z]*\b/g) || []) {
+    if (id.length > 4) continue;
+    const parts = splitWords(id);
+    if (parts.some((p) => p.length === 1) && ` ${claimWords(says).join(' ')} `.includes(` ${parts.join(' ')} `) && !String(says).includes(id)) return WHY.words;
+  }
+  // An idiom inside code written in the words (`p[how many p-1]`) is garbled: neither words nor code.
+  if (/\[[^\]]*\b(?:how many|the|is|of|whether)\b[^\]]*\]/.test(claimText(says))) return WHY.words;
   // Words with a bracket left open are garbled.
   if (!bracketsClosed(claimText(says))) return WHY.words;
   // "Sets x to x" is a real self-assignment, or it hides where the value comes from.
@@ -576,10 +633,27 @@ function checkStep(step, ctx) {
     default: break;
   }
 
+  // A call's argument that the words name is named whole: `free(history[j])` is not "Frees history".
+  if (tree) {
+    const core = coreOf(tree.kind === 'return' ? tree.value : tree);
+    if (core?.kind === 'call') {
+      const w = ` ${splitWords(says).join(' ')} `;
+      for (const a of core.args || []) {
+        if (a.kind !== 'index' && !(a.kind === 'member' && a.object?.kind === 'index')) continue;
+        let root = a; while (root && (root.kind === 'index' || root.kind === 'member')) root = root.object;
+        const rn = root?.kind === 'name' ? root.name : root?.kind === 'member' ? root.property : null;
+        if (rn && w.includes(` ${splitWords(rn).join(' ')} `) && !namesKept(a, says)) return M('arg-part');
+      }
+    }
+  }
   // "Adds X to Y" (a push, an append, an add): what is added is said in full (`push(items[0])` is not "Adds items").
   const adds = /^Adds (.+?) to (?:the end of )?(.+?)(?: \(.*\))?$/.exec(says);
   if (adds && tree) {
-    const core = coreOf(tree.kind === 'assign' ? tree.value : tree);
+    // (The call that adds: along a chain such as `self.add(name).expect(MSG)`, the add.)
+    let core = coreOf(tree.kind === 'assign' ? tree.value : tree);
+    for (let c = core; c && c.kind === 'call'; c = c.callee?.kind === 'member' ? coreOf(c.callee.object) : null) {
+      if (/^(?:add|push|append|insert|extend|concat|Add|AddRange|put|unshift|prepend|push_back|emplace_back|merge)$/.test(c.callee?.property ?? c.callee?.name ?? '')) { core = c; break; }
+    }
     if (tree.kind === 'assign' && tree.op !== '=' && tree.op !== ':=') { if (!namesKept(tree.value, adds[1])) return M('adds-value'); }
     else if (core?.kind === 'call' && core.args?.length && !core.args.some((a) => namesKept(a, adds[1]))) return M('adds-value');
     else if (core?.kind === 'call' && core.args?.some((a) => a.kind === 'index') && !core.args.every((a) => namesKept(a, adds[1]) || a.kind === 'name')) return M('adds-value');
@@ -617,9 +691,9 @@ function callKept(step, tree, says, code, lang) {
   if (!m) return WHY.form;
   const named = m[1].trim();
   const first = splitWords(named)[0] ?? '';
-  if (KEYWORD_CALLEE.test(first) && splitWords(named).length === 1 && !new RegExp(`[.>:]\\s*${named.replace(/\W/g, '')}\\s*\\(`).test(code)) return WHY.form;
+  if (KEYWORD_CALLEE.test(first) && splitWords(named).length === 1 && !new RegExp(`(?:[.>:]|^)\\s*${named.replace(/\W/g, '')}\\s*\\(`).test(code.trim())) return WHY.form;
   const lead = leadingWord(code);
-  if (KEYWORD_CALLEE.test(lead) && !/^(?:new|await|go|defer|yield|return|try|do|lock|using|fixed|checked|unchecked|if|unless|when)$/.test(lead) && sameWords(lead, named)) return WHY.form;
+  if (KEYWORD_CALLEE.test(lead) && !/^(?:new|await|go|defer|yield|return|try|do|lock|using|fixed|checked|unchecked|if|unless|when)$/.test(lead) && sameWords(lead, named) && !new RegExp(`^\\s*${lead}\\s*\\(`).test(code)) return WHY.form;
   if (tree) {
     const core = coreOf(tree.kind === 'return' ? tree.value : tree);
     if (!core) return WHY.form;
@@ -831,6 +905,13 @@ function valueKept(v, says, code, lang) {
   // A plain value (a name, a member, a literal, an operator over them): every name in it is in the words.
   const core = coreOf(v);
   if (core && /^(?:name|member|literal|binary|compare|logic|not|unary|index)$/.test(core.kind) && !namesKept(core, says)) return M('L472');
+  // A returned call (`return warning("…" + x)`) is named by the words; its arguments are not what is given back.
+  if (core?.kind === 'call' && !/^(?:Returns|Gives back) (?:the result of|a new|whether|one for each|the items|the first|a copy|what)\b/.test(says)) {
+    const name = core.callee?.kind === 'member' ? core.callee.property : core.callee?.name;
+    // (Responses, wrappers, and conversions name what they give back: `res.json(user)`, `Ok(n)`, `w.ToString()`.)
+    const wrapper = chainCallees(core).some((c) => /^(?:ConfigureAwait|unwrap|expect|await|get|Result)$/.test(c) && chainCallees(core).some((d) => ` ${splitWords(says).join(' ')} `.includes(` ${splitWords(d).join(' ')} `))) || /^(?:json|send|end|render|redirect|status|sendStatus|JSON|String|Ok|Some|Err|None|Success|Failure|Result|ToString|toString|to_s|to_str|str|repr|String|next|resolve|reject|of|from|wrap|just|pure|Task|FromResult|Promise)$/.test(String(name)) || /\bas text\b/.test(says);
+    if (name && !wrapper && !` ${splitWords(says).join(' ')} `.includes(` ${splitWords(name).join(' ')} `) && !LIBRARY_STEP) return M('return-call');
+  }
   if (core && core.kind === 'binary' && ARITH.has(core.op) && arithCount(core) > (said.match(/\b(?:plus|minus|times|divided|multiplied|remainder|shifted|joined|followed|added|bits?|mod)\b|[-+*/%&|^~]|<<|>>/g) || []).length + (/\bbuilt from its parts\b|\btext\b/.test(said) ? 9 : 0)) return M('L473');
   return null;
 }
@@ -1136,13 +1217,16 @@ function valueTarget(s) {
 }
 
 function sayLessList(list, ctx, depth, top) {
-  let ended = false;
+  let ended = false, endedImplicit = false;
   for (let i = 0; i < (list?.length ?? 0); i++) {
     const s = list[i];
     // A label (`err:`) is reached by a jump: steps after it are not after the ending.
     if (ended && (/^\s*[A-Za-z_]\w*\s*:\s*$/.test(String(s.code ?? '')) || /^The "\w+" part starts here$/.test(String(s.says)))) ended = false;
     if (ended && s.kind === 'return' && /^Stops here$/.test(String(s.says)) && /^\s*return\s*;?\s*$/.test(String(s.code ?? ''))) { s.explained = true; continue; }
     if (ended && /^Defines (?:a helper|how)\b/.test(String(s.says))) ended = false;
+    // A one-expression function (`const f = (x) => x * 2`) ends with its value: steps after it at the top belong to the
+    // function around it (the reader took too much), so they are not this function's at all.
+    if (ended && top && endedImplicit) { list.length = i; break; }
     if (ended) { regionAsCode(s, WHY.structure); continue; }
     // An `else` / `catch` / `finally` read as a step of its own: the block before it was misread.
     if (/^\s*\}?\s*(?:else|elseif|elsif|elif|catch|finally|rescue|ensure)\b(?!\s*(?:->|=>|:\s*$))/.test(String(s.code ?? '')) && s.kind !== 'branch' && s.kind !== 'check' && !s.caseLabel) {
@@ -1163,7 +1247,9 @@ function sayLessList(list, ctx, depth, top) {
     const last = top && i === list.length - 1;
     if (!alreadyCode(s)) {
       lastTag = null;
-      const why = checkStep(s, { ...ctx, last: last || (ctx.lastPath && i === list.length - 1), only: top && list.length === 1 });
+      const sc = Object.create(ctx);
+      sc.last = last || (ctx.lastPath && i === list.length - 1); sc.only = top && list.length === 1;
+      const why = checkStep(s, sc);
       if (why) {
         asCode(s, why);
         if (lastTag) Object.defineProperty(s, 'whyTag', { value: lastTag, enumerable: false });
@@ -1179,10 +1265,16 @@ function sayLessList(list, ctx, depth, top) {
     }
     // The last thing a function does: the last step, and (inside it) the last step of each of its sides and cases.
     // `return when (x) { … }` / `return x switch { … }`: each case's value is what the function gives back.
+    if (!s.children && !s.otherwise && !s.handlers && !s.always) { if (isEnding(s) && s.kind !== 'other') { ended = true; endedImplicit = i === 0 && s.kind === 'return' && !/^\s*return\b/.test(String(s.code ?? '')); } continue; }
     const valueOf = /^\s*return\s+(?:when|switch|match|if|case)\b|^\s*return\s+\S.*\b(?:switch|match)\s*\{|^\s*=\s*(?:when|if)\b/.test(String(s.code ?? ''));
     const lastPath = ((ctx.lastPath || top) && i === list.length - 1) || (s.kind === 'check' && s.caseLabel && ctx.armsLast) || valueOf;
     const armsLast = s.kind === 'branch' && lastPath;
     const inner = { ...ctx, lastPath, armsLast, exprValue: ctx.exprValue || valueOf, ...(valueTarget(s) ? { valueTarget: valueTarget(s) } : {}) };
+    // A "loop" that is a call with a callback (`lapply(files, function(path) …)`, `items.forEach(…)`): a return inside
+    // it ends the callback, not the function, so it is not drawn as the function's ending.
+    if (s.kind === 'loop' && !/^\s*(?:for|foreach|while|until|do|loop|repeat)\b/.test(String(s.code ?? '')) && s.children) {
+      for (const k of everyStep(s.children)) if ((k.kind === 'return' || k.kind === 'fail') && !k.nested) regionAsCode(k, WHY.structure);
+    }
     // An inner function (a callback, a lambda) is a function of its own: its last step is its own value.
     if (s.children) sayLessList(s.children, s.nested ? { ...ctx, lastPath: false, armsLast: false, exprValue: false, inLambda: true } : inner, depth + 1, !!s.nested);
     if (s.otherwise) sayLessList(s.otherwise, inner, depth + 1, false);
@@ -1229,10 +1321,12 @@ export function certainlyYesNo(text, lang) {
 /** Inputs: only names written as parameters in the function's own signature, never a macro, type, or lifetime. */
 function checkInputs(item, lang, srcLines) {
   if (!item.inputs?.length || ['shell', 'sql'].includes(lang)) return;
-  const head = srcLines.slice(item.line - 1, item.line + 12).join('\n');
-  const text = stripQuoted(head);
   const ids = new Set();
-  for (const id of text.match(/[A-Za-z_][\w.]*/g) || []) { ids.add(id); for (const part of id.split('.')) ids.add(part); }
+  const take = (a, b) => { for (const id of stripQuoted(srcLines.slice(a, b).join('\n')).match(/[A-Za-z_][\w.]*/g) || []) { ids.add(id); if (id.includes('.')) for (const part of id.split('.')) ids.add(part); } };
+  const at = Math.max(0, (item.line ?? 1) - 1);
+  take(at, at + 3);
+  // (A signature over many lines: read further only when a name was not found in the first lines.)
+  if (item.inputs.some((p) => !ids.has(String(p.name ?? '').replace(/^[$@&*]+/, '').replace(/\.\.\.$/, '')))) take(at + 3, at + 13);
   item.inputs = item.inputs.filter((p) => {
     const n = String(p.name ?? '');
     const bare = n.replace(/^[$@&*]+/, '').replace(/\.\.\.$/, '');
@@ -1253,6 +1347,8 @@ export function sayLess(reading, source) {
   const lang = reading?.language;
   if (!reading?.items || !lang) return reading;
   const lines = String(source ?? '').split('\n');
+  // The functions this file defines (a call of one of them is that function, not a library's of the same name).
+  const ownFunctions = new Set(reading.items.filter((it) => it.kind === 'function' || it.kind === 'decision').map((it) => it.name));
   // Shell helpers that end with `exit N` (one-line definitions), by name.
   const helperExits = new Map();
   if (lang === 'shell') for (const m of String(source ?? '').matchAll(/^\s*(?:function\s+)?([\w-]+)\s*\(\)\s*\{[^}\n]*\bexit\s+(\d+)\s*;?\s*\}/gm)) helperExits.set(m[1], m[2]);
@@ -1266,8 +1362,9 @@ export function sayLess(reading, source) {
     if (lang === 'sql' || INFRA.has(lang)) markOnly(it.steps);
     else {
       const ownNames = new Set((it.inputs || []).map((p) => String(p.name).replace(/^[$@&*]+/, '')));
-      for (const s of everyStep(it.steps)) { const e = s.expr; const t = e?.kind === 'assign' && e.declare ? e.target : null; if (t?.kind === 'name') ownNames.add(t.name); }
-      sayLessList(it.steps, { lang, lines, helperExits, ownNames, singleTop: it.steps.length === 1 }, 0, true);
+      const collect = (l) => { for (const s of l || []) { const e = s.expr; if (e?.kind === 'assign' && e.declare && e.target?.kind === 'name') ownNames.add(e.target.name); if (s.children) collect(s.children); if (s.otherwise) collect(s.otherwise); } };
+      collect(it.steps);
+      sayLessList(it.steps, { lang, lines, helperExits, ownNames, ownFunctions, singleTop: it.steps.length === 1 }, 0, true);
     }
     let total = 0, explained = 0;
     for (const s of everyStep(it.steps)) { total++; if (s.explained !== false) explained++; }

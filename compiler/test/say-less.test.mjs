@@ -119,3 +119,42 @@ test('psf/requests 6f205ff → 6f66281 _encode_files: a review keeps quoted text
   assert.doesNotMatch(md, /hasattr\(fp, \d\)|\u0001/);
   assert.match(md, /hasattr\(fp, "read"\)/);
 });
+
+// Real readings hand-checked in a gallery (main e432fac / 1.0.4): each is now said exactly or shown as code.
+test('requests should_strip_auth / ripgrep search: a boolean `or` / `||` is not "or y when that has no value"', () => {
+  const py = thunderText('a.py', 'def should_strip_auth(changed_port, changed_scheme):\n    return changed_port or changed_scheme\n');
+  assert.doesNotMatch(py, /when that has no value/);
+  const rs = thunderText('a.rs', 'fn search(matched: bool, s: &S) -> bool {\n    let matched = matched || s.has_match();\n    matched\n}\n');
+  assert.doesNotMatch(rs, /when that has no value/);
+});
+
+test('ky _calculateRetryDelay: a multiplication is never dropped from the words', () => {
+  const t = thunderText('a.ts', "class Ky {\n  _calculateRetryDelay(error) {\n    const retryAfter = error.response.headers.get('Retry-After');\n    if (retryAfter) {\n      let after = Number(retryAfter) * 1000;\n      return after;\n    }\n    return 0.3 * (2 ** (this._retryCount - 1)) * 1000;\n  }\n}\n");
+  for (const line of t.split('\n').filter((l) => /1000|retry after/.test(l) && !/code, not explained/.test(l))) assert.match(line, /1000|times/, line);
+  assert.doesNotMatch(t, /Sets after to the result of number\s/);
+});
+
+test('vercel/ms parse, date-fns: NaN is a value, never "na n"', () => {
+  const t = thunderText('a.ts', 'export function parse(str: string): number {\n  if (str.length > 100) {\n    return NaN;\n  }\n  return 1;\n}\n');
+  assert.doesNotMatch(t, /na n/i);
+});
+
+test('ripgrep special: Rust `use …` inside a function is not "Calls use"', () => {
+  const t = thunderText('a.rs', 'fn special(mode: u8) -> u8 {\n    use crate::flags::SpecialMode;\n    mode\n}\n');
+  assert.doesNotMatch(t, /Calls use/);
+});
+
+test('requests Session.send: `kwargs.setdefault("stream", x)` sets it only if missing, so it is never "Sets stream on kwargs"', () => {
+  const t = thunderText('a.py', 'def send(self, request, **kwargs):\n    kwargs.setdefault("stream", self.stream)\n    return adapter.send(request, **kwargs)\n');
+  assert.doesNotMatch(t, /Sets "?stream"? on kwargs/);
+});
+
+test('net/http cleanPath: a length in an index is kept or shown as code (no garbled "how many p")', () => {
+  const t = thunderText('a.go', 'package http\n\nfunc cleanPath(p string) string {\n\tif p == "" {\n\t\treturn "/"\n\t}\n\tnp := path.Clean(p)\n\tif p[len(p)-1] == \'/\' && np != "/" {\n\t\tif len(p) == len(np)+1 && strings.HasPrefix(p, np) {\n\t\t\tnp = p\n\t\t} else {\n\t\t\tnp += "/"\n\t\t}\n\t}\n\treturn np\n}\n');
+  for (const line of t.split('\n').filter((l) => /how many p\b/.test(l))) assert.match(line, /how many p - 1|how many p minus 1|how many np|code, not explained/, line);
+});
+
+test('commons-lang BooleanUtils.toBooleanObject: Java `str == "true"` compares references, so it is never "Is str true?"', () => {
+  const t = thunderText('B.java', 'class BooleanUtils {\n    public static Boolean toBooleanObject(final String str) {\n        if (str == "true") {\n            return Boolean.TRUE;\n        }\n        return null;\n    }\n}\n');
+  assert.doesNotMatch(t, /Is str true\?/);
+});
