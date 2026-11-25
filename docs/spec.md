@@ -595,8 +595,9 @@ is 30 cents, exactly `0.3`.
 
 - **Minor units.** `Money` has 2 decimal places (cents). `Money(XXX)` uses that currency's ISO 4217 minor units:
   `Money(JPY)` has 0, `Money(KWD)` has 3. An amount with more places than that is an error, not a rounding.
-- **Rounding.** Thunder never rounds money on its own. Where a rule explicitly asks for rounding, it is round half to
-  even (`roundHalfEven`: `2.345` becomes `2.34`, `2.355` becomes `2.36`).
+- **Rounding.** Thunder never rounds money on its own. Where a rule explicitly asks for rounding, it is round half up,
+  with a half going away from zero (`roundHalfUp`: `2.345` becomes `2.35`, `-2.345` becomes `-2.35`, `2.5` to a whole
+  number becomes `3`). This is the rule people learn in school, and Thunder Core's `round` uses it in every target.
 - **The decision engine** adds, subtracts, and multiplies decimals exactly, so `amount + fee == 0.3` is true for
   `0.1` and `0.2`.
 - **Each target uses an exact type.** Generated and executed code never turns Money into a float:

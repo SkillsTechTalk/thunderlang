@@ -709,7 +709,7 @@ export const GENERATORS: Record<string, (ast: IntentAst) => string>;
 export function generateWithDiagnostics(ast: IntentAst, target: string): { code: string; diagnostics: import('./target-result.mjs').GenerationDiagnostic[] };
 export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage } from './target-result.mjs';
 export type { CaseResult, TargetRun, TargetErrorKind, GenerationDiagnostic } from './target-result.mjs';
-export { parseMoney, formatMoney, roundHalfEven, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
+export { parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
 /** `money` maps Money input names to minor units; their comparisons render exactly, other uses throw. */
 export function exprToJs(src: string, opts?: { inputs?: string[]; money?: Record<string, number> }): string;
 export function subjectName(ast: IntentAst): string | null;

@@ -9,8 +9,8 @@ export function moneyTypeMinorUnits(type: string): number | null;
 export function parseMoney(text: string | number, opts?: { minorUnits?: number; allowDollar?: boolean }): bigint;
 /** Render minor units as a decimal string with exactly `minorUnits` places. */
 export function formatMoney(minor: bigint | number, opts?: { minorUnits?: number }): string;
-/** Round half to even to `minorUnits` places. Use only where a spec asks for rounding. */
-export function roundHalfEven(text: string | number, opts?: { minorUnits?: number }): bigint;
+/** Round half up (a half goes away from zero, as in Thunder Core) to `minorUnits` places. Use only where a spec asks for rounding. */
+export function roundHalfUp(text: string | number, opts?: { minorUnits?: number }): bigint;
 export function numberToDecimalText(n: number): string;
 /** The exact Money literal for a target dialect, or null when the target has none wired up. */
 export function moneyLiteral(dialect: string, text: string | number, minorUnits?: number): string | null;

@@ -118,7 +118,7 @@ export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLeve
 export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, generateWithDiagnostics } from './codegen.mjs';
 // Honest generation and run results (IL-GEN-001, structured case results) and exact Thunder Money
 export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage } from './target-result.mjs';
-export { parseMoney, formatMoney, roundHalfEven, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
+export { parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { exprToJs, exprToCSharp, exprToJava, exprToCode } from './expr.mjs';

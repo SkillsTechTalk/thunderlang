@@ -5,7 +5,8 @@
 //   currency's own when the type names one (Money(JPY) has 0, Money(KWD) has 3).
 // - Parsing is string-exact. An amount with more decimal places than the minor units is an error,
 //   never silently rounded. Rounding happens only where a spec explicitly asks for it, and then it
-//   is round half to even (roundHalfEven below).
+//   is round half up, a half going away from zero (roundHalfUp below), the same rule as Thunder Core's
+//   `round`: 2.345 is 2.35, -2.345 is -2.35.
 // - Each target uses an exact representation: TypeScript/JavaScript bigint minor units, Python
 //   decimal.Decimal, Java java.math.BigDecimal, C# decimal, Go int64 minor units, Rust i64 minor
 //   units. A target with no exact representation wired up refuses (IL-GEN-001), it never falls back
@@ -68,22 +69,18 @@ export function formatMoney(minor, { minorUnits = MONEY_DEFAULT_MINOR_UNITS } = 
 }
 
 /**
- * Round a decimal string to `minorUnits` places with round half to even (banker's rounding).
+ * Round a decimal string to `minorUnits` places, half up: a half goes away from zero (2.345 is 2.35, -2.345 is
+ * -2.35), the rule people learn in school and the one Thunder Core's `round` uses in every target.
  * Use only where a spec explicitly asks for rounding. Returns exact minor units (bigint).
  */
-export function roundHalfEven(text, { minorUnits = MONEY_DEFAULT_MINOR_UNITS } = {}) {
+export function roundHalfUp(text, { minorUnits = MONEY_DEFAULT_MINOR_UNITS } = {}) {
   const t = typeof text === 'number' ? numberToDecimalText(text) : String(text).trim();
   const m = t.match(DECIMAL);
   if (!m) throw new MoneyError(`"${text}" is not an amount.`);
   const frac = m[3] || '';
   let minor = BigInt(m[2] + frac.slice(0, minorUnits).padEnd(minorUnits, '0'));
   const rest = frac.slice(minorUnits);
-  if (rest && /[1-9]/.test(rest)) {
-    const first = rest[0];
-    const tail = rest.slice(1);
-    const up = first > '5' || (first === '5' && (/[1-9]/.test(tail) || minor % 2n === 1n));
-    if (up) minor += 1n;
-  }
+  if (rest && rest[0] >= '5') minor += 1n; // the magnitude rounds up; the sign is put back after
   return m[1] === '-' ? -minor : minor;
 }
 

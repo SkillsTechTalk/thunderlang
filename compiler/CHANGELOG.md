@@ -11,7 +11,7 @@
   `generateWithDiagnostics(ast, target)` and `translateDecisionsWithDiagnostics(ast, lang)`.
 - **Fix: Money is exact, never binary floating point.** `Money` is a decimal with 2 minor units (or the currency's:
   `Money(JPY)` 0, `Money(KWD)` 3); extra precision is an error, never rounded; rounding, where a spec asks, is half
-  to even. TypeScript Money was `number`; it is now `bigint` minor units with a generated zero-dependency
+  up (a half goes away from zero), the same rule as Thunder Core's `round`. TypeScript Money was `number`; it is now `bigint` minor units with a generated zero-dependency
   `parseMoney` / `formatMoney` helper. Python Money was `float`; it is now `decimal.Decimal`. Decision inputs typed
   `Money` were `double`/`float64`/`f64` in every target; they are now `decimal` (C#), `BigDecimal` (Java), `int64`
   (Go) and `i64` (Rust) minor units, and a Money comparison a target cannot do exactly (Kotlin, Scala, Elixir, or

@@ -17,7 +17,7 @@ import { emitJavaModule } from '../src/target-java.mjs';
 import { emitKotlinModule } from '../src/target-kotlin.mjs';
 import { buildConformance } from '../src/conformance.mjs';
 import { translateDecisionsWithDiagnostics } from '../src/translate.mjs';
-import { parseMoney, formatMoney, roundHalfEven, minorUnitsFor, moneyTypeMinorUnits, MoneyError } from '../src/money.mjs';
+import { parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError } from '../src/money.mjs';
 import { isCaseResult, classifySpawn, GEN_UNTRANSLATED } from '../src/target-result.mjs';
 import { parsePlainContract, plainToThunder, renderPlainContract } from '../src/plain-contract.mjs';
 import { ALL_DIAGNOSTICS } from '../src/intent-schema.mjs';
@@ -276,9 +276,13 @@ test('Money parses and formats exactly, refuses sub-unit precision, and rounds h
   assert.equal(formatMoney(1230n), '12.30');
   assert.equal(formatMoney(-5n), '-0.05');
   assert.equal(formatMoney(5n, { minorUnits: 0 }), '5');
-  assert.equal(roundHalfEven('2.345'), 234n);
-  assert.equal(roundHalfEven('2.355'), 236n);
-  assert.equal(roundHalfEven('2.3451'), 235n);
+  // Half up, a half going away from zero: the same rule as Thunder Core's round.
+  assert.equal(roundHalfUp('2.345'), 235n);
+  assert.equal(roundHalfUp('2.355'), 236n);
+  assert.equal(roundHalfUp('2.3449'), 234n);
+  assert.equal(roundHalfUp('-2.345'), -235n);
+  assert.equal(roundHalfUp('2.5', { minorUnits: 0 }), 3n);
+  assert.equal(roundHalfUp('2.344'), 234n);
   assert.equal(minorUnitsFor('JPY'), 0);
   assert.equal(minorUnitsFor('KWD'), 3);
   assert.equal(minorUnitsFor('USD'), 2);
