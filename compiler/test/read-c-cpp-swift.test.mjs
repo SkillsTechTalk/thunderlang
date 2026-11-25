@@ -103,7 +103,7 @@ test('C: memory, copies, switch with fall-through, goto and labels, do … while
   assert.ok(c.includes('Copies name into buf'));
   assert.ok(c.includes('Fills books with zeros'));
   assert.ok(c.includes('Frees books'));
-  assert.equal(c[0], 'If name is empty');
+  assert.equal(c[0], 'If name is null');
   const steps = byName(r, 'count_items').steps;
   const sw = steps[1].children[0];
   assert.equal(sw.says, 'Chooses by text[i]');

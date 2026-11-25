@@ -399,13 +399,16 @@ function braceWords(inner) {
     return `${d} when ${subj} ${colon ? 'is set and not empty' : 'is set'}, otherwise nothing`;
   }
   if ((m = rest.match(/^(##?|%%?)([\s\S]*)$/))) {
-    const [, op, p] = m;
+    // (Shell quotes in a pattern only mark text as literal: `${x%', '}` removes ", ".)
+    const [, op, p0] = m;
+    const p = p0.replace(/'([^']*)'|"([^"$`\\]*)"/g, '$1$2');
     if (/\$/.test(p)) return null;
     const what = GLOBBY.test(p) ? `the ${op.length === 2 ? 'longest' : 'shortest'} match of "${p}"` : `"${p}"`;
     return `${subj} without ${what} at the ${op[0] === '#' ? 'start' : 'end'}`;
   }
   if ((m = rest.match(/^\/([/#%]?)((?:\\.|[^/\\])*)(?:\/([\s\S]*))?$/))) {
-    const [, mode, p, r] = m;
+    const [, mode, p0, r] = m;
+    const p = p0.replace(/'([^']*)'|"([^"$`\\]*)"/g, '$1$2');
     if (!p || /\$/.test(p)) return null;
     const pat = GLOBBY.test(p) ? `match of "${p}"` : `"${p}"`;
     const which = mode === '/' ? `every ${pat}` : mode === '#' ? `${pat} at the start` : mode === '%' ? `${pat} at the end` : `the first ${pat}`;
@@ -575,8 +578,9 @@ const arithSays = (expr) => { const st = arithStatement(expr); if (st) return st
 
 // ── Tests and conditions ──────────────────────────────────────────────────────────────────────────────
 
-const PLACE = /(?:^|\s)(?:file|dir|directory|folder|path)$/;
-const fileLeaf = (noun, x, neg) => { const w = sayWord(x); const own = PLACE.test(w); return neg ? (own ? `${w} does not exist` : `there is no ${noun} ${w}`) : (own ? `${w} exists` : `the ${noun} ${w} exists`); };
+// (A name says what it is only when it names that kind: `config_dir` is a folder, but `path` can be a file or a folder,
+// so `[ -d "$path" ]` is "the folder path exists", never just "path exists".)
+const fileLeaf = (noun, x, neg) => { const w = sayWord(x); const own = noun === 'file' ? /(?:^|\s)file$/.test(w) : /(?:^|\s)(?:dir|directory|folder)$/.test(w); return neg ? (own ? `${w} does not exist` : `there is no ${noun} ${w}`) : (own ? `${w} exists` : `the ${noun} ${w} exists`); };
 const UNARY = {
   '-f': (x, n) => fileLeaf('file', x, n), '-d': (x, n) => fileLeaf('folder', x, n),
   '-e': (x, n) => `${sayWord(x)} ${n ? 'does not exist' : 'exists'}`, '-a': (x, n) => `${sayWord(x)} ${n ? 'does not exist' : 'exists'}`,
@@ -615,7 +619,7 @@ function testWords(ws, neg, double) {
     if (BINARY[ws[i + 1]] && ws[i + 2] !== undefined) {
       const [a, op, b] = [ws[i], ws[i + 1], ws[i + 2]];
       i += 3;
-      if ((op === '==' || op === '=' || op === '!=') && double && isGlob(b)) { const pos = op !== '!='; return `${sayWord(a)} ${pos !== n ? 'matches' : 'does not match'} ${b}`; }
+      if ((op === '==' || op === '=' || op === '!=') && double && isGlob(b)) { const pos = op !== '!='; return `${sayWord(a)} ${pos !== n ? 'matches' : 'does not match'} the pattern \`${b}\``; }
       // Compared with "" is a question about being empty.
       if ((op === '=' || op === '==' || op === '!=') && /^(?:""|'')$/.test(b)) return `${sayWord(a)} is ${(op === '!=') !== n ? 'not empty' : 'empty'}`;
       const pair = BINARY[op];
@@ -715,6 +719,25 @@ const TRAP_WHEN = (sigs) => {
   return `When it gets the signal ${s.join(' or ')}`;
 };
 
+/** The words of a list, split at spaces outside quotes, `$( … )`, `${ … }`, and backticks: `a "b c" $(ls -a)`. */
+function shellWordsOf(text) {
+  const out = [];
+  let cur = '', depth = 0, q = null;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { cur += c; if (c === '\\' && q === '"') { cur += text[++i] ?? ''; continue; } if (c === q) q = null; continue; }
+    if (c === '\\') { cur += c + (text[++i] ?? ''); continue; }
+    if (c === '"' || c === "'" || c === '`') { q = c; cur += c; continue; }
+    if (c === '$' && (text[i + 1] === '(' || text[i + 1] === '{')) { depth++; cur += c + text[++i]; continue; }
+    if (depth && (c === '(' || c === '{')) { depth++; cur += c; continue; }
+    if (depth && (c === ')' || c === '}')) { depth--; cur += c; continue; }
+    if (!depth && /\s/.test(c)) { if (cur) out.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 /** One assignment word (`X=val`, `X+=val`, `arr=(a b)`) in words. */
 function assignWords(a, { exported = false, readonly = false } = {}) {
   const m = a.match(/^([A-Za-z_]\w*)(\[[^\]]*\])?(\+?)=([\s\S]*)$/);
@@ -722,11 +745,12 @@ function assignWords(a, { exported = false, readonly = false } = {}) {
   const [, name, index, plus, val] = m;
   const who = `${varWords(name)}${index ? `'s ${sayWord(index.slice(1, -1))}` : ''}`;
   const tail = exported ? ' and shares it with the programs it runs' : readonly ? ' (it cannot change after this)' : '';
-  if (name === 'PATH' && /\$\{?PATH\}?/.test(val)) { const added = val.split(':').filter((x) => !/\$\{?PATH\}?/.test(x)); return `Adds ${listWords(added.map(sayWord))} to the PATH (where commands are found)`; }
+  // (`"${BIN}:${PATH}"`: the quotes go round the whole value, so each part is read inside them.)
+  if (name === 'PATH' && /\$\{?PATH\}?/.test(val)) { const q = /^"[^"]*"$/.test(val); const added = (q ? val.slice(1, -1) : val).split(':').filter((x) => !/\$\{?PATH\}?/.test(x)).map((x) => (q ? `"${x}"` : x)); return `Adds ${listWords(added.map(sayWord))} to the PATH (where commands are found)`; }
   if (/^\(/.test(val)) {
     const inner = val.slice(1, -1).trim();
     if (!inner) return `Starts ${who} as an empty list`;
-    const items = inner.split(/\s+/).filter(Boolean);
+    const items = shellWordsOf(inner);
     return `${plus ? 'Adds' : 'Sets'} ${plus ? `${listWords(items.map(sayWord))} to ${who}` : `${who} to the list ${listWords(items.slice(0, 6).map(sayWord))}${items.length > 6 ? ', …' : ''}`}${tail}`;
   }
   if (val === '' || val === '""' || val === "''") return `Empties ${who}${tail}`;
@@ -754,8 +778,21 @@ function redirWords(redirs) {
 }
 const toStderr = (redirs) => redirs.some((r) => (r.op === '>&' && r.target === '2' && (!r.fd || r.fd === '1')) || (r.fd === '1' && r.op === '>&' && r.target === '2') || ((r.op === '>' || r.op === '>>') && r.target === '/dev/stderr'));
 
-/** A simple command as { kind, says, ... }, or null when it does nothing a reader needs (`:`, `true`). */
+/**
+ * `exec prog args` runs prog in place of this script: the script ends there (`exec -a NAME prog` names it NAME).
+ * (`exec >&2` with no command only moves the output, and the script carries on.)
+ */
 function simpleSays(n, ctx = null) {
+  const w0 = String(n.words[0] ?? '').replace(/^\\/, '');
+  if (w0 !== 'exec' || n.words.length < 2) return simpleSaysInner(n, ctx);
+  let ws = n.words.slice(1);
+  while (/^-/.test(ws[0] ?? '')) ws = ws[0] === '-a' ? ws.slice(2) : ws.slice(1);
+  if (!ws.length) return simpleSaysInner(n, ctx);
+  const r = simpleSaysInner({ ...n, words: ws }, ctx);
+  return { kind: 'return', says: `${r?.says || `Runs ${sayWord(ws[0])}`}, in place of this script (it does not come back here)`, exec: true };
+}
+
+function simpleSaysInner(n, ctx = null) {
   // `\command`, `\cd`: a leading backslash only skips aliases; the command is the same.
   let ws = n.words.map((w, i) => (i === 0 ? w.replace(/^\\(?=[\w.])/, '') : w));
   if (!ws.length) {

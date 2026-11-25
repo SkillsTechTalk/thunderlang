@@ -152,6 +152,13 @@ function skipString(src, i) {
     while (/\w/.test(src[j] || '')) j++;
     if (src[j] !== '\'') return i;
   }
+  // Rust text runs over lines until its closing quote; a raw string `r#"…"#` ends at the quote followed by its hashes.
+  if (q === '"' && READING_RUST) {
+    const raw = /\br(#*)$/.exec(src.slice(Math.max(0, i - 8), i));
+    if (raw) { const e = src.indexOf(`"${raw[1]}`, i + 1); return e < 0 ? src.length : e + raw[1].length; }
+    for (let j = i + 1; j < src.length; j++) { if (src[j] === '\\') { j++; continue; } if (src[j] === q) return j; }
+    return src.length;
+  }
   for (let j = i + 1; j < src.length; j++) {
     if (src[j] === '\\') { j++; continue; }
     if (src[j] === q) return j;
@@ -180,7 +187,7 @@ function parseParams(raw, language) {
   let pendingGo = [];
   for (let p of parts.map((x) => x.trim()).filter(Boolean)) {
     p = p.replace(/=.*$/, '').trim();
-    if (/^&?\s*(mut\s+)?self$|^self$|^cls$|^this$/.test(p)) continue;
+    if (/^&?\s*(?:'\w+\s+)?(mut\s+)?self$|^self$|^cls$|^this$/.test(p)) continue;
     if (language === 'ruby') {
       if (/^&/.test(p)) continue; // a block argument
       out.push({ name: p.replace(/^\*+/, '').replace(/:.*$/, '').trim(), type: null });
@@ -1127,7 +1134,7 @@ function annotateRoutes(fns, src) {
       let m;
       if ((m = l.match(/^@\w+\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/i))) { fn.route = { method: m[1].toUpperCase(), path: m[2] }; break; }
       if ((m = l.match(/^@\w+\.route\(\s*['"]([^'"]*)['"](?:.*methods\s*=\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'GET').toUpperCase(), path: m[1] }; break; }
-      if ((m = l.match(/^@(Get|Post|Put|Patch|Delete|Request)Mapping(?:\(\s*(?:value\s*=\s*|path\s*=\s*)?["']([^"']*)["'])?/))) { fn.route = { method: m[1] === 'Request' ? 'ANY' : m[1].toUpperCase(), path: m[2] || '/' }; break; }
+      if ((m = l.match(/^@(Get|Post|Put|Patch|Delete|Request)Mapping(?:\(\s*(?:value\s*=\s*|path\s*=\s*)?(?:\{\s*)?["']([^"']*)["'])?/))) { fn.route = { method: m[1] === 'Request' ? 'ANY' : m[1].toUpperCase(), path: m[2] || '/' }; break; }
       if ((m = l.match(/^#\[Route\(\s*(?:path:\s*)?['"]([^'"]*)['"](?:.*methods:\s*\[\s*['"](\w+)['"])?/))) { fn.route = { method: (m[2] || 'ANY').toUpperCase(), path: m[1] }; break; }
       if ((m = l.match(/^\[Http(Get|Post|Put|Patch|Delete)(?:\(\s*"([^"]*)")?/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
       if ((m = l.match(/^@(Get|Post|Put|Patch|Delete)\(\s*(?:['"]([^'"]*)['"])?\s*\)/))) { fn.route = { method: m[1].toUpperCase(), path: m[2] || '' }; break; }
@@ -1329,7 +1336,9 @@ function lex(text) {
   return out;
 }
 
-const unquote = (t) => t.slice(1, -1);
+// The text a quoted literal stands for: `'\t'` is a tab, not a backslash and a t (written back with JSON escapes).
+const ESCAPES = { t: '\t', n: '\n', r: '\r', 0: '\0', '\\': '\\', '"': '"', "'": "'", '`': '`' };
+const unquote = (t) => t.slice(1, -1).replace(/\\([tnr0\\"'`])/g, (m, c) => ESCAPES[c]);
 
 /** Convert a condition to ThunderLang, or return null with nothing guessed. */
 export function toThunderCondition(text, inputs = []) {
@@ -1794,6 +1803,8 @@ function splitStatements(body, baseLine) {
       } else if (c === ';' && depth === 0) {
         // Go: `if err := open(); err != nil {` and `for i := 0; i < n; i++ {` keep their header together.
         if (/^\s*(?:if|for|switch|else\s+if)\b/.test(src.slice(start, i)) && !src.slice(start, i).includes('{') && /\{/.test(src.slice(i, src.indexOf('\n', i) < 0 ? undefined : src.indexOf('\n', i)))) continue;
+        // (Go: the condition after `;` can go on over lines, `if w, ok := f(); !ok ||\n  g() {`.)
+        if (/^\s*(?:if|switch|else\s+if)\b/.test(src.slice(start, i)) && !src.slice(start, i).includes('{') && /(?:\|\||&&|[,(])\s*\n[^;{}]*\{/.test(src.slice(i, i + 600))) { const nb = src.indexOf('{', i), ns = src.indexOf(';', i + 1); if (nb > 0 && (ns < 0 || nb < ns)) continue; }
         i++; break;
       }
       else if (c === '\n' && depth === 0) {
@@ -1812,8 +1823,9 @@ function splitStatements(body, baseLine) {
         if (/^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && headerClosed(before)) continue;
         // (Nested: `for (…)\n  if (…)\n    return 1;` is one statement: the last line is itself a brace-less header.)
         const lastLine = before.slice(before.lastIndexOf('\n') + 1).trim();
-        if (lastLine !== before && /^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && /^(?:if|for|foreach|while)\s*\(/.test(lastLine) && headerClosed(lastLine)) continue;
-        if (/^(?:\}\s*)?else$/.test(before)) continue;
+        if (lastLine !== before && /^(?:(?:\}\s*)?else\s+if|if|for|foreach|while|using|lock|fixed)\s*\(/.test(before) && /^(?:(?:\}\s*)?else\s+if|if|for|foreach|while)\s*\(/.test(lastLine) && headerClosed(lastLine.replace(/^(?:\}\s*)?else\s+/, ''))) continue;
+        // (`} else if (x)` / `} else` closing a braced if, with its one statement on the next line.)
+        if (/^(?:\}\s*)?else$/.test(before) || (lastLine !== before && /^(?:if|else)\b/.test(before) && /^(?:\}\s*)?else$/.test(lastLine))) continue;
         // (`i++` / `n--` at the end of a line is a whole statement, not an operator waiting for more.)
         // (`do { … }` with its `while (…)` on the next line, Allman style, is one statement.)
         if (before && (!/[,(\[{+\-*/%&|^=<>?:.!]$/.test(before) || /[\w)\]](?:\+\+|--)$/.test(before)) && !/^[.)\]}{+\-*/%&|^=<>?:,]/.test(after) && !/^(?:else|catch|finally)\b/.test(after) && !(/^(?:do|repeat)\b/.test(before) && /\}$/.test(before) && /^while\b/.test(after))) { i++; break; }
@@ -1860,6 +1872,7 @@ function stripCommentsKeepLayout(s) {
     if (c === '"' || c === "'" || c === '`') {
       // A quote is a string only when it closes (on the same line, except template and raw strings).
       let j = i + 1;
+      if (c === '"' && READING_RUST) { const e = skipString(s, i); if (e < s.length) i = e; continue; }
       for (; j < s.length; j++) { if (s[j] === '\\') { j++; continue; } if (s[j] === c || (s[j] === '\n' && c !== '`')) break; }
       if (j < s.length && s[j] === c) i = j;
       continue;
@@ -2452,6 +2465,10 @@ function readPredicate(fn, lang, names, code) {
   // (C and C++ yes/no functions often return int, so only Swift is held to its declared type.)
   if (lang === 'swift' && fn.returns && !/^(?:Bool|bool|_Bool|boolean)\??$/.test(String(fn.returns).trim())) return null;
   if (/^(?:c|cpp)$/.test(lang) && fn.returns && /^(?:string|char\*|const char\*)$/.test(String(fn.returns).trim())) return null;
+  // (C/C++ yes/no functions return bool or int; one that returns an enum or a class gives back that value.)
+  if (/^(?:c|cpp)$/.test(lang) && fn.returns && !/^(?:(?:static\s+|inline\s+|const\s+)*(?:bool|_Bool|int|BOOL|\w*_bool|gboolean|unsigned|long|short|char))$/.test(String(fn.returns).trim())) return null;
+  // (`p->style()` is a field of a pointer, not a comparison.)
+  expr = expr.replace(/->/g, '.');
   if (/^(?:swift|c|cpp)$/.test(lang) && !BOOL_RETURN.test(String(fn.returns || '').trim()) && !/^Bool\??$/.test(String(fn.returns || '').trim()) && !LOGIC_OR_COMPARE.test(expr.replace(/"(?:\\.|[^"\\])*"/g, 'Q'))) return null;
   if (!(BOOL_RETURN.test(String(fn.returns || '').trim()) || LOGIC_OR_COMPARE.test(expr) || /\?$/.test(fn.name))) return null;
   const when = toThunderCondition(expr.replace(/\?$/, ''), names);
@@ -2513,12 +2530,26 @@ function markBuildOnlySteps(steps, fn, lang, code, srcLines) {
       // (A question or a loop keeps its own words, which the views turn into "Ask: …?"; the steps under it say it.)
       const holds = st.kind === 'branch' || st.kind === 'loop' || st.kind === 'try';
       if (label && label !== outer && !holds) st.says = `${st.says} (only in builds where \`${label}\`)`;
+      // A loop header inside `#if … #endif` with its body outside it (`#if X\n while (…) {\n #endif`): the loop is
+      // only in those builds; the steps inside are in every build. (Steps under a header are never given its label:
+      // each says its own, from its own line.)
+      if (label && label !== outer && st.kind === 'loop') st.says = `${st.says} (the loop only in builds where \`${label}\`${(st.children || []).some((k) => !only.has(k.line)) ? '; the steps inside are in every build' : ''})`;
       const inner = holds ? outer : label || outer;
-      if (st.children) walk(st.children.map((k) => (holds && label && !only.has(k.line) ? (only.set(k.line, label), k) : k)), inner);
+      if (st.children) walk(st.children, inner);
       for (const h of st.handlers || []) if (h.steps) walk(h.steps, inner);
     }
   };
   walk(steps, null);
+}
+
+/** Go named results: `(head, tail string, err error)` -> ['head', 'tail', 'err']; [] when they have no names. */
+function goResultNames(returns) {
+  const r = String(returns || '').trim();
+  if (!/^\(.*\)$/.test(r)) return [];
+  const parts = splitTop(r.slice(1, -1), ',').map((x) => x.trim()).filter(Boolean);
+  // Named when the last part is "name type"; then each part's first word is a name.
+  if (!parts.length || !/^[A-Za-z_]\w*\s+\S/.test(parts[parts.length - 1])) return [];
+  return parts.map((p) => p.split(/\s+/)[0]).filter((n) => /^[A-Za-z_]\w*$/.test(n) && n !== '_').map((n) => displayLabel(n).toLowerCase());
 }
 
 function functionSteps(fn, lang, code, names, srcLines = []) {
@@ -2534,8 +2565,31 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   // So does one that is a single call or expression when the function says it gives something back
   // (`func base32Bytes() -> [UInt8] { Base32.default.encode(…) }` gives back what encode makes).
   if (lang === 'swift' && stmts.length === 1 && ((!stmts[0].children?.length && swiftImplicitValue(stmts[0].text)) || swiftImplicitResult(stmts[0].text, fn.returns || (fn.route ? 'a response' : null)))) stmts[0] = { ...stmts[0], implicitReturn: true };
+  // Rust gives back the value of its last expression (written without `;`): `Ok(n)` at the end is what comes back.
+  let rustTail = null;
+  if (lang === 'rust' && fn.returns && !/^\(\s*\)$/.test(String(fn.returns).trim())) {
+    const last = stmts[stmts.length - 1];
+    const ends = last && last.end != null ? /^\s*;/.test(fn.body.slice(last.end)) : true;
+    if (last && !ends) {
+      if (/^(?:match|if)\b/.test(String(last.text).trim())) rustTail = last;
+      else if (!/^(?:let|for|while|loop|return|break|continue|const|static|use|fn|impl|struct|enum)\b|^[\w.\[\]*]+\s*(?:[-+*/%|&^]|<<|>>)?=(?!=)|!\s*\(|^[a-z_][\w:]*!/.test(String(last.text).trim()) || /^(?:vec|format|matches)!/.test(String(last.text).trim())) stmts[stmts.length - 1] = { ...last, implicitReturn: true };
+    }
+  }
   const r = withLanguage(lang, () => withFunctionContext({ params: fn.params || [], language: lang, route: !!fn.route }, () => {
     const out = stepsFrom(stmts);
+    // Rust: a `match` / `if` that ends the function gives back what each arm or side ends with.
+    if (rustTail) {
+      const tail = out.steps[out.steps.length - 1];
+      const giveBack = (list) => {
+        const k = list?.[list.length - 1];
+        if (!k) return;
+        if (k.caseLabel || (k.kind === 'branch' && /^(?:match|if)\b/.test(String(k.code || '')))) { for (const arm of k.caseLabel ? [k] : []) giveBack(arm.children); if (!k.caseLabel) { for (const arm of (k.children || []).filter((c) => c.caseLabel)) giveBack(arm.children); if (!(k.children || []).some((c) => c.caseLabel)) giveBack(k.children); giveBack(k.otherwise); } return; }
+        if (!/^(?:call|other)$/.test(k.kind) || k.jump || !k.code || /;\s*$/.test(k.code) || /^[\w.\[\]*]+\s*(?:[-+*/%|&^]|<<|>>)?=(?!=)|^(?:let|for|while|loop|unsafe)\b|^(?:panic|unreachable|todo|unimplemented)!/.test(String(k.code).replace(/,\s*$/, ''))) return;
+        const v = classifyStatement(`return ${String(k.code).replace(/,\s*$/, '')}`);
+        if (v.kind === 'return' || v.kind === 'fail') { list[list.length - 1] = { ...k, ...v, code: k.code }; delete list[list.length - 1].callee; delete list[list.length - 1].restates; }
+      };
+      if (tail) { if (tail.kind === 'branch' && (tail.children || []).some((c) => c.caseLabel)) for (const arm of tail.children.filter((c) => c.caseLabel)) giveBack(arm.children); else if (tail.kind === 'branch') { giveBack(tail.children); giveBack(tail.otherwise); } }
+    }
     // Ruby gives back its last value: in a yes/no method (`def accepts?`) or a last line that is a comparison or
     // and/or, that value is the answer, not a call made for its effect.
     const last = out.steps[out.steps.length - 1];
@@ -2544,9 +2598,23 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
       if (v.kind === 'return') out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code, ...(/^Returns (?:a computed value|a value)$/.test(v.says) ? { restates: true } : {}) };
       delete out.steps[out.steps.length - 1].callee;
     }
+    // Ruby, otherwise: a last line that is a value (shown as code, or read) is what the method gives back
+    // (`cache[input].dup`), so the ending is never hidden. (Not `initialize` or a setter, whose value is not used.)
+    else if (lang === 'ruby' && last && (last.kind === 'other' || (last.kind === 'call' && /^Reads /.test(last.says || ''))) && !last.jump && !last.children?.length && !/^(?:initialize|\w+=)$/.test(fn.name) && !/^[@$]?[\w.\[\]:]+\s*(?:[-+*/|&]{0,2})=(?![=~])|^(?:puts|print|p|pp|raise|fail|yield|super|require|include|extend|attr_\w+|private|protected|public|alias\w*|define_method)\b/.test(String(last.code || '').trim())) {
+      const v = classifyStatement(`return ${String(last.code || '').trim()}`);
+      if (v.kind === 'return') { out.steps[out.steps.length - 1] = { ...last, ...v, code: last.code, ...(/^Returns (?:a computed value|a value)$/.test(v.says) ? { restates: true } : {}) }; delete out.steps[out.steps.length - 1].callee; }
+    }
     return out;
   }));
   if (lang === 'c' || lang === 'cpp') markBuildOnlySteps(r.steps, fn, lang, code, srcLines);
+  // Go: a bare `return` in a function with named results gives back those results as they are then.
+  if (lang === 'go') {
+    const named = goResultNames(fn.returns);
+    if (named.length) {
+      const walk = (list) => { for (const st of list || []) { if (st.nested) continue; if (st.kind === 'return' && st.says === 'Stops here' && /^return\s*;?$/.test(String(st.code || '').trim())) st.says = `Returns ${named.length > 1 ? `${named.slice(0, -1).join(', ')} and ${named.at(-1)}` : named[0]}`; walk(st.children); walk(st.otherwise); for (const h of st.handlers || []) walk(h.steps); } };
+      walk(r.steps);
+    }
+  }
   // A Swift `switch` that is the whole body of a function that gives something back: each case's one expression is
   // what comes back (`case .key(let key): String(reflecting: key)` gives back that text; it is not just a call).
   // So does an if / else if / else that is the whole body (Swift if-expressions).
@@ -2645,7 +2713,9 @@ export function readCode(source, { language, file = '', allSteps = false } = {})
     }
     // A rule is drawn only when every statement was read into it; a body with other steps (a loop, an assignment, a
     // later check) is read as steps instead, so no check is silently left out of the picture.
-    const isDecision = read.rules.length > 0 && !!read.otherwise && !read.unread.length;
+    // (A check that returns or stops before the rules — `if shape != Line { return shape }` — is part of the answer: with
+    // one, the body is read as steps, so no rule card claims fewer answers than the code can give.)
+    const isDecision = read.rules.length > 0 && !!read.otherwise && !read.unread.length && !(read.guards || []).length;
     const guards = read.guards || [];
     // In a function that is not a pure decision, early fixed returns are still rules worth reading.
     if (!isDecision) {

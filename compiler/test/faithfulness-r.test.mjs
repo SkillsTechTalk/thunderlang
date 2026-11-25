@@ -58,7 +58,7 @@ test('httr #7 / dplyr #7 / dplyr #17: names(x) <- v sets the names of x, not "th
   const t = read('  names(status) <- c("version", "status")[seq_along(status)]\n  rownames(labels) <- NULL\n  levels(.x) <- out\n  attr(x, "class") <- "a"\n  tokens[[token$hash()]] <- NULL');
   assert.match(t, /Sets the names of status to/);
   assert.match(t, /Sets the rownames of labels to nothing/);
-  assert.match(t, /Sets the levels of x to out/);
+  assert.match(t, /Sets the levels of \.?x to out/);
   assert.match(t, /Sets the "class" attribute of x to "a"/);
   assert.match(t, /Removes an item of tokens/);
   assert.doesNotMatch(t, /the result of (names|rownames|levels)/);

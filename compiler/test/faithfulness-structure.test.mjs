@@ -79,7 +79,7 @@ test('#237 Rust cfg! chain: every else-if branch is kept as a question, not "Che
 test('#302 Go tests: t.Fatal stops the test, t.Errorf marks it failed and goes on', () => {
   const t = thunderText('a_test.go', 'package cobra\n\nfunc checkErr(err error, t *testing.T) {\n\tif err == nil {\n\t\tt.Fatal("Expected an error")\n\t}\n\tif got != expected {\n\t\tt.Errorf("Expected %q, got %q", expected, got)\n\t}\n}\n');
   assert.doesNotMatch(t, /Checks: t\./);
-  assert.equal(sideOf(t, /Ask: Is err empty\?/, /Fails the test: "Expected an error"/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is err nil\?/, /Fails the test: "Expected an error"/), 'yes');
   assert.equal(sideOf(t, /Ask: Is got expected\?/, /Marks the test as failed/), 'no');
 });
 
@@ -116,13 +116,13 @@ test('#102 / #206: a rule is drawn only when it covers the whole body; otherwise
 test('#197 Python `elif (` over several lines is one condition, not "Calls and"', () => {
   const t = thunderText('a.py', 'class P:\n    def prepare(self, body):\n        if body is not None:\n            length = super_len(body)\n        elif (\n            self.method not in ("GET", "HEAD")\n            and self.headers.get("Content-Length") is None\n        ):\n            self.headers["Content-Length"] = "0"\n');
   assert.doesNotMatch(t, /Calls and|Ask: \(\?/);
-  assert.match(t, /Ask: The method is not in \("GET", "HEAD"\) and the headers\.get\("Content-Length"\) is empty\?/);
+  assert.match(t, /Ask: The method is not in \("GET", "HEAD"\) and the headers\.get\("Content-Length"\) is None\?/);
   assert.equal(sideOf(t, /Ask: The method is not in/, /Stores "0" under "Content-Length" in headers/), 'yes');
 });
 
 test('#30 Kotlin `?: return null` is an early way out; Integer.TYPE is not "type"', () => {
   const t = thunderText('W.kt', 'class W {\n  private fun getType(call: Call): Class<*>? {\n    val method = call.resolveMethod() ?: return null\n    if (method.name == GET_STRING) {\n      return Integer.TYPE\n    }\n    return null\n  }\n}\n');
-  assert.equal(sideOf(t, /Ask: Is method empty\?/, /Gives back null/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is method null\?/, /Gives back null/), 'yes');
   assert.match(t, /Gives back Integer\.TYPE/);
 });
 

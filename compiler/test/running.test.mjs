@@ -236,7 +236,7 @@ test('OpenTelemetry spans: calls, failures, and time per member; spans without c
   const stop = Object.values(r.nodes).find((n) => n.kind === 'stop');
   assert.equal(stop.line, 18);
   assert.deepEqual(stop.errors, [{ error: 'NotFound', message: 'Not Found', count: 1 }]);
-  assert.match(r.says, /^Ran 2 times; stopped with NotFound "Not Found" 1 time \(50%\), when Is user empty\? was No and Is order empty\? was Yes; took 30 ms on average, 48 ms at the slowest\.$/);
+  assert.match(r.says, /^Ran 2 times; stopped with NotFound "Not Found" 1 time \(50%\), when Is user None\? was No and Is order None\? was Yes; took 30 ms on average, 48 ms at the slowest\.$/);
   // The newer attribute names (code.function.name "Library.borrow", code.file.path, code.line.number).
   const borrow = model.members.find((m) => m.file === 'school/library.py' && m.name === 'borrow');
   assert.equal(o.members[borrow.id].calls, 1);

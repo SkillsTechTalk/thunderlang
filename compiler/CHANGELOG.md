@@ -1,5 +1,43 @@
 # Unreleased
 
+- **Fix: no false readings left in the fresh audit outside SQL.** An independent review of 1.0.3 on 32 repositories
+  it had never seen (480 non-SQL samples) graded 53 readings false (11%). Each now reads true or is shown as code, and
+  each has a regression test (`compiler/test/faithfulness-fresh-*.test.mjs`). What changed:
+  - **Endings.** A bare `raise` / `throw;` passes the error on ("Stop: the same error again"), never "Gives back
+    raise". Rust gives back its last expression (`Ok(n)`, `Some(v)`, a `match` arm, a value over several lines); Go's
+    bare `return` with named results gives back those results; Ruby's last value is shown as given back; R's
+    `stop_input_type`, `ui_abort`, `*_abort` and `stop_*` always stop; shell `exec prog` runs prog in place of the
+    script (and `exec -a NAME prog` never "Runs -a"). `try … finally` and Swift `do { }` without `catch` no longer
+    claim to handle any error. A value given back that could not be put into words says "Gives back `…`".
+  - **Structure.** A brace-less `else if` / `else` after a braced `if` keeps its branch (C, C++, Java, JavaScript, …);
+    a variable named `end` is a step, not the end of a block; `break` in a `switch` "Leaves the choice", never the
+    loop; a check that returns before the rules (`if shape != Line { return shape }`) means the body is read as
+    steps, so no rule card drops an answer; a C loop header inside `#if … #endif` no longer marks the steps after
+    `#endif` as build-only; Go `if init; a ||\n b {` keeps its whole condition; Go `for {` keeps its body; Rust text
+    over several lines is one value, not steps; Ruby calls over several lines are one step.
+  - **Values, not yes/no.** `queue || []`, `(@cache[k] ||= {})`, `a << b`, `x.filterIsInstance<T>()` and value-giving
+    calls are never worded "whether"; `+=` adds to a total; `== null` / `is None` / `== nil` say null / None / nil,
+    never "empty"; Ruby `reject` keeps the items that do not match; a C/C++ function that returns an enum is not a
+    yes/no rule; Swift `guard` on a known closure, `guard case T.x = v`, and `for x in xs where c` keep their meaning;
+    `strncmp(a, b, n) == 0` (a prefix check) is never said as "a is b".
+  - **Literal fidelity.** Quoted text keeps its spaces, case, sign, escapes, and quote characters (`"  put '"`,
+    `` "`-Inf`" ``, `'"'`, `'\t'`); constants keep their names (`PATH_MAX`, R `.stroke`); shell quotes in a pattern are not
+    text; PowerShell lists are never said with fewer items than they have, a backtick-escaped quote inside `$( … )`
+    no longer swallows the next line, and a table made with entries is not "an empty table"; shell `$( … )` inside a
+    list is one item; a path that goes on past an index is shown as written.
+  - **Calls and creation.** `Status s = FindTable(…)` calls FindTable (C++); `Builder::new()….build()` is what build
+    makes; a list or table made with items is not "empty"; `static` / `const` in a Rust body names a value; keywords
+    (`unsafe`, `using`, `foreach`, `for`, …) are never "called"; `@GetMapping({"/vets"})` is GET /vets; a static
+    `Factory::create()` saves nothing; `return md5(…)` gives back what md5 makes; `[ -d "$path" ]` asks about a
+    folder; narrowing `static_cast` is kept.
+- **Checker (`compiler/scripts/accuracy.mjs`).** `--seed N` picks samples in a seeded random order (`--only`
+  narrows to one language); samples leave out test code (`*.test.ts`, `*_test.go`, `*Tests.swift`, `*Spec.*`, Rust
+  `#[cfg(test)]` modules); the polarity self-check no longer flags `!= nullptr`, `!strcmp`, names that contain
+  "no"/"not", Rust `matches!`/`cfg!`, TypeScript and Kotlin `!`/`!!`, or regex `(?!…)`, and now catches a question
+  turned round at an "is" inside brackets and a Swift `guard` asked by a rule's name; «placeholders», `‹secrets›`
+  and "(worked out when it runs)" are not invented values, and a workflow step is checked against its whole block;
+  a step the run check cannot build a case for (JSX) is skipped, never a crash (`meaning.mjs` span fix).
+
 - **Fix: SQL routines never read falsely.** An independent review of 1.0.3 found half of its SQL readings stated
   something false: an `ELSE`'s `RAISE` shown as an unconditional Stop, steps hoisted out of their `IF`, `CASE`, or
   `FOR`, `ELSIF x = 'id'` read as "Sets x to "id"", `IF v_done THEN LEAVE` read as "Yes: continue", `EXECUTE stmt`

@@ -140,7 +140,8 @@ function argsOf(list) {
 
 // ── Words ─────────────────────────────────────────────────────────────────────────────────────────────
 
-const rWords = (name) => { const w = words(String(name).replace(/^\.+/, '').replace(/\./g, ' ')); return w || String(name); };
+// (A name that starts with a dot, `.stroke`, is its own name: "stroke" would be a different variable.)
+const rWords = (name) => { if (/^\.[A-Za-z_]\w*$/.test(String(name))) return String(name); const w = words(String(name).replace(/^\.+/, '').replace(/\./g, ' ')); return w || String(name); };
 const quote = (s) => `"${s.length > 100 ? `${s.slice(0, 99)}…` : s}"`;
 
 // Text with values inside (docs/spec.md): the literal parts are kept exactly as the code writes them (escapes
@@ -841,13 +842,19 @@ function makeReader(src) {
     if (call) {
       const { bare, args } = call;
       const a0 = args[0] ? sayValue(args[0].toks) : null;
-      if (bare === 'stop' || bare === 'abort' || bare === 'cli_abort' || bare === 'stopf') {
+      // rlang's `stop_input_type(x, "a formula")` always stops: x is not what was wanted.
+      if (bare === 'stop_input_type') {
+        const what = at0(args[1]?.toks ?? [])[0];
+        const x = at0(args[0]?.toks ?? []);
+        return [{ kind: 'fail', says: `Fails with an input-type error${what?.t === 'str' || typeof what?.value === 'string' ? ` (${x.length === 1 ? rWords(x[0].text) : 'the value'} is not ${what.value})` : ''}`, error: 'an input-type error', ...base(s, e) }];
+      }
+      if (bare === 'stop' || bare === 'abort' || bare === 'cli_abort' || bare === 'stopf' || bare === 'ui_abort' || /^(?:abort_\w+|\w+_abort|stop_\w+)$/.test(bare)) {
         // Only cli_abort fills in {…}; stop() and rlang's abort() show their text as written.
         const parts = args.filter((a) => !a.name || a.name === 'message').map((a) => ({ ...a, name: null }));
         const one = at0(parts[0]?.toks ?? []);
         const isVar = parts.length === 1 && one.length === 1 && one[0].t === 'id';
         const single = !isVar && oneValue(parts) ? sayValue(parts[0].toks) : null;
-        const msg = isVar || single || !parts.length ? null : textOf(parts, '', bare === 'cli_abort');
+        const msg = isVar || single || !parts.length ? null : textOf(parts, '', bare === 'cli_abort' || bare === 'ui_abort');
         if (msg) errors.set(msg, errors.get(msg) ?? lineAt(toks[s].at));
         const cls = args.find((a) => a.name === 'class');
         const name = cls ? (at0(cls.toks)[0]?.value ?? 'an error') : 'an error';
