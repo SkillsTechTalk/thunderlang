@@ -128,7 +128,7 @@ function countable(code) {
 
 /** A condition in words when the words keep every negation, and/or, and comparison; otherwise null. */
 function condWords(text, ctx) {
-  const t = String(text).trim().replace(/\s+/g, ' ');
+  const t = String(text).trim(); // (whitespace inside quoted text is kept: sqlCondition holds strings first)
   if (!t || NOT_IN_WORDS.test(blankStrings(t))) return null;
   // MySQL user variables (@x, @sys.debug) and system variables (@@x) are kept as written.
   // PL/pgSQL's FOUND: whether the last query found (or changed) a row.

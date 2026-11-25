@@ -340,6 +340,11 @@ test('regrade, mysql-sys diagnostics: a doubled quote next to \\n inside quoted 
   assert.match(t, /REPLACE\(Variable_value, '\\n', '\\\\\\\\n'\)/);
 });
 
+test('regrade, mysql-sys diagnostics: line breaks inside quoted text are kept (a -- comment there ends at its line)', () => {
+  const t = my("BEGIN\n  SET @s = CONCAT('SELECT a -- a note\nFROM t', v_x);\nEND");
+  assert.match(t, /"SELECT a -- a note\nFROM t"/);
+});
+
 test('regrade, mysql-sys ps_thread_stack: a /*!50602 … */ versioned comment runs on that version, so its statement is shown', () => {
   const t = my("BEGIN\n  /*!50602\n  UPDATE performance_schema.threads SET instrumented = 'NO' WHERE processlist_id = CONNECTION_ID();\n  */\n  SET v_x = 1;\nEND");
   assert.equal(sideOf(t, /Ask: The MySQL server is version 5\.6\.2 or later\?/, /Records the change in threads: sets instrumented to "NO"/), 'yes');
