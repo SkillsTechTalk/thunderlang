@@ -83,7 +83,7 @@ only question that matters: *which one does the business want?* [See the Thunder
 (prototype: the rules come from the real code reader; service connections use simple patterns that OpenThunder's
 discovery replaces).
 
-## OpenThunder: the IDE for Thunder
+## OpenThunder: the IDE for AI-written code
 
 **Thunder is the language. [OpenThunder™](https://openthunder.dev) is where you use it on your app.** Open your
 repository, read it in Thunder, find your way around it, learn it, change it, and verify every change. The Thunder
@@ -159,8 +159,8 @@ and ThunderLang in depth, take the [full course on Skills Tech Talk](https://app
 | **Thunder compiler** | The open-source compiler and `thunder` CLI in this repository |
 | **Thunder Text** | The interim written form: a Thunder picture in readable words, stored and reviewed like code |
 | **Thundered code** | Existing code shown in Thunder: Thundered Python, Thundered TypeScript |
-| **Thunder read / Thunder write** | Reading code visually / changing code visually, verified (write is planned) |
-| **OpenThunder™** | The IDE for Thunder: read, navigate, learn, change, and verify your app |
+| **Thunder read / Thunder write** | Reading code visually / changing code visually, verified (write: changes to TypeScript, JavaScript, Python, and Go are written and checked by the compiler; other languages are handed to AI and labeled AI-written) |
+| **OpenThunder™** | The IDE for AI-written code: read, navigate, learn, change, and verify your app |
 
 Ways to see your software in Thunder (agreed with OpenThunder): **Thunder Atlas** (zoom from product to rule to
 code), **Thunder Map** (how the code is built), **Thunder Code** (every function in a file or folder), **Thunder

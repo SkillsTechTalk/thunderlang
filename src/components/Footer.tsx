@@ -18,7 +18,7 @@ export function Footer() {
         <div className="max-w-sm">
           <Logo />
           <p className="mt-4 text-sm leading-relaxed text-haze-300">
-            {siteConfig.tagline}. The Thunder™ programming language (also called ThunderLang™) is open source; OpenThunder is the IDE for it. An early but serious project by{" "}
+            {siteConfig.tagline}. The Thunder™ programming language (also called ThunderLang™) is open source; OpenThunder is the IDE for AI-written code. An early but serious project by{" "}
             {siteConfig.builtBy}.
           </p>
           <p className="mt-4 text-xs text-haze-400">

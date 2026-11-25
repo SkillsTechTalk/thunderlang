@@ -80,7 +80,7 @@ export default function InstallPage() {
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { title: "In your browser", body: "No install: read code, try a rule, or open the Playground.", href: "/try", cta: "Try it" },
-            { title: "OpenThunder", body: "The IDE for Thunder, with the compiler built in.", href: "https://openthunder.dev", cta: "Open OpenThunder ↗" },
+            { title: "OpenThunder", body: "The IDE for AI-written code, with the compiler built in.", href: "https://openthunder.dev", cta: "Open OpenThunder ↗" },
             { title: "VS Code", body: "Syntax colors, problems as you type, and hover help.", href: "/docs/editor-support", cta: "Editor setup" },
             { title: "From source", body: "Clone the repository and run node compiler/src/cli.mjs, including unreleased commands.", href: "https://github.com/SkillsTechTalk/thunderlang", cta: "GitHub ↗" },
           ].map((o) => (

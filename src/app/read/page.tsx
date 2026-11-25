@@ -19,7 +19,7 @@ export default function ReadPage() {
       />
       <Section>
         <ReadClient />
-        <div className="mt-10"><OpenThunderLink title="Read your whole repository in OpenThunder" body="OpenThunder is the IDE for Thunder: open a repo, read it in Thunder, and verify every change. Visual reading of whole repositories is rolling out." cta="Open OpenThunder" /></div>
+        <div className="mt-10"><OpenThunderLink title="Read your whole repository in OpenThunder" body="OpenThunder is the IDE for AI-written code: open a repo, read it in Thunder, and verify every change. Visual reading of whole repositories is rolling out." cta="Open OpenThunder" /></div>
       </Section>
     </>
   );

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <title>GrappleTree</title>
+  <rect width="96" height="96" fill="#0d1b30"/>
+  <!-- Five leaves and a forked trunk. Open gaps keep the crown legible at icon size. -->
+  <g fill="#f6f4ed">
+    <path d="M48 7c-11 10-11 19 0 28 11-9 11-18 0-28Z"/>
+    <path d="M18 18c1 15 9 24 24 23-1-14-10-23-24-23Zm60 0c-1 15-9 24-24 23 1-14 10-23 24-23Z"/>
+    <path d="M7 40c5 13 15 18 30 13C30 42 20 37 7 40Zm82 0c-5 13-15 18-30 13 7-11 17-16 30-13Z"/>
+  </g>
+  <path fill="#f6f4ed" d="M48 36c-1 7-3 11-7 14-4-1-8-3-12-5 4 6 9 10 13 12l-1 11h14l-1-11c4-2 9-6 13-12-4 2-8 4-12 5-4-3-6-7-7-14Z"/>
+  <path fill="#f6f4ed" d="M41 71h14c0 6 4 10 12 13-7 0-13-1-19-3-6 2-12 3-19 3 8-3 12-7 12-13Z"/>
+  <!-- An ivory double wrap and asymmetric ends of a square knot. -->
+  <g fill="#91c9ff" stroke="#0d1b30" stroke-width="1.8" stroke-linejoin="round">
+    <path d="m35 59 13 3 13-3 1 8-14 3-14-3Z"/>
+    <path d="m45 65 6 4-11 13-6-4Zm6 0 13 9-4 7-13-12Z"/>
+    <defs><clipPath id="rank-tip"><path d="m51 65 13 9-4 7-13-12Z"/></clipPath></defs>
+    <g clip-path="url(#rank-tip)" stroke="none">
+      <g transform="translate(62 77.5) rotate(39)">
+        <path fill="#294762" d="M-8.5-6H2V6H-8.5Z"/>
+        <path fill="#fff" d="M-7-6h1.9V6H-7ZM-3.4-6h1.9V6h-1.9Z"/>
+      </g>
+      <path d="m51 65 13 9-4 7-13-12Z" fill="none" stroke="#0d1b30" stroke-width="1.8"/>
+    </g>
+    <path d="m42 63 8-2 5 5-8 6-6-5Z"/>
+  </g>
+</svg>

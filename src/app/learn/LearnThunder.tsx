@@ -186,7 +186,7 @@ function OpenThunderInvite() {
     <div className="flex flex-col gap-3 rounded-2xl border border-gold-300/30 bg-gold-400/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-lg font-semibold text-white">Read your app in OpenThunder</p>
-        <p className="mt-1 text-sm text-haze-300">OpenThunder is the IDE for Thunder. Free. Runs on your machine.</p>
+        <p className="mt-1 text-sm text-haze-300">OpenThunder is the IDE for AI-written code. Free. Runs on your machine.</p>
       </div>
       <a href={OPENTHUNDER_DOWNLOAD} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-gold-300 px-4 text-sm font-semibold text-ink-950 hover:bg-gold-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-300">
         Download OpenThunder ↗

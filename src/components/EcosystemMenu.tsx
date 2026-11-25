@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Skills Tech ecosystem app-switcher (the 9-dots menu). Mirrors the one on Skills
-// Tech Talk so a user can hop between all four products. Self-contained: no app
+// Skills Tech ecosystem app-switcher (the 9-dots menu): every product with the one label that says what it is,
+// so a visitor knows each one at a glance. Self-contained: no app
 // brand deps, dark-theme friendly. Pass `current` to mark this app.
 const PRODUCTS = [
-  { name: "OpenThunder", sub: "Check every AI change before it ships", href: "https://openthunder.dev", logo: "/brand/openthunder-mark.png" },
-  { name: "Skills Tech Talk", sub: "Explain and defend it", href: "https://app.skillstechtalk.com", logo: "/brand/skills-tech-talk.png" },
-  { name: "Skills Tech Network", sub: "Network and runtime", href: "https://network.skillstechtalk.com", logo: "/brand/skills-tech-network.png" },
-  { name: "ThunderLang", sub: "Ground and verify AI-assisted code", href: "https://thunderlang.dev", logo: "/brand/thunderlang.svg" },
+  { name: "ThunderLang", sub: "Programming Language", href: "https://thunderlang.dev", logo: "/brand/thunderlang.svg" },
+  { name: "OpenThunder", sub: "IDE for AI-Written Code", href: "https://openthunder.dev", logo: "/brand/openthunder-mark.png" },
+  { name: "Skills Tech Talk", sub: "AI Interview", href: "https://app.skillstechtalk.com", logo: "/brand/skills-tech-talk.png" },
+  { name: "TuneHabit", sub: "Habit Tracker", href: "https://tunehabit.com", logo: "/brand/tunehabit.png" },
+  { name: "GrappleTree", sub: "BJJ Study Guide", href: "https://grappletree.app", logo: "/brand/grappletree.svg" },
+  { name: "VibeShape", sub: "AI App Builder", href: "https://vibeshape.app", logo: "/brand/vibeshape.png" },
 ];
 
 export function EcosystemMenu({ current }: { current?: string }) {
@@ -71,7 +73,6 @@ export function EcosystemMenu({ current }: { current?: string }) {
               </a>
             );
           })}
-          <p className="px-2 pb-1 pt-2 text-center text-[10px] text-neutral-500">One account across the ecosystem.</p>
         </div>
       )}
     </div>
