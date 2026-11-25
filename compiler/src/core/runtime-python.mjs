@@ -11,6 +11,7 @@ The rules implemented here are the Thunder semantics that must be the same in ev
 exact decimals, money, division, rounding, positions that start at 1, "nothing", and errors that name
 the Thunder line (read from the "# thunder:N" comments in the generated files).
 """
+import json
 import linecache
 import re
 import sys
@@ -335,6 +336,118 @@ def total_of(items):
     for x in items[1:]:
         result = result + x
     return result
+
+
+def _text(v, what):
+    if not isinstance(v, str):
+        raise KindMismatch("%s needs text, but it is %s." % (what, _describe(v)))
+    return v
+
+
+def starts_with(text, start):
+    return _text(text, '"starts with"').startswith(_text(start, '"starts with"'))
+
+
+def ends_with(text, end):
+    return _text(text, '"ends with"').endswith(_text(end, '"ends with"'))
+
+
+def joined(items, sep):
+    """The items of a list as one text, with sep between them. Every item must be text (no silent conversion)."""
+    sep = _text(sep, '"joined with"')
+    out = []
+    for i, x in enumerate(items):
+        if not isinstance(x, str):
+            raise KindMismatch('"joined with" joins text, but item %d is %s. Turn it into text first.' % (i + 1, _describe(x)))
+        out.append(x)
+    return sep.join(out)
+
+
+def split_at(text, sep):
+    """Text cut at each sep: "a,,b" split at "," is ["a", "", "b"] (empty parts are kept)."""
+    sep = _text(sep, '"split at"')
+    if sep == "":
+        raise KindMismatch('"split at" needs something to split at, not empty text.')
+    return _text(text, '"split at"').split(sep)
+
+
+def parts_of(text):
+    """The parts of text between runs of spaces, tabs and new lines; no empty parts, punctuation kept."""
+    return _text(text, '"the parts of"').split()
+
+
+def replacing(text, old, new):
+    old = _text(old, '"replacing"')
+    if old == "":
+        raise KindMismatch('"replacing" needs something to replace, not empty text.')
+    return _text(text, '"replacing"').replace(old, _text(new, '"replacing … with"'))
+
+
+def sorted_values(items, descending=False):
+    return sorted([num(x) for x in items], reverse=descending) if any(isinstance(x, float) for x in items) else sorted(items, reverse=descending)
+
+
+def absolute(v):
+    if isinstance(v, Money):
+        return Money(abs(v.amount))
+    if isinstance(v, bool) or not isinstance(v, (int, float, Decimal)):
+        raise KindMismatch('"the absolute value of" needs a number or money, but it is %s.' % _describe(v))
+    return abs(num(v))
+
+
+def _json_ready(v):
+    if v is None or isinstance(v, (bool, str, int)):
+        return v
+    if isinstance(v, float):
+        return Decimal(repr(v))
+    if isinstance(v, Decimal):
+        return v
+    if isinstance(v, Money):
+        raise KindMismatch("Money has no JSON form of its own: use its amount, for example price's amount.")
+    if isinstance(v, (list, tuple)):
+        return [_json_ready(x) for x in v]
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            if not isinstance(k, str):
+                raise KindMismatch("A JSON object's keys are text, but one is %s." % _describe(k))
+            out[k] = _json_ready(x)
+        return out
+    if is_dataclass(v):
+        return {f.name: _json_ready(getattr(v, f.name)) for f in fields(v)}
+    raise KindMismatch("%s has no JSON form." % _describe(v))
+
+
+def json_text(v):
+    """A value as JSON text, written as Python's json.dumps writes it (", " and ": "); numbers exactly."""
+    ready = _json_ready(v)
+    marker = {}
+    def default(x):
+        if isinstance(x, Decimal):
+            key = "\u0000%d\u0000" % len(marker)
+            marker[key] = format(x, "f") if x == x.to_integral_value() and "E" in str(x) else str(x)
+            return key
+        raise TypeError(x)
+    def swap(o):
+        if isinstance(o, Decimal):
+            return default(o)
+        if isinstance(o, list):
+            return [swap(x) for x in o]
+        if isinstance(o, dict):
+            return {k: swap(x) for k, x in o.items()}
+        return o
+    text = json.dumps(swap(ready))
+    for key, number in marker.items():
+        text = text.replace(json.dumps(key), number)
+    return text
+
+
+def json_data(text):
+    """JSON text read into lists, maps, text, yes/no, nothing, and exact numbers (never binary floats)."""
+    try:
+        return json.loads(_text(text, '"the JSON data in"'), parse_float=Decimal)
+    except json.JSONDecodeError as e:
+        raise ConversionFailed("This is not JSON: %s (line %d, column %d)." % (e.msg, e.lineno, e.colno))
 
 
 def words_of(text):

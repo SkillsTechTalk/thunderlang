@@ -15,14 +15,14 @@ import { diag, CoreError, closest } from './diagnostics.mjs';
 // Words that belong to Thunder and cannot be part of a name.
 export const RESERVED = new Set(['is', 'are', 'and', 'or', 'not', 'to', 'at', 'of', 'with', 'from', 'where', 'by', 'in', 'as',
   'than', 'the', 'a', 'an', 'plus', 'minus', 'times', 'divided', 'mod', 'true', 'false', 'yes', 'no', 'nothing', 'otherwise',
-  'sorted', 'descending', 'ascending', 'equals', 'contains', 'between', 'yes/no']);
+  'sorted', 'descending', 'ascending', 'equals', 'contains', 'between', 'yes/no', 'joined', 'split', 'replacing', 'starts', 'ends']);
 
 // Built-in operations written "the <op> of <value>".
 export const OPS = {
   sum: 'sum', total: 'sum', average: 'average', mean: 'average', count: 'count', number: 'count',
   min: 'min', minimum: 'min', smallest: 'min', lowest: 'min', max: 'max', maximum: 'max', largest: 'max', highest: 'max',
   length: 'length', words: 'words', lines: 'lines', lowercase: 'lowercase', uppercase: 'uppercase', trimmed: 'trimmed',
-  keys: 'keys', values: 'values', first: 'first', last: 'last',
+  keys: 'keys', values: 'values', first: 'first', last: 'last', parts: 'parts',
 };
 
 export const STATEMENT_WORDS = ['say', 'print', 'set', 'keep', 'give', 'stop', 'when', 'if', 'otherwise', 'for each', 'repeat',
@@ -215,6 +215,8 @@ export class ExprParser {
     }
     if (s.word('equals')) return { k: 'cmp', op: '==', l, r: this.add(s, o), line };
     if (s.word('contains')) return { k: 'contains', l, r: this.add(s, o), line };
+    if (s.words('starts', 'with')) return { k: 'affix', end: false, l, r: this.add(s, o), line };
+    if (s.words('ends', 'with')) return { k: 'affix', end: true, l, r: this.add(s, o), line };
     if (s.words('does', 'not', 'contain')) return { k: 'not', e: { k: 'contains', l, r: this.add(s, o), line }, line };
     if (isWord(t, 'is') || isWord(t, 'are')) {
       s.next();
@@ -292,6 +294,22 @@ export class ExprParser {
         if (!run.length) s.fail('"sorted by" needs a field: sorted by date.', null, 'TC108');
         const desc = s.word('descending') ? true : (s.word('ascending'), false);
         e = { k: 'sorted', list: e, by: keyOf(run), text: run.map((w) => w.text).join(' '), desc, line: s.line };
+      } else if (isWord(t, 'sorted')) {
+        // "xs sorted" / "xs sorted descending": the values themselves, smallest first.
+        s.next();
+        const desc = s.word('descending') ? true : (s.word('ascending'), false);
+        e = { k: 'sortedValues', list: e, desc, line: s.line };
+      } else if (isWord(t, 'joined') && isWord(s.peek(1), 'with')) {
+        s.i += 2;
+        e = { k: 'joined', list: e, sep: this.unary(s, { ...o, noAnd: true }), line: s.line };
+      } else if (isWord(t, 'split') && isWord(s.peek(1), 'at')) {
+        s.i += 2;
+        e = { k: 'splitAt', text: e, sep: this.unary(s, { ...o, noAnd: true }), line: s.line };
+      } else if (isWord(t, 'replacing')) {
+        s.next();
+        const from = this.unary(s, { ...o, noAnd: true });
+        if (!s.word('with')) s.fail('"replacing" needs "with": name replacing "-" with " ".', null, 'TC108');
+        e = { k: 'replacing', text: e, from, to: this.unary(s, { ...o, noAnd: true }), line: s.line };
       } else if (isSym(t, '.') && s.peek(1)?.t === 'word') {
         s.next();
         const attr = s.next().text;
@@ -389,6 +407,10 @@ export class ExprParser {
       return { k: kind, items: [], line };
     }
     if (w === 'the' || w === 'a' || w === 'an') { s.next(); return this.primary(s, { ...o, article: w !== 'the' }); }
+    // the absolute value of x, the JSON text of v, the JSON data in t
+    if (w === 'absolute' && isWord(s.peek(1), 'value') && isWord(s.peek(2), 'of')) { s.i += 3; return { k: 'op', op: 'abs', word: 'absolute value', arg: this.unary(s, o), line }; }
+    if (w === 'json' && isWord(s.peek(1), 'text') && isWord(s.peek(2), 'of')) { s.i += 3; return { k: 'op', op: 'jsonText', word: 'JSON text', arg: this.unary(s, o), line }; }
+    if (w === 'json' && isWord(s.peek(1), 'data') && isWord(s.peek(2), 'in')) { s.i += 3; return { k: 'op', op: 'jsonData', word: 'JSON data', arg: this.unary(s, o), line }; }
     // the <op> of <value>
     if (OPS[w] && isWord(s.peek(1), 'of')) {
       s.i += 2;

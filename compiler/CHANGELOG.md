@@ -1,5 +1,16 @@
 # Unreleased
 
+- **Core's standard operations for text, lists, numbers, and JSON.** The new forms:
+  - text: `names joined with ", "`, `line split at ","`, `the parts of text`, `date replacing "-" with "/"`,
+    `name starts with "Dr"`, `file ends with ".csv"`;
+  - lists and numbers: `scores sorted` and `sorted descending`, `the absolute value of x`;
+  - JSON: `the JSON data in text`, which reads numbers exactly, and `the JSON text of value`.
+  Each checks its kinds: before running when known, while running otherwise. Invalid JSON stops with TC509. The
+  words `joined`, `split`, `replacing`, `starts`, and `ends` now belong to Thunder and cannot be part of a name.
+  `--as-core` reads Python's `join`, `split`, `replace`, `startswith`/`endswith`, `abs`, `max`/`min` of several
+  values, `sorted(xs)`, `list()`, `dict()`, and `json.loads`/`json.dumps` (only when the file imports `json`) as
+  these forms. A call whose meaning differs is still refused: `maxsplit`, a replace count, a tuple of prefixes, or
+  `key=`. The benchmark's exact functions rose to 19 of 20, and all 19 give the same results as the original.
 - **Methods read as Core.** `thunder read <file.py> --as-core` now prints each method of a class as a Core function
   that receives the object first (`To Account withdraw:` / `Receive self and amount`). `self.other()` calls that
   class's own function, and this is written down as an assumption, since a subclass could replace it. Static methods

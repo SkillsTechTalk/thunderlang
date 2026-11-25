@@ -201,6 +201,8 @@ export function pythonToCore(source) {
 class FunctionPrinter {
   constructor(fn, own, srcLines, { moduleNames = new Map(), locals = new Set(), classMethods = null } = {}) {
     this.fn = fn; this.own = own; this.src = srcLines; this.moduleNames = moduleNames; this.locals = locals; this.classMethods = classMethods;
+    // json.loads / json.dumps mean the standard library's only when the file imports it under that name.
+    this.importsJson = srcLines.some((l) => /^import\s+json\s*$/.test(l));
     this.lines = []; this.notTranslated = []; this.assumptions = [];
     this.kinds = new Map(); // name -> 'number' | 'text' | 'list' | 'map' (what this function set it to)
   }
@@ -528,6 +530,14 @@ class FunctionPrinter {
       if (f === 'max' && one) return `the largest of ${paren(this.value(one, item))}`;
       if (f === 'round') nt('Python round() rounds halves to even; Thunder rounds half up');
       if (f === 'sorted') return this.sorted(e, item);
+      if (f === 'abs' && one) return `the absolute value of ${paren(this.value(one, item))}`;
+      if ((f === 'max' || f === 'min') && args.length >= 2) {
+        if (args.some((a) => a.kind === 'named' || a.kind === 'spread')) nt(`${f}() with key= or default= has no Core form yet`);
+        return `the ${f === 'max' ? 'largest' : 'smallest'} of [${args.map((a) => this.value(a, item)).join(', ')}]`;
+      }
+      if (f === 'list' && !args.length) return 'an empty list';
+      if (f === 'list' && one) return `${paren(this.value(one, item))} as list`;
+      if (f === 'dict' && !args.length) return 'an empty map';
       if (this.own.has(f)) return this.ownCall(f, args, item);
       nt(`calls ${f}(), which Core does not know`);
     }
@@ -538,7 +548,23 @@ class FunctionPrinter {
       if (m === 'upper' && !args.length) return of('uppercase');
       if (m === 'strip' && !args.length) return of('trimmed');
       if (m === 'get' && args.length === 2) return `(${this.owner(e.callee.object, item)} at ${paren(this.value(args[0], item))} otherwise ${paren(this.value(args[1], item))})`;
-      if (m === 'split' && !args.length) nt('split() keeps punctuation inside words; Core\'s "the words of" removes it, so the meaning would change');
+      const pos = args.filter((a) => a.kind !== 'named');
+      if (args.some((a) => a.kind === 'named')) nt(`.${m}() with name=value inputs has no Core form yet`);
+      const obj = () => this.owner(e.callee.object, item);
+      if (m === 'split' && !args.length) return `the parts of ${obj()}`;
+      if (m === 'split' && pos.length === 1) return `${obj()} split at ${paren(this.value(pos[0], item))}`;
+      if (m === 'split') nt('split() with a maximum number of parts has no Core form yet');
+      if (m === 'join' && pos.length === 1) return `${paren(this.value(pos[0], item))} joined with ${obj()}`;
+      if (m === 'replace' && pos.length === 2) return `${obj()} replacing ${paren(this.value(pos[0], item))} with ${paren(this.value(pos[1], item))}`;
+      if (m === 'replace') nt('replace() with a count has no Core form yet');
+      if ((m === 'startswith' || m === 'endswith') && pos.length === 1) {
+        if (pos[0].kind === 'array') nt(`${m}() with a tuple of choices has no Core form yet`);
+        return `${obj()} ${m === 'startswith' ? 'starts' : 'ends'} with ${paren(this.value(pos[0], item))}`;
+      }
+      if (path?.length === 2 && path[0] === 'json' && this.importsJson) {
+        if (m === 'loads' && pos.length === 1) return `the JSON data in ${paren(this.value(pos[0], item))}`;
+        if (m === 'dumps' && pos.length === 1) return `the JSON text of ${paren(this.value(pos[0], item))}`;
+      }
     }
     nt(`calls ${path ? path.join('.') : e.callee?.kind === 'member' ? `.${e.callee.property}()` : 'a computed function'}, which Core does not know`);
     return '';
@@ -548,14 +574,16 @@ class FunctionPrinter {
     const args = e.args || [];
     const list = args.find((a) => a.kind !== 'named');
     const named = Object.fromEntries(args.filter((a) => a.kind === 'named').map((a) => [a.name, a.value]));
-    if (!list || !named.key) nt('sorted() without key= sorts plain values, which Core cannot say yet');
+    if (!list) nt('sorted() without a list');
+    const rev = named.reverse;
+    if (rev && !(lit(rev)?.type === 'bool')) nt('reverse= with a computed value has no Core form');
+    const down = rev && lit(rev).value;
+    if (!named.key) return `${paren(this.value(list, item))} sorted${down ? ' descending' : ''}`;
     const k = named.key;
     const p0 = (k.params || [])[0]; const pn = typeof p0 === 'string' ? p0 : p0?.name;
     const field = k.kind === 'lambda' && (k.params || []).length === 1 && k.body?.kind === 'member' && isName(k.body.object, pn) ? k.body.property : null;
     if (!field) nt('a sort key other than lambda x: x.field has no Core form yet');
-    const rev = named.reverse;
-    if (rev && !(lit(rev)?.type === 'bool')) nt('reverse= with a computed value has no Core form');
-    return `${paren(this.value(list, item))} sorted by ${field}${rev && lit(rev).value ? ' descending' : ''}`;
+    return `${paren(this.value(list, item))} sorted by ${field}${down ? ' descending' : ''}`;
   }
 
   comprehension(e) {

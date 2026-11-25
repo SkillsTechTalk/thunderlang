@@ -460,6 +460,31 @@ class Checker {
         return UNKNOWN;
       }
       case 'op': return this.op(e, sc, o);
+      case 'sortedValues': {
+        const lt = this.ex(e.list, sc, o);
+        if (known(lt) && lt.k !== 'list') this.err('TC305', line, `Only a list can be sorted this way, but this is ${typeWords(lt)}.`, lt.k === 'map' ? 'A map is sorted by "key" or by "value".' : null);
+        return lt.k === 'list' ? lt : T('list', { of: UNKNOWN });
+      }
+      case 'joined': {
+        const lt = this.ex(e.list, sc, o), st = this.ex(e.sep, sc, o);
+        if (known(lt) && lt.k !== 'list') this.err('TC305', line, `"joined with" joins the items of a list, but this is ${typeWords(lt)}.`);
+        if (lt.k === 'list' && known(lt.of) && lt.of.k !== 'text') this.err('TC305', line, `"joined with" joins text, but this list holds ${typeWords(lt.of)}.`, 'Turn each item into text first: (item as text).');
+        if (known(st) && st.k !== 'text') this.err('TC305', line, 'What goes between the items is text, for example: joined with ", ".');
+        return T('text');
+      }
+      case 'splitAt': {
+        const tt = this.ex(e.text, sc, o), st = this.ex(e.sep, sc, o);
+        for (const [x, what] of [[tt, 'what is split'], [st, 'what it is split at']]) if (known(x) && x.k !== 'text') this.err('TC305', line, `"split at" works on text: ${what} is ${typeWords(x)}.`);
+        return T('list', { of: T('text') });
+      }
+      case 'replacing': {
+        for (const [x, what] of [[e.text, 'the text'], [e.from, 'what is replaced'], [e.to, 'what replaces it']]) { const xt = this.ex(x, sc, o); if (known(xt) && xt.k !== 'text') this.err('TC305', line, `"replacing … with" works on text: ${what} is ${typeWords(xt)}.`); }
+        return T('text');
+      }
+      case 'affix': {
+        for (const x of [e.l, e.r]) { const xt = this.ex(x, sc, o); if (known(xt) && xt.k !== 'text') this.err('TC305', line, `"${e.end ? 'ends' : 'starts'} with" compares text, but this is ${typeWords(xt)}.`); }
+        return T('bool');
+      }
       case 'round': {
         const t = this.ex(e.e, sc, o);
         if (e.places) { const pt = this.ex(e.places, sc, o); if (known(pt) && pt.k !== 'whole') this.err('TC305', line, 'The number of places to round to is a whole number.'); }
@@ -577,6 +602,10 @@ class Checker {
       case 'min': case 'max': case 'first': case 'last': need(['list'], 'a list'); return el;
       case 'words': case 'lines': need(['text'], 'text'); return T('list', { of: T('text') });
       case 'lowercase': case 'uppercase': case 'trimmed': need(['text'], 'text'); return T('text');
+      case 'parts': need(['text'], 'text'); return T('list', { of: T('text') });
+      case 'abs': if (known(t) && !numeric(t) && t.k !== 'money') this.err('TC305', line, `"the absolute value of" needs a number or money, but this is ${typeWords(t)}.`); return known(t) ? t : UNKNOWN;
+      case 'jsonText': return T('text');
+      case 'jsonData': need(['text'], 'text'); return UNKNOWN;
       case 'keys': need(['map'], 'a map'); return T('list', { of: t.key ?? UNKNOWN });
       case 'values': need(['map'], 'a map'); return T('list', { of: t.of ?? UNKNOWN });
       default: return UNKNOWN;
