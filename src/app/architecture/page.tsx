@@ -161,7 +161,7 @@ export default function ArchitecturePage() {
           </div>
           <div className="rounded-2xl border border-white/10 bg-ink-950/70 p-5 font-mono text-[12.5px] leading-relaxed text-haze-200">
             <div className="text-haze-500"># scaffold, then work by mission name , no paths</div>
-            <div className="mt-1">$ thunder new CreateInvoice</div>
+            <div className="mt-1">$ thunder init CreateInvoice</div>
             <div>$ thunder mission CreateInvoice test</div>
             <div>
               $ thunder mission CreateInvoice prove

@@ -1,0 +1,20 @@
+# Count words with a map: how often does each word appear?
+
+To count words:
+  Receive text
+  Set counts to an empty map
+  For each word in the words of lowercase of text:
+    Set counts at word to (counts at word otherwise 0) + 1
+  Give counts
+
+Set counts to count words with "The cat saw the dog. The dog saw the cat run."
+say "Different words: {the count of counts}"
+For each word and seen in counts sorted by value descending:
+  When seen is more than 1:
+    say "{word}: {seen}"
+
+Test "each word is counted, ignoring case":
+  Set counts to count words with "a B a b A"
+  Expect counts at "a" to be 3
+  Expect counts at "b" to be 2
+  Expect counts at "c" otherwise 0 to be 0

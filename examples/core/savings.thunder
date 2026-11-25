@@ -1,0 +1,21 @@
+# A savings goal: a record that changes, a loop, and a rule that money never goes below zero.
+
+A Customer has:
+  Name is text
+  Balance is money
+  Never allow a negative balance
+
+Keep weekly saving at $25
+Keep goal at $120
+
+Set ada to a Customer with name "Ada" and balance $10
+Set weeks to 0
+Repeat while ada's balance is less than goal:
+  Set ada's balance to ada's balance + weekly saving
+  Increase weeks by 1
+say "{ada's name} reaches {goal} after {weeks} weeks, with {ada's balance}."
+
+Set ada's balance to ada's balance - $500
+If this fails:
+  say "Not allowed: {error}"
+say "{ada's name} still has {ada's balance}."

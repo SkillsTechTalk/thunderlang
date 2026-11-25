@@ -1,3 +1,17 @@
+# Unreleased
+
+- **Thunder Core: write a program in Thunder and run it (Python first).** `thunder new <dir>` creates a project
+  (`thunder.toml`, `src/main.thunder`, `tests/`); `thunder run`, `build`, `test`, `check` and `format` work in it,
+  or on one file with `--core`. Core has values, kept values, functions, conditions, loops, lists, maps, records with
+  `Never allow` rules, `If this fails:`, tests, and `Use <python module>` to reach the Python ecosystem. It compiles
+  to readable Python 3.10+ plus a standard-library-only `thunder_runtime.py`: division and money are exact, rounding
+  is half up, positions start at 1, `nothing` is never silently a value, and every failure names the Thunder line
+  (TC5xx). The site's playground example (several `Receive` lines, `yes or no`, a condition continued on an
+  `and …` line) compiles and runs as written. Reference: `docs/core.md`. Demos: `examples/core/`. Python is the only
+  target so far.
+- **`thunder new` now creates a Core project.** For an intent mission file, use `thunder init <Name>` (or
+  `thunder new --mission <Name>`); `thunder new` says so when it runs.
+
 # 1.0.4
 
 - **Fix: no false readings left in the fresh audit outside SQL.** An independent review of 1.0.3 on 32 repositories
