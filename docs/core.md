@@ -183,8 +183,12 @@ equals contains between`. A yes/no function therefore cannot be called `is adult
    The checker reports it when it can tell in advance (TC305). Otherwise the program reports it while
    running (TC502).
 6. **Yes/no is explicit.** Write `member is true`. Each language treats other values as true or false
-   differently, so Thunder does not.
-7. **Nothing is silently changed.** If code cannot do what it says, it fails with a message in words. Thunder
+   differently, so Thunder does not. When a value's kind is not known in advance (an input, a value from Python),
+   a condition, `and`, `or`, `not`, or a comparison with `true`/`false` checks it while running: `1` or `"yes"` stops
+   with "This needs a yes/no value, but it is the number 1", never quietly counted as true or false.
+7. **A Python float is the exact number it is written as.** A float that reaches Thunder (an input, a field of a
+   Python object) becomes the exact decimal `19.99`, never `19.989999999999998`, before any arithmetic or comparison.
+8. **Nothing is silently changed.** If code cannot do what it says, it fails with a message in words. Thunder
    never substitutes a different behavior.
 
 ## Problems and failures
@@ -236,11 +240,64 @@ Every generated line ends with `# thunder:N`, the Thunder line it came from. `th
 to it. It uses only the standard library and implements the rules in "What a value means". The generated program
 runs without Thunder installed.
 
-## Reading and writing are the same language
+## Reading and writing are the same language: read Python as Core
 
-Thunder's reader turns existing code into Thunder Text. The goal is for that text to be Core you can edit and
-compile again. [core-read-write.md](./core-read-write.md) measures how close the reader's output is today, and
-lists the remaining differences.
+```sh
+thunder read shop.py --as-core          # the same code as Thunder Core you can edit, compile, and run
+thunder read shop.py --as-core --json   # plus, per function: exact or not, each line not translated and why
+```
+
+```text
+  shop.py ──reader──▶ meaning tree ──--as-core──▶ Thunder Core ──compile──▶ Python ──run next to shop.py──▶ same?
+```
+
+The Core is printed from the reader's **meaning tree**, never from its English sentences, so each line means what
+the code means:
+
+```python
+def total_paid(orders):            To total paid:
+    total = 0                        Receive orders
+    for o in orders:                 Set total to 0
+        if o.paid:                   For each o in orders:
+            total += o.price           When o's paid is true:
+    return total                         Increase total by o's price
+                                     Give total
+```
+
+**Never a guess.** A line Core cannot say with the same meaning is not rewritten into something close. It is
+marked, and it becomes a line that stops if it runs:
+
+```text
+To with_tax:
+  Receive orders
+  # Not translated (line 11): Python round() rounds halves to even; Thunder rounds half up
+  Stop with "Line 11 of the Python was not translated: return round(total_paid(orders) * (1 + TAX), 2)"
+```
+
+A function with such a line is **not safe to edit**. `--as-core` says so on stderr, and `--json` gives
+`exact: false` with each line and its reason. Today it refuses these, among others:
+- `split()`: it keeps punctuation that `the words of` removes.
+- `round()`: it rounds halves to even.
+- `//`: floor division.
+- `try`/`except` that names its error kinds.
+- List positions it cannot tell from map keys.
+- Bytes.
+- Tuples outside `in`.
+- Decorators.
+- A function passed as a value: in Core, writing a function's name calls it.
+- Methods and inner functions: Core has records and functions, not methods yet.
+
+**Assumptions are written down, never hidden.** Python `if member:` is printed as `member is true`. The compiled
+Core checks that `member` really is yes/no when it runs (rule 6 above). `xs[0]` is printed as `xs at 1`, and the
+output notes that it reads `xs` as a list.
+
+**The output always compiles.** A function whose printed Core would not compile is shown as comments under one
+`Stop with` line, and it is reported as not translated.
+
+**Checked by running.** [core-read-write.md](./core-read-write.md) prints 20 small Python functions as Core,
+compiles each one, and runs it next to the original on sample inputs. It compares the value given back, what was
+printed, and any error. The page also measures how far the reader's English (Thunder Text) is from Core.
+Python is the only source language for `--as-core` so far.
 
 ## Examples
 

@@ -193,7 +193,7 @@ class Gen {
       case 'stop': this.emit(`raise ${this.R('Stop')}(${s.e.type?.k === 'text' ? this.x(s.e).c : `${this.R('show')}(${this.x(s.e).c})`})`, L); return;
       case 'if':
         s.branches.forEach((b, k) => {
-          this.emit(`${k === 0 ? 'if' : 'elif'} ${this.x(b.cond).c}:`, b.line);
+          this.emit(`${k === 0 ? 'if' : 'elif'} ${this.yn(b.cond).c}:`, b.line);
           this.ind++; this.block(b.body); this.ind--;
         });
         if (s.otherwise) { this.emit('else:'); this.ind++; this.block(s.otherwise); this.ind--; }
@@ -213,7 +213,7 @@ class Gen {
         return;
       }
       case 'while':
-        this.emit(`while ${s.until ? `not ${wrap(this.x(s.cond), P.not)}` : this.x(s.cond).c}:`, L);
+        this.emit(`while ${s.until ? `not ${wrap(this.yn(s.cond), P.not)}` : this.yn(s.cond).c}:`, L);
         this.ind++; this.block(s.body); this.ind--;
         return;
       case 'times':
@@ -315,6 +315,18 @@ class Gen {
   fieldOf(v, field) { return field.dynamic ? `${this.R('get_field')}(${v}, ${py(field.key)})` : `${v}.${field.py}`; }
 
   // ------------------------------------------------------------ expressions
+  /** A value whose kind is not known in advance, used in arithmetic or a comparison: a Python float becomes exact. */
+  numv(e, c) {
+    return ['whole', 'number', 'money', 'text', 'bool', 'list', 'map', 'record', 'date'].includes(e.type?.k) ? c : { c: `${this.R('num')}(${c.c})`, p: P.atom };
+  }
+
+  /** A value used as yes/no: checked at run time unless it is known to be yes/no (never Python's "truthy"). */
+  yn(e, ctx = {}) {
+    const c = this.x(e, ctx);
+    const known = e.type?.k === 'bool' || ['cmp', 'contains', 'between', 'adj', 'isNothing', 'not', 'bool'].includes(e.k) || (e.k === 'bin' && (e.op === 'and' || e.op === 'or'));
+    return known ? c : { c: `${this.R('yes_no')}(${c.c})`, p: P.atom };
+  }
+
   x(e, ctx = {}) {
     const A = (c) => ({ c, p: P.atom });
     const sub = (k) => this.x(k, ctx);
@@ -393,13 +405,13 @@ class Gen {
       case 'round': return A(`${this.R('round_to')}(${sub(e.e).c}${e.places ? `, ${sub(e.places).c}` : ''})`);
       case 'readFile': return A(`${this.R('read_file')}(${sub(e.path).c})`);
       case 'neg': return { c: `-${wrap(sub(e.e), P.unary)}`, p: P.unary };
-      case 'not': return { c: `not ${wrap(sub(e.e), P.not)}`, p: P.not };
+      case 'not': return { c: `not ${wrap(this.yn(e.e, ctx), P.not)}`, p: P.not };
       case 'bin': {
         const l = sub(e.l), r = sub(e.r);
-        if (e.op === 'and') return { c: `${wrap(l, P.and)} and ${wrap(r, P.and + 1)}`, p: P.and };
-        if (e.op === 'or') return { c: `${wrap(l, P.or)} or ${wrap(r, P.or + 1)}`, p: P.or };
-        if (e.op === '+' || e.op === '-') return { c: `${wrap(l, P.add)} ${e.op} ${wrap(r, P.add + 1)}`, p: P.add };
-        if (e.op === '*') return { c: `${wrap(l, P.mul)} * ${wrap(r, P.mul + 1)}`, p: P.mul };
+        if (e.op === 'and') { const a = this.yn(e.l, ctx), b = this.yn(e.r, ctx); return { c: `${wrap(a, P.and)} and ${wrap(b, P.and + 1)}`, p: P.and }; }
+        if (e.op === 'or') { const a = this.yn(e.l, ctx), b = this.yn(e.r, ctx); return { c: `${wrap(a, P.or)} or ${wrap(b, P.or + 1)}`, p: P.or }; }
+        if (e.op === '+' || e.op === '-') { const a = this.numv(e.l, l), b = this.numv(e.r, r); return { c: `${wrap(a, P.add)} ${e.op} ${wrap(b, P.add + 1)}`, p: P.add }; }
+        if (e.op === '*') { const a = this.numv(e.l, l), b = this.numv(e.r, r); return { c: `${wrap(a, P.mul)} * ${wrap(b, P.mul + 1)}`, p: P.mul }; }
         if (e.op === '/') return A(`${this.R('divide')}(${l.c}, ${r.c})`);
         if (e.op === 'mod') {
           if (e.l.type?.k === 'whole' && e.r.type?.k === 'whole') return { c: `${wrap(l, P.mul)} % ${wrap(r, P.mul + 1)}`, p: P.mul };
@@ -409,8 +421,8 @@ class Gen {
       }
       case 'cmp': {
         const l = sub(e.l), r = sub(e.r);
-        if (e.r.k === 'bool' && (e.op === '==' || e.op === '!=')) return { c: `${wrap(l, P.cmp + 1)} ${e.op === '==' ? 'is' : 'is not'} ${r.c}`, p: P.cmp };
-        return { c: `${wrap(l, P.cmp + 1)} ${e.op} ${wrap(r, P.cmp + 1)}`, p: P.cmp };
+        if (e.r.k === 'bool' && (e.op === '==' || e.op === '!=')) return { c: `${wrap(this.yn(e.l, ctx), P.cmp + 1)} ${e.op === '==' ? 'is' : 'is not'} ${r.c}`, p: P.cmp };
+        return { c: `${wrap(this.numv(e.l, l), P.cmp + 1)} ${e.op} ${wrap(this.numv(e.r, r), P.cmp + 1)}`, p: P.cmp };
       }
       case 'between': return { c: `${wrap(sub(e.lo), P.cmp + 1)} <= ${wrap(sub(e.e), P.cmp + 1)} <= ${wrap(sub(e.hi), P.cmp + 1)}`, p: P.cmp };
       case 'contains': return { c: `${wrap(sub(e.r), P.cmp + 1)} in ${wrap(sub(e.l), P.cmp + 1)}`, p: P.cmp };

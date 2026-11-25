@@ -3,7 +3,9 @@
 // Core? For 20 small functions it shows the reader's text next to the Core a person would write, and measures:
 //   - whole functions: does the reader's text compile as Core, unchanged?
 //   - step lines: does each step line parse as one Core statement, once the bullet "- " and "(line N)" are removed?
-// It also checks that every hand-written Core version compiles. Writes docs/core-read-write.md.
+// It also checks that every hand-written Core version compiles, and it prints each function as Core from the
+// reader's meaning tree (thunder read --as-core), compiles that, and runs it against the original Python on the
+// sample inputs below. Writes docs/core-read-write.md.
 //
 //   node scripts/core-read-write.mjs [--check]   (--check: exit 1 if the doc is out of date)
 
@@ -12,6 +14,9 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { thunderModel, readLevel } from '../src/model.mjs';
 import { compileCore, parseCore } from '../src/core/index.mjs';
+import { pythonToCore } from '../src/core/from-python.mjs';
+import { verifyRoundTrip } from '../src/core/round-trip.mjs';
+import { findPython } from '../src/core/project.mjs';
 
 export const CASES = [
   ['calculate_discount', `def calculate_discount(total, member):
@@ -193,6 +198,31 @@ To apply tax:
   Give value`],
 ];
 
+// Sample inputs for the round trip (Python argument lists; O(...) makes an object with those fields). They cover each
+// branch, floats, empty lists, and the error paths.
+export const INPUTS = {
+  calculate_discount: ['150, True', '99.5, True', '150, False', '100, True'],
+  greet: ['"Ada"', '"{x}"'],
+  total_paid: ['[O(paid=True, price=1.5), O(paid=False, price=3.25), O(paid=True, price=2.1)]', '[]'],
+  is_adult: ['18', '17', '40.5'],
+  biggest: ['3, 2, 1', '1, 3, 2', '1, 2, 3', '2, 2, 2'],
+  fizzbuzz: ['15', '0'],
+  average: ['[1, 2, 3, 4]', '[2.5, 3.5]', '[]'],
+  count_words: ['"The cat. the CAT"'],
+  apply_tax: ['100', '19.99'],
+  shipping_cost: ['11', '10', '6', '5', '0.5'],
+  safe_divide: ['6, 3', '1, 0'],
+  withdraw: ['100, 30', '100, 100', '10, 30'],
+  countdown: ['3', '0'],
+  sum_up: ['10', '0', '1'],
+  paid_orders: ['[O(paid=True, price=1), O(paid=False, price=2)]', '[]'],
+  cheapest_first: ['[O(price=3), O(price=1), O(price=2)]', '[]'],
+  grade: ['95', '85', '75', '10', '90'],
+  full_name: ['"Ada", "Lovelace"'],
+  is_empty_cart: ['[]', '[1]', '""'],
+  clamp: ['5, 0, 10', '-1, 0, 10', '11, 0, 10', '0, 0, 10'],
+};
+
 const stepOf = (line) => line.replace(/^\s*-\s*/, '').replace(/\s+\(line \d+\)\s*$/, '').trim();
 const STRUCTURE = /^(You give it:|Yes:|No:|No: continue|For each:|Otherwise[,:]?)/;
 
@@ -223,7 +253,7 @@ const parsesAsStatement = (s) => {
   return !p.diagnostics.length && p.body.length === 1 && p.body[0].k !== 'unknownVerb';
 };
 
-export function measure() {
+export function measure({ runRoundTrip = !findPython().error } = {}) {
   const rows = [];
   const lineStats = { total: 0, parse: 0, afterRewrite: 0 };
   const gaps = new Map();
@@ -243,14 +273,31 @@ export function measure() {
     lineStats.total += steps.length;
     lineStats.parse += parsed;
     const coreResult = compileCore(core);
-    rows.push({ name, python, text, core, whole, steps: steps.length, parsed, coreOk: coreResult.ok, coreDiagnostics: coreResult.diagnostics });
+    // Printed from the meaning tree (thunder read --as-core), compiled, and run against the original.
+    const printed = pythonToCore(python);
+    const fn = printed.functions.find((f) => f.name === name) ?? printed.functions[0];
+    const printedCompiles = compileCore(printed.core).ok;
+    const exact = printedCompiles && !!fn?.exact && !printed.module.notTranslated.length;
+    const roundTrip = exact && runRoundTrip ? verifyRoundTrip({ python, core: printed.core, name, inputs: INPUTS[name] ?? [] }) : null;
+    rows.push({ name, python, text, core, whole, steps: steps.length, parsed, coreOk: coreResult.ok, coreDiagnostics: coreResult.diagnostics,
+      printed: printed.core.trimEnd(), printedCompiles, exact, notTranslated: [...printed.module.notTranslated, ...(fn?.notTranslated ?? [])], assumptions: fn?.assumptions ?? [], roundTrip });
   }
-  return { rows, lineStats, gaps: [...gaps].sort((a, b) => b[1].count - a[1].count) };
+  return { rows, lineStats, gaps: [...gaps].sort((a, b) => b[1].count - a[1].count), ranRoundTrip: runRoundTrip };
 }
 
 const fence = (lang, s) => `\`\`\`${lang}\n${s}\n\`\`\``;
 
-export function renderDoc({ rows, lineStats, gaps }) {
+export const RT_START = '<!-- round trip: run by the script when Python 3.10+ is installed -->';
+export const RT_END = '<!-- /round trip -->';
+
+export function renderDoc({ rows, lineStats, gaps, ranRoundTrip }) {
+  const printedOk = rows.filter((r) => r.printedCompiles).length;
+  const exactN = rows.filter((r) => r.exact).length;
+  const rtRows = rows.filter((r) => r.roundTrip?.ran);
+  const rtSame = rtRows.filter((r) => r.roundTrip.cases.every((c) => c.same)).length;
+  const rtCases = rtRows.reduce((n, r) => n + r.roundTrip.cases.length, 0);
+  const rtCasesSame = rtRows.reduce((n, r) => n + r.roundTrip.cases.filter((c) => c.same).length, 0);
+  const rtTol = rtRows.reduce((n, r) => n + r.roundTrip.cases.filter((c) => c.same && c.tolerance).length, 0);
   const whole = rows.filter((r) => r.whole).length;
   const coreOk = rows.filter((r) => r.coreOk).length;
   const pct = lineStats.total ? Math.round((100 * lineStats.parse) / lineStats.total) : 0;
@@ -259,11 +306,39 @@ export function renderDoc({ rows, lineStats, gaps }) {
     '',
     '> Generated by `node compiler/scripts/core-read-write.mjs`. Do not edit by hand; run the script again.',
     '',
-    'Thunder\'s rule is that **reading and writing are the same language**: the Thunder Text the reader prints for a',
-    'function should be Thunder Core a person can edit and compile back. This page measures how far we are, on 20',
-    'small Python functions, so the next step (moving the reader\'s output toward Core) has a concrete list.',
+    'Thunder\'s rule is that **reading and writing are the same language**: code Thunder reads should come out as',
+    'Thunder Core a person can edit and compile back. This page measures that on 20 small Python functions.',
     '',
-    '## Results',
+    '## Printed as Core from the meaning tree (`thunder read <file.py> --as-core`)',
+    '',
+    'The reader parses Python into a meaning tree. `--as-core` prints that tree as Thunder Core, never from the English',
+    'sentences, so each line means what the code means. A line Core cannot say with the same meaning is not rewritten',
+    'into something close: it is marked *not translated* and becomes a `Stop with "…"` line, so running it fails',
+    'loudly instead of skipping it, and the function is not safe to edit. Then the Core is compiled to Python and run',
+    'next to the ORIGINAL function on the sample inputs, comparing the value given back, what is printed, and errors.',
+    '',
+    '| Measure | Result |',
+    '| --- | --- |',
+    `| Printed Core that compiles | **${printedOk} of ${rows.length}** |`,
+    `| Printed exactly: no line marked not translated | **${exactN} of ${rows.length}** |`,
+    RT_START,
+    ranRoundTrip
+      ? `| Exactly printed functions that give the same results as the original Python on every sample input | **${rtSame} of ${rtRows.length}** (${rtCasesSame} of ${rtCases} inputs${rtTol ? `; ${rtTol} matched within 1e-9 because the Python used binary floats and Core is exact` : ''}) |`
+      : '| Same results as the original Python | not run (Python 3.10+ was not found) |',
+    RT_END,
+    '',
+    'Not translated, and why (each is a meaning Core cannot say yet, so Thunder refuses rather than guesses):',
+    '',
+    ...rows.flatMap((r) => r.notTranslated.map((n) => `- \`${r.name}\`, line ${n.line}: ${n.why}.`)),
+    '',
+    'Assumptions written next to the Core (kept only for some inputs, never hidden): a Python value used as a',
+    'condition (`if member:`) is printed as `member is true`, and the compiled Core stops with an error if the value is',
+    'not yes/no, where Python would quietly treat 1, "x", or a non-empty list as true.',
+    '',
+    '## The reader\'s English (Thunder Text)',
+    '',
+    'Thunder Text describes code for people ("Sets total to 0"); it is not meant to compile. These numbers show how far',
+    'its sentences are from Core statements.',
     '',
     '| Measure | Result |',
     '| --- | --- |',
@@ -272,9 +347,9 @@ export function renderDoc({ rows, lineStats, gaps }) {
     `| The same step lines after ${REWRITES.length} mechanical rewrites (verb forms and ":" only, listed below) | **${lineStats.afterRewrite} of ${lineStats.total}** (${lineStats.total ? Math.round((100 * lineStats.afterRewrite) / lineStats.total) : 0}%) |`,
     `| Hand-written Core versions that compile | **${coreOk} of ${rows.length}** |`,
     '',
-    'No reader output compiles as Core today. That is expected: the reader was built to *describe* code (third',
-    'person, "Sets total to 0", "Gives back 0"), and Core is written as instructions ("Set total to 0", "Give 0").',
-    'The gap is mostly mechanical, listed below by how often each shape appears.',
+    'The English is written to *describe* code (third person, "Sets total to 0", "Gives back 0"), and Core is written as',
+    'instructions ("Set total to 0", "Give 0"); the Core above is printed from the meaning tree instead.',
+    'The remaining sentence shapes are listed below by how often each appears.',
     '',
     '## Gap list (reader line shapes that do not parse as Core)',
     '',
@@ -312,7 +387,9 @@ export function renderDoc({ rows, lineStats, gaps }) {
   rows.forEach((r, i) => {
     out.push(`### ${i + 1}. \`${r.name}\``, '', 'Python:', '', fence('python', r.python), '', 'What the reader prints today (Thunder Text):', '', fence('text', r.text), '',
       `Thunder Core a person would write${r.coreOk ? ' (compiles)' : ' (**does not compile yet**)'}:`, '', fence('text', r.core), '',
-      `Reader's text compiles as Core: ${r.whole ? 'yes' : 'no'}. Step lines that parse as Core: ${r.parsed} of ${r.steps}.`, '');
+      `Reader's text compiles as Core: ${r.whole ? 'yes' : 'no'}. Step lines that parse as Core: ${r.parsed} of ${r.steps}.`, '',
+      `Printed as Core by \`thunder read --as-core\` (${r.exact ? 'exact' : r.printedCompiles ? 'compiles; some lines not translated' : '**does not compile**'}):`, '', fence('text', r.printed), '');
+    if (r.roundTrip?.ran) out.push(RT_START, `Run next to the original: ${r.roundTrip.cases.filter((c) => c.same).length} of ${r.roundTrip.cases.length} inputs give the same result${r.roundTrip.cases.some((c) => !c.same) ? ` (different: ${r.roundTrip.cases.filter((c) => !c.same).map((c) => `${c.input}: ${c.why}`).join('; ')})` : ''}.`, RT_END, '');
     if (!r.coreOk) out.push(`Diagnostics: ${r.coreDiagnostics.map((d) => `${d.code} line ${d.line}: ${d.message}`).join('; ')}`, '');
   });
   return `${out.join('\n')}\n`;
@@ -323,7 +400,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const path = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs', 'core-read-write.md');
   if (process.argv.includes('--check')) {
     const cur = existsSync(path) ? readFileSync(path, 'utf8') : '';
-    if (cur !== doc) { console.error('docs/core-read-write.md is out of date: run node compiler/scripts/core-read-write.mjs'); process.exit(1); }
+    // Without Python the round-trip lines cannot be measured here; compare everything else.
+    const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const strip = (t) => (findPython().error ? t.replace(new RegExp(`${esc(RT_START)}[\\s\\S]*?${esc(RT_END)}`, 'g'), '').replace(/\n{3,}/g, '\n\n') : t);
+    if (strip(cur) !== strip(doc)) { console.error('docs/core-read-write.md is out of date: run node compiler/scripts/core-read-write.mjs'); process.exit(1); }
     console.log('docs/core-read-write.md is up to date.');
   } else {
     writeFileSync(path, doc);
