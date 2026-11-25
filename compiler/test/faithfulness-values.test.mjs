@@ -49,13 +49,13 @@ test('#126 / #129 a multi-line ternary is read whole, or shown as code; never cu
 
 test('#165 / #178 a returned `a && b` / `a || !b` keeps every part; a C# local function is a helper', () => {
   const t = thunderText('A.cs', "class L {\n    internal static bool IsWellFormed(string licenseKey)\n    {\n        var segments = licenseKey.Split('.');\n        return segments.Length == 3\n            && segments[2].Length == SignatureLength;\n\n        static bool IsBase64UrlChar(char c) =>\n            c is >= 'A' and <= 'Z' or '-' or '_';\n    }\n}\n");
-  assert.match(t, /Gives back whether how many segments is 3 and segments\[2\]\.Length is SignatureLength/);
+  assert.match(t, /Gives back whether the length of segments is 3 and segments\[2\]\.Length is SignatureLength/);
   assert.doesNotMatch(t, /Calls static/);
   assert.match(t, /Defines a helper, is base64 url char/);
   // (Say less: a step shown as code shows the source as written, not the reader's `return …` copy.)
   assert.match(t, /`c is >= 'A' and <= 'Z' or '-' or '_';` \(code, not explained\)/, 'a C# pattern the words cannot keep is code');
   const s = thunderText('B.cs', 'class S {\n    private static bool RequiresExplicitClosing(Type a, Type b)\n    {\n        var interfaces = Get(a, b);\n        if (interfaces.Length == 0) return false;\n        return interfaces.Length > 1\n            || !interfaces[0].GetGenericArguments().SequenceEqual(a.GetGenericArguments());\n    }\n}\n');
-  assert.match(s, /Gives back whether how many interfaces is more than 1 or not interfaces\[0\]/);
+  assert.match(s, /Gives back whether the length of interfaces is more than 1 or not interfaces\[0\]/);
 });
 
 test('#78 a ternary whose side cannot be said is not half-said; a simple one is', () => {

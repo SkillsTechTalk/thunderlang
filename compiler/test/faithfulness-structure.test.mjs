@@ -30,9 +30,9 @@ test('#275 resolveInput: `//` inside a string is not a comment, so the throw and
 
 test('#176 C# brace-less `if (…)\\n throw` is one question; `*=` multiplies', () => {
   const t = thunderText('A.cs', 'class S {\n    public static List<int> Generate(List<int> lists, int depth = 0)\n    {\n        if (depth == 0)\n        {\n            if (Max > 0 && lists.Count > Max)\n                throw new ArgumentException($"Too many: {lists.Count}.");\n            long total = 1;\n            foreach (var list in lists)\n            {\n                total *= list.Count;\n            }\n        }\n        if (depth >= lists.Count)\n            return new List<int>();\n        return lists;\n    }\n}\n');
-  assert.equal(sideOf(t, /Ask: Max is more than 0 and how many lists is more than Max\?/, /Stop: ArgumentException/), 'yes');
+  assert.equal(sideOf(t, /Ask: Max is more than 0 and the length of lists is more than Max\?/, /Stop: ArgumentException/), 'yes');
   assert.equal(sideOf(t, /Ask: Is depth at least the lists's count\?/, /Gives back an empty list/), 'yes');
-  assert.match(t, /Multiplies total by how many list/);
+  assert.match(t, /Multiplies total by the length of list/);
   assert.doesNotMatch(t, /Sets total to how many list/);
 });
 

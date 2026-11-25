@@ -576,6 +576,15 @@ function checkStep(step, ctx) {
     const parts = splitWords(id);
     if (parts.some((p) => p.length === 1) && ` ${claimWords(says).join(' ')} `.includes(` ${parts.join(' ')} `) && !String(says).includes(id)) return WHY.words;
   }
+  // A `static` local (C, C++) is set once, not every time the function runs.
+  if ((lang === 'c' || lang === 'cpp') && /^\s*(?:const\s+)?static\b/.test(code) && /^Sets |^Works out /.test(says)) return WHY.form;
+  // "the items in x that match" is a filter: the call must be given a test (a function), not columns or names.
+  if (tree && /\bthe items in\b.*\b(?:that|where)\b|\bonly those where\b/.test(says)) {
+    const calls = [...nodesOf(tree)].filter((n) => n.kind === 'call');
+    if (calls.length && !calls.some((c) => (c.args || []).some((a) => a.kind === 'lambda' || a.kind === 'name' || a.kind === 'member'))) return WHY.meaning;
+  }
+  // Ruby's "hands control to the given block" is Ruby's yield; Python's and JavaScript's yield give back values.
+  if (lang !== 'ruby' && /given block/.test(says)) return WHY.form;
   // An idiom inside code written in the words (`p[how many p-1]`) is garbled: neither words nor code.
   if (/\[[^\]]*\b(?:how many|the|is|of|whether)\b[^\]]*\]/.test(claimText(says))) return WHY.words;
   // Words with a bracket left open are garbled.
@@ -613,7 +622,7 @@ function checkStep(step, ctx) {
     case 'return': {
       const response = /^\s*(?:return\s+)?(?:res|reply|response|ctx|c)\s*\.\s*(?:status\([^)]*\)\s*\.\s*)?(?:json|send|end|render|redirect|sendStatus|sendFile|JSON|String|HTML)\s*\(/.test(code) || (/^\s*next\s*\(/.test(code) && ctx.last);
       if (!response && !ENDING_CODE.test(code) && !implicitReturnOk(step, ctx, code)) return WHY.ending;
-      if (/^Stops here\b/.test(says)) return tree && tree.kind === 'return' && tree.value ? M('L300') : null;
+      if (/^Stops here\b/.test(says)) return (tree && tree.kind === 'return' && tree.value) || !/^\s*(?:return|exit|exit\s+0)?\s*;?\s*$/.test(code.replace(/^\s*return\b/, '')) ? M('stops-not-bare') : null;
       if (/^Returns whether |^Gives back whether /.test(says)) return conditionCore(tree?.kind === 'return' ? tree.value : tree, says.replace(/^\w+ (?:back )?whether /, ''), code, lang);
       return valueKept(tree?.kind === 'return' ? tree.value : tree, says, code, lang);
     }
@@ -1093,6 +1102,8 @@ function structureProblem(s, lang, srcLines) {
   const a = lineOf(s), b = endOf(s);
   const inner = [...(s.children || []), ...(s.otherwise || [])];
   if (s.kind === 'branch' && !inner.length && !s.unread && !/^(?:Chooses by|Checks these cases)/.test(String(s.says))) return true;
+  // A case with nothing in it, where cases cannot fall through (Swift, Kotlin, Rust, Go, Scala): its body was lost.
+  if (s.kind === 'branch' && /^(?:swift|kotlin|rust|go|scala)$/.test(lang) && s.children?.length && s.children.every((c) => c.kind === 'check' && c.caseLabel) && s.children.some((c) => !c.children?.length && !/fall/i.test(String(c.says)) && !/(?:=>|->)\s*(?:\{\s*\}|\(\s*\)|Unit)\s*,?\s*$|\bbreak\b/.test(String(c.code ?? '')))) return true;
   // A switch whose case labels were read as steps inside another case: its cases were folded together.
   if (s.kind === 'branch' && s.children?.length && s.children.every((c) => c.kind === 'check' && c.caseLabel)) {
     for (const arm of s.children) for (const k of everyStep(arm.children)) if (!k.nested && /^\s*(?:case\b|default\s*:|when\b)/.test(String(k.code ?? ''))) return true;
@@ -1145,8 +1156,14 @@ function exactCode(s) {
   const end = Math.min(sp.endLine ?? sp.startLine, sp.startLine + 7);
   const text = currentLines.slice(sp.startLine - 1, end).join(' ');
   const short = String(s.code ?? '').replace(/…$/, '');
-  if (!short.trim() || squash(text).includes(squash(short))) return;
   const block = isBlock(s) || s.children?.length;
+  // A block's header over several lines (`if a\n && b {`): the whole header, never its first line alone.
+  if (block && short.trim()) {
+    let head = '';
+    for (let l = sp.startLine; l <= Math.min(end, sp.startLine + 5); l++) { const t = String(currentLines[l - 1] ?? ''); head += ` ${t}`; if (/[{:]\s*$|\b(?:then|do)\s*$/.test(t)) break; }
+    if (squash(head).includes(squash(short)) && squash(head).length > squash(short).length + 2 && !/[{:]\s*$|\b(?:then|do)\s*$/.test(String(currentLines[sp.startLine - 1] ?? ''))) { s.code = head.replace(/\s+/g, ' ').trim(); return; }
+  }
+  if (!short.trim() || squash(text).includes(squash(short))) return;
   // (A block's header: its lines up to the one that opens the block.)
   let head = '';
   if (block) for (let l = sp.startLine; l <= Math.min(end, sp.startLine + 5); l++) { const t = String(currentLines[l - 1] ?? ''); head += ` ${t}`; if (/[{:]\s*$|\b(?:then|do)\s*$/.test(t)) break; }
@@ -1208,6 +1225,24 @@ const alreadyCode = (s) => s.kind === 'other' || s.restates || s.codeWords || is
 
 // ── The pass ────────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * A length in words, one way everywhere: "the length of password" (for `password.length`, `len(p)`, `s.size()`), never
+ * "how many password" for a text in one reading and "password.length" in another. Quoted text and code are untouched.
+ */
+function lengthWords(says, tree) {
+  if (!/\bhow many\b|\.length\b|\.Length\b/.test(String(says))) return says;
+  const lengths = new Set();
+  for (const n of nodesOf(tree)) {
+    if (n.kind === 'member' && /^(?:length|Length|size|Count|count)$/.test(n.property)) lengths.add(splitWords(sayFullName(n.object)).join(' '));
+    if (n.kind === 'call' && /^(?:len|length|size|count|nchar|strlen|Count|Length)$/.test(n.callee?.property ?? n.callee?.name ?? '')) { const o = n.callee?.kind === 'member' ? n.callee.object : n.args?.[0]; if (o) lengths.add(splitWords(sayFullName(o)).join(' ')); }
+  }
+  if (!lengths.size) return says;
+  return String(says).split(/("(?:\\.|[^"\\])*"|`[^`]*`|«[^»]*»)/).map((part, i) => (i % 2 ? part : part
+    .replace(/\bhow many ((?:the [\w ]+?'s )?[\w ]+?)(?= is\b| are\b| has\b|,|$| and\b| or\b| plus\b| minus\b| to\b| from\b| times\b|\))/g, (m, x) => (lengths.has(splitWords(x.replace(/^the /, '').replace(/'s /g, ' ')).join(' ')) || lengths.has(splitWords(x).join(' ')) ? `the length of ${x}` : m))
+    .replace(/\b([A-Za-z_][\w]*)\.(?:length|Length)\b(?!\s*\()/g, (m, x) => `the length of ${x}`))).join('');
+}
+const sayFullName = (n) => (n?.kind === 'name' ? n.name : n?.kind === 'member' ? `${sayFullName(n.object)} ${n.property}` : '');
+
 /** The name a chooser's cases set (`val grade = when (…)`, `x = switch …`), as text, or null. */
 function valueTarget(s) {
   if (typeof s.valueOf === 'string') return s.valueOf;
@@ -1255,7 +1290,7 @@ function sayLessList(list, ctx, depth, top) {
         if (lastTag) Object.defineProperty(s, 'whyTag', { value: lastTag, enumerable: false });
         if (DEBUG) console.error(`[say-less] ${why}${lastTag ? ` ${lastTag}` : ""} | ${s.origSays} | ${String(s.code).slice(0, 120)}`);
       }
-      else s.explained = true;
+      else { s.explained = true; s.says = lengthWords(s.says, s.expr); }
     } else {
       s.explained = false;
       const before = s.code;

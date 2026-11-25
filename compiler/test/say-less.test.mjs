@@ -158,3 +158,23 @@ test('commons-lang BooleanUtils.toBooleanObject: Java `str == "true"` compares r
   const t = thunderText('B.java', 'class BooleanUtils {\n    public static Boolean toBooleanObject(final String str) {\n        if (str == "true") {\n            return Boolean.TRUE;\n        }\n        return null;\n    }\n}\n');
   assert.doesNotMatch(t, /Is str true\?/);
 });
+
+test('OpenThunder: `x.length` reads one way everywhere ("the length of password"), never "how many password"', () => {
+  const t = thunderText('a.js', 'async function signup(request, reply) {\n  const { password } = request.body;\n  if (password.length < 6) { reply.status(400); return { error: "short" }; }\n  return { ok: true };\n}\n');
+  assert.match(t, /Is the length of password less than 6\?/);
+  assert.doesNotMatch(t, /how many password|password\.length is/);
+  const py = thunderText('a.py', 'def check(password):\n    if len(password) < 6:\n        return False\n    return True\n');
+  assert.match(py, /the length of password/);
+});
+
+test('a condition written over several lines is shown whole, never its first line alone (semver identifier)', () => {
+  const t = thunderText('a.rs', 'fn identifier(pos: Position, segment_len: usize, nondigit: bool) -> Result<(), Error> {\n    if pos == Position::Pre\n        && segment_len > 1\n        && !nondigit\n    {\n        return Err(Error::LeadingZero);\n    }\n    Ok(())\n}\n');
+  assert.doesNotMatch(t, /Ask: `pos == Position::Pre`\?/);
+});
+
+test('a C `static` local is set once (lz4), Python yield is not "hands control to the given block" (jinja)', () => {
+  const c = thunderText('a.c', 'int freq(void) {\n    static int init = 0;\n    if (!init) { init = 1; query(); }\n    return init;\n}\n');
+  assert.doesNotMatch(c, /Sets init to 0/);
+  const py = thunderText('a.py', 'async def empty():\n    for _ in ():\n        yield\n');
+  assert.doesNotMatch(py, /given block/);
+});
