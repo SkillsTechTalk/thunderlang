@@ -74,6 +74,7 @@ export default function ManifestoPage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-white">{r.what}</p>
                   <p className="mt-1 text-sm text-haze-300">{r.detail}</p>
+                  {r.caveat && (<p className="mt-1 text-xs text-amber-200/90">{r.caveat.text} <Link href={r.caveat.href} className="font-medium text-gold-300 underline decoration-gold-300/40 underline-offset-2 hover:text-gold-200">{r.caveat.label}</Link></p>)}
                 </div>
                 <StatusBadge status={r.status} className="shrink-0 self-start sm:self-center" />
               </li>

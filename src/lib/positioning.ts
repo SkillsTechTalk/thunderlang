@@ -25,13 +25,16 @@ const list = (keys: readonly string[]) => {
 export const CORE_STATUS: CapabilityStatus = capability("thunderCore").status;
 
 /** What works today, and what does not yet, in the order a person meets it. */
-export const CAPABILITY_ROWS: { what: string; detail: string; status: CapabilityStatus; href?: string; cta?: string }[] = [
+export const CAPABILITY_ROWS: { what: string; detail: string; status: CapabilityStatus; href?: string; cta?: string; caveat?: { text: string; href: string; label: string } }[] = [
   {
     what: "Read existing code in Thunder",
     detail: `${READ_PROGRAMMING.length} languages, including ${list(["python", "typescript", "java", "csharp", "go", "rust"])}, plus infrastructure files.`,
     status: capability("thunderedRead").status,
     href: "/read",
     cta: "Read code in Thunder",
+    // Honest about accuracy next to the claim: the fresh audit (docs/accuracy.md) still finds false readings on code
+    // nobody has graded. Update this line when a new fresh audit is published.
+    caveat: { text: "Not every reading is right yet: on code we had never graded, about 1 in 10 readings still said something false.", href: "/docs/accuracy", label: "How accurate is Thunder?" },
   },
   {
     what: "Change existing code from Thunder",
