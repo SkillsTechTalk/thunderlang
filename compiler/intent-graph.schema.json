@@ -580,6 +580,17 @@
     {
       "owner": "IL",
       "phase": "author",
+      "ruleId": "IL-GEN-001",
+      "area": "generation",
+      "severity": "error",
+      "blocks": [
+        "implementation"
+      ],
+      "summary": "A rule condition could not be translated for a target: generation reports it, the generated rule throws, and live runs report it not translated (never a stand-in false)."
+    },
+    {
+      "owner": "IL",
+      "phase": "author",
       "ruleId": "IL-12F-01",
       "area": "twelve-factor",
       "severity": "info",

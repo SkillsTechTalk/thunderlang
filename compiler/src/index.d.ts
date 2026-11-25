@@ -705,7 +705,13 @@ export function toCSharp(ast: IntentAst): string;
 export function toJava(ast: IntentAst): string;
 export function toPython(ast: IntentAst): string;
 export const GENERATORS: Record<string, (ast: IntentAst) => string>;
-export function exprToJs(src: string, opts?: { inputs?: string[] }): string;
+/** Generated code plus one IL-GEN-001 error per rule condition the target could not translate (that rule throws). */
+export function generateWithDiagnostics(ast: IntentAst, target: string): { code: string; diagnostics: import('./target-result.mjs').GenerationDiagnostic[] };
+export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage } from './target-result.mjs';
+export type { CaseResult, TargetRun, TargetErrorKind, GenerationDiagnostic } from './target-result.mjs';
+export { parseMoney, formatMoney, roundHalfEven, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
+/** `money` maps Money input names to minor units; their comparisons render exactly, other uses throw. */
+export function exprToJs(src: string, opts?: { inputs?: string[]; money?: Record<string, number> }): string;
 export function subjectName(ast: IntentAst): string | null;
 export function intentRefId(astOrName: IntentAst | string, opts?: { sourceHash?: string }): string;
 

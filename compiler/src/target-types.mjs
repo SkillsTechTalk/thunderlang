@@ -1,5 +1,7 @@
 // Browser-safe helpers shared by the target adapters and the in-browser translator.
 // No Node imports here, so the website can bundle this file.
+import { moneyTypeMinorUnits } from './money.mjs';
+import { translateRule } from './target-result.mjs';
 
 export const inputNames = (dec) => (dec.inputs || []).map((i) => String(i).split(':')[0].trim()).filter(Boolean);
 
@@ -20,18 +22,21 @@ export function buildCases(ast) {
     if (!dec) continue;
     const names = inputNames(dec);
     for (const c of t.cases || []) {
-      const given = {};
-      for (const n of names) given[n] = coerceVal((c.given || {})[n]);
-      cases.push({ key: `${t.name} / ${c.name || 'case'}`, fn: t.name, given });
+      const given = {}; const raw = {};
+      for (const n of names) { raw[n] = (c.given || {})[n]; given[n] = coerceVal(raw[n]); }
+      cases.push({ key: `${t.name} / ${c.name || 'case'}`, fn: t.name, given, raw });
     }
   }
   return cases;
 }
 
-// A declared input type (`amount: number`, `Money`, `Flag`) as number, bool, or string; null when none.
-const NUMBER_TYPES = /^(number|int|integer|long|short|float|double|decimal|Money|Percentage|Count|Duration)$/i;
+// A declared input type (`amount: number`, `Money`, `Flag`) as number, bool, string, or money; null
+// when none. Money stays its own type so no target turns it into binary floating point.
+const NUMBER_TYPES = /^(number|int|integer|long|short|float|double|decimal|Percentage|Count|Duration)$/i;
 const BOOL_TYPES = /^(boolean|bool|Flag)$/i;
 export function declaredInputType(raw) {
+  const t = String(raw).includes(':') ? String(raw).slice(String(raw).indexOf(':') + 1).trim() : '';
+  if (moneyTypeMinorUnits(t) != null) return 'money';
   const m = String(raw).match(/:\s*([A-Za-z][\w<>]*)\s*$/);
   if (!m) return null;
   if (NUMBER_TYPES.test(m[1])) return 'number';
@@ -95,3 +100,34 @@ export function litFor(type, v) {
   return strLit(v);
 }
 
+
+/** Money inputs of a decision: { name: minorUnits } (Money = 2, Money(JPY) = 0, Money(KWD) = 3). */
+export function moneyInputs(dec) {
+  const out = {};
+  for (const raw of dec.inputs || []) {
+    const s = String(raw);
+    if (!s.includes(':')) continue;
+    const units = moneyTypeMinorUnits(s.slice(s.indexOf(':') + 1).trim());
+    if (units != null) out[s.split(':')[0].trim()] = units;
+  }
+  return out;
+}
+
+/**
+ * Everything a generator needs for one decision: input names and types, Money minor units, each
+ * rule's translated condition (or the IL-GEN-001 message when it cannot be translated), and
+ * `refused`: the first untranslated message, set when this decision must not be run.
+ */
+export function planDecision(ast, d, { translate, target }) {
+  const names = inputNames(d);
+  const types = inferInputTypes(ast, d);
+  const money = moneyInputs(d);
+  const opts = { inputs: names, money };
+  const rules = []; const diagnostics = []; let refused = null;
+  for (const r of d.rules || []) {
+    const t = translateRule(translate, r, opts, { target, decision: d.name });
+    if (t.ok) rules.push({ rule: r, code: t.code });
+    else { rules.push({ rule: r, code: null, message: t.message }); diagnostics.push(t.diagnostic); refused = refused ?? t.message; }
+  }
+  return { decision: d, names, types, money, rules, diagnostics, refused };
+}

@@ -133,6 +133,7 @@ const IL_AUTHOR_RULE_ROWS = [
   { ruleId: 'IL-SEC-001', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'Secret-typed field travels over the event bus.' },
   { ruleId: 'IL-SEC-002', area: 'security', severity: 'blocker', blocks: ['release'], summary: 'API returns a secret with no auth requirement.' },
   { ruleId: 'IL-TYPE-001', area: 'type', severity: 'info', blocks: [], summary: 'Field uses an unrecognized (likely mistyped) type.' },
+  { ruleId: 'IL-GEN-001', area: 'generation', severity: 'error', blocks: ['implementation'], summary: 'A rule condition could not be translated for a target: generation reports it, the generated rule throws, and live runs report it not translated (never a stand-in false).' },
   // 12-Factor Agents conformance (twelve-factor-v1). Advisory: an intent's alignment with the
   // humanlayer/12-factor-agents principles. `thunder twelve-factor` scores these.
   { ruleId: 'IL-12F-01', area: 'twelve-factor', severity: 'info', blocks: [], summary: 'F1 Natural language to tool calls: model dispatch as a decision/command.' },

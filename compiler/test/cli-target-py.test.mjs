@@ -43,12 +43,12 @@ test('emitted Python uses Python logical operators (and/or/not), not C-family', 
 
 test('the Python adapter compiles + executes the generated decision', { skip: !HAVE_PY && 'python3 not available' }, () => {
   const out = runPythonTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
-test('runPythonTarget returns null when python3 is unavailable (no crash)', { skip: HAVE_PY && 'python3 is available here' }, () => {
-  assert.equal(runPythonTarget(parseIntent(SRC)), null);
+test('runPythonTarget reports missing-toolchain (not null) when python3 is unavailable', { skip: HAVE_PY && 'python3 is available here' }, () => {
+  assert.equal(runPythonTarget(parseIntent(SRC)).kind, 'missing-toolchain');
 });
 
 test('thunder test --target python runs the tests against generated Python', { skip: !HAVE_PY && 'python3 not available' }, () => {

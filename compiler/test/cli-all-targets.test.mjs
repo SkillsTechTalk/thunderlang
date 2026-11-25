@@ -54,7 +54,7 @@ test('test --all-targets exits 0 when no available target fails', () => {
   const res = run(['test', write('b.thunder', SRC), '--all-targets']);
   assert.equal(res.status, 0, res.stdout + res.stderr);
   assert.match(res.stdout, /target\(s\) executed/);
-  assert.match(res.stdout, /PASS  Typescript/);
+  assert.match(res.stdout, /PASS  TypeScript/);
 });
 
 test('conform --all-targets shows every live target as a column and grades the available ones', () => {

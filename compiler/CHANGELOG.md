@@ -1,3 +1,38 @@
+# Unreleased
+
+- **Fix: a rule Thunder cannot translate never becomes `false`.** The scaffolds (`thunder gen`, all four targets),
+  the executable targets (TypeScript, Python, C#, Java, Go, Rust, Kotlin, Scala, Elixir) and the in-browser
+  translator used to replace an untranslatable rule condition with `false` (Python with no note at all), so generated
+  or executed code silently skipped that rule and returned another answer. Now generation reports the new diagnostic
+  **`IL-GEN-001`** ("Thunder could not translate the condition '…' for <target>: <reason>"), `thunder gen` prints it
+  on stderr and exits 1, the generated rule throws with that message (`throw new Error(...)`,
+  `raise NotImplementedError(...)`), and `thunder test --target`, `--all-targets` and `thunder conform --run` refuse
+  to run that decision and report its cases as *not translated*, never as an answer. New API:
+  `generateWithDiagnostics(ast, target)` and `translateDecisionsWithDiagnostics(ast, lang)`.
+- **Fix: Money is exact, never binary floating point.** `Money` is a decimal with 2 minor units (or the currency's:
+  `Money(JPY)` 0, `Money(KWD)` 3); extra precision is an error, never rounded; rounding, where a spec asks, is half
+  to even. TypeScript Money was `number`; it is now `bigint` minor units with a generated zero-dependency
+  `parseMoney` / `formatMoney` helper. Python Money was `float`; it is now `decimal.Decimal`. Decision inputs typed
+  `Money` were `double`/`float64`/`f64` in every target; they are now `decimal` (C#), `BigDecimal` (Java), `int64`
+  (Go) and `i64` (Rust) minor units, and a Money comparison a target cannot do exactly (Kotlin, Scala, Elixir, or
+  multiplying Money) is refused with `IL-GEN-001`. The decision engine adds, subtracts and multiplies decimals
+  exactly, so `0.1 + 0.2 == 0.3`. Plain contracts read `$12.30` as exact cents (and show `$12.30`, not `$12.3`), and
+  reject `$12.305` instead of rounding it. JSON Schema / OpenAPI describe Money as a decimal string, not a number.
+  See "Money is exact" in `docs/spec.md`.
+- **Fix: a failed run is never a `null` answer.** The live target runners turned a missing toolchain, a compile
+  failure, a crash or a timeout into `null` (and Python turned an exception into `None`), so a real null answer
+  looked the same as a failure. Each run now returns `{ status: 'ok', results }` with one
+  `{ status: 'ok', value }` or `{ status: 'error', kind, message }` per case (`kind`: `missing-toolchain`,
+  `compile-failed`, `runtime-error`, `timeout`, `assertion-failed`, `not-translated`, `missing-input`), or a whole-run
+  `{ status: 'error', kind, message }`. `thunder test --target` / `--all-targets` and `thunder conform` show
+  `ERROR` with the kind and reason (and fail the run); a missing toolchain is still skipped. Conformance evidence
+  counts an error as a failure. Types: `compiler/src/target-result.d.mts`. The playground's Code tab lists any rule
+  that was not translated.
+- **Fix: a case is never run with a made-up input.** A test case that left out an input was run in Java, Go, Rust
+  and the others with `0`, `false`, `""` (or `$0` for Money), so a typed target answered for a value nobody wrote and
+  its FAIL blamed the target (Python crashed instead). Every target now reports such a case as `missing-input`,
+  naming the inputs to add. Target names print as TypeScript and C# (not Typescript and Csharp).
+
 # 1.0.4
 
 - **Fix: no false readings left in the fresh audit outside SQL.** An independent review of 1.0.3 on 32 repositories

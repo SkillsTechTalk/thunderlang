@@ -2,32 +2,35 @@
 // static method (using the same exprToCSharp translator the codegen uses), calls every test case
 // with typed literal arguments, and prints the results as one JSON line. It runs through a
 // throwaway `dotnet` console project (scaffold + `dotnet run`), so a live C# run grades real
-// compiled + executed code. Returns null (skip cleanly) when no usable .NET SDK exists.
-import { spawnSync } from 'node:child_process';
+// compiled + executed code.
+//
+// Results are honest (see target-result.mjs): a missing toolchain, a compile failure, a crash, or a
+// timeout is a structured error, never a null answer; a decision with a rule Thunder cannot
+// translate is refused ('not-translated'). Money inputs are C# decimal, never double.
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { exprToCSharp } from './expr.mjs';
-import { inputNames, inferInputTypes, buildCases, parseLastJsonObject, cachedSmoke, strLit, litFor } from './target-util.mjs';
+import { parseLastJsonObject, cachedSmoke, strLit, litFor, prepareRun, plansFor, argLit, finishRun, runFailure, classifySpawn, spawnStep } from './target-util.mjs';
 
-const CS_TYPE = { number: 'double', bool: 'bool', string: 'string' };
+const CS_TYPE = { number: 'double', bool: 'bool', string: 'string', money: 'decimal' };
+const CS_RUN = { translate: exprToCSharp, target: 'C#', dialect: 'csharp' };
+const CS_RUNTIME = /Unhandled exception/i;
 
 // Scaffold a bare console project in `dir`, overwrite Program.cs with `source`, and run it.
-// Returns stdout, or null on any failure. A bare console app has no external packages, so the
-// implicit restore is offline.
+// Returns { ok, stdout } or { ok: false, failure }. A bare console app has no external packages,
+// so the implicit restore is offline.
 function dotnetRun(dir, source) {
   const proj = join(dir, 'app');
   const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1', DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1' };
-  const mk = spawnSync('dotnet', ['new', 'console', '-o', proj], { encoding: 'utf8', timeout: 120000, env });
-  if (mk.status !== 0) return null;
+  const mk = spawnStep('dotnet', ['new', 'console', '-o', proj], { timeout: 120000, env }, (r) => classifySpawn(r, { tool: 'dotnet new', phase: 'compile' }));
+  if (!mk.ok) return mk;
   writeFileSync(join(proj, 'Program.cs'), source);
-  const run = spawnSync('dotnet', ['run', '--project', proj, '-c', 'Release'], { encoding: 'utf8', timeout: 240000, env });
-  if (run.status !== 0) return null;
-  return run.stdout;
+  return spawnStep('dotnet', ['run', '--project', proj, '-c', 'Release'], { timeout: 240000, env }, (r) => classifySpawn(r, { tool: 'dotnet', phase: 'build+run', runtimePattern: CS_RUNTIME }));
 }
 
 // The emitted C# source (also usable for display / `gen`-parity).
-export function emitCSharpModule(ast, cases = buildCases(ast)) {
+export function emitCSharpModule(ast, cases = prepareRun(ast, CS_RUN).cases, plans = plansFor(ast, exprToCSharp, 'C#')) {
   const L = [
     'using System;',
     'using System.Collections.Generic;',
@@ -35,18 +38,17 @@ export function emitCSharpModule(ast, cases = buildCases(ast)) {
     'using System.Text;',
     'class ThunderTarget {',
   ];
-  const typesByDec = {};
-  for (const d of ast.decisions || []) {
-    const names = inputNames(d);
-    const types = inferInputTypes(ast, d);
-    typesByDec[d.name] = types;
-    const params = names.map((n) => `${CS_TYPE[types[n]] || 'string'} ${n}`).join(', ');
-    L.push(`  static string ${d.name}(${params}) {`);
-    for (const r of d.rules || []) {
-      let cond; try { cond = exprToCSharp(r.when, { inputs: names }); } catch { cond = 'false'; }
-      L.push(`    if (${cond}) return ${strLit(r.result)};`);
+  if ([...plans.values()].some((p) => p.refused)) {
+    L.push('  // IL-GEN-001: a rule Thunder could not translate throws instead of guessing.');
+    L.push('  static bool ThunderUntranslated(string message) => throw new NotImplementedException(message);');
+  }
+  for (const p of plans.values()) {
+    const params = p.names.map((n) => `${CS_TYPE[p.types[n]] || 'string'} ${n}`).join(', ');
+    L.push(`  static string ${p.decision.name}(${params}) {`);
+    for (const { rule: r, code, message } of p.rules) {
+      L.push(`    if (${code ?? `ThunderUntranslated(${strLit(message)})`}) return ${strLit(r.result)};`);
     }
-    L.push(`    return ${d.default == null ? 'null' : strLit(d.default)};`, '  }');
+    L.push(`    return ${p.decision.default == null ? 'null' : strLit(p.decision.default)};`, '  }');
   }
   L.push('  static string J(string s) {');
   L.push('    if (s == null) return "null";');
@@ -58,10 +60,9 @@ export function emitCSharpModule(ast, cases = buildCases(ast)) {
   L.push('  static void Main() {');
   L.push('    var outp = new List<KeyValuePair<string,string>>();');
   for (const c of cases) {
-    const dec = (ast.decisions || []).find((d) => d.name === c.fn);
-    if (!dec) continue;
-    const types = typesByDec[c.fn];
-    const argList = inputNames(dec).map((n) => litFor(types[n], c.given[n])).join(', ');
+    const p = plans.get(c.fn);
+    if (!p) continue;
+    const argList = p.names.map((n) => argLit(c, p, n, litFor)).join(', ');
     L.push(`    outp.Add(new KeyValuePair<string,string>(${strLit(c.key)}, ${c.fn}(${argList})));`);
   }
   L.push('    var sb = new StringBuilder("{"); bool first = true;');
@@ -80,19 +81,23 @@ export function csharpAvailable() {
     try {
       const src = 'using System; class ThunderTarget { static void Main(){ Console.WriteLine("{\\"ok\\":\\"1\\"}"); } }';
       const out = dotnetRun(dir, src);
-      return !!out && /"ok"/.test(out);
+      return out.ok && /"ok"/.test(out.stdout);
     } finally { try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ } }
   });
 }
 
-// Run every decision test case through generated, compiled C#. Returns { "Test / case": actual }
-// or null when no usable .NET SDK is present.
+// Run every decision test case through generated, compiled C#. Returns { status: 'ok', results }
+// or a whole-run { status: 'error', kind, message }.
 export function runCSharpTarget(ast) {
-  if (!csharpAvailable()) return null;
-  const cases = buildCases(ast);
+  if (!csharpAvailable()) return runFailure('missing-toolchain', 'No usable .NET SDK (dotnet new + dotnet run) on this machine.');
+  const { plans, cases, refused } = prepareRun(ast, CS_RUN);
+  if (!cases.length) return { status: 'ok', results: { ...refused } };
   const dir = mkdtempSync(join(tmpdir(), 'tl-cs-'));
   try {
-    const out = dotnetRun(dir, emitCSharpModule(ast, cases));
-    return out == null ? null : parseLastJsonObject(out);
+    const out = dotnetRun(dir, emitCSharpModule(ast, cases, plans));
+    if (!out.ok) return out.failure;
+    const parsed = parseLastJsonObject(out.stdout);
+    if (!parsed) return runFailure('runtime-error', 'dotnet ran but printed no results.');
+    return finishRun({ cases, parsed, refused, target: 'C#' });
   } finally { try { rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ } }
 }

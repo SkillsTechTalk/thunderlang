@@ -3,6 +3,8 @@
 // consumable by API tooling (validators, codegen, mock servers) , the data-shape sibling of
 // the DMN/BPMN decision/lifecycle exporters. Deterministic and pure.
 
+import { moneyTypeMinorUnits } from './money.mjs';
+
 // Known semantic types (with formats) and primitives, keyed lowercase. Module-level so the
 // security/type semantic pass (`isRecognizedType`) and the JSON-Schema mapping share ONE
 // source of truth , no drift between "what compiles" and "what the schema knows."
@@ -15,7 +17,8 @@ const SEMANTIC = {
   timestamp: { type: 'string', format: 'date-time' },
   duration: { type: 'string', format: 'duration' },
   uuid: { type: 'string', format: 'uuid' },
-  money: { type: 'number' },
+  // Thunder Money is an exact decimal string ("12.30"), never a JSON number a consumer would read as a float.
+  money: { type: 'string', pattern: '^-?[0-9]+(\\.[0-9]{1,2})?$', description: 'Thunder Money: an exact decimal amount with up to 2 minor units, as a string.' },
   currency: { type: 'string' },
   percentage: { type: 'number', minimum: 0, maximum: 100 },
   secret: { type: 'string', writeOnly: true },
@@ -61,6 +64,10 @@ export function typeToJsonSchema(type) {
   if (listMatch) return { type: 'array', items: typeToJsonSchema(listMatch[1]) };
 
   const key = t.toLowerCase();
+  const units = moneyTypeMinorUnits(t);
+  if (units != null && key !== 'money') {
+    return { type: 'string', pattern: units ? `^-?[0-9]+(\\.[0-9]{1,${units}})?$` : '^-?[0-9]+$', description: `Thunder Money: an exact decimal amount with up to ${units} minor units, as a string.` };
+  }
   if (SEMANTIC[key]) return { ...SEMANTIC[key] };
   if (PRIMITIVE[key]) return { ...PRIMITIVE[key] };
   // Unknown PascalCase entity -> an opaque object carrying its name (title), so tooling can

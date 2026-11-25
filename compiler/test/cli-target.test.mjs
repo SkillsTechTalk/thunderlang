@@ -36,8 +36,8 @@ target
 
 test('the adapter compiles + executes the generated decision', () => {
   const out = runTypescriptTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target typescript runs the tests against generated code', () => {
