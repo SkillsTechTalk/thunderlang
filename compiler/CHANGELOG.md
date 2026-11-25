@@ -1,4 +1,4 @@
-# Unreleased
+# 1.0.4
 
 - **Fix: no false readings left in the fresh audit outside SQL.** An independent review of 1.0.3 on 32 repositories
   it had never seen (480 non-SQL samples) graded 53 readings false (11%). Each now reads true or is shown as code, and
