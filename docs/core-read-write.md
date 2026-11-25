@@ -16,14 +16,13 @@ next to the ORIGINAL function on the sample inputs, comparing the value given ba
 | Measure | Result |
 | --- | --- |
 | Printed Core that compiles | **20 of 20** |
-| Printed exactly: no line marked not translated | **18 of 20** |
+| Printed exactly: no line marked not translated | **19 of 20** |
 <!-- round trip: run by the script when Python 3.10+ is installed -->
-| Exactly printed functions that give the same results as the original Python on every sample input | **18 of 18** (52 of 52 inputs) |
+| Exactly printed functions that give the same results as the original Python on every sample input | **19 of 19** (53 of 53 inputs) |
 <!-- /round trip -->
 
 Not translated, and why (each is a meaning Core cannot say yet, so Thunder refuses rather than guesses):
 
-- `count_words`, line 3: split() keeps punctuation inside words; Core's "the words of" removes it, so the meaning would change.
 - `safe_divide`, line 2: Core has no step for a Python try (an error handler that names its error kinds) yet.
 
 Assumptions written next to the Core (kept only for some inputs, never hidden): a Python value used as a
@@ -626,16 +625,20 @@ To count words:
 
 Reader's text compiles as Core: no. Step lines that parse as Core: 0 of 4.
 
-Printed as Core by `thunder read --as-core` (compiles; some lines not translated):
+Printed as Core by `thunder read --as-core` (exact):
 
 ```text
 To count words:
   Receive text
   Set counts to an empty map
-  # Not translated (line 3): split() keeps punctuation inside words; Core's "the words of" removes it, so the meaning would change
-  Stop with "Line 3 of the Python was not translated: for word in text.lower().split():"
+  For each word in the parts of (the lowercase of text):
+    Set counts at word to (counts at word otherwise 0) + 1
   Give counts
 ```
+
+<!-- round trip: run by the script when Python 3.10+ is installed -->
+Run next to the original: 1 of 1 inputs give the same result.
+<!-- /round trip -->
 
 ### 9. `apply_tax`
 

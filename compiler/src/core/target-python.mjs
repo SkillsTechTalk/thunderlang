@@ -412,6 +412,10 @@ class Gen {
           case 'lowercase': return A(`${wrap(a, P.atom)}.lower()`);
           case 'uppercase': return A(`${wrap(a, P.atom)}.upper()`);
           case 'trimmed': return A(`${wrap(a, P.atom)}.strip()`);
+          case 'parts': return A(`${this.R('parts_of')}(${a.c})`);
+          case 'abs': return A(`${this.R('absolute')}(${a.c})`);
+          case 'jsonText': return A(`${this.R('json_text')}(${a.c})`);
+          case 'jsonData': return A(`${this.R('json_data')}(${a.c})`);
           case 'keys': return A(`list(${wrap(a, P.atom)}.keys())`);
           case 'values': return A(`list(${wrap(a, P.atom)}.values())`);
           default: return A(`${e.op}(${a.c})`);
@@ -441,6 +445,11 @@ class Gen {
       }
       case 'between': return { c: `${wrap(sub(e.lo), P.cmp + 1)} <= ${wrap(sub(e.e), P.cmp + 1)} <= ${wrap(sub(e.hi), P.cmp + 1)}`, p: P.cmp };
       case 'contains': return { c: `${wrap(sub(e.r), P.cmp + 1)} in ${wrap(sub(e.l), P.cmp + 1)}`, p: P.cmp };
+      case 'affix': return A(`${this.R(e.end ? 'ends_with' : 'starts_with')}(${sub(e.l).c}, ${sub(e.r).c})`);
+      case 'sortedValues': return A(`${this.R('sorted_values')}(${sub(e.list).c}${e.desc ? ', True' : ''})`);
+      case 'joined': return A(`${this.R('joined')}(${sub(e.list).c}, ${sub(e.sep).c})`);
+      case 'splitAt': return A(`${this.R('split_at')}(${sub(e.text).c}, ${sub(e.sep).c})`);
+      case 'replacing': return A(`${this.R('replacing')}(${sub(e.text).c}, ${sub(e.from).c}, ${sub(e.to).c})`);
       case 'adj': {
         const v = sub(e.e);
         if (e.adj === 'empty') return { c: `len(${v.c}) == 0`, p: P.cmp };

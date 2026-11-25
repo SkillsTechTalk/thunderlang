@@ -165,12 +165,32 @@ Kinds can be named where needed: `number`, `whole number`, `text`, `yes/no`, `mo
 - From a list of records: `prices from orders`, `orders where paid is true`, `orders sorted by price descending`.
 - `round x` and `round x to 2 places`; `read file "orders.csv"`.
 
+### Text, lists, and JSON
+
+| Write | Gives | Example |
+| --- | --- | --- |
+| `names joined with ", "` | text | `["Ada", "Grace"]` → `"Ada, Grace"` (every item must be text) |
+| `line split at ","` | list of text | `"a,,b"` → `["a", "", "b"]` (empty parts are kept) |
+| `the parts of text` | list of text | `"  the cat.  sat "` → `["the", "cat.", "sat"]` (split at spaces; punctuation kept) |
+| `date replacing "-" with "/"` | text | `"2026-11-25"` → `"2026/11/25"` (every match) |
+| `name starts with "Dr"`, `file ends with ".csv"` | yes/no | |
+| `scores sorted`, `scores sorted descending` | list | the values themselves, smallest first |
+| `the absolute value of x` | number or money | `-2.5` → `2.5`; `-$4.10` → `$4.10` |
+| `the largest of [a, b]`, `the smallest of [a, b]` | the item | |
+| `the JSON data in text` | lists, maps, text, yes/no, nothing, numbers | numbers are exact: `0.1` read from JSON plus `0.2` is `0.3` |
+| `the JSON text of value` | text | written like Python's `json.dumps`, with numbers as they are held (`2.50` stays `2.50`) |
+
+Each one checks the kinds it works on. When a kind is known in advance, the checker reports the problem before
+running: `[1, 2] joined with ", "` is an error. When it is not, the program stops while running with a message in
+words, for example `"joined with" joins text, but item 1 is the number 1`. Invalid JSON stops with TC509. Money has
+no JSON form of its own: write its amount.
+
 `the words of` splits text at spaces and removes punctuation at either end of each word, so `"dog."` is
 `dog`. An apostrophe inside a word stays (`don't`).
 
 These words belong to Thunder and cannot be part of a name: `is are and or not to at of with from where by in as
 than the a an plus minus times divided mod true false yes no nothing otherwise sorted descending ascending
-equals contains between`. A yes/no function therefore cannot be called `is adult`. Write `check adult`.
+equals contains between joined split replacing starts ends`. A yes/no function therefore cannot be called `is adult`. Write `check adult`.
 
 ## What a value means (the same in every target)
 
@@ -276,7 +296,7 @@ To with_tax:
 
 A function with such a line is **not safe to edit**. `--as-core` says so on stderr, and `--json` gives
 `exact: false` with each line and its reason. Today it refuses these, among others:
-- `split()`: it keeps punctuation that `the words of` removes.
+- `split(sep, maxsplit)`, `replace(a, b, count)`, `startswith((…))` with a tuple, and `max(…, key=…)`.
 - `round()`: it rounds halves to even.
 - `//`: floor division.
 - `try`/`except` that names its error kinds.

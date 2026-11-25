@@ -69,11 +69,11 @@ test('loops, fields, increases, range, else-if chains, f-strings, and raise', ()
 
 test('a meaning Core cannot say is refused, marked, and stops loudly if it runs: never rewritten into something close', () => {
   const cases = [
-    ['def f(t):\n    return t.split()\n', /split\(\) keeps punctuation/],
+    ['def f(t):\n    return t.split(",", 2)\n', /maximum number of parts/],
     ['def f(x):\n    return round(x, 2)\n', /rounds halves to even; Thunder rounds half up/],
     ['def f(a, b):\n    return a // b\n', /rounds down to a whole number/],
     ['def f(x, y):\n    try:\n        return x / y\n    except ZeroDivisionError:\n        return None\n', /Python try/],
-    ['def f(xs):\n    return sorted(xs)\n', /sorts plain values/],
+    ['def f(xs):\n    return sorted(xs, key=len)\n', /sort key other than lambda/],
     ['def f(xs, i):\n    return xs[i]\n', /list position \(Python counts from 0, Core from 1\) or a map key/],
     ['def f(a, b=2):\n    return a\n', /default value/],
     ['def f(a, b, c):\n    return a < b < c\n', /chained comparison/],
@@ -157,12 +157,12 @@ test('Core is strict about yes/no and exact with Python floats (the two rules a 
 test('thunder read <file.py> --as-core prints the Core, and says what is exact and what is not', () => {
   const dir = mkdtempSync(join(tmpdir(), 'thunder-ascore-'));
   try {
-    writeFileSync(join(dir, 'shop.py'), 'def total(xs):\n    return sum(xs)\n\ndef words(t):\n    return t.split()\n');
+    writeFileSync(join(dir, 'shop.py'), 'def total(xs):\n    return sum(xs)\n\ndef words(t):\n    return round(t, 2)\n');
     const r = spawnSync(process.execPath, [CLI, 'read', join(dir, 'shop.py'), '--as-core'], { encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /^To total:\n {2}Receive xs\n {2}Give the sum of xs\n/);
     assert.match(r.stderr, /1 of 2 functions printed exactly as Thunder Core; 1 line not translated/);
-    assert.match(r.stderr, /words: not safely editable: line 5: split\(\) keeps punctuation/);
+    assert.match(r.stderr, /words: not safely editable: line 5: Python round\(\) rounds halves to even/);
     const j = JSON.parse(spawnSync(process.execPath, [CLI, 'read', join(dir, 'shop.py'), '--as-core', '--json'], { encoding: 'utf8' }).stdout);
     assert.deepEqual(j.functions.map((f) => [f.name, f.exact]), [['total', true], ['words', false]]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
