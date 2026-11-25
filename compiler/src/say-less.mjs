@@ -27,7 +27,28 @@
 //
 // Every step then carries `explained` (true/false) and, when false, `notExplainedWhy`; each function carries
 // `explainedSteps` and `totalSteps`. Everything here is linear in the size of the function.
-import { nodesOf, namesIn, parseExpr } from './meaning.mjs';
+import { namesIn, parseExpr } from './meaning.mjs';
+
+// Every node of a tree, depth first (as meaning.mjs nodesOf), as an array remembered per tree: the checks below ask
+// for the same tree's nodes many times.
+const NODES = new WeakMap();
+function nodesOf(tree) {
+  if (!tree || typeof tree !== 'object') return [];
+  let out = NODES.get(tree);
+  if (out) return out;
+  out = [];
+  const stack = [tree];
+  while (stack.length) {
+    const n = stack.pop();
+    if (!n || typeof n !== 'object') continue;
+    if (Array.isArray(n)) { for (let i = n.length - 1; i >= 0; i--) stack.push(n[i]); continue; }
+    if (n.kind) out.push(n);
+    const keys = Object.keys(n);
+    for (let i = keys.length - 1; i >= 0; i--) { const v = n[keys[i]]; if (v && typeof v === 'object') stack.push(v); }
+  }
+  NODES.set(tree, out);
+  return out;
+}
 import { FORM_WORDS } from './form-words.mjs';
 import { asCodeWords, isCodeWords, stripQuoted, codeCounts, wordCounts, accountsFor } from './faithful.mjs';
 
@@ -571,7 +592,7 @@ function checkStep(step, ctx) {
   // `kwargs.setdefault(k, v)` / `putIfAbsent` set only when nothing is there yet.
   if (tree && [...nodesOf(tree)].some((n) => n.kind === 'call' && /^(?:setdefault|putIfAbsent|computeIfAbsent|getOrPut|get_or_insert|get_or_insert_with|or_insert|or_insert_with|TryAdd|GetOrAdd)$/.test(n.callee?.property ?? n.callee?.name ?? '')) && !/\b(?:if|unless|yet|missing|not there|nothing)\b/.test(said0)) return WHY.meaning;
   // A name split into one-letter pieces (`NaN` as "na n") is not a name a reader can use.
-  for (const id of String(full).match(/\b[A-Za-z][a-z]*[A-Z][A-Za-z]*\b/g) || []) {
+  if (claimWords(says).some((w) => w.length === 1)) for (const id of String(full).match(/\b[A-Za-z][a-z]*[A-Z][A-Za-z]*\b/g) || []) {
     if (id.length > 4) continue;
     const parts = splitWords(id);
     if (parts.some((p) => p.length === 1) && ` ${claimWords(says).join(' ')} `.includes(` ${parts.join(' ')} `) && !String(says).includes(id)) return WHY.words;
