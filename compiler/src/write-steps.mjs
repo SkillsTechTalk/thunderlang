@@ -206,6 +206,16 @@ function findMember(state, ref) {
     if (!rd) continue;
     for (const { key, item } of memberKeys(rd.reading)) if (item.name === r.name) candidates.push({ path, key, item, language: rd.language, reading: rd.reading, source: f });
   }
+  // A model id writes a route handler's name without spaces ("POST/api/orders"): match it ignoring spaces.
+  if (!candidates.length && r.name) {
+    const bare = String(r.name).replace(/\s+/g, '');
+    for (const [path, f] of state.files) {
+      if (r.file && path !== r.file && !path.endsWith(`/${r.file}`)) continue;
+      const rd = state.read(path);
+      if (!rd) continue;
+      for (const { key, item } of memberKeys(rd.reading)) if (String(item.name).replace(/\s+/g, '') === bare) candidates.push({ path, key, item, language: rd.language, reading: rd.reading, source: f });
+    }
+  }
   if (!candidates.length) refuse(`No function named ${r.name}${r.file ? ` in ${r.file}` : ''} was found.`);
   if (r.line == null && candidates.length > 1) refuse(`${r.name} is in more than one place (${candidates.map((c) => `${c.path}:${c.item.line}`).join(', ')}); say which with its id or line.`);
   return candidates.reduce((best, c) => (r.line == null || Math.abs(c.item.line - r.line) < Math.abs(best.item.line - r.line) ? c : best));
@@ -1247,17 +1257,24 @@ function applyEdit(state, edit) {
   return {
     files,
     plan: { member: { path: m.path, key: m.key, name: m.item.name, shape: ctx.shape, inputs: ctx.expectInputs ?? null, returns: ctx.expectReturns ?? null } },
-    says: reworded(says, ctx.treeEdits, { path: m.path, source, language: m.language }),
+    says: reworded(says, ctx.treeEdits, { path: m.path, source, language: m.language }, m.item),
   };
 }
-/** "…; it now reads "If days_since is more than 10"": the edited steps' new Thunder words, read from the new code. */
-function reworded(says, treeEdits, f) {
+/** "…; it now reads "If days_since is more than 10"": each edited step's new Thunder words, once, read from the new
+ * code. Only the edited function is looked at, and on a line holding several steps only the step of the same kind. */
+function reworded(says, treeEdits, f, member) {
   if (!treeEdits.length) return says;
   let reading;
   try { reading = readFile(f).reading; } catch { return says; }
+  const items = membersOf(reading).filter((it) => !member || it.name === member.name);
+  const mine = member && items.length > 1 ? [items.reduce((b, it) => (Math.abs(it.line - member.line) < Math.abs(b.line - member.line) ? it : b))] : items;
   const now = [];
-  const walk = (list) => (list || []).forEach((s) => { for (const t of treeEdits) if (s.line === t.step.line && s.says && s.says !== t.step.says) now.push(s.says); walk(s.children); walk(s.otherwise); });
-  for (const it of membersOf(reading)) walk(it.steps);
+  for (const t of treeEdits) {
+    let hit = null;
+    const walk = (list) => (list || []).forEach((s) => { if (hit) return; if (s.line === t.step.line && (!t.step.kind || s.kind === t.step.kind)) { hit = s; return; } walk(s.children); walk(s.otherwise); });
+    for (const it of mine) walk(it.steps);
+    if (hit?.says && hit.says !== t.step.says && !now.includes(hit.says)) now.push(hit.says);
+  }
   return now.length ? `${says}; it now reads ${now.map((x) => `"${x}"`).join(', ')}` : says;
 }
 function stepPathOf(steps, step) {

@@ -9,7 +9,7 @@ the contract: editors, CI, and OpenThunder key off them, and they never change m
 across versions. Warnings and info never fail a build; errors and blockers do. Get the
 same data as JSON with `thunder rules --json`, or one rule with `thunder explain <CODE>`.
 
-82 canonical diagnostics across 21 areas.
+83 canonical diagnostics across 22 areas.
 
 ## AI implementation
 
@@ -77,6 +77,12 @@ same data as JSON with `thunder rules --json`, or one rule with `thunder explain
 | --- | --- | --- | --- |
 | `IL-EXP-001` | info | — | Experience declares no states. |
 | `IL-EXP-004` | blocker | `experience-approval`, `release` | Failure state has no recovery path. |
+
+## Code generation
+
+| Code | Severity | Blocks | Meaning |
+| --- | --- | --- | --- |
+| `IL-GEN-001` | error | `implementation` | A rule condition could not be translated for a target: generation reports it, the generated rule throws, and live runs report it not translated (never a stand-in false). |
 
 ## Governance
 

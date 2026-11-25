@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 // It runs server-side with no AI. See src/compiler.d.ts for the type shape.
 import { compileSource } from "../../../../compiler/src/compile.mjs";
 import { parseIntent } from "../../../../compiler/src/parse.mjs";
-import { toTypeScript } from "../../../../compiler/src/codegen.mjs";
+import { generateWithDiagnostics } from "../../../../compiler/src/codegen.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,13 +36,18 @@ export async function POST(request: Request) {
       generatedAt: "1970-01-01T00:00:00.000Z",
     });
     // Deterministic code generation (no AI): the typed contract + decision logic, TODO stubs.
+    // A rule condition TypeScript cannot express is reported (IL-GEN-001) and throws in the code,
+    // never silently becomes `false`.
     let generatedCode = "";
+    let generationDiagnostics: Array<{ code: string; message: string; decision: string | null; rule: string | null }> = [];
     try {
-      generatedCode = toTypeScript(parseIntent(source));
+      const gen = generateWithDiagnostics(parseIntent(source), "typescript");
+      generatedCode = gen.code;
+      generationDiagnostics = gen.diagnostics;
     } catch {
       generatedCode = "// Code generation unavailable for this source.";
     }
-    return NextResponse.json({ ok: true, aiUsed: false, generatedCode, ...result });
+    return NextResponse.json({ ok: true, aiUsed: false, generatedCode, generationDiagnostics, ...result });
   } catch (e) {
     const message = e instanceof Error ? e.message : "unknown error";
     return NextResponse.json(

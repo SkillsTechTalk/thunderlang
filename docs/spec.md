@@ -250,6 +250,14 @@ Three places show it:
   `{ full: true }`) adds every detail after the words on the same line, so nothing in the code is out of reach.
 - **The faithfulness gate** counts a condition's negations and comparisons from its tree, so a TypeScript non-null
   `x!` is not mistaken for a negation, and an operator inside a string is never counted.
+- **Say less (the allowlist rule).** A step is put into words only when its form is one Thunder recognizes and the
+  words account for its meaning tree: every word comes from the code or from Thunder's fixed wording; every number and
+  quoted text is exact; no negation, and/or, comparison, arithmetic, cast, or named argument part is dropped; no two
+  names that read the same share words; endings come only from recognized return/throw/raise/exit forms; inputs only
+  from the parameter list; and block structure only where the reader's blocks match the code's. Anything else is shown
+  as its code, exactly as written, marked "code, not explained". Every step and flow node carries `explained` (true or
+  false) and, when false, `notExplainedWhy` (for example "the reader did not recognize this form", "block structure
+  uncertain"); functions, members, and the model carry `explainedSteps` and `totalSteps`.
 
 **Code → Thunder → code.** For TypeScript, JavaScript, Python, and Go, each step's tree can be written back as code
 (`renderStatement`), read again, and compared (`stepRoundTrip`). Where a condition or value is made only of names,
@@ -351,7 +359,7 @@ Examples
 | Part | Meaning |
 | --- | --- |
 | Title, then `Why:` | What the rule is and why it exists (from the docstring when read from code) |
-| `We need` | The facts the rule reads: a number (`in dollars` for money), or a yes/no (`whether it is A or B`) |
+| `We need` | The facts the rule reads: a number (`in dollars` for money, read as exact cents: `$12.30` is fine, `$12.305` is an error, never rounded), or a yes/no (`whether it is A or B`) |
 | The question | What the rule decides |
 | `<Outcome> when …` | One rule. `all of these are true:` or `any of these is true:` joins conditions; the first matching rule wins |
 | Comparisons | `at least`, `at most`, `under`, `over`, `exactly` |
@@ -587,6 +595,67 @@ for (const item of items) {
 }
 THUNDER_VISUAL.colors.pass.hex;   // '#34D399', for checks that passed and nothing else
 ```
+
+### Money is exact (works today)
+
+A `Money` value is a decimal amount, never binary floating point. Picture a till that counts whole cents: `0.1 + 0.2`
+is 30 cents, exactly `0.3`.
+
+- **Minor units.** `Money` has 2 decimal places (cents). `Money(XXX)` uses that currency's ISO 4217 minor units:
+  `Money(JPY)` has 0, `Money(KWD)` has 3. An amount with more places than that is an error, not a rounding.
+- **Rounding.** Thunder never rounds money on its own. Where a rule explicitly asks for rounding, it is round half up,
+  with a half going away from zero (`roundHalfUp`: `2.345` becomes `2.35`, `-2.345` becomes `-2.35`, `2.5` to a whole
+  number becomes `3`). This is the rule people learn in school, and Thunder Core's `round` uses it in every target.
+- **The decision engine** adds, subtracts, and multiplies decimals exactly, so `amount + fee == 0.3` is true for
+  `0.1` and `0.2`.
+- **Each target uses an exact type.** Generated and executed code never turns Money into a float:
+
+  | Target | Money is | `amount <= 12.30` becomes |
+  | --- | --- | --- |
+  | TypeScript / JavaScript | `bigint` minor units, with a generated `parseMoney` / `formatMoney` helper (no dependencies; needs ES2020) | `amount <= 1230n` |
+  | Python | `decimal.Decimal` | `amount <= Decimal("12.30")` |
+  | Java | `java.math.BigDecimal` | `amount.compareTo(new java.math.BigDecimal("12.30")) <= 0` |
+  | C# | `decimal` | `amount <= 12.30m` |
+  | Go | `int64` minor units | `amount <= int64(1230)` |
+  | Rust | `i64` minor units | `amount <= 1230i64` |
+
+  In a rule, Money may be compared with other Money of the same currency, with an amount such as `12.30`, or with a
+  sum or difference of those. Anything else (multiplying Money, dividing it, mixing currencies) and any target with no
+  exact Money type yet (Kotlin, Scala, Elixir) is not translated: the rule is refused with `IL-GEN-001` rather than
+  run as a float.
+- **JSON Schema and OpenAPI** describe Money as a decimal string (`"12.30"`), not a JSON number a consumer would read
+  as a float.
+
+### When a target cannot say a rule (works today)
+
+Thunder never replaces a rule it cannot translate with `false`. A `false` would quietly skip the rule and hand back
+another answer, which looks like a decision but is a guess.
+
+- **`thunder gen`** reports `IL-GEN-001` for each such rule ("Thunder could not translate the condition '…' for
+  <target>: <reason>") on stderr and exits 1. The generated code is still written, and that one rule calls a helper
+  that throws with the same message (`throw new Error(...)`, `raise NotImplementedError(...)`), so it can never
+  decide silently.
+- **`thunder test --target`, `--all-targets`, and `thunder conform --run`** refuse to run a decision with such a rule
+  and report its cases as *not translated*, never as an answer.
+
+### Running generated code: answers and failures (works today)
+
+Every executed case comes back as exactly one of:
+
+```js
+{ status: 'ok', value }                       // a real answer, including a real null
+{ status: 'error', kind, message }            // kind: missing-toolchain | compile-failed | runtime-error
+                                              //       | timeout | assertion-failed | not-translated
+                                              //       | missing-input
+```
+
+A case that gives no value for one of the decision's inputs is reported as `missing-input` and not run. A typed
+target needs a value, and passing a made-up `0`, `false`, `""`, or `$0` would produce an answer for a case nobody
+wrote. The reference engine (`thunder test` without `--target`) still runs it, reading a missing value as matching no
+comparison.
+
+A crash, a compile failure, or a timeout is never shown as `null`. A missing toolchain is reported as skipped; every
+other failure fails the run with its kind and message.
 
 ## 12. The whole application: where it runs and how it ships (design)
 

@@ -34,6 +34,8 @@ type CompileResult = {
   mission: string;
   aiUsed: boolean;
   generatedCode?: string;
+  /** IL-GEN-001: rule conditions TypeScript could not express. Those rules throw instead of deciding. */
+  generationDiagnostics?: Array<{ code: string; message: string; decision: string | null; rule: string | null }>;
   diagnostics: Diagnostic[];
   notes: IntentNote[];
   artifacts: {
@@ -1073,6 +1075,24 @@ export function PlaygroundClient() {
                   <code>TODO</code>, with the guarantees and never-rules your code must uphold.
                   Change the intent and watch the code change.
                 </p>
+                {(result.generationDiagnostics?.length ?? 0) > 0 && (
+                  <div role="status" className="mb-3 rounded-xl border border-gold-300/25 bg-gold-300/[0.06] p-4 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-300">
+                      Not translated: {result.generationDiagnostics!.length} rule{result.generationDiagnostics!.length === 1 ? "" : "s"}
+                    </p>
+                    <p className="mt-1.5 text-haze-200">
+                      Thunder could not turn these conditions into TypeScript, so the generated rule throws
+                      an error instead of guessing an answer. Rewrite the condition, then compile again.
+                    </p>
+                    <ul className="mt-2 space-y-1 text-haze-300">
+                      {result.generationDiagnostics!.map((d) => (
+                        <li key={`${d.decision}-${d.rule}`}>
+                          <code>{d.code}</code> {d.decision} / {d.rule}: {d.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <DownloadRow
                   onClick={() =>
                     download(`${result.mission}.ts`, result.generatedCode ?? "", "text/typescript")

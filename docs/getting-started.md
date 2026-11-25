@@ -108,10 +108,13 @@ thunder check .                           # recurses every .thunder, exits non-z
 Gate a whole repo in CI with the GitHub Action:
 
 ```yaml
-- uses: SkillsTechTalk/thunderlang@main
+- uses: SkillsTechTalk/thunderlang/check@main
   with:
     paths: ./intent
 ```
+
+To see what each pull request does in plain sentences, as one comment, add the Thunder review action:
+[Thunder review on every pull request](/docs/github-action).
 
 ## Edit with intelligence
 

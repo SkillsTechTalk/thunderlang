@@ -88,7 +88,7 @@ export function conformToEvidence(report, ctx = {}) {
   const targets = {};
   for (const col of columns) {
     const t = { pass: 0, fail: 0, declared: 0 };
-    for (const c of cases) { const s = c.targets?.[col]?.status; if (s === 'pass') t.pass++; else if (s === 'fail') t.fail++; else t.declared++; }
+    for (const c of cases) { const s = c.targets?.[col]?.status; if (s === 'pass') t.pass++; else if (s === 'fail' || s === 'error') t.fail++; else t.declared++; } // a target that could not run a case (error) failed it
     targets[col] = t;
   }
   return [envelope('conformance.verified', `tl-conform-${short(ctx.intentHash)}`, ctx, {

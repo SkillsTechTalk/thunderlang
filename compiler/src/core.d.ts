@@ -23,6 +23,7 @@ export { linkSystem, callsSummary, areaOf } from './system.mjs';
 export { THUNDERIZE_SCHEMA, THUNDER_TEXT_EXT, thunderizeFile, thunderizeFiles } from './thunderize.mjs';
 export { SAME_SCHEMA, sameMeaning, compareRules, comparePlainRules, renderSame } from './same.mjs';
 export { REVIEW_SCHEMA, REVIEW_MARKER, thunderReview, renderReview } from './review.mjs';
+export { renderReviewComment, reviewCounts, GITHUB_COMMENT_LIMIT } from './review-comment.mjs';
 export type { ColorRole, ElementKind, Provenance as VisualProvenance, Visual } from './visual.mjs';
 export { plainFromReading } from './plain-contract.mjs';
 export function conditionText(model: unknown, condition: unknown): string;
@@ -77,7 +78,9 @@ export {
 } from './index';
 
 // Code generation , deterministic scaffolds from intent.
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, subjectName, intentRefId, skillRefId } from './index';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, generateWithDiagnostics, subjectName, intentRefId, skillRefId } from './index';
+export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage, parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './index';
+export type { CaseResult, TargetRun, TargetErrorKind, GenerationDiagnostic } from './index';
 
 // 12-Factor Agents conformance lens (twelve-factor-v1).
 export { TWELVE_FACTOR_SCHEMA, TwelveFactorResult, twelveFactorReport, twelveFactorSummary } from './index';
@@ -126,7 +129,7 @@ export {
 } from './index';
 
 // Decisions -> readable typed source in six languages.
-export { translateDecisions, TRANSLATE_LANGUAGES } from './translate.mjs';
+export { translateDecisions, translateDecisionsWithDiagnostics, TRANSLATE_LANGUAGES } from './translate.mjs';
 export type { TranslateLanguage } from './translate.mjs';
 
 // Read code you don't know.

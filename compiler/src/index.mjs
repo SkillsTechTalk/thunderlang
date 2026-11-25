@@ -115,7 +115,10 @@ export { FOCUS_SCHEMA, SCOPE_TYPES, FOCUS_REASONS, makeScope, buildFocusGraph, i
 // Comprehension Contract , the C0..C7 understanding level (intent-comprehension-v1)
 export { COMPREHENSION_SCHEMA, LEVELS as COMPREHENSION_LEVELS, comprehensionLevel, comprehensionReport } from './comprehension.mjs';
 // Code generation , deterministic scaffolds from intent (intent-codegen-v1)
-export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython } from './codegen.mjs';
+export { CODEGEN_SCHEMA, GENERATORS, toTypeScript, toCSharp, toJava, toPython, generateWithDiagnostics } from './codegen.mjs';
+// Honest generation and run results (IL-GEN-001, structured case results) and exact Thunder Money
+export { GEN_UNTRANSLATED, ERROR_KINDS, isCaseResult, untranslatedMessage } from './target-result.mjs';
+export { parseMoney, formatMoney, roundHalfUp, minorUnitsFor, moneyTypeMinorUnits, MoneyError, MONEY_DEFAULT_MINOR_UNITS } from './money.mjs';
 // Change Lens , what a branch/PR changed by meaning (intent-changes-v1)
 export { CHANGES_SCHEMA, changeReport } from './changes.mjs';
 export { exprToJs, exprToCSharp, exprToJava, exprToCode } from './expr.mjs';
@@ -194,6 +197,7 @@ export { VISUAL_SCHEMA, THUNDER_VISUAL, visualFor, visualForStep, thunderText } 
 export { thunderizeFiles, THUNDER_TEXT_EXT } from "./thunderize.mjs";
 export { sameMeaning, renderSame } from "./same.mjs";
 export { thunderReview, renderReview, REVIEW_SCHEMA } from "./review.mjs";
+export { renderReviewComment, reviewCounts } from "./review-comment.mjs";
 // Every step's meaning tree, and code → Thunder → code for steps.
 export { EXPR_SCHEMA, parseStatement, renderStatement, sayFull, detailOf, sameExpr } from "./meaning.mjs";
 export { stepRoundTrip, runBehavior, ROUND_TRIP_LANGUAGES } from "./round-trip.mjs";

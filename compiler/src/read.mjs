@@ -10,6 +10,7 @@
 //   return cond ? X : Y   (nested ternaries)  Python: return X if cond else Y
 //   Rust/Go tail forms: if cond { X } else { Y }, if cond { return X }
 // Conditions may use comparisons, &&/||/!, and/or/not, parentheses, literals, and inputs or fields.
+import { sayLess, certainlyYesNo } from './say-less.mjs';
 import { sqlItems, sqlTemplateReason } from './sql.mjs';
 import { readDockerfile } from './infra-docker.mjs';
 import { readWorkflow } from './infra-gha.mjs';
@@ -1110,8 +1111,10 @@ function leadingDoc(lines, fnLine, language) {
   }
   if (/\*\/\s*$/.test(lines[k])) {
     const end = k;
-    while (k >= 0 && !/\/\*\*/.test(lines[k])) k--;
-    if (k < 0) return null;
+    // (The block that ends here starts at the nearest /*; a plain /* … */ such as /*#__PURE__*/ is not a doc, and
+    // a doc comment further up belongs to something else.)
+    while (k >= 0 && !/\/\*/.test(lines[k])) k--;
+    if (k < 0 || !/^\s*\/\*\*(?!\/)/.test(lines[k])) return null;
     return cleanDoc(lines.slice(k, end + 1).join('\n').replace(/^\s*\/\*\*/, '').replace(/\*\/\s*$/, ''));
   }
   const lineDoc = language === 'go' || language === 'c' || language === 'cpp' ? /^\s*\/\/(?!\/)|^\s*\/\/\/(?!\/)/ : language === 'ruby' ? /^\s*#(?![!{])/ : /^\s*\/\/\//;
@@ -2678,7 +2681,13 @@ function functionSteps(fn, lang, code, names, srcLines = []) {
   return r;
 }
 
-export function readCode(source, { language, file = '', allSteps = false } = {}) {
+export function readCode(source, opts = {}) {
+  const reading = readCodeAsIs(source, opts);
+  // Say less (say-less.mjs): a step stays in words only when the words account for its code; the rest is code.
+  return opts.sayEverything ? reading : sayLess(reading, String(source ?? ''));
+}
+
+function readCodeAsIs(source, { language, file = '', allSteps = false } = {}) {
   const src = String(source ?? '');
   if (src.length > 400000) throw new Error('Source is larger than 400 KB. Read one file or module at a time.');
   const lang = String(language || detectLanguage(src, file)).toLowerCase().replace(/^ts$/, 'typescript').replace(/^js$/, 'javascript').replace(/^py$/, 'python').replace(/^(cs|c#)$/, 'csharp').replace(/^rs$/, 'rust').replace(/^golang$/, 'go').replace(/^kts?$/, 'kotlin').replace(/^rb$/, 'ruby').replace(/^(postgres(ql)?|pgsql|plpgsql|mysql|sqlite|tsql|t-sql|mssql)$/, 'sql').replace(/^(docker|containerfile)$/, 'dockerfile').replace(/^(gha|github[ -]?actions?|workflow)$/, 'github-actions').replace(/^(tf|hcl|opentofu|tofu)$/, 'terraform').replace(/^(k8s|kube|kubectl)$/, 'kubernetes').replace(/^(compose|docker[ -]?compose)$/, 'docker-compose').replace(/^(c\+\+|cxx|cc|hpp|hxx|hh)$/, 'cpp').replace(/^h$/, 'c')
@@ -2709,7 +2718,9 @@ export function readCode(source, { language, file = '', allSteps = false } = {})
     // an implicit last value) reads as "true when <expression>, otherwise false".
     if (!read.rules.length && !read.otherwise) {
       const pred = readPredicate(fn, lang, names, code);
-      if (pred) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; read.unread = []; }
+      // (Only when the answer is certainly yes or no: a declared boolean result, a name asked as a question, or an
+      // expression that is a comparison; `state.copy_ || state.base_` gives back an object.)
+      if (pred && (certainlyYesNo(pred.rule.when, lang) || /^(?:bool|boolean|Bool|Boolean|BOOL|_Bool)$/.test(String(simpleType(fn.returns) ?? '').trim()) || /\?$/.test(fn.name))) { read.rules.push(pred.rule); read.otherwise = { result: 'false', line: pred.rule.line }; read.unread = []; }
     }
     // A rule is drawn only when every statement was read into it; a body with other steps (a loop, an assignment, a
     // later check) is read as steps instead, so no check is silently left out of the picture.

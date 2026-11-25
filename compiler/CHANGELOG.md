@@ -11,6 +11,74 @@
   target so far.
 - **`thunder new` now creates a Core project.** For an intent mission file, use `thunder init <Name>` (or
   `thunder new --mission <Name>`); `thunder new` says so when it runs.
+- **Fix: a rule Thunder cannot translate never becomes `false`.** The scaffolds (`thunder gen`, all four targets),
+  the executable targets (TypeScript, Python, C#, Java, Go, Rust, Kotlin, Scala, Elixir) and the in-browser
+  translator used to replace an untranslatable rule condition with `false` (Python with no note at all), so generated
+  or executed code silently skipped that rule and returned another answer. Now generation reports the new diagnostic
+  **`IL-GEN-001`** ("Thunder could not translate the condition '…' for <target>: <reason>"), `thunder gen` prints it
+  on stderr and exits 1, the generated rule throws with that message (`throw new Error(...)`,
+  `raise NotImplementedError(...)`), and `thunder test --target`, `--all-targets` and `thunder conform --run` refuse
+  to run that decision and report its cases as *not translated*, never as an answer. New API:
+  `generateWithDiagnostics(ast, target)` and `translateDecisionsWithDiagnostics(ast, lang)`.
+- **Fix: Money is exact, never binary floating point.** `Money` is a decimal with 2 minor units (or the currency's:
+  `Money(JPY)` 0, `Money(KWD)` 3); extra precision is an error, never rounded; rounding, where a spec asks, is half
+  up (a half goes away from zero), the same rule as Thunder Core's `round`. TypeScript Money was `number`; it is now `bigint` minor units with a generated zero-dependency
+  `parseMoney` / `formatMoney` helper. Python Money was `float`; it is now `decimal.Decimal`. Decision inputs typed
+  `Money` were `double`/`float64`/`f64` in every target; they are now `decimal` (C#), `BigDecimal` (Java), `int64`
+  (Go) and `i64` (Rust) minor units, and a Money comparison a target cannot do exactly (Kotlin, Scala, Elixir, or
+  multiplying Money) is refused with `IL-GEN-001`. The decision engine adds, subtracts and multiplies decimals
+  exactly, so `0.1 + 0.2 == 0.3`. Plain contracts read `$12.30` as exact cents (and show `$12.30`, not `$12.3`), and
+  reject `$12.305` instead of rounding it. JSON Schema / OpenAPI describe Money as a decimal string, not a number.
+  See "Money is exact" in `docs/spec.md`.
+- **Fix: a failed run is never a `null` answer.** The live target runners turned a missing toolchain, a compile
+  failure, a crash or a timeout into `null` (and Python turned an exception into `None`), so a real null answer
+  looked the same as a failure. Each run now returns `{ status: 'ok', results }` with one
+  `{ status: 'ok', value }` or `{ status: 'error', kind, message }` per case (`kind`: `missing-toolchain`,
+  `compile-failed`, `runtime-error`, `timeout`, `assertion-failed`, `not-translated`, `missing-input`), or a whole-run
+  `{ status: 'error', kind, message }`. `thunder test --target` / `--all-targets` and `thunder conform` show
+  `ERROR` with the kind and reason (and fail the run); a missing toolchain is still skipped. Conformance evidence
+  counts an error as a failure. Types: `compiler/src/target-result.d.mts`. The playground's Code tab lists any rule
+  that was not translated.
+- **Fix: a case is never run with a made-up input.** A test case that left out an input was run in Java, Go, Rust
+  and the others with `0`, `false`, `""` (or `$0` for Money), so a typed target answered for a value nobody wrote and
+  its FAIL blamed the target (Python crashed instead). Every target now reports such a case as `missing-input`,
+  naming the inputs to add. Target names print as TypeScript and C# (not Typescript and Csharp).
+- **Say less: words only where Thunder is sure (`src/say-less.mjs`).** Every worded step is now checked after it is
+  read, and a step stays in words only when its form is recognized and the words account for its code (every word from
+  the code or Thunder's own wording, every value exact, no negation, and/or, comparison, arithmetic, cast, or named
+  argument part dropped, no ambiguous names, recognized endings, certain block structure, inputs from the signature).
+  Anything else is shown as its code, exactly as written. On new repositories graded independently the false rate fell
+  from 10.4% to 3–4% (target 1% not yet reached; see docs/accuracy.md); steps explained fell from 90.0% to 81.7%.
+  - **New fields (OpenThunder):** every step and flow node has `explained` and, when false, `notExplainedWhy`;
+    functions and members have `explainedSteps` / `totalSteps`; the model has `explainedSteps` / `totalSteps`.
+  - **C and C++ meaning trees:** `->`, unary `*` / `&`, C casts, typed and array declarations, `struct` / `static`
+    declarations, C++ template calls (`static_cast<T>(x)` is a call, never a comparison), range-for with `const auto&`.
+    Swift `try f()` is an expression, not a try block.
+  - **Rules** are drawn only for a certain yes/no answer (`state.copy_ || state.base_` is not a rule); **doc comments**
+    only from the `/** … */` right above a function (a `/*#__PURE__*/` no longer pulls in another function's doc).
+  - **Reviews:** a question's two sides keep quoted text exactly (`hasattr(fp, "read")`, never `hasattr(fp, 0)`).
+  - A length reads one way: "the length of password" (never "how many password").
+  - `scripts/form-words.mjs` regenerates the readers' fixed wording list; `SAYLESS_DEBUG=1` prints why each step was
+    shown as code.
+  - Tests changed only where a reading correctly became code: gin#13 (an `if` with a setup statement other than the
+    err idiom), ripgrep#3 (a loop over a pattern), Kingfisher#2 / Alamofire#3 (`guard case`), Rectangle#5 (`for …
+    where`), nvm#18 (`test && cmd || other`), neofetch#3 and nvm#2 (`ls` alone is not "the files in ".""), #179
+    (`out var`), vapor#8 (a closure with a capture list), the Swift `if let …, cond` reading, httr#19 (quotes inside a
+    value), jquery#15 (`queue || []` is not "when that has no value"), #165 (the shown code is the source as written),
+    and four expectations of "how many x" that now read "the length of x".
+- **Fix (writing in Thunder):** an inline route handler's own model id (`auth.ts##POST/api/auth/register#3`) now resolves in `thunderWrite`, and `says` names only the changed step, once, when a one-line `if` holds several steps. Reported by OpenThunder.
+- **Thunder review on every pull request (GitHub Action).** `uses: SkillsTechTalk/thunderlang@main` (the repository's
+  root `action.yml`) runs `thunder review` on the pull request's two commits with the published compiler, writes the
+  review to the job summary, and keeps one pull request comment up to date (found by `<!-- thunder-review -->`), with
+  the workflow's own `GITHUB_TOKEN`. Inputs: `base`, `head`, `comment`, `fail-on` (none | risk), `paths` (globs),
+  `version`. Pull requests from forks get the job summary only, and it says why; `pull_request_target` is never
+  needed. Runs in your CI: no code leaves GitHub, no AI. Docs: `docs/github-action.md`. The `.thunder` check action
+  moved to `SkillsTechTalk/thunderlang/check` (the old root action pointed at a package name that does not exist).
+- **`renderReviewComment(review)`** (core, browser-safe): the comment, grouped by changed action, rule, or function,
+  risks first, with honest counts (explained in sentences, shown as code, Thunder cannot check), a link to
+  thunderlang.dev, and a size cap that leaves out whole entries and says "N more not shown".
+- **`thunder review --base <ref> --head <ref> --format markdown|json --paths <glob,...>`**: flag forms of the existing
+  positional arguments and `--json`, and `--paths` to review only matching files.
 
 # 1.0.4
 

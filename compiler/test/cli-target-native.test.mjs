@@ -67,8 +67,8 @@ test('emitted C# is well-formed and typed (double for numbers, string for text, 
 
 test('the Java adapter compiles + executes the generated decision', { skip: !(NATIVE && javaAvailable()) && 'set TL_NATIVE_TARGETS=1 with a JDK to run' }, () => {
   const out = runJavaTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target java runs the tests against generated Java', { skip: !(NATIVE && javaAvailable()) && 'set TL_NATIVE_TARGETS=1 with a JDK to run' }, () => {
@@ -84,8 +84,8 @@ test('conform --run java fills the Java column from live execution', { skip: !(N
 
 test('the C# adapter compiles + executes the generated decision', { skip: !(NATIVE && csharpAvailable()) && 'set TL_NATIVE_TARGETS=1 with a .NET SDK to run' }, () => {
   const out = runCSharpTarget(parseIntent(SRC));
-  assert.equal(out['CanEnroll / adult'], 'Eligible');
-  assert.equal(out['CanEnroll / minor'], 'NotEligible');
+  assert.deepEqual(out.results['CanEnroll / adult'], { status: 'ok', value: 'Eligible' });
+  assert.deepEqual(out.results['CanEnroll / minor'], { status: 'ok', value: 'NotEligible' });
 });
 
 test('thunder test --target csharp runs the tests against generated C#', { skip: !(NATIVE && csharpAvailable()) && 'set TL_NATIVE_TARGETS=1 with a .NET SDK to run' }, () => {

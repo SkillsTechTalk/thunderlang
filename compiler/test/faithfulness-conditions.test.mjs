@@ -38,7 +38,7 @@ test('askAsQuestion asks a compound condition as written, so the Stop never chan
 
 test('#54 jsonp: `typeof callback === "string" && callback.length !== 0` runs its steps on Yes', () => {
   const t = thunderText('a.js', "function jsonp(obj) {\n  var callback = obj.cb;\n  if (typeof callback === 'string' && callback.length !== 0) {\n    this.set('Content-Type', 'text/javascript');\n  }\n  return this.send(body);\n}\n");
-  assert.match(t, /Ask: Callback is text and how many callback is not 0\?/);
+  assert.match(t, /Ask: Callback is text and the length of callback is not 0\?/);
   assert.equal(sideOf(t, /Ask: Callback is text/, /Content-Type/), 'yes');
 });
 
@@ -71,7 +71,7 @@ test('#124 shouldComponentUpdate: every `!==` and `||` term kept; true on Yes', 
 
 test('#133 getIn: `p !== path.length && !obj` gives back def on Yes', () => {
   const t = thunderText('a.ts', "export function getIn(obj: any, key: string, def?: any, p: number = 0) {\n  const path = toPath(key);\n  if (p !== path.length && !obj) {\n    return def;\n  }\n  return obj === undefined ? def : obj;\n}\n");
-  assert.match(t, /Ask: P is not the path's length and not obj\?/);
+  assert.match(t, /Ask: P is not the length of path and not obj\?/);
   assert.equal(sideOf(t, /Ask: P is not/, /Gives back def  /), 'yes');
   assert.match(t, /Gives back def if obj is undefined, otherwise obj/);
 });
@@ -151,7 +151,7 @@ test('#291 streamRequest: a fetch Request is the input, and its body is not "a f
 
 test('#299 appendSearchParameters: `!isArray(pair) || pair.length !== 2` throws on Yes', () => {
   const t = thunderText('a.ts', "const append = (input: any) => {\n\tfor (const pair of input) {\n\t\tif (!Array.isArray(pair) || pair.length !== 2) {\n\t\t\tthrow new TypeError('Array search parameters must be provided in [[key, value], ...] format');\n\t\t}\n\t}\n};\n");
-  assert.match(t, /Ask: Not Array\.is array\(pair\) or how many pair is not 2\?/);
+  assert.match(t, /Ask: Not Array\.is array\(pair\) or the length of pair is not 2\?/);
   assert.equal(sideOf(t, /Ask: Not Array/, /Stop: TypeError/), 'yes');
 });
 
