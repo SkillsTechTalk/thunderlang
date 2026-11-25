@@ -24,6 +24,10 @@
       "types": "./src/running.d.mts",
       "import": "./src/running.mjs"
     },
+    "./why": {
+      "types": "./src/why.d.mts",
+      "import": "./src/why.mjs"
+    },
     "./learn": {
       "types": "./src/learn.d.mts",
       "import": "./src/learn.mjs",
