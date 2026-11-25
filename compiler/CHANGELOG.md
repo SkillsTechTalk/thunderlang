@@ -1,3 +1,32 @@
+# Unreleased
+
+- **Fix: SQL routines never read falsely.** An independent review of 1.0.3 found half of its SQL readings stated
+  something false: an `ELSE`'s `RAISE` shown as an unconditional Stop, steps hoisted out of their `IF`, `CASE`, or
+  `FOR`, `ELSIF x = 'id'` read as "Sets x to "id"", `IF v_done THEN LEAVE` read as "Yes: continue", `EXECUTE stmt`
+  missing, and `"stack_created"` rewritten as "stack created". Routine bodies are now tokenized and parsed block by
+  block (`compiler/src/sql-proc.mjs`) for PL/pgSQL, MySQL/MariaDB stored programs, and T-SQL:
+  `IF`/`ELSIF`/`ELSEIF`/`ELSE`, `CASE` (with no `ELSE`, a value that matches no `WHEN` is an error, as the database
+  says), `LOOP`/`WHILE`/`FOR`/`FOREACH`/`REPEAT`, labels, `EXIT`/`LEAVE`/`ITERATE`/`CONTINUE`/`BREAK` ("Leaves the
+  loop", "Skips to the next round of the loop"), `RAISE`/`SIGNAL`/`THROW`/`RAISERROR` (a `RAISE NOTICE`, a
+  severity-10 `RAISERROR`, or `PRINT` is a message, not a Stop; a severity-16 `RAISERROR` outside `TRY` reports the
+  error and carries on), `RETURN` / `RETURN NEXT` / `RETURN QUERY` (rows added, "and carries on"; a set-returning
+  function's last `RETURN` "Gives back the rows it has added"), `BEGIN … EXCEPTION … END` and `BEGIN TRY … CATCH`,
+  `DECLARE … HANDLER`, `PREPARE`/`EXECUTE`/`DEALLOCATE`, cursors, and dynamic SQL (`EXECUTE format('…%I…', x)` →
+  "Runs the SQL "…«x as %I»…"").
+- **Faithful words.** Every condition and value passes the faithfulness gate or is shown as code; quoted text is held
+  aside and kept exactly (`IN ('create_table')` stays `"create_table"`); `%` in a `RAISE` message pairs with its
+  argument as a «placeholder»; two names compared read "is the same as"; `<>` and `NOT IN` are asked as written ("is different from", "is none
+  of"), so a NULL lands on the side the code takes; MySQL `/*!50602 … */` versioned comments are read as the
+  statements they are, on the versions that run them; a name whose words would read as logic
+  (`v_is_default`, `p_control_not_null`) is kept as written; MySQL `@variables` and `@@system` values stay as written.
+  A body whose blocks do not match (an `IF` without its `END IF`) is shown as not read, never guessed.
+- **Inputs and spans.** Routine inputs come from a real parameter list (`IN`/`OUT`/`INOUT`, defaults, T-SQL
+  `@params` with or without parentheses; `OUT` parameters are what it gives back); every routine and view spans its
+  whole definition, not its first line.
+- **T-SQL procedures** (`CREATE`/`ALTER PROCEDURE … AS BEGIN … END`, up to `GO`) are read; **dbt models** (Jinja
+  templates) are listed as skipped with the reason, never guessed.
+- Regression tests: `compiler/test/faithfulness-sql.test.mjs`, one case per false reading found.
+
 # 1.0.3
 
 - **Version:** ThunderLang now shares OpenThunder's version number, so the two always go together. 1.0.3 has the same contents as 0.5.12; nothing in the language or the compiler changed.

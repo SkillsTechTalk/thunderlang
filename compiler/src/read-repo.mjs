@@ -98,6 +98,7 @@ export function readRepo(files, { maxFileBytes = 400000, maxFiles = 5000 } = {})
     let reading;
     try { reading = readCode(source, { language, file: path }); }
     catch (e) { skipped.push({ path, reason: e instanceof Error ? e.message : 'Could not be read.' }); continue; }
+    if (reading.skipped) { skipped.push({ path, reason: reading.skipped }); continue; }
     for (const it of reading.items) items.push({ ...it, id: `${path}#${it.id}`, file: path, language });
     fileSummaries.push({ path, language, counts: reading.counts });
   }

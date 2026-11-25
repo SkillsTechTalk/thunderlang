@@ -656,6 +656,7 @@ export function thunderModel(files, { name = 'app' } = {}) {
     if (!language || !f.source) continue;
     let reading;
     try { reading = readingOf(f, language); } catch (e) { unknowns.push({ file: f.path, line: 1, why: `Could not read this file: ${e.message}` }); fileInfo.push({ path: f.path, language, category: categoryOf(language), skipped: `Could not read this file: ${e.message}` }); continue; }
+    if (reading.skipped) { unknowns.push({ file: f.path, line: 1, why: reading.skipped }); fileInfo.push({ path: f.path, language, category: categoryOf(language), skipped: reading.skipped }); continue; }
     const infra = INFRA_LANGUAGES.includes(language) ? reading.infra : null;
     let fileThings = [];
     try { fileThings = infra ? infra.things.map((t) => ({ ...t, knows: t.knows.map((k) => ({ ...k })) })) : language === 'python' ? pythonThings(f.source, f.path) : language === 'typescript' || language === 'javascript' ? tsThings(f.source, f.path) : language === 'sql' ? sqlThings(f.source, f.path) : language === 'r' ? rThings(f.source, f.path, THING_HELPERS) : language === 'powershell' ? psThings(f.source, f.path, THING_HELPERS) : thingsFor(language, f.source, f.path); }
