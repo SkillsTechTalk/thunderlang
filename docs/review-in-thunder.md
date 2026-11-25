@@ -34,49 +34,17 @@ The summary comes first, then the items, most important first:
 
 ## In a pull request
 
-The Thunder Review action runs `thunder review` on the pull request's base and head and keeps one comment up to date
-(it finds its own comment by the line `<!-- thunder-review -->`). It also writes the review to the job summary.
-
-Add `.github/workflows/thunder-review.yml` to your repository:
+The Thunder review action runs `thunder review` on the pull request's base and head, keeps one comment up to date (it
+finds its own comment by the line `<!-- thunder-review -->`), and writes the review to the job summary. It is one step:
 
 ```yaml
-name: Thunder review
-on:
-  pull_request:
-
-permissions:
-  contents: read
-  pull-requests: write   # to post and update the one review comment
-
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # both commits are needed; the action fetches a missing one otherwise
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - uses: SkillsTechTalk/thunderlang/.github/actions/thunder-review@main
-        # with:
-        #   version: latest        # the @skillstech/thunderlang version to run
-        #   fail-on-risk: true     # fail the job when something needs a careful look
-        #   comment: false         # only write the job summary
+      - uses: SkillsTechTalk/thunderlang@main
 ```
 
-What it does, step by step:
-
-1. Makes sure both commits are present (it runs `git fetch` for one that is missing).
-2. Runs `thunder review <base> <head>` twice, for the Markdown and the JSON. Nothing from the pull request is run:
-   Thunder only reads the files.
-3. Posts the Markdown as a comment with the workflow's own `GITHUB_TOKEN`, or updates the comment it posted before.
-4. Sets the outputs `says`, `risks`, `meaning`, and `markdown-file`, and fails the job only when `fail-on-risk: true`
-   and something needs a careful look.
-
-Pull requests from forks get a read-only `GITHUB_TOKEN`, so the comment cannot be posted there; the review is still in
-the job summary. `thunder review` is in the first `@skillstech/thunderlang` release after 0.5.11; to try it before
-then, check out the compiler and set `thunder: node path/to/compiler/src/cli.mjs`.
+The whole workflow file, its options, what the comment looks like, pull requests from forks, and privacy:
+[Thunder review on every pull request](/docs/github-action). Workflows that use the earlier
+`SkillsTechTalk/thunderlang/.github/actions/thunder-review@main` keep working; it now runs the same action.
 
 ## In code
 

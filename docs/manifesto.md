@@ -1,111 +1,84 @@
-# The ThunderLang Manifesto
+# The Thunder Manifesto
 
-ThunderLang is the intent language for AI-era software. It lets engineers define
-what software should do, why it matters, what must never happen, and how the
-result must be verified before code is generated, changed, or shipped.
+For decades, humans have learned to speak the languages of computers. We learned their syntax, their rules, their
+abstractions and their limitations.
 
-## Prompt is temporary. Intent is durable.
+Then AI changed the way software is written. Machines can now generate code in almost any programming language.
 
-A prompt is a conversation. Consider:
+But humans still need to understand what that code does, decide what it should do and take responsibility for the
+software they create.
 
-> Build a secure invoice creation flow that prevents duplicates, audits every
-> invoice, and never logs payment tokens.
+We believe programming should evolve accordingly.
 
-That is useful, but it is not durable. It is not a contract. It is not cleanly
-version-controlled. It is not automatically verifiable.
+**Humans should not have to learn a new programming language every time they want to use a different technology.**
 
-The prompt should become a `.thunder` file: reviewable, versionable, testable,
-explainable, compilable, verifiable, and portable across target languages. That
-is far more valuable than the prompt, because the intent is what the team
-actually commits to.
+Thunder is a human-native programming language designed for the AI era. Write software in clear, structured
+language. Understand it through words and visuals. Verify its behavior. Compile it to the ecosystem that best serves
+your application.
 
-## The path from purpose to proof
+Python for artificial intelligence. TypeScript for the web. Java and C# for enterprise software. Go for distributed
+systems. Rust for systems programming. One language for the humans building them.
 
-    Prompt → Intent → Contract → Plan → Implementation → Verification → Proof
+Thunder is designed to work in both directions. Read existing software in Thunder, or create new software directly
+in Thunder.
 
-- **Prompt** is how the conversation starts.
-- **Intent** is what the team commits to.
-- **Code** is how the system fulfills it.
-- **Proof** is how trust is earned.
+AI helps us build. Compilers preserve precision. Humans retain understanding and control.
 
-Expanded, the pipeline is:
+No unnecessary syntax. No hidden behavior. No proprietary execution ecosystem.
 
-    Human prompt / requirement / architecture discussion
-      → ThunderLang .thunder file
-      → Contract graph
-      → Architecture graph
-      → Implementation plan
-      → Target artifacts
-      → Verification
-      → Proof
+Our ambition is simple: **Make software understandable to everyone and make programming accessible to anyone.**
 
-## Intent becomes many kinds of artifact
+Thunder. Programming, made human.
 
-Implementation is the output, not the point. Target artifacts can include:
+## Where Thunder is today
 
-- TypeScript, Python, C# / .NET, Java, Go, Rust code
-- OpenAPI specs
-- Mermaid diagrams
-- Markdown docs
-- Test plans and unit test scaffolds
-- Security rules
-- OpenThunder contracts
-- Repo Mastery learning paths
-- SkillsTech Talk defense prompts
-- Proof JSON
+We advertise each compilation capability only once it works. Today:
 
-So object-oriented code is one possible target, not the whole story.
+| Capability | Status |
+| --- | --- |
+| Read existing code in Thunder: seventeen languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available |
+| Change existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available |
+| Compile decisions and rules written in Thunder to TypeScript, Python, Go, Rust, C#, and Java, and run their examples against the generated code | Available |
+| Write whole programs in Thunder (Thunder Core), compiled to Python first | Coming |
+| Compile Thunder Core programs to Java, C#, TypeScript, Go, and Rust | Planned |
 
-> ThunderLang sits above programming paradigms. It can target object-oriented,
-> functional, service-oriented, event-driven, API-first, or infrastructure code
-> depending on the adapter.
+The same labels appear on [thunderlang.dev](https://thunderlang.dev/#status) and come from the compiler's own data.
+For every language on every axis, see the [language support matrix](/docs/language-support-matrix).
 
-Intent becomes target-specific implementation using the idioms of each ecosystem.
+## Thunder and OpenThunder
 
-## What ThunderLang is not
-
-- Not just a prompt format.
-- Not magic AI code generation.
-- Not a replacement for TypeScript, Python, Java, .NET, Rust, or Go.
-- Not 1.0 yet. The compiler is real, deterministic, and tested, but the language and its
-  schema are pre-1.0 and can still change. Honest work, in the open.
-
-The right framing:
-
-> ThunderLang turns software purpose into explicit contracts, architecture,
-> verification, and proof, then uses compilers and optional AI to help produce
-> target implementations people can trust.
+Thunder is the language: open source under Apache 2.0, usable on its own in the browser, the terminal, VS Code, and
+any AI agent that speaks MCP. OpenThunder is the IDE for AI-written code, where Thunder is most at home. Think Python
+and PyCharm.
 
 ## AI-era, not AI-magic
 
-The deterministic compiler must work without AI. Every optional AI action
-produces metadata: provider, model, prompt hash, input and output hashes,
-verification result, and human approval status. Humans approve, verify, and own
-the result.
+The deterministic compiler must work without AI. Every optional AI action produces metadata: provider, model, prompt
+hash, input and output hashes, verification result, and human approval status. Code an AI wrote is labeled
+AI-written and checked by the same proof as code the compiler wrote. Humans approve, verify, and own the result.
 
-## Intent Drift
+## Prompt is temporary. Meaning is durable.
 
-Intent drift happens when the implementation no longer satisfies the declared
-mission, guarantees, architecture, constraints, or verification rules. For
-example: a guarantee exists but no test verifies it, a `never` rule is violated,
-a service publishes an event not declared in intent, a public API changes but the
-intent was not updated, or a field marked `Secret` is logged.
+A prompt is a conversation:
 
-Detecting and closing drift, later via OpenThunder, is a core reason ThunderLang
-exists. Generating code is cheap; keeping code faithful to intent is the hard,
-valuable part.
+> Build a secure invoice creation flow that prevents duplicates, audits every invoice, and never logs payment tokens.
 
-## The proof chain
+That is useful, but it is not durable. It is not a contract. It is not cleanly version-controlled. It is not
+automatically verifiable. Written in Thunder, the same intent becomes something a team can review, version, test,
+explain, compile, and verify, and it stays readable after the conversation is gone.
 
-Proof is the through-line of the SkillsTech ecosystem. Each product proves a
-different thing about the same mission:
+## What Thunder is not
 
-- **SkillsTech Compiler** proves the language can produce artifacts.
-- **OpenThunder** proves the repo matches the declared intent.
-- **Repo Mastery** proves the human understands the mission.
-- **SkillsTech Certified** proves the learner understands the method.
+- Not a prompt format.
+- Not magic AI code generation.
+- Not a new runtime. Thunder compiles to the ecosystems people already use and gives access to their libraries
+  rather than recreating them.
+- Not finished. The compiler is real, deterministic, and tested, and the language is still growing. Writing whole
+  programs in Thunder is not available yet. Honest work, in the open.
 
-Together they turn a mission into compounding evidence: the artifact exists, the
-implementation still matches it, the engineer who owns it understands it, and the
-practitioner has proven the method itself. That is how trust is earned in
-AI-era software, not by trusting the code, but by proving the intent behind it.
+## Drift
+
+Drift happens when the implementation no longer does what the team decided it should: a rule exists but no test
+checks it, a limit moves in one service but not another, or an AI change alters behavior nobody asked for.
+Generating code is cheap; keeping code faithful to what people decided is the hard, valuable part. Thunder makes
+that decision readable, and the compiler checks every change, by a person or an AI, against it.

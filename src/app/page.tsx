@@ -4,6 +4,9 @@ import path from "node:path";
 import { Section, SectionHeading, CTAButtons } from "@/components/ui";
 import { StarMark } from "@/components/StarMark";
 import { HeroThunder } from "@/components/HeroThunder";
+import { StatusBadge } from "@/components/StatusBadge";
+import { ThunderArchitecture } from "@/components/thunder/ThunderArchitecture";
+import { CAPABILITY_ROWS, CORE_STATUS, ECOSYSTEMS, READ_PROGRAMMING, TARGETS } from "@/lib/positioning";
 import { ServiceGlyph } from "@/app/try/Glyphs";
 import { readCode } from "../../compiler/src/read.mjs";
 import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
@@ -16,9 +19,9 @@ import { FiveLevels } from "@/components/thunder/FiveLevels";
 
 const PLAIN = fs.readFileSync(path.join(process.cwd(), "examples/human/RefundApproval.thunder-plain"), "utf8");
 
-// The home page follows one story (StoryBrand SB7): the reader wants to understand the software AI writes (hero);
-// the problem stops them; Thunder is the guide; a three-step plan; a clear call to action; what is at stake; what
-// success looks like. Everything else lives one click away (/try, /read, /map, /roadmap, /docs).
+// The home page follows one story: Thunder is the human programming language (hero), shown working today on a real
+// rule, then how it fits together with the honest status of every part, the ecosystems it opens, and the language
+// and its IDE. The proof, problem, plan, and call to action follow. Every status label comes from src/lib/positioning.ts.
 
 const PROBLEM = [
   { kind: "What you see", text: "AI writes code faster than anyone can read it. The rules that run your business end up buried in thousands of lines." },
@@ -55,7 +58,7 @@ const VIEWS = [
   { name: "Thunder Review", what: "a pull request as before-and-after pictures", href: "https://openthunder.dev", status: "Later" },
 ];
 
-const AUTHORITY = [PROJECT_FACTS[0], { value: "17", label: "languages read in Thunder", href: "/read" }, PROJECT_FACTS[3]];
+const AUTHORITY = [PROJECT_FACTS[0], { value: String(READ_PROGRAMMING.length), label: "languages read in Thunder", href: "/read" }, PROJECT_FACTS[3]];
 
 // The same refund rule in every language the reader supports, Thundered at build time by the real reader.
 const SAMPLES: ThunderedSample[] = THUNDERED_SAMPLES.map((x) => {
@@ -67,62 +70,191 @@ const SAMPLES: ThunderedSample[] = THUNDERED_SAMPLES.map((x) => {
 export default function HomePage() {
   return (
     <>
-      {/* 1. The character and what they want: understand the software AI writes. */}
+      {/* 1. The character and what they want: write and understand software in a language made for people. */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 bg-grid-faint bg-[size:44px_44px] opacity-30" />
         <div className="pointer-events-none absolute left-1/2 top-[-10%] h-[420px] w-[720px] -translate-x-1/2 rounded-full bg-gold-400/10 blur-[120px]" />
         <div className="container-x relative py-16 sm:py-20">
-        <HeroThunder source={PLAIN}>
-          <div className="animate-fade-up">
-            <div className="flex items-center gap-3">
-              <StarMark className="h-8 w-8 animate-twinkle" />
-              <h1 className="text-base font-semibold tracking-tight text-haze-100 sm:whitespace-nowrap sm:text-lg">
-                Introducing the{" "}
-                <span className="text-gradient-gold text-xl font-bold sm:text-2xl">Thunder<sup className="ml-0.5 align-super text-[0.5em] font-semibold">™</sup></span>{" "}
-                programming language
-              </h1>
-            </div>
-            <p className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
-              Programming,{" "}
-              <span className="text-gradient-gold">made human.</span>
-            </p>
-            <p className="mt-5 text-xl font-medium text-white sm:text-2xl">Read any app, in any programming language, without struggling.</p>
-            <p className="mt-4 max-w-xl text-lg leading-relaxed text-haze-300">
-              AI can write the code; humans should understand it. For decades, people learned to speak to computers. Now that AI writes software, programming should speak our
-              language. Thunder makes software&apos;s rules visual and readable, so you can see what it does, question its
-              decisions, and change its rules. The Thunder compiler turns them into the code you ship and checks every AI
-              change against them.
-            </p>
-            <p className="mt-4 max-w-xl text-base text-haze-200">
-              <Link href="/language" className="font-semibold text-gold-200 hover:text-gold-100">Thunder is the language.</Link>{" "}
-              <a href={OPENTHUNDER_URL} className="font-semibold text-gold-200 hover:text-gold-100">OpenThunder is the IDE for AI-written code.</a>{" "}
-              Together they are <Link href="/language" className="text-gold-300 underline decoration-gold-300/40 underline-offset-4 hover:text-gold-200">human-native programming</Link>:
-              people work with what software means, and machines handle most of the code.
-            </p>
-            <p className="mt-3 max-w-xl text-sm text-haze-400">
-              Today Thunder reads code in seventeen languages, from Python to C, C++, Swift, R, shell, PowerShell, and SQL, and draws its decisions as cards you can question. Writing whole
-              programs in Thunder is not available yet.
-            </p>
-            <div className="mt-8">
-              <CTAButtons
-                primary={{ href: "/read", label: "Read code in Thunder" }}
-                secondary={{ href: `${OPENTHUNDER_URL}/#download`, label: "Read a whole app in OpenThunder ↗" }}
-              />
-              <p className="mt-3 text-sm text-haze-400">
-                Thunder reads one file in your browser, free and with nothing to install. OpenThunder, the IDE for AI-written code, reads
-                a whole repository on your machine. Or <Link href="/try" className="text-gold-300 hover:text-gold-200">try it on a refund rule</Link> first.
+          <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr] lg:gap-14">
+            <div className="animate-fade-up">
+              <div className="flex items-center gap-3">
+                <StarMark className="h-8 w-8 animate-twinkle" />
+                <h1 className="text-base font-semibold tracking-tight text-haze-100 sm:text-lg">
+                  <span className="text-gradient-gold text-xl font-bold sm:text-2xl">Thunder<sup className="ml-0.5 align-super text-[0.5em] font-semibold">™</sup></span>, the Human-Native Programming Language
+                </h1>
+              </div>
+              <p className="mt-5 text-balance text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-[3.4rem]">
+                The <span className="text-gradient-gold">Human</span> Programming Language.
               </p>
+              <p className="mt-4 text-xl font-medium text-white sm:text-2xl">One language. Every ecosystem.</p>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-haze-300">
+                Write software in a language you understand. Build with AI. Compile to the ecosystem you choose.
+              </p>
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-haze-300">
+                <span className="font-medium text-white">Today</span> Thunder reads code in {READ_PROGRAMMING.length} languages, changes
+                TypeScript, JavaScript, Python, and Go code from Thunder, and compiles rules to six languages.{" "}
+                <span className="font-medium text-white">Coming:</span> writing whole programs in Thunder, compiled to Python first.{" "}
+                <a href="#status" className="text-gold-300 underline decoration-gold-300/40 underline-offset-4 hover:text-gold-200">See what works today</a>
+              </p>
+              <div className="mt-8">
+                <CTAButtons
+                  primary={{ href: "/read", label: "Read code in Thunder" }}
+                  secondary={{ href: `${OPENTHUNDER_URL}/#download`, label: "Read a whole app in OpenThunder ↗" }}
+                />
+                <p className="mt-3 text-sm text-haze-400">
+                  Thunder reads one file in your browser, free and with nothing to install. OpenThunder, the IDE for AI-written code, reads
+                  a whole repository on your machine. Or <Link href="/try" className="text-gold-300 hover:text-gold-200">change a refund rule</Link> first.
+                </p>
+              </div>
+              <ul className="mt-7 flex flex-wrap gap-2 text-xs text-haze-300">
+                {["Also called ThunderLang™", "Open source, Apache 2.0", "Deterministic: no AI, no key"].map(t => (
+                  <li key={t} className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1">{t}</li>
+                ))}
+                <li><Link href="/manifesto" className="inline-block rounded-full px-3 py-1 font-medium text-gold-300 hover:text-gold-200">Read the manifesto →</Link></li>
+              </ul>
             </div>
-            <ul className="mt-7 flex flex-wrap gap-2 text-xs text-haze-300">
-              {["Also called ThunderLang™", "Open-source compiler", "Deterministic: no AI, no key"].map(t => (
-                <li key={t} className="rounded-full border border-white/12 bg-white/[0.03] px-3 py-1">{t}</li>
-              ))}
-              <li><Link href="/learn" className="inline-block rounded-full px-3 py-1 font-medium text-gold-300 hover:text-gold-200">10-minute tutorial →</Link></li>
-            </ul>
+
+            {/* The language as it is being built: clearly a preview, with today's working paths beside it. */}
+            <div className="animate-fade-up min-w-0 [animation-delay:120ms]">
+              <div className="rounded-[1.35rem] bg-gradient-to-b from-gold-300/50 via-white/10 to-white/5 p-px shadow-[0_30px_120px_-40px_rgba(167,139,250,0.55)]">
+                <div className="rounded-[1.3rem] bg-ink-900/95 p-7">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">Preview of Thunder Core</p>
+                    <StatusBadge status={CORE_STATUS} />
+                  </div>
+                  <p className="mt-2 text-sm text-haze-400">Whole programs written in Thunder. Not live yet: this example does not run today.</p>
+                  <pre className="mt-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-950/80 px-5 py-4 font-mono text-lg"><code><span className="tok-key">Say</span> <span className="tok-str">&quot;Hello, world!&quot;</span></code></pre>
+                  <p className="mt-5 text-sm font-medium text-haze-100">One program, compiled to the ecosystem you choose:</p>
+                  <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {TARGETS.map((t) => (
+                      <li key={t.key} className="flex flex-col gap-1.5 rounded-xl border border-white/10 px-3 py-2">
+                        <span className="text-sm font-semibold text-white">{t.name}</span>
+                        <StatusBadge status={t.program} className="self-start" />
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-5 border-t border-white/10 pt-4 text-sm">
+                    <p className="text-haze-300">Works today:</p>
+                    <p className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                      <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your code in Thunder →</Link>
+                      <Link href="/try" className="font-medium text-gold-300 hover:text-gold-200">Change a rule →</Link>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </HeroThunder>
         </div>
       </section>
+
+      {/* 2. What works today: a real rule, read, asked, changed, and compiled by the real compiler. */}
+      <section id="today" className="border-t border-white/8">
+        <div className="container-x py-16 sm:py-20">
+          <HeroThunder source={PLAIN}>
+            <div>
+              <p className="eyebrow">Works today</p>
+              <h2 className="mt-3 text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">Read a rule. Ask it. Change it. Compile it.</h2>
+              <p className="mt-4 text-lg leading-relaxed text-haze-300">
+                This refund rule is written in Thunder. Ask it about a case and it answers with the reason. Click a
+                highlighted word to change it, and every example is checked again. Below, the Thunder compiler writes the
+                same rule in six languages. Nothing here is drawn by hand.
+              </p>
+              <p className="mt-5 text-sm">
+                <Link href="/try" className="font-medium text-gold-300 hover:text-gold-200">Try the full rule editor →</Link>
+              </p>
+            </div>
+          </HeroThunder>
+        </div>
+      </section>
+
+      {/* 3. How it fits together, with the honest status of every part. */}
+      <Section id="how" className="border-t border-white/8 bg-ink-900/40">
+        <SectionHeading
+          eyebrow="How it works"
+          title="Read anything. Write once. Run anywhere."
+          intro="That is where Thunder is going. People and AI work in Thunder; the Thunder compiler keeps it precise and compiles it to the ecosystem that best serves your application. Each part below says exactly what works today."
+        />
+        <ThunderArchitecture />
+        <div id="status" className="mt-14 scroll-mt-24">
+          <h3 className="text-2xl font-semibold tracking-tight text-white">What works today, and what is coming</h3>
+          <p className="mt-2 max-w-2xl text-haze-300">A capability is labeled Available only once it ships in the compiler and is tested. These labels come from the compiler&apos;s own data.</p>
+          <ul className="mt-6 divide-y divide-white/8 rounded-2xl border border-white/10">
+            {CAPABILITY_ROWS.map((r) => (
+              <li key={r.what} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+                <div className="min-w-0">
+                  <p className="font-semibold text-white">{r.what}</p>
+                  <p className="mt-1 text-sm text-haze-300">{r.detail}</p>
+                  {r.caveat && (<p className="mt-1 text-xs text-amber-200/90">{r.caveat.text} <Link href={r.caveat.href} className="font-medium text-gold-300 underline decoration-gold-300/40 underline-offset-2 hover:text-gold-200">{r.caveat.label}</Link></p>)}
+                </div>
+                <div className="flex shrink-0 items-center gap-4">
+                  {r.href && <Link href={r.href} className="text-sm font-medium text-gold-300 hover:text-gold-200">{r.cta} →</Link>}
+                  <StatusBadge status={r.status} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-sm text-haze-400">
+            <Link href="/roadmap" className="font-medium text-gold-300 hover:text-gold-200">See the full roadmap →</Link>
+          </p>
+        </div>
+      </Section>
+
+      {/* 4. Ecosystems: Thunder opens each one rather than recreating it. */}
+      <Section id="ecosystems" className="border-t border-white/8">
+        <SectionHeading
+          eyebrow="Every ecosystem"
+          title="Thunder gives you access to each ecosystem rather than recreating it."
+          intro="Python for artificial intelligence. TypeScript for the web. Java and C# for enterprise software. Go for distributed systems. Rust for systems programming. One language for the humans building them."
+        />
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {ECOSYSTEMS.map((e) => (
+            <li key={e.name} className="rounded-2xl border border-white/10 bg-ink-850/40 p-5">
+              <h3 className="text-lg font-semibold text-white">{e.name}</h3>
+              <ul className="mt-3 space-y-1.5 text-sm text-haze-300">
+                {e.libraries.map((l) => <li key={l}>{l}</li>)}
+              </ul>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-6 max-w-3xl text-sm leading-relaxed text-haze-300">
+          <span className="font-medium text-white">Today:</span> Thunder reads code that uses these libraries.{" "}
+          <span className="font-medium text-white">Coming with Thunder Core:</span> calling them from programs you write in Thunder, starting with Python.
+        </p>
+      </Section>
+
+      {/* 5. The language and the IDE, like Python and PyCharm. */}
+      <Section id="thunder-and-openthunder" className="border-t border-white/8 bg-ink-900/40">
+        <SectionHeading
+          eyebrow="Thunder and OpenThunder"
+          title="A language that stands on its own, and an IDE built for it."
+          intro="Like Python and PyCharm: you can use Thunder anywhere, and OpenThunder is the IDE made for it."
+        />
+        <div className="mt-10 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">The language</p>
+            <h3 className="mt-2 text-2xl font-semibold text-white">Thunder</h3>
+            <p className="mt-2 leading-relaxed text-haze-300">
+              The human programming language. Open source under Apache 2.0, with its compiler and CLI on npm. Use it in your
+              browser, your terminal, VS Code, or any AI agent that speaks MCP.
+            </p>
+            <p className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+              <Link href="/language" className="font-medium text-gold-300 hover:text-gold-200">The language →</Link>
+              <Link href="/install" className="font-medium text-gold-300 hover:text-gold-200">Install Thunder →</Link>
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-ink-850/40 p-6">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">The IDE</p>
+            <h3 className="mt-2 text-2xl font-semibold text-white">OpenThunder</h3>
+            <p className="mt-2 leading-relaxed text-haze-300">
+              The IDE for AI-written code. Open your repository, read it in Thunder, find your way around it, learn it,
+              change it, and verify every change. The Thunder compiler is built in.
+            </p>
+            <p className="mt-4 text-sm">
+              <a href={OPENTHUNDER_URL} className="font-medium text-gold-300 hover:text-gold-200">Open OpenThunder ↗</a>
+            </p>
+          </div>
+        </div>
+      </Section>
 
       {/* The heart of the language: one program, read at five levels. */}
       <FiveLevels />
@@ -132,7 +264,7 @@ export default function HomePage() {
         <SectionHeading
           eyebrow="Thunder Code"
           title="Already have code? Read it in Thunder."
-          intro="Python helps people write instructions for computers. Thunder helps people understand them, including code AI wrote. Pick a language: the same refund rule becomes the same Thunder picture."
+          intro="Thunder works in both directions, and reading comes first: open the code you already have, including code AI wrote, and see what it does. Pick a language: the same refund rule becomes the same Thunder picture."
         />
         <div className="mt-8"><ThunderedTabs samples={SAMPLES} /></div>
         <p className="mt-6 text-sm text-haze-300">
@@ -243,6 +375,9 @@ export default function HomePage() {
             </p>
           </div>
         </div>
+        <p className="mt-14 text-center text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+          Thunder. <span className="text-gradient-gold">Programming, made human.</span>
+        </p>
       </Section>
     </>
   );

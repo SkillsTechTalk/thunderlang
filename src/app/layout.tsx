@@ -28,8 +28,8 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "ThunderLang™: Programming Language",
-    template: "%s | ThunderLang™: Programming Language",
+    default: "ThunderLang™: The Human Programming Language",
+    template: "%s | ThunderLang™: The Human Programming Language",
   },
   description: siteConfig.description,
   keywords: [...siteConfig.keywords],
@@ -43,12 +43,12 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteConfig.url,
     siteName: "ThunderLang",
-    title: "ThunderLang™: Programming Language. Programming, made human",
+    title: "ThunderLang™: The Human Programming Language. One language. Every ecosystem.",
     description: siteConfig.description,
   },
   twitter: {
     card: "summary_large_image",
-    title: "ThunderLang™: Programming Language. Programming, made human",
+    title: "ThunderLang™: The Human Programming Language. One language. Every ecosystem.",
     description: siteConfig.description,
     creator: siteConfig.twitter,
   },

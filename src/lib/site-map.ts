@@ -72,6 +72,7 @@ const SECTIONS: MapSection[] = [
     says: "The thinking behind it, and the evidence.",
     links: [
       { href: "/blog/why-i-created-thunder", label: "Why I Created Thunder", says: "The essay: programming, made human." },
+      { href: "/manifesto", label: "Manifesto", says: "The human programming language: why Thunder exists." },
       { href: "/vision", label: "Vision", says: "Where Thunder is going." },
       { href: "/architecture", label: "Architecture", says: "How the compiler and the tools fit together." },
       { href: "/atlas", label: "Intent Atlas (missions)", says: "The mission-level map from the earlier intent language." },

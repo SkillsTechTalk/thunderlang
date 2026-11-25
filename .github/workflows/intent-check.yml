@@ -28,6 +28,10 @@ jobs:
       - name: intent tests
         run: npm run intent:test
 
+      # The Thunder review GitHub Action (action.yml): renderer, sticky comment with a mock GitHub, forks, size cap.
+      - name: review action tests
+        run: npm run action:test
+
       # Proof by running + static faithfulness checks over the fixtures (fast, offline): fails when a run
       # contradicts any reading, or a reading invents a value or puts a Stop on the wrong side.
       # Real repositories: see docs/accuracy.md ("Proof by running").
