@@ -149,17 +149,29 @@ function collectNames(nodes, names) {
   }
 }
 
-// "total and member", "total as money, member as yes/no"
+// "total and member", "total as money, member as yes/no", "price and rate (7% if not given)"
 function paramGroups(ts) {
   const groups = [];
   let cur = [];
+  let depth = 0;
   for (const t of ts) {
-    if (isSym(t, ',') || isWord(t, 'and')) { if (cur.length) groups.push(cur); cur = []; } else cur.push(t);
+    if (isSym(t, '(')) depth++;
+    if (isSym(t, ')')) depth--;
+    if (depth === 0 && (isSym(t, ',') || isWord(t, 'and'))) { if (cur.length) groups.push(cur); cur = []; } else cur.push(t);
   }
   if (cur.length) groups.push(cur);
   return groups.map((g) => {
+    // A default: "(<value> if not given)" at the end of the input.
+    let defaultTokens = null;
+    if (isSym(g[g.length - 1], ')')) {
+      let d = 0, open = -1;
+      for (let i = g.length - 1; i >= 0; i--) { if (isSym(g[i], ')')) d++; if (isSym(g[i], '(')) { d--; if (d === 0) { open = i; break; } } }
+      const inner = open >= 0 ? g.slice(open + 1, -1) : [];
+      const n = inner.length;
+      if (n > 3 && isWord(inner[n - 3], 'if') && isWord(inner[n - 2], 'not') && isWord(inner[n - 1], 'given')) { defaultTokens = inner.slice(0, -3); g = g.slice(0, open); }
+    }
     const k = g.findIndex((t) => isWord(t, 'as'));
-    return { words: stripArticle(k < 0 ? g : g.slice(0, k)), typeTokens: k < 0 ? null : g.slice(k + 1) };
+    return { words: stripArticle(k < 0 ? g : g.slice(0, k)), typeTokens: k < 0 ? null : g.slice(k + 1), defaultTokens };
   });
 }
 
@@ -601,7 +613,7 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     let r = 0;
     while (kids[r] && isWord(kids[r].tokens[0], 'receive')) {
       const kid = kids[r];
-      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.words, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, line: kid.line })));
+      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.words, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
       r++;
     }
     bodyNodes = kids.slice(r);

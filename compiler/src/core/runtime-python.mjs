@@ -62,6 +62,14 @@ def _is_number(x):
     return isinstance(x, (int, Decimal)) and not isinstance(x, bool)
 
 
+class _NotGiven:
+    def __repr__(self):
+        return "not given"
+
+
+NOT_GIVEN = _NotGiven()
+
+
 def num(x):
     """A Python float that reaches Thunder becomes the exact decimal it is written as (19.99, never
     19.989999999999998). Everything else is left as it is, so text, lists and records pass through."""
