@@ -9,6 +9,7 @@ const PRODUCTS = [
   { name: "ThunderLang", sub: "Programming Language", href: "https://thunderlang.dev", logo: "/brand/thunderlang.svg" },
   { name: "OpenThunder", sub: "IDE for AI-Written Code", href: "https://openthunder.dev", logo: "/brand/openthunder-mark.png" },
   { name: "Skills Tech Talk", sub: "AI Interview", href: "https://app.skillstechtalk.com", logo: "/brand/skills-tech-talk.png" },
+  { name: "Skills Tech Network", sub: "Network for Engineers", href: "https://network.skillstechtalk.com", logo: "/brand/skills-tech-network.png" },
   { name: "TuneHabit", sub: "Habit Tracker", href: "https://tunehabit.com", logo: "/brand/tunehabit.png" },
   { name: "GrappleTree", sub: "BJJ Study Guide", href: "https://grappletree.app", logo: "/brand/grappletree.svg" },
   { name: "VibeShape", sub: "AI App Builder", href: "https://vibeshape.app", logo: "/brand/vibeshape.png" },
