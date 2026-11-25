@@ -17,7 +17,10 @@ The rules below in "What a value means" are the rules every future target must k
 
 ## Start
 
+You need Node.js 18+ (for the `thunder` command) and Python 3.10+ (to run what it builds).
+
 ```sh
+npm install -g @skillstech/thunderlang   # 1.1.0 or later has Thunder Core
 thunder new my-program      # thunder.toml, src/main.thunder, tests/
 cd my-program
 thunder run                 # check, build, and run src/main.thunder

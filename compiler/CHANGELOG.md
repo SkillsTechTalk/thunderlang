@@ -1,4 +1,4 @@
-# Unreleased
+# 1.1.0
 
 - **Core's standard operations for text, lists, numbers, and JSON.** The new forms:
   - text: `names joined with ", "`, `line split at ","`, `the parts of text`, `date replacing "-" with "/"`,

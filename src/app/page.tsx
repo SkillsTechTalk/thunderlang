@@ -9,6 +9,7 @@ import { ThunderArchitecture } from "@/components/thunder/ThunderArchitecture";
 import { CAPABILITY_ROWS, CORE_STATUS, ECOSYSTEMS, READ_PROGRAMMING, TARGETS } from "@/lib/positioning";
 import { ServiceGlyph } from "@/app/try/Glyphs";
 import { readCode } from "../../compiler/src/read.mjs";
+import { compileCore } from "../../compiler/src/core/index.mjs";
 import { plainFromReading } from "../../compiler/src/plain-contract.mjs";
 import type { PlainModel } from "../../compiler/src/plain-contract.d.mts";
 import { PROJECT_FACTS } from "@/lib/facts";
@@ -67,6 +68,13 @@ const SAMPLES: ThunderedSample[] = THUNDERED_SAMPLES.map((x) => {
   return { ...x, model, inferred: !!model?.needsReview.some((n) => n.includes("inferred")) };
 });
 
+// The hello-world program in the hero, compiled by the real Thunder Core compiler at build time: the Python shown is
+// exactly what `thunder build` writes for it (its marked lines), so the panel can never drift from the compiler.
+const HELLO = 'Say "Hello, world!"';
+const CORE_LIVE = CORE_STATUS === "available" || CORE_STATUS === "experimental";
+const HELLO_PYTHON = (compileCore(`${HELLO}\n`).python ?? "")
+  .split("\n").filter((l) => /# thunder:\d+$/.test(l)).map((l) => l.replace(/\s*# thunder:\d+$/, "").trim()).join("\n");
+
 export default function HomePage() {
   return (
     <>
@@ -93,7 +101,9 @@ export default function HomePage() {
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-haze-300">
                 <span className="font-medium text-white">Today</span> Thunder reads code in {READ_PROGRAMMING.length} languages, changes
                 TypeScript, JavaScript, Python, and Go code from Thunder, and compiles rules to six languages.{" "}
-                <span className="font-medium text-white">Coming:</span> writing whole programs in Thunder, compiled to Python first.{" "}
+                {CORE_LIVE
+                  ? (<><span className="font-medium text-white">New:</span> write whole programs in Thunder and run them as Python.{" "}</>)
+                  : (<><span className="font-medium text-white">Coming:</span> writing whole programs in Thunder, compiled to Python first.{" "}</>)}
                 <a href="#status" className="text-gold-300 underline decoration-gold-300/40 underline-offset-4 hover:text-gold-200">See what works today</a>
               </p>
               <div className="mt-8">
@@ -119,11 +129,19 @@ export default function HomePage() {
               <div className="rounded-[1.35rem] bg-gradient-to-b from-gold-300/50 via-white/10 to-white/5 p-px shadow-[0_30px_120px_-40px_rgba(167,139,250,0.55)]">
                 <div className="rounded-[1.3rem] bg-ink-900/95 p-7">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">Preview of Thunder Core</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">{CORE_LIVE ? "Thunder Core" : "Preview of Thunder Core"}</p>
                     <StatusBadge status={CORE_STATUS} />
                   </div>
-                  <p className="mt-2 text-sm text-haze-400">Whole programs written in Thunder. Not live yet: this example does not run today.</p>
+                  <p className="mt-2 text-sm text-haze-400">
+                    {CORE_LIVE ? "Whole programs written in Thunder. This one runs today." : "Whole programs written in Thunder. Not live yet: this example does not run today."}
+                  </p>
                   <pre className="mt-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-950/80 px-5 py-4 font-mono text-lg"><code><span className="tok-key">Say</span> <span className="tok-str">&quot;Hello, world!&quot;</span></code></pre>
+                  {CORE_LIVE && HELLO_PYTHON && (
+                    <div className="mt-3">
+                      <p className="text-xs text-haze-400">The Thunder compiler writes this Python, and it prints <span className="font-mono text-haze-200">Hello, world!</span></p>
+                      <pre className="mt-1.5 overflow-x-auto rounded-lg border border-white/8 bg-ink-950/50 px-4 py-2 font-mono text-sm text-haze-300"><code>{HELLO_PYTHON}</code></pre>
+                    </div>
+                  )}
                   <p className="mt-5 text-sm font-medium text-haze-100">One program, compiled to the ecosystem you choose:</p>
                   <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {TARGETS.map((t) => (
@@ -136,6 +154,7 @@ export default function HomePage() {
                   <div className="mt-5 border-t border-white/10 pt-4 text-sm">
                     <p className="text-haze-300">Works today:</p>
                     <p className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                      {CORE_LIVE && <Link href="/docs/core" className="font-medium text-gold-300 hover:text-gold-200">Write your first program →</Link>}
                       <Link href="/read" className="font-medium text-gold-300 hover:text-gold-200">Read your code in Thunder →</Link>
                       <Link href="/try" className="font-medium text-gold-300 hover:text-gold-200">Change a rule →</Link>
                     </p>
