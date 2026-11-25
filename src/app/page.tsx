@@ -95,7 +95,7 @@ export default function HomePage() {
             </p>
             <p className="mt-4 max-w-xl text-base text-haze-200">
               <Link href="/language" className="font-semibold text-gold-200 hover:text-gold-100">Thunder is the language.</Link>{" "}
-              <a href={OPENTHUNDER_URL} className="font-semibold text-gold-200 hover:text-gold-100">OpenThunder is the IDE.</a>{" "}
+              <a href={OPENTHUNDER_URL} className="font-semibold text-gold-200 hover:text-gold-100">OpenThunder is the IDE for AI-written code.</a>{" "}
               Together they are <Link href="/language" className="text-gold-300 underline decoration-gold-300/40 underline-offset-4 hover:text-gold-200">human-native programming</Link>:
               people work with what software means, and machines handle most of the code.
             </p>
@@ -109,7 +109,7 @@ export default function HomePage() {
                 secondary={{ href: `${OPENTHUNDER_URL}/#download`, label: "Read a whole app in OpenThunder ↗" }}
               />
               <p className="mt-3 text-sm text-haze-400">
-                Thunder reads one file in your browser, free and with nothing to install. OpenThunder, the IDE for Thunder, reads
+                Thunder reads one file in your browser, free and with nothing to install. OpenThunder, the IDE for AI-written code, reads
                 a whole repository on your machine. Or <Link href="/try" className="text-gold-300 hover:text-gold-200">try it on a refund rule</Link> first.
               </p>
             </div>
@@ -224,7 +224,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="relative mx-auto mt-12 max-w-3xl border-t border-white/10 pt-8">
-            <p className="flex items-center justify-center gap-2 font-semibold text-white"><ServiceGlyph className="text-gold-300" />See your own app in Thunder with OpenThunder, the IDE for Thunder</p>
+            <p className="flex items-center justify-center gap-2 font-semibold text-white"><ServiceGlyph className="text-gold-300" />See your own app in Thunder with OpenThunder, the IDE for AI-written code</p>
             <ul className="mt-6 grid gap-2 text-left text-sm sm:grid-cols-2">
               {VIEWS.map((v) => (
                 <li key={v.name}>

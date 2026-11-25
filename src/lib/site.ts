@@ -92,7 +92,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
     title: "Project",
     items: [
       { href: "https://github.com/SkillsTechTalk/thunderlang", label: "Source on GitHub" },
-      { href: "https://openthunder.dev", label: "OpenThunder, the IDE for Thunder" },
+      { href: "https://openthunder.dev", label: "OpenThunder, the IDE for AI-written code" },
       { href: "/roadmap", label: "Roadmap" },
       { href: "/proof", label: "Proof matrix" },
       { href: "/blog", label: "Blog" },

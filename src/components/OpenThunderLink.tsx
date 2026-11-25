@@ -2,7 +2,7 @@ import { ServiceGlyph } from "@/app/try/Glyphs";
 
 const OT = "https://openthunder.dev";
 
-/** A consistent pointer from a Thunder page to OpenThunder, the IDE for Thunder. `soon` marks capabilities not shipped yet. */
+/** A consistent pointer from a Thunder page to OpenThunder, the IDE for AI-written code. `soon` marks capabilities not shipped yet. */
 export function OpenThunderLink({ title, body, cta, soon = false }: { title: string; body: string; cta: string; soon?: boolean }) {
   return <aside className="flex flex-col gap-3 rounded-2xl border border-gold-300/30 bg-gold-400/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
     <div className="flex gap-3">

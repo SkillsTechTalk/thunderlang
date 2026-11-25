@@ -13,7 +13,7 @@ import { FiveLevels } from "@/components/thunder/FiveLevels";
 export const metadata = pageMeta({
   title: "The Thunder Programming Language",
   description:
-    "Thunder is a human-native programming language: people work with the meaning of software while machines handle most of the implementation. Thunder is the language; OpenThunder is the IDE.",
+    "Thunder is a human-native programming language: people work with the meaning of software while machines handle most of the implementation. Thunder is the language; OpenThunder is the IDE for AI-written code.",
   path: "/language",
 });
 
@@ -129,7 +129,7 @@ export default function LanguagePage() {
               ["Visual interface", "Thunder", "/read"],
               ["Text representation", "Thunder Text", "/docs/spec"],
               ["Underlying method", "Intent-Oriented Programming", "/docs/intent-oriented-programming"],
-              ["Development platform", "OpenThunder, the IDE", OPENTHUNDER_URL],
+              ["Development platform", "OpenThunder, the IDE for AI-written code", OPENTHUNDER_URL],
             ].map(([term, value, href]) => (
               <div key={term} className="grid grid-cols-[11rem_1fr] gap-4 py-2.5">
                 <dt className="text-haze-400">{term}</dt>

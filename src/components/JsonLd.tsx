@@ -87,7 +87,7 @@ export const LANGUAGE_LD = {
   ...LANGUAGE,
   subjectOf: [
     { "@type": "WebPage", url: `${URL}/language`, name: "The Thunder Programming Language" },
-    { "@type": "SoftwareApplication", name: "OpenThunder, the IDE for Thunder", url: OPENTHUNDER_URL, applicationCategory: "DeveloperApplication" },
+    { "@type": "SoftwareApplication", name: "OpenThunder, the IDE for AI-written code", url: OPENTHUNDER_URL, applicationCategory: "DeveloperApplication" },
   ],
 };
 

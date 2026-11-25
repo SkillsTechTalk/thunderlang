@@ -21,7 +21,7 @@ export default function SiteMapPage() {
       <PageHero
         eyebrow="Site map"
         title="Everything on thunderlang.dev."
-        intro="Grouped by what you came for. Thunder is the language; OpenThunder, the IDE, has its own site."
+        intro="Grouped by what you came for. Thunder is the language; OpenThunder, the IDE for AI-written code, has its own site."
       />
       <Section className="!pt-0">
         <div className="grid gap-x-10 gap-y-12 md:grid-cols-2">
@@ -40,7 +40,7 @@ export default function SiteMapPage() {
             </section>
           ))}
           <section aria-labelledby="map-ide">
-            <h2 id="map-ide" className="text-xl font-semibold text-white">OpenThunder, the IDE</h2>
+            <h2 id="map-ide" className="text-xl font-semibold text-white">OpenThunder, the IDE for AI-written code</h2>
             <p className="mt-1 text-sm text-haze-400">Where you use Thunder on your whole application.</p>
             <ul className="mt-4 space-y-3">
               <li><a href={OPENTHUNDER_URL} className="font-medium text-gold-200 hover:text-gold-100">openthunder.dev ↗</a><p className="text-sm text-haze-300">Open a repository, read it in Thunder, change it, and check every change.</p></li>

@@ -90,7 +90,7 @@ export function Header() {
                 {item.label}
               </Link>
             ))}
-            <a href={OPENTHUNDER_URL} className="py-2.5 text-sm font-medium text-gold-200">OpenThunder, the IDE for Thunder ↗</a>
+            <a href={OPENTHUNDER_URL} className="py-2.5 text-sm font-medium text-gold-200">OpenThunder, the IDE for AI-written code ↗</a>
             <p className="mt-2 pt-2 text-xs font-semibold uppercase tracking-[0.18em] text-haze-500">
               Learn
             </p>
