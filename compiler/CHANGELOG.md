@@ -15,7 +15,9 @@
   "Runs the SQL "…«x as %I»…"").
 - **Faithful words.** Every condition and value passes the faithfulness gate or is shown as code; quoted text is held
   aside and kept exactly (`IN ('create_table')` stays `"create_table"`); `%` in a `RAISE` message pairs with its
-  argument as a «placeholder»; two names compared read "is the same as"; a name whose words would read as logic
+  argument as a «placeholder»; two names compared read "is the same as"; `<>` and `NOT IN` are asked as written ("is different from", "is none
+  of"), so a NULL lands on the side the code takes; MySQL `/*!50602 … */` versioned comments are read as the
+  statements they are, on the versions that run them; a name whose words would read as logic
   (`v_is_default`, `p_control_not_null`) is kept as written; MySQL `@variables` and `@@system` values stay as written.
   A body whose blocks do not match (an `IF` without its `END IF`) is shown as not read, never guessed.
 - **Inputs and spans.** Routine inputs come from a real parameter list (`IN`/`OUT`/`INOUT`, defaults, T-SQL
