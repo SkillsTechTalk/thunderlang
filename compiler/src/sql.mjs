@@ -98,7 +98,7 @@ export function sqlCondition(cond, { aliases = {}, vars = false, keepAt = true, 
   const hold = (text) => `\u0001${held.push(text) - 1}\u0002`;
   const back = (s) => { let out = String(s); for (let k = 0; k < 4 && /\u0001\d+\u0002/.test(out); k++) out = out.replace(/\u0001(\d+)\u0002/g, (m, n) => held[Number(n)]); return out; };
   // (N'…' is SQL Server's Unicode text and E'…' PostgreSQL's text with escapes: the text is as written.)
-  let c = String(cond).trim().replace(/(?<![\w$])[NnEe](?=')/g, '').replace(/'((?:[^']|'')*)'/g, (m, v) => hold(`"${v.replace(/''/g, "'")}"`));
+  let c = String(cond).trim().replace(/(?<![\w$])[NnEe]?'((?:[^']|'')*)'/g, (m, v) => hold(`"${v.replace(/''/g, "'")}"`));
   // A system value (@@ROWCOUNT, @@FETCH_STATUS) is a name as written.
   c = c.replace(/@@[A-Za-z_][\w$.]*/g, (m) => hold(`\`${m}\``));
   // An extension's schema placeholder (@extschema@.fn(…)) is not part of the name.
@@ -130,20 +130,22 @@ export function sqlCondition(cond, { aliases = {}, vars = false, keepAt = true, 
   const pattern = (n) => held[Number(n)].slice(1, -1);
   const out = c
     .replace(/\b(NEW|OLD)\.(\w+)/g, (m, which, col) => `the ${which === 'NEW' ? 'new' : 'old'} ${words(col)}`)
-    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+NOT\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => `${name(a)} is not one of ${items(l)}`)
+    .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+NOT\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => `${name(a)} is none of ${items(l)}`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IN\s*\(([^)]*)\)/gi, (m, a, l) => (/^\s*select\b/i.test(l) ? `${name(a)} is in the results of a query` : `${name(a)} is one of ${items(l)}`))
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NOT\s+NULL/gi, (m, a) => `${name(a)} is set`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w."]+)\s+IS\s+NULL/gi, (m, a) => `${name(a)} is empty`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w.]+)\s+NOT\s+LIKE\s+\u0001(\d+)\u0002/gi, (m, a, n) => `${name(a)} does not match ${hold(`"${pattern(n).replace(/%/g, '…')}"`)}`)
     .replace(/(\u0001\d+\u0002|(?!NOT\b)[A-Za-z_][\w.]*\([^()]*\)|(?!NOT\b)[\w.]+)\s+I?LIKE\s+\u0001(\d+)\u0002/gi, (m, a, n) => { const p = pattern(n); return /^[^%_]+%$/.test(p) ? `${name(a)} starts with ${hold(`"${p.slice(0, -1)}"`)}` : /^%[^%_]+%$/.test(p) ? `${name(a)} contains ${hold(`"${p.slice(1, -1)}"`)}` : `${name(a)} matches ${hold(`"${p.replace(/%/g, '…')}"`)}`; })
     .replace(/([\w."]+)\s+BETWEEN\s+(\S+)\s+AND\s+(\S+)/gi, (m, a, lo, hi) => `${name(a)} is from ${lo} to ${hi}`)
-    .replace(/\s*(<>|!=)\s*/g, ' is not ').replace(/\s*>=\s*/g, ' is at least ').replace(/\s*<=\s*/g, ' is at most ')
+    // `<>` and NOT IN read as a positive question ("is different from", "is none of"), never "is not" turned round:
+    // with a NULL the code's condition is not true, so the code takes the No side, and so does the question.
+    .replace(/\s*(<>|!=)\s*/g, ' is different from ').replace(/\s*>=\s*/g, ' is at least ').replace(/\s*<=\s*/g, ' is at most ')
     .replace(/\s*>\s*/g, ' is more than ').replace(/\s*<\s*/g, ' is less than ').replace(/\s*=\s*/g, ' is ')
     .replace(/\bAND\b/gi, 'and').replace(/\bOR\b/gi, 'or').replace(/\bNOT\s+/gi, 'not ')
     .replace(/\b(?:length|char_length)\s*\(\s*([\w."]+)\s*\)/gi, (m, a) => `the length of ${name(a)}`)
     .replace(/\b[a-z_]\w*\.([a-z_]\w*)(?=\s*\()/gi, (m, fn) => hold(/^[A-Z_]+$/.test(fn) ? fn : words(fn)))
     .replace(/\b(?!is\b|and\b|or\b|not\b|at\b|least\b|most\b|more\b|less\b|than\b|one\b|of\b|the\b|set\b|empty\b|from\b|to\b|new\b|old\b|starts\b|with\b|contains\b|does\b|match\b|matches\b|in\b|results\b|a\b|query\b|length\b|s\b(?!\.))([a-z_][\w]*\.)?([a-z_][\w]*)\b/gi, (m, t, col) => (t ? name(`${t}${col}`) : /^[A-Z_]+$/.test(col) && col.length > 1 ? m : plain(col)))
-    .replace(/\s*\u0003\s*/g, ' is the same as ').replace(/\s*\u0004\s*/g, ' is not the same as ')
+    .replace(/\s*\u0003\s*/g, ' is the same as ').replace(/\s*\u0004\s*/g, ' is different from ')
     .replace(/\s+/g, ' ').trim();
   const said = back(out);
   if (vars && !raw && /(?:^|\(|\b(?:and|or|not) )((?:the [\w ]+'s )?[a-z][\w ]*?) (?:is (?:not )?(?:the same as )?|and |or )\1(?=$|[\s),])/.test(said)) return sqlCondition(cond, { aliases, vars, keepAt, raw: true });

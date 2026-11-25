@@ -36,6 +36,14 @@ export function lexSql(src, from = 0, to = src.length, dialect = 'pg') {
     if (c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f' || c === '\v') { i++; continue; }
     if (c === '-' && src[i + 1] === '-') { const n = src.indexOf('\n', i); i = n < 0 || n > to ? to : n; continue; }
     if (c === '#' && dialect === 'mysql' && /[\s#!-]/.test(src[i + 1] || ' ')) { const n = src.indexOf('\n', i); i = n < 0 || n > to ? to : n; continue; }
+    if (c === '/' && src[i + 1] === '*' && src[i + 2] === '!' && dialect === 'mysql') {
+      // /*!50602 … */ is not a comment: MySQL 5.6.2 and later run what is inside.
+      const close = src.indexOf('*/', i + 3);
+      const e = close < 0 || close + 2 > to ? to : close + 2;
+      const ver = /^\d{5,6}/.exec(src.slice(i + 3, i + 9));
+      toks.push({ t: 'ver', v: src.slice(i, e), s: i, e, version: ver ? Number(ver[0]) : null, innerS: i + 3 + (ver ? ver[0].length : 0), innerE: close < 0 ? e : close });
+      i = e; continue;
+    }
     if (c === '/' && src[i + 1] === '*') {
       let d = 1, j = i + 2;
       while (j < to && d) { if (dialect === 'pg' && src[j] === '/' && src[j + 1] === '*') { d++; j += 2; continue; } if (src[j] === '*' && src[j + 1] === '/') { d--; j += 2; continue; } j++; }
@@ -112,6 +120,8 @@ function countable(code) {
     .replace(/\bIS\s+NOT\s+NULL\b/gi, ' != null ').replace(/\bIS\s+NULL\b/gi, ' == null ')
     .replace(/\bBETWEEN\s+(\S+)\s+AND\s+/gi, ' between $1 , ')
     .replace(/\|\|/g, ' + ')
+    // (`<>` is worded "is different from": a comparison, not a negation.)
+    .replace(/<>|!=/g, ' == ')
     .replace(/\bNOT\b/gi, 'not').replace(/\bAND\b/gi, 'and').replace(/\bOR\b/gi, 'or').replace(/\bIN\b/gi, 'in').replace(/\bIS\b/gi, 'is')
     .replace(/(?<![<>!:=])=(?!=)/g, '==');
 }
@@ -202,7 +212,10 @@ function targetWords(text, ctx) {
 
 // ── Statements ───────────────────────────────────────────────────────────────────────────────────────────
 
-const code = (text) => String(text).replace(/\s+/g, ' ').trim();
+// Code on one line: a `--` comment becomes /* … */ so it does not swallow the rest of the line.
+const code = (text) => String(text).replace(/('(?:[^']|'')*')|--([^\n]*)/g, (m, str, note) => str ?? `/*${note.replace(/\*\//g, '* /')} */`).replace(/\s+/g, ' ').trim();
+/** "x to y", or the names as written when both read the same (v_retention := p_retention). */
+const setPair = (target, v, rawT, rawV) => (target === v && rawT.trim() !== rawV.trim() ? `\`${rawT.trim()}\` to \`${rawV.trim()}\`` : `${target} to ${v}`);
 const asCode = (text, base) => ({ kind: 'other', says: code(text), code: code(text), restates: code(text), ...base });
 
 /** Top-level pieces of a token run split at commas. */
@@ -409,7 +422,7 @@ function statementStep(ts, text, base, ctx) {
       const vts = p.slice(j + 2);
       const v = vts.length ? valueWords(ctx.src.slice(vts[0].s, vts.at(-1).e), ctx, vts) : null;
       if (!target || !v || k) return [asCode(t, base)];
-      sets.push(`${target} to ${v}`);
+      sets.push(setPair(target, v, ctx.src.slice(p[k].s, p[j].e), ctx.src.slice(vts[0].s, vts.at(-1).e)));
     }
     return { kind: 'set', says: `Sets ${sqlListWords(sets)}`, code: t, ...base };
   }
@@ -423,7 +436,7 @@ function statementStep(ts, text, base, ctx) {
         const target = targetWords(ctx.src.slice(at(0).s, at(j).e), ctx);
         const vts = ts.slice(j + 2);
         const v = vts.length ? valueWords(ctx.src.slice(vts[0].s, vts.at(-1).e), ctx, vts) : null;
-        if (target && v) return { kind: 'set', says: `Sets ${target} to ${v}`, code: t, ...base };
+        if (target && v) return { kind: 'set', says: `Sets ${setPair(target, v, ctx.src.slice(at(0).s, at(j).e), ctx.src.slice(vts[0].s, vts.at(-1).e))}`, code: t, ...base };
         return asCode(t, base);
       }
     }
@@ -715,6 +728,16 @@ export function bodySteps(toks, ctx, opts = {}) {
       if (isW(peek(), 'BEGIN', 'LOOP', 'WHILE', 'REPEAT', 'FOR', 'FOREACH')) return statement(t.v);
       return []; // a GOTO target
     }
+    if (t.t === 'ver') {
+      // A versioned comment at the start of a statement: its statements, on the versions that run them.
+      i++;
+      const inner = lexSql(ctx.src, t.innerS, t.innerE, 'mysql');
+      let kids;
+      try { kids = bodySteps(inner, { ...ctx, depth: 1 }); } catch (err) { if (!(err instanceof Unmatched)) throw err; kids = [asCode(t.v, baseOf(a, a + 1))]; }
+      if (t.version == null) return kids;
+      const v = `${Math.floor(t.version / 10000)}.${Math.floor(t.version / 100) % 100}.${t.version % 100}`;
+      return [{ kind: 'branch', says: `If the MySQL server is version ${v} or later`, code: code(t.v), cond: `MySQL version >= ${v}`, ...baseOf(a, a + 1), children: kids }];
+    }
     if (!isW(t)) { const e = simpleEnd(a); i = Math.max(e, a + 1); if (isP(peek(), ';')) i++; return [asCode(textOf(a, Math.max(e, a + 1)), baseOf(a, Math.max(e, a + 1)))]; }
     const up = t.up;
 
@@ -916,7 +939,7 @@ export function bodySteps(toks, ctx, opts = {}) {
           const target = targetWords(ts[0].v, ctx);
           const vts = ts.slice(at + 1);
           const v = vts.length ? valueWords(ctx.src.slice(vts[0].s, vts.at(-1).e), ctx, vts) : null;
-          out.push(target && v ? { kind: 'set', says: `Sets ${target} to ${v}`, code: code(textOf(d0, d0 + ts.length)), ...baseOf(d0, d0 + ts.length) } : asCode(textOf(d0, d0 + ts.length), baseOf(d0, d0 + ts.length)));
+          out.push(target && v ? { kind: 'set', says: `Sets ${setPair(target, v, ts[0].v, ctx.src.slice(vts[0].s, vts.at(-1).e))}`, code: code(textOf(d0, d0 + ts.length)), ...baseOf(d0, d0 + ts.length) } : asCode(textOf(d0, d0 + ts.length), baseOf(d0, d0 + ts.length)));
         }
         return out;
       }
@@ -970,7 +993,7 @@ export function bodySteps(toks, ctx, opts = {}) {
         const vts = p.slice(eq + 1);
         const v = vts.length ? valueWords(ctx.src.slice(vts[0].s, vts.at(-1).e), ctx, vts) : null;
         if (!target || !v) return [asCode(textOf(a, e), baseOf(a, e))];
-        sets.push(`${target} to ${v}`);
+        sets.push(setPair(target, v, p[0].v, ctx.src.slice(vts[0].s, vts.at(-1).e)));
       }
       return sets.length ? [{ kind: 'set', says: `Sets ${sqlListWords(sets)}`, code: code(textOf(a, e)), ...baseOf(a, e) }] : [];
     }

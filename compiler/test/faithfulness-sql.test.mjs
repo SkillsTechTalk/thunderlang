@@ -326,3 +326,26 @@ test('OUT parameters are what it gives back, not inputs', () => {
   assert.match(t, /You give it: db, table\n/);
   assert.match(t, /You get back: exists/);
 });
+
+// Found when the fixed readings were graded again.
+
+test('regrade, mysql-sys diagnostics / tSQLt SetSummaryError: <> and NOT IN are asked as written, so a NULL takes the side the code takes', () => {
+  const t = my("BEGIN\n  IF (in_auto_config <> 'current') THEN\n    SET v_a = 1;\n  END IF;\n  IF (in_x NOT IN (0, 1)) THEN\n    SET v_b = 2;\n  END IF;\nEND", "CREATE DEFINER='root'@'localhost' PROCEDURE p (IN in_auto_config TEXT, IN in_x INT)");
+  assert.equal(sideOf(t, /Ask: Is auto config different from "current"\?/, /Sets a to 1/), 'yes');
+  assert.equal(sideOf(t, /Ask: Is x none of 0, 1\?/, /Sets b to 2/), 'yes');
+});
+
+test('regrade, mysql-sys diagnostics: a doubled quote next to \\n inside quoted text is kept exactly', () => {
+  const t = my("BEGIN\n  SET @sys.diagnostics.sql = CONCAT('INSERT INTO ', v_table_name, ' SELECT REPLACE(Variable_value, ''\\n'', ''\\\\\\\\n'') FROM sys.metrics');\nEND");
+  assert.match(t, /REPLACE\(Variable_value, '\\n', '\\\\\\\\n'\)/);
+});
+
+test('regrade, mysql-sys ps_thread_stack: a /*!50602 … */ versioned comment runs on that version, so its statement is shown', () => {
+  const t = my("BEGIN\n  /*!50602\n  UPDATE performance_schema.threads SET instrumented = 'NO' WHERE processlist_id = CONNECTION_ID();\n  */\n  SET v_x = 1;\nEND");
+  assert.equal(sideOf(t, /Ask: The MySQL server is version 5\.6\.2 or later\?/, /Records the change in threads: sets instrumented to "NO"/), 'yes');
+});
+
+test('regrade, pg_partman drop_partition_time: a variable set from the input of the same name keeps both names', () => {
+  const t = pg('DECLARE v_retention interval;\nBEGIN\n  v_retention := p_retention;\nEND', 'CREATE FUNCTION f(p_retention interval) RETURNS void AS $$');
+  assert.match(t, /Sets `v_retention` to `p_retention`/);
+});
