@@ -476,7 +476,7 @@ function checkStep(step, ctx) {
 
   // A tree the reader could not parse: only a fixed safe form, checked against the text.
   if (hasTreeLang && (!e || e.kind === 'code') && step.kind !== 'try' && step.kind !== 'check' && !/^(?:Otherwise|Leaves the|Skips to the next|Stops here$|Tries |Runs the next steps|If anything goes wrong)/.test(says)) {
-    const why = safeForm(step, says, /…$/.test(code) ? full.replace(/\s*\n\s*/g, ' ') : code);
+    const why = safeForm(step, says, /…$/.test(code) ? full.replace(/\s*\n\s*/g, ' ') : code, lang);
     if (why) return why;
     // A safe form was matched against the text: only the checks on values and words below apply.
     var safeOk = true;
@@ -812,14 +812,19 @@ function balancedTail(code, open) {
   }
   return false;
 }
-function safeForm(step, says, code) {
+// Languages where `name { … }` passes a closure to a call (elsewhere `Name { … }` builds a value: a Rust struct, a Go literal).
+const TRAILING_CLOSURE = new Set(['swift', 'kotlin', 'ruby', 'scala', 'groovy']);
+
+function safeForm(step, says, code, lang = '') {
+  const trailing = TRAILING_CLOSURE.has(lang);
+  if (!trailing && /\{\s*$/.test(String(code).trim()) && /^(?:Calls|Returns the result of) /.test(says) && !/\)\s*\{\s*$/.test(String(code).trim())) return WHY.unparsed;
   let c = String(code).replace(/\s*\{\s*$/, '').trim().replace(/^(?:try[?!]?\s+)?(?:await\s+)?(?=[A-Za-z_])/, '');
   c = c.replace(/(?<![=!<>])=(?!=)\s*(?:try[?!]?\s+)?(?:await\s+)?/, '= ');
   // An implicit return (`try await send(…)` as a one-expression body) is read like `return send(…)`.
   if (step.kind === 'return' && !/^return\b/.test(c)) c = `return ${c.replace(/^(?:try[?!]?\s+)?(?:await\s+)?/, '')}`;
   c = c.replace(/^return\s+(?:try[?!]?\s+)?(?:await\s+)?/, 'return ');
   // A trailing closure (`write { … }`, `items.map { … }`) is a call.
-  if (/^(?:return\s+)?[A-Za-z_][\w.]*\s*\{/.test(c) && /^(?:Calls|Returns the result of) /.test(says)) c = c.replace(/^((?:return\s+)?[A-Za-z_][\w.]*)\s*\{.*$/, '$1()');
+  if (trailing && /^(?:return\s+)?[A-Za-z_][\w.]*\s*\{/.test(c) && /^(?:Calls|Returns the result of) /.test(says)) c = c.replace(/^((?:return\s+)?[A-Za-z_][\w.]*)\s*\{.*$/, '$1()');
   if (/^(?:return\s+)?[A-Za-z_][\w.]*\s*\(.*\)\s*\{.*$/.test(c) && /^(?:Calls|Returns the result of) /.test(says) && step.children?.length) c = c.replace(/\)\s*\{.*$/, ')');
   const lastName = (p) => p.split(/\s*(?:\.|->|::|\?\.)\s*/).pop();
   let m;
@@ -827,7 +832,7 @@ function safeForm(step, says, code) {
   // `return Type(…)` / `Type.init(…)` / `new Type(…)`: "Returns a new Type".
   if (step.kind === 'return' && (m = /^return\s+(?:new\s+)?([A-Z][\w]*)(?:\.init)?\s*[({]/.exec(c))) return new RegExp(`^Returns a new ${m[1]}$`, 'i').test(says) || sameWords(says.replace(/^Returns a new /, ''), m[1]) ? null : WHY.unparsed;
   // A call whose steps are inside it (a trailing closure): its last call is named.
-  if (step.children?.length && /^(?:Calls (.+) with these steps|Returns the result of (.+))$/.test(says)) {
+  if (trailing && step.children?.length && /^(?:Calls (.+) with these steps|Returns the result of (.+))$/.test(says)) {
     const header = String(code).replace(/\{\s*(?:\[[^\]]*\]\s*)?(?:\(?[\w\s,$]*\)?\s+in)?\s*$/, '').trim();
     const last = /([A-Za-z_]\w*)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*$/.exec(header)?.[1];
     const named = says.replace(/^Calls (.+) with these steps$/, '$1').replace(/^Returns the result of /, '');
