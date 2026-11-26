@@ -55,8 +55,9 @@ import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
 import { replayMain } from './replay-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
-import { paint, paintHelp, useColor } from './term.mjs';
+import { paint, paintHelp, paintThunder, useColor } from './term.mjs';
 import { coreMain } from './core/cli.mjs';
+import { findProjectRoot } from './core/project.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -677,7 +678,7 @@ function main() {
         if (!/\.py$/i.test(file) && (args.from || 'python') !== 'python') throw new Error('--as-core reads Python for now (other languages next).');
         const r = pythonToCore(readFileSync(file, 'utf8'));
         if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
-        console.log(r.core.trimEnd());
+        console.log(paintThunder(r.core.trimEnd()));
         const all = [...r.module.notTranslated, ...r.functions.flatMap((f) => f.notTranslated)];
         const exact = r.functions.filter((f) => f.exact);
         console.error(`\nthunder read --as-core: ${exact.length} of ${r.functions.length} function${r.functions.length === 1 ? '' : 's'} printed exactly as Thunder Core${all.length ? `; ${all.length} line${all.length === 1 ? '' : 's'} not translated (each stops with a clear error if it runs)` : ''}.`);
@@ -2756,4 +2757,19 @@ test Example
   printDiagnostics(diagnostics);
 }
 
-main();
+/** A file that is not there is said in words, never as a crash: what was looked for, where, and what to type. */
+function missingFile(e) {
+  if (!e || e.code !== 'ENOENT' || !e.path) return false;
+  const cmd = process.argv[2] ?? 'thunder';
+  const name = relative(process.cwd(), e.path) || e.path;
+  const lines = [`thunder ${cmd}: there is no file or folder called "${name}" here.`, `You're in: ${process.cwd()}`];
+  let root = null;
+  try { root = findProjectRoot(process.cwd()); } catch { /* none */ }
+  if (root && ['run', 'test', 'build', 'check'].includes(cmd)) lines.push(`You're inside the Thunder project "${basename(root)}". Run it with: thunder ${cmd}`);
+  else lines.push('See the main commands with: thunder help');
+  console.error(paint(lines.join('\n'), useColor(process.stderr)));
+  process.exitCode = 2;
+  return true;
+}
+process.on('uncaughtException', (e) => { if (!missingFile(e)) { console.error(e); process.exitCode = 1; } });
+try { main(); } catch (e) { if (!missingFile(e)) throw e; }
