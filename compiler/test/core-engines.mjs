@@ -15,6 +15,8 @@ import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { runWithEngine, testWithEngine, pythonModulesUsed } from '../src/core/engine.mjs';
 import { writeTypeScript, runTypeScript, typescriptRunner, typecheckTypeScript, typescriptDiagnostics } from '../src/core/typescript-run.mjs';
+import { javaDiagnostics } from '../src/core/java-run.mjs';
+import { runJavaWarm, JDK } from './java-conformance.mjs';
 
 /** How compiled TypeScript runs here (Node's own type stripping, or the typescript package), or why it can't. */
 export const TS = typescriptRunner();
@@ -27,7 +29,10 @@ process.on('exit', () => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
 
 /** Programs compared on both engines in this test file, and programs the Thunder engine refused (Use). */
-export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0 };
+export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, java: 0 };
+if (process.env.THUNDER_TALLY) process.on('exit', () => console.log(`# conformance tally: ${JSON.stringify(tally)}`));
+/** Whether compiled Java runs here (a JDK 17+ found through THUNDER_JAVA_HOME, JAVA_HOME, or the PATH), or why not. */
+export { JDK };
 
 const newDir = () => { const d = join(tmp, `p${n++}`); mkdirSync(d, { recursive: true }); return d; };
 const trim = (r) => ({ out: r.stdout.trim(), err: r.stderr.trim(), status: r.status });
@@ -55,11 +60,14 @@ export function bothEngines(results, { tests = false, entry = results[0], cwd = 
     assert.match(eng.stderr, new RegExp(`uses the Python module "${uses[0].module.replace(/\./g, '\\.')}"`));
     // Compiled TypeScript refuses it too, when it is built (TC405): Python modules exist only for the Python target.
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(typescriptDiagnostics(r)[0]?.code, 'TC405', `${label}: TypeScript must refuse Use`);
+    for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(javaDiagnostics(r)[0]?.code, 'TC405', `${label}: Java must refuse Use`);
     tally.refused++;
     return PY.error ? trim(eng) : trim(runPython(results, { tests, entry, cwd: where, dir }));
   }
   const ts = runCompiledTypeScript(results, { tests, entry, cwd: where, dir, label });
   if (ts) assert.deepEqual(ts, trim(eng), `${label}\nCompiled TypeScript and the Thunder engine disagree on this program.`);
+  const jv = runCompiledJava(results, { tests, entry, cwd: where, label });
+  if (jv) assert.deepEqual(jv, trim(eng), `${label}\nCompiled Java and the Thunder engine disagree on this program.`);
   if (PY.error) return trim(eng);
   const py = trim(runPython(results, { tests, entry, cwd: where, dir }));
   assert.deepEqual(trim(eng), py, `${label}\nThe Thunder engine and Python disagree on this program.`);
@@ -89,4 +97,15 @@ export function runBoth(source, { tests = false, file = 'main.thunder', cwd = nu
   const r = compileCore(source, { file });
   assert.deepEqual(r.diagnostics, [], JSON.stringify(r.diagnostics));
   return bothEngines([{ ...r, module: 'main' }], { tests, cwd, label: source });
+}
+
+/** Compile results to Java and run them (or their tests) in the warm Java process; null when there is no JDK here. */
+export function runCompiledJava(results, { tests = false, entry = results[0], cwd = null, label = '' } = {}) {
+  if (JDK.error) return null;
+  const withKind = results.map((r) => ({ ...r, module: r.module ?? 'main', kind: r.kind ?? 'src' }));
+  for (const r of withKind) assert.deepEqual(javaDiagnostics(r), [], `${label}: a program for Java must not use Python modules`);
+  const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
+  const r = runJavaWarm(withKind, { tests, entry: main, cwd: cwd ?? tmp });
+  tally.java++;
+  return trim(r);
 }

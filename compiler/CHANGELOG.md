@@ -1,3 +1,12 @@
+# Unreleased
+
+- **Thunder Core compiles to Java.** `thunder build|run|test --target java` (or `target = "java"` in thunder.toml)
+  compiles a program to readable Java 17+ (one class per Thunder file, a static method per function, every line marked
+  `// thunder:N`) with a JDK-only runtime that follows the Thunder engine's values line for line. Every Core test
+  program (136) gives the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Java.
+  Thunder finds the JDK through THUNDER_JAVA_HOME, JAVA_HOME, or the PATH, and says what to install when there is
+  none; building needs no JDK. A program that uses a Python module is refused for Java (TC405).
+
 # 1.2.0
 
 **Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why

@@ -14,7 +14,7 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
     "https://thunderlang.dev",
   description:
-    "Thunder (also called ThunderLang) is the human programming language. Write software in a language you understand, build with AI, and compile to the ecosystem you choose. Today Thunder reads code in seventeen languages and compiles rules to six; you can also write whole programs in Thunder and run them as Python or TypeScript.",
+    "Thunder (also called ThunderLang) is the human programming language. Write software in a language you understand, build with AI, and compile to the ecosystem you choose. Today Thunder reads code in seventeen languages and compiles rules to six; you can also write whole programs in Thunder and run them as Python, TypeScript, or Java.",
   promise:
     "Write software in a language you understand. Build with AI. Compile to the ecosystem you choose.",
   twitter: "@skillstech",
