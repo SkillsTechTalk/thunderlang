@@ -4,7 +4,7 @@
 
 // The version npm installs today. Update this when a new release is published, so the install page
 // never promises a command people can't run yet.
-export const PUBLISHED_VERSION = "1.3.0";
+export const PUBLISHED_VERSION = "1.4.0";
 
 export const PROJECT_FACTS: { value: string; label: string; href?: string }[] = [
   // The living version of this claim: /proof is generated from the repo's own

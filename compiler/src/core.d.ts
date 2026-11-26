@@ -181,6 +181,9 @@ export { terminatorEffect, toThunderCondition, toThunderOutcome, sayCondition } 
 export type { ReadStep } from './read.mjs';
 export { PASSPORT_SCHEMA, ALWAYS_NOT_VERIFIED, assemblePassport, summarize, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
 export type { Passport, PassportEvidence, PassportCheck, PassportInput } from './passport.mjs';
+export { formatValue } from './plain-contract.mjs';
+export type { PlainInput } from './plain-contract.mjs';
+export type { RulePart, WriteChange, ChangedCase, ChangedCases } from './write.mjs';
 
 // One rule change written into every service that implements it (src/write-across.mjs, docs/thunder-write.md).
 export const WRITE_ACROSS_SCHEMA: 'thunder-write-across-v1';

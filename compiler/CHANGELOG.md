@@ -1,4 +1,11 @@
-# Unreleased
+# 1.4.0
+
+**Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: the Software Passport
+(`thunder passport`, `thunder passport check`; schema `thunder-passport-v1`), ownership checks on TypeScript web routes
+(`thunder read <dir> --access`, `accessFlow()`; schema `thunder-access-v1`), and a public, browser-safe library entry,
+`@skillstech/thunderlang/program` (compile, run, screens, and all seven targets). `./core` now also exports what apps
+used to reach through paths into `src/`; switch to the public entries, since `src/` paths are not part of the API. The
+repository gains a three-language checkout demo (`demo/checkout/`) with its walkthrough.
 
 - **One rule change, every service, any language (`thunder write <folder…>`).** When the same rule is written in
   several services (free shipping from $50 in the cart page in TypeScript, the orders service in C#, and billing's

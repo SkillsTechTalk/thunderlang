@@ -15,6 +15,8 @@ export function runInProcess(options: { entry: CoreResult; cwd: string; deeper?:
 export function recordedRun(options: { entry: CoreResult; cwd: string; readText?: ReadText }): unknown;
 export function testInProcess(options: { results: CoreResult[]; cwd: string; deeper?: boolean; readText?: ReadText }): unknown;
 export interface ScreenAppHandle { render(): unknown; readonly screen: string | null; press(label: string, nth?: number): { off: boolean; tree: unknown }; type(label: string, text: string, nth?: number): { tree: unknown } }
+/** The same handle, by the name apps expect. */
+export type ScreenApp = ScreenAppHandle;
 export function screenApp(options: { entry: CoreResult; cwd?: string; readText?: ReadText }): ScreenAppHandle;
 export function screenOutline(tree: unknown, indent?: string): string;
 export function toPython(program: unknown, info: unknown, options?: { source?: string; imports?: unknown[] }): string;
