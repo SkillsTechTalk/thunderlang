@@ -13,6 +13,9 @@ import { compileCore } from './core/index.mjs';
 import { runInProcess, testInProcess } from './core/engine-core.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { explainRun } from './why.mjs';
+import { accessFlow } from './flow/access.mjs';
+import { writeRuleAcross } from './write-across.mjs';
+import { assemblePassport, checkPassport } from './passport.mjs';
 
 export const LEARN_SCHEMA = 'thunder-learn-v1';
 export { READ_LESSONS, WRITE_LESSONS };
@@ -76,6 +79,20 @@ function writeContext(lesson) {
   }
   if (lesson.asCore) ctx.asCore = pythonToCore(file.code);
   if (lesson.why) ctx.why = explainRun(file.code);
+  // Changing real code: each tool run on the lesson's files, labeled "part/file".
+  const parted = lesson.files.map((f) => { const i = f.label.indexOf('/'); return { part: f.label.slice(0, i), path: f.label.slice(i + 1), source: f.code }; });
+  if (lesson.access) {
+    ctx.accessOf = (which) => accessFlow((which ?? lesson.files.map((_, i) => i)).map((i) => ({ path: lesson.files[i].label, source: lesson.files[i].code })));
+    ctx.access = ctx.accessOf();
+  }
+  if (lesson.across) ctx.across = writeRuleAcross(parted, lesson.across);
+  if (lesson.passport) {
+    const parts = [...new Set(parted.map((f) => f.part))].map((name) => ({ name, files: parted.filter((f) => f.part === name).map(({ path, source }) => ({ path, source })) }));
+    const runs = lesson.passport.map((r) => ({ cwd: r.part, ...r }));
+    ctx.passport = assemblePassport({ parts, runs, builtAt: '2026-01-01T00:00:00.000Z', thunder: COMPILER_VERSION });
+    /** Check the passport after some files changed: { "part/file": new source }. */
+    ctx.passportCheck = (changed) => checkPassport(ctx.passport, { read: (part, file) => changed[`${part}/${file}`] ?? parted.find((f) => f.part === part && f.path === file)?.source });
+  }
   return ctx;
 }
 

@@ -165,3 +165,16 @@ test('thunder write <folders…>: the plan changes nothing; --write changes ever
   assert.equal(run('--answer', 'Review').status, 2);
   assert.equal(spawnSync(process.execPath, [cli, 'write', 'web', 'orders', '--decision', 'shippingNote', '--rule', '1', '--when', 'orderSubtotal >= 9', '--run', 'x: true'], { cwd: root, encoding: 'utf8' }).status, 2);
 });
+
+test('the same condition in a decision with an unrelated name is listed, never changed', () => {
+  const files = [
+    { part: 'web', path: 'shipping.ts', source: 'export function shippingFee(subtotal: number): number {\n  if (subtotal >= 50) return 0;\n  return 5.99;\n}\n' },
+    { part: 'billing', path: 'receipt.py', source: 'def get_shipping_fee(subtotal):\n    if subtotal >= 50:\n        return 0\n    return 5.99\n\n\ndef coupon_allowed(subtotal):\n    if subtotal >= 50:\n        return True\n    return False\n' },
+  ];
+  const r = writeRuleAcross(files, { decision: 'shippingFee', rule: 1, when: 'subtotal >= 40' });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.plan.map((p) => p.decision).sort(), ['get_shipping_fee', 'shippingFee']);
+  assert.deepEqual(r.notIncluded.map((n) => n.decision), ['coupon_allowed']);
+  assert.match(r.notIncluded[0].why, /shares no word/);
+  assert.match(r.files['billing/receipt.py'], /def coupon_allowed\(subtotal\):\n    if subtotal >= 50:/);
+});

@@ -10,8 +10,10 @@
 //
 // Which rules count as the same: decisions whose rule has the same condition, comparing names as words
 // (orderTotal, OrderTotal, and order_total are the same name), numbers by value, and comparisons and text exactly.
-// A rule with the same shape where only the names or only the values differ is listed as "not included, check by
-// hand", never changed. Test files are never edited; those that mention the rule's old values are listed.
+// The same condition in a decision whose name shares no word with the chosen one (couponAllowed next to
+// shippingFee, both "subtotal >= 50") is a different rule that happens to use the same limit, so it is listed, not
+// changed. A rule with the same shape where only the names or only the values differ is listed as "not included,
+// check by hand", never changed. Test files are never edited; those that mention the rule's old values are listed.
 //
 // Deterministic and browser-safe: it takes file contents and returns new contents. It never runs anything.
 import { readCode, sayCondition } from './read.mjs';
@@ -26,6 +28,10 @@ const editable = (t) => t.t === 'num' || t.t === 'str' || (t.t === 'op' && ['<',
 const keyOf = (t) => (t.t === 'id' ? `id:${words(t.v)}` : t.t === 'str' ? `str:${JSON.stringify(t.v)}` : `${t.t}:${t.v}`);
 const shapeOf = (t) => (t.t === 'id' ? 'id' : editable(t) ? (t.t === 'op' ? 'cmp' : t.t) : `${t.t}:${t.v}`);
 const join = (toks) => toks.map((t) => (t.t === 'str' ? JSON.stringify(t.v) : String(t.v))).join(' ');
+// Words that say nothing about which rule a function is (get_shipping_fee and ShippingFee share "shipping").
+const FILLER = new Set(['get', 'is', 'has', 'can', 'should', 'calc', 'calculate', 'compute', 'check', 'find', 'the', 'a', 'an', 'of', 'for', 'to', 'by']);
+const nameWords = (name) => new Set(words(name).split(' ').filter((w) => w && !FILLER.has(w)));
+const sharesWord = (a, b) => { const A = nameWords(a); return [...nameWords(b)].some((w) => A.has(w)); };
 const toks = (when) => { try { return tokenize(when); } catch { return null; } };
 
 /** Every decision rule in the parts' source files (test files left out), read once. */
@@ -75,7 +81,11 @@ export function findSameRule(files, { decision, rule }) {
     if (x === anchor) continue;
     const k = x.toks.map(keyOf).join(' ');
     const said = sayCondition(x.when);
-    if (k === key) { same.push({ ...x, why: `the same condition: ${said} (names compared as words)` }); continue; }
+    if (k === key) {
+      if (sharesWord(x.decision, anchor.decision)) same.push({ ...x, why: `the same condition: ${said} (names compared as words)` });
+      else notIncluded.push({ ...x, why: `the same condition (${said}) in ${x.decision}, whose name shares no word with ${anchor.decision}; it may be a different rule that happens to use the same limit` });
+      continue;
+    }
     if (x.toks.map(shapeOf).join(' ') !== shape) continue;
     const xNames = x.toks.filter((t) => t.t === 'id').map(keyOf).join(' ');
     const xValues = x.toks.filter((t) => t.t !== 'id').map(keyOf).join(' ');

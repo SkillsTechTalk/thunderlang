@@ -11,7 +11,7 @@ import { newProject } from '../src/core/project.mjs';
 
 test('write lessons name their concept, say what to type, and show what the program prints', () => {
   const write = learnThunder().lessons.filter((l) => l.part === 'write');
-  assert.deepEqual(write.map((l) => l.slug), ['first-program', 'choose', 'repeat', 'records', 'python-as-thunder', 'check-test-verify', 'agent-why']);
+  assert.deepEqual(write.map((l) => l.slug), ['first-program', 'choose', 'repeat', 'records', 'python-as-thunder', 'check-test-verify', 'agent-why', 'access-check', 'change-everywhere', 'passport']);
   for (const l of write) {
     assert.ok(l.concept && l.commands?.length && l.questions.length && l.reflect.length, l.slug);
     for (const c of l.commands) assert.match(c, /^thunder /, `${l.slug}: ${c}`);
@@ -43,7 +43,8 @@ test('the tutorial loads no Node-only module, so it runs in a browser', () => {
     if (seen.has(f)) return; seen.add(f);
     for (const m of readFileSync(f, 'utf8').matchAll(/^\s*(?:import|export)\s[^;]*?from\s+["']([^"']+)["']/gm)) {
       if (m[1].startsWith('node:')) bad.push(`${f} -> ${m[1]}`);
-      else if (m[1].startsWith('.')) walk(resolve(dirname(f), m[1]));
+      // The compiler's own imports always name a .mjs file; an import inside a lesson's sample code (a string) does not.
+      else if (m[1].startsWith('.') && m[1].endsWith('.mjs')) walk(resolve(dirname(f), m[1]));
     }
   };
   walk(resolve(dirname(new URL(import.meta.url).pathname), '..', 'src', 'learn.mjs'));

@@ -109,7 +109,10 @@ compared as words (`subtotal`, `Subtotal`, and `sub_total` are the same name), n
 exactly. Each answer stays as that service wrote it: the page answers with words, orders with an amount.
 
 **What is never included.** A rule with the same shape where only the names differ (`weight >= 50`) or only the
-limit differs (`subtotal >= 500`) is listed as "not included, check by hand", and never changed. Thunder does not
+limit differs (`subtotal >= 500`) is listed as "not included, check by hand", and never changed. So is the same
+condition in a decision whose name shares no word with the one you chose (`couponAllowed` next to `shippingFee`,
+both `subtotal >= 50`): it is probably a different rule that happens to use the same limit. Names are compared as
+words, leaving out words like get, is, and calculate, so `shippingNote`, `ShippingFee`, and `get_shipping_fee` match. Thunder does not
 guess that they are the same rule. Code that computes the same thing in a different shape is not found at all.
 
 **All or nothing.** Every copy is changed with Thunder write's own checks (only the rule's characters, each file
