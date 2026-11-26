@@ -1,5 +1,10 @@
 # Unreleased
 
+- **`thunder try`: what if?** Try a rule from your code with your own values: `thunder try register.ts --with
+  "age=15, parent approved=no"` prints the answer and why, check by check (✓/✗ with the value it saw). Without
+  `--with`, it asks for each value, explains a mistyped one, and offers another case. Only rules can be tried (they
+  change nothing); an action is refused with the command to read it, and a rule too complex for the engine is refused
+  with the reason. `--focus` picks a rule; `--json` gives data. Same engine as the web rule editor.
 - **`thunder read --level`: read at one depth, in the terminal.** The five levels OpenThunder shows: `big-picture`
   (the Things, what they know and can do), `flow` (one action or rule as a tree of questions, branches, error
   handlers, and "always"), `details` (every way it ends, what it changes and when, and what the code cannot tell),

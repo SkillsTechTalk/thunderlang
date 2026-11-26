@@ -106,6 +106,25 @@ How does it go?
 `details` list the choices as ready-to-run commands. Every level ends by suggesting the next one. A step Thunder
 could not explain is marked `[not read: shown as code]`; `--level original` shows the line itself.
 
+## Try a rule: what if?
+
+`thunder try` runs one rule from your code on values you choose, and shows the answer and why, check by check.
+
+```text
+$ thunder try register.ts --with "age=15, parent approved=no"
+Answer: Declined
+Why:
+  ✗ the age is at least 18  (it is 15), so not Allowed
+  ✗ it is parent approved  (no), so not Allowed
+  → none of the rules matched, so: Declined (otherwise)
+```
+
+Without `--with`, Thunder asks for each value and offers to try another case. `--focus "<rule>"` picks a rule when
+a file has several, and `--json` gives the result as data. Only rules can be tried: a rule decides and changes
+nothing. An action (which may save, send, or call other code) is refused, with the command to read it instead. A rule
+more complex than comparisons and yes/no checks is refused too, with the reason; Thunder never approximates it.
+The answer comes from the same engine as the [rule editor](/try).
+
 ## In a coding agent
 
 The `intent_read` MCP tool takes the same options (`query`, `kinds`, `in`). For a repository, `intent_read_repo` takes a folder plus the same filters as the terminal (`kinds`, `languages`, `folder`, `answer`, `input`). It reads your local files, so it runs only in local agents such as Claude Code and Codex, never on the hosted endpoint. Ask your agent "what does this file decide?" and it can answer from the reading instead of guessing. See [ThunderLang for AI agents](/docs/mcp) to connect Claude Code, Codex, or ChatGPT.
