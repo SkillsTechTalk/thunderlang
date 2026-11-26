@@ -1,4 +1,7 @@
-# Unreleased
+# 1.4.1
+
+**Upgrade note.** No command, flag, exit code, or JSON shape changed. One behavior fix: `thunder write <folder…>` now
+lists, instead of changing, a rule with the same condition in a decision whose name shares no word with the chosen one.
 
 - **Three lessons on changing real code, in `@skillstech/thunderlang/learn`.** "Does every route keep each
   customer's records to them?" (`thunder read --access`), "Change one rule in every service at once"
