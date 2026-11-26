@@ -1,3 +1,11 @@
+# Unreleased
+
+- **`@skillstech/thunderlang/program`: Thunder Core as a library, browser-safe.** One public entry for apps (OpenThunder,
+  the site, your own tools) to compile a program (`compileCore`), run it on the Thunder engine (`runInProcess`,
+  `recordedRun`, `testInProcess`), show and drive its screens (`screenApp`, `screenOutline`), and write it as Python,
+  TypeScript, C#, Java, Go, Rust, or React (`toPython` … `toReact`), plus `pythonToCore`, with types. A test checks
+  that nothing it imports needs Node, so it runs in a browser; until now this needed paths into the package's files.
+
 # 1.3.0
 
 **Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: Thunder Core compiles to

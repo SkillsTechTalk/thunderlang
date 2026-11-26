@@ -125,3 +125,11 @@ export { readCode, searchReading, detectLanguage, READ_SCHEMA, READ_LANGUAGES, I
 // Read a whole repository (pure: the caller passes file contents) and turn a recovered decision into a contract.
 export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, readFiles, readingOf, READ_REPO_SCHEMA, READ_SKIP_DIRS } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
+
+
+// Everything OpenThunder's Read in Thunder and Thunder Live use, so no app needs paths into this package's files.
+export { COLORS, SYMBOLS, DOES, FORMS, ZOOM, LINES, STEP_MARKS, ELEMENTS, LANGUAGES as VISUAL_LANGUAGES, BEGINNER } from './visual.mjs';
+export { withArticle } from './model.mjs';
+export { terminatorEffect, toThunderCondition, toThunderOutcome, sayCondition } from './read.mjs';
+export { recoverModel } from './promote.mjs';
+export { stepShape } from './write-steps.mjs';

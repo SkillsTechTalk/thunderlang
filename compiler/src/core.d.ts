@@ -159,3 +159,10 @@ export { readRepo, searchRepo, groupByFile, readableLanguage, readableFile, read
 export type { RepoItem, RepoFacet, RepoReading, RepoFilter } from './read-repo.mjs';
 export { promoteDecision, PROMOTE_SCHEMA } from './promote.mjs';
 export type { Promotion } from './promote.mjs';
+
+// Everything OpenThunder's Read in Thunder and Thunder Live use (see src/core.mjs).
+export { COLORS, SYMBOLS, DOES } from './visual.mjs';
+export type { ColorRole as VisualColorRole } from './visual.mjs';
+export type { ThunderModel, Member, Thing, FlowNode, Flow, LevelView } from './model.mjs';
+export { terminatorEffect, toThunderCondition, toThunderOutcome, sayCondition } from './read.mjs';
+export type { ReadStep } from './read.mjs';
