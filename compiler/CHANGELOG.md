@@ -11,6 +11,14 @@
   refused for TypeScript before anything is written (new code TC405). The site lists Core → TypeScript as Available;
   Java, C#, Go, and Rust stay Planned. CI now runs the compiler tests on Node 22, and the site job checks every
   generated file with tsc.
+- **The tutorial teaches writing and running Thunder.** `@skillstech/thunderlang/learn` gains part 2, "write and run":
+  seven lessons (`part: 'write'`), each naming the concept it teaches: your first program in two commands
+  (`thunder new hello`, `thunder run hello`, and why a bare `thunder run` right after fails), conditions, loops and
+  lists (positions from 1), records with a Never rule, reading Python as Thunder (and what is marked not translated),
+  check vs test vs verify, and `thunder why` with its limits. Every answer is worked out by running the lesson's
+  program on the Thunder engine. New optional lesson fields: `concept`, `commands` (what to type), and `output` (what
+  the program prints). Same schema (`thunder-learn-v1`); the 12 reading lessons are unchanged. The engine's language
+  core is now `engine-core.mjs` with no Node APIs, so the tutorial still runs in a browser.
 - **Fix (Core → Python): a whole number written with leading zeros (`007`) compiled to Python that would not run**
   (Python refuses `007`). It now compiles to `7`, as Thunder means it.
 - When Python is missing, `thunder run` and `thunder test` now also say how to run without it: `--engine thunder`.
@@ -21,6 +29,34 @@
   and any difference fails the tests. A program that uses a Python module (`Use csv as csv`) is refused on the
   Thunder engine before it runs; Thunder never imitates a library. Also available as `runWithEngine` /
   `testWithEngine` in `src/core/engine.mjs`.
+- **`thunder try`: what if?** Try a rule from your code with your own values: `thunder try register.ts --with
+  "age=15, parent approved=no"` prints the answer and why, check by check (✓/✗ with the value it saw). Without
+  `--with`, it asks for each value, explains a mistyped one, and offers another case. Only rules can be tried (they
+  change nothing); an action is refused with the command to read it, and a rule too complex for the engine is refused
+  with the reason. `--focus` picks a rule; `--json` gives data. Same engine as the web rule editor.
+- **`thunder read --level`: read at one depth, in the terminal.** The five levels OpenThunder shows: `big-picture`
+  (the Things, what they know and can do), `flow` (one action or rule as a tree of questions, branches, error
+  handlers, and "always"), `details` (every way it ends, what it changes and when, and what the code cannot tell),
+  `text` (Thunder Text), and `original` (the exact lines, numbered). `--focus "<name>"` picks an action, rule, or
+  Thing; without it, `flow` and `details` list the choices as commands. Each level suggests the next. Steps Thunder
+  could not explain stay marked. `--json` prints the model level itself, the same data OpenThunder reads. Works on a
+  file or a folder. `thunder read` without `--level` is unchanged.
+- **`thunder why` is short now, and says what the agent did to the world.** The first screen is a few lines: what
+  happened, why it stopped, what it did, and what to do next; `--steps` gives every step. Each step that does something
+  gets one kind, most serious first: moves money, deletes, sends, creates, changes, reads. The kind comes from the
+  strongest evidence: what the tool declares (its MCP annotations with `--tools tools.json`, or `thunder.effect` on the
+  span), then the request method or database operation, and only then the tool's name, where every word counts and the
+  most serious wins (`get_and_delete` now deletes; it was read as `get`). Guesses are labeled. `--allow read,send`
+  names anything beyond those kinds and exits 1. JSON: new `effects` (and `allowed`/`notAllowed`); `changes` items now
+  carry `kind`, and a step's `effect` is one of the six kinds (it was `change`).
+- **A friendlier first minute in the terminal.** `thunder` on its own now shows a short home screen (five things
+  to do, with examples) instead of 120 lines; `thunder help --all` is the full list, and `thunder help <command>`
+  shows one command. A mistyped command says "Did you mean thunder read?" instead of failing later (it used to crash
+  reading a file). `thunder new hello` says exactly how to run it (`thunder run hello`), and `--run` runs it too.
+  `thunder run` (or test, build, check) outside a project says where the nearby projects are and the exact command.
+  New: `thunder doctor` checks Thunder, Node.js, Python 3.10+, PATH, Node versions (nvm) missing Thunder, and
+  optional toolchains, offline, with the fix for each problem; `thunder completion zsh|bash|fish` completes commands
+  on Tab. Every existing command, flag, exit code, and JSON output is unchanged.
 
 # 1.1.0
 

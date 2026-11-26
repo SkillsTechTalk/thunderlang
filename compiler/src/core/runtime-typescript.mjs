@@ -51,7 +51,7 @@ function withFrame(frame, fn) {
 export function keyAt(F, get) { const frame = { file: F.file, line: F.line }; return (item) => withFrame(frame, () => get(item)); }
 
 export function say(text) { process.stdout.write(\`\${text}\\n\`); }
-export function readText(path) { return readTextWith(nodeReadFile, nodeResolve, process.cwd(), path); }
+export function readText(path) { return readTextVia((p, c) => nodeReadFile(nodeResolve(c, p), 'utf8'), process.cwd(), path); }
 
 /** Records: their kind (name, fields, and Never rules), making one, and setting a field. */
 export function recordKind(py, fields, rules = {}) { return { isRecord: true, py, fields, rules }; }

@@ -111,6 +111,24 @@ for (const [rel, path] of cliDocs) {
   });
 }
 
+// Status labels in prose tables must agree with the capability manifest (src/lib/capabilities.ts), the one source
+// the site reads. A table cell carries its key: "| Available <!-- capability:thunderCore --> |".
+const capsTs = readFileSync(join(ROOT, 'src', 'lib', 'capabilities.ts'), 'utf8');
+const capStatus = new Map([...capsTs.matchAll(/\{ key: "([^"]+)",[^}]*?status: "([^"]+)"/g)].map((m) => [m[1], m[2]]));
+const capLabel = Object.fromEntries([...capsTs.matchAll(/^\s*"?([a-z-]+)"?: "([A-Z][a-z ]+)",$/gm)].map((m) => [m[1], m[2]]));
+let statusMarks = 0;
+for (const rel of ['README.md', ...docFiles.map((f) => `docs/${f}`)]) {
+  readFileSync(join(ROOT, rel), 'utf8').split('\n').forEach((line, i) => {
+    for (const m of line.matchAll(/\|\s*([A-Z][A-Za-z ]*?)\s*<!--\s*capability:(\w+)\s*-->\s*\|/g)) {
+      statusMarks++;
+      const status = capStatus.get(m[2]);
+      if (!status) fail(rel, `line ${i + 1}: capability:${m[2]} is not in src/lib/capabilities.ts`);
+      else if (capLabel[status] !== m[1]) fail(rel, `line ${i + 1}: says "${m[1]}" but src/lib/capabilities.ts marks ${m[2]} as "${capLabel[status]}"`);
+    }
+  });
+}
+if (statusMarks < 5) fail('README.md', `only ${statusMarks} status labels are tied to the capability manifest; expected the status tables to carry <!-- capability:key --> marks`);
+
 if (problems.length) {
   console.error(`docs-check: ${problems.length} problem(s):`);
   for (const p of problems) console.error(`  ${p}`);

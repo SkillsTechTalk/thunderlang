@@ -237,7 +237,7 @@ export default function HomePage() {
         </ul>
         <p className="mt-6 max-w-3xl text-sm leading-relaxed text-haze-300">
           <span className="font-medium text-white">Today:</span> Thunder reads code that uses these libraries.{" "}
-          <span className="font-medium text-white">Coming with Thunder Core:</span> calling them from programs you write in Thunder, starting with Python.
+          <span className="font-medium text-white">With Thunder Core:</span> programs you write in Thunder can already use Python libraries (<code className="font-mono text-haze-200">Use csv as csv</code>). The other ecosystems come with their targets.
         </p>
       </Section>
 

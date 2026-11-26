@@ -897,10 +897,14 @@ export function between(lo, v, hi) { if (!compare('<=', lo, v)) return false; re
 /** `item in container`, with the item worked out first (as Python does). */
 export function isIn(item, container) { return contains(container, item); }
 
-/** Read a file the program names, relative to the folder it runs in. `read` is readFileSync; `resolve` makes the path. */
-export function readTextWith(read, resolve, cwd, path) {
+/** Read a file the program names. `readText(path, cwd)` gives its text or throws with .code 'ENOENT' / 'EISDIR';
+ *  without one (a browser) every file is missing. */
+export function readTextVia(readText, cwd, path) {
   if (typeof path !== 'string') throw TypeErr(`expected str, bytes or os.PathLike object, not ${path === null ? 'NoneType' : 'object'}`);
-  try { return read(resolve(cwd, path), 'utf8'); }
+  try {
+    if (!readText) throw Object.assign(new Error('no files here'), { code: 'ENOENT' });
+    return readText(path, cwd);
+  }
   catch (err) {
     if (err.code === 'ENOENT') throw MissingValue(`There is no file "${path}" (looked in the folder the program runs in).`);
     throw new PyErr(err.code === 'EISDIR' ? 'IsADirectoryError' : 'OSError', err.message);

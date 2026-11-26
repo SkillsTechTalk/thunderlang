@@ -22,7 +22,14 @@ You need Node.js 18+ (for the `thunder` command) and Python 3.10+ (to run what i
 
 ```sh
 npm install -g @skillstech/thunderlang   # 1.1.0 or later has Thunder Core
+thunder doctor              # is everything ready? (Node.js, Python, PATH)
 thunder new my-program      # thunder.toml, src/main.thunder, tests/
+thunder run my-program      # check, build, and run it
+```
+
+`thunder new my-program --run` does both. Inside the folder, the commands need no name:
+
+```sh
 cd my-program
 thunder run                 # check, build, and run src/main.thunder
 thunder test                # run every Test block

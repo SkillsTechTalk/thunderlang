@@ -31,16 +31,17 @@ Each compilation capability is advertised only once it works.
 
 | Capability | Status |
 |---|---|
-| **Read** existing code in Thunder: 17 languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available |
-| **Change** existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available |
-| **Compile rules**: decisions written in Thunder compile to TypeScript, Python, Go, Rust, C#, and Java, and their examples run against the generated code | Available |
+| **Read** existing code in Thunder: 17 languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available <!-- capability:thunderedRead --> |
+| **Change** existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available <!-- capability:thunderedEdit --> |
+| **Compile rules**: decisions written in Thunder compile to TypeScript, Python, Go, Rust, C#, and Java, and their examples run against the generated code | Available <!-- capability:decisionTargets --> |
 | **Write whole programs** in Thunder (Thunder Core) and run them as Python: `thunder new`, `run`, `build`, `test` | Available <!-- capability:thunderCore --> |
 | **Compile Thunder Core to TypeScript**: `thunder build --target typescript`; the same output as Python and the Thunder engine on every Core test program | Available <!-- capability:coreTypeScript --> |
 | **Compile Thunder Core** to Java, C#, Go, and Rust | Planned <!-- capability:coreTargets --> |
 
 Thunder Core is young: programs compile to Python and TypeScript. On Python they can use Python libraries
-(`Use csv as csv`), written the Python way; TypeScript programs cannot use Python modules, and npm libraries are not
-available from Thunder yet. For everything else, read and change your existing code in Thunder.
+(`Use csv as csv`), written the Python way; Thunder's rules, like exact money, apply to Thunder values, not inside the
+library. TypeScript programs cannot use Python modules, and npm libraries are not available from Thunder yet. For
+everything else, read and change your existing code in Thunder.
 
 **Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
 AI-written code.** Like Python and PyCharm: Thunder stands on its own, and OpenThunder is the IDE built for it.
