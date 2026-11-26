@@ -11,8 +11,8 @@ them, compiles them to Python, and runs them. The generated Python is ordinary c
                                        a failure names the Thunder line ◀┘ (TC5xx)
 ```
 
-**Status (v0).** There are two compilation targets: **Python 3.10+** (the default) and **TypeScript** (see
-"Compile to TypeScript"). Java, C#, Go, and Rust are planned. They will not be listed as available until they pass
+**Status (v0).** There are three compilation targets: **Python 3.10+** (the default), **TypeScript** (see
+"Compile to TypeScript"), and **C#** (see "Compile to C#"). Java, Go, and Rust are planned. They will not be listed as available until they pass
 the same tests.
 The rules below in "What a value means" are the rules every future target must keep.
 
@@ -328,7 +328,34 @@ Or set it for the project in `thunder.toml`: `target = "typescript"` under `[bui
   (TC405): Python modules exist only for Python, and Thunder never swaps in a different library. npm libraries are not
   available from Thunder yet.
 
-Java, C#, Go, and Rust are planned. Each will be listed as available only once it passes the same tests.
+## Compile to C#
+
+The same program, compiled to C# and run on .NET (8 or newer):
+
+```sh
+thunder build --target csharp     # generated/csharp/: one .cs per file, ThunderRuntime.cs, Program.cs, ThunderProgram.csproj
+thunder run --target csharp       # build it with dotnet and run it
+thunder test --target csharp      # run every Test block as C#
+```
+
+Or set it for the project in `thunder.toml`: `target = "csharp"` under `[build]`. The output is an ordinary console
+project: `dotnet run --project generated/csharp` runs it without Thunder (`-- test` runs the tests).
+
+- **The same meaning.** Every Core test program also runs compiled to C#, and the output, every error (its code, its
+  words, its line, and "reached from"), and the exit status must be the same as on Python, the Thunder engine, and
+  TypeScript, or the tests fail. `ThunderRuntime.cs` (base class library only) is a line-by-line port of the engine's
+  value code: exact decimals on `BigInteger` (not .NET's 28-digit `decimal`), money rounded half up, positions from 1,
+  strict yes/no, and the same words for every error.
+- **Readable.** One static class per Thunder file, a static method per function (an input with a default gets an
+  overload), records with their Never rules, and every line ends with `// thunder:N`. Values whose kind Thunder checks
+  while running are `object`.
+- **How it runs.** `thunder run` and `thunder test` build with the .NET SDK (`dotnet build`) and run the result. Without
+  the SDK, Thunder says what to install (exit 2); `thunder build` still writes the C#. Programs run on a thread with a
+  deep stack, so calls nest as deep as they can in Python.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405). NuGet libraries are not available from Thunder yet.
+
+Java, Go, and Rust are planned. Each will be listed as available only once it passes the same tests.
 
 ## What the generated Python looks like
 

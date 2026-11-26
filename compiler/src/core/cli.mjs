@@ -10,8 +10,9 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { resolve, relative, join } from 'node:path';
-import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGETS } from './project.mjs';
+import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGETS, TARGET_NAMES } from './project.mjs';
 import { runTypeScript } from './typescript-run.mjs';
+import { runCSharp } from './csharp-run.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
 import { paint } from '../term.mjs';
@@ -87,8 +88,8 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (cmd === 'format' || cmd === 'fmt') return format(t, a, cwd);
     if (a.engine !== null && !ENGINES.includes(a.engine)) { warn(`thunder ${cmd}: there is no engine "${a.engine}". Use --engine python (the default) or --engine thunder.`); return 2; }
     if (a.engine !== null && cmd !== 'run' && cmd !== 'test') { warn(`thunder ${cmd}: --engine is for thunder run and thunder test.`); return 2; }
-    if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default) or --target typescript.`); return 2; }
-    if (a.target === 'typescript' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target typescript runs compiled TypeScript, --engine thunder runs Thunder directly.`); return 2; }
+    if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default)${TARGETS.filter((x) => x !== 'python').map((x) => `, --target ${x}`).join('')}.`); return 2; }
+    if (a.target !== null && a.target !== 'python' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target ${a.target} runs compiled ${TARGET_NAMES[a.target] ?? a.target}, --engine thunder runs Thunder directly.`); return 2; }
     const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check', target: a.target });
     if (cmd === 'check') {
       if (a.json) { say(JSON.stringify({ ok: build.ok, files: build.results.map((r) => ({ file: relative(cwd, r.path), diagnostics: r.diagnostics })) }, null, 2)); return build.ok ? 0 : 1; }
@@ -106,6 +107,13 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       say(`  run it without Thunder: node ${out}/${build.entryModule}.ts   (Node 22.6 or newer; check the types with: tsc -p ${out})`);
       return 0;
     }
+    if (cmd === 'build' && build.target === 'csharp') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (C#)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.cs`);
+      say(`  ${out}/ThunderRuntime.cs (the small runtime the generated code uses), Program.cs, and ThunderProgram.csproj`);
+      say(`  run it without Thunder: dotnet run --project ${out}   (.NET 8 or newer; add -- test to run the tests)`);
+      return 0;
+    }
     if (cmd === 'build') {
       say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Python 3.10+)`);
       for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.py`);
@@ -115,6 +123,7 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     }
     if (a.engine === 'thunder') return runOnEngine(cmd, build, warn, say);
     if (build.target === 'typescript') return runCompiledTypeScript(cmd, build, warn, say);
+    if (build.target === 'csharp') return runCompiledCSharp(cmd, build, warn, say);
     const python = findPython();
     if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
@@ -140,6 +149,15 @@ function runCompiledTypeScript(cmd, build, warn, say) {
   if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
   if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
   const r = runTypeScript(build.outDir, cmd === 'run' ? `${build.entryModule}.ts` : 'run_tests.ts', { cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
+  return r.status ?? 1;
+}
+
+/** thunder run / test with the C# target: the compiled C# is built with the .NET SDK and run. */
+function runCompiledCSharp(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = runCSharp(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
   if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
   return r.status ?? 1;
 }

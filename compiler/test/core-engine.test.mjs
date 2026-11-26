@@ -14,7 +14,7 @@ import { compileCore } from '../src/core/index.mjs';
 import { buildProject } from '../src/core/project.mjs';
 import { runWithEngine } from '../src/core/engine.mjs';
 import { CASES, INPUTS } from '../scripts/core-read-write.mjs';
-import { runBoth, bothEngines, tally, PY } from './core-engines.mjs';
+import { runBoth, bothEngines, tally, PY, csharpAgrees } from './core-engines.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -208,3 +208,6 @@ test('a program that uses a Python module is refused by the Thunder engine, neve
   assert.equal(c.status, 2);
   assert.match(c.stderr, /^thunder run: This program uses the Python module "csv"/);
 });
+
+// Last: every program above, compiled to C# and built together, gives the same result (see core-engines.mjs).
+csharpAgrees(test);

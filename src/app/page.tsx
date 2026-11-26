@@ -102,7 +102,7 @@ export default function HomePage() {
                 <span className="font-medium text-white">Today</span> Thunder reads code in {READ_PROGRAMMING.length} languages, changes
                 TypeScript, JavaScript, Python, and Go code from Thunder, and compiles rules to six languages.{" "}
                 {CORE_LIVE
-                  ? (<><span className="font-medium text-white">New:</span> write whole programs in Thunder and run them as Python or TypeScript.{" "}</>)
+                  ? (<><span className="font-medium text-white">New:</span> write whole programs in Thunder and run them as Python, TypeScript, or C#.{" "}</>)
                   : (<><span className="font-medium text-white">Coming:</span> writing whole programs in Thunder, compiled to Python first.{" "}</>)}
                 <a href="#status" className="text-gold-300 underline decoration-gold-300/40 underline-offset-4 hover:text-gold-200">See what works today</a>
               </p>

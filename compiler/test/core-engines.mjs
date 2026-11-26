@@ -1,6 +1,7 @@
-// Run a Thunder Core program three ways: compiled to Python, on the Thunder engine (src/core/engine.mjs), and
-// compiled to TypeScript (src/core/target-typescript.mjs), and require the same output, the same error, and the same
-// exit status from all three. Used by every test
+// Run a Thunder Core program four ways: compiled to Python, on the Thunder engine (src/core/engine.mjs), compiled to
+// TypeScript (src/core/target-typescript.mjs), and compiled to C# (src/core/target-csharp.mjs), and require the same
+// output, the same error, and the same exit status from all of them. C# builds are slow, so every C# program a test
+// file runs is collected and built once, together, by the file's last test (csharpAgrees); a difference fails it. Used by every test
 // that runs Core programs (core-run, core-stdlib, core-engine), so each program they run is also a conformance
 // check. A program that uses a Python module ("Use") is refused by the Thunder engine: that is the one intended
 // difference, and it is checked here too.
@@ -8,13 +9,14 @@
 // Not a test file itself (no .test.mjs): it is imported by them.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { runWithEngine, testWithEngine, pythonModulesUsed } from '../src/core/engine.mjs';
 import { writeTypeScript, runTypeScript, typescriptRunner, typecheckTypeScript, typescriptDiagnostics } from '../src/core/typescript-run.mjs';
+import { writeCSharpBatch, buildCSharp, runBuiltCSharp, findDotnet, csharpDiagnostics } from '../src/core/csharp-run.mjs';
 
 /** How compiled TypeScript runs here (Node's own type stripping, or the typescript package), or why it can't. */
 export const TS = typescriptRunner();
@@ -22,12 +24,14 @@ export const TS = typescriptRunner();
 export const tscEvery = { on: process.env.THUNDER_TSC === '1' };
 
 export const PY = findPython();
+/** The .NET SDK compiled C# is built with, or why not (THUNDER_CSHARP=0 turns the C# leg off). */
+export const CS = process.env.THUNDER_CSHARP === '0' ? { error: 'THUNDER_CSHARP=0' } : findDotnet();
 const tmp = mkdtempSync(join(tmpdir(), 'thunder-engines-'));
 process.on('exit', () => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
 
 /** Programs compared on both engines in this test file, and programs the Thunder engine refused (Use). */
-export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0 };
+export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, csharp: 0 };
 
 const newDir = () => { const d = join(tmp, `p${n++}`); mkdirSync(d, { recursive: true }); return d; };
 const trim = (r) => ({ out: r.stdout.trim(), err: r.stderr.trim(), status: r.status });
@@ -55,11 +59,13 @@ export function bothEngines(results, { tests = false, entry = results[0], cwd = 
     assert.match(eng.stderr, new RegExp(`uses the Python module "${uses[0].module.replace(/\./g, '\\.')}"`));
     // Compiled TypeScript refuses it too, when it is built (TC405): Python modules exist only for the Python target.
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(typescriptDiagnostics(r)[0]?.code, 'TC405', `${label}: TypeScript must refuse Use`);
+    for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(csharpDiagnostics(r)[0]?.code, 'TC405', `${label}: C# must refuse Use`);
     tally.refused++;
     return PY.error ? trim(eng) : trim(runPython(results, { tests, entry, cwd: where, dir }));
   }
   const ts = runCompiledTypeScript(results, { tests, entry, cwd: where, dir, label });
   if (ts) assert.deepEqual(ts, trim(eng), `${label}\nCompiled TypeScript and the Thunder engine disagree on this program.`);
+  queueCSharp(results, { tests, entry, cwd: where, label, expected: trim(eng) });
   if (PY.error) return trim(eng);
   const py = trim(runPython(results, { tests, entry, cwd: where, dir }));
   assert.deepEqual(trim(eng), py, `${label}\nThe Thunder engine and Python disagree on this program.`);
@@ -89,4 +95,47 @@ export function runBoth(source, { tests = false, file = 'main.thunder', cwd = nu
   const r = compileCore(source, { file });
   assert.deepEqual(r.diagnostics, [], JSON.stringify(r.diagnostics));
   return bothEngines([{ ...r, module: 'main' }], { tests, cwd, label: source });
+}
+
+// ── The C# leg: collected while the tests run, built once, compared after them ─────────────────────────────────────
+const csQueue = [];
+
+/** Queue a program (or its tests) for compiled C#; `expected` is what the Thunder engine gave. */
+export function queueCSharp(results, { tests = false, entry = results[0], cwd = null, label = '', expected }) {
+  if (CS.error) return;
+  const withKind = results.map((r) => ({ ...r, module: r.module ?? 'main', kind: r.kind ?? 'src' }));
+  for (const r of withKind) assert.deepEqual(csharpDiagnostics(r), [], `${label}: a program for C# must not use Python modules`);
+  const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
+  // The folder the program runs in may be gone by the time the C# runs (a test cleans up): keep a copy.
+  let where = null;
+  if (cwd) { where = join(tmp, `cwd${n++}`); cpSync(cwd, where, { recursive: true }); }
+  csQueue.push({ results: withKind, entry: main, tests, cwd: where, label, expected });
+}
+
+/** Build every queued program in one .NET project, run each, and require the engine's result from each. */
+export function flushCSharp() {
+  if (!csQueue.length) return;
+  const items = csQueue.splice(0);
+  const dir = join(tmp, `cs${n++}`);
+  writeCSharpBatch(items.map((it) => ({ results: it.results, entry: it.tests ? null : it.entry })), dir);
+  const b = buildCSharp(dir, { dotnet: CS });
+  assert.ok(b.ok, `The compiled C# for ${items.length} programs did not build:\n${b.output.split('\n').slice(0, 40).join('\n')}`);
+  const wrong = [];
+  items.forEach((it, i) => {
+    const run = runBuiltCSharp(dir, [String(i), ...(it.tests ? ['test'] : [])], { cwd: it.cwd ?? dir, dotnet: CS });
+    if (run.error) { wrong.push(`${it.label}\n  C# could not run: ${run.error.message}`); return; }
+    const r = trim(run);
+    tally.csharp++;
+    try { assert.deepEqual(r, it.expected); }
+    catch { wrong.push(`${it.label}\n  C#:     ${JSON.stringify(r)}\n  engine: ${JSON.stringify(it.expected)}`); }
+  });
+  assert.equal(wrong.length, 0, `Compiled C# and the Thunder engine disagree on ${wrong.length} of ${items.length} programs:\n\n${wrong.slice(0, 15).join('\n\n')}`);
+}
+
+/** The last test of a file that runs Core programs: compiled C# gave the engine's result for every one of them. */
+export function csharpAgrees(test) {
+  test('compiled C# gives the same result as the other engines for every program above', { skip: CS.error ? `no C# here: ${CS.error.split('.')[0]}` : false }, () => {
+    flushCSharp();
+    if (process.env.THUNDER_TALLY) console.log(`# compiled C#: ${tally.csharp} programs matched the Thunder engine`);
+  });
 }

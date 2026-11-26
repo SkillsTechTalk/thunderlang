@@ -1,3 +1,13 @@
+# Unreleased
+
+- **Thunder Core compiles to C#.** `thunder build|run|test --target csharp` (or `target = "csharp"` in `thunder.toml`)
+  writes an ordinary .NET console project: one static class per Thunder file, `ThunderRuntime.cs` (base class library
+  only; a line-by-line port of the engine's value code, with exact decimals on `BigInteger`), `Program.cs`, and
+  `ThunderProgram.csproj`, and builds and runs it with the .NET SDK (8 or newer). Every Core test program (136) gives
+  the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and C#; the conformance tests
+  build them all in one project per test file. `Use` is refused for C# (TC405). Without the SDK, Thunder says what to
+  install (exit 2). The site lists C# as Available; Java, Go, and Rust stay Planned.
+
 # 1.2.0
 
 **Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why

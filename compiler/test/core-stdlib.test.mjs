@@ -10,7 +10,7 @@ import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { pythonToCore } from '../src/core/from-python.mjs';
 import { verifyRoundTrip } from '../src/core/round-trip.mjs';
-import { runBoth, tally } from './core-engines.mjs';
+import { runBoth, tally, csharpAgrees } from './core-engines.mjs';
 
 const PY = findPython();
 const skip = PY.error ? `Python 3.10+ not found: ${PY.error}` : false;
@@ -118,3 +118,6 @@ test('round trip: text, lists, and JSON give the same results as the original Py
   assert.equal(v.ran, true, v.error);
   assert.deepEqual(v.cases.map((c) => [c.same, c.why ?? null]), [[true, null], [true, null], [true, null]]);
 });
+
+// Last: every program above, compiled to C# and built together, gives the same result (see core-engines.mjs).
+csharpAgrees(test);

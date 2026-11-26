@@ -67,7 +67,15 @@ export const CAPABILITY_ROWS: { what: string; detail: string; status: Capability
     ...(capability("coreTypeScript").status === "available" ? { href: "/docs/core", cta: "Compile to TypeScript" } : {}),
   },
   {
-    what: "Compile Thunder Core to Java, C#, Go, and Rust",
+    what: "Compile Thunder Core to C#",
+    detail: capability("coreCsharp").status === "available"
+      ? "The same program, compiled to C# and run on .NET: thunder build --target csharp. Every Core test program gives the same output on Python, the Thunder engine, TypeScript, and C#. Python modules are refused for this target."
+      : "Being built: the same programs, compiled to C#. Not available yet.",
+    status: capability("coreCsharp").status,
+    ...(capability("coreCsharp").status === "available" ? { href: "/docs/core", cta: "Compile to C#" } : {}),
+  },
+  {
+    what: "Compile Thunder Core to Java, Go, and Rust",
     detail: "Designed, not built. Each target will be announced only when it passes the same conformance tests.",
     status: capability("coreTargets").status,
   },
@@ -101,7 +109,7 @@ export const TARGETS: Target[] = TARGET_ROLES.map(([key, role]) => ({
   edits: WRITE_STEPS_LANGUAGES.includes(key),
   rules: (RULE_TARGETS as readonly string[]).includes(key),
   // Thunder Core compiles to Python and TypeScript; the rest follow. Status comes from CAPABILITIES, never from copy.
-  program: key === "python" ? capability("thunderCore").status : key === "typescript" ? capability("coreTypeScript").status : capability("coreTargets").status,
+  program: key === "python" ? capability("thunderCore").status : key === "typescript" ? capability("coreTypeScript").status : key === "csharp" ? capability("coreCsharp").status : capability("coreTargets").status,
 }));
 
 /** Thunder gives access to each ecosystem's libraries rather than recreating them. */

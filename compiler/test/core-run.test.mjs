@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { CASES } from '../scripts/core-read-write.mjs';
-import { runBoth, tally } from './core-engines.mjs';
+import { runBoth, tally, csharpAgrees } from './core-engines.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, '..', 'src', 'cli.mjs');
@@ -283,3 +283,6 @@ test('a continued condition keeps the first line number, and "and" alone never s
   const t = compileCore('To pick:\n  Receive amount as a number\n  Receive flag as yes or no\n  Give amount\nsay pick with 1 and "no"', { file: 'main.thunder' });
   assert.deepEqual(t.diagnostics.map((d) => d.code), ['TC303']);
 });
+
+// Last: every program above, compiled to C# and built together, gives the same result (see core-engines.mjs).
+csharpAgrees(test);
