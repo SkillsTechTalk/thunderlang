@@ -151,6 +151,8 @@ thunder run hello                    # run it (as Python; add --engine thunder t
 thunder read app.py --level flow --focus "checkout"   # read code you didn't write, one level at a time
 thunder try rules.py                 # try a rule with your own values: the answer, and why
 thunder why run.json                 # what an AI agent did, what it changed, and why it stopped
+thunder run hello --record run.json   # record a run; step through it with: thunder replay run.json
+thunder build hello --target go       # the same program as Go (also typescript, csharp, java, rust)
 ```
 
 `thunder help --all` lists every command, with what most people need first.

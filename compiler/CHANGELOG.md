@@ -1,4 +1,10 @@
-# Unreleased
+# 1.3.0
+
+**Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: Thunder Core compiles to
+C#, Java, Go, and Rust (with Python and TypeScript, six targets, each giving the same output on every Core test
+program); the Time Machine (`thunder run --record`, `thunder replay`); block records and named inputs with a semantic
+formatter (`thunder format` may now rewrite long one-line records as blocks: run `thunder format --write` to adopt it);
+and clearer readings of real code. TC405's wording is now target-neutral.
 
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
