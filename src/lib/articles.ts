@@ -31,7 +31,11 @@ export interface ArticleList {
 
 async function getJson(url: string): Promise<unknown | null> {
   try {
-    const res = await fetch(url, { next: { revalidate: REVALIDATE } });
+    // The content service refuses unnamed server requests, so this site's server says who it is.
+    const res = await fetch(url, {
+      headers: { "User-Agent": "SkillsTechTalk-SSR", Accept: "application/json" },
+      next: { revalidate: REVALIDATE },
+    });
     if (!res.ok) return null;
     return await res.json();
   } catch {
