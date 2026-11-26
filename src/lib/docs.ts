@@ -40,6 +40,7 @@ const DOC_ORDER = [
   "verifying-ai-changes",
   "mcp",
   "reading-code",
+  "access-flow",
   "review-in-thunder",
   "trace",
   "passport",
@@ -114,6 +115,7 @@ const DOC_LABELS: Record<string, string> = {
   "mcp": "ThunderLang for AI agents (MCP)",
   "reading-code": "Read any code in Thunder",
   "passport": "The Software Passport: evidence for a change, and when it goes stale",
+  "access-flow": "Access flow: who may see the record?",
   "trace": "Thunder Trace: how your repositories depend on each other",
   "why": "Thunder Why: what an AI agent did, in plain words",
   "core": "Thunder Core: write a program and run it",
@@ -180,6 +182,7 @@ const DOC_BLURBS: Record<string, string> = {
   "core": "Write a program in plain words, check it, compile it to Python, and run it. The language reference.",
   "screens": "Why screens have their shape, how React and the Thunder engine stay the same, and what is not built yet.",
   "core-read-write": "How much of what the reader prints already compiles as Thunder Core, and the list of what is left.",
+  "access-flow": "Does every path that sends back a record chosen by the request limit it to the caller? Three honest verdicts, each step linked to its line.",
   "reading-code": "See what code in TypeScript, Python, Go, Rust, C#, or Java decides, in plain English and in a language you know.",
   "review-in-thunder": "See what a pull request changed in meaning, in plain sentences, and keep it as one pull request comment.",
   "github-action": "Add one step to a workflow and every pull request gets one comment that says what the change does. Runs in your CI, no AI.",
@@ -272,7 +275,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Understand software",
     blurb: "Scan, map, and reason about existing and AI-written code.",
-    slugs: ["reading-code", "review-in-thunder", "github-action", "intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "atlas-review", "mission-chains", "ai-generated-missions"],
+    slugs: ["reading-code", "access-flow", "review-in-thunder", "github-action", "intent-scanner", "ai-assist", "semantic-diff", "risk-radar", "mission-atlas", "atlas-review", "mission-chains", "ai-generated-missions"],
   },
   {
     title: "Build and verify",

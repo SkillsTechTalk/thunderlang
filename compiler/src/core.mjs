@@ -16,6 +16,7 @@ export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, r
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
 export { readScreens, screenText } from './screens.mjs';
+export { ACCESS_SCHEMA, accessFlow, accessText, ownershipWords } from './flow/access.mjs';
 // The running system (browser-safe): runs, stack traces, logs, and spans placed on Thunder's flows.
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
 export { linkSystem, callsSummary, areaOf } from './system.mjs';
