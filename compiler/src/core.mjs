@@ -15,6 +15,7 @@ export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, prov
 export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, renderStatement, sayFull, detailParts, detailOf, exprCounts, normalizeExpr, sameExpr, wordsAgree } from './meaning.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
+export { readScreens, screenText } from './screens.mjs';
 // The running system (browser-safe): runs, stack traces, logs, and spans placed on Thunder's flows.
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
 export { linkSystem, callsSummary, areaOf } from './system.mjs';

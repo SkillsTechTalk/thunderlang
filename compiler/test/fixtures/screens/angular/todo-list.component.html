@@ -1,0 +1,10 @@
+<h3>Things to do</h3>
+<ul *ngIf="todos().length > 0">
+  <li *ngFor="let todo of todos()">
+    {{ todo }}
+    <button (click)="finish(todo)">Done</button>
+  </li>
+</ul>
+<p *ngIf="!todos().length">Nothing to do</p>
+<app-cart [items]="[]" (checkout)="filter = 'done'"></app-cart>
+<a routerLink="/settings">Settings</a>

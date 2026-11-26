@@ -1,0 +1,8 @@
+# The screen programs the React target is checked against (compiler/test/core-react.test.mjs).
+[project]
+name = "screens"
+version = "0.1.0"
+
+[build]
+target = "react"
+source = "."

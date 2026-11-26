@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { marked } from "marked";
+import { marked, Marked } from "marked";
 import { thunderCodeRenderer } from "./thunder-tokens";
 import { terminalCodeRenderer } from "./terminal-tokens";
+import { docCodeRenderer, slugger } from "./doc-code";
 
 /**
  * Reads the language docs (docs/*.md) and examples (examples/*.thunder) from the
@@ -20,6 +21,7 @@ const DOC_ORDER = [
   "language-principles",
   "getting-started",
   "core",
+  "screens",
   "core-read-write",
   "thunder-vocabulary",
   "thunder-repo-results",
@@ -113,6 +115,7 @@ const DOC_LABELS: Record<string, string> = {
   "trace": "Thunder Trace: how your repositories depend on each other",
   "why": "Thunder Why: what an AI agent did, in plain words",
   "core": "Thunder Core: write a program and run it",
+  "screens": "Design note: Thunder screens",
   "core-read-write": "Reading and writing: how close the reader is to Core",
   "review-in-thunder": "Review in Thunder",
   "github-action": "Thunder review on every pull request",
@@ -172,6 +175,7 @@ const DOC_BLURBS: Record<string, string> = {
   "trace": "Which repositories call which, and what a change can affect in the others, each answer cited to a file and line.",
   "why": "Read an AI agent's run record and see what it was asked, what it changed, and why it stopped, in plain words.",
   "core": "Write a program in plain words, check it, compile it to Python, and run it. The language reference.",
+  "screens": "Why screens have their shape, how React and the Thunder engine stay the same, and what is not built yet.",
   "core-read-write": "How much of what the reader prints already compiles as Thunder Core, and the list of what is left.",
   "reading-code": "See what code in TypeScript, Python, Go, Rust, C#, or Java decides, in plain English and in a language you know.",
   "review-in-thunder": "See what a pull request changed in meaning, in plain sentences, and keep it as one pull request comment.",
@@ -255,7 +259,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Write and run programs",
     blurb: "Thunder Core: programs you write in Thunder and run as Python.",
-    slugs: ["core", "core-read-write"],
+    slugs: ["core", "screens", "core-read-write"],
   },
   {
     title: "Understand the language",
@@ -312,12 +316,34 @@ export function getDocCategories(): DocCategory[] {
   return cats.filter((c) => c.docs.length > 0);
 }
 
-export function getDoc(slug: string): { label: string; html: string } | null {
+export type DocHeading = { id: string; text: string };
+
+/**
+ * One doc as HTML, plus its sections for "On this page". Code blocks become code windows (src/lib/doc-code.ts), and
+ * every heading gets an id and a # link, so a section can be linked to.
+ */
+export function getDoc(slug: string): { label: string; html: string; headings: DocHeading[] } | null {
   const file = path.join(DOCS_DIR, `${slug}.md`);
   if (!fs.existsSync(file)) return null;
   const raw = fs.readFileSync(file, "utf8");
-  const html = marked.parse(raw) as string;
-  return { label: DOC_LABELS[slug] ?? slug, html };
+  const id = slugger();
+  const headings: DocHeading[] = [];
+  const md = new Marked({ gfm: true });
+  md.use({
+    renderer: {
+      code: (block) => docCodeRenderer(block),
+      heading({ tokens, depth }) {
+        const inner = this.parser.parseInline(tokens);
+        const text = inner.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+        if (depth === 1) return `<h1>${inner}</h1>\n`;
+        const hid = id(text);
+        if (depth === 2) headings.push({ id: hid, text });
+        return `<h${depth} id="${hid}">${inner}<a class="heading-anchor" href="#${hid}" aria-label="Link to this section">#</a></h${depth}>\n`;
+      },
+    },
+  });
+  const html = md.parse(raw) as string;
+  return { label: DOC_LABELS[slug] ?? slug, html, headings };
 }
 
 export type ExampleStatus = "runnable" | "compiler-valid";

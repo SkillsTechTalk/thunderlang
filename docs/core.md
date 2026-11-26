@@ -199,6 +199,114 @@ Test "members spending at least 100 get 20% off":
 
 `thunder test` runs every `Test` block in the project and reports `PASS` or `FAIL` with the Thunder line.
 
+## Screens: build an app
+
+A `Screen` says what a person sees and what each button does. `thunder run` shows the first screen as an outline;
+`thunder build --target react` writes it as a React app.
+
+```thunder
+An Item has:
+  Name is text
+  Price is number
+
+Screen Shop:
+  Remember cart as a list of Item, starting at []
+  Remember name as text, starting at ""
+  Remember price starting at 0
+  Show a heading "Shop"
+  Show a text box "Name" for name
+  Show a number box "Price" for price
+  Show a button "Add" (off when name is empty):
+    When pressed:
+      When price is at most 0:
+        Stop with "The price must be more than 0"
+      Add an Item with name name and price price to cart
+      Set name to ""
+  Show Cart:
+    items: cart
+
+Screen Cart:
+  Receive items as a list of Item, title as text ("Your cart" if not given)
+  Show a heading: title
+  When items is empty:
+    Show "Your cart is empty"
+  Otherwise:
+    Show a list with each item in items:
+      Show a row:
+        Show item's name
+        Show item's price
+  Show a button "Back" that opens Shop
+```
+
+A screen has three parts, in this order:
+
+| Line | Meaning |
+| --- | --- |
+| `Receive items as a list of Item, title as text ("Your cart" if not given)` | what the screen that shows it gives it (its inputs), as in a function |
+| `Remember coupon as text, starting at ""` | a value the screen keeps while it is shown, and where it starts |
+| `Show …` and `When … :` | what it shows, from top to bottom |
+
+What a screen can show:
+
+| Line | Shows |
+| --- | --- |
+| `Show "Your cart is empty"`, `Show "Total: {total}"`, `Show item's name` | text (any value, written as in `{…}`) |
+| `Show a heading "Shop"`, `Show a heading: title` | a heading |
+| `Show a list with each item in items:` | the lines under it, once for each item |
+| `Show a row:` | the lines under it, side by side |
+| `Show a text box "Coupon code" for coupon` | a box that changes a remembered text |
+| `Show a number box "Price" for price` | a box that changes a remembered number |
+| `Show a button "Add" (off when name is empty):` then `When pressed:` and steps | a button and what it does |
+| `Show a button "Back" that opens Shop` | a button that opens another screen |
+| `Show Cart:` then `items: cart` (one `input: value` line each) | another screen, inside this one, with its inputs |
+| `When … :`, `Otherwise when … :`, `Otherwise:` | some lines only when a condition is yes |
+
+What happens, exactly:
+
+- **A press changes everything or nothing.** The steps under `When pressed:` are ordinary Thunder steps (`Set`,
+  `Increase`, `Add … to`, `When`, `For each`, calls, `Stop with`). They run on copies of the screen's remembered
+  values. If every step works, the screen keeps the new values. If a step fails (or `Stop with` stops it), nothing is
+  kept and the screen says why, under what it shows: `The price must be more than 0`.
+- **Typing** sets the box's value. A number box keeps a number: text that is not one (or a decimal in a whole-number
+  box) leaves the value as it was, and the screen says why.
+- **An off button** does nothing when pressed.
+- **Opening** a screen (`that opens Shop`, or the step `Open Shop` after other steps) shows it in place of this one.
+  Its remembered values start again. A screen that is opened is given no inputs, so its inputs need defaults (TC214).
+- **Inputs can't be changed** by the screen that receives them, and neither can the items of a list it shows (TC213):
+  remember a copy and change that.
+- **Each shown screen remembers its own values,** by its place: two `Card` screens in a list each have their own. A
+  screen that stops being shown (its `When` became no) forgets its values.
+- **The first screen is where the app starts,** so it needs no inputs.
+- `Say`, `Give`, and `Expect` can't run when a button is pressed (TC407): a screen shows things instead.
+
+`thunder run` prints the first screen as it first appears:
+
+```text
+Screen "Shop"
+  Heading: Shop
+  Text box "Name": ""
+  Number box "Price": 0
+  Button "Add" (off)
+  Screen "Cart"
+    Heading: Your cart
+    Your cart is empty
+    Button "Back"
+```
+
+### Build it as a React app
+
+`thunder build --target react` writes `generated/react/`: `<program>.tsx` (one function component per screen, each
+`Remember` a `useState`, each `When pressed` a function), `main.tsx`, `index.html`, `thunder_runtime.mjs` (the
+Thunder engine's value and screen code, so the app means exactly what the engine means), `thunder.css` (calm defaults,
+light and dark), `package.json`, and `tsconfig.json`. Run it with `cd generated/react && npm install && npm run dev`
+(Vite), and check its types with `npm run typecheck`. Every line ends with its Thunder line, `// thunder:N` or
+`{/* thunder:N */}`. A screen that can't be shown says why, with the line, as `thunder run` does.
+
+The React app and the Thunder engine are checked against each other: for every screen program in the tests, React's
+server-rendered HTML is read back and must be the engine's screen, and the same presses and typing must give the same
+screen after every step (`compiler/test/core-react.test.mjs`). Screens build only for React: building a program with
+screens for another target is refused with TC406, as is a React build of a program with no screen.
+
 ## The Thunder style (`thunder format`)
 
 There is one way to write Thunder, and `thunder format` writes it. It should read well in plain text: in a terminal, a
@@ -333,6 +441,9 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC3xx | kinds of values that cannot do what the line asks |
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
 | TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
+| TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
+| TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
+| TC406, TC407 | screens built for a target other than React (or React with no screen), and a step that can't run on a press |
 | TC501 | divided by zero |
 | TC502 | nothing used where a value was needed |
 | TC503 | a missing map entry or list position |

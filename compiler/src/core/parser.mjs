@@ -154,9 +154,29 @@ function collectNames(nodes, names) {
       if (k > 0) add('module', ts.slice(k + 1)); else if (ts[1]?.t === 'word') add('module', [ts[1]]);
     } else if (w0 === 'if' && keyOf(ts.slice(0, 3)) === 'if this fails') {
       add('var', [{ lower: 'error' }]);
+    } else if (w0 === 'screen' && isSym(ts[ts.length - 1], ':')) {
+      // A screen: its name (for "Show <screen>" and "opens <screen>") and its inputs, in order.
+      const inputs = [];
+      for (const c of n.children) {
+        if (!isWord(c.tokens[0], 'receive')) break;
+        for (const p of paramGroups(c.tokens.slice(1))) inputs.push({ key: keyOf(p.words), text: p.words.map((x) => x.text).join(' '), defaultTokens: p.defaultTokens });
+      }
+      const words = stripArticle(ts.slice(1, -1));
+      names.screens.set(keyOf(words), { text: words.map((x) => x.text).join(' '), inputs });
+    } else if (w0 === 'remember') {
+      add('var', rememberName(ts.slice(1)));
+    } else if (w0 === 'show' && keyOf(ts.slice(1, 5)) === 'a list with each') {
+      const k = splitTop(ts, (t) => isWord(t, 'in'));
+      add('var', ts.slice(5, k < 0 ? ts.length : k));
     }
     collectNames(n.children, names);
   }
+}
+
+// "coupon as text, starting at \"\"" / "count starting at 0": the name a Remember line declares.
+function rememberName(ts) {
+  const end = ts.findIndex((t) => isWord(t, 'as') || isWord(t, 'starting') || isSym(t, ','));
+  return stripArticle(end < 0 ? ts : ts.slice(0, end));
 }
 
 // "total and member", "total as money, member as yes/no", "price and rate (7% if not given)"
@@ -508,7 +528,7 @@ export class ExprParser {
 export function parseCore(source, { seed = null } = {}) {
   const { lines, diagnostics } = lex(source);
   const tree = buildBlocks(lines, diagnostics);
-  const names = { known: new Map(seed?.known ?? []), fields: new Set(seed?.fields ?? []), records: new Set(seed?.records ?? []), recordFields: new Map(seed?.recordFields ?? []), funcInputs: new Map(seed?.funcInputs ?? []), recordText: new Map() };
+  const names = { known: new Map(seed?.known ?? []), fields: new Set(seed?.fields ?? []), records: new Set(seed?.records ?? []), recordFields: new Map(seed?.recordFields ?? []), funcInputs: new Map(seed?.funcInputs ?? []), recordText: new Map(), screens: new Map() };
   collectNames(tree, names);
   const ep = new ExprParser(names);
   const body = parseBlock(tree, ep, names, diagnostics, { top: true });
@@ -541,7 +561,7 @@ function parseBlock(nodes, ep, names, diagnostics, ctx) {
 }
 
 // Statements whose ":" opens a block of statements (never a block of "name: value" lines).
-const BLOCK_STATEMENTS = new Set(['when', 'if', 'otherwise', 'for', 'repeat', 'to', 'test', 'receive', 'never', 'use']);
+const BLOCK_STATEMENTS = new Set(['when', 'if', 'otherwise', 'for', 'repeat', 'to', 'test', 'receive', 'never', 'use', 'screen']);
 
 /** The "name: value" lines under a statement that is not itself a block statement, or null. */
 function fieldBlock(n, diagnostics = []) {
@@ -721,7 +741,17 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     bodyNodes = kids.slice(r);
     return { k: 'func', name, text, params, body: parseBlock(bodyNodes, ep, names, diagnostics, { inFunc: true }), line };
   }
-  if (w0 === 'receive') fail('TC111', '"Receive" must be the first line inside a "To" block.');
+  if (w0 === 'receive') fail('TC111', '"Receive" must be the first line inside a "To" block or a "Screen".');
+  if (w0 === 'screen' && isSym(ts[ts.length - 1], ':')) {
+    if (!ctx.top) fail('TC402', 'A "Screen" must be written at the left edge, not inside another block.');
+    return parseScreen(n, ep, names, diagnostics);
+  }
+  if (w0 === 'open' && ctx.inPress) {
+    const { name, text } = nameWords(rest, line, '"Open"');
+    return { k: 'open', name, text, line };
+  }
+  if (w0 === 'remember') fail('TC119', '"Remember" goes at the top of a "Screen", after its "Receive" lines.', 'A function keeps nothing between calls; a screen remembers values while it is shown.');
+  if (w0 === 'show') fail('TC118', '"Show" is used inside a "Screen" (a screen shows things). In a program, write: Say …');
   if ((w0 === 'a' || w0 === 'an') && isWord(ts[ts.length - 2], 'has') && isSym(ts[ts.length - 1], ':')) {
     if (!ctx.top) fail('TC402', 'A record ("A … has:") must be written at the left edge, not inside another block.');
     const { name, text } = nameWords(ts.slice(1, -2), line, 'A record');
@@ -839,6 +869,200 @@ function parseNever(ts, line, ep) {
   const toBe = splitTop(r, (t, k) => isWord(t, 'to') && isWord(r[k + 1], 'be'));
   if (toBe > 0) r = [...r.slice(0, toBe), { t: 'word', text: 'is', lower: 'is' }, ...r.slice(toBe + 2)];
   return { k: 'never', text, cond: ep.parse(r, line), line };
+}
+
+// ---------------------------------------------------------------- screens
+
+// Screen Cart:
+//   Receive items as a list of Item, title as text ("Your cart" if not given)
+//   Remember coupon as text, starting at ""
+//   Show a heading: title
+//   When items is empty:
+//     Show "Your cart is empty"
+//   Otherwise:
+//     Show a list with each item in items:
+//       Show "{item's name}: {item's price}"
+//   Show a text box "Coupon code" for coupon
+//   Show a button "Checkout" (off when items is empty):
+//     When pressed:
+//       …steps…
+//   Show a button "Back" that opens Home
+//
+// A screen is a description of what is shown, not a list of steps: its lines are elements. Only the steps under
+// "When pressed:" run, one press at a time.
+export const SCREEN_ELEMENTS = ['a heading', 'text', 'a list with each … in …', 'a row', 'a text box', 'a number box', 'a button', 'another screen'];
+
+function parseScreen(n, ep, names, diagnostics) {
+  const line = n.line;
+  const { name, text } = nameWords(n.tokens.slice(1, -1), line, 'A screen');
+  const params = [], remember = [];
+  let k = 0;
+  const kids = n.children;
+  while (kids[k] && isWord(kids[k].tokens[0], 'receive')) {
+    const kid = kids[k];
+    try {
+      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.words, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
+    } catch (e) { if (e instanceof CoreError) diagnostics.push(e.diagnostic); else throw e; }
+    k++;
+  }
+  while (kids[k] && isWord(kids[k].tokens[0], 'remember')) {
+    try { remember.push(parseRemember(kids[k], ep)); } catch (e) { if (e instanceof CoreError) diagnostics.push(e.diagnostic); else throw e; }
+    k++;
+  }
+  const body = parseElements(kids.slice(k), ep, names, diagnostics, name);
+  return { k: 'screen', name, text, params, remember, body, line };
+}
+
+// Remember coupon as text, starting at ""   |   Remember count starting at 0
+function parseRemember(c, ep) {
+  const ts = c.tokens.slice(1);
+  const line = c.line;
+  const at = splitTop(ts, (t, i) => isWord(t, 'starting') && isWord(ts[i + 1], 'at'));
+  if (at < 0) throw new CoreError(diag('TC108', line, '"Remember" needs a starting value: Remember count starting at 0.', 'A screen shows its remembered values right away, so each one starts somewhere.'));
+  let head = ts.slice(0, at);
+  if (isSym(head[head.length - 1], ',')) head = head.slice(0, -1);
+  const asAt = head.findIndex((t) => isWord(t, 'as'));
+  const nm = nameWords(asAt < 0 ? head : head.slice(0, asAt), line, '"Remember"');
+  const type = asAt < 0 ? null : typeOf(ep, head.slice(asAt + 1), line);
+  const valueTs = ts.slice(at + 2);
+  if (!valueTs.length) throw new CoreError(diag('TC108', line, `"Remember ${nm.text}" has no starting value after "starting at".`));
+  return { ...nm, type, e: ep.parse(valueTs, line), line };
+}
+
+function parseElements(nodes, ep, names, diagnostics, screen) {
+  const out = [];
+  for (const c of nodes) {
+    try {
+      const el = parseElement(c, ep, names, diagnostics, screen, out);
+      if (el) out.push(el);
+    } catch (e) { if (e instanceof CoreError) diagnostics.push(e.diagnostic); else throw e; }
+  }
+  return out;
+}
+
+function parseElement(c, ep, names, diagnostics, screen, siblings) {
+  const ts = c.tokens;
+  const line = c.line;
+  const fail = (code, msg, hint) => { throw new CoreError(diag(code, line, msg, hint)); };
+  const w0 = ts[0]?.t === 'word' ? ts[0].lower : '';
+  const opens = isSym(ts[ts.length - 1], ':');
+  const noBlock = (what) => { if (c.children.length) fail('TC118', `${what} has nothing inside it, so the lines under it don't belong to it.`, 'Remove the ":" and the indented lines, or move them out.'); };
+  if (w0 === 'when' || w0 === 'if') {
+    if (!opens) fail('TC108', 'This line should end with ":".');
+    return { k: 'when', branches: [{ cond: ep.parse(ts.slice(1, -1), line), body: parseElements(c.children, ep, names, diagnostics, screen), line }], otherwise: null, line };
+  }
+  if (w0 === 'otherwise') {
+    const prev = siblings[siblings.length - 1];
+    if (!prev || prev.k !== 'when' || prev.otherwise) fail('TC109', '"Otherwise" must come right after a "When" or "If" block (at the same indentation).');
+    if (!opens) fail('TC108', 'This line should end with ":".');
+    const h = ts.slice(0, -1);
+    if (h.length === 1) { prev.otherwise = parseElements(c.children, ep, names, diagnostics, screen); return null; }
+    if (!isWord(h[1], 'when') && !isWord(h[1], 'if')) fail('TC108', 'Write "Otherwise:" or "Otherwise when <condition>:".');
+    prev.branches.push({ cond: ep.parse(h.slice(2), line), body: parseElements(c.children, ep, names, diagnostics, screen), line });
+    return null;
+  }
+  if (w0 === 'receive' || w0 === 'remember') fail('TC119', `"${ts[0].text}" goes at the top of a screen: first the Receive lines, then the Remember lines, then what it shows.`);
+  if (w0 !== 'show') {
+    // (Swapped letters count too: "Shwo" is "Show".)
+    const same = (a, b) => [...a].sort().join('') === [...b].sort().join('');
+    const near = closest(w0, ['show', 'when', 'otherwise']) ?? ['show', 'when', 'otherwise'].find((w) => same(w, w0)) ?? null;
+    fail('TC118', `A screen shows things, so each line in it starts with "Show" (or is a "When … :" choice). "${c.raw.trim()}" isn't something a screen can show.`,
+      near && near !== w0 ? `Did you mean "${near[0].toUpperCase()}${near.slice(1)}"?` : 'Steps that change something go under a button: Show a button "Save": then When pressed: and the steps.');
+  }
+  const r = opens ? ts.slice(1, -1) : ts.slice(1);
+  const key = (i, j) => keyOf(r.slice(i, j));
+  const label = (at, what) => {
+    if (r[at]?.t !== 'str') fail('TC108', `${what} needs its words in quotes, like: Show ${what.toLowerCase()} "Save".`);
+    return ep.parse([r[at]], line);
+  };
+  // Show a heading: <text>   |   Show a heading "Welcome"
+  if (key(0, 2) === 'a heading') {
+    noBlock('A heading');
+    let v = r.slice(2);
+    if (isSym(v[0], ':')) v = v.slice(1);
+    if (!v.length) fail('TC108', 'A heading needs its words: Show a heading "Welcome", or Show a heading: title.');
+    return { k: 'heading', e: ep.parse(v, line), line };
+  }
+  // Show a list with each item in items:  (the lines under it are shown once for each item)
+  if (key(0, 4) === 'a list with each') {
+    const inAt = splitTop(r, (t) => isWord(t, 'in'));
+    if (inAt < 0) fail('TC108', 'Write "Show a list with each item in items:".');
+    if (!opens || !c.children.length) fail('TC103', `"${c.raw.trim()}" needs the lines to show for each item, indented under it.`, `For example:\n    Show "{${r.slice(4, inAt).map((x) => x.text).join(' ') || 'item'}}"`);
+    const v = nameWords(r.slice(4, inAt), line, 'The list');
+    return { k: 'list', v, iter: ep.parse(r.slice(inAt + 1), line), body: parseElements(c.children, ep, names, diagnostics, screen), line };
+  }
+  if (key(0, 2) === 'a list') fail('TC108', 'A list names each item: Show a list with each item in items:', 'Then indent what to show for each item under it.');
+  // Show a row:  (the lines under it, side by side)
+  if (key(0, 2) === 'a row') {
+    if (r.length > 2) fail('TC112', 'Write "Show a row:" and put what it holds on the lines under it.');
+    if (!opens || !c.children.length) fail('TC103', '"Show a row:" needs the things to put side by side, indented under it.');
+    return { k: 'row', body: parseElements(c.children, ep, names, diagnostics, screen), line };
+  }
+  // Show a text box "Coupon code" for coupon   |   Show a number box "Quantity" for quantity
+  if (key(0, 3) === 'a text box' || key(0, 3) === 'a number box') {
+    noBlock('A box');
+    const kind = r[1].lower === 'text' ? 'textbox' : 'numberbox';
+    const what = kind === 'textbox' ? 'A text box' : 'A number box';
+    const lab = label(3, what);
+    if (!isWord(r[4], 'for')) fail('TC108', `${what} says which remembered value it changes: Show ${what.toLowerCase()} "${lab.parts?.join('') ?? '…'}" for <name>.`);
+    const target = nameWords(r.slice(5), line, what);
+    return { k: kind, label: lab, target: { k: 'name', ...target, line }, line };
+  }
+  // Show a button "Checkout" (off when items is empty) that opens Home:
+  //   When pressed:
+  //     …steps…
+  if (key(0, 2) === 'a button') {
+    const lab = label(2, 'A button');
+    let i = 3, off = null, opensScreen = null;
+    if (isSym(r[i], '(')) {
+      let d = 0, close = -1;
+      for (let j = i; j < r.length; j++) { if (isSym(r[j], '(')) d++; if (isSym(r[j], ')')) { d--; if (d === 0) { close = j; break; } } }
+      const inner = r.slice(i + 1, close < 0 ? r.length : close);
+      if (!(isWord(inner[0], 'off') && isWord(inner[1], 'when')) || inner.length < 3) fail('TC108', 'In parentheses after a button, say when it is off: (off when items is empty).');
+      off = ep.parse(inner.slice(2), line);
+      i = close + 1;
+    }
+    if (isWord(r[i], 'that') && isWord(r[i + 1], 'opens')) {
+      opensScreen = { ...nameWords(r.slice(i + 2), line, '"opens"'), line };
+      i = r.length;
+    }
+    if (i < r.length) fail('TC112', `I understood the button up to "${show(r[i])}", but not after it.`, 'A button is: Show a button "Label", then (off when …) or that opens <screen>, if needed.');
+    let press = null;
+    if (opens) {
+      for (const k2 of c.children) {
+        if (keyOf(k2.tokens.slice(0, 2)) !== 'when pressed' || !isSym(k2.tokens[k2.tokens.length - 1], ':') || k2.tokens.length !== 3) {
+          throw new CoreError(diag('TC118', k2.line, `Under a button goes one "When pressed:" with the steps to run, but this line is "${k2.raw.trim()}".`, 'Write:\n    When pressed:\n      <the steps>'));
+        }
+        if (press) throw new CoreError(diag('TC118', k2.line, 'This button already has a "When pressed:" block. Put all its steps in one.'));
+        press = { body: parseBlock(k2.children, ep, names, diagnostics, { inFunc: true, inPress: true }), line: k2.line };
+      }
+    }
+    if (!press && !opensScreen) fail('TC118', `The button ${c.raw.trim().replace(/^Show a button\s*/i, '').replace(/:$/, '')} does nothing when it is pressed.`, 'Add "that opens <screen>", or end the line with ":" and put "When pressed:" and its steps under it.');
+    return { k: 'button', label: lab, off, opens: opensScreen, press, line };
+  }
+  // Show Summary   |   Show Summary:  (with one "input: value" line each)
+  const scrWords = stripArticle(r);
+  if (allWords(scrWords) && names.screens.has(keyOf(scrWords))) {
+    const target = { name: keyOf(scrWords), text: names.screens.get(keyOf(scrWords)).text };
+    const given = [];
+    if (opens) {
+      for (const k2 of c.children) {
+        const colon = k2.tokens.findIndex((t) => isSym(t, ':'));
+        const nameTs = colon > 0 ? k2.tokens.slice(0, colon) : [];
+        if (colon <= 0 || !allWords(nameTs) || k2.children.length || colon === k2.tokens.length - 1) {
+          throw new CoreError(diag('TC113', k2.line, `Each line under "${c.raw.trim()}" gives the screen one input, as "name: value", like: total: 10.`));
+        }
+        given.push({ name: keyOf(nameTs), text: nameTs.map((x) => x.text).join(' '), e: ep.parse(k2.tokens.slice(colon + 1), k2.line), line: k2.line });
+      }
+    }
+    return { k: 'child', screen: target, given, line };
+  }
+  if (opens || c.children.length) {
+    const near = closest(keyOf(scrWords), [...names.screens.keys()]);
+    fail('TC118', `"${c.raw.trim()}" ends with ":", but ${allWords(scrWords) ? `there is no screen called "${scrWords.map((x) => x.text).join(' ')}"` : 'only a list, a row, a button, or another screen holds lines under it'}.`, near ? `Did you mean "${names.screens.get(near).text}"?` : null);
+  }
+  // Show <text or a value>
+  return { k: 'text', e: ep.parse(r, line), line };
 }
 
 export { closest };

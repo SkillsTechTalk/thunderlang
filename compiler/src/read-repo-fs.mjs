@@ -22,7 +22,8 @@ const MANIFEST = /^(go\.mod|package\.json|tsconfig\.json|jsconfig\.json)$/;
  * go.mod, package.json, and tsconfig/jsconfig files that say which imports are this repo's own (for thunderModel's
  * calls across files); they are not code and are not read as code.
  */
-export function collectReadableFiles(root, { maxFiles = 5000, maxFileBytes = 400000, manifests = false } = {}) {
+// templates: also bring Angular component templates (*.component.html), which screens read with their component.
+export function collectReadableFiles(root, { maxFiles = 5000, maxFileBytes = 400000, manifests = false, templates = false } = {}) {
   const out = [];
   const walk = (dir) => {
     let names;
@@ -36,6 +37,7 @@ export function collectReadableFiles(root, { maxFiles = 5000, maxFileBytes = 400
       const path = relative(root, full).split('\\').join('/');
       if (st.isDirectory()) walk(full);
       else if (manifests && MANIFEST.test(name) && st.size <= maxFileBytes) out.push({ path, source: readFileSync(full, 'utf8'), manifest: true });
+      else if (templates && /\.component\.html$/i.test(name) && st.size <= maxFileBytes) out.push({ path, source: readFileSync(full, 'utf8'), template: true });
       else if (readableLanguage(path) || (!name.includes('.') && shebangShell(full, st.size))) {
         // Oversized files are not loaded; readRepo lists them as skipped from their size.
         out.push(st.size > maxFileBytes ? { path, source: '', size: st.size } : { path, source: readFileSync(full, 'utf8') });
