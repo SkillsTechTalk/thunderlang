@@ -32,6 +32,7 @@ test.after(() => console.log(`# core-run: ${tally.compared} programs gave the sa
 const says = (source, expected) => { const r = run(source); assert.equal(r.err, ''); assert.equal(r.status, 0); assert.equal(r.out, expected); };
 
 test('hello world', { skip }, () => says('say "Hello, world!"', 'Hello, world!'));
+test('a whole number written with leading zeros means the same on both engines (Python refuses 007 as written)', { skip }, () => says('Set x to 007\nsay x + 1\nsay 0 + 00', '8\n0'));
 
 test('money is exact: $0.10 + $0.20 is $0.30', { skip }, () => {
   says('say $0.10 + $0.20\nsay $0.10 + $0.20 is $0.30\nsay $19.99 * 3', '$0.30\nyes\n$59.97');

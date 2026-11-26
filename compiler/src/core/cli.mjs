@@ -98,7 +98,7 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     }
     if (a.engine === 'thunder') return runOnEngine(cmd, build, warn, say);
     const python = findPython();
-    if (python.error) { warn(`thunder ${cmd}: ${python.error}`); return 2; }
+    if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
       if (!build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
       const r = runPython(python, build.outDir, `${build.entryModule}.py`, build.base);

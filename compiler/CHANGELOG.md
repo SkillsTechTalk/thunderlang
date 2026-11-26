@@ -1,5 +1,8 @@
 # Unreleased
 
+- **Fix (Core → Python): a whole number written with leading zeros (`007`) compiled to Python that would not run**
+  (Python refuses `007`). It now compiles to `7`, as Thunder means it.
+- When Python is missing, `thunder run` and `thunder test` now also say how to run without it: `--engine thunder`.
 - **The Thunder engine: run Thunder Core without Python.** `thunder run --engine thunder` and
   `thunder test --engine thunder` run a program on the Thunder engine, a second engine that runs the same checked
   program the Python compiler uses. Python is not needed, and is still the default. Both engines must agree: every
