@@ -123,7 +123,8 @@ Without `--with`, Thunder asks for each value and offers to try another case. `-
 a file has several, and `--json` gives the result as data. Only rules can be tried: a rule decides and changes
 nothing. An action (which may save, send, or call other code) is refused, with the command to read it instead. A rule
 more complex than comparisons and yes/no checks is refused too, with the reason; Thunder never approximates it.
-The answer comes from the same engine as the [rule editor](/try).
+The answer comes from the same engine as the [rule editor](/try). Rules in a mission file (`thunder init` makes one)
+can be tried the same way: `thunder try Mission.thunder --with "age=20"`.
 
 ## In a coding agent
 

@@ -1,5 +1,11 @@
 # Unreleased
 
+- **`thunder init` is friendlier, and mission rules can be tried without JSON.** `thunder init` now says what it made
+  (a starter mission: a product's rules and the examples that prove them), lists what to try next, and points
+  beginners to `thunder new hello`. Its template's comments name the right file (they said `Mission.intent`) and
+  suggest `thunder try`. `thunder try Mission.thunder` works on mission decisions: it asks for each value (or takes
+  `--with "age=20"`), says the kind each value should be (worked out from the rules), and explains the answer in words
+  ("age is at least 18 (age is 20)").
 - **Trademark marks.** Thunder™ and ThunderLang™ now carry ™ where the brand is shown prominently: the CLI's home
   screen, `thunder --version`, `thunder help --all`, `thunder doctor`, the npm and VS Code descriptions (and the
   extension's display name), the compiler README, and the site's logo and footer.
