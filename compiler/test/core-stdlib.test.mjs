@@ -10,7 +10,7 @@ import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { pythonToCore } from '../src/core/from-python.mjs';
 import { verifyRoundTrip } from '../src/core/round-trip.mjs';
-import { runBoth, tally } from './core-engines.mjs';
+import { runBoth, tally, csharpAgrees } from './core-engines.mjs';
 
 const PY = findPython();
 const skip = PY.error ? `Python 3.10+ not found: ${PY.error}` : false;
@@ -19,7 +19,7 @@ test.after(() => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
 // Every program runs on both engines (Python and the Thunder engine), which must agree (core-engines.mjs).
 const run = (source) => runBoth(source);
-test.after(() => console.log(`# core-stdlib: ${tally.compared} programs gave the same result on Python and the Thunder engine.`));
+test.after(() => console.log(`# core-stdlib: ${tally.compared} programs gave the same result on Python and the Thunder engine (${tally.typescript} also as TypeScript, ${tally.go} as Go).`));
 const codes = (src) => compileCore(src, { file: 'main.thunder' }).diagnostics.map((d) => [d.code, d.message]);
 
 test('text: joined with, split at, the parts of, replacing, starts with, ends with', { skip }, () => {
@@ -118,3 +118,6 @@ test('round trip: text, lists, and JSON give the same results as the original Py
   assert.equal(v.ran, true, v.error);
   assert.deepEqual(v.cases.map((c) => [c.same, c.why ?? null]), [[true, null], [true, null], [true, null]]);
 });
+
+// Last: every program above, compiled to C# and built together, gives the same result (see core-engines.mjs).
+csharpAgrees(test);

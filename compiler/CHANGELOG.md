@@ -1,5 +1,32 @@
 # Unreleased
 
+- **Thunder Core compiles to C#.** `thunder build|run|test --target csharp` (or `target = "csharp"` in `thunder.toml`)
+  writes an ordinary .NET console project: one static class per Thunder file, `ThunderRuntime.cs` (base class library
+  only; a line-by-line port of the engine's value code, with exact decimals on `BigInteger`), `Program.cs`, and
+  `ThunderProgram.csproj`, and builds and runs it with the .NET SDK (8 or newer). Every Core test program (136) gives
+  the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and C#; the conformance tests
+  build them all in one project per test file. `Use` is refused for C# (TC405). Without the SDK, Thunder says what to
+  install (exit 2). The site lists C# as Available; Java, Go, and Rust stay Planned.
+- **Thunder Core compiles to Rust.** `thunder build|run|test --target rust` (or `target = "rust"` in `thunder.toml`)
+  writes a small Cargo project: one `.rs` per Thunder file, `main.rs`, and `thunder_runtime.rs`, a line-by-line port
+  of the Thunder engine's value code that uses only the standard library (exact decimals of any size, money rounded
+  half up, positions from 1, the same words for every value and error), so it builds offline. 136 Core test programs
+  give the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Rust; programs that use
+  a Python module are refused (TC405). Running needs `rustc` and `cargo`; without them Thunder says what to install.
+- **Fix: JSON `false`.** "the JSON data in" read `false` one character short, so `{"a": false}` failed with
+  "Expecting ',' delimiter". It now reads it as Python does (the Thunder engine and every compiled target).
+- **Thunder Core compiles to Go.** `thunder build|run|test --target go` (or `target = "go"` in `thunder.toml`) compiles
+  a program to readable Go: one standard-library-only module (`go.mod`, one `.go` per Thunder file, and the runtime in
+  `thunder/thunder_runtime.go`, a port of the Thunder engine's value code: exact decimals with `math/big`, money rounded
+  half up, positions from 1). `go run .` runs it without Thunder. Every Core test program (136) gives the same output,
+  errors included, on Python, the Thunder engine, TypeScript, and Go; the conformance tests now run all four. `Use` (a
+  Python module) is refused for Go (TC405). Running needs Go 1.21+; without it, Thunder says so and `build` still works.
+- **Thunder Core compiles to Java.** `thunder build|run|test --target java` (or `target = "java"` in thunder.toml)
+  compiles a program to readable Java 17+ (one class per Thunder file, a static method per function, every line marked
+  `// thunder:N`) with a JDK-only runtime that follows the Thunder engine's values line for line. Every Core test
+  program (136) gives the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Java.
+  Thunder finds the JDK through THUNDER_JAVA_HOME, JAVA_HOME, or the PATH, and says what to install when there is
+  none; building needs no JDK. A program that uses a Python module is refused for Java (TC405).
 - **Readings say more, more precisely (a reading-quality sweep on real code).** A message says what it writes
   (`Writes a log or message: "Wrote «opts.out»."`, values in text as «placeholders»); an add says what it adds ("Adds an
   entry (title, rows, source) to out", "Adds the c's id to items"); a call's single argument is named ("Calls add

@@ -9,9 +9,15 @@ import { spawnSync } from 'node:child_process';
 import { compileCore } from './index.mjs';
 import { PYTHON_RUNTIME } from './runtime-python.mjs';
 import { writeTypeScript, typescriptDiagnostics } from './typescript-run.mjs';
+import { writeCSharp, csharpDiagnostics } from './csharp-run.mjs';
+import { writeRust, rustDiagnostics } from './rust-run.mjs';
+import { writeGo, goDiagnostics } from './go-run.mjs';
+import { writeJava, javaDiagnostics } from './java-run.mjs';
 
 /** The languages a Thunder Core project can be compiled to. */
-export const TARGETS = ['python', 'typescript'];
+export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go', 'java'];
+/** How a target is named to people. */
+export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust', go: 'Go', java: 'Java' };
 
 export const PROJECT_FILE = 'thunder.toml';
 
@@ -48,7 +54,7 @@ export function loadProject(root) {
   const toml = parseToml(readFileSync(join(root, PROJECT_FILE), 'utf8'));
   const build = toml.build ?? {};
   const target = String(build.target ?? 'python');
-  if (!TARGETS.includes(target)) throw new Error(`thunder.toml: target "${target}" is not supported yet. Thunder Core builds Python (target = "python") or TypeScript (target = "typescript").`);
+  if (!TARGETS.includes(target)) throw new Error(`thunder.toml: target "${target}" is not supported yet. Thunder Core builds ${TARGETS.map((t) => `${TARGET_NAMES[t] ?? t} (target = "${t}")`).join(', ')}.`);
   return {
     root,
     name: toml.project?.name ?? basename(root),
@@ -81,7 +87,7 @@ export function buildProject({ root, single = null, includeTests = false, write 
   const base = cfg ? cfg.root : dirname(resolve(single));
   // --target overrides thunder.toml; a different target than the project's builds into generated/<target>.
   const tgt = target ?? cfg?.target ?? 'python';
-  if (!TARGETS.includes(tgt)) throw new Error(`there is no target "${tgt}". Thunder Core builds python (the default) or typescript.`);
+  if (!TARGETS.includes(tgt)) throw new Error(`there is no target "${tgt}". Thunder Core builds ${TARGETS.join(', ')} (python is the default).`);
   const srcFiles = cfg ? thunderFiles(join(cfg.root, cfg.src)) : [];
   if (single && !srcFiles.includes(resolve(single))) srcFiles.unshift(resolve(single));
   const testFiles = includeTests && cfg ? thunderFiles(join(cfg.root, cfg.tests)) : [];
@@ -102,8 +108,14 @@ export function buildProject({ root, single = null, includeTests = false, write 
   }
   // A Python module (Use) cannot be compiled to TypeScript: refuse it before anything is written (TC405).
   if (tgt === 'typescript') for (const r of results.filter((x) => x.ok)) { const d = typescriptDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  if (tgt === 'csharp') for (const r of results.filter((x) => x.ok)) { const d = csharpDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  if (tgt === 'rust') for (const r of results.filter((x) => x.ok)) { const d = rustDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  if (tgt === 'go') for (const r of results.filter((x) => x.ok)) { const d = goDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  // The same for Java: Python modules exist only for the Python target.
+  if (tgt === 'java') for (const r of results.filter((x) => x.ok)) { const d = javaDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   const ok = results.every((r) => r.ok);
   if (ok && write && tgt === 'typescript') writeTypeScript(results, outDir);
+  if (ok && write && tgt === 'java') writeJava(results, outDir);
   if (ok && write && tgt === 'python') {
     mkdirSync(outDir, { recursive: true });
     writeFileSync(join(outDir, 'thunder_runtime.py'), PYTHON_RUNTIME);
@@ -119,6 +131,9 @@ export function buildProject({ root, single = null, includeTests = false, write 
   }
   const entryPath = single ? resolve(single) : cfg?.entry ? join(cfg.root, cfg.entry) : join(base, cfg?.src ?? '.', 'main.thunder');
   const entry = results.find((r) => r.path === entryPath) ?? results.find((r) => r.kind === 'src');
+  if (ok && write && tgt === 'csharp') writeCSharp(results, outDir, { entry });
+  if (ok && write && tgt === 'rust') writeRust(results, outDir, { entryModule: entry?.module ?? null });
+  if (ok && write && tgt === 'go') writeGo(results, outDir, { entry: entry?.module ?? null });
   return { ok, results, outDir, base, entryModule: entry?.module ?? null, entry, config: cfg, target: tgt };
 }
 
