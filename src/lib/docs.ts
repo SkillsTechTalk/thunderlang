@@ -42,6 +42,7 @@ const DOC_ORDER = [
   "reading-code",
   "review-in-thunder",
   "trace",
+  "passport",
   "why",
   "github-action",
   "runtime-enforcement",
@@ -112,6 +113,7 @@ const DOC_LABELS: Record<string, string> = {
   "verifying-ai-changes": "Verifying AI code changes",
   "mcp": "ThunderLang for AI agents (MCP)",
   "reading-code": "Read any code in Thunder",
+  "passport": "The Software Passport: evidence for a change, and when it goes stale",
   "trace": "Thunder Trace: how your repositories depend on each other",
   "why": "Thunder Why: what an AI agent did, in plain words",
   "core": "Thunder Core: write a program and run it",
@@ -172,6 +174,7 @@ const DOC_BLURBS: Record<string, string> = {
   "case-study-feature-flags": "A worked adoption: lift a feature-flag evaluator, prove four languages agree, and gate a bad AI change.",
   "verifying-ai-changes": "Gate an AI-proposed code change against the intent it must uphold, deterministically.",
   "mcp": "Connect Claude Code, Codex, ChatGPT, or Cursor, and give your agent the rules for when to call each tool.",
+  "passport": "An evidence record for a feature or a change: behavior, links, effects, each claim with its basis and limits, and what turns stale.",
   "trace": "Which repositories call which, and what a change can affect in the others, each answer cited to a file and line.",
   "why": "Read an AI agent's run record and see what it was asked, what it changed, and why it stopped, in plain words.",
   "core": "Write a program in plain words, check it, compile it to Python, and run it. The language reference.",
@@ -279,7 +282,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Scale across a system",
     blurb: "Navigate many missions and large changes.",
-    slugs: ["trace", "why", "large-changes", "build-session-digest", "mvp-readiness", "release-story-tutorial"],
+    slugs: ["trace", "passport", "why", "large-changes", "build-session-digest", "mvp-readiness", "release-story-tutorial"],
   },
   {
     title: "Reference",

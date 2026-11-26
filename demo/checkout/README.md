@@ -98,7 +98,59 @@ Thank you! Order ord-1001 is placed: $53.46 was charged.
   lamps: 8
 ```
 
+## The change's passport
+
+`run-demo.sh --passport` builds the change's [Thunder passport](../../docs/passport.md) ([passport.json](passport.json),
+[passport.md](passport.md)) from a scratch copy: base = the app before the fix, head = after. It runs each part's own
+tests and records them as evidence:
+
+```sh
+thunder passport web orders billing --base HEAD~1 \
+  --purpose "Prevent duplicate charges when a payment request is retried: one press of Place order charges the customer once." \
+  --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts" \
+  --out passport.json --md-out passport.md
+```
+
+```text
+Thunder passport (change): web, orders, billing
+Purpose: Prevent duplicate charges when a payment request is retried: one press of Place order charges the customer once.
+6 claims with evidence (3 passed, 0 failed, 3 read from code), 5 unknowns, 4 not verified
+
+Evidence
+  ✓ ran and passed: `python3 -m unittest` in billing exited with 0.
+  ✓ ran and passed: `dotnet run -- --test` in orders exited with 0.
+  ✓ ran and passed: `node --test checkout.test.ts` in web exited with 0.
+  ○ read from code, not run: orders calls billing with POST /charges, and billing handles it.
+  ○ read from code, not run: web calls orders with POST /orders, and orders handles it.
+  ○ read from code, not run: What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.
+```
+
+Each claim records its basis (the command, its exit code and a digest of its output, or the two source lines of a
+link), what it does not cover, and the exact files it depended on, by content hash. Then the script edits
+`billing/billing.py` in the scratch copy and checks the passport again. Nothing is re-run:
+
+```text
+Thunder passport check: 4 current, 2 stale (nothing was re-run)
+
+  ! stale: `python3 -m unittest` in billing exited with 0.
+      billing/billing.py changed since the passport was built
+  ✓ current: `dotnet run -- --test` in orders exited with 0.
+  ✓ current: `node --test checkout.test.ts` in web exited with 0.
+  ✓ current: orders calls billing with POST /charges, and billing handles it.
+  ✓ current: web calls orders with POST /orders, and orders handles it.
+  ! stale: What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.
+      billing/billing.py changed since the passport was built
+```
+
+The two sections below start from the passport. Anything they add beyond it is marked as such.
+
 ## Verified (and how)
+
+**From the passport** (ran and passed): billing's 5 Python tests, orders' 7 C# checks, and web's 4 TypeScript tests,
+each run by the passport with exit 0. **Read from code, not run:** the two Trace links (orders → billing
+`POST /charges`, web → orders `POST /orders`) and the review of both versions.
+
+**Shown by `run-demo.sh` but not yet recorded in the passport** (a passport cannot yet start the three services):
 
 - **The bug, end to end.** One press charged $53.46 twice, took 4 lamps instead of 2, and said it failed. The run used the real billing, orders and web code over local HTTP (`run-demo.sh --before`).
 - **The fix, end to end.** One press charged once, took 2 lamps, and said it succeeded (`run-demo.sh`).
@@ -113,6 +165,16 @@ Thank you! Order ord-1001 is placed: $53.46 was charged.
 - **Readings with source lines:** every Thunder line above names its file and line, and the two Trace links name both ends.
 
 ## Not verified
+
+**From the passport** (always listed, because nothing here tests them):
+- Deployment: how it is configured and run in a real environment.
+- External services: real providers, their answers, and their outages (tests use what the code was given).
+- More than one process or machine: anything kept in memory is not shared between copies.
+- Load and timing: behavior under many requests at once, beyond what the tests ran.
+
+Its unknowns also list the 5 changed steps it shows as code instead of words.
+
+**Beyond the passport, from this walkthrough:**
 
 - **A real payment provider** and its own idempotency rules. The provider here is a fake.
 - **Deployment:** more than one copy of orders or billing. The key table is held in memory in one process, so two copies would not share it, and a restart forgets it.
