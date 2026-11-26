@@ -38,3 +38,21 @@ test('the program entry compiles, runs, shows a screen, and writes every target'
   assert.match(P.toReact(s.program, s.info, { source: 'main.thunder' }), /Hello/);
   assert.match(P.screenOutline(P.screenApp({ entry: s }).render()), /Hello/);
 });
+
+test('everything OpenThunder uses is reachable from public entries (no paths into src/)', async () => {
+  const core = await import('@skillstech/thunderlang/core');
+  const program = await import('@skillstech/thunderlang/program');
+  const need = {
+    program: ['compileCore', 'screenApp', 'toReact'],
+    core: [
+      'thunderModel', 'modelText', 'readLevel', // model.mjs
+      'SYMBOLS', 'DOES', 'COLORS', 'LEVELS', 'thunderTokens', // visual.mjs
+      'readCode', 'searchReading', 'detectLanguage', // read.mjs
+      'translateDecisions', 'translateDecisionsWithDiagnostics', // translate.mjs
+      'thunderWrite', 'writeRule', // write.mjs, write-steps.mjs
+      'parseIntent', 'compileHumanContract', 'parsePlainContract', 'promoteDecision', // parse, human/plain contract, promote
+    ],
+  };
+  const missing = [...need.program.filter((k) => !(k in program)).map((k) => `program:${k}`), ...need.core.filter((k) => !(k in core)).map((k) => `core:${k}`)];
+  assert.deepEqual(missing, []);
+});
