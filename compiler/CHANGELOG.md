@@ -1,5 +1,10 @@
 # Unreleased
 
+- **The live translator (thunderlang.dev/live).** Type code in Python, TypeScript, JavaScript, Java, C#, Go, or Rust
+  and see Thunder's reading update as you type (for Python, also the Thunder Core you can edit and run). Or write
+  Thunder and see it as Python, TypeScript, C#, Java, Go, and Rust, with what it prints, run by the Thunder engine in a
+  worker (a program that never ends is stopped and said so). Everything runs in the browser. The Go target's name table
+  (`goNamespaces`) moves into target-go.mjs so it can run there.
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
   Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out
