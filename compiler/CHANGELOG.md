@@ -1,5 +1,16 @@
 # Unreleased
 
+- **Thunder Core compiles to TypeScript.** `thunder build --target typescript` (or `target = "typescript"` in
+  thunder.toml) writes one readable `.ts` file per Thunder file into `generated/typescript/`, with `// thunder:N` line
+  marks, the runtime, its types, and a `tsconfig.json`; `thunder run --target typescript` and `thunder test --target
+  typescript` run it on Node (Node 22.6+ strips the types itself; on an older Node, Thunder uses the `typescript`
+  package when it can find it, and otherwise says what is needed). One meaning: the runtime is the Thunder engine's own
+  value code (engine-values.mjs, byte for byte), and every Core test program now runs three ways (Python, the Thunder
+  engine, and compiled TypeScript), with the same output, errors, and exit status required: 136 programs on Node 18,
+  22, and 24. `tsc --strict` accepts the code generated for all of them. A program that uses a Python module (`Use`) is
+  refused for TypeScript before anything is written (new code TC405). The site lists Core → TypeScript as Available;
+  Java, C#, Go, and Rust stay Planned. CI now runs the compiler tests on Node 22, and the site job checks every
+  generated file with tsc.
 - **The tutorial teaches writing and running Thunder.** `@skillstech/thunderlang/learn` gains part 2, "write and run":
   seven lessons (`part: 'write'`), each naming the concept it teaches: your first program in two commands
   (`thunder new hello`, `thunder run hello`, and why a bare `thunder run` right after fails), conditions, loops and

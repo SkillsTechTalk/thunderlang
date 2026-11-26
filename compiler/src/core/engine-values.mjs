@@ -732,3 +732,323 @@ export function jsonText(v) {
   };
   return w(jsonReady(v));
 }
+
+// ── Helpers the generated code calls (moved from the engine so the engine and compiled TypeScript share them) ────
+
+export const MAX_FRAMES = 997; // as deep as the generated Python goes (recursion limit 1000, less its own frames)
+
+export function rangeInt(v) {
+  if (typeof v === 'bigint') return v;
+  if (typeof v === 'boolean') return v ? 1n : 0n;
+  throw TypeErr(`'${v instanceof Dec ? 'decimal.Decimal' : v === null ? 'NoneType' : v instanceof Money ? 'Money' : typeof v === 'string' ? 'str' : 'object'}' object cannot be interpreted as an integer`);
+}
+
+export function unpack2(el) {
+  const items = Array.isArray(el) ? el : el instanceof Tuple ? el.items : typeof el === 'string' ? Array.from(el) : el instanceof PyDict ? el.keys() : null;
+  if (!items) throw TypeErr(`cannot unpack non-iterable ${el === null ? 'NoneType' : isInt(el) ? 'int' : el instanceof Dec ? 'decimal.Decimal' : typeof el === 'boolean' ? 'bool' : 'object'} object`);
+  if (items.length < 2) throw new PyErr('ValueError', `not enough values to unpack (expected 2, got ${items.length})`);
+  if (items.length > 2) throw new PyErr('ValueError', `too many values to unpack (expected 2, got ${items.length})`);
+  return items;
+}
+
+export function mapItems(m) { if (!(m instanceof PyDict)) throw attrErr(m, 'items'); return m.items(); }
+export function pairsOf(c) { return c instanceof PyDict ? c.items() : pyList(c); }
+
+export function itemAt(items, position, dflt) {
+  if (typeof position !== 'bigint') throw KindMismatch(`A position in a list is a whole number, not ${describe(position)}.`);
+  const list = Array.isArray(items) ? items : items instanceof Tuple ? items.items : null;
+  if (!list) throw TypeErr(`object of type '${items === null ? 'NoneType' : 'object'}' has no len()`);
+  if (position >= 1n && position <= BigInt(list.length)) return list[Number(position) - 1];
+  if (dflt !== undefined) return dflt;
+  throw MissingValue(`There is no item ${position}: the list has ${list.length} item${list.length === 1 ? '' : 's'}.`);
+}
+export function setItem(items, position, value) { itemAt(items, position); items[Number(position) - 1] = value; }
+export function mapSet(m, k, v) {
+  if (m instanceof PyDict) { m.set(k, v); return; }
+  if (m === null) throw TypeErr("'NoneType' object does not support item assignment");
+  if (Array.isArray(m)) { setItem(m, k, v); return; }
+  throw TypeErr(`'${m instanceof Money ? 'Money' : 'object'}' object does not support item assignment`);
+}
+export function setEntry(c, k, v) {
+  if (Array.isArray(c)) setItem(c, k, v);
+  else if (c instanceof PyDict) c.set(k, v);
+  else if (c === null) throw MissingValue(`This value is nothing, so it has no entry for ${show(k)}.`);
+  else throw KindMismatch(`${describe(c)} has no entries that can be changed.`);
+}
+export function entry(c, k, dflt) {
+  if (Array.isArray(c) || c instanceof Tuple) return itemAt(c, k, dflt);
+  if (c instanceof PyDict) { if (c.has(k)) return c.get(k); if (dflt !== undefined) return dflt; throw MissingValue(`There is no entry for ${show(k)}.`); }
+  if (c === null) throw MissingValue(`This value is nothing, so it has no entry for ${show(k)}.`);
+  throw KindMismatch(`${describe(c)} has no entries.`);
+}
+export function mapGet(m, k, dflt) {
+  if (m instanceof PyDict) { if (m.has(k)) return m.get(k); if (dflt !== undefined) return dflt; throw new PyErr('KeyError', pyStr(k), [k]); }
+  if (m === null) throw dflt !== undefined ? attrErr(m, 'get') : TypeErr("'NoneType' object is not subscriptable");
+  if (dflt !== undefined) throw attrErr(m, 'get');
+  if (Array.isArray(m)) { const i = Number(k); if (typeof k === 'bigint' && i >= -m.length && i < m.length) return m.at(i); throw new PyErr('IndexError', 'list index out of range'); }
+  throw TypeErr(`'${m instanceof Money ? 'Money' : 'object'}' object is not subscriptable`);
+}
+
+/** obj.name for a record field (a Python attribute), or Money's amount. */
+export function getAttr(obj, name) {
+  if (obj instanceof RecordVal && obj.f.has(name)) return obj.f.get(name);
+  if (obj instanceof Money && name === 'amount') return obj.amount;
+  throw attrErr(obj, name);
+}
+
+/** obj.name = value. `checkRules(obj, name, value)` runs the record's Never rules first, as its __setattr__ does. */
+export function setAttrWith(checkRules, obj, name, value) {
+  if (obj instanceof RecordVal) { checkRules(obj, name, value); obj.f.set(name, value); return; }
+  if (obj instanceof Money) throw new PyErr('AttributeError', 'Money cannot be changed; make new money instead.');
+  throw attrErr(obj, name);
+}
+
+export function getField(obj, key) {
+  if (obj === null) throw MissingValue(`This value is nothing, so it has no ${key}.`);
+  const names = [key, key.replace(/ /g, '_'), key.toLowerCase(), key.toLowerCase().replace(/ /g, '_')];
+  if (obj instanceof PyDict) {
+    for (const k of names) if (obj.has(k)) return obj.get(k);
+    for (const [k, v] of obj.m.values()) if (pyStrip(pyStr(k)).toLowerCase() === key.toLowerCase()) return v;
+    throw MissingValue(`There is no field "${key}". Fields here: ${obj.keys().map(pyStr).join(', ')}.`);
+  }
+  for (const k of names) {
+    if (obj instanceof RecordVal && obj.f.has(k)) return obj.f.get(k);
+    if (obj instanceof Money && k === 'amount') return obj.amount;
+  }
+  throw MissingValue(`${describe(obj)} has no field "${key}".`);
+}
+export function setFieldWith(setAttr, obj, key, value) {
+  if (obj instanceof PyDict) { obj.set(key, value); return; }
+  const names = [key, key.replace(/ /g, '_'), key.toLowerCase(), key.toLowerCase().replace(/ /g, '_')];
+  for (const k of names) if (obj instanceof RecordVal && obj.f.has(k)) { setAttr(obj, k, value); return; }
+  throw MissingValue(`${describe(obj)} has no field "${key}".`);
+}
+
+export function addTo(target, value) { if (Array.isArray(target)) { target.push(value); return target; } return add(target, value); }
+export function appendTo(target, value) { if (!Array.isArray(target)) throw attrErr(target, 'append'); target.push(value); }
+export function removeFrom(target, value) {
+  if (target instanceof PyDict) { if (!target.has(value)) throw MissingValue(`There is no entry for ${show(value)} to remove.`); target.delete(value); return; }
+  if (!contains(target, value)) throw MissingValue(`${show(value)} is not in the list, so it can't be removed.`);
+  if (!Array.isArray(target)) throw attrErr(target, 'remove');
+  target.splice(target.findIndex((x) => x === value || eq(x, value)), 1);
+}
+export function sortInPlace(target, key, desc) {
+  if (!Array.isArray(target)) throw attrErr(target, 'sort');
+  const sorted = pySort(target, key, !!desc);
+  target.splice(0, target.length, ...sorted);
+}
+export function reverseInPlace(target) { if (!Array.isArray(target)) throw attrErr(target, 'reverse'); target.reverse(); }
+
+/** A record: the fields it is given (a Map), the others defaulted; each set through `setAttr` (its Never rules). */
+export function newRecordWith(setAttr, cls, given) {
+  const rec = new RecordVal(cls);
+  const missing = cls.fields.filter((f) => !given.has(f.py) && !['optional', 'list', 'map'].includes(f.type?.k));
+  if (missing.length) throw TypeErr(`${cls.py}.__init__() missing ${missing.length} required keyword-only argument${missing.length === 1 ? '' : 's'}: ${missing.map((f) => `'${f.py}'`).join(missing.length === 2 ? ' and ' : ', ')}`);
+  for (const f of cls.fields) {
+    const v = given.has(f.py) ? given.get(f.py) : f.type.k === 'optional' ? null : f.type.k === 'list' ? [] : new PyDict();
+    setAttr(rec, f.py, v);
+  }
+  return rec;
+}
+
+/** never(cond, text, rule, value): a broken Never rule stops the program. */
+export function never(cond, text, line, value) {
+  if (truthy(cond)) throw RuleBroken(`${text} (the rule on line ${line}), but the value is ${show(value)}.`);
+}
+
+/** The operations written as words: the sum of, the first of, the words of, … */
+export function applyOp(op, a) {
+  switch (op) {
+    case 'sum': return totalOf(pyList(a));
+    case 'average': { const items = pyList(a); if (!items.length) throw MissingValue("I can't take the average of an empty list."); return divide(totalOf(items), BigInt(items.length)); }
+    case 'count': case 'length': return pyLen(a);
+    case 'min': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no smallest item.'); return items.reduce((best, x) => (compare('<', x, best) ? x : best)); }
+    case 'max': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no largest item.'); return items.reduce((best, x) => (compare('>', x, best) ? x : best)); }
+    case 'first': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no first item.'); return items[0]; }
+    case 'last': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no last item.'); return items[items.length - 1]; }
+    case 'words': return pySplit(pyStr(a)).map((p) => stripPunct(p)).filter(Boolean);
+    case 'lines': return splitLines(strMethod(a, 'splitlines'));
+    case 'lowercase': return strMethod(a, 'lower').toLowerCase();
+    case 'uppercase': return strMethod(a, 'upper').toUpperCase();
+    case 'trimmed': return pyStrip(strMethod(a, 'strip'));
+    case 'parts': return pySplit(textOf(a, '"the parts of"'));
+    case 'abs': {
+      if (a instanceof Money) return new Money(a.amount.abs());
+      if (typeof a === 'boolean' || !(isNumber(a))) throw KindMismatch(`"the absolute value of" needs a number or money, but it is ${describe(a)}.`);
+      return typeof a === 'bigint' ? (a < 0n ? -a : a) : a.abs();
+    }
+    case 'jsonText': return jsonText(a);
+    case 'jsonData': return jsonParse(textOf(a, '"the JSON data in"'));
+    case 'keys': if (!(a instanceof PyDict)) throw attrErr(a, 'keys'); return a.keys();
+    case 'values': if (!(a instanceof PyDict)) throw attrErr(a, 'values'); return a.values();
+    default: throw new PyErr('NameError', `name '${op}' is not defined`);
+  }
+}
+
+/** "starts with" / "ends with": both sides must be text. */
+export function affix(t, a, end) {
+  const what = end ? '"ends with"' : '"starts with"';
+  textOf(t, what); textOf(a, what);
+  return end ? t.endsWith(a) : t.startsWith(a);
+}
+
+/** a <= v <= hi, the way Python chains it: hi is worked out only when the first part holds. */
+export function between(lo, v, hi) { if (!compare('<=', lo, v)) return false; return compare('<=', v, hi()); }
+/** `item in container`, with the item worked out first (as Python does). */
+export function isIn(item, container) { return contains(container, item); }
+
+/** Read a file the program names. `readText(path, cwd)` gives its text or throws with .code 'ENOENT' / 'EISDIR';
+ *  without one (a browser) every file is missing. */
+export function readTextVia(readText, cwd, path) {
+  if (typeof path !== 'string') throw TypeErr(`expected str, bytes or os.PathLike object, not ${path === null ? 'NoneType' : 'object'}`);
+  try {
+    if (!readText) throw Object.assign(new Error('no files here'), { code: 'ENOENT' });
+    return readText(path, cwd);
+  }
+  catch (err) {
+    if (err.code === 'ENOENT') throw MissingValue(`There is no file "${path}" (looked in the folder the program runs in).`);
+    throw new PyErr(err.code === 'EISDIR' ? 'IsADirectoryError' : 'OSError', err.message);
+  }
+}
+
+/** Expect: the checks, the way thunder_runtime.py's expect_* do them. */
+export function expectTrue(v, text) { if (v !== true) throw ExpectationFailed(`${text}, but it was not true.`); }
+export function expectFailure(run, text, msg) {
+  try { run(); }
+  catch (e) {
+    const err = asPyErr(e);
+    if (err.thunder && msg !== null) {
+      if (typeof msg !== 'string') throw TypeErr(`'in <string>' requires string as left operand, not ${typeof msg === 'bigint' ? 'int' : 'object'}`);
+      if (!err.message.includes(msg)) throw ExpectationFailed(`${text}, but it failed with "${err.message}".`);
+    }
+    return;
+  }
+  throw ExpectationFailed(`${text}, but it did not fail.`);
+}
+export function expectValue(actual, full, op, want, text) {
+  const known = CHECKS[full];
+  const ok = known ? known(actual, want) : !CHECKS[op](actual, want);
+  if (!ok) throw ExpectationFailed(`${text}, but it was ${show(actual)}.`);
+}
+
+/** describe_error(error) in thunder_runtime.py: "main.thunder, line 3 (reached from line 7): … [TC501]". */
+export function describeError(e) {
+  const where = e.where ?? [];
+  const inner = where[where.length - 1];
+  let message = explain(e);
+  let code = codeOf(e);
+  if (code === 'TC508' && !e.thunder) { message = `Python code used by this line failed: ${message}`; code = 'TC508'; }
+  let place = inner ? `${inner.file}, line ${inner.line}` : 'In the program';
+  const callers = where.slice(0, -1).map((f) => f.line);
+  if (callers.length && inner) place += ` (reached from line ${callers.reverse().join(', then line ')})`;
+  return `${place}: ${message}  [${code}]`;
+}
+
+/** Values the generated code writes literally. */
+export const dec = (text) => Dec.parse(text);
+export const money = (text) => Money.of(text);
+export const today = () => PyDate.today();
+export function date(text) { const d = PyDate.parse(text); if (!d) throw new PyErr('ValueError', `Invalid isoformat string: '${text}'`); return d; }
+export const newMap = () => new PyDict();
+
+// ── conversions and text helpers (thunder_runtime.py) ──────────────────────────────────────────────────────────
+
+export const CHECKS = {
+  is: (a, b) => eq(a, b),
+  'is not': (a, b) => !eq(a, b),
+  'at least': (a, b) => compare('>=', a, b),
+  'at most': (a, b) => compare('<=', a, b),
+  'more than': (a, b) => compare('>', a, b),
+  'less than': (a, b) => compare('<', a, b),
+  nothing: (a) => a === null,
+  'not nothing': (a) => a !== null,
+  empty: (a) => eq(pyLen(a), 0n),
+  positive: (a) => compare('>', a, 0n),
+  negative: (a) => compare('<', a, 0n),
+  zero: (a) => eq(a, 0n),
+  between: (a, b) => compare('<=', b[0], a) && compare('<=', a, b[1]),
+  in: (a, b) => contains(b, a),
+  contains: (a, b) => contains(a, b),
+};
+
+
+const NUMBER = /^[+-]?(\d[\d_]*)(\.\d+)?$/;
+
+export function toNumber(x) {
+  if (isNumber(x)) return x;
+  if (x instanceof Money) return x.amount;
+  if (typeof x === 'string') {
+    const s = pyStrip(x).replace(/,/g, '');
+    if (NUMBER.test(s)) return s.includes('.') ? Dec.parse(s) : BigInt(s.replace(/_/g, ''));
+  }
+  throw ConversionFailed(`${describe(x)} is not a number.`);
+}
+export function toWhole(x) {
+  const n = toNumber(x);
+  if (typeof n === 'bigint') return n;
+  if (n.isIntegral()) return n.toBigInt();
+  throw ConversionFailed(`${show(n)} is not a whole number.`);
+}
+export function toMoney(x) {
+  if (x instanceof Money) return x;
+  if (typeof x === 'string') {
+    let s = pyStrip(x).replace(/,/g, '');
+    const negative = s.startsWith('-');
+    s = s.replace(/^-+/, '').replace(/^\$+/, '');
+    if (NUMBER.test(s)) return Money.of((negative ? '-' : '') + s);
+    throw ConversionFailed(`${describe(x)} is not an amount of money.`);
+  }
+  return new Money(toDec(toNumber(x)));
+}
+export function toYesNo(x) {
+  if (typeof x === 'boolean') return x;
+  if (typeof x === 'string' && ['yes', 'true'].includes(pyStrip(x).toLowerCase())) return true;
+  if (typeof x === 'string' && ['no', 'false'].includes(pyStrip(x).toLowerCase())) return false;
+  throw ConversionFailed(`${describe(x)} is not yes or no.`);
+}
+export function toDate(x) {
+  if (x instanceof PyDate) return x;
+  const d = PyDate.parse(pyStrip(pyStr(x)));
+  if (d) return d;
+  throw ConversionFailed(`${describe(x)} is not a date (write it as YYYY-MM-DD).`);
+}
+
+export function totalOf(items) {
+  if (!items.length) return 0n;
+  let result = items[0];
+  for (const x of items.slice(1)) result = add(result, x);
+  return result;
+}
+export function textOf(v, what) {
+  if (typeof v !== 'string') throw KindMismatch(`${what} needs text, but it is ${describe(v)}.`);
+  return v;
+}
+export function joined(items, sep) {
+  sep = textOf(sep, '"joined with"');
+  const out = [];
+  pyIter(items).forEach((x, i) => {
+    if (typeof x !== 'string') throw KindMismatch(`"joined with" joins text, but item ${i + 1} is ${describe(x)}. Turn it into text first.`);
+    out.push(x);
+  });
+  return out.join(sep);
+}
+export function splitAt(text, sep) {
+  sep = textOf(sep, '"split at"');
+  if (sep === '') throw KindMismatch('"split at" needs something to split at, not empty text.');
+  return textOf(text, '"split at"').split(sep);
+}
+export function replacing(text, old, nw) {
+  old = textOf(old, '"replacing"');
+  if (old === '') throw KindMismatch('"replacing" needs something to replace, not empty text.');
+  const t = textOf(text, '"replacing"');
+  return t.split(old).join(textOf(nw, '"replacing … with"'));
+}
+const PUNCT = new Set(Array.from(".,;:!?\"'()[]{}<>“”‘’…-"));
+export function stripPunct(w) {
+  const a = Array.from(w);
+  let i = 0, j = a.length;
+  while (i < j && PUNCT.has(a[i])) i++;
+  while (j > i && PUNCT.has(a[j - 1])) j--;
+  return a.slice(i, j).join('');
+}
+
