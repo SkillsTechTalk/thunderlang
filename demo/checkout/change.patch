@@ -1,0 +1,275 @@
+diff --git a/billing/billing.py b/billing/billing.py
+index 74cca96..c6140f4 100644
+--- a/billing/billing.py
++++ b/billing/billing.py
+@@ -31,16 +31,25 @@ class Billing:
+     def __init__(self, provider):
+         self.provider = provider
+         self.payments = []
++        self.by_key = {}
+         self.lock = threading.Lock()
+ 
+-    def charge(self, order_ref, amount_cents):
+-        """Charge the customer once for an order and record the payment."""
++    def charge(self, order_ref, amount_cents, idempotency_key):
++        """Charge the customer once per idempotency key: asking again with the same key gives back the first payment."""
+         if amount_cents <= 0:
+             raise ValueError("The amount to charge must be more than zero")
++        if not idempotency_key:
++            raise ValueError("A charge needs an idempotency key, so a retry is never charged twice")
+         with self.lock:
++            first = self.by_key.get(idempotency_key)
++            if first is not None:
++                if first.amount_cents != amount_cents:
++                    raise ValueError("This idempotency key was already used for a different amount")
++                return first
+             charge_id = self.provider.charge(order_ref, amount_cents)
+             payment = Payment(charge_id, order_ref, amount_cents, "charged")
+             self.payments.append(payment)
++            self.by_key[idempotency_key] = payment
+             return payment
+ 
+     def charged_total(self):
+diff --git a/billing/server.py b/billing/server.py
+index 225ca7e..dfde90e 100644
+--- a/billing/server.py
++++ b/billing/server.py
+@@ -15,7 +15,7 @@ def make_handler(billing):
+                 return self.answer(404, {"error": "There is no such page"})
+             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+             try:
+-                payment = billing.charge(body["order_ref"], body["amount_cents"])
++                payment = billing.charge(body["order_ref"], body["amount_cents"], body.get("idempotency_key"))
+             except ValueError as problem:
+                 return self.answer(400, {"error": str(problem)})
+             return self.answer(200, asdict(payment))
+diff --git a/billing/test_billing.py b/billing/test_billing.py
+index 2b9de68..90f6ba1 100644
+--- a/billing/test_billing.py
++++ b/billing/test_billing.py
+@@ -7,25 +7,38 @@ from billing import Billing, FakeProvider
+ class BillingTests(unittest.TestCase):
+     def test_a_charge_is_recorded(self):
+         billing = Billing(FakeProvider())
+-        payment = billing.charge("cart-1", 5400)
++        payment = billing.charge("cart-1", 5400, "key-1")
+         self.assertEqual(payment.status, "charged")
+         self.assertEqual(billing.charged_total(), 5400)
+ 
+     def test_nothing_is_charged_for_zero(self):
+         billing = Billing(FakeProvider())
+         with self.assertRaises(ValueError):
+-            billing.charge("cart-1", 0)
++            billing.charge("cart-1", 0, "key-1")
+         self.assertEqual(billing.payments, [])
+ 
+-    @unittest.expectedFailure  # Known bug: a retried charge request charges the customer again.
+     def test_a_retried_charge_is_charged_once(self):
+         provider = FakeProvider(delay_seconds=0.2)
+         billing = Billing(provider)
+-        first = threading.Thread(target=billing.charge, args=("cart-1", 5400))
++        first = threading.Thread(target=billing.charge, args=("cart-1", 5400, "key-1"))
+         first.start()
+-        billing.charge("cart-1", 5400)  # the caller gave up waiting and asked again
++        again = billing.charge("cart-1", 5400, "key-1")  # the caller gave up waiting and asked again
+         first.join()
+         self.assertEqual(len(provider.charges), 1)
++        self.assertEqual(again.payment_id, "ch_1")
++
++    def test_a_key_used_for_another_amount_is_refused(self):
++        billing = Billing(FakeProvider())
++        billing.charge("cart-1", 5400, "key-1")
++        with self.assertRaises(ValueError):
++            billing.charge("cart-1", 9900, "key-1")
++        self.assertEqual(billing.charged_total(), 5400)
++
++    def test_a_charge_without_a_key_is_refused(self):
++        billing = Billing(FakeProvider())
++        with self.assertRaises(ValueError):
++            billing.charge("cart-1", 5400, None)
++        self.assertEqual(billing.payments, [])
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/orders/BillingClient.cs b/orders/BillingClient.cs
+index 23149f9..1a51093 100644
+--- a/orders/BillingClient.cs
++++ b/orders/BillingClient.cs
+@@ -8,15 +8,15 @@ public record ChargeResult(string PaymentId, string Status);
+ 
+ public interface IBilling
+ {
+-    Task<ChargeResult> ChargeAsync(string orderRef, long amountCents);
++    Task<ChargeResult> ChargeAsync(string orderRef, long amountCents, string idempotencyKey);
+ }
+ 
+ /// <summary>Asks the billing service to charge the customer.</summary>
+ public class BillingClient(HttpClient http) : IBilling
+ {
+-    public async Task<ChargeResult> ChargeAsync(string orderRef, long amountCents)
++    public async Task<ChargeResult> ChargeAsync(string orderRef, long amountCents, string idempotencyKey)
+     {
+-        var json = JsonSerializer.Serialize(new { order_ref = orderRef, amount_cents = amountCents });
++        var json = JsonSerializer.Serialize(new { order_ref = orderRef, amount_cents = amountCents, idempotency_key = idempotencyKey });
+         var response = await http.PostAsync("/charges", new StringContent(json, Encoding.UTF8, "application/json"));
+         response.EnsureSuccessStatusCode();
+         var body = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+diff --git a/orders/OrderService.cs b/orders/OrderService.cs
+index 0ca69c7..765912f 100644
+--- a/orders/OrderService.cs
++++ b/orders/OrderService.cs
+@@ -1,6 +1,8 @@
++using System.Collections.Concurrent;
++
+ namespace Lumen.Orders;
+ 
+-public record OrderRequest(List<LineItem> Items, string? Coupon);
++public record OrderRequest(List<LineItem> Items, string? Coupon, string? IdempotencyKey = null);
+ 
+ public record OrderResult(bool Placed, string Message, string? OrderId = null, decimal Total = 0m, string? PaymentId = null);
+ 
+@@ -8,11 +10,22 @@ public record OrderResult(bool Placed, string Message, string? OrderId = null, d
+ public class OrderService(Inventory inventory, IBilling billing)
+ {
+     private readonly List<OrderResult> _orders = new();
++    private readonly ConcurrentDictionary<string, Lazy<Task<OrderResult>>> _byKey = new();
+     private int _next = 1000;
+ 
+     public IReadOnlyList<OrderResult> Orders { get { lock (_orders) return _orders.ToList(); } }
+ 
+-    public async Task<OrderResult> PlaceOrderAsync(OrderRequest request)
++    /// <summary>The same idempotency key is the same order: a retry gets the first answer, even while it is still running.</summary>
++    public Task<OrderResult> PlaceOrderAsync(OrderRequest request)
++    {
++        if (string.IsNullOrEmpty(request.IdempotencyKey))
++        {
++            return Task.FromResult(new OrderResult(false, "An order needs an idempotency key, so a retry is never charged twice"));
++        }
++        return _byKey.GetOrAdd(request.IdempotencyKey, _ => new Lazy<Task<OrderResult>>(() => PlaceNewOrderAsync(request))).Value;
++    }
++
++    private async Task<OrderResult> PlaceNewOrderAsync(OrderRequest request)
+     {
+         if (request.Items.Count == 0)
+         {
+@@ -28,7 +41,7 @@ public class OrderService(Inventory inventory, IBilling billing)
+         }
+         var price = Pricing.PriceOf(request.Items, request.Coupon);
+         var orderId = $"ord-{Interlocked.Increment(ref _next)}";
+-        var payment = await billing.ChargeAsync(orderId, (long)(price.Total * 100));
++        var payment = await billing.ChargeAsync(orderId, (long)(price.Total * 100), request.IdempotencyKey!);
+         var order = new OrderResult(true, "Order placed", orderId, price.Total, payment.PaymentId);
+         lock (_orders) _orders.Add(order);
+         return order;
+diff --git a/orders/SelfTests.cs b/orders/SelfTests.cs
+index 34c4623..f8c5fc5 100644
+--- a/orders/SelfTests.cs
++++ b/orders/SelfTests.cs
+@@ -6,7 +6,7 @@ public static class SelfTests
+     private class CountingBilling(int delayMs = 0) : IBilling
+     {
+         public int Charges;
+-        public async Task<ChargeResult> ChargeAsync(string orderRef, long amountCents)
++        public async Task<ChargeResult> ChargeAsync(string orderRef, long amountCents, string idempotencyKey)
+         {
+             await Task.Delay(delayMs);
+             var n = Interlocked.Increment(ref Charges);
+@@ -45,23 +45,38 @@ public static class SelfTests
+         {
+             var billing = new CountingBilling();
+             var shelf = Shelf();
+-            var result = await new OrderService(shelf, billing).PlaceOrderAsync(new(Cart, null));
++            var result = await new OrderService(shelf, billing).PlaceOrderAsync(new(Cart, null, "key-1"));
+             return result.Placed && billing.Charges == 1 && shelf.InStock("lamp") == 8;
+         });
+         await Check("too few in stock: nothing is charged", async () =>
+         {
+             var billing = new CountingBilling();
+-            var result = await new OrderService(Shelf(), billing).PlaceOrderAsync(new([new("shade", 6)], null));
++            var result = await new OrderService(Shelf(), billing).PlaceOrderAsync(new([new("shade", 6)], null, "key-1"));
+             return !result.Placed && billing.Charges == 0;
+         });
+         await Check("a retried order is charged once", async () =>
+         {
+             var billing = new CountingBilling(delayMs: 200);
++            var shelf = Shelf();
++            var service = new OrderService(shelf, billing);
++            var request = new OrderRequest(Cart, null, "key-1");
++            var answers = await Task.WhenAll(service.PlaceOrderAsync(request), service.PlaceOrderAsync(request));
++            return billing.Charges == 1 && shelf.InStock("lamp") == 8 && answers[0].OrderId == answers[1].OrderId;
++        });
++        await Check("two presses with different keys are two orders", async () =>
++        {
++            var billing = new CountingBilling();
+             var service = new OrderService(Shelf(), billing);
+-            var request = new OrderRequest(Cart, null);
+-            await Task.WhenAll(service.PlaceOrderAsync(request), service.PlaceOrderAsync(request));
+-            return billing.Charges == 1;
+-        }, knownBug: true);
++            await service.PlaceOrderAsync(new(Cart, null, "key-1"));
++            await service.PlaceOrderAsync(new(Cart, null, "key-2"));
++            return billing.Charges == 2;
++        });
++        await Check("an order without a key is refused, and nothing is charged", async () =>
++        {
++            var billing = new CountingBilling();
++            var result = await new OrderService(Shelf(), billing).PlaceOrderAsync(new(Cart, null));
++            return !result.Placed && billing.Charges == 0;
++        });
+ 
+         Console.WriteLine(failed == 0 ? "orders: all checks passed" : $"orders: {failed} failed");
+         return failed == 0 ? 0 : 1;
+diff --git a/web/checkout.test.ts b/web/checkout.test.ts
+index e0a37fe..b0f6038 100644
+--- a/web/checkout.test.ts
++++ b/web/checkout.test.ts
+@@ -42,7 +42,7 @@ test("a slow answer is abandoned and the order is sent again", async () => {
+   assert.match(resultMessage(answer), /Order ord-2 is placed: \$53\.46/);
+ });
+ 
+-test("a retry says it is the same order as the first try", { todo: "known bug: a retry looks like a brand-new order" }, async () => {
++test("a retry says it is the same order as the first try", async () => {
+   const sent: Sent[] = [];
+   globalThis.fetch = slowFirstAnswer(500, sent);
+   await placeOrder(cart, null, { ordersUrl: "http://x", timeoutMs: 50, tries: 2 });
+@@ -50,3 +50,12 @@ test("a retry says it is the same order as the first try", { todo: "known bug: a
+   assert.ok(keys[0], "the first try carries a key");
+   assert.equal(keys[1], keys[0]);
+ });
++
++test("two presses of Place order are two orders: each has its own key", async () => {
++  const sent: Sent[] = [];
++  globalThis.fetch = slowFirstAnswer(0, sent);
++  await placeOrder(cart, null, { ordersUrl: "http://x", timeoutMs: 50, tries: 2 });
++  await placeOrder(cart, null, { ordersUrl: "http://x", timeoutMs: 50, tries: 2 });
++  const keys = sent.map((s) => JSON.parse(s.body).idempotencyKey);
++  assert.notEqual(keys[0], keys[1]);
++});
+diff --git a/web/checkout.ts b/web/checkout.ts
+index 0af1daa..6584021 100644
+--- a/web/checkout.ts
++++ b/web/checkout.ts
+@@ -1,5 +1,6 @@
+ // The Lumen Supply checkout page's logic: send the cart to the orders service, wait a few seconds, and try again
+-// once if the answer did not come in time. What it shows the customer comes back as a message.
++// once if the answer did not come in time. Every try carries the same idempotency key, so the store treats a retry
++// as the same order, not a new one. What it shows the customer comes back as a message.
+ 
+ export type CartLine = { sku: string; quantity: number };
+ 
+@@ -11,12 +12,13 @@ export type CheckoutOptions = {
+   tries: number;
+ };
+ 
+-/** Place the order. A request that takes longer than timeoutMs is abandoned and sent again, up to `tries` times. */
++/** Place the order. A request that takes longer than timeoutMs is abandoned and sent again (the same order, by its key), up to `tries` times. */
+ export async function placeOrder(cart: CartLine[], coupon: string | null, options: CheckoutOptions): Promise<OrderAnswer> {
+   if (cart.length === 0) {
+     return { placed: false, message: "Your cart is empty" };
+   }
+-  const body = JSON.stringify({ items: cart, coupon });
++  const idempotencyKey = crypto.randomUUID();
++  const body = JSON.stringify({ items: cart, coupon, idempotencyKey });
+   for (let attempt = 1; attempt <= options.tries; attempt++) {
+     try {
+       const response = await fetch(`${options.ordersUrl}/orders`, {

@@ -1,3 +1,21 @@
+# Unreleased
+
+- **Services that talk across languages are read and linked.** Thunder Trace now links:
+  - ASP.NET minimal-API routes (`app.MapPost("/orders", …)`);
+  - Python standard-library handlers (`do_POST` and the one path it checks);
+  - an `HttpClient` under any client-like name (`http.PostAsync("/charges", …)`);
+  - a `fetch` whose options object spans lines.
+
+  A TypeScript → C# → Python app is linked end to end, each end cited.
+- **More of a change is said in words:**
+  - C#'s `String.IsNullOrEmpty(x)` ("x is empty or missing"), `Task.FromResult(x)`, and `GetOrAdd` ("made … if it is missing");
+  - a JSON body by its fields ("Turns items (cart), coupon and key into JSON text");
+  - a new random ID (`crypto.randomUUID()`, `uuid.uuid4()`, `Guid.NewGuid()`).
+
+  `thunder review` says when a function's steps moved into a new function it now runs, instead of listing each one as "no longer".
+- **Truer C# values:** a filled-in initializer (`= new() { ["a"] = 1 }`) is no longer "empty at first"; `0.08m` reads 0.08; `new()` of an object is not "empty"; a field and the property that shows it are listed once. Words inside text (`$"… bug (…) {x}"`) and a lambda passed as an argument are no longer read as methods. A folder's big picture no longer takes one file's description as the whole app's.
+- **Demo: `demo/checkout/`.** A three-language shop (TypeScript, C#, Python) where a retried checkout charged twice, the fix (one idempotency key end to end), and `run-demo.sh` to reproduce both and what Thunder reads.
+
 # 1.3.0
 
 **Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: Thunder Core compiles to
