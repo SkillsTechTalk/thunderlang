@@ -1,5 +1,15 @@
 # Unreleased
 
+- **Fewer steps shown as code when Thunder reads real code.** Text with values reads as its exact text with
+  «placeholders» (JavaScript templates and Python f-strings; a worked-out value is «…»). Python counting loops say
+  where they start and stop (`range(n)`, `range(a, n + 1)`, `range(len(xs))`, `enumerate(xs)`), imports inside a
+  function say what they load, and everyday values are said (`a - b`, `set()`, `[a, b]`, slices such as "the first 3
+  of xs", `d.get("k", fallback)` with the fallback). Rust reads `loop`, loops over `.iter()`, `.chars()` and ranges,
+  a last `Ok(…)`, and `let y = f(x)?` ("…, and stops here if that fails"); Rust's `Ok(x)` is no longer read as a web
+  answer. A TypeScript function whose return type is an object type is read from its body. Every new sentence is
+  checked against its code, with tests that a wrong sentence is still shown as code. Also fixed: a `%` followed by a
+  letter inside a text could stop a whole Python file from being read. `reading-quality.mjs --shapes N` ranks what is
+  still shown as code by its shape (names as x), never printing the code.
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
   Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out
