@@ -113,5 +113,23 @@ test('thunder read --level on a folder and on one Angular file', () => {
   const one = spawnSync(process.execPath, [CLI, 'read', join(FIX, 'angular', 'todo-list.component.ts'), '--level', 'flow', '--focus', 'Todo list'], { encoding: 'utf8' });
   assert.match(one.stdout, /• a heading: "Things to do"/, 'the templateUrl file is read with the component');
   const bp = spawnSync(process.execPath, [CLI, 'read', FIX, '--level', 'big-picture'], { encoding: 'utf8' });
-  assert.match(bp.stdout, /Screens\n {2}Cart \(Angular <app-cart>\)\n {2}Todo list \(Angular <app-todo-list>\): shows Cart\n {2}App \(React\): shows Cart, Signup form/);
+  assert.match(bp.stdout, /Screens\n {2}Todo list \(Angular <app-todo-list>\): shows Cart\n {2}App \(React\): shows Cart, Signup form\n {2}Cart \(part, Angular <app-cart>\)/);
+});
+
+test('screens say which are pages: a Next.js page file or a routed component; parts are shown inside another', () => {
+  const files = [
+    { path: 'app/orders/page.tsx', source: 'export default function OrdersPage() {\n  return <main><h1>Orders</h1><Badge /></main>;\n}\n' },
+    { path: 'components/Badge.tsx', source: 'export function Badge() {\n  return <span>New</span>;\n}\n' },
+    { path: 'src/Settings.tsx', source: 'export function Settings() {\n  return <section><h2>Settings</h2></section>;\n}\n' },
+    { path: 'src/Lonely.tsx', source: 'export function Lonely() {\n  return <p>Hi {name}</p>;\n}\n' },
+    { path: 'src/routes.tsx', source: 'import { createBrowserRouter } from "react-router-dom";\nexport const router = createBrowserRouter([{ path: "/settings", element: <Settings /> }]);\n' },
+  ];
+  const by = Object.fromEntries(readScreens(files).map((s) => [s.name, s]));
+  assert.equal(by.OrdersPage.role, 'page');
+  assert.match(by.OrdersPage.roleWhy, /Next\.js page file/);
+  assert.equal(by.Settings.role, 'page');
+  assert.match(by.Settings.roleWhy, /router opens it \(src\/routes\.tsx, line 2\)/);
+  assert.equal(by.Badge.role, 'part');
+  assert.equal(by.Lonely.role, 'top');
+  assert.match(screenText(by.OrdersPage), /It is a page: a Next\.js page file/);
 });

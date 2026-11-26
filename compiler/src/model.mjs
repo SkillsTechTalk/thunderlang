@@ -1126,7 +1126,7 @@ export function readLevel(model, level, focus, { full = false } = {}) {
       loose: thing ? [] : model.members.filter((m) => !m.owner && !m.callback && !m.screen && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
       unknowns: thing ? [] : model.unknowns,
       // The app's screens (React and Angular components), and the screens and components each one shows.
-      ...(!thing && model.screens?.length ? { screens: model.screens.map((x) => ({ id: x.id, label: x.label, framework: x.framework, file: x.file, ...(x.selector ? { selector: x.selector } : {}), uses: x.uses.map((u) => u.label) })) } : {}),
+      ...(!thing && model.screens?.length ? { screens: [...model.screens].sort((x, y) => ['page', 'top', 'part'].indexOf(x.role) - ['page', 'top', 'part'].indexOf(y.role)).map((x) => ({ id: x.id, label: x.label, framework: x.framework, file: x.file, ...(x.selector ? { selector: x.selector } : {}), ...(x.role ? { role: x.role } : {}), uses: x.uses.map((u) => u.label) })) } : {}),
       // The app's map: which areas (folders) call which, and send requests or events to which.
       ...(thing ? {} : { calls: callsSummary(model), notLinked: model.notLinked ?? [] }) };
   }

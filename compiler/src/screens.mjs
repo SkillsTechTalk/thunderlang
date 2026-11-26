@@ -266,7 +266,7 @@ function describe(nodes, ctx) {
     if (n.type === 'expr') { out.push(...exprChild(n, ctx)); continue; }
     if (n.type === 'cond') { out.push(condLine(n.test, describe(n.then, ctx), n.otherwise ? describe(n.otherwise, ctx) : null, n.line, ctx)); continue; }
     if (n.type === 'each') { out.push(eachLine(n, describe(n.body, ctx), n.empty ? describe(n.empty, ctx) : null)); continue; }
-    if (n.type === 'unread') { ctx.notRead.push({ line: n.line, code: clip(n.code), why: n.why }); out.push({ says: `not read: \`${clip(n.code, 60)}\``, line: n.line, notRead: true }); continue; }
+    if (n.type === 'unread') { ctx.notRead.push({ line: n.line, code: clip(n.code), why: n.why }); out.push({ says: `not read: \`${clip(n.code, 60)}\``, line: n.line, notRead: true, code: clip(n.code, 60) }); continue; }
     if (n.type === 'el') out.push(...elementLines(n, ctx));
   }
   return out;
@@ -285,7 +285,7 @@ function elementLines(el, ctx) {
   if (ngFor) {
     const m = /^\s*let\s+(\w+)\s+of\s+([^;]+)/.exec(String(ngFor.value));
     const inner = { ...el, attrs: el.attrs.filter((a) => a !== ngFor) };
-    if (!m) { ctx.notRead.push({ line: el.line, code: `*ngFor="${clip(ngFor.value, 50)}"`, why: 'a repeat Thunder does not read yet' }); return [{ says: `not read: \`*ngFor="${clip(ngFor.value, 40)}"\``, line: el.line, notRead: true }]; }
+    if (!m) { ctx.notRead.push({ line: el.line, code: `*ngFor="${clip(ngFor.value, 50)}"`, why: 'a repeat Thunder does not read yet' }); return [{ says: `not read: \`*ngFor="${clip(ngFor.value, 40)}"\``, line: el.line, notRead: true, code: `*ngFor="${clip(ngFor.value, 40)}"` }]; }
     return [eachLine({ item: m[1], list: m[2].trim(), line: el.line }, elementLines(inner, ctx))];
   }
   const otherStructural = el.attrs.find((a) => /^\*/.test(a.name));
@@ -450,7 +450,7 @@ function exprChild(n, ctx) {
   }
   if (SIMPLE_PATH.test(c)) return [{ says: `text: {${pathWords(c)}}`, line: n.line }];
   ctx.notRead.push({ line: n.line, code: clip(c), why: 'an expression in what it shows that Thunder does not read yet' });
-  return [{ says: `not read: \`{${clip(c, 60)}}\``, line: n.line, notRead: true }];
+  return [{ says: `not read: \`{${clip(c, 60)}}\``, line: n.line, notRead: true, code: `{${clip(c, 60)}}` }];
 }
 
 function topLevelSplit(c, op) {
@@ -773,7 +773,36 @@ export function readScreens(files, { members = [] } = {}) {
     s.usedBy = [];
   }
   for (const s of screens) for (const u of s.uses) if (u.id) { const t = screens.find((x) => x.id === u.id); if (t && !t.usedBy.some((x) => x.id === s.id)) t.usedBy.push({ id: s.id, label: s.label }); }
+  // Which screens are pages: a Next.js page file, or a component a router opens (Angular Routes, React Router).
+  // Otherwise "top" (no other screen shows it) or "part" (shown inside another screen). Never guessed from names.
+  const routed = routedNames(files);
+  for (const s of screens) {
+    const page = pageFile(s.file);
+    if (page) { s.role = 'page'; s.roleWhy = page; }
+    else if (routed.has(s.name)) { s.role = 'page'; s.roleWhy = `a router opens it (${routed.get(s.name)})`; }
+    else if (s.usedBy.length) { s.role = 'part'; s.roleWhy = `shown inside ${s.usedBy.map((u) => u.label).join(', ')}`; }
+    else { s.role = 'top'; s.roleWhy = 'no other screen here shows it'; }
+  }
   return screens;
+}
+
+/** A Next.js page or layout file, in words; null for any other file. */
+function pageFile(file) {
+  const f = file.replace(/\\/g, '/');
+  if (/(^|\/)app\/(.+\/)?page\.(tsx|jsx|ts|js)$/.test(f)) return 'a Next.js page file (app router)';
+  if (/(^|\/)pages\/(?!api\/)(?!_app\.|_document\.|_error\.)[^]*\.(tsx|jsx|ts|js)$/.test(f)) return 'a Next.js page file (pages folder)';
+  return null;
+}
+
+/** Components a router opens: Angular `component: X` in Routes, React Router `element={<X` and `Component: X`. */
+function routedNames(files) {
+  const out = new Map();
+  for (const f of files) {
+    const src = f.source ?? '';
+    if (/\bRoutes\b|RouterModule|provideRouter/.test(src)) for (const m of src.matchAll(/\bcomponent\s*:\s*([A-Z]\w*)/g)) if (!out.has(m[1])) out.set(m[1], `${f.path}, line ${lineAt(src, m.index)}`);
+    if (/<Route\b|createBrowserRouter|createRoutesFromElements/.test(src)) for (const m of src.matchAll(/(?:\belement\s*[=:]\s*\{?\s*<|\bComponent\s*:\s*)([A-Z]\w*)/g)) if (!out.has(m[1])) out.set(m[1], `${f.path}, line ${lineAt(src, m.index)}`);
+  }
+  return out;
 }
 
 // ── Text ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -790,6 +819,7 @@ function outlineLines(items, depth, out) {
 /** A screen as Thunder Text. */
 export function screenText(s) {
   const L = [`${s.label}: ${s.framework === 'react' ? 'a React' : 'an Angular'} screen${s.selector ? ` (<${s.selector}>)` : ''}`];
+  if (s.role === 'page') L.push(`  It is a page: ${s.roleWhy}`);
   if (s.inputs.length) L.push(`  It receives: ${s.inputs.map((i) => `${i.label}${i.kind ? ` (${i.kind}${i.optional ? ', optional' : ''}${i.required ? ', required' : ''})` : i.required ? ' (required)' : ''}${i.start ? `, ${i.start} if not given` : ''}`).join('; ')}`);
   if (s.state.length) L.push(`  It remembers: ${s.state.map((x) => `${x.label}${x.start ? ` (${/^(from|worked out)/.test(x.start) ? x.start : `starts as ${x.start}`})` : ''}`).join('; ')}`);
   if (s.services?.length) L.push(`  It uses the services: ${s.services.join(', ')}`);

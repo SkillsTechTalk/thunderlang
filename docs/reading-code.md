@@ -146,6 +146,8 @@ conditions, and `.map`, render props, `*ngIf … else` templates kept elsewhere,
 A folder read brings each `*.component.html` with its component; reading one Angular file also reads its
 `templateUrl` file next to it. Screens are in the model (`model.screens`) that OpenThunder reads.
 
+**Pages and parts.** Each screen has a `role`: `page` when it is a Next.js page file (`app/**/page.tsx`, `pages/…`) or a component a router opens (Angular `Routes`, React Router `element={<X />}`), with `roleWhy` saying which; `part` when another screen shows it; `top` when nothing here shows it. The big picture lists pages first. A line Thunder did not read has `notRead: true` and its exact `code`.
+
 ## Try a rule: what if?
 
 `thunder try` runs one rule from your code on values you choose, and shows the answer and why, check by check.

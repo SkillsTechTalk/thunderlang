@@ -137,7 +137,7 @@ export function renderLevel(r, { sources = {}, file = 'file' } = {}) {
     if (loose.length) L.push(`Actions and rules: ${list(loose.map((c) => `${c.label}${c.symbol === 'rule' ? ' (rule)' : ''}`))}`);
     if (r.data.length) { L.push('Data'); for (const d of r.data) L.push(`  ${d.label}: ${d.choices ? d.choices.join(' | ') : list(d.knows) || '(nothing it knows)'}`); }
     if (r.permissions?.length) L.push(`Permissions: ${r.permissions.length}`);
-    if (r.screens?.length) { L.push('Screens'); for (const x of r.screens) L.push(`  ${x.label} (${x.framework === 'react' ? 'React' : 'Angular'}${x.selector ? ` <${x.selector}>` : ''})${x.uses.length ? `: shows ${x.uses.join(', ')}` : ''}`); }
+    if (r.screens?.length) { L.push('Screens'); for (const x of r.screens) L.push(`  ${x.label} (${x.role === 'page' ? 'page, ' : x.role === 'part' ? 'part, ' : ''}${x.framework === 'react' ? 'React' : 'Angular'}${x.selector ? ` <${x.selector}>` : ''})${x.uses.length ? `: shows ${x.uses.join(', ')}` : ''}`); }
     if (r.unknowns?.length) L.push(`Not read: ${r.unknowns.length} part${r.unknowns.length === 1 ? '' : 's'} Thunder could not explain (see --level details)`);
     const first = r.screens?.[0] ? { label: r.screens[0].label } : r.things[0]?.can[0] ?? loose[0];
     if (first) L.push('', `Next: ${next('flow', first.label.replace(/\?$/, ''))}`);

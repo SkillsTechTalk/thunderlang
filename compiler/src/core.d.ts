@@ -29,8 +29,10 @@ export interface Screen {
   outputs: Array<{ name: string; label: string; line?: number }>; services?: string[];
   uses: Array<{ id?: string; label: string; outside?: boolean }>; usedBy?: Array<{ id: string; label: string }>;
   notRead: Array<{ line?: number; code: string; why: string; file?: string }>;
+  /** page: a Next.js page file or a component a router opens; top: no other screen shows it; part: shown inside another. */
+  role?: 'page' | 'top' | 'part'; roleWhy?: string;
 }
-export interface ScreenLine { says: string; line?: number; kids?: ScreenLine[]; otherwise?: { says: string; line?: number; kids: ScreenLine[] }; notRead?: boolean }
+export interface ScreenLine { says: string; line?: number; kids?: ScreenLine[]; otherwise?: { says: string; line?: number; kids: ScreenLine[] }; notRead?: boolean; /** for a not-read line: the code, without the "not read:" words */ code?: string }
 export function readScreens(files: Array<{ path: string; source: string }>, options?: { members?: unknown[] }): Screen[];
 export function screenText(screen: Screen): string;
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
