@@ -1,5 +1,5 @@
 import { sayLibraryCall } from './libraries.mjs';
-import { splitLogic, wrapped, accountsFor, asCodeWords, isCodeWords, closeOf, balancedText } from './faithful.mjs';
+import { splitLogic, wrapped, accountsFor, asCodeWords, isCodeWords, closeOf, balancedText, pythonImportSays, sliceWords } from './faithful.mjs';
 import { parseStatement, parseExpr } from './meaning.mjs';
 // Steps: read any function as a short list of plain steps (check, branch, loop, set, call, return, fail).
 // Decisions become rules; everything else becomes steps. Deterministic and pattern-based, like the rest of
@@ -119,6 +119,40 @@ const KNOWN_CALLS = [
   { re: /^(?:events?|bus|publisher|emitter|queue)\.(?:publish|emit|send|enqueue|push)$/i, say: () => 'Announces an event' },
   { re: /^(?:log|logger|console|logging|fmt|Log|System\.out|println|print|puts|echo|printf|fprintf|fputs|perror|NSLog|os_log|debugPrint|syslog|std\.(?:cout|cerr|print|println))\b/i, say: () => 'Writes a log or message' },
 ];
+
+/**
+ * Python `range(…)` in a loop, in words: `range(3)` "Counts i from 0 to 2", `range(n)` "Counts i from 0 up to n (not n
+ * itself)", `range(a, b)` "from a up to b (not b itself)", `range(len(xs))` "For each position i in xs", `_` "Repeats n
+ * times". Null for a step, or for anything but numbers and plain names.
+ */
+function pythonRangeWords(v, argText) {
+  const args = splitTopArgs(argText).map((x) => x.trim());
+  const plainPath = (x) => /^[A-Za-z_][\w.]*$/.test(x);
+  const num = (x) => /^\d+$/.test(x);
+  if (args.length === 1) {
+    const n = args[0];
+    if (v === '_') return /^\w+$/.test(n) ? `Repeats ${n} times` : null;
+    const len = /^len\(\s*([A-Za-z_][\w.]*)\s*\)$/.exec(n);
+    if (len) return `For each position ${words(v)} in ${possessiveWords(len[1])}`;
+    if (num(n)) return Number(n) > 0 ? `Counts ${words(v)} from 0 to ${Number(n) - 1}` : null;
+    if (plainPath(n)) return `Counts ${words(v)} from 0 up to ${possessiveWords(n)} (not ${possessiveWords(n)} itself)`;
+    return null;
+  }
+  // `range(1, n + 1)`: 1 to n, n included.
+  if (args.length === 2 && v !== '_' && /^(?:\d+|[A-Za-z_][\w.]*)$/.test(args[0]) && /^[A-Za-z_][\w.]*\s*\+\s*1$/.test(args[1])) {
+    const end = args[1].replace(/\s*\+\s*1$/, '');
+    return `Counts ${words(v)} from ${num(args[0]) ? args[0] : possessiveWords(args[0])} to ${possessiveWords(end)}`;
+  }
+  if (args.length === 2 && v !== '_') {
+    const [a, b] = args;
+    if (num(a) && num(b)) return Number(b) > Number(a) ? `Counts ${words(v)} from ${a} to ${Number(b) - 1}` : null;
+    if ((num(a) || plainPath(a)) && (num(b) || plainPath(b))) {
+      const say = (x) => (num(x) ? x : possessiveWords(x));
+      return `Counts ${words(v)} from ${say(a)} up to ${say(b)} (not ${say(b)} itself)`;
+    }
+  }
+  return null;
+}
 
 /** entry['easy'] -> "the entry's easy"; $x->y -> "the x's y"; plain names as words. */
 const possessiveWords = (path) => {
@@ -623,8 +657,18 @@ function sayCommon(value) {
   if ((m = e.match(/^[A-Za-z_][\w.]*(\s*,\s*[A-Za-z_][\w.]*)+$/))) return e.split(/\s*,\s*/).map(lastSeg).join(' and ');
   // (`make([]string, len(m))` has len(m) items, each the empty value; only `make([]T, 0…)` is empty.)
   if ((m = e.match(/^make\(\s*(\[\]|map\[)/))) { const a = splitTopArgs(e.slice(e.indexOf('(') + 1, -1)); if (m[1] === '[]' && a.length > 1 && !/^0$/.test(a[1].trim())) return null; return m[1] === '[]' ? 'an empty list' : 'an empty lookup table'; }
+  // A JavaScript template or a Python f-string whose values are plain names: the text kept exactly, each value a
+  // «placeholder» (as for Swift); anything worked out inside a placeholder stays a summary.
+  if (/^`/.test(e) || /^f["']/.test(e)) { const tv = templateTextWithValues(e); if (tv) return tv.length > 90 ? `${tv.slice(0, 88)}…"` : tv; }
+  // (A value worked out inside a JavaScript template is shown as «…», as in messages: the text around it is exact.)
+  if (/^`/.test(e) && /\$\{/.test(e)) { const q = templateWithValues(e, 80); if (q != null && !/"/.test(q)) return `"${q}"`; }
   if (/^(?:f|rf|fr)["']/.test(e) || /^`[^`]*\$\{/.test(e) || /^\$"/.test(e) || /^(?:fmt\.Sprintf|String\.format|format!)\(/.test(e)) return 'text built from its parts';
-  if ((m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
+  // (`d.get("k", fallback)`: the fallback is said too, never dropped.)
+  if ((m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]\s*\)$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
+  if (LANG === 'python' && (m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]\s*,\s*(.+?)\s*\)$/)) && balancedText(m[3])) {
+    const d = /^[A-Za-z_][\w.]*$/.test(m[3]) && !/^(?:None|True|False)$/.test(m[3]) ? possessiveWords(m[3]) : sayValue(m[3]);
+    if (d && d.length < 40) return `the "${m[2]}" value from ${lastSeg(m[1])}, or ${d} if it has none`;
+  }
   if ((m = e.match(/^([\w.]+)\[\s*["'`]([\w.\-: ]{1,40})["'`]\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
   if (FN_CONTEXT?.language === 'ruby' && (m = e.match(/^@?([\w.]+)\[\s*:(\w+)\s*\]$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;
   if ((m = e.match(/^([\w.]+)\.split\(\s*["'`]([^"'`]{0,10})["'`]/))) return `${lastSeg(m[1])} split at "${m[2]}"`;
@@ -637,6 +681,19 @@ function sayCommon(value) {
   if (/^(?:dict|Map|HashMap|map)\(\s*\)$|^\{\s*\}$|^new (?:Map|HashMap|Dictionary)(?:<[^()]*>)?\s*(?:\(\s*\))?\s*(?:\{\s*\})?$/.test(e)) return 'an empty lookup table';
   if (/^(?:list|Array|ArrayList|vec!?)\(?\s*\)?$|^\[\s*\]$|^new (?:ArrayList|List)(?:<[^()]*>)?\s*(?:\(\s*\))?\s*(?:\{\s*\})?$/.test(e)) return 'an empty list';
   if ((m = e.match(/^len\(\s*([\w.]+)\s*\)$/)) || (m = e.match(/^([\w.]+)\.(?:length|size\(\)|Count|count\(\)|len\(\))$/))) return `how many ${lastSeg(m[1])}`;
+  // Python `set()` / JavaScript `new Set()`: an empty set (of different values).
+  if (/^(?:set|frozenset)\(\s*\)$|^new Set(?:<[^()]*>)?\(\s*\)$/.test(e)) return 'an empty set';
+  // A list written out of plain names, numbers, and short texts: `[a, b]` "a list of a and b".
+  if ((m = e.match(/^\[\s*(.+?)\s*,?\s*\]$/)) && !/\bfor\b/.test(m[1])) {
+    const items = splitTopArgs(m[1]).map((x) => x.trim());
+    const said = items.map((x) => (/^[A-Za-z_][\w.]*$/.test(x) && !/^(?:None|null|undefined|True|False|true|false|self|this)$/.test(x) ? possessiveWords(x) : /^-?\d+(?:\.\d+)?$/.test(x) ? x : /^(["'])[\w .:/-]{0,24}\1$/.test(x) ? `"${x.slice(1, -1)}"` : null));
+    if (items.length && items.length <= 4 && said.every(Boolean)) return items.length === 1 ? `a list with only ${said[0]}` : `a list of ${listWords(said)}`;
+  }
+  // Python slices and the last item: `xs[1:]` "xs without the first 1", `xs[:3]` "the first 3 of xs", `xs[-1]`.
+  if (LANG === 'python' && (m = e.match(/^([A-Za-z_][\w.]*)\[\s*(-?\d+)?\s*(:)?\s*(-?\d+)?\s*\]$/)) && (m[3] || m[2] === '-1')) {
+    const t = sliceWords(m[3] ? m[2] : undefined, m[3] ? m[4] : undefined, m[3] ? null : m[2]);
+    if (t) return t.replace('{x}', possessiveWords(m[1]));
+  }
   return null;
 }
 /** `if (a) b else c` / `if a { b } else { c }` / `if a then b else c end` as { cond, yes, no }; null otherwise. */
@@ -1113,7 +1170,8 @@ function responseOf(head) {
   // Gin / Echo: c.JSON(http.StatusOK, user), c.String(200, "ok")
   if ((m = expr.match(/^c\s*\.\s*(JSON|IndentedJSON|String|XML|YAML)\s*\((.*)\)$/))) { const [st, body] = callArgs(m[2]); const status = statusOf(st); if (status && status >= 300) return null; return sentStep(payloadWords(body), status === 200 ? null : status); }
   // ASP.NET: Ok(x), Created(uri, x), CreatedAtAction(name, routeValues, x), Accepted(x), NoContent()
-  if (/^return\b/.test(head) && (m = expr.match(/^(Ok|Accepted|Created|CreatedAtAction|CreatedAtRoute|NoContent|Json)\s*\((.*)\)$/))) {
+  // (Rust's `Ok(x)` is a result that worked, not an HTTP answer.)
+  if (/^return\b/.test(head) && LANG !== 'rust' && (m = expr.match(/^(Ok|Accepted|Created|CreatedAtAction|CreatedAtRoute|NoContent|Json)\s*\((.*)\)$/))) {
     const args = callArgs(m[2]);
     const status = { Ok: null, Json: null, Accepted: 202, Created: 201, CreatedAtAction: 201, CreatedAtRoute: 201, NoContent: 204 }[m[1]];
     return sentStep(payloadWords(args.at(-1)), status);
@@ -1176,6 +1234,39 @@ function quotedBody(lit) {
   return t.slice(1, -1);
 }
 /** Swift: `"Bearer \(token)"` -> `"Bearer «token»"`. Null when the literal is not one plain "…" text. */
+const PLAIN_PLACEHOLDER = /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*|\[\d+\])*(?:\(\))?$/;
+/** `` `@scope/x@${version}` `` -> `"@scope/x@«version»"`; f"{n:>3} items" -> `"«n as {:>3}» items"`; null when a value
+ *  inside is worked out (an operator, a call with arguments) or the literal is not one whole piece of text. */
+export function templateTextWithValues(lit) {
+  const t = String(lit).trim();
+  const js = t[0] === '`';
+  if (!js && !/^f(["'])/.test(t)) return null;
+  const q = js ? '`' : t[1];
+  if (!js && t.slice(1, 4) === q.repeat(3)) return null;
+  let out = '', i = js ? 1 : 2, any = false;
+  for (; i < t.length; i++) {
+    const c = t[i];
+    if (c === q) break;
+    if (c === '\\') { out += c + (t[i + 1] ?? ''); i++; continue; }
+    if (js ? c === '$' && t[i + 1] === '{' : c === '{') {
+      if (!js && t[i + 1] === '{') { out += '{'; i++; continue; }
+      const open = js ? i + 1 : i;
+      const close = t.indexOf('}', open);
+      if (close < 0) return null;
+      let inner = t.slice(open + 1, close).trim(), spec = '';
+      if (!js) { const m = /^([^:!]+?)\s*((?:![rsa])?(?::[^{}]*)?)$/.exec(inner); if (!m) return null; inner = m[1].trim(); spec = m[2]; }
+      if (!PLAIN_PLACEHOLDER.test(inner)) return null;
+      out += spec ? `«${inner} as {${spec}}»` : `«${inner}»`;
+      any = true;
+      i = close;
+      continue;
+    }
+    if (!js && c === '}' && t[i + 1] === '}') { out += '}'; i++; continue; }
+    if (c === '"') { out += '\\"'; continue; }
+    out += c;
+  }
+  return any && i === t.length - 1 ? `"${out}"` : null;
+}
 export function swiftTextWithValues(lit) {
   const t = String(lit).trim();
   if (!/^"/.test(t) || /^"""/.test(t)) return null;
@@ -1422,6 +1513,17 @@ export function classifyStatement(raw, opts) {
   let r = classifyWords(raw, opts);
   const nc = r.kind === 'call' && String(r.says || '').match(NOT_CALLED);
   if (nc && new RegExp(`^(?:#\\w+\\s+)?${nc[1]}\\b(?![.(?!])`).test(String(raw).trim().replace(/^#.*\n\s*/, ''))) r = { kind: 'other', says: clip(String(raw).trim(), 70), code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90) };
+  // Rust `let y = f(x)?;`: what `f(x)` would be, and the `?` said: it stops here (passing on the error) if that fails.
+  let rq;
+  if (LANG === 'rust' && r.kind === 'set' && /^Works out [\w ]+$/.test(String(r.says)) && (rq = /^(\s*let\s+(?:mut\s+)?\w+\s*(?::[^=]+)?=\s*)(.+?)\?\s*;?\s*$/.exec(String(raw))) && !/\?/.test(rq[2])) {
+    const inner = classifyWords(`${rq[1]}${rq[2]};`, opts);
+    if (inner.kind === 'set' && /^(?:Works out [\w ]+ from |Sets )/.test(String(inner.says)) && !/, /.test(String(inner.says))) r = { ...r, says: `${inner.says}, and stops here if that fails`, callee: inner.callee };
+  }
+  // `file = self.file` / `const name = this.name`: "Sets file to self.file" (the owner kept, so the two are told apart).
+  let so;
+  if (r.kind === 'set' && (so = /^Sets (.+) to (.+)$/.exec(String(r.says))) && so[1] === so[2] && (so = /^\s*(?:(?:const|let|var)\s+)?([A-Za-z_$][\w$]*)\s*=\s*(self|this)\.([A-Za-z_$][\w$]*)\s*;?\s*$/.exec(String(raw))) && so[1] === so[3]) {
+    r = { ...r, says: `Sets ${words(so[1])} to ${so[2]}.${so[3]}` };
+  }
   if (!r.expr) r.expr = statementExpr(raw);
   return r;
 }
@@ -1584,6 +1686,8 @@ function classifyWords(raw, { inner = 0 } = {}) {
     return { kind: 'fail', says: `Fails${said ? ` with ${said}` : ''}${msg ? `: "${msg}"` : ''}`, code, ...(name ? { error: name } : {}), ...(msg ? { message: msg } : {}) };
   }
   // An HTTP error response (4xx/5xx) is a Stop: the request is refused, with a status and a message.
+  // A Python import inside a function: "Loads the json module", "Loads a and b from the x.y module".
+  if (LANG === 'python' && /^(?:from|import)\s/.test(head)) { const said = pythonImportSays(head); if (said) return { kind: 'set', says: said, code }; }
   // Loading code at run time: const { a } = await import('./x') -> "Loads a from ./x".
   let dyn;
   if ((dyn = head.match(/^(?:const|let|var)\s*(?:\{([^}]*)\}|([A-Za-z_$][\w$]*))\s*=\s*(?:await\s+)?(?:import|require)\(\s*['"`]([^'"`]+)['"`]\s*\)\s*;?$/))) {
@@ -1660,6 +1764,36 @@ function classifyWords(raw, { inner = 0 } = {}) {
   }
   // A C-style loop with no counter of its own: `for (; pos < limit; i++)` / `for (;;)`.
   if ((m = head.match(/^for\s*\(\s*[^;]*;\s*([^;]*?)\s*;[^)]*\)\s*\{?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${sayCodeCondition(m[1])}${innerNote}` : `Repeats${innerNote}`, code };
+  // Rust `for x in xs.iter() {` / `for (k, v) in map.iter()` / `for i in 0..n` / `for c in s.chars()`.
+  if (LANG === 'rust' && (m = head.match(/^for\s+(\(\s*\w+\s*,\s*\w+\s*\)|\w+)\s+in\s+(.+?)\s*\{?\s*$/))) {
+    const it = m[2].replace(/^&(?:mut\s+)?/, '');
+    const pair = /^\(\s*(\w+)\s*,\s*(\w+)\s*\)$/.exec(m[1]);
+    const who = pair ? `${words(pair[1])} and ${words(pair[2])}` : words(m[1]);
+    let k;
+    const r = !pair && rangeWords(it);
+    if (r && m[1] !== '_') return { kind: 'loop', says: `Counts ${who} ${r.says}${innerNote}`, code };
+    if ((k = it.match(/^([A-Za-z_][\w.]*?)(?:\.(?:iter|iter_mut|into_iter)\(\s*\))?$/)) && m[1] !== '_') return { kind: 'loop', says: `For each ${who} in ${possessiveWords(k[1])}${innerNote}`, code };
+    if ((k = it.match(/^([A-Za-z_][\w.]*)\.(chars|lines|bytes|keys|values)\(\s*\)$/)) && m[1] !== '_') return { kind: 'loop', says: `For each ${who} in the ${{ chars: 'characters', lines: 'lines', bytes: 'bytes', keys: 'keys', values: 'values' }[k[2]]} of ${possessiveWords(k[1])}${innerNote}`, code };
+  }
+  // Python counting loops: `for i in range(n)`, `range(a, b)`, `range(len(xs))`, and `for i, x in enumerate(xs)`.
+  if (LANG === 'python' && (m = head.match(/^for\s+(\w+)\s+in\s+range\((.*)\)\s*:$/))) { const r = pythonRangeWords(m[1], m[2]); if (r) return { kind: 'loop', says: `${r}${innerNote}`, code }; }
+  if (LANG === 'python' && (m = head.match(/^for\s+\(?\s*(\w+)\s*,\s*(\w+)\s*\)?\s+in\s+enumerate\(\s*([A-Za-z_][\w.]*)\s*\)\s*:$/)) && m[1] !== '_') {
+    return { kind: 'loop', says: `For each ${words(m[2])} in ${possessiveWords(m[3])}, with its position ${words(m[1])} (from 0)${innerNote}`, code };
+  }
+  // Python `for x in <collection>:` where the collection is a call: what the call gives, never a cut-off "values(".
+  if (LANG === 'python' && (m = head.match(/^for\s+(\w+)\s+in\s+(.+?)\s*:$/)) && !/^range\(|^enumerate\(/.test(m[2])) {
+    const it = m[2];
+    let w = null, k;
+    if ((k = it.match(/^([A-Za-z_][\w.]*)\.(values|keys)\(\s*\)$/))) w = `the ${k[2]} of ${possessiveWords(k[1])}`;
+    else if ((k = it.match(/^sorted\(\s*([A-Za-z_][\w.]*)\s*\)$/))) w = `${possessiveWords(k[1])}, sorted`;
+    else if ((k = it.match(/^reversed\(\s*([A-Za-z_][\w.]*)\s*\)$/))) w = `${possessiveWords(k[1])}, in reverse order`;
+    else if (/^[A-Za-z_]/.test(it) && /\)$/.test(it)) {
+      // The outermost call: the last `name(` whose bracket closes at the very end (`text.lower().split()` is split).
+      const last = [...it.matchAll(/([A-Za-z_]\w*)\(/g)].reverse().find((x) => closeOf(it, x.index + x[0].length - 1) === it.length - 1);
+      if (last && !/^(?:zip|map|filter|iter|list|tuple|set)$/.test(last[1]) && (last.index === 0 || it[last.index - 1] === '.') && balancedText(it)) w = `the result of ${words(last[1])}`;
+    }
+    if (w) return { kind: 'loop', says: `For each ${words(m[1])} in ${w}${innerNote}`, code };
+  }
   // Pairs unpacked in a loop: for (const [key, value] of entries) / for key, value in items.items() / foreach ($a as $k => $v)
   if ((m = head.match(/^for\b\s*\(?\s*(?:(?:const|let|var|val)\s+)?&?[\[{(]?\s*([\w$]+)\s*,\s*([\w$]+)\s*[\]})]?\s+(?:of|in)\s+(.+?)\)?\s*(?:\{|:|do)?\s*$/))) {
     const src = stripTail(m[3]).replace(/\($/, '()').replace(/^Object\.entries\((.+)\)$/, '$1').replace(/\.(?:items|entries|enumerated)\(\)$/, '');
@@ -1677,6 +1811,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^([\w.]+)\.(?:forEach|each|map|filter|for_each)\s*[({]/))) return { kind: 'loop', says: `For each item in ${words(m[1].split('.').pop())}${innerNote}`, code };
   // Go `for {` repeats until something inside leaves the loop (or the function).
   if (/^for\s*\{$/.test(head)) return { kind: 'loop', says: `Repeats until something inside leaves the loop${innerNote}`, code };
+  if (LANG === 'rust' && /^loop\s*\{?\s*$/.test(head)) return { kind: 'loop', says: `Repeats until a step inside stops it${innerNote}`, code };
   if ((m = head.match(/^(?:while|until|loop)\b\s*\(?(.*?)\)?\s*(?:\{|:|do)?\s*$/))) return { kind: 'loop', says: m[1] ? `Repeats while ${sayCodeCondition(m[1])}${innerNote}` : `Repeats${innerNote}`, code };
   // Branches
   // Go: `if err := open(); err != nil` -> "If open fails"; `if v, ok := m[k]; ok` -> "If k is in m".
@@ -1739,6 +1874,9 @@ function classifyWords(raw, { inner = 0 } = {}) {
   if (((m = head.match(/^([A-Z]\w*)(?:::\w+)*\s*\{\s*$/)) || (m = head.match(/^([A-Z]\w*)\s*\{.*\}$/))) && !(closeOf(text, text.indexOf("{")) > 0 && text.slice(closeOf(text, text.indexOf("{")) + 1).trim())) return { kind: 'return', says: `Returns a new ${words(m[1])}`, code };
   if ((m = head.match(/^(?:[A-Z]\w*::)+([A-Z]\w*)$/))) return { kind: 'return', says: `Returns ${m[1]}`, code };
   if (/^vec!?\[/.test(head)) return { kind: 'return', says: 'Returns a list', code };
+  // Rust: `loop {` repeats until a step inside stops it; a last `Ok(…)` / `Some(…)` is what the function gives back.
+  if (LANG === 'rust' && /^loop\s*\{?\s*$/.test(head)) return { kind: 'loop', says: `Repeats until a step inside stops it${innerNote}`, code };
+  if (LANG === 'rust' && /^(?:Ok|Some)\s*\(/.test(head) && closeOf(head, head.indexOf('(')) === head.length - 1) { const v = sayValue(head); if (v) return { kind: 'return', says: `Returns ${v}`, code }; }
   // A bare value as a statement is an implicit return (Ruby, Rust, Kotlin/Scala expression bodies).
   // Only where a last value is given back (Ruby, Rust, Kotlin, Scala, Elixir); in Python or JavaScript a bare
   // `self.content` only reads the value.
@@ -1841,7 +1979,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
     }
     if (!value) return { kind: 'set', says: `Works out ${target}`, code };
     if (m[2] === '+=' || m[2] === '-=') { const what = /^[\w.]+$/.test(value) ? `${value.split('.').filter((p) => !/^(self|this)$/.test(p)).slice(-2).map(words).join(' ')} ` : /^-?\d+(\.\d+)?$/.test(value) ? `${value} ` : ''; return { kind: 'set', says: what ? `${m[2] === '+=' ? 'Adds' : 'Subtracts'} ${what}${m[2] === '+=' ? 'to' : 'from'} ${target}` : `${m[2] === '+=' ? 'Adds to' : 'Subtracts from'} ${target}`, code }; }
-    const v = sayValue(value);
+    const v = sayValue(value) ?? sayArithmetic(value);
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
   }
   // Calls
