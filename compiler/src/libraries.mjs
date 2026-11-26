@@ -75,6 +75,13 @@ const URL_WORDS = (u) => {
   return /^[A-Za-z_][\w.]*$/.test(t) ? `the ${words(t.split('.').pop()).replace(/\burl\b/, 'URL')}` : 'an address worked out by the code';
 };
 
+/** A file path in words: a quoted path as written, a name as "at <name>" ("Reads the file at config path"). */
+const FILE_WORDS = (u) => {
+  const t = String(u || '').trim();
+  if (/^["'`]/.test(t)) return t.slice(1, -1).replace(/\$\{[^}]*\}/g, '…');
+  return /^[A-Za-z_][\w.]*$/.test(t) ? `at ${t.includes('.') ? `the ${words(t.split('.').pop())}` : words(t)}` : 'at a path worked out by the code';
+};
+
 // Spring Data / Rails-style derived query names: findByEmailAndActive -> "whose email is … and active is …".
 function derivedWhose(name, args) {
   const m = name.match(/^(?:find|get|read|query|search|stream|count|exists|delete|remove)(?:All|First|Top\d*|One)?By(\w+)$/);
@@ -175,9 +182,9 @@ const CATALOG = [
   { re: /^json\s*\.\s*Marshal\s*\(\s*(.+)\)$/, say: (m) => ({ says: `Turns ${valueWords(m[1])} into JSON`, does: 'calculate' }) },
   { re: /^json\s*\.\s*Unmarshal\s*\(\s*[^,]+,\s*&?(\w+)\s*\)$/, say: (m) => ({ says: `Reads the JSON into ${words(m[1])}`, does: 'calculate' }) },
   { re: /^json\s*\.\s*NewDecoder\s*\(\s*r\.Body\s*\)\s*\.\s*Decode\s*\(\s*&?(\w+)\s*\)$/, say: (m) => ({ says: `Reads what it was sent into ${words(m[1])}`, does: 'calculate' }) },
-  { re: /^(?:fs|fsp|fs\.promises)\s*\.\s*(readFile|readFileSync)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `Reads the file ${URL_WORDS(m[2])}`, does: 'find' }) },
-  { re: /^(?:fs|fsp|fs\.promises)\s*\.\s*(writeFile|writeFileSync|appendFile|appendFileSync)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `${/append/.test(m[1]) ? 'Adds to' : 'Writes'} the file ${URL_WORDS(m[2])}`, does: 'save' }) },
-  { re: /^(?:fs|fsp|fs\.promises)\s*\.\s*(unlink|unlinkSync|rm|rmSync)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `Removes the file ${URL_WORDS(m[2])}`, does: 'save' }) },
+  { re: /^(?:fs|fsp|fs\.promises)\s*\.\s*(readFile|readFileSync)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `Reads the file ${FILE_WORDS(m[2])}`, does: 'find' }) },
+  { re: /^(?:fs|fsp|fs\.promises)\s*\.\s*(writeFile|writeFileSync|appendFile|appendFileSync)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `${/append/.test(m[1]) ? 'Adds to' : 'Writes'} the file ${FILE_WORDS(m[2])}`, does: 'save' }) },
+  { re: /^(?:fs|fsp|fs\.promises)\s*\.\s*(unlink|unlinkSync|rm|rmSync)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `Removes the file ${FILE_WORDS(m[2])}`, does: 'save' }) },
   { re: /^(?:Date\.now|datetime\.now|datetime\.utcnow|time\.Now|DateTime\.Now|DateTime\.UtcNow|Instant\.now|LocalDateTime\.now|Time\.now)\s*\(?\s*\)?$/, say: () => ({ says: 'the current time', does: 'calculate', value: true }) },
 ];
 

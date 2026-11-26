@@ -446,6 +446,20 @@ function namesKept(tree, said) {
         // "the result of X": the call is named, what it is given is one level down.
         if (name && has(name) && sw.includes(` result of ${splitWords(name).join(' ')} `)) return true;
         if (name && /^(?:new|New|create|of|from|make)$/.test(name) && / new /.test(sw) && c.kind === 'member') return ok(c.object);
+        // Everyday JavaScript calls said by what they give back (steps.mjs sayCommon): the words name every argument.
+        const onType = c?.kind === 'member' && c.object?.kind === 'name' ? c.object.name : null;
+        if (onType === 'Math' && /^(?:max|min)$/.test(name) && / (?:largest|smallest) /.test(sw)) return ok(n.args);
+        if (onType === 'Math' && /^(?:round|floor|ceil|abs|trunc)$/.test(name) && / (?:rounded|absolute|fraction) /.test(sw)) return ok(n.args);
+        if (onType === 'Date' && name === 'parse' && / time written /.test(sw)) return ok(n.args);
+        if (name === 'exec' && / first match of /.test(sw)) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
+        if (name === 'parse' && onType && /^[A-Z]/.test(onType) && / checked and read by /.test(sw) && has(onType)) return ok(n.args);
+        if (name === 'from' && onType && / made from /.test(sw)) return ok(n.args);
+        // Everyday Python: a list/tuple/set made from a value, sorted, reversed, and a position found with .index().
+        if (c?.kind === 'name' && /^(?:list|tuple)$/.test(name) && / as a (?:list|tuple) /.test(sw)) return ok(n.args);
+        if (c?.kind === 'name' && /^(?:set|frozenset)$/.test(name) && / different values in /.test(sw)) return ok(n.args);
+        if (c?.kind === 'name' && name === 'sorted' && / sorted /.test(sw)) return ok(n.args);
+        if (c?.kind === 'name' && name === 'reversed' && / reverse order /.test(sw)) return ok(n.args);
+        if (name === 'index' && c?.kind === 'member' && / position of /.test(sw)) return ok(c.object) && ok(n.args);
         // Questions about a collection said in words: "any item in xs matches", "every …", "the first … that matches".
         if (name && /^(?:any|some|all|every|none|find|first|filter|where|select|detect|find_index|findIndex|includes|include\?|contains|Contains|any\?|all\?|none\?|exists|Any|All|Exists|in_array|has|hasOwnProperty|has_key|key\?|containsKey|ContainsKey|startswith|endswith|startsWith|endsWith|StartsWith|EndsWith|start_with\?|end_with\?)$/.test(name) && / (?:any|every|all|no|first|matches|match|in|has|contains|starts|ends|one of) /.test(sw)) return ok(own) && n.args.every((a) => a.kind === 'lambda' || ok(a));
         if (name && /^(?:len|length|size|count|nrow|NROW|Count|sizeof|strlen|wcslen|mb_strlen|nchar|str_length|lengths|Length)$/.test(name) && howMany) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
@@ -499,6 +513,22 @@ function chainCallees(e) {
   return out;
 }
 const sameWords = (a, b) => splitWords(a).join('') === splitWords(b).join('');
+/**
+ * The name a step gives a call: its own name, or (for a name that ends on a preposition, `changeApprovalFor`) its name
+ * followed by its first argument, which must be a name in the code ("change approval for x"), or its name without
+ * the preposition ("change approval"). See callWords in steps.mjs.
+ */
+const PREPOSITION_END = /(?:for|from|to|of|with|by|in|on|at|about|into|as|via)$/i;
+function callNamed(callee, said, code) {
+  if (sameWords(callee, said)) return true;
+  const cw = splitWords(callee);
+  if (!cw.length || !PREPOSITION_END.test(cw[cw.length - 1])) return false;
+  const sw = splitWords(said);
+  if (sw.join('') === cw.slice(0, -1).join('')) return true;
+  if (sw.length <= cw.length || sw.slice(0, cw.length).join('') !== cw.join('')) return false;
+  const rest = sw.slice(cw.length).join('');
+  return splitWords(String(code)).some((w, i, all) => all.slice(i, i + sw.length - cw.length).join('') === rest);
+}
 
 /** Language keywords that begin the statement (the step's code). */
 const leadingWord = (code) => (String(code).trim().match(/^[A-Za-z_]+/) || [''])[0];
@@ -684,16 +714,33 @@ function checkStep(step, ctx) {
     for (let c = core; c && c.kind === 'call'; c = c.callee?.kind === 'member' ? coreOf(c.callee.object) : null) {
       if (/^(?:add|push|append|insert|extend|concat|Add|AddRange|put|unshift|prepend|push_back|emplace_back|merge)$/.test(c.callee?.property ?? c.callee?.name ?? '')) { core = c; break; }
     }
+    // An entry named by its fields ("an entry (title, rows, …)": each one a key of the object, in order) and a quoted
+    // text (its exact words are checked as values, above) say what is added without its inner values.
+    const entryNamed = (a) => {
+      if (a?.kind !== 'object') return false;
+      const keys = (a.entries || []).map((e) => (e.key?.kind === 'literal' ? String(e.key.value) : null));
+      if (/^an empty entry$/.test(adds[1])) return keys.length === 0;
+      if (/^an entry$/.test(adds[1])) return keys.length > 0;
+      const listed = /^an entry \(([^)]*)\)/.exec(adds[1]);
+      if (!listed) return false;
+      const named = listed[1].split(', ').filter((k) => k !== '…');
+      return named.length > 0 && named.every((k, i) => keys[i] != null && splitWords(keys[i]).join(' ') === splitWords(k).join(' '));
+    };
+    // (A quoted text may itself hold " to ", so the phrase may stop inside it: it starts with the quote.)
+    const textNamed = (a) => ((a?.kind === 'literal' && a.type === 'text') || a?.kind === 'template') && /^"/.test(adds[1]);
+    const kept = (a) => namesKept(a, adds[1]) || entryNamed(a) || textNamed(a) || /^several values$/.test(adds[1]);
     if (tree.kind === 'assign' && tree.op !== '=' && tree.op !== ':=') { if (!namesKept(tree.value, adds[1])) return M('adds-value'); }
-    else if (core?.kind === 'call' && core.args?.length && !core.args.some((a) => namesKept(a, adds[1]))) return M('adds-value');
+    else if (core?.kind === 'call' && core.args?.length && !core.args.some(kept)) return M('adds-value');
     else if (core?.kind === 'call' && core.args?.some((a) => a.kind === 'index') && !core.args.every((a) => namesKept(a, adds[1]) || a.kind === 'name')) return M('adds-value');
   }
   // Calls, settings, and everything else: the words must not drop a negation, a comparison, or and/or in the tree.
   if (/^Calls /.test(says)) return callKept(step, tree, says, code, lang);
   if (tree) {
-    const summary = /^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Takes|Declares|Starts with|Makes|Stores the result of)\b| the result of /.test(says);
+    // ("Adds an entry (…)" and "Adds several values" name what is added, not the values inside it: summaries too.)
+    // (A quoted text whose «…» holds a worked-out value names that value as a placeholder only.)
+    const summary = /^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Adds an entry\b|Adds an empty entry\b|Adds several values\b|Takes|Declares|Starts with|Makes|Stores the result of)\b| the result of |«…»/.test(says);
     const neg = treeNegations(tree, summary), w = saidNegations(says);
-    if (w !== neg && !(w < neg && /^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Takes|Declares|Starts with|Makes)\b/.test(says) && !/\b(?:whether|if|when)\b/.test(said))) return M('L320');
+    if (w !== neg && !(w < neg && (/^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Adds an entry\b|Adds an empty entry\b|Adds several values\b|Takes|Declares|Starts with|Makes)\b/.test(says) || /«…»/.test(says)) && !/\b(?:whether|if|when)\b/.test(said))) return M('L320');
     if (w > neg) return M('L321');
     // A value stated in full ("Sets x to a plus b") must keep every operator; a summary ("Works out x from f") says
     // only what it names, and the rest is one level down in Details.
@@ -708,7 +755,7 @@ function checkStep(step, ctx) {
     if (/^Works out (.+?) from (.+)$/.test(says) && tree.kind === 'assign') {
       const m = /^Works out (.+?) from ([\w ]+)$/.exec(says);
       const callees = chainCallees(tree.value);
-      if (m && callees.length && !callees.some((c) => sameWords(c, m[2]))) return M('L335');
+      if (m && callees.length && !callees.some((c) => callNamed(c, m[2], code))) return M('L335');
     }
     if (/\bif\b.*\botherwise\b/.test(said) && ![...nodesOf(tree)].some((n) => n.kind === 'conditional' || n.kind === 'if')) return WHY.form;
   }
@@ -1037,7 +1084,7 @@ function safeForm(step, says, code, lang = '') {
     if (!w || KEYWORD_CALLEE.test(lastName(m[2]))) return WHY.unparsed;
     const tw = w[1].replace(/^the (?:[\w ]+?'s )?/, '');
     if (!sameWords(target, tw) && !sameWords(m[1].replace(/->/g, '.'), w[1])) return WHY.unparsed;
-    if (w[2] && !sameWords(lastName(m[2]), w[2])) return WHY.unparsed;
+    if (w[2] && !callNamed(lastName(m[2]), w[2], c)) return WHY.unparsed;
     return null;
   }
   if (step.kind === 'return' && (m = /^return\s+(?:\([A-Za-z_][\w\s*]*\)\s*)?(?:await\s+)?([A-Za-z_][\w]*(?:\s*(?:\.|->|::)\s*[A-Za-z_][\w]*)*)\s*(\()?/.exec(c))) {

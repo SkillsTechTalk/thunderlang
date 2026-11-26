@@ -59,7 +59,7 @@ test('React effects say when they run, and their steps are read', () => {
   assert.equal(second.children.at(-1).says, 'When this is taken off the screen, cleans up');
   assert.equal(second.children.at(-1).children.length, 1);
   assert.equal(third.says, 'Every time this is drawn on screen');
-  assert.deepEqual(said(third.children), ['Writes a log or message: render']);
+  assert.deepEqual(said(third.children), ['Writes a log or message: "render"']);
 });
 
 test('useMemo remembers a value; useCallback and inner functions define how something works', () => {
@@ -73,7 +73,7 @@ test('useMemo remembers a value; useCallback and inner functions define how some
   assert.equal(total.children[0].kind, 'return');
   const save = p.steps.find((s) => /handle save/.test(s.says));
   assert.equal(save.says, 'Defines how handle save works');
-  assert.deepEqual(said(save.children), ['If draft is not set', 'Calls on save']);
+  assert.deepEqual(said(save.children), ['If draft is not set', 'Calls on save (with draft)']);
   const change = p.steps.find((s) => /handle change/.test(s.says));
   assert.equal(change.says, 'Defines a helper, handle change');
   assert.equal(change.children.length, 2);
@@ -127,7 +127,7 @@ test('callbacks: timers, events and promises say when their steps run; other cal
 }
 `;
   const w = byName(readCode(src, { language: 'javascript' }), 'wire');
-  assert.deepEqual(said(w.steps), ['After 300 milliseconds', 'Whenever "click" happens', 'When load is done', 'Calls describe thing with these steps', 'Makes a new Promise with these steps', 'Returns a new Promise']);
+  assert.deepEqual(said(w.steps), ['After 300 milliseconds', 'Whenever "click" happens', 'When load is done', 'Calls describe thing ("x") with these steps', 'Makes a new Promise with these steps', 'Returns a new Promise']);
   assert.deepEqual(said(w.steps[1].children), ["If the e's shift key is set"]);
   assert.equal(w.steps[4].children.length, 2);
 });
@@ -371,5 +371,5 @@ test('a case label is its own statement in C-like switches, so the case\'s first
   // Each case's steps sit under its label (cases with no steps of their own share the next one's), and the break
   // that ends a case is not a step: a switch is one question with one side per case, never a flat list.
   assert.deepEqual(said(k.steps[0].children), ["When it is 'string'", "When it is 'number' or 'bigint'", 'Otherwise']);
-  assert.deepEqual(k.steps[0].children.map((c) => said(c.children || [])), [['Writes a log or message: text'], ['Writes a log or message: number'], ['Writes a log or message: other']]);
+  assert.deepEqual(k.steps[0].children.map((c) => said(c.children || [])), [['Writes a log or message: "text"'], ['Writes a log or message: "number"'], ['Writes a log or message: "other"']]);
 });
