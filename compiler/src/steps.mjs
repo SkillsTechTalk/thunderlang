@@ -389,6 +389,33 @@ function sayCall(name, args) {
   }
   return null;
 }
+/** Shortened text ends on a whole word ("… the exact…", never "… the exact cr…"); it stays a prefix of the text. */
+const wholeWords = (q) => (q && q.endsWith('…') && q.length > 24 ? `${q.slice(0, -1).replace(/\s+\S*$/, '').replace(/[\s,;:.-]+$/, '')}…` : q);
+
+/**
+ * JavaScript/TypeScript template text with each value as a «placeholder» (the spec's form, as for Swift and C):
+ * `Wrote ${opts.out}.` -> `Wrote «opts.out».`. Null when it is not one whole template. Long text ends in "…".
+ */
+function templateWithValues(lit, n = 70) {
+  const t = String(lit).trim();
+  if (!t.startsWith('`')) return null;
+  let out = '';
+  for (let i = 1; i < t.length; i++) {
+    const c = t[i];
+    if (c === '\\') { out += t[i + 1] === '`' ? '`' : t[i + 1] === '$' ? '$' : c + (t[i + 1] ?? ''); i++; continue; }
+    if (c === '`') return i === t.length - 1 ? (out.length > n ? wholeWords(`${out.slice(0, n - 1).trimEnd()}…`) : out) : null;
+    if (c === '$' && t[i + 1] === '{') {
+      let d = 0, j = i + 1;
+      for (; j < t.length; j++) { if (t[j] === '{') d++; else if (t[j] === '}' && --d === 0) break; }
+      // (A value worked out inside the hole, `${a ? `x` : ''}`, is shown as «…»: only a name or a field is spelled.)
+      const hole = t.slice(i + 2, j).trim();
+      out += /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(hole) ? `«${hole}»` : '«…»'; i = j; continue;
+    }
+    out += c;
+  }
+  return null;
+}
+
 /** What a message call writes, from its first argument: its text, a named value, or the result of a call. */
 function messageWhat(args) {
   const t = String(args ?? '');
@@ -406,8 +433,8 @@ function messageWhat(args) {
   const more = t[end] === ',';
   if (LANG === 'python') a = a.replace(/^[fFrR]{1,2}(?=["'])/, '');
   if (/^["'`]/.test(a)) {
-    // (Python f-string holes stay as written, `{name}`: the reader's own style for a value inside text.)
-    let text = firstText(a, 70);
+    // (Python f-string holes stay as written, `{name}`; a JavaScript template's values become «placeholders».)
+    let text = a.startsWith('`') ? templateWithValues(a, 80) : wholeWords(firstText(a, 80));
     // printf-style holes filled by the values after it (`"Starting job %s", job_id`) are shown as "…".
     if (text && more) text = text.replace(/%[-+ #0-9.]*[sdifrxXeEgGcuo]|\{\}/g, '…');
     return text && /\w/.test(text) ? `"${text}"${more && !/…/.test(text) ? ', and more' : ''}` : null;
@@ -1792,13 +1819,17 @@ function classifyWords(raw, { inner = 0 } = {}) {
     const addedWhat = (a) => {
       const t = String(a).trim();
       if (/^\{[\s\S]*\}$/.test(t)) {
+        // (Its fields are listed only when the statement is short enough for the faithfulness check to see them all.)
+        if (text.split('\n').length > 7) return 'an entry';
         const parts = splitTopArgs(t.slice(1, -1));
         const keys = parts.map((p) => (/^\.\.\./.test(p) ? null : (p.match(/^\s*['"]?([A-Za-z_$][\w$]*)['"]?\s*(?::|$|\()/) || [])[1])).filter(Boolean);
         if (!parts.length) return 'an empty entry';
         if (!keys.length) return null;
         return `an entry (${keys.slice(0, 4).map(words).join(', ')}${keys.length > 4 || keys.length < parts.length ? ', …' : ''})`;
       }
-      if (/^["'`]/.test(t)) { const q = firstText(t, 40); return q ? `"${q}"` : null; }
+      if (/^(?:''|""|``)$/.test(t)) return '""';
+      if (t.startsWith('`')) { const q = templateWithValues(t, 60); return q != null ? `"${q}"` : null; }
+      if (/^["']/.test(t)) { const q = wholeWords(firstText(t, 60)); return q ? `"${q}"` : null; }
       if (/^new\s+[A-Z]\w*/.test(t)) return `a new ${t.match(/^new\s+([A-Z]\w*)/)[1]}`;
       if (/^[A-Za-z_$][\w$]*$/.test(t)) return words(t);
       if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(t)) return possessiveWords(t);
@@ -1811,7 +1842,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
     if (args.length > 1) {
       const ws = args.map(addedWhat);
       const said = ws.every(Boolean) && args.length <= 3 ? `${ws.slice(0, -1).join(', ')} and ${ws[ws.length - 1]}` : null;
-      return { kind: 'call', says: said ? `Adds ${said} to ${where}` : `Adds ${args.length} values to ${where}`, code, callee: m[1] };
+      return { kind: 'call', says: said ? `Adds ${said} to ${where}` : `Adds several values to ${where}`, code, callee: m[1] };
     }
     const one = args.length === 1 ? addedWhat(args[0]) : null;
     return { kind: 'call', says: added ? `Adds a new ${words(added)} to ${where}` : one ? `Adds ${one} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
@@ -1826,7 +1857,8 @@ function classifyWords(raw, { inner = 0 } = {}) {
     const only = cl > o && /^\s*;?\s*$/.test(head.slice(cl + 1)) ? splitTopArgs(head.slice(o + 1, cl)) : [];
     if ((LANG === 'typescript' || LANG === 'javascript' || LANG === 'python') && only.length === 1 && !/^\s*(?:async\s*)?(?:\(|function\b|[A-Za-z_$][\w$]*\s*=>)/.test(only[0]) && !/^(?:exec|eval|compile|__import__|execfile|Function|setTimeout|setInterval)$/.test(c)) {
       const t = only[0].trim();
-      const w = /^["'`]/.test(t) ? (firstText(t, 40) ? `"${firstText(t, 40)}"` : null)
+      const w = t.startsWith('`') ? (templateWithValues(t, 60) ? `"${templateWithValues(t, 60)}"` : null)
+        : /^["']/.test(t) ? (wholeWords(firstText(t, 60)) ? `"${wholeWords(firstText(t, 60))}"` : null)
         : /^[A-Za-z_$][\w$]*$/.test(t) ? words(t)
         : /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(t) ? possessiveWords(t)
         : callee(t) && closeOf(t, t.indexOf('(')) === t.length - 1 && !/^new\s/.test(t) ? `the result of ${callWords(callee(t), t)}` : null;

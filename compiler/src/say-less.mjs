@@ -700,16 +700,33 @@ function checkStep(step, ctx) {
     for (let c = core; c && c.kind === 'call'; c = c.callee?.kind === 'member' ? coreOf(c.callee.object) : null) {
       if (/^(?:add|push|append|insert|extend|concat|Add|AddRange|put|unshift|prepend|push_back|emplace_back|merge)$/.test(c.callee?.property ?? c.callee?.name ?? '')) { core = c; break; }
     }
+    // An entry named by its fields ("an entry (title, rows, …)": each one a key of the object, in order) and a quoted
+    // text (its exact words are checked as values, above) say what is added without its inner values.
+    const entryNamed = (a) => {
+      if (a?.kind !== 'object') return false;
+      const keys = (a.entries || []).map((e) => (e.key?.kind === 'literal' ? String(e.key.value) : null));
+      if (/^an empty entry$/.test(adds[1])) return keys.length === 0;
+      if (/^an entry$/.test(adds[1])) return keys.length > 0;
+      const listed = /^an entry \(([^)]*)\)/.exec(adds[1]);
+      if (!listed) return false;
+      const named = listed[1].split(', ').filter((k) => k !== '…');
+      return named.length > 0 && named.every((k, i) => keys[i] != null && splitWords(keys[i]).join(' ') === splitWords(k).join(' '));
+    };
+    // (A quoted text may itself hold " to ", so the phrase may stop inside it: it starts with the quote.)
+    const textNamed = (a) => ((a?.kind === 'literal' && a.type === 'text') || a?.kind === 'template') && /^"/.test(adds[1]);
+    const kept = (a) => namesKept(a, adds[1]) || entryNamed(a) || textNamed(a) || /^several values$/.test(adds[1]);
     if (tree.kind === 'assign' && tree.op !== '=' && tree.op !== ':=') { if (!namesKept(tree.value, adds[1])) return M('adds-value'); }
-    else if (core?.kind === 'call' && core.args?.length && !core.args.some((a) => namesKept(a, adds[1]))) return M('adds-value');
+    else if (core?.kind === 'call' && core.args?.length && !core.args.some(kept)) return M('adds-value');
     else if (core?.kind === 'call' && core.args?.some((a) => a.kind === 'index') && !core.args.every((a) => namesKept(a, adds[1]) || a.kind === 'name')) return M('adds-value');
   }
   // Calls, settings, and everything else: the words must not drop a negation, a comparison, or and/or in the tree.
   if (/^Calls /.test(says)) return callKept(step, tree, says, code, lang);
   if (tree) {
-    const summary = /^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Takes|Declares|Starts with|Makes|Stores the result of)\b| the result of /.test(says);
+    // ("Adds an entry (…)" and "Adds several values" name what is added, not the values inside it: summaries too.)
+    // (A quoted text whose «…» holds a worked-out value names that value as a placeholder only.)
+    const summary = /^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Adds an entry\b|Adds an empty entry\b|Adds several values\b|Takes|Declares|Starts with|Makes|Stores the result of)\b| the result of |«…»/.test(says);
     const neg = treeNegations(tree, summary), w = saidNegations(says);
-    if (w !== neg && !(w < neg && /^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Takes|Declares|Starts with|Makes)\b/.test(says) && !/\b(?:whether|if|when)\b/.test(said))) return M('L320');
+    if (w !== neg && !(w < neg && (/^(?:Works out|Calls|Runs|Defines|Creates|Writes|Adds to|Adds an entry\b|Adds an empty entry\b|Adds several values\b|Takes|Declares|Starts with|Makes)\b/.test(says) || /«…»/.test(says)) && !/\b(?:whether|if|when)\b/.test(said))) return M('L320');
     if (w > neg) return M('L321');
     // A value stated in full ("Sets x to a plus b") must keep every operator; a summary ("Works out x from f") says
     // only what it names, and the rest is one level down in Details.
