@@ -477,6 +477,7 @@ Write and run programs (Thunder Core, docs/core.md)
                              Python module are refused there). --target typescript compiles to TypeScript instead
                              (generated/typescript/; runs on Node 22.6+, or with the typescript package);
                              --target csharp compiles to C# (generated/csharp/; builds and runs with the .NET 8+ SDK)
+                             --target go compiles to Go (generated/go/; needs the go toolchain to run)
 
 Read and understand code
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]

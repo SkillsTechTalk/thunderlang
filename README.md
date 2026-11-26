@@ -38,7 +38,8 @@ Each compilation capability is advertised only once it works.
 | **Compile Thunder Core to TypeScript**: `thunder build --target typescript`; the same output as Python and the Thunder engine on every Core test program | Available <!-- capability:coreTypeScript --> |
 | **Compile Thunder Core to C#**: `thunder build --target csharp`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreCsharp --> |
 | **Compile Thunder Core to Rust**: `thunder build --target rust`; a standard-library-only runtime, and the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreRust --> |
-| **Compile Thunder Core** to Java and Go | Planned <!-- capability:coreTargets --> |
+| **Compile Thunder Core to Go**: `thunder build --target go`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreGo --> |
+| **Compile Thunder Core** to Java | Planned <!-- capability:coreTargets --> |
 
 Thunder Core is young: programs compile to Python and TypeScript. On Python they can use Python libraries
 (`Use csv as csv`), written the Python way; Thunder's rules, like exact money, apply to Thunder values, not inside the

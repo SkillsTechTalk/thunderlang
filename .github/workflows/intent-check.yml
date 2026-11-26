@@ -22,6 +22,12 @@ jobs:
         with:
           node-version: 22
 
+      # Go: every Core test program is also compiled to Go and run (compiler/test/core-engines.mjs).
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
       # The compiler is pure Node (no dependencies), so no install step is needed.
       - name: intent check (all .thunder files)
         run: npm run intent:check

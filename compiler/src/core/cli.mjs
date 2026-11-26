@@ -14,6 +14,7 @@ import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGE
 import { runTypeScript } from './typescript-run.mjs';
 import { runCSharp } from './csharp-run.mjs';
 import { runRust, rustModule } from './rust-run.mjs';
+import { runGo } from './go-run.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
 import { paint } from '../term.mjs';
@@ -122,6 +123,13 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       say(`  run it without Thunder: dotnet run --project ${out}   (.NET 8 or newer; add -- test to run the tests)`);
       return 0;
     }
+    if (cmd === 'build' && build.target === 'go') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Go)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.go`);
+      say(`  ${out}/thunder/thunder_runtime.go (the small runtime the generated code uses), with go.mod`);
+      say(`  run it without Thunder: cd ${out} && go run .   (Go 1.21 or newer; its tests: go run -tags thundertests .)`);
+      return 0;
+    }
     if (cmd === 'build') {
       say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Python 3.10+)`);
       for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.py`);
@@ -133,6 +141,7 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (build.target === 'typescript') return runCompiledTypeScript(cmd, build, warn, say);
     if (build.target === 'csharp') return runCompiledCSharp(cmd, build, warn, say);
     if (build.target === 'rust') return runCompiledRust(cmd, build, warn, say);
+    if (build.target === 'go') return runCompiledGo(cmd, build, warn, say);
     const python = findPython();
     if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
@@ -177,6 +186,16 @@ function runCompiledRust(cmd, build, warn, say) {
   if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
   const r = runRust(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
   if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.stderr.trimEnd()}`); return 2; }
+  return r.status ?? 1;
+}
+
+/** thunder run / test with the Go target: the compiled Go is built and run with the go toolchain. */
+function runCompiledGo(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = runGo(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
+  if (r.buildFailed) { warn(`thunder ${cmd}: ${r.stderr}`); return 2; }
   return r.status ?? 1;
 }
 

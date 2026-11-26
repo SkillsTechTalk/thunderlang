@@ -19,7 +19,7 @@ test.after(() => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
 // Every program runs on both engines (Python and the Thunder engine), which must agree (core-engines.mjs).
 const run = (source) => runBoth(source);
-test.after(() => console.log(`# core-stdlib: ${tally.compared} programs gave the same result on Python and the Thunder engine.`));
+test.after(() => console.log(`# core-stdlib: ${tally.compared} programs gave the same result on Python and the Thunder engine (${tally.typescript} also as TypeScript, ${tally.go} as Go).`));
 const codes = (src) => compileCore(src, { file: 'main.thunder' }).diagnostics.map((d) => [d.code, d.message]);
 
 test('text: joined with, split at, the parts of, replacing, starts with, ends with', { skip }, () => {

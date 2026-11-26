@@ -11,11 +11,12 @@ import { PYTHON_RUNTIME } from './runtime-python.mjs';
 import { writeTypeScript, typescriptDiagnostics } from './typescript-run.mjs';
 import { writeCSharp, csharpDiagnostics } from './csharp-run.mjs';
 import { writeRust, rustDiagnostics } from './rust-run.mjs';
+import { writeGo, goDiagnostics } from './go-run.mjs';
 
 /** The languages a Thunder Core project can be compiled to. */
-export const TARGETS = ['python', 'typescript', 'csharp', 'rust'];
+export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go'];
 /** How a target is named to people. */
-export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust' };
+export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust', go: 'Go' };
 
 export const PROJECT_FILE = 'thunder.toml';
 
@@ -108,6 +109,7 @@ export function buildProject({ root, single = null, includeTests = false, write 
   if (tgt === 'typescript') for (const r of results.filter((x) => x.ok)) { const d = typescriptDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   if (tgt === 'csharp') for (const r of results.filter((x) => x.ok)) { const d = csharpDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   if (tgt === 'rust') for (const r of results.filter((x) => x.ok)) { const d = rustDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  if (tgt === 'go') for (const r of results.filter((x) => x.ok)) { const d = goDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   const ok = results.every((r) => r.ok);
   if (ok && write && tgt === 'typescript') writeTypeScript(results, outDir);
   if (ok && write && tgt === 'python') {
@@ -127,6 +129,7 @@ export function buildProject({ root, single = null, includeTests = false, write 
   const entry = results.find((r) => r.path === entryPath) ?? results.find((r) => r.kind === 'src');
   if (ok && write && tgt === 'csharp') writeCSharp(results, outDir, { entry });
   if (ok && write && tgt === 'rust') writeRust(results, outDir, { entryModule: entry?.module ?? null });
+  if (ok && write && tgt === 'go') writeGo(results, outDir, { entry: entry?.module ?? null });
   return { ok, results, outDir, base, entryModule: entry?.module ?? null, entry, config: cfg, target: tgt };
 }
 

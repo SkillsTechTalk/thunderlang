@@ -1,7 +1,8 @@
-// Run a Thunder Core program four ways: compiled to Python, on the Thunder engine (src/core/engine.mjs), compiled to
-// TypeScript (src/core/target-typescript.mjs), and compiled to C# (src/core/target-csharp.mjs), and require the same
-// output, the same error, and the same exit status from all of them. C# builds are slow, so every C# program a test
-// file runs is collected and built once, together, by the file's last test (csharpAgrees); a difference fails it. Used by every test
+// Run a Thunder Core program every way it can run: compiled to Python, on the Thunder engine (src/core/engine.mjs), compiled to
+// TypeScript (src/core/target-typescript.mjs), and compiled to C#, Rust, and Go (src/core/target-csharp.mjs,
+// target-rust.mjs, target-go.mjs), and require the same output, the same error, and the same exit status from all of
+// them. C# builds are slow, so every C# program a test file runs is collected and built once, together, by the file's
+// last test (csharpAgrees); a difference fails it. Each compiled leg is skipped only when its toolchain is missing. Used by every test
 // that runs Core programs (core-run, core-stdlib, core-engine), so each program they run is also a conformance
 // check. A program that uses a Python module ("Use") is refused by the Thunder engine: that is the one intended
 // difference, and it is checked here too.
@@ -21,6 +22,10 @@ import { writeRust, runRustFast, rustToolchain, rustDiagnostics } from '../src/c
 
 /** Whether compiled Rust can be built here (rustc), or why not. */
 export const RS = rustToolchain();
+import { writeGo, runGo, goToolchain, goDiagnostics } from '../src/core/go-run.mjs';
+
+/** The go toolchain here, or why compiled Go can't run (then the Go leg is skipped). */
+export const GO = goToolchain();
 
 /** How compiled TypeScript runs here (Node's own type stripping, or the typescript package), or why it can't. */
 export const TS = typescriptRunner();
@@ -36,7 +41,7 @@ if (process.env.THUNDER_TALLY) process.on('exit', () => { if (tally.rust) consol
 let n = 0;
 
 /** Programs compared on both engines in this test file, and programs the Thunder engine refused (Use). */
-export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, csharp: 0, rust: 0 };
+export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, csharp: 0, rust: 0, go: 0 };
 
 const newDir = () => { const d = join(tmp, `p${n++}`); mkdirSync(d, { recursive: true }); return d; };
 const trim = (r) => ({ out: r.stdout.trim(), err: r.stderr.trim(), status: r.status });
@@ -66,6 +71,7 @@ export function bothEngines(results, { tests = false, entry = results[0], cwd = 
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(typescriptDiagnostics(r)[0]?.code, 'TC405', `${label}: TypeScript must refuse Use`);
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(csharpDiagnostics(r)[0]?.code, 'TC405', `${label}: C# must refuse Use`);
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(rustDiagnostics(r)[0]?.code, 'TC405', `${label}: Rust must refuse Use`);
+    for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(goDiagnostics(r)[0]?.code, 'TC405', `${label}: Go must refuse Use`);
     tally.refused++;
     return PY.error ? trim(eng) : trim(runPython(results, { tests, entry, cwd: where, dir }));
   }
@@ -74,6 +80,8 @@ export function bothEngines(results, { tests = false, entry = results[0], cwd = 
   queueCSharp(results, { tests, entry, cwd: where, label, expected: trim(eng) });
   const rust = runCompiledRust(results, { tests, entry, cwd: where, dir, label });
   if (rust) assert.deepEqual(rust, trim(eng), `${label}\nCompiled Rust and the Thunder engine disagree on this program.`);
+  const go = runCompiledGo(results, { tests, entry, cwd: where, dir, label });
+  if (go) assert.deepEqual(go, trim(eng), `${label}\nCompiled Go and the Thunder engine disagree on this program.`);
   if (PY.error) return trim(eng);
   const py = trim(runPython(results, { tests, entry, cwd: where, dir }));
   assert.deepEqual(trim(eng), py, `${label}\nThe Thunder engine and Python disagree on this program.`);
@@ -109,6 +117,20 @@ export function runCompiledRust(results, { tests = false, entry = results[0], cw
   const r = runRustFast(out, { tests, cwd: cwd ?? dir });
   assert.ok(!/^The generated Rust did not build/.test(r.stderr ?? ''), `${label}\n${r.stderr}`);
   tally.rust++;
+  return trim(r);
+}
+
+/** Compile results to Go and run them (or their tests); null when Go can't run here. */
+export function runCompiledGo(results, { tests = false, entry = results[0], cwd = null, dir = newDir(), label = '' } = {}) {
+  if (GO.error) return null;
+  const withKind = results.map((r) => ({ ...r, module: r.module ?? 'main', kind: r.kind ?? 'src' }));
+  for (const r of withKind) assert.deepEqual(goDiagnostics(r), [], `${label}: a program for Go must not use Python modules`);
+  const out = join(dir, 'go');
+  const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
+  writeGo(withKind, out, { entry: main.module });
+  const r = runGo(out, { tests, cwd: cwd ?? dir });
+  assert.ok(!r.buildFailed, `${label}\n${r.stderr}`);
+  tally.go++;
   return trim(r);
 }
 

@@ -28,7 +28,7 @@ let n = 0;
  * { out, err, status }. See core-engines.mjs.
  */
 const run = (source, { tests = false } = {}) => runBoth(source, { tests });
-test.after(() => console.log(`# core-run: ${tally.compared} programs gave the same result on Python and the Thunder engine; ${tally.refused} use Python modules and were refused by the engine.`));
+test.after(() => console.log(`# core-run: ${tally.compared} programs gave the same result on Python and the Thunder engine (${tally.typescript} also as TypeScript, ${tally.go} as Go); ${tally.refused} use Python modules and were refused by the engine.`));
 const says = (source, expected) => { const r = run(source); assert.equal(r.err, ''); assert.equal(r.status, 0); assert.equal(r.out, expected); };
 
 test('hello world', { skip }, () => says('say "Hello, world!"', 'Hello, world!'));

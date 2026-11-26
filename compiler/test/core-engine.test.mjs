@@ -20,7 +20,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const CLI = join(HERE, '..', 'src', 'cli.mjs');
 const skip = PY.error ? `Python 3.10+ not found, so the engines cannot be compared here: ${PY.error}` : false;
-test.after(() => console.log(`# core-engine: ${tally.compared} programs gave the same result on Python and the Thunder engine; ${tally.refused} use Python modules and were refused by the engine.`));
+test.after(() => console.log(`# core-engine: ${tally.compared} programs gave the same result on Python and the Thunder engine (${tally.typescript} also as TypeScript, ${tally.go} as Go); ${tally.refused} use Python modules and were refused by the engine.`));
 
 /** A Python input like '150, True' or '[1, 2.5]' as Thunder call arguments ("150 and true"), or null. */
 function thunderArgs(input) {
