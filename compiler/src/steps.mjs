@@ -380,8 +380,42 @@ function sayCall(name, args) {
   for (const k of KNOWN_CALLS) if (k.re.test(name)) {
     const target = (args.match(/^\s*["'`]([\w.\-/: ]{1,60})["'`]/) || [])[1];
     const base = k.say(name);
+    // A message says what it writes: `console.log("Saved.")`, `print(f"Total: {t}")`, `console.error(report(x))`.
+    if (base === 'Writes a log or message' && (LANG === 'typescript' || LANG === 'javascript' || LANG === 'python')) {
+      const what = messageWhat(args);
+      if (what) return `${base}: ${what}`;
+    }
     return target ? `${base}: ${target}` : base;
   }
+  return null;
+}
+/** What a message call writes, from its first argument: its text, a named value, or the result of a call. */
+function messageWhat(args) {
+  const t = String(args ?? '');
+  let depth = 0, end = 0, q = null;
+  for (; end < t.length; end++) {
+    const c = t[end];
+    if (q) { if (c === '\\') { end++; continue; } if (c === q) q = null; continue; }
+    if (c === '"' || c === "'" || c === '`') { q = c; continue; }
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) { if (depth === 0) break; depth--; }
+    else if (c === ',' && depth === 0) break;
+  }
+  let a = t.slice(0, end).trim();
+  if (!a) return null;
+  const more = t[end] === ',';
+  if (LANG === 'python') a = a.replace(/^[fFrR]{1,2}(?=["'])/, '');
+  if (/^["'`]/.test(a)) {
+    // (Python f-string holes stay as written, `{name}`: the reader's own style for a value inside text.)
+    let text = firstText(a, 70);
+    // printf-style holes filled by the values after it (`"Starting job %s", job_id`) are shown as "…".
+    if (text && more) text = text.replace(/%[-+ #0-9.]*[sdifrxXeEgGcuo]|\{\}/g, '…');
+    return text && /\w/.test(text) ? `"${text}"${more && !/…/.test(text) ? ', and more' : ''}` : null;
+  }
+  const tail = more ? ', and more' : '';
+  if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(a)) return `${possessiveWords(a)}${tail}`;
+  const c = callee(a);
+  if (c && closeOf(a, a.indexOf('(')) === a.length - 1) return `the result of ${callWords(c, a)}${tail}`;
   return null;
 }
 function firstArgs(text) {
@@ -1749,15 +1783,56 @@ function classifyWords(raw, { inner = 0 } = {}) {
     const owner = m[1].split('.').filter((p) => !/^(self|this)$/.test(p));
     const where = owner.length > 1 ? `${words(owner[owner.length - 2])}'s ${words(owner[owner.length - 1])}` : words(owner[0] || m[1]);
     const added = /^new\s+([A-Z]\w*)/.exec(head.slice(head.indexOf('(') + 1))?.[1];
-    const open0 = head.indexOf('('), close0 = closeOf(head, open0);
-    const argText = close0 > open0 ? head.slice(open0 + 1, close0) : '';
-    if (splitTopArgs(argText).length > 1) return { kind: 'call', says: `Adds to ${where}`, code, callee: m[1] };
-    return { kind: 'call', says: added ? `Adds a new ${words(added)} to ${where}` : m[2] && /^[A-Za-z_][\w$]*$/.test(m[2]) && m[2] !== 'new' ? `Adds ${words(m[2])} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
+    // The arguments may run over several lines (`out.push({\n  kind: …,\n})`): read them from the whole statement.
+    const whole = closeOf(head, head.indexOf('(')) > head.indexOf('(') ? head : text.replace(/\s+/g, ' ');
+    const open0 = whole.indexOf('('), close0 = closeOf(whole, open0);
+    const argText = close0 > open0 ? whole.slice(open0 + 1, close0) : '';
+    const args = argText.trim() ? splitTopArgs(argText) : [];
+    // What is added, in words: an entry and its fields, a text, a value's field, the result of a call, or a name.
+    const addedWhat = (a) => {
+      const t = String(a).trim();
+      if (/^\{[\s\S]*\}$/.test(t)) {
+        const parts = splitTopArgs(t.slice(1, -1));
+        const keys = parts.map((p) => (/^\.\.\./.test(p) ? null : (p.match(/^\s*['"]?([A-Za-z_$][\w$]*)['"]?\s*(?::|$|\()/) || [])[1])).filter(Boolean);
+        if (!parts.length) return 'an empty entry';
+        if (!keys.length) return null;
+        return `an entry (${keys.slice(0, 4).map(words).join(', ')}${keys.length > 4 || keys.length < parts.length ? ', …' : ''})`;
+      }
+      if (/^["'`]/.test(t)) { const q = firstText(t, 40); return q ? `"${q}"` : null; }
+      if (/^new\s+[A-Z]\w*/.test(t)) return `a new ${t.match(/^new\s+([A-Z]\w*)/)[1]}`;
+      if (/^[A-Za-z_$][\w$]*$/.test(t)) return words(t);
+      if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(t)) return possessiveWords(t);
+      const c = callee(t);
+      if (c && closeOf(t, t.indexOf('(')) === t.length - 1) return `the result of ${callWords(c, t)}`;
+      return null;
+    };
+    // (Only `push`/`unshift` add every argument: `list.add(index, element)` and `insert(i, x)` put one value at a place.)
+    if (args.length > 1 && !/\.(?:push|unshift)\(/.test(whole)) return { kind: 'call', says: `Adds to ${where}`, code, callee: m[1] };
+    if (args.length > 1) {
+      const ws = args.map(addedWhat);
+      const said = ws.every(Boolean) && args.length <= 3 ? `${ws.slice(0, -1).join(', ')} and ${ws[ws.length - 1]}` : null;
+      return { kind: 'call', says: said ? `Adds ${said} to ${where}` : `Adds ${args.length} values to ${where}`, code, callee: m[1] };
+    }
+    const one = args.length === 1 ? addedWhat(args[0]) : null;
+    return { kind: 'call', says: added ? `Adds a new ${words(added)} to ${where}` : one ? `Adds ${one} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
   }
   const c = callee(head);
   if (c) {
     const known = sayCall(c, firstArgs(head));
-    return { kind: 'call', says: known || `Calls ${callWords(c, head)}`, code, callee: c };
+    if (known) return { kind: 'call', says: known, code, callee: c };
+    // One argument that can be named says what the call is given, so two calls to the same function differ:
+    // `cmd.addCommand(rulesCommand())` -> "Calls add command (with the result of rules command)".
+    const o = head.indexOf('('), cl = o >= 0 ? closeOf(head, o) : -1;
+    const only = cl > o && /^\s*;?\s*$/.test(head.slice(cl + 1)) ? splitTopArgs(head.slice(o + 1, cl)) : [];
+    if ((LANG === 'typescript' || LANG === 'javascript' || LANG === 'python') && only.length === 1 && !/^\s*(?:async\s*)?(?:\(|function\b|[A-Za-z_$][\w$]*\s*=>)/.test(only[0]) && !/^(?:exec|eval|compile|__import__|execfile|Function|setTimeout|setInterval)$/.test(c)) {
+      const t = only[0].trim();
+      const w = /^["'`]/.test(t) ? (firstText(t, 40) ? `"${firstText(t, 40)}"` : null)
+        : /^[A-Za-z_$][\w$]*$/.test(t) ? words(t)
+        : /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(t) ? possessiveWords(t)
+        : callee(t) && closeOf(t, t.indexOf('(')) === t.length - 1 && !/^new\s/.test(t) ? `the result of ${callWords(callee(t), t)}` : null;
+      if (w && !ENDS_ON_PREPOSITION.test(callWords(c, head))) return { kind: 'call', says: `Calls ${callWords(c, head)} (with ${w})`, code, callee: c };
+    }
+    return { kind: 'call', says: `Calls ${callWords(c, head)}`, code, callee: c };
   }
   if ((m = head.match(/^([a-z_][\w.]*[?!]?)\s+(?![=<>!+\-*/%]|and\b|or\b|if\b|unless\b)(.+)$/)) && !/^(?:if|for|while|return|else|elsif|when|case|def|class|module|end|not|const|let|var|val|new|await|typeof|delete|void|in|of|throw|import|export|from|as|is)$/.test(m[1])) {
     if (/^assert/.test(m[1])) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };

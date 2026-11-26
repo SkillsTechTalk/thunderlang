@@ -29,7 +29,7 @@ const PY = `def save_order(order, db):
 
 test('Python: else, except, and finally are all read, with their own steps', () => {
   const [branch, attempt] = fn(PY, 'python').steps;
-  assert.deepEqual(branch.otherwise.map((s) => s.says), ["Sets the order's status to \"waiting\"", 'Calls notify']);
+  assert.deepEqual(branch.otherwise.map((s) => s.says), ["Sets the order's status to \"waiting\"", "Calls notify (with the order's customer)"]);
   assert.equal(attempt.handlers[0].says, 'If DatabaseError goes wrong');
   assert.deepEqual(attempt.handlers[0].steps.map((s) => s.kind), ['call', 'fail']);
   assert.deepEqual(attempt.always.steps.map((s) => s.says), ['Calls close']);
