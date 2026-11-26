@@ -173,7 +173,7 @@ its sentences are from Core statements.
 | --- | --- |
 | Reader's text compiles as Core, unchanged (whole function) | **0 of 20** |
 | Reader's step lines that parse as a Core statement (bullet and "(line N)" removed) | **1 of 66** (2%) |
-| The same step lines after 8 mechanical rewrites (verb forms and ":" only, listed below) | **36 of 66** (55%) |
+| The same step lines after 8 mechanical rewrites (verb forms and ":" only, listed below) | **37 of 66** (56%) |
 | Hand-written Core versions that compile | **20 of 20** |
 
 The English is written to *describe* code (third person, "Sets total to 0", "Gives back 0"), and Core is written as
@@ -1101,7 +1101,7 @@ What the reader prints today (Thunder Text):
 ```text
 Full name
   You give it: first, last
-  - Gives back text built from its parts — value: "{first} {last}"  (line 2)
+  - Gives back "«first» «last»"  (line 2)
 ```
 
 Thunder Core a person would write (compiles):

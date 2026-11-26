@@ -135,3 +135,19 @@ export function accountsFor(code, said, tree = null) {
 export const asCodeWords = (code, n = 120) => { const t = String(code).replace(/\s+/g, ' ').trim(); return `\`${t.length > n ? `${t.slice(0, n - 1)}…` : t}\``; };
 /** True when a condition's words are the code itself (the gate fell back). */
 export const isCodeWords = (said) => /^`[^]*`$/.test(String(said).trim());
+
+/** A Python import in words (the reader's form in steps.mjs, checked by say-less): null when it is not one plain import. */
+export function pythonImportSays(code) {
+  const t = String(code).trim().replace(/\s*#.*$/, '');
+  const named = (x) => { const m = /^([A-Za-z_]\w*)(?:\s+as\s+([A-Za-z_]\w*))?$/.exec(x.trim()); return m ? (m[2] && m[2] !== m[1] ? `${m[1]} (called ${m[2]} here)` : m[1]) : null; };
+  const list = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+  let m;
+  if ((m = /^import\s+([A-Za-z_][\w.]*)(?:\s+as\s+([A-Za-z_]\w*))?$/.exec(t))) return `Loads the ${m[1]} module${m[2] && m[2] !== m[1] ? `, called ${m[2]} here` : ''}`;
+  if ((m = /^from\s+(\.?)([A-Za-z_][\w.]*)?\s+import\s+\(?([^()*]+?)\)?$/.exec(t))) {
+    const names = m[3].split(',').map((x) => x.trim()).filter(Boolean).map(named);
+    if (!names.length || names.some((x) => !x) || (!m[1] && !m[2])) return null;
+    const from = m[1] ? (m[2] ? `the ${m[2]} module in this package` : 'this package') : `the ${m[2]} module`;
+    return `Loads ${list(names)} from ${from}`;
+  }
+  return null;
+}
