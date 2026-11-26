@@ -29,7 +29,7 @@ const PY = `def save_order(order, db):
 
 test('Python: else, except, and finally are all read, with their own steps', () => {
   const [branch, attempt] = fn(PY, 'python').steps;
-  assert.deepEqual(branch.otherwise.map((s) => s.says), ["Sets the order's status to \"waiting\"", 'Calls notify']);
+  assert.deepEqual(branch.otherwise.map((s) => s.says), ["Sets the order's status to \"waiting\"", "Calls notify (with the order's customer)"]);
   assert.equal(attempt.handlers[0].says, 'If DatabaseError goes wrong');
   assert.deepEqual(attempt.handlers[0].steps.map((s) => s.kind), ['call', 'fail']);
   assert.deepEqual(attempt.always.steps.map((s) => s.says), ['Calls close']);
@@ -94,7 +94,7 @@ test('Go: if with a setup statement keeps its condition; the err idiom reads as 
   assert.ok(branch.otherwise.length);
   assert.equal(loop.kind, 'loop');
   assert.match(loop.says, /^Counts i from 0 while/);
-  assert.equal(classifyStatement('_, err := buf.WriteTo(w)').says, 'Works out err from write to');
+  assert.equal(classifyStatement('_, err := buf.WriteTo(w)').says, 'Works out err from write to w'); // (it once ended on "to")
 });
 
 test('Java and C#: switch cases, casts, typed declarations, factory-made errors', () => {

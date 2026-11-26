@@ -249,11 +249,11 @@ function sayCodeConditionInner(cond) {
   if ((ty = c.match(/^typeof\s+([\w$.]+)\s*(===?|!==?)\s*["'](\w+)["']$/)) && TYPEOF_WORDS[ty[3]]) return `${possessiveWords(ty[1])} is ${/^!/.test(ty[2]) ? 'not ' : ''}${TYPEOF_WORDS[ty[3]]}`;
   if ((ty = c.match(/^(!|not\s+)?\\?(is_\w+)\(\s*\$?([\w$.\[\]'">-]+)\s*\)$/)) && PHP_IS[ty[2]]) return `${possessiveWords(ty[3])} is ${ty[1] ? 'not ' : ''}${PHP_IS[ty[2]]}`;
   // `x instanceof Foo` / `x is Foo` (Kotlin, C#) / isinstance(x, Foo): "x is a Foo".
-  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.]+)\s+instanceof\s+([\w$.\\]+)\s*\)?$/))) return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}a ${ty[3].split(/[.\\]/).pop()}`;
-  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/)) && !/^(?:True|False|None|Null|Nil|NULL)$/.test(ty[3])) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}a ${ty[3].split('.').pop()}`;
+  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.]+)\s+instanceof\s+([\w$.\\]+)\s*\)?$/))) return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${aWord(ty[3].split(/[.\\]/).pop())}`;
+  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/)) && !/^(?:True|False|None|Null|Nil|NULL)$/.test(ty[3])) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}${aWord(ty[3].split('.').pop())}`;
   // Ruby `x.is_a?(String)` / `kind_of?` / `instance_of?`: "x is a String".
-  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.@]+)\.(?:is_a|kind_of|instance_of)\?\s*\(?\s*([A-Z][\w:]*)\s*\)?\s*\)?$/))) return `${possessiveWords(ty[2].replace(/^@/, ''))} is ${ty[1] ? 'not ' : ''}a ${ty[3].split('::').pop()}`;
-  if ((ty = c.match(/^(not\s+)?isinstance\(\s*([\w.]+)\s*,\s*\(?\s*([\w.]+(?:\s*,\s*[\w.]+)*)\s*\)?\s*\)$/))) { const kinds = ty[3].split(/\s*,\s*/).map((x) => x.split('.').pop()); return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${kinds.length > 1 ? `one of ${kinds.join(', ')}` : `a ${kinds[0]}`}`; }
+  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.@]+)\.(?:is_a|kind_of|instance_of)\?\s*\(?\s*([A-Z][\w:]*)\s*\)?\s*\)?$/))) return `${possessiveWords(ty[2].replace(/^@/, ''))} is ${ty[1] ? 'not ' : ''}${aWord(ty[3].split('::').pop())}`;
+  if ((ty = c.match(/^(not\s+)?isinstance\(\s*([\w.]+)\s*,\s*\(?\s*([\w.]+(?:\s*,\s*[\w.]+)*)\s*\)?\s*\)$/))) { const kinds = ty[3].split(/\s*,\s*/).map((x) => x.split('.').pop()); return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${kinds.length > 1 ? `one of ${kinds.join(', ')}` : aWord(kinds[0])}`; }
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
   const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
   const plural = (w, call) => !call && !/ /.test(w) && /[^sui]s$/.test(w) && w.length > 3;
@@ -327,6 +327,36 @@ function matchingClose(str, open) {
   return -1;
 }
 const lastWords = (path) => words(String(path).split('.').pop());
+/** "a" or "an" by the sound of a type's name: an Error, an OrderedDict, an HTTPError; a User, a URL. */
+const aWord = (w) => {
+  const t = String(w);
+  const an = /^(?:[AEIOaeio]|U(?:n|m|nd|tt|pp)|u(?:n|m)|[FHLMNRSX][A-Z0-9]|[fhlmnrsx](?=[A-Z0-9]))/.test(t) && !/^(?:Eu|eu|Uni|uni|Use|use|Usu|One|one|Ur)/.test(t);
+  return `${an ? 'an' : 'a'} ${t}`;
+};
+/**
+ * A call's name in words, never ending on a dangling preposition: a function named after what it is for
+ * (`changeApprovalFor(x, …)`) gets its first argument when that is a plain name ("change approval for x"), and
+ * otherwise loses the preposition ("change approval"), instead of "change approval for ".
+ */
+const ENDS_ON_PREPOSITION = /\s(?:for|from|to|of|with|by|in|on|at|about|into|as|via)$/;
+function callWords(c, text) {
+  const w = lastWords(c);
+  if (!ENDS_ON_PREPOSITION.test(w)) return w;
+  const args = String(text ?? '');
+  const open = args.indexOf('(');
+  if (open >= 0) {
+    let depth = 0, end = open + 1;
+    for (; end < args.length; end++) {
+      const ch = args[end];
+      if ('([{'.includes(ch)) depth++;
+      else if (')]}'.includes(ch)) { if (depth === 0) break; depth--; }
+      else if (ch === ',' && depth === 0) break;
+    }
+    const first = args.slice(open + 1, end).trim();
+    if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(first)) return `${w} ${words(first.split('.').pop())}`;
+  }
+  return w.replace(ENDS_ON_PREPOSITION, '');
+}
 /** "cmd.commandCalledAs.called" -> "called on command called as"; "this.count" -> "count". */
 function targetWords(path) {
   // (C, C++, Swift: an index keeps its place, `events[i].mask` is "the mask of events[i]", never just "events".)
@@ -356,8 +386,69 @@ function sayCall(name, args) {
   for (const k of KNOWN_CALLS) if (k.re.test(name)) {
     const target = (args.match(/^\s*["'`]([\w.\-/: ]{1,60})["'`]/) || [])[1];
     const base = k.say(name);
+    // A message says what it writes: `console.log("Saved.")`, `print(f"Total: {t}")`, `console.error(report(x))`.
+    if (base === 'Writes a log or message' && (LANG === 'typescript' || LANG === 'javascript' || LANG === 'python')) {
+      const what = messageWhat(args);
+      if (what) return `${base}: ${what}`;
+    }
     return target ? `${base}: ${target}` : base;
   }
+  return null;
+}
+/** Shortened text ends on a whole word ("… the exact…", never "… the exact cr…"); it stays a prefix of the text. */
+const wholeWords = (q) => (q && q.endsWith('…') && q.length > 24 ? `${q.slice(0, -1).replace(/\s+\S*$/, '').replace(/[\s,;:.-]+$/, '')}…` : q);
+
+/**
+ * JavaScript/TypeScript template text with each value as a «placeholder» (the spec's form, as for Swift and C):
+ * `Wrote ${opts.out}.` -> `Wrote «opts.out».`. Null when it is not one whole template. Long text ends in "…".
+ */
+function templateWithValues(lit, n = 70) {
+  const t = String(lit).trim();
+  if (!t.startsWith('`')) return null;
+  let out = '';
+  for (let i = 1; i < t.length; i++) {
+    const c = t[i];
+    if (c === '\\') { out += t[i + 1] === '`' ? '`' : t[i + 1] === '$' ? '$' : c + (t[i + 1] ?? ''); i++; continue; }
+    if (c === '`') return i === t.length - 1 ? (out.length > n ? wholeWords(`${out.slice(0, n - 1).trimEnd()}…`) : out) : null;
+    if (c === '$' && t[i + 1] === '{') {
+      let d = 0, j = i + 1;
+      for (; j < t.length; j++) { if (t[j] === '{') d++; else if (t[j] === '}' && --d === 0) break; }
+      // (A value worked out inside the hole, `${a ? `x` : ''}`, is shown as «…»: only a name or a field is spelled.)
+      const hole = t.slice(i + 2, j).trim();
+      out += /^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(hole) ? `«${hole}»` : '«…»'; i = j; continue;
+    }
+    out += c;
+  }
+  return null;
+}
+
+/** What a message call writes, from its first argument: its text, a named value, or the result of a call. */
+function messageWhat(args) {
+  const t = String(args ?? '');
+  let depth = 0, end = 0, q = null;
+  for (; end < t.length; end++) {
+    const c = t[end];
+    if (q) { if (c === '\\') { end++; continue; } if (c === q) q = null; continue; }
+    if (c === '"' || c === "'" || c === '`') { q = c; continue; }
+    if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) { if (depth === 0) break; depth--; }
+    else if (c === ',' && depth === 0) break;
+  }
+  let a = t.slice(0, end).trim();
+  if (!a) return null;
+  const more = t[end] === ',';
+  if (LANG === 'python') a = a.replace(/^[fFrR]{1,2}(?=["'])/, '');
+  if (/^["'`]/.test(a)) {
+    // (Python f-string holes stay as written, `{name}`; a JavaScript template's values become «placeholders».)
+    let text = a.startsWith('`') ? templateWithValues(a, 80) : wholeWords(firstText(a, 80));
+    // printf-style holes filled by the values after it (`"Starting job %s", job_id`) are shown as "…".
+    if (text && more) text = text.replace(/%[-+ #0-9.]*[sdifrxXeEgGcuo]|\{\}/g, '…');
+    return text && /\w/.test(text) ? `"${text}"${more && !/…/.test(text) ? ', and more' : ''}` : null;
+  }
+  const tail = more ? ', and more' : '';
+  if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(a)) return `${possessiveWords(a)}${tail}`;
+  const c = callee(a);
+  if (c && closeOf(a, a.indexOf('(')) === a.length - 1) return `the result of ${callWords(c, a)}${tail}`;
   return null;
 }
 function firstArgs(text) {
@@ -405,7 +496,7 @@ function sayValue(expr) {
     if (/^new\s/.test(e)) return `a new ${c.split('.').pop()}`;
     // Swift makes a value by calling its type: Loan(title: t) is a new Loan (so does C++: std::string(s)).
     if ((LANG === 'swift' || LANG === 'cpp') && /^[A-Z]\w*$/.test(c) && !/^[A-Z][A-Z0-9_]+$/.test(c) && !C_STYLE_FUNCTION.test(c)) return `a new ${c}`;
-    return `the result of ${lastWords(c)}`;
+    return `the result of ${callWords(c, e)}`;
   }
   if (LANG === 'swift' && /^[A-Za-z_][\w.]*\.count$/.test(e)) return `how many ${possessiveWords(e.replace(/\.count$/, ''))}`;
   // A path keeps its owner: `callback.call` is "the callback's call", not "call"; `Boolean.TYPE` stays as written.
@@ -495,7 +586,36 @@ function sayCommon(value) {
   if ((m = e.match(/^new\s*\(\s*(?:[\w]+\.)?([A-Z]\w*)\s*\)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^[\w.]+\.(?:get|get_or_404|find|Find|findById|find_by_id)\(\s*([A-Z]\w*)\s*,\s*([\w.]+)\s*\)$/))) return `the ${m[1]} with ${lastSeg(m[2])}`;
-  if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return `the ${lastSeg(m[2])} entry in ${possessiveWords(m[1])}`;
+  // (A key that is another value's field keeps its owner: `touched.get(f.id)` is "the entry for f's id in touched".)
+  if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return /\./.test(m[2]) && !/^(?:self|this)\./.test(m[2]) ? `the entry for ${possessiveWords(m[2])} in ${possessiveWords(m[1])}` : `the ${lastSeg(m[2])} entry in ${possessiveWords(m[1])}`;
+  // Everyday Python calls, said by what they give back (only when what they are given is a name).
+  if (LANG === 'python') {
+    const plain = (x) => (/^[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*$/.test(String(x).trim()) ? possessiveWords(String(x).trim()) : null);
+    let mm;
+    // A class called like a function makes a new object: `FontDict()` is a new FontDict.
+    if ((mm = e.match(/^([A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*)\(\s*\)$/))) return `a new ${mm[1]}`;
+    if ((mm = e.match(/^(list|tuple|set|frozenset|sorted|reversed)\(\s*([^(),]+?)\s*\)$/)) && plain(mm[2])) return { list: `${plain(mm[2])}, as a list`, tuple: `${plain(mm[2])}, as a tuple`, set: `the different values in ${plain(mm[2])}`, frozenset: `the different values in ${plain(mm[2])}`, sorted: `${plain(mm[2])}, sorted`, reversed: `${plain(mm[2])}, in reverse order` }[mm[1]];
+    if ((mm = e.match(/^([\w.]+)\.index\(\s*([^(),]+?)\s*\)$/)) && plain(mm[1]) && plain(mm[2])) return `the position of ${plain(mm[2])} in ${plain(mm[1])}`;
+  }
+  // Everyday JavaScript and TypeScript calls, said by what they give back (only when what they are given is a name).
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    const plain = (x) => (/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(String(x).trim()) ? possessiveWords(String(x).trim().replace(/\?\./g, '.')) : null);
+    const one = (re) => { const mm = e.match(re); return mm ? plain(mm[1]) : null; };
+    let w;
+    if ((w = one(/^Object\.keys\(\s*([^(),]+?)\s*\)$/))) return `the keys of ${w}`;
+    if ((w = one(/^Object\.values\(\s*([^(),]+?)\s*\)$/))) return `the values in ${w}`;
+    if ((w = one(/^Object\.entries\(\s*([^(),]+?)\s*\)$/))) return `each key and value in ${w}`;
+    if ((w = one(/^Date\.parse\(\s*([^(),]+?)\s*\)$/))) return `the time written in ${w}`;
+    if ((w = one(/^Array\.from\(\s*([^(),]+?)\s*\)$/))) return `a list made from ${w}`;
+    if ((m = e.match(/^([A-Z][\w$]*)\.from\(\s*([^(),]+?)\s*\)$/)) && plain(m[2])) return `a ${m[1]} made from ${plain(m[2])}`;
+    if ((m = e.match(/^([\w$.]+)\.exec\(\s*([^(),]+?)\s*\)$/)) && plain(m[1]) && plain(m[2])) return `the first match of ${plain(m[1])} in ${plain(m[2])}`;
+    if ((m = e.match(/^([A-Z][\w$]*)\.parse\(\s*([^(),]+?)\s*\)$/)) && plain(m[2]) && m[1] !== 'JSON' && m[1] !== 'Date') return `${plain(m[2])}, checked and read by ${m[1]}`;
+    if ((m = e.match(/^Math\.(max|min)\(\s*([^()]+?)\s*\)$/))) {
+      const xs = splitTopArgs(m[2]).map(plain);
+      if (xs.length >= 2 && xs.every(Boolean)) return `the ${m[1] === 'max' ? 'largest' : 'smallest'} of ${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+    }
+    if ((m = e.match(/^Math\.(round|floor|ceil|abs|trunc)\(\s*([^(),]+?)\s*\)$/)) && plain(m[2])) return { round: `${plain(m[2])} rounded`, floor: `${plain(m[2])} rounded down`, ceil: `${plain(m[2])} rounded up`, abs: `the absolute value of ${plain(m[2])}`, trunc: `${plain(m[2])} without its fraction` }[m[1]];
+  }
   const wholeCall = (() => { const c = e.match(/^(?:new\s+)?[\w$.]+(?:<[^()]*?>)?\s*\(/); return !!c && closeOf(e, c[0].length - 1) === e.length - 1; })();
   if (/["'`]\s*\+|\+\s*["'`]/.test(e) && !/[<>=!&|]/.test(e) && !wholeCall) return 'text built from its parts';
   // PHP joins text with ` . ` (spaced when PHP is read): `$a . ':' . $b`.
@@ -1215,7 +1335,87 @@ const stripQuotedText = (s) => String(s).replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g
 // Words that start a block or a statement: "Calls unsafe" / "Calls using" / "Calls foreach" would name a function
 // that does not exist, so such a step is shown as its code instead.
 const NOT_CALLED = /^Calls (unsafe|using|foreach|for|while|if|else|return|lock|fixed|checked|unchecked|try|do|switch|match|loop|static|const|let|var|val|mut|typeof|sizeof)$/;
+/**
+ * TypeScript's types say nothing about what a statement does, so they are set aside before it is read (the step
+ * still shows the original code): `(request.body ?? {}) as { a?: string }` is `request.body ?? {}`, `ctx.repo!` is
+ * `ctx.repo`, and `const reviews: Record<string, 'a' | 'b'> = {}` is `const reviews = {}`.
+ */
+export function stripTsTypes(text) {
+  let s = String(text);
+  // A type after "as" or a declaration's ":" runs to the first , ; ) ] } = at depth 0 (or the end).
+  const typeEnd = (from, stops) => {
+    let depth = 0, q = null;
+    for (let i = from; i < s.length; i++) {
+      const c = s[i];
+      if (q) { if (c === q && s[i - 1] !== '\\') q = null; continue; }
+      if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+      if (c === '<' || c === '{' || c === '(' || c === '[') depth++;
+      else if ((c === '>' && s[i - 1] !== '=') || c === '}' || c === ')' || c === ']') { if (depth === 0) return i; depth--; }
+      else if (depth === 0 && stops.includes(c)) return i;
+    }
+    return s.length;
+  };
+  // `x as Type` (not inside text).
+  for (let guard = 0; guard < 20; guard++) {
+    const re = /\s+as\s+(?=[A-Za-z_${(\['"])/g;
+    let m;
+    // (Not inside text: an even number of each quote mark before it.)
+    while ((m = re.exec(s)) && ['"', "'", '`'].some((q) => (s.slice(0, m.index).split(q).length - 1) % 2 === 1));
+    if (!m || /\bimport\b|\bexport\b/.test(s.slice(0, m.index))) break;
+    const end = typeEnd(m.index + m[0].length, ',;=');
+    s = s.slice(0, m.index) + s.slice(end);
+  }
+  // `const name: Type = value` -> `const name = value`.
+  const decl = /^(\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*)\s*:\s*/.exec(s);
+  if (decl) { const end = typeEnd(decl[0].length, '=;'); if (s[end] === '=') s = `${decl[1]} ${s.slice(end)}`; }
+  // A non-null assertion `x!` (never `!=` or `!x`), and parentheses left around a plain name or member.
+  s = s.replace(/([\w$\])])!(?![=\w(])/g, '$1').replace(/\(([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\)(?=\.)/g, '$1');
+  // Parentheses that only held the value for its type (`= (request.body ?? {});`) are not needed once it is gone.
+  const wrapped = /^(\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*|\s*return\s+)\(([\s\S]*)\)(\s*;?\s*)$/.exec(s);
+  if (wrapped) {
+    let depth = 0, whole = true;
+    for (let i = 0; i < wrapped[2].length; i++) { const c = wrapped[2][i]; if (c === '(') depth++; else if (c === ')') { if (depth === 0) { whole = false; break; } depth--; } }
+    if (whole && depth === 0) s = `${wrapped[1]}${wrapped[2]}${wrapped[3]}`;
+  }
+  return s;
+}
+
 export function classifyStatement(raw, opts) {
+  // An event handler whose body is one expression: `child.on('close', (c) => resolve(c))` -> Whenever "close" happens,
+  // it calls resolve. (A handler with a block body is read with its steps, elsewhere.)
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    const ev = /^\s*[\w$.]+\.(?:on|once|addEventListener|addListener)\(\s*(['"`])([\w:.\-]+)\1\s*,\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>\s*(?!\{)([\s\S]+?)\)\s*;?\s*$/.exec(String(raw));
+    if (ev && balancedText(ev[3])) {
+      const body = ev[3].trim();
+      const c = callee(body);
+      if (c && closeOf(body, body.indexOf('(')) === body.length - 1) return { kind: 'call', says: `Whenever "${ev[2]}" happens, it calls ${callWords(c, body)}`, code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90), callee: c, expr: statementExpr(raw) };
+    }
+  }
+  // Two loops on one line (`for (const r of rows) for (const f of r.files) {`): each, in order, never one mixed loop.
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    const t = String(raw).trim();
+    const m = /^for\s*\(/.exec(t);
+    if (m) {
+      let depth = 0, close = -1;
+      for (let i = t.indexOf('('); i < t.length; i++) { if (t[i] === '(') depth++; else if (t[i] === ')' && --depth === 0) { close = i; break; } }
+      const rest = close > 0 ? t.slice(close + 1).trim() : '';
+      if (/^for\s*\(/.test(rest)) {
+        const outer = classifyStatement(`${t.slice(0, close + 1)} {`, opts);
+        const inner = classifyStatement(rest.replace(/\{?\s*$/, ' {'), opts);
+        if (outer.kind === 'loop' && inner.kind === 'loop') {
+          return { ...outer, says: `${outer.says.replace(/:$/, '')}, and in each, ${inner.says.charAt(0).toLowerCase()}${inner.says.slice(1)}`, code: clip(t.replace(/\s+/g, ' '), 90), nestedLoop: true };
+        }
+      }
+    }
+  }
+  // TypeScript: read the statement without its types; show the code as written.
+  if (LANG === 'typescript' && /\sas\s|[\w$\])]!(?![=\w(])|^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:/.test(String(raw))) {
+    const plain = stripTsTypes(raw);
+    if (plain !== String(raw)) {
+      const r = classifyStatement(plain, opts);
+      if (r.kind !== 'other') return { ...r, code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90) };
+    }
+  }
   // Rust `unsafe { f(x) }` (and `return unsafe { … }`) with one expression inside is that expression.
   const un = LANG === 'rust' ? String(raw).trim().match(/^(return\s+)?unsafe\s*\{\s*([^{};]+?)\s*;?\s*\}\s*;?$/s) : null;
   if (un) { const r = classifyStatement(`${un[1] ?? ''}${un[2]}`, opts); return { ...r, code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90) }; }
@@ -1501,7 +1701,8 @@ function classifyWords(raw, { inner = 0 } = {}) {
   }
   if ((m = head.match(/^(?:if|elif|else\s+if|unless|when)\b\s*(.*?)\s*(?:\{|:|then)?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${/^unless\b/.test(head) ? 'not: ' : ''}${cond}${innerNote}`, cond: m[1].replace(/^\((.*)\)$/, '$1'), code, negate: /^unless\b/.test(head) }; }
   if (/^switch\s*(?:true\s*)?\{$/.test(head)) return { kind: 'branch', says: `Checks these cases in order${innerNote}`, code };
-  if ((m = head.match(/^(?:switch|match|case|select)\b\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
+  // (`match = re.match(x)` / `select.x` use the word as a name: a statement word is never followed by = . , or ).)
+  if ((m = head.match(/^(?:switch|match|case|select)\b(?!\s*(?:=(?!=)|\.|,|\)|\]|[-+*/%]=))\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
   if (/^(?:try|begin)\b/.test(head)) return { kind: 'try', says: `Tries the next steps and handles any error${innerNote}`, code };
   if ((m = head.match(/^assert\b\s*(.*?)\s*;?$/))) return { kind: 'check', says: `Checks that ${m[1] ? sayCodeCondition(m[1].replace(/,\s*["'].*$/, '')) : 'a condition holds'}`, code };
   if ((m = head.match(/^assert(?:_\w+|That|Equals|True|False|NotNull|Null)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
@@ -1558,7 +1759,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:const|let|var|val)\s+([{[])\s*(.*?)\s*[}\]]\s*(?::\s*[^=]+)?=\s*(.+)$/))) {
     const names = m[2].split(',').map((x) => x.trim().split(/\s*[:=]\s*/)[0].replace(/^\.\.\./, '')).filter(Boolean).map(words);
     const value = stripTail(m[3]); const c = callee(value);
-    const from = c ? lastWords(c) : (sayValue(value) || words(value.split('.').pop()));
+    const from = c ? callWords(c, value) : (sayValue(value) || words(value.split('.').pop()));
     return { kind: 'set', says: `Takes ${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''} from ${from}`, code };
   }
   if ((m = head.match(/^(?:var|const)\s*\($/))) return { kind: 'set', says: 'Declares some values', code };
@@ -1575,7 +1776,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
       // (C++: `Status s = FindTable(…)` calls FindTable; only `Foo f = Foo(…)` makes a new Foo.)
       if (/^new\s/.test(value) || (makesType(c) && (LANG !== 'cpp' || sameType(c, m[1])))) return { kind: 'set', says: `Creates a new ${c.split('.').pop()} as ${target}`, code };
-      return { kind: 'set', says: `Works out ${target} from ${lastWords(c)}`, code, callee: c };
+      return { kind: 'set', says: `Works out ${target} from ${callWords(c, value)}`, code, callee: c };
     }
     const v = value ? sayValue(value) : null;
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
@@ -1636,7 +1837,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
       const known = sayCall(c, firstArgs(value));
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
       if (/^new\s/.test(value) || (makesType(c) && (LANG !== 'cpp' || sameType(c, declType)))) return { kind: 'set', says: `Creates a new ${c.split('.').pop()} as ${target}`, code };
-      return { kind: 'set', says: `Works out ${target} from ${lastWords(c)}`, code, callee: c };
+      return { kind: 'set', says: `Works out ${target} from ${callWords(c, value)}`, code, callee: c };
     }
     if (!value) return { kind: 'set', says: `Works out ${target}`, code };
     if (m[2] === '+=' || m[2] === '-=') { const what = /^[\w.]+$/.test(value) ? `${value.split('.').filter((p) => !/^(self|this)$/.test(p)).slice(-2).map(words).join(' ')} ` : /^-?\d+(\.\d+)?$/.test(value) ? `${value} ` : ''; return { kind: 'set', says: what ? `${m[2] === '+=' ? 'Adds' : 'Subtracts'} ${what}${m[2] === '+=' ? 'to' : 'from'} ${target}` : `${m[2] === '+=' ? 'Adds to' : 'Subtracts from'} ${target}`, code }; }
@@ -1655,15 +1856,61 @@ function classifyWords(raw, { inner = 0 } = {}) {
     const owner = m[1].split('.').filter((p) => !/^(self|this)$/.test(p));
     const where = owner.length > 1 ? `${words(owner[owner.length - 2])}'s ${words(owner[owner.length - 1])}` : words(owner[0] || m[1]);
     const added = /^new\s+([A-Z]\w*)/.exec(head.slice(head.indexOf('(') + 1))?.[1];
-    const open0 = head.indexOf('('), close0 = closeOf(head, open0);
-    const argText = close0 > open0 ? head.slice(open0 + 1, close0) : '';
-    if (splitTopArgs(argText).length > 1) return { kind: 'call', says: `Adds to ${where}`, code, callee: m[1] };
-    return { kind: 'call', says: added ? `Adds a new ${words(added)} to ${where}` : m[2] && /^[A-Za-z_][\w$]*$/.test(m[2]) && m[2] !== 'new' ? `Adds ${words(m[2])} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
+    // The arguments may run over several lines (`out.push({\n  kind: …,\n})`): read them from the whole statement.
+    const whole = closeOf(head, head.indexOf('(')) > head.indexOf('(') ? head : text.replace(/\s+/g, ' ');
+    const open0 = whole.indexOf('('), close0 = closeOf(whole, open0);
+    const argText = close0 > open0 ? whole.slice(open0 + 1, close0) : '';
+    const args = argText.trim() ? splitTopArgs(argText) : [];
+    // What is added, in words: an entry and its fields, a text, a value's field, the result of a call, or a name.
+    const addedWhat = (a) => {
+      const t = String(a).trim();
+      if (/^\{[\s\S]*\}$/.test(t)) {
+        // (Its fields are listed only when the statement is short enough for the faithfulness check to see them all.)
+        if (text.split('\n').length > 7) return 'an entry';
+        const parts = splitTopArgs(t.slice(1, -1));
+        const keys = parts.map((p) => (/^\.\.\./.test(p) ? null : (p.match(/^\s*['"]?([A-Za-z_$][\w$]*)['"]?\s*(?::|$|\()/) || [])[1])).filter(Boolean);
+        if (!parts.length) return 'an empty entry';
+        if (!keys.length) return null;
+        return `an entry (${keys.slice(0, 4).map(words).join(', ')}${keys.length > 4 || keys.length < parts.length ? ', …' : ''})`;
+      }
+      if (/^(?:''|""|``)$/.test(t)) return '""';
+      if (t.startsWith('`')) { const q = templateWithValues(t, 60); return q != null ? `"${q}"` : null; }
+      if (/^["']/.test(t)) { const q = wholeWords(firstText(t, 60)); return q ? `"${q}"` : null; }
+      if (/^new\s+[A-Z]\w*/.test(t)) return `a new ${t.match(/^new\s+([A-Z]\w*)/)[1]}`;
+      if (/^[A-Za-z_$][\w$]*$/.test(t)) return words(t);
+      if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(t)) return possessiveWords(t);
+      const c = callee(t);
+      if (c && closeOf(t, t.indexOf('(')) === t.length - 1) return `the result of ${callWords(c, t)}`;
+      return null;
+    };
+    // (Only `push`/`unshift` add every argument: `list.add(index, element)` and `insert(i, x)` put one value at a place.)
+    if (args.length > 1 && !/\.(?:push|unshift)\(/.test(whole)) return { kind: 'call', says: `Adds to ${where}`, code, callee: m[1] };
+    if (args.length > 1) {
+      const ws = args.map(addedWhat);
+      const said = ws.every(Boolean) && args.length <= 3 ? `${ws.slice(0, -1).join(', ')} and ${ws[ws.length - 1]}` : null;
+      return { kind: 'call', says: said ? `Adds ${said} to ${where}` : `Adds several values to ${where}`, code, callee: m[1] };
+    }
+    const one = args.length === 1 ? addedWhat(args[0]) : null;
+    return { kind: 'call', says: added ? `Adds a new ${words(added)} to ${where}` : one ? `Adds ${one} to ${where}` : `Adds to ${where}`, code, callee: m[1] };
   }
   const c = callee(head);
   if (c) {
     const known = sayCall(c, firstArgs(head));
-    return { kind: 'call', says: known || `Calls ${lastWords(c)}`, code, callee: c };
+    if (known) return { kind: 'call', says: known, code, callee: c };
+    // One argument that can be named says what the call is given, so two calls to the same function differ:
+    // `cmd.addCommand(rulesCommand())` -> "Calls add command (with the result of rules command)".
+    const o = head.indexOf('('), cl = o >= 0 ? closeOf(head, o) : -1;
+    const only = cl > o && /^\s*;?\s*$/.test(head.slice(cl + 1)) ? splitTopArgs(head.slice(o + 1, cl)) : [];
+    if ((LANG === 'typescript' || LANG === 'javascript' || LANG === 'python') && only.length === 1 && !/^\s*(?:async\s*)?(?:\(|function\b|[A-Za-z_$][\w$]*\s*=>)/.test(only[0]) && !/^(?:exec|eval|compile|__import__|execfile|Function|setTimeout|setInterval)$/.test(c)) {
+      const t = only[0].trim();
+      const w = t.startsWith('`') ? (templateWithValues(t, 60) ? `"${templateWithValues(t, 60)}"` : null)
+        : /^["']/.test(t) ? (wholeWords(firstText(t, 60)) ? `"${wholeWords(firstText(t, 60))}"` : null)
+        : /^[A-Za-z_$][\w$]*$/.test(t) ? words(t)
+        : /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/.test(t) ? possessiveWords(t)
+        : callee(t) && closeOf(t, t.indexOf('(')) === t.length - 1 && !/^new\s/.test(t) ? `the result of ${callWords(callee(t), t)}` : null;
+      if (w && !ENDS_ON_PREPOSITION.test(callWords(c, head))) return { kind: 'call', says: `Calls ${callWords(c, head)} (with ${w})`, code, callee: c };
+    }
+    return { kind: 'call', says: `Calls ${callWords(c, head)}`, code, callee: c };
   }
   if ((m = head.match(/^([a-z_][\w.]*[?!]?)\s+(?![=<>!+\-*/%]|and\b|or\b|if\b|unless\b)(.+)$/)) && !/^(?:if|for|while|return|else|elsif|when|case|def|class|module|end|not|const|let|var|val|new|await|typeof|delete|void|in|of|throw|import|export|from|as|is)$/.test(m[1])) {
     if (/^assert/.test(m[1])) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };
@@ -2187,6 +2434,32 @@ export function stepsFrom(statements) {
   for (let i = 0; i < steps.length - 1; i++) asCall(steps, i);
   // A value chosen by if / match / when: each side's last value is what the name is set to (or what is returned).
   for (const st of steps) if (Object.hasOwn(st, 'valueOf')) { const t = st.valueOf; delete st.valueOf; giveValue(st.children, t); giveValue(st.otherwise, t); }
+  // A web route registered in place (`fastify.post('/orders', handle(async (request) => { … }))`) is its own action,
+  // read separately ("When someone calls POST /orders"); here it is one line, not its steps a second time.
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    for (const st of steps) {
+      const r = /^\s*[A-Za-z_$][\w$]*\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,/.exec(String(st.code ?? ''));
+      if (!r || !/^\//.test(r[2])) continue;
+      st.kind = 'call';
+      st.says = `Handles ${r[1] === 'all' ? 'every request to' : r[1].toUpperCase()} ${r[2]} (its steps are in that action)`;
+      delete st.children; delete st.nested; delete st.restates; delete st.value;
+      st.route = { method: r[1].toUpperCase(), path: r[2] };
+    }
+  }
+  // "Calls X with these steps", said by what the call is for (JavaScript, TypeScript): a command-line command
+  // (`program.command('check')…`), a database transaction, progress shown while it works, or the name it registers.
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    for (const st of steps) {
+      const said = /^Calls ([\w ]+) with these steps$/.exec(String(st.says ?? ''));
+      if (!said) continue;
+      const code = String(st.code ?? '');
+      let m;
+      if ((m = /\.command\(\s*(['"`])([\w:.\-]+)(?:\s[^'"`]*)?\1\s*\)/.exec(code))) st.says = `Defines the command "${m[2]}"; when it runs, it does these steps`;
+      else if (/\.transaction\(\s*(?:async\s*)?\(/.test(code)) st.says = 'Does these steps in one database transaction';
+      else if (/\.withProgress\(/.test(code)) st.says = 'Shows progress while it does these steps';
+      else if ((m = /^\s*(?:await\s+)?[\w$.]+\(\s*(['"`])([^'"`$]{1,60})\1\s*,/.exec(code))) st.says = `Calls ${said[1]} ("${m[2]}") with these steps`;
+    }
+  }
   // Every step is kept (anchoring needs all of them); `more` tells a view how many to fold away.
   const more = Math.max(0, steps.length - MAX_STEPS);
   for (const st of steps) if (restates(st)) st.restates = true;
