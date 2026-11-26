@@ -249,11 +249,11 @@ function sayCodeConditionInner(cond) {
   if ((ty = c.match(/^typeof\s+([\w$.]+)\s*(===?|!==?)\s*["'](\w+)["']$/)) && TYPEOF_WORDS[ty[3]]) return `${possessiveWords(ty[1])} is ${/^!/.test(ty[2]) ? 'not ' : ''}${TYPEOF_WORDS[ty[3]]}`;
   if ((ty = c.match(/^(!|not\s+)?\\?(is_\w+)\(\s*\$?([\w$.\[\]'">-]+)\s*\)$/)) && PHP_IS[ty[2]]) return `${possessiveWords(ty[3])} is ${ty[1] ? 'not ' : ''}${PHP_IS[ty[2]]}`;
   // `x instanceof Foo` / `x is Foo` (Kotlin, C#) / isinstance(x, Foo): "x is a Foo".
-  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.]+)\s+instanceof\s+([\w$.\\]+)\s*\)?$/))) return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}a ${ty[3].split(/[.\\]/).pop()}`;
-  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/)) && !/^(?:True|False|None|Null|Nil|NULL)$/.test(ty[3])) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}a ${ty[3].split('.').pop()}`;
+  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.]+)\s+instanceof\s+([\w$.\\]+)\s*\)?$/))) return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${aWord(ty[3].split(/[.\\]/).pop())}`;
+  if ((ty = c.match(/^([\w$.]+)\s+(is|!is)\s+([A-Z][\w.<>?]*)$/)) && !/^(?:True|False|None|Null|Nil|NULL)$/.test(ty[3])) return `${possessiveWords(ty[1])} is ${ty[2] === '!is' ? 'not ' : ''}${aWord(ty[3].split('.').pop())}`;
   // Ruby `x.is_a?(String)` / `kind_of?` / `instance_of?`: "x is a String".
-  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.@]+)\.(?:is_a|kind_of|instance_of)\?\s*\(?\s*([A-Z][\w:]*)\s*\)?\s*\)?$/))) return `${possessiveWords(ty[2].replace(/^@/, ''))} is ${ty[1] ? 'not ' : ''}a ${ty[3].split('::').pop()}`;
-  if ((ty = c.match(/^(not\s+)?isinstance\(\s*([\w.]+)\s*,\s*\(?\s*([\w.]+(?:\s*,\s*[\w.]+)*)\s*\)?\s*\)$/))) { const kinds = ty[3].split(/\s*,\s*/).map((x) => x.split('.').pop()); return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${kinds.length > 1 ? `one of ${kinds.join(', ')}` : `a ${kinds[0]}`}`; }
+  if ((ty = c.match(/^(!|not\s+)?\(?\s*([\w$.@]+)\.(?:is_a|kind_of|instance_of)\?\s*\(?\s*([A-Z][\w:]*)\s*\)?\s*\)?$/))) return `${possessiveWords(ty[2].replace(/^@/, ''))} is ${ty[1] ? 'not ' : ''}${aWord(ty[3].split('::').pop())}`;
+  if ((ty = c.match(/^(not\s+)?isinstance\(\s*([\w.]+)\s*,\s*\(?\s*([\w.]+(?:\s*,\s*[\w.]+)*)\s*\)?\s*\)$/))) { const kinds = ty[3].split(/\s*,\s*/).map((x) => x.split('.').pop()); return `${possessiveWords(ty[2])} is ${ty[1] ? 'not ' : ''}${kinds.length > 1 ? `one of ${kinds.join(', ')}` : aWord(kinds[0])}`; }
   // A bare yes/no property reads as a sentence: `order.refunded` -> "order is refunded", `!user.isAdmin` -> "user is not admin".
   const prop = c.match(/^(not\s+|!)?(?:self\.|this\.)?([A-Za-z_]\w*)\.([A-Za-z_]\w*)(\(\))?$/);
   const plural = (w, call) => !call && !/ /.test(w) && /[^sui]s$/.test(w) && w.length > 3;
@@ -327,6 +327,12 @@ function matchingClose(str, open) {
   return -1;
 }
 const lastWords = (path) => words(String(path).split('.').pop());
+/** "a" or "an" by the sound of a type's name: an Error, an OrderedDict, an HTTPError; a User, a URL. */
+const aWord = (w) => {
+  const t = String(w);
+  const an = /^(?:[AEIOaeio]|U(?:n|m|nd|tt|pp)|u(?:n|m)|[FHLMNRSX][A-Z0-9]|[fhlmnrsx](?=[A-Z0-9]))/.test(t) && !/^(?:Eu|eu|Uni|uni|Use|use|Usu|One|one|Ur)/.test(t);
+  return `${an ? 'an' : 'a'} ${t}`;
+};
 /**
  * A call's name in words, never ending on a dangling preposition: a function named after what it is for
  * (`changeApprovalFor(x, …)`) gets its first argument when that is a plain name ("change approval for x"), and
