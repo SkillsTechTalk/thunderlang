@@ -133,3 +133,5 @@ export { withArticle } from './model.mjs';
 export { terminatorEffect, toThunderCondition, toThunderOutcome, sayCondition } from './read.mjs';
 export { recoverModel } from './promote.mjs';
 export { stepShape } from './write-steps.mjs';
+// The Thunder Software Passport, pure half (assemble, check, render). buildPassport (folders, git, runs) is in the root entry.
+export { PASSPORT_SCHEMA, ALWAYS_NOT_VERIFIED, assemblePassport, summarize, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
