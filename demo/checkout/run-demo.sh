@@ -11,6 +11,11 @@
 #   demo/checkout/run-demo.sh --passport  the change's Thunder passport (passport.json and passport.md here): it runs
 #                                         each part's tests and records them as evidence; then it edits a billing
 #                                         file in the scratch copy and shows the test evidence turning stale
+#   demo/checkout/run-demo.sh --change    one Thunder change, written into three languages: free shipping from $40
+#                                         instead of $50, in the page (TypeScript), orders (C#), and billing's receipt
+#                                         (Python). The plan, then the change, the tests, and a passport
+#                                         (shipping-change-passport.json and .md here). CHANGE_TO="subtotal >= 75"
+#                                         tries another limit (a raise makes the tests that pin "$55 ships free" fail).
 #
 # Needs Python 3.10+, .NET 10, and Node 22.18+ (it runs the TypeScript directly). Scratch copies go in a new
 # folder under the system's temp folder.
@@ -19,14 +24,15 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 BILLING_PORT=8101
 ORDERS_PORT=8102
-before=false; tests=false; thunder=false; passport=false
+before=false; tests=false; thunder=false; passport=false; change=false
 for a in "$@"; do
   case "$a" in
     --before) before=true ;;
     --tests) tests=true ;;
     --thunder) thunder=true ;;
     --passport) passport=true ;;
-    *) echo "run-demo.sh: there is no option $a (try --before, --tests, --thunder, --passport)"; exit 2 ;;
+    --change) change=true ;;
+    *) echo "run-demo.sh: there is no option $a (try --before, --tests, --thunder, --passport, --change)"; exit 2 ;;
   esac
 done
 
@@ -58,7 +64,7 @@ if $passport; then
   echo "== thunder passport web orders billing --base HEAD~1 (running each part's tests)"
   thunder passport web orders billing --base HEAD~1 \
     --purpose "Prevent duplicate charges when a payment request is retried: one press of Place order charges the customer once." \
-    --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts" \
+    --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts shipping.test.ts" \
     --out passport.json --md-out passport.md || true
   cp passport.json passport.md "$here/"
   echo; echo "== Someone edits billing/billing.py after the passport was built"
@@ -67,13 +73,31 @@ if $passport; then
   exit 0
 fi
 
+if $change; then
+  s="$(scratch)"
+  thunder() { node "$repo/compiler/src/cli.mjs" "$@"; }
+  cd "$s"
+  to="${CHANGE_TO:-subtotal >= 40}"
+  echo "== The plan: thunder write web orders billing --decision shippingNote --rule 1 --when \"$to\""
+  thunder write web orders billing --decision shippingNote --rule 1 --when "$to"
+  echo; echo "== The change, the tests, and a passport (--write: every implementation changes, or none does)"
+  status=0
+  thunder write web orders billing --decision shippingNote --rule 1 --when "$to" --write \
+    --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts shipping.test.ts" \
+    --purpose "Free shipping from a new limit, the same in the cart page, the orders service, and billing's receipt." \
+    --passport shipping-change-passport.json --md-out shipping-change-passport.md || status=$?
+  echo; echo "== What changed in the code (git diff --stat; only the rule's characters)"; git diff --stat -- web orders billing; git diff -U0 -- web orders billing | grep -E '^[-+][^-+]' || true
+  if [ -z "${CHANGE_TO:-}" ]; then cp shipping-change-passport.json shipping-change-passport.md "$here/"; fi
+  exit $status
+fi
+
 app="$here"
 if $before; then app="$(scratch)"; (cd "$app" && git checkout -q HEAD~1); echo "(the app before the fix, in $app)"; fi
 
 if $tests; then
   echo "== billing (Python) tests";  (cd "$app/billing" && python3 -m unittest 2>&1 | tail -n 3)
   echo "== orders (C#) tests";       (cd "$app/orders" && dotnet run -- --test)
-  echo "== web (TypeScript) tests";  (cd "$app/web" && node --test checkout.test.ts 2>&1 | grep -E '^# (pass|fail|todo)')
+  echo "== web (TypeScript) tests";  (cd "$app/web" && node --test checkout.test.ts shipping.test.ts 2>&1 | grep -E '^# (pass|fail|todo)')
   echo
 fi
 
