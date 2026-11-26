@@ -168,7 +168,7 @@ export const READ_LESSONS = [
         check: ({ item }) => flatSteps(item.steps).find((s) => s.kind === 'branch' && /coupon/.test(s.says)).children[0].says },
     ],
     title: "Software, as pictures",
-    idea: "Code is a list of instructions written for a computer. Thunder shows the same instructions as a picture written for people. The Thunder compiler reads the code exactly; it never guesses.",
+    idea: "Code is a list of instructions written for a computer. Thunder™ shows the same instructions as a picture written for people. The Thunder compiler reads the code exactly; it never guesses.",
     picture: "A chef's shorthand notes and the recipe card in the cookbook describe the same dish. The code is the shorthand; Thunder is the recipe card anyone can follow.",
     files: [{ language: "python", label: "Python", code: `def order_total(order):
     total = 0
