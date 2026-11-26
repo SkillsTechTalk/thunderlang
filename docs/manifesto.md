@@ -42,7 +42,8 @@ We advertise each compilation capability only once it works. Today:
 | Write whole programs in Thunder (Thunder Core) and run them as Python | Available <!-- capability:thunderCore --> |
 | Compile Thunder Core programs to TypeScript, with the same output as Python and the Thunder engine | Available <!-- capability:coreTypeScript --> |
 | Compile Thunder Core programs to C#, with the same output as Python, the Thunder engine, and TypeScript | Available <!-- capability:coreCsharp --> |
-| Compile Thunder Core programs to Java, Go, and Rust | Planned <!-- capability:coreTargets --> |
+| Compile Thunder Core programs to Rust, with the same output as Python, the Thunder engine, and TypeScript | Available <!-- capability:coreRust --> |
+| Compile Thunder Core programs to Java and Go | Planned <!-- capability:coreTargets --> |
 
 The same labels appear on [thunderlang.dev](https://thunderlang.dev/#status) and come from the compiler's own data.
 For every language on every axis, see the [language support matrix](/docs/language-support-matrix).

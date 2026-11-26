@@ -17,6 +17,10 @@ import { findPython } from '../src/core/project.mjs';
 import { runWithEngine, testWithEngine, pythonModulesUsed } from '../src/core/engine.mjs';
 import { writeTypeScript, runTypeScript, typescriptRunner, typecheckTypeScript, typescriptDiagnostics } from '../src/core/typescript-run.mjs';
 import { writeCSharpBatch, buildCSharp, runBuiltCSharp, findDotnet, csharpDiagnostics } from '../src/core/csharp-run.mjs';
+import { writeRust, runRustFast, rustToolchain, rustDiagnostics } from '../src/core/rust-run.mjs';
+
+/** Whether compiled Rust can be built here (rustc), or why not. */
+export const RS = rustToolchain();
 
 /** How compiled TypeScript runs here (Node's own type stripping, or the typescript package), or why it can't. */
 export const TS = typescriptRunner();
@@ -28,10 +32,11 @@ export const PY = findPython();
 export const CS = process.env.THUNDER_CSHARP === '0' ? { error: 'THUNDER_CSHARP=0' } : findDotnet();
 const tmp = mkdtempSync(join(tmpdir(), 'thunder-engines-'));
 process.on('exit', () => rmSync(tmp, { recursive: true, force: true }));
+if (process.env.THUNDER_TALLY) process.on('exit', () => { if (tally.rust) console.log(`# compiled Rust: ${tally.rust} programs gave the same result as the Thunder engine`); });
 let n = 0;
 
 /** Programs compared on both engines in this test file, and programs the Thunder engine refused (Use). */
-export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, csharp: 0 };
+export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, csharp: 0, rust: 0 };
 
 const newDir = () => { const d = join(tmp, `p${n++}`); mkdirSync(d, { recursive: true }); return d; };
 const trim = (r) => ({ out: r.stdout.trim(), err: r.stderr.trim(), status: r.status });
@@ -60,12 +65,15 @@ export function bothEngines(results, { tests = false, entry = results[0], cwd = 
     // Compiled TypeScript refuses it too, when it is built (TC405): Python modules exist only for the Python target.
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(typescriptDiagnostics(r)[0]?.code, 'TC405', `${label}: TypeScript must refuse Use`);
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(csharpDiagnostics(r)[0]?.code, 'TC405', `${label}: C# must refuse Use`);
+    for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(rustDiagnostics(r)[0]?.code, 'TC405', `${label}: Rust must refuse Use`);
     tally.refused++;
     return PY.error ? trim(eng) : trim(runPython(results, { tests, entry, cwd: where, dir }));
   }
   const ts = runCompiledTypeScript(results, { tests, entry, cwd: where, dir, label });
   if (ts) assert.deepEqual(ts, trim(eng), `${label}\nCompiled TypeScript and the Thunder engine disagree on this program.`);
   queueCSharp(results, { tests, entry, cwd: where, label, expected: trim(eng) });
+  const rust = runCompiledRust(results, { tests, entry, cwd: where, dir, label });
+  if (rust) assert.deepEqual(rust, trim(eng), `${label}\nCompiled Rust and the Thunder engine disagree on this program.`);
   if (PY.error) return trim(eng);
   const py = trim(runPython(results, { tests, entry, cwd: where, dir }));
   assert.deepEqual(trim(eng), py, `${label}\nThe Thunder engine and Python disagree on this program.`);
@@ -87,6 +95,20 @@ export function runCompiledTypeScript(results, { tests = false, entry = results[
   const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
   const r = runTypeScript(out, tests ? 'run_tests.ts' : `${main.module}.ts`, { cwd: cwd ?? dir });
   tally.typescript++;
+  return trim(r);
+}
+
+/** Compile results to Rust and run them (or their tests); null when Rust can't be built here. */
+export function runCompiledRust(results, { tests = false, entry = results[0], cwd = null, dir = newDir(), label = '' } = {}) {
+  if (RS.error) return null;
+  const withKind = results.map((r) => ({ ...r, module: r.module ?? 'main', kind: r.kind ?? 'src' }));
+  for (const r of withKind) assert.deepEqual(rustDiagnostics(r), [], `${label}: a program for Rust must not use Python modules`);
+  const out = join(dir, 'rs');
+  const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
+  writeRust(withKind, out, { entryModule: main.module });
+  const r = runRustFast(out, { tests, cwd: cwd ?? dir });
+  assert.ok(!/^The generated Rust did not build/.test(r.stderr ?? ''), `${label}\n${r.stderr}`);
+  tally.rust++;
   return trim(r);
 }
 

@@ -116,6 +116,7 @@ const PROGRAMS = {
   'removing what is not there': L('Set xs to [1, 2]', 'Remove 5 from xs'),
   'removing a map entry that is not there': L('Set m to an empty map', 'Remove "k" from m'),
   'sums, averages and extremes of money': L('Set prices to [$1.10, $2.25, $3]', 'say the sum of prices', 'say the average of prices', 'say the smallest of prices', 'say the largest of prices', 'say the absolute value of -$4.50', 'say the absolute value of -3', 'say the absolute value of -2.50', 'say round 7 to 2 places', 'say round 2.4999 to 3 places'),
+  'JSON with true, false, and null reads as Python reads it': L(String.raw`Set data to the JSON data in "{{\"a\": false, \"b\": true, \"c\": null, \"d\": [false]}}"`, "say data", 'say the JSON text of data'),
   'sorting values of mixed kinds fails the way Python does': L(String.raw`Set data to the JSON data in "[3, \"a\", 1]"`, 'say data sorted'),
   'starts with on something that is not text': L('Set data to the JSON data in "[5]"', 'say (data at 1) starts with "5"'),
   'text contains text, a list contains a value': L('say "hello" contains "ell"', 'say [1, 2, 3] contains 2.0', 'say ["a"] contains "b"', 'Set m to an empty map', 'Set m at "k" to 1', 'say m contains "k"'),

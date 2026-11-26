@@ -7,6 +7,14 @@
   the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and C#; the conformance tests
   build them all in one project per test file. `Use` is refused for C# (TC405). Without the SDK, Thunder says what to
   install (exit 2). The site lists C# as Available; Java, Go, and Rust stay Planned.
+- **Thunder Core compiles to Rust.** `thunder build|run|test --target rust` (or `target = "rust"` in `thunder.toml`)
+  writes a small Cargo project: one `.rs` per Thunder file, `main.rs`, and `thunder_runtime.rs`, a line-by-line port
+  of the Thunder engine's value code that uses only the standard library (exact decimals of any size, money rounded
+  half up, positions from 1, the same words for every value and error), so it builds offline. 136 Core test programs
+  give the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Rust; programs that use
+  a Python module are refused (TC405). Running needs `rustc` and `cargo`; without them Thunder says what to install.
+- **Fix: JSON `false`.** "the JSON data in" read `false` one character short, so `{"a": false}` failed with
+  "Expecting ',' delimiter". It now reads it as Python does (Thunder engine and TypeScript).
 
 # 1.2.0
 

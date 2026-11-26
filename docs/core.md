@@ -12,7 +12,7 @@ them, compiles them to Python, and runs them. The generated Python is ordinary c
 ```
 
 **Status (v0).** There are three compilation targets: **Python 3.10+** (the default), **TypeScript** (see
-"Compile to TypeScript"), and **C#** (see "Compile to C#"). Java, Go, and Rust are planned. They will not be listed as available until they pass
+"Compile to TypeScript"), **C#** (see "Compile to C#"), and **Rust** (see "Compile to Rust"). Java and Go are planned. They will not be listed as available until they pass
 the same tests.
 The rules below in "What a value means" are the rules every future target must keep.
 
@@ -355,7 +355,36 @@ project: `dotnet run --project generated/csharp` runs it without Thunder (`-- te
 - **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
   (TC405). NuGet libraries are not available from Thunder yet.
 
-Java, Go, and Rust are planned. Each will be listed as available only once it passes the same tests.
+
+## Compile to Rust
+
+The same program, compiled to Rust:
+
+```sh
+thunder build --target rust     # generated/rust/: one .rs per file, main.rs, thunder_runtime.rs, Cargo.toml
+thunder run --target rust       # build it with cargo (offline) and run it
+thunder test --target rust      # run every Test block as Rust
+```
+
+Or set it for the project in `thunder.toml`: `target = "rust"` under `[build]` (output goes to `generated/rust`
+unless `output` says otherwise). The output is an ordinary Cargo project: `cargo run --offline --manifest-path
+generated/rust/Cargo.toml` runs it without Thunder (`-- --tests` runs the tests).
+
+- **The same meaning.** Every Core test program runs on Python, the Thunder engine, compiled TypeScript, and compiled
+  Rust; the output, every error (its code, its words, its line, and "reached from"), and the exit status must be the
+  same, or the tests fail. `thunder_runtime.rs` is a line-by-line port of the Thunder engine's value code: exact
+  decimals of any size, money rounded half up, positions from 1, strict yes/no, the same text for every value and
+  every error.
+- **No dependencies.** The runtime uses only Rust's standard library (its exact numbers are written in it), so the
+  program builds offline. Calls can go as deep as on Python (about a thousand): the program runs on a thread with a
+  deep stack and stops at the same call, with the same message, when it goes deeper.
+- **Readable.** Plain functions that take and give `Value`s, records with their Never rules, kept values, and tests;
+  every line ends with `// thunder:N`. An error is carried up to the nearest Thunder call, which notes the line.
+- **How it runs.** `thunder run` and `thunder test` need the Rust toolchain (`rustc` and `cargo`, from
+  https://rustup.rs); without it Thunder says what to install. `thunder build` needs neither.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405). Crates are not available from Thunder yet.
+
 
 ## What the generated Python looks like
 
