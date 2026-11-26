@@ -1,3 +1,12 @@
+# Unreleased
+
+- **The Thunder Time Machine: step through a run.** `thunder run <program> --record run.json` runs it on the Thunder
+  engine and saves every step; `thunder replay run.json` steps forward and back (Enter or n, b, j 7, q). Each step shows
+  the Thunder line, the values it changed (before → after), what it printed, what a function gave back, which steps a
+  call covered, and for a choice whether it went "yes" or "no, so the Otherwise steps". `--step n` and `--json` give one
+  step or the whole recording as data (`thunder-time-machine-v1`). It replays a recording: going back never undoes
+  anything. Programs that `Use` a Python module cannot be recorded (the Thunder engine does not run them).
+
 # 1.2.0
 
 **Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why

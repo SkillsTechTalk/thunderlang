@@ -14,8 +14,13 @@ import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGE
 import { runTypeScript } from './typescript-run.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
-import { paint } from '../term.mjs';
+import { paint, useColor } from '../term.mjs';
 import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
+import { recordedRun } from './engine-core.mjs';
+import { COMPILER_VERSION } from '../emit.mjs';
+
+/** The format of a Time Machine recording (thunder run --record, thunder replay). */
+export const TIME_MACHINE_SCHEMA = 'thunder-time-machine-v1';
 
 const CORE_COMMANDS = new Set(['new', 'run', 'build', 'test', 'check', 'format', 'fmt']);
 
@@ -26,6 +31,8 @@ function parse(argv) {
     if (x === '--target') a.target = argv[++i] ?? '';
     else if (x.startsWith('--target=')) a.target = x.slice('--target='.length);
     else if (x === '--engine') a.engine = argv[++i] ?? '';
+    else if (x === '--record') a.record = argv[++i] ?? '';
+    else if (x.startsWith('--record=')) a.record = x.slice('--record='.length);
     else if (x.startsWith('--engine=')) a.engine = x.slice('--engine='.length);
     else if (x === '--core') a.core = true;
     else if (x === '--json') a.json = true;
@@ -88,6 +95,11 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (a.engine !== null && !ENGINES.includes(a.engine)) { warn(`thunder ${cmd}: there is no engine "${a.engine}". Use --engine python (the default) or --engine thunder.`); return 2; }
     if (a.engine !== null && cmd !== 'run' && cmd !== 'test') { warn(`thunder ${cmd}: --engine is for thunder run and thunder test.`); return 2; }
     if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default) or --target typescript.`); return 2; }
+    if (a.record != null) {
+      if (cmd !== 'run') { warn(`thunder ${cmd}: --record is for thunder run.`); return 2; }
+      if (!a.record) { warn('thunder run: --record needs a file to save the recording in, like --record run.trace.json'); return 2; }
+      if ((a.engine && a.engine !== 'thunder') || (a.target && a.target !== 'python')) { warn('thunder run: a recording is made on the Thunder engine; leave out --engine and --target.'); return 2; }
+    }
     if (a.target === 'typescript' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target typescript runs compiled TypeScript, --engine thunder runs Thunder directly.`); return 2; }
     const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check', target: a.target });
     if (cmd === 'check') {
@@ -113,6 +125,7 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       say(`  run it without Thunder: cd ${build.base === cwd ? '.' : relative(cwd, build.base)} && python3 ${relative(build.base, build.outDir)}/${build.entryModule}.py`);
       return 0;
     }
+    if (a.record != null) return recordRun(build, a.record, cwd, warn);
     if (a.engine === 'thunder') return runOnEngine(cmd, build, warn, say);
     if (build.target === 'typescript') return runCompiledTypeScript(cmd, build, warn, say);
     const python = findPython();
@@ -142,6 +155,21 @@ function runCompiledTypeScript(cmd, build, warn, say) {
   const r = runTypeScript(build.outDir, cmd === 'run' ? `${build.entryModule}.ts` : 'run_tests.ts', { cwd: build.base, stdio: 'inherit' });
   if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
   return r.status ?? 1;
+}
+
+/** thunder run --record <file>: run on the Thunder engine and save a step-by-step recording (the Time Machine). */
+function recordRun(build, file, cwd, warn) {
+  if (!build.entry) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  const r = recordedRun({ entry: build.entry, cwd: build.base, readText: (p, dir) => readFileSync(resolve(dir, p), 'utf8') });
+  if (r.refused) { warn(`thunder run: ${r.stderr.trim()}`); return 2; }
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  const files = {};
+  for (const x of build.results) { try { files[x.rel ?? relative(build.base, x.path)] = readFileSync(x.path, 'utf8'); } catch { /* not readable */ } }
+  const trace = { schema: TIME_MACHINE_SCHEMA, thunder: COMPILER_VERSION, engine: 'thunder', program: build.entry.file, status: r.status, stdout: r.stdout, stderr: r.stderr, truncated: r.truncated, files, steps: r.steps };
+  writeFileSync(resolve(cwd, file), `${JSON.stringify(trace, null, 1)}\n`);
+  warn(paint(`Recorded ${r.steps.length} step${r.steps.length === 1 ? '' : 's'}${r.truncated ? ' (the recording stopped at its limit; the program ran to the end)' : ''} in ${file}.\nStep through it: thunder replay ${file}`, useColor(process.stderr)));
+  return r.status;
 }
 
 /** thunder run / test --engine thunder: the program runs on the Thunder engine, with no Python. */
