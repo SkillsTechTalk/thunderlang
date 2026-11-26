@@ -21,7 +21,9 @@ export function nearestLevel(word) {
 export function findFocus(model, name) {
   if (!name) return { id: null };
   const want = squash(name);
-  const pool = [...model.members.filter((m) => m.kind !== 'setup'), ...model.things];
+  // A screen and the function or class behind it share a name: the screen is what a person means.
+  const screens = model.screens ?? [];
+  const pool = [...screens, ...model.members.filter((m) => m.kind !== 'setup' && !m.screen), ...model.things.filter((t) => !t.screen)];
   const exact = pool.filter((x) => x.id === name || squash(x.label) === want || squash(x.name) === want);
   if (exact.length === 1) return { id: exact[0].id };
   if (exact.length > 1) return { error: `"${name}" names ${exact.length} things: ${exact.map((x) => `${x.label} (${at(x.file, x.lines)})`).join(', ')}. Use one of their ids with --focus: ${exact.map((x) => x.id).join(', ')}.` };
@@ -69,7 +71,50 @@ function flowLines(flow) {
 const whenText = (when) => (when?.length ? ` when ${when.map((w) => w.says ?? (/^if /i.test(w.question) && /^yes$/i.test(w.answer) ? w.question.replace(/^if /i, '').replace(/\?$/, '') : `${w.question.replace(/\?$/, '')}: ${w.answer}`)).join(' and ')}` : '');
 
 /** One level as terminal text. `sources` maps a file path to its text (for the original level). */
+/** A screen's outline: what it shows, as nested lines (otherwise branches included). */
+function outline(items, pad, L) {
+  for (const it of items) {
+    L.push(`${pad}${it.notRead ? '?' : '•'} ${it.says}${it.line ? `  (line ${it.line})` : ''}`);
+    if (it.kids) outline(it.kids, `${pad}    `, L);
+    if (it.otherwise) { L.push(`${pad}  ${it.otherwise.says}`); outline(it.otherwise.kids, `${pad}    `, L); }
+  }
+  return L;
+}
+
+function renderScreen(r, next) {
+  const L = [`${r.name} · ${r.title}  (${r.framework === 'react' ? 'React' : 'Angular'} screen${r.selector ? ` <${r.selector}>` : ''}, ${r.file}:${r.lines[0]})`, r.question, ''];
+  const inputs = (r.inputs ?? []).map((i) => `${i.label}${i.kind ? ` (${i.kind})` : ''}`).join(', ');
+  const state = (r.state ?? []).map((x) => `${x.label}${x.start ? ` (${/^(from|worked out)/.test(x.start) ? x.start : `starts as ${x.start}`})` : ''}`).join(', ');
+  if (r.level === 'big-picture') {
+    L.push(`It receives:  ${inputs || 'nothing'}`, `It remembers: ${state || 'nothing'}`);
+    if (r.outputs?.length) L.push(`It sends:     ${r.outputs.map((o) => o.label).join(', ')}`);
+    if (r.services?.length) L.push(`It uses:      ${r.services.join(', ')}`);
+    if (r.uses?.length) L.push(`It shows:     ${r.uses.map((u) => u.label).join(', ')}`);
+    if (r.usedBy?.length) L.push(`Shown by:     ${r.usedBy.map((u) => u.label).join(', ')}`);
+    L.push(`Events: ${r.events}${r.notRead ? `   Not read: ${r.notRead}` : ''}`, '', `Next: ${next('flow')}`);
+    return L.join('\n');
+  }
+  if (r.level === 'flow') {
+    for (const e of r.early ?? []) { L.push(`  When ${e.when}, it shows only:`); outline(e.shows.length ? e.shows : [{ says: 'nothing' }], '    ', L); }
+    if (r.shows.length) { L.push('  It shows:'); outline(r.shows, '    ', L); } else L.push('  It shows nothing Thunder could read.');
+    L.push('', `Next: ${next('details')}`);
+    return L.join('\n');
+  }
+  if (r.level === 'details') {
+    L.push(`It receives:  ${inputs || 'nothing'}`, `It remembers: ${state || 'nothing'}`);
+    if (r.events.length) { L.push('When someone acts:'); for (const e of r.events) L.push(`  • ${e.when}: ${e.runs}${e.line ? `  (line ${e.line})` : ''}`); }
+    if (r.effects.length) { L.push('By itself:'); for (const e of r.effects) L.push(`  • ${e.when}: ${e.runs}${e.line ? `  (line ${e.line})` : ''}`); }
+    if (r.outputs.length) L.push(`It sends: ${r.outputs.map((o) => o.label).join(', ')}`);
+    if (r.notRead.length) { L.push("Can't tell from the code:"); for (const n of r.notRead) L.push(`  ? ${n.line ? `line ${n.line}: ` : ''}\`${n.code}\`: ${n.why}`); }
+    L.push('', r.source);
+    return L.join('\n');
+  }
+  if (r.level === 'text') return [...L, r.text.trimEnd()].join('\n');
+  return null;
+}
+
 export function renderLevel(r, { sources = {}, file = 'file' } = {}) {
+  if (r.scope === 'screen' && r.level !== 'original') return renderScreen(r, (lv) => `thunder read ${file} --level ${lv} --focus "${r.title}"`);
   const L = [`${r.name} · ${r.title}${r.file && r.scope !== 'app' ? `  (${at(r.file, r.lines)})` : ''}`, r.question, ''];
   const next = (lv, focus) => `thunder read ${file} --level ${lv}${focus ? ` --focus "${focus}"` : ''}`;
 
@@ -92,8 +137,9 @@ export function renderLevel(r, { sources = {}, file = 'file' } = {}) {
     if (loose.length) L.push(`Actions and rules: ${list(loose.map((c) => `${c.label}${c.symbol === 'rule' ? ' (rule)' : ''}`))}`);
     if (r.data.length) { L.push('Data'); for (const d of r.data) L.push(`  ${d.label}: ${d.choices ? d.choices.join(' | ') : list(d.knows) || '(nothing it knows)'}`); }
     if (r.permissions?.length) L.push(`Permissions: ${r.permissions.length}`);
+    if (r.screens?.length) { L.push('Screens'); for (const x of r.screens) L.push(`  ${x.label} (${x.role === 'page' ? 'page, ' : x.role === 'part' ? 'part, ' : ''}${x.framework === 'react' ? 'React' : 'Angular'}${x.selector ? ` <${x.selector}>` : ''})${x.uses.length ? `: shows ${x.uses.join(', ')}` : ''}`); }
     if (r.unknowns?.length) L.push(`Not read: ${r.unknowns.length} part${r.unknowns.length === 1 ? '' : 's'} Thunder could not explain (see --level details)`);
-    const first = r.things[0]?.can[0] ?? loose[0];
+    const first = r.screens?.[0] ? { label: r.screens[0].label } : r.things[0]?.can[0] ?? loose[0];
     if (first) L.push('', `Next: ${next('flow', first.label.replace(/\?$/, ''))}`);
     return L.join('\n').trimEnd();
   }
