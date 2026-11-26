@@ -44,7 +44,8 @@ export function methodName(cls, method) {
 }
 
 /** Text as a Core text literal: quotes, backslashes, and braces escaped ({ starts a hole in Core text). */
-export const coreText = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\{/g, '{{').replace(/\n/g, '\\n').replace(/\t/g, '\\t')}"`;
+export const coreText = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\{/g, '{{').replace(/\n/g, '\\n').replace(/\t/g, '\\t').replace(/\r/g, '\\r')
+  .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '\ufffd')}"`; // (other control characters cannot be written in Core text)
 
 const BOOLISH = new Set(['compare', 'logic', 'not']);
 const isBoolish = (e) => !!e && (BOOLISH.has(e.kind) || (e.kind === 'literal' && e.type === 'bool') || (e.kind === 'unary' && e.op === 'not'));
@@ -211,7 +212,8 @@ class FunctionPrinter {
     const f = this.fn;
     const name = f.coreName ?? this.own.get(f.name) ?? coreName(f.name);
     const params = (f.inputs || []).map((p) => p.name);
-    const head = (n, ps) => [`To ${n}:`, ...(ps.length ? [`  Receive ${ps.length === 1 ? coreName(ps[0]) : `${ps.slice(0, -1).map(coreName).join(', ')} and ${coreName(ps.at(-1))}`}`] : [])];
+    const one = (p) => (this.defaults?.has(p) ? `${coreName(p)} (${this.defaults.get(p)} if not given)` : coreName(p));
+    const head = (n, ps) => [`To ${n}:`, ...(ps.length ? [`  Receive ${ps.length === 1 ? one(ps[0]) : `${ps.slice(0, -1).map(one).join(', ')} and ${one(ps.at(-1))}`}`] : [])];
     if (f.stepsMore || (f.totalSteps != null && f.steps.length === 0 && f.totalSteps > 0)) this.notTranslated.push({ line: f.line, code: f.name, why: 'the reader did not list every step of this function' });
     if (f.method && /^__\w+__$/.test(f.name) && f.name !== '__init__') {
       this.notTranslated.push({ line: f.line, code: (this.src[f.line - 1] ?? '').trim(), why: `${f.name} is a special method: it changes how Python treats the object (operators, printing, comparing), which Core cannot say` });
@@ -239,8 +241,21 @@ class FunctionPrinter {
       if (started && depth === 0) break;
       sig += ' ';
     }
-    // (A default is "name=value" at the top level of the signature, not "=" inside a type like Literal["a"].)
-    if (/[(,]\s*\*{0,2}[A-Za-z_]\w*\s*(?::[^,=]*)?=(?!=)/.test(sig)) this.notTranslated.push({ line: f.line, code: this.src[f.line - 1].trim(), why: 'an input has a default value, which Core does not have yet' });
+    // Defaults: "rate=0.07" is "rate (0.07 if not given)" when the value is fixed (a number, text, True/False, None,
+    // or a module value). A list, a dict, or a computed default is refused: Python makes it once and shares it.
+    const parts = []; let cur = '', depth = 0;
+    for (const ch of sig.slice(1, -1)) { if ('([{'.includes(ch)) depth++; if (')]}'.includes(ch)) depth--; if (ch === ',' && depth === 0) { parts.push(cur); cur = ''; } else cur += ch; }
+    parts.push(cur);
+    this.defaults = new Map();
+    for (const part of parts) {
+      const m = /^\s*([A-Za-z_]\w*)\s*(?::[^=]*)?=(?!=)\s*([\s\S]+?)\s*$/.exec(part);
+      if (!m) continue;
+      const d = parseExpr(m[2], 'python');
+      if (!d) { this.notTranslated.push({ line: f.line, code: m[0].trim(), why: `the default for ${m[1]} was not read` }); continue; }
+      const fixed = (x) => (x.kind === 'literal' && ['number', 'text', 'bool', 'null'].includes(x.type) && !x.bytes) || (x.kind === 'unary' && x.op === '-' && fixed(x.value)) || (x.kind === 'name' && this.moduleNames.has(x.name));
+      if (!fixed(d)) { this.notTranslated.push({ line: f.line, code: m[0].trim(), why: `the default for ${m[1]} is ${d.kind === 'array' || d.kind === 'object' ? 'a list or a dict, which Python makes once and shares between calls' : 'computed, not a fixed value'}` }); continue; }
+      try { this.defaults.set(m[1], this.value(d)); } catch (e) { if (!(e instanceof NotTranslated)) throw e; this.notTranslated.push({ line: f.line, code: m[0].trim(), why: e.message }); }
+    }
     this.block(f.steps, 1);
     const exact = this.notTranslated.length === 0;
     const body = this.lines.length ? this.lines : ['  Give nothing'];
@@ -425,7 +440,7 @@ class FunctionPrinter {
         return coreName(!this.locals.has(e.name) && this.moduleNames.has(e.name) ? this.moduleNames.get(e.name) : e.name);
       case 'literal': {
         if (e.type === 'number') { if (!/^-?\d[\d_]*(\.\d+)?$/.test(String(e.raw ?? e.value))) nt(`the number ${e.raw} has no Core form`); return String(e.raw ?? e.value).replace(/_/g, ''); }
-        if (e.type === 'text') { if (e.bytes) nt('a bytes value (b"…") is not text in Python, and Core has no bytes'); return coreText(e.value); }
+        if (e.type === 'text') { if (e.bytes) nt('a bytes value (b"…") is not text in Python, and Core has no bytes'); if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(String(e.value))) nt('this text holds a control character that Core text cannot write'); return coreText(e.value); }
         if (e.type === 'bool') return e.value ? 'true' : 'false';
         if (e.type === 'null') return 'nothing';
         nt(`a ${e.type} value has no Core form`);

@@ -75,7 +75,7 @@ test('a meaning Core cannot say is refused, marked, and stops loudly if it runs:
     ['def f(x, y):\n    try:\n        return x / y\n    except ZeroDivisionError:\n        return None\n', /Python try/],
     ['def f(xs):\n    return sorted(xs, key=len)\n', /sort key other than lambda/],
     ['def f(xs, i):\n    return xs[i]\n', /list position \(Python counts from 0, Core from 1\) or a map key/],
-    ['def f(a, b=2):\n    return a\n', /default value/],
+    ['def f(a, b=[]):\n    return a\n', /a list or a dict, which Python makes once/],
     ['def f(a, b, c):\n    return a < b < c\n', /chained comparison/],
     ["def f(s):\n    return s in (b'no', b'0')\n", /bytes value/],
     ['def f(a, b):\n    return (a, b)\n', /a tuple is not a list/],
@@ -88,7 +88,7 @@ test('a meaning Core cannot say is refused, marked, and stops loudly if it runs:
     assert.match(r.f.notTranslated.map((n) => n.why).join(' | '), why, src);
     assert.equal(r.compiles, true, `${src}\n${r.core}`);
     // A default value or a decorator is about the function as a whole; its body is still printed with its meaning.
-    if (!/default value|decorator/.test(String(why))) assert.match(r.core, /Stop with "Line \d+ of the Python was not translated: /, src);
+    if (!/Python makes once|decorator/.test(String(why))) assert.match(r.core, /Stop with "Line \d+ of the Python was not translated: /, src);
   }
 });
 
@@ -220,12 +220,12 @@ test('a method is a Core function that receives the object first; self.other() i
 });
 
 test('an inner function, a method of a nested class, and a multi-line signature with a default are not exact', () => {
-  const r = pythonToCore('def outer(x):\n    def inner(y):\n        return y\n    return x\n\nclass A:\n    class B:\n        def m(self):\n            return 1\n\n    def n(self, a,\n          b=None):\n        return a\n');
+  const r = pythonToCore('def outer(x):\n    def inner(y):\n        return y\n    return x\n\nclass A:\n    class B:\n        def m(self):\n            return 1\n\n    def n(self, a,\n          b=[]):\n        return a\n');
   const by = Object.fromEntries(r.functions.map((f) => [f.name, f]));
   assert.equal(by.inner.exact, false);
   assert.equal(by.m.exact, false);
   assert.equal(by.n.exact, false);
-  assert.match(by.n.notTranslated[0].why, /default value/);
+  assert.match(by.n.notTranslated[0].why, /a list or a dict/);
   assert.match(r.core, /# Not translated: 2 inner functions or methods of a nested class/);
   assert.equal(compileCore(r.core).ok, true);
 });
@@ -258,4 +258,28 @@ test('Core: Add, Increase, and Set on a field or entry whose kind is not known (
     assert.equal(out.stderr, '');
     assert.equal(out.stdout.trim(), '[9, 3] 1.5\n7');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ── defaults ──
+
+test('Core: an input may have a fixed default; it comes after the inputs without one; calls may leave it out', () => {
+  const ok = compileCore('To taxed price:\n  Receive price and rate (7% if not given)\n  Give price + price * rate\n\nTo greet:\n  Receive name and greeting (word if not given)\n  Give "{greeting}, {name}!"\n\nKeep word at "Hello"\nsay taxed price with 100\nsay taxed price with 100 and 20%\nsay greet with "Ada"', { file: 'm.thunder' });
+  assert.deepEqual(ok.diagnostics, []);
+  assert.match(ok.python, /def taxed_price\(price, rate=Decimal\("0\.07"\)\):/);
+  assert.match(ok.python, /def greet\(name, greeting=NOT_GIVEN\):.*\n {4}if greeting is NOT_GIVEN:.*\n {8}greeting = WORD/);
+  const bad = compileCore('To f:\n  Receive first (1 if not given) and second\n  Give first\n\nTo g:\n  Receive xs ([1] if not given)\n  Give xs\n\nTo h:\n  Receive x and y (2 if not given)\n  Give x + y\nsay h\nsay h with 1, 2 and 3', { file: 'm.thunder' });
+  assert.deepEqual(bad.diagnostics.map((d) => [d.code, d.line]), [['TC404', 2], ['TC404', 6], ['TC207', 12], ['TC207', 13]]);
+  assert.match(bad.diagnostics[1].hint, /would be shared between calls/);
+  assert.match(bad.diagnostics[2].message, /receives 1 to 2 values \(x, y, if given\), but 0 were given/);
+});
+
+test('Python defaults: fixed values are read as "(… if not given)"; a list or computed default is refused', { skip }, () => {
+  const python = 'TAX = 0.07\n\ndef price(p, rate=TAX, label="x", flag=None, n=-1):\n    return p * rate\n';
+  const r = pythonToCore(python);
+  assert.match(r.core, /Receive p, rate \(TAX if not given\), label \("x" if not given\), flag \(nothing if not given\) and n \(-1 if not given\)/);
+  assert.equal(r.functions[0].exact, true);
+  const v = verifyRoundTrip({ python, core: r.core, name: 'price', inputs: ['100', '100, 0.2', '19.99'] });
+  assert.deepEqual(v.cases.map((c) => c.same), [true, true, true]);
+  assert.match(pythonToCore('def f(xs=[]):\n    return xs\n').functions[0].notTranslated[0].why, /a list or a dict, which Python makes once and shares between calls/);
+  assert.match(pythonToCore('def g(x, b=len("x")):\n    return x\n').functions[0].notTranslated[0].why, /computed, not a fixed value/);
 });
