@@ -735,6 +735,23 @@ compiles each one, and runs it next to the original on sample inputs. It compare
 printed, and any error. The page also measures how far the reader's English (Thunder Text) is from Core.
 Python is the only source language for `--as-core` so far.
 
+## Use Thunder Core from your own code
+
+`@skillstech/thunderlang/program` is the public, browser-safe library entry (no Node needed):
+
+```js
+import { compileCore, runInProcess, toPython, screenApp, screenOutline } from "@skillstech/thunderlang/program";
+
+const result = compileCore('say "Hello"\n', { file: "main.thunder" });
+if (result.ok) {
+  runInProcess({ entry: result, cwd: "." }).stdout; // "Hello\n"
+  toPython(result.program, result.info, { source: "main.thunder" }); // the generated Python
+}
+```
+
+It also has `toTypeScript`, `toCSharp`, `toJava`, `toGo` (with `goNamespaces`), `toRust`, `toReact`, `recordedRun` (the
+Time Machine), `testInProcess`, and `pythonToCore`. Files a program reads come only from the `readText` you pass.
+
 ## Examples
 
 `examples/core/` holds the demo programs: `hello`, `discount`, `savings`, `word-count`, `csv-summary`, and
