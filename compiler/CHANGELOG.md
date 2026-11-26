@@ -1,3 +1,15 @@
+# Unreleased
+
+- **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
+  written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
+  Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out
+  inputs that have defaults (`Set total to taxed price:` / `price: $100`). Both are exactly the same program as the
+  one-line forms. Mistakes are reported with the line and a suggestion (new codes TC113–TC117; unknown fields use
+  TC206). `thunder format` now writes the Thunder style: short stays short, records with 4+ fields or lines past 100
+  columns become blocks, long conditions wrap before `and`/`or`, and one blank line goes around every function,
+  record, and test. It never changes meaning: 66 Core programs from the examples, docs, and Core tests are formatted
+  in the tests and give the same program, output, and test results. The trading-journal example is in the new style.
+
 # 1.2.0
 
 **Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why

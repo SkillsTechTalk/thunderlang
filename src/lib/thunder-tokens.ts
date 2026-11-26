@@ -45,8 +45,13 @@ export function tokenizeLine(line: string): Token[] {
     else parts.push({ text });
   }
 
+  // A "field: value" line (a record or a call written as a block): every word of the name is the field.
+  const fieldLine = /^\s*[a-z][a-z0-9_]*(?: [a-z][a-z0-9_]*)*:\s+\S/.test(line);
+  let beforeColon = fieldLine;
   let leading = true;
   parts.forEach((p, i) => {
+    if (beforeColon && p.text === ":") beforeColon = false;
+    if (beforeColon && p.word) { p.cls = "tok-field"; leading = false; return; }
     if (!p.word) {
       if (p.text.trim()) leading = false;
       return;

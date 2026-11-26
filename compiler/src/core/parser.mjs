@@ -132,13 +132,23 @@ function collectNames(nodes, names) {
       if (andAt >= 0) { add('var', head.slice(0, andAt)); add('var', head.slice(andAt + 1)); } else add('var', head);
     } else if (w0 === 'to' && isSym(ts[ts.length - 1], ':')) {
       add('func', ts.slice(1, -1));
+      // Its inputs, in order (for a call written with names): every Receive line at the top of the block.
+      const inputs = [];
+      for (const c of n.children) {
+        if (!isWord(c.tokens[0], 'receive')) break;
+        for (const p of paramGroups(c.tokens.slice(1))) inputs.push({ key: keyOf(p.words), text: p.words.map((x) => x.text).join(' '), defaultTokens: p.defaultTokens });
+      }
+      names.funcInputs.set(keyOf(ts.slice(1, -1)), inputs);
     } else if ((w0 === 'a' || w0 === 'an') && isWord(ts[ts.length - 2], 'has')) {
       const words = ts.slice(1, -2);
       add('record', words);
+      const own = [];
       for (const c of n.children) {
         const k = c.tokens.findIndex((t) => isWord(t, 'is'));
-        if (k > 0 && !isWord(c.tokens[0], 'never')) names.fields.add(keyOf(c.tokens.slice(0, k)));
+        if (k > 0 && !isWord(c.tokens[0], 'never')) { names.fields.add(keyOf(c.tokens.slice(0, k))); own.push(keyOf(c.tokens.slice(0, k))); }
       }
+      names.recordFields.set(keyOf(words), own);
+      names.recordText.set(keyOf(words), words.map((x) => x.text).join(' '));
     } else if (w0 === 'use') {
       const k = ts.findIndex((t) => isWord(t, 'as'));
       if (k > 0) add('module', ts.slice(k + 1)); else if (ts[1]?.t === 'word') add('module', [ts[1]]);
@@ -462,7 +472,9 @@ export class ExprParser {
           fields.push({ name: keyOf(fr.slice(0, fk)), text: fr.slice(0, fk).map((x) => x.text).join(' '), e: this.expr(s, { noAnd: true }), line });
         } while ((isSym(s.peek(), ',') || isWord(s.peek(), 'and')) && this.fieldAhead(s, 1) && s.next());
       }
-      return { k: 'new', record: name, fields, line };
+      const node = { k: 'new', record: name, fields, line };
+      if (!fields.length && this.open) this.open.push(node); // a block of "field: value" lines may fill it
+      return node;
     }
     off = 0;
     // a field taken from each item: "prices from orders"
@@ -478,7 +490,9 @@ export class ExprParser {
       if (this.names.known.get(key) === 'func') {
         if (isSym(s.peek(), '(')) return { k: 'call', name: key, text, args: this.parenArgs(s), line };
         if (s.word('with')) return { k: 'call', name: key, text, args: this.withArgs(s), line };
-        return { k: 'call', name: key, text, args: [], line, bare: true };
+        const node = { k: 'call', name: key, text, args: [], line, bare: true };
+        if (this.open) this.open.push(node); // a block of "input: value" lines may fill it
+        return node;
       }
       return { k: 'name', name: key, text, line };
     }
@@ -494,7 +508,7 @@ export class ExprParser {
 export function parseCore(source, { seed = null } = {}) {
   const { lines, diagnostics } = lex(source);
   const tree = buildBlocks(lines, diagnostics);
-  const names = { known: new Map(seed?.known ?? []), fields: new Set(seed?.fields ?? []), records: new Set(seed?.records ?? []) };
+  const names = { known: new Map(seed?.known ?? []), fields: new Set(seed?.fields ?? []), records: new Set(seed?.records ?? []), recordFields: new Map(seed?.recordFields ?? []), funcInputs: new Map(seed?.funcInputs ?? []), recordText: new Map() };
   collectNames(tree, names);
   const ep = new ExprParser(names);
   const body = parseBlock(tree, ep, names, diagnostics, { top: true });
@@ -505,6 +519,18 @@ function parseBlock(nodes, ep, names, diagnostics, ctx) {
   const out = [];
   for (const n of nodes) {
     try {
+      const lines = fieldBlock(n, diagnostics);
+      if (lines) {
+        // A record or a call written as a block: "Set trade to a Trade:" / "Set profit to calculate profit:", with
+        // one "name: value" line each under it. The head is read as usual; its record (or call) gets the values.
+        ep.open = [];
+        let st, open;
+        try { st = parseStatement({ ...n, tokens: n.tokens.slice(0, -1), raw: n.raw.replace(/\s*:\s*(#.*)?$/, ''), children: [] }, ep, names, diagnostics, ctx, out); }
+        finally { open = ep.open; ep.open = null; }
+        fillBlock(open, lines, n, ep, names);
+        if (st) out.push(st);
+        continue;
+      }
       const st = parseStatement(n, ep, names, diagnostics, ctx, out);
       if (st) out.push(st);
     } catch (e) {
@@ -512,6 +538,82 @@ function parseBlock(nodes, ep, names, diagnostics, ctx) {
     }
   }
   return out;
+}
+
+// Statements whose ":" opens a block of statements (never a block of "name: value" lines).
+const BLOCK_STATEMENTS = new Set(['when', 'if', 'otherwise', 'for', 'repeat', 'to', 'test', 'receive', 'never', 'use']);
+
+/** The "name: value" lines under a statement that is not itself a block statement, or null. */
+function fieldBlock(n, diagnostics = []) {
+  const ts = n.tokens;
+  if (!n.children.length || !isSym(ts[ts.length - 1], ':')) return null;
+  const w0 = ts[0]?.t === 'word' ? ts[0].lower : '';
+  if (BLOCK_STATEMENTS.has(w0) || ((w0 === 'a' || w0 === 'an') && isWord(ts[ts.length - 2], 'has'))) return null;
+  return n.children.map((c) => {
+    const colon = c.tokens.findIndex((t) => isSym(t, ':'));
+    const nameTs = colon > 0 ? c.tokens.slice(0, colon) : [];
+    if (colon <= 0 || !allWords(nameTs) || c.children.length) {
+      throw new CoreError(diag('TC113', c.line, `Each line under "${n.raw.trim()}" should be "name: value", like: quantity: 10.`, c.children.length ? 'A value under a block cannot open a block of its own.' : 'Put the name, then ":", then the value.'));
+    }
+    const valueTs = c.tokens.slice(colon + 1);
+    if (!valueTs.length) {
+      // (The block reader also said this line opens nothing; one message is enough.)
+      for (let i = diagnostics.length - 1; i >= 0; i--) if (diagnostics[i].code === 'TC103' && diagnostics[i].line === c.line) diagnostics.splice(i, 1);
+      throw new CoreError(diag('TC113', c.line, `"${nameTs.map((x) => x.text).join(' ')}:" has no value after it.`, `Write the value after the ":", like: ${nameTs.map((x) => x.text).join(' ')}: 10.`));
+    }
+    return { key: keyOf(nameTs), text: nameTs.map((x) => x.text).join(' '), valueTs, line: c.line };
+  });
+}
+
+/** Give the record (or the call) on the head line the values from its "name: value" lines. */
+function fillBlock(open, lines, n, ep, names) {
+  const target = open[open.length - 1];
+  if (!target) {
+    throw new CoreError(diag('TC117', n.line, `"${n.raw.trim()}" ends with ":", but there is no record or function call at its end to give the lines under it to.`,
+      'Lines like "quantity: 10" give values to a record (Set trade to a Trade:) or to a function (Set profit to calculate profit:).'));
+  }
+  const seen = new Map();
+  for (const l of lines) {
+    if (seen.has(l.key)) throw new CoreError(diag('TC114', l.line, `"${l.text}" is given twice (also on line ${seen.get(l.key)}).`, 'Give each value once.'));
+    seen.set(l.key, l.line);
+  }
+  // Values are read as on one line, and keep the head's line, so the program is exactly the one-line form.
+  const value = (l) => ep.parse(l.valueTs, n.line);
+  if (target.k === 'new') {
+    const own = names.recordFields.get(target.record);
+    for (const l of lines) {
+      if (own && !own.includes(l.key)) {
+        const near = closest(l.key, own);
+        const rec = names.recordText.get(target.record) ?? target.record;
+        throw new CoreError(diag('TC206', l.line, `${/^[aeiouAEIOU]/.test(rec) ? 'An' : 'A'} ${rec} has no field "${l.text}".${near ? ` Did you mean "${near}"?` : ''}`, own.length ? `Its fields: ${own.join(', ')}.` : null));
+      }
+      target.fields.push({ name: l.key, text: l.text, e: value(l), line: n.line });
+    }
+    return;
+  }
+  // A call written with names: the values go in the order of the function's inputs.
+  const inputs = names.funcInputs.get(target.name);
+  if (!inputs) throw new CoreError(diag('TC115', n.line, `I don't know the inputs of "${target.text}" here, so it can't be called with names.`, `Give the values in order: ${target.text} with … and …`));
+  const keys = inputs.map((p) => p.key);
+  for (const l of lines) {
+    if (!keys.includes(l.key)) {
+      const near = closest(l.key, keys);
+      throw new CoreError(diag('TC115', l.line, `"${target.text}" has no input called "${l.text}".${near ? ` Did you mean "${near}"?` : ''}`, keys.length ? `Its inputs: ${keys.join(', ')}.` : `"${target.text}" receives no inputs.`));
+    }
+  }
+  const last = Math.max(...lines.map((l) => keys.indexOf(l.key)));
+  const args = [];
+  for (let i = 0; i <= last; i++) {
+    const given = lines.find((l) => l.key === keys[i]);
+    if (given) args.push(value(given));
+    else if (inputs[i].defaultTokens) args.push(ep.parse(inputs[i].defaultTokens, n.line)); // left out: its default
+    else throw new CoreError(diag('TC116', n.line, `"${target.text}" needs "${inputs[i].text}", but it is not given.`, `Add a line: ${inputs[i].text}: …`));
+  }
+  for (let i = last + 1; i < inputs.length; i++) {
+    if (!inputs[i].defaultTokens) throw new CoreError(diag('TC116', n.line, `"${target.text}" needs "${inputs[i].text}", but it is not given.`, `Add a line: ${inputs[i].text}: …`));
+  }
+  target.args = args;
+  delete target.bare;
 }
 
 function nameWords(ts, line, what) {

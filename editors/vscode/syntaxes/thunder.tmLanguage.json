@@ -7,6 +7,7 @@
     { "include": "#comment" },
     { "include": "#string" },
     { "include": "#block-keyword" },
+    { "include": "#field-value" },
     { "include": "#field-type" },
     { "include": "#operator" },
     { "include": "#number" },
@@ -27,6 +28,14 @@
       "comment": "A line-leading keyword introduces a block or a field (indentation-structured).",
       "match": "^\\s*(mission|use|goal|why|because|requires|inputs?|outputs?|guarantees?|never|constraints?|assumptions?|risks|target|style|verify|errors|examples|service|api|event|database|architecture|selection|title|for|persona|customer|problem|evidence|opportunity|outcome_contract|outcome|metric|scope|include|exclude|non_goal|owner|unknown|question|assumption|experience|pattern|decision|rule|default|when|return|command|on|compensate|notify|preserve|lifecycle|state|transition|from|to|terminal|always|eventually|until|conflict|options|between|resolve_by|resolution|choose|approval|capability|interface|provides|slo|release|result|learning|component|artifact|test|case|scenario|given|expect|events|data|waiver|note|implements|covers|variant|token|classification|purpose|retention|basis|baseline|window|direction|includes|measures|value|kind|ref|version|status|date|reason|approved_by|by|at|decision|expires|before|idempotency_key|timeout|retry|backoff|confidence|source|recover|follows|actor|accessible|responsive|asked_of|resolve|validate)\\b",
       "captures": { "1": { "name": "keyword.control.thunder" } }
+    },
+    "field-value": {
+      "comment": "A record or a call written as a block: buy price: $20.00 (every word of the name is the field).",
+      "match": "^\\s+([a-z][a-z0-9_]*(?: [a-z][a-z0-9_]*)*)(:)(?=\\s+\\S)",
+      "captures": {
+        "1": { "name": "variable.other.property.thunder" },
+        "2": { "name": "punctuation.separator.key-value.thunder" }
+      }
     },
     "field-type": {
       "comment": "A typed field: name: Type (optionally List<Type>).",
