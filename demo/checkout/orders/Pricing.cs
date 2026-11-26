@@ -2,9 +2,9 @@ namespace Lumen.Orders;
 
 public record LineItem(string Sku, int Quantity);
 
-public record Price(decimal Subtotal, decimal Discount, decimal Tax, decimal Total);
+public record Price(decimal Subtotal, decimal Discount, decimal Shipping, decimal Tax, decimal Total);
 
-/// <summary>What an order costs: item prices, a coupon, and sales tax.</summary>
+/// <summary>What an order costs: item prices, a coupon, shipping, and sales tax.</summary>
 public static class Pricing
 {
     public const decimal TaxRate = 0.08m;
@@ -25,7 +25,8 @@ public static class Pricing
         {
             discount = Math.Round(subtotal * 0.10m, 2, MidpointRounding.AwayFromZero);
         }
+        decimal shipping = Shipping.ShippingFee(subtotal);
         decimal tax = Math.Round((subtotal - discount) * TaxRate, 2, MidpointRounding.AwayFromZero);
-        return new Price(subtotal, discount, tax, subtotal - discount + tax);
+        return new Price(subtotal, discount, shipping, tax, subtotal - discount + shipping + tax);
     }
 }

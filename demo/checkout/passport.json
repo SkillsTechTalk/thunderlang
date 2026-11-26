@@ -6,19 +6,19 @@
       {
         "name": "web",
         "path": "web",
-        "sha": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "sha": "b081e6b72a89bdc5652f8e37b95c4cc5ab4faecc",
         "dirty": false
       },
       {
         "name": "orders",
         "path": "orders",
-        "sha": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "sha": "b081e6b72a89bdc5652f8e37b95c4cc5ab4faecc",
         "dirty": false
       },
       {
         "name": "billing",
         "path": "billing",
-        "sha": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "sha": "b081e6b72a89bdc5652f8e37b95c4cc5ab4faecc",
         "dirty": false
       }
     ]
@@ -132,6 +132,16 @@
         "sha256": "sha256:d90579cc938f9dd5d38c9a3bab7b685cbb449c0163ab5118e7fce441596f2ece"
       },
       {
+        "part": "web",
+        "file": "shipping.test.ts",
+        "sha256": "sha256:3205e4c7394aa527c179bf9c6f9005b1a15ccc42bfa05c543a7eaf6d79b56a18"
+      },
+      {
+        "part": "web",
+        "file": "shipping.ts",
+        "sha256": "sha256:379d6c23b9f1275722ac3468cf3b9bed4199ad7a8820422b474e3154664b1c31"
+      },
+      {
         "part": "orders",
         "file": "BillingClient.cs",
         "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
@@ -149,7 +159,7 @@
       {
         "part": "orders",
         "file": "Pricing.cs",
-        "sha256": "sha256:580d2771bc1a757ae9273c24f584951878f5992873a935f1c3521c630372d01c"
+        "sha256": "sha256:918cc9e1a04946760deef870e04f63b790477a41d6c040248de1f68647c9d160"
       },
       {
         "part": "orders",
@@ -162,9 +172,19 @@
         "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
       },
       {
+        "part": "orders",
+        "file": "Shipping.cs",
+        "sha256": "sha256:a076ff77fe4d4d33e70ff50e8a2035f99a4c294fc34d51e200b2deae0a29a3d6"
+      },
+      {
         "part": "billing",
         "file": "billing.py",
         "sha256": "sha256:ad81f4479a5e7d4c1cd79397bf45ff50abde9b5a0b3646adc79eff894ebf864b"
+      },
+      {
+        "part": "billing",
+        "file": "receipt.py",
+        "sha256": "sha256:6774122ec4d7c0e0793f3a1ce4b31202691797e8032f9c55a057bc6631acad01"
       },
       {
         "part": "billing",
@@ -175,20 +195,25 @@
         "part": "billing",
         "file": "test_billing.py",
         "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+      },
+      {
+        "part": "billing",
+        "file": "test_receipt.py",
+        "sha256": "sha256:69bd8f529a1dbecaadac0b981fbbdd1142d6aaed49308bc998df47901650c762"
       }
     ],
     "links": [
       {
         "kind": "http",
         "says": "orders calls billing: POST /charges (handled by Do post)",
-        "from": "orders@b6d519c:BillingClient.cs:20",
-        "to": "billing@b6d519c:server.py:13"
+        "from": "orders@b081e6b:BillingClient.cs:20",
+        "to": "billing@b081e6b:server.py:13"
       },
       {
         "kind": "http",
         "says": "web calls orders: POST /orders (handled by Post /orders)",
-        "from": "web@b6d519c:checkout.ts:24",
-        "to": "orders@b6d519c:Program.cs:18"
+        "from": "web@b081e6b:checkout.ts:24",
+        "to": "orders@b081e6b:Program.cs:18"
       }
     ],
     "packages": [],
@@ -252,8 +277,8 @@
         "command": "python3 -m unittest",
         "cwd": "billing",
         "exitCode": 0,
-        "outputDigest": "sha256:d90375e231bebc278d6e75f6d5e0375c8b90a6e28600226ffd86fbb8fd61279a",
-        "outputTail": ".....\n----------------------------------------------------------------------\nRan 5 tests in 0.205s\n\nOK"
+        "outputDigest": "sha256:850daafee4e9d4516f7bd35f8d99a0810dff525f975e2bc3da54e88073297f11",
+        "outputTail": "........\n----------------------------------------------------------------------\nRan 8 tests in 0.211s\n\nOK"
       },
       "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
       "inputs": [
@@ -264,6 +289,11 @@
         },
         {
           "part": "billing",
+          "file": "receipt.py",
+          "sha256": "sha256:6774122ec4d7c0e0793f3a1ce4b31202691797e8032f9c55a057bc6631acad01"
+        },
+        {
+          "part": "billing",
           "file": "server.py",
           "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
         },
@@ -271,6 +301,11 @@
           "part": "billing",
           "file": "test_billing.py",
           "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+        },
+        {
+          "part": "billing",
+          "file": "test_receipt.py",
+          "sha256": "sha256:69bd8f529a1dbecaadac0b981fbbdd1142d6aaed49308bc998df47901650c762"
         }
       ]
     },
@@ -306,7 +341,7 @@
         {
           "part": "orders",
           "file": "Pricing.cs",
-          "sha256": "sha256:580d2771bc1a757ae9273c24f584951878f5992873a935f1c3521c630372d01c"
+          "sha256": "sha256:918cc9e1a04946760deef870e04f63b790477a41d6c040248de1f68647c9d160"
         },
         {
           "part": "orders",
@@ -317,6 +352,11 @@
           "part": "orders",
           "file": "SelfTests.cs",
           "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
+        },
+        {
+          "part": "orders",
+          "file": "Shipping.cs",
+          "sha256": "sha256:a076ff77fe4d4d33e70ff50e8a2035f99a4c294fc34d51e200b2deae0a29a3d6"
         }
       ]
     },
@@ -324,13 +364,13 @@
       "id": "e3",
       "kind": "test-run",
       "status": "passed",
-      "claim": "`node --test checkout.test.ts` in web exited with 0.",
+      "claim": "`node --test checkout.test.ts shipping.test.ts` in web exited with 0.",
       "basis": {
-        "command": "node --test checkout.test.ts",
+        "command": "node --test checkout.test.ts shipping.test.ts",
         "cwd": "web",
         "exitCode": 0,
-        "outputDigest": "sha256:ce3a23df0b56afaa140a53f14f6f49a3b1d768aa8e73173fa11071da5c0e2dfa",
-        "outputTail": "✔ an empty cart is not sent (0.401917ms)\n✔ a slow answer is abandoned and the order is sent again (67.000458ms)\n✔ a retry says it is the same order as the first try (52.070083ms)\n✔ two presses of Place order are two orders: each has its own key (3.001125ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 183.210917"
+        "outputDigest": "sha256:5e5ce013aaf2b6599a7bb01ea25c2c14a802e842bab6121c4b78fa09f9dec80e",
+        "outputTail": "  duration_ms: 0.045042\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 172.121333"
       },
       "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
       "inputs": [
@@ -348,6 +388,16 @@
           "part": "web",
           "file": "place-order.ts",
           "sha256": "sha256:d90579cc938f9dd5d38c9a3bab7b685cbb449c0163ab5118e7fce441596f2ece"
+        },
+        {
+          "part": "web",
+          "file": "shipping.test.ts",
+          "sha256": "sha256:3205e4c7394aa527c179bf9c6f9005b1a15ccc42bfa05c543a7eaf6d79b56a18"
+        },
+        {
+          "part": "web",
+          "file": "shipping.ts",
+          "sha256": "sha256:379d6c23b9f1275722ac3468cf3b9bed4199ad7a8820422b474e3154664b1c31"
         }
       ]
     },
@@ -357,8 +407,8 @@
       "status": "read",
       "claim": "orders calls billing with POST /charges, and billing handles it.",
       "basis": {
-        "from": "orders@b6d519c:BillingClient.cs:20",
-        "to": "billing@b6d519c:server.py:13",
+        "from": "orders@b081e6b:BillingClient.cs:20",
+        "to": "billing@b081e6b:server.py:13",
         "rules": "thunder-trace rules v1"
       },
       "scope": "Read from code; nothing was run. It does not show that the call succeeds or what it answers.",
@@ -381,8 +431,8 @@
       "status": "read",
       "claim": "web calls orders with POST /orders, and orders handles it.",
       "basis": {
-        "from": "web@b6d519c:checkout.ts:24",
-        "to": "orders@b6d519c:Program.cs:18",
+        "from": "web@b081e6b:checkout.ts:24",
+        "to": "orders@b081e6b:Program.cs:18",
         "rules": "thunder-trace rules v1"
       },
       "scope": "Read from code; nothing was run. It does not show that the call succeeds or what it answers.",
@@ -405,8 +455,8 @@
       "status": "read",
       "claim": "What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.",
       "basis": {
-        "base": "b7993966e79175daf466fb13d040fe85f4577ba1",
-        "head": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "base": "1202aaee423610aa5c8a2d48ce11c64e76d8184b",
+        "head": "b081e6b72a89bdc5652f8e37b95c4cc5ab4faecc",
         "schema": "thunder-review-v1",
         "meaning": 23,
         "risk": 1,
@@ -500,8 +550,8 @@
     ]
   },
   "history": {
-    "base": "b7993966e79175daf466fb13d040fe85f4577ba1",
-    "head": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+    "base": "1202aaee423610aa5c8a2d48ce11c64e76d8184b",
+    "head": "b081e6b72a89bdc5652f8e37b95c4cc5ab4faecc",
     "changedFiles": [
       {
         "part": "web",
@@ -545,7 +595,7 @@
       }
     ],
     "thunder": "1.3.0",
-    "builtAt": "2026-11-26T07:52:51.267Z"
+    "builtAt": "2026-11-26T08:49:56.618Z"
   },
   "summary": {
     "claims": 6,
@@ -555,5 +605,5 @@
     "unknowns": 5,
     "notVerified": 4
   },
-  "fingerprint": "sha256:b62448412290e74089d201354b262ed0ee925ce5334d5a0e06fa73a45542d8cc"
+  "fingerprint": "sha256:0e72fbfcc9cbb9c278a0482fbd2bf908ab0dcffcdef1fc5cf4044a2709c3c623"
 }

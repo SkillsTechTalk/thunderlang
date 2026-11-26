@@ -184,3 +184,19 @@ export type { Passport, PassportEvidence, PassportCheck, PassportInput } from '.
 export { formatValue } from './plain-contract.mjs';
 export type { PlainInput } from './plain-contract.mjs';
 export type { RulePart, WriteChange, ChangedCase, ChangedCases } from './write.mjs';
+
+// One rule change written into every service that implements it (src/write-across.mjs, docs/thunder-write.md).
+export const WRITE_ACROSS_SCHEMA: 'thunder-write-across-v1';
+export interface WriteAcrossFile { part?: string; path: string; source: string }
+export interface WriteAcrossPlace { part?: string; file: string; language: string; decision: string; rule: number; line: number; why: string }
+export interface WriteAcrossLookalike extends WriteAcrossPlace { when: string; result: string; decisionLine: number }
+export function findSameRule(files: WriteAcrossFile[], options: { decision: string; rule: number | string }): { ok: boolean; anchor?: WriteAcrossLookalike; same?: WriteAcrossLookalike[]; notIncluded?: WriteAcrossLookalike[]; problems: string[] };
+export interface WriteAcrossResult {
+  schema: 'thunder-write-across-v1'; ok: boolean; rule?: { before: string; after: string };
+  plan: Array<WriteAcrossPlace & { before: string; after: string; change: Array<{ line: number; column: number; before: string; after: string }> }>;
+  notIncluded: WriteAcrossLookalike[]; tests: Array<{ part?: string; file: string; line: number; text: string }>;
+  /** "part/path" -> the new contents of each changed file; empty unless ok. */
+  files: Record<string, string>; problems: string[];
+}
+export function writeRuleAcross(files: WriteAcrossFile[], options: { decision: string; rule: number | string; when: string }): WriteAcrossResult;
+export function writeAcrossEvidence(result: WriteAcrossResult | { ok: false }): Array<{ kind: 'rule-write'; status: 'read'; claim: string; basis: unknown; scope: string; inputs: Array<{ part?: string; file: string }> }>;

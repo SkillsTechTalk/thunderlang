@@ -4,9 +4,9 @@ A small shop, written for this demo. Lumen Supply is a made-up brand. Three part
 
 | Part | Language | What it does |
 |---|---|---|
-| `web/` | TypeScript | The checkout page's logic. It sends the cart, gives up after a second, and tries once more. |
-| `orders/` | C# (ASP.NET minimal API) | Checks the shelf, holds the items, works out the price (coupon, 8% tax), asks billing to charge, and records the order. |
-| `billing/` | Python (standard library) | Charges through a fake payment provider and records each payment. |
+| `web/` | TypeScript | The checkout page's logic. It sends the cart, gives up after a second, and tries once more. It also says what shipping costs under the cart total (`shipping.ts`). |
+| `orders/` | C# (ASP.NET minimal API) | Checks the shelf, holds the items, works out the price (coupon, shipping, 8% tax), asks billing to charge, and records the order. |
+| `billing/` | Python (standard library) | Charges through a fake payment provider and records each payment. Prints the receipt lines, shipping included (`receipt.py`). |
 
 **The bug.** The payment provider is slow, so the page gives up and tries again. Nothing tells the store that the second try is the same order. One press of "Place order" charges the customer twice, takes the items off the shelf twice, and then tells the customer it failed.
 
@@ -107,7 +107,7 @@ tests and records them as evidence:
 ```sh
 thunder passport web orders billing --base HEAD~1 \
   --purpose "Prevent duplicate charges when a payment request is retried: one press of Place order charges the customer once." \
-  --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts" \
+  --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts shipping.test.ts" \
   --out passport.json --md-out passport.md
 ```
 
@@ -119,7 +119,7 @@ Purpose: Prevent duplicate charges when a payment request is retried: one press 
 Evidence
   ✓ ran and passed: `python3 -m unittest` in billing exited with 0.
   ✓ ran and passed: `dotnet run -- --test` in orders exited with 0.
-  ✓ ran and passed: `node --test checkout.test.ts` in web exited with 0.
+  ✓ ran and passed: `node --test checkout.test.ts shipping.test.ts` in web exited with 0.
   ○ read from code, not run: orders calls billing with POST /charges, and billing handles it.
   ○ read from code, not run: web calls orders with POST /orders, and orders handles it.
   ○ read from code, not run: What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.
@@ -135,18 +135,89 @@ Thunder passport check: 4 current, 2 stale (nothing was re-run)
   ! stale: `python3 -m unittest` in billing exited with 0.
       billing/billing.py changed since the passport was built
   ✓ current: `dotnet run -- --test` in orders exited with 0.
-  ✓ current: `node --test checkout.test.ts` in web exited with 0.
+  ✓ current: `node --test checkout.test.ts shipping.test.ts` in web exited with 0.
   ✓ current: orders calls billing with POST /charges, and billing handles it.
   ✓ current: web calls orders with POST /orders, and orders handles it.
   ! stale: What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.
       billing/billing.py changed since the passport was built
 ```
 
+## One Thunder change, three languages
+
+The shop has a second problem, a quieter one: **one rule, written three times.** Free shipping from $50 is in the cart
+page's note (`web/shipping.ts`, TypeScript), in what orders charges (`orders/Shipping.cs`, C#), and on billing's
+receipt (`billing/receipt.py`, Python). Change one copy and forget another, and the page promises free shipping
+that orders then charges for.
+
+`run-demo.sh --change` makes free shipping start at $40 with **one** Thunder change, in a scratch copy. First the plan
+(nothing is saved):
+
+```text
+== The plan: thunder write web orders billing --decision shippingNote --rule 1 --when "subtotal >= 40"
+One rule, 3 implementations: subtotal is at least 50  →  subtotal is at least 40
+
+billing/receipt.py  (python, shipping_fee, rule 1)
+  why it is the same rule: the same condition: subtotal is at least 50 (names compared as words)
+  was: If subtotal is at least 50, the answer is 0
+  now: If subtotal is at least 40, the answer is 0
+  line 7, column 20: 50  ->  40
+orders/Shipping.cs  (csharp, ShippingFee, rule 1)
+  why it is the same rule: the same condition: subtotal is at least 50 (names compared as words)
+  was: If subtotal is at least 50, the answer is 0
+  now: If subtotal is at least 40, the answer is 0
+  line 9, column 25: 50m  ->  40m
+web/shipping.ts  (typescript, shippingNote, rule 1)
+  why it is the same rule: the rule you chose
+  was: If subtotal is at least 50, the answer is "Free shipping"
+  now: If subtotal is at least 40, the answer is "Free shipping"
+  line 6, column 19: 50  ->  40
+
+Checked by reading each file again: the rule reads as intended, and every other rule and function in each file reads exactly as before.
+
+Plan only; nothing was saved. Add --write to change every implementation (all or none).
+```
+
+Then the same command with `--write`, each part's tests, and a passport
+([shipping-change-passport.json](shipping-change-passport.json), [shipping-change-passport.md](shipping-change-passport.md)):
+
+```text
+Saved 3 files: web/shipping.ts, orders/Shipping.cs, billing/receipt.py.
+
+Tests on the changed code:
+  ✓ passed  billing: python3 -m unittest
+  ✓ passed  orders: dotnet run -- --test
+  ✓ passed  web: node --test checkout.test.ts shipping.test.ts
+
+Thunder passport (change): web, orders, billing
+9 claims with evidence (3 passed, 0 failed, 6 read from code), 0 unknowns, 4 not verified
+```
+
+The code change is exactly three characters' worth, one per language, each in the file's own spelling
+(`git diff -- web orders billing`):
+
+```text
+-    if subtotal >= 50:
++    if subtotal >= 40:
+-        if (subtotal >= 50m)
++        if (subtotal >= 40m)
+-  if (subtotal >= 50) {
++  if (subtotal >= 40) {
+```
+
+Nobody opened the Python, the C#, or the TypeScript. The passport holds one claim per changed copy (each read again
+after the change), the three test runs, the two links between the parts, and the review of what the change does.
+
+**When tests pin the old rule, it says so.** `CHANGE_TO="subtotal >= 75" run-demo.sh --change` raises the limit
+instead. The change is written the same way, and then three test runs fail, because a $55 cart now pays for shipping
+and the tests say it ships free (`assert.equal(shippingNote(55), "Free shipping")` in TypeScript, and the $53.46 total in Python and C#). Each failure is
+shown with its own output and the exit code is 1. Thunder never edits tests; a person decides whether the test or
+the change is wrong.
+
 The two sections below start from the passport. Anything they add beyond it is marked as such.
 
 ## Verified (and how)
 
-**From the passport** (ran and passed): billing's 5 Python tests, orders' 7 C# checks, and web's 4 TypeScript tests,
+**From the passport** (ran and passed): billing's 8 Python tests, orders' 7 C# checks, and web's 6 TypeScript tests,
 each run by the passport with exit 0. **Read from code, not run:** the two Trace links (orders → billing
 `POST /charges`, web → orders `POST /orders`) and the review of both versions.
 
@@ -191,6 +262,19 @@ Its unknowns also list the 5 changed steps it shows as code instead of words.
   - It lists the new `IdempotencyKey` on the C# request record as a field ("Order request now also knows idempotency key"), not as a change to what `POST /orders` accepts.
   - Trace impact flags the requests to `/orders` and `/charges`, but it does not yet tie a change to a request's shape to the route that receives it.
 
-## What this demo does not claim
+## What this demo does and does not claim
 
-The title of the flagship story is "I changed an application written in three languages without editing any of them". **This demo does not do that yet.** Here the change was written by hand in each language, and Thunder **read**, **linked**, **reviewed**, and **scoped** it. Writing one Thunder change that edits the TypeScript, the C#, and the Python together is the next step, and it is not built.
+The flagship story is "I changed an application written in three languages without editing any of them". **For one
+kind of change, that is now true here:** a rule's number, comparison, or text value, written in several services.
+`run-demo.sh --change` changes free shipping in TypeScript, C#, and Python with one Thunder change, and nobody edits
+those files. Thunder finds the copies, changes only their characters, reads each file again, runs each part's tests,
+and records the change in a passport.
+
+**It is not true for a change of shape.** The duplicate-charge fix adds an input (the idempotency key) and threads it
+from the page through orders to billing. That was written by hand in each language, and Thunder **read**, **linked**,
+**reviewed**, and **scoped** it. Writing a new input, a new field, or a new call between services from one Thunder
+change is not built.
+
+**Copies Thunder does not find are not changed.** Code that computes the same rule in a different shape (a constant
+named elsewhere, a lookup table, a rule split across two functions) is not recognised as the same rule. A rule with
+the same shape but other names or another limit is listed as "check by hand", never changed.

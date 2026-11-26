@@ -156,6 +156,7 @@ thunder build hello --target go       # the same program as Go (also typescript,
 thunder build shop --target react     # a program with Screens, as a React app you own
 thunder read ./api --access           # does every route that returns a record limit it to the caller?
 thunder passport web orders billing --base main --run "billing: python3 -m unittest"   # evidence for a change
+thunder write web orders billing --decision shippingNote --rule 1 --when "subtotal >= 40"   # one rule change, every service
 ```
 
 `thunder help --all` lists every command, with what most people need first.
