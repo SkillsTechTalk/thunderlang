@@ -1,5 +1,13 @@
 # Unreleased
 
+- **The tutorial teaches writing and running Thunder.** `@skillstech/thunderlang/learn` gains part 2, "write and run":
+  seven lessons (`part: 'write'`), each naming the concept it teaches: your first program in two commands
+  (`thunder new hello`, `thunder run hello`, and why a bare `thunder run` right after fails), conditions, loops and
+  lists (positions from 1), records with a Never rule, reading Python as Thunder (and what is marked not translated),
+  check vs test vs verify, and `thunder why` with its limits. Every answer is worked out by running the lesson's
+  program on the Thunder engine. New optional lesson fields: `concept`, `commands` (what to type), and `output` (what
+  the program prints). Same schema (`thunder-learn-v1`); the 12 reading lessons are unchanged. The engine's language
+  core is now `engine-core.mjs` with no Node APIs, so the tutorial still runs in a browser.
 - **Fix (Core → Python): a whole number written with leading zeros (`007`) compiled to Python that would not run**
   (Python refuses `007`). It now compiles to `7`, as Thunder means it.
 - When Python is missing, `thunder run` and `thunder test` now also say how to run without it: `--engine thunder`.

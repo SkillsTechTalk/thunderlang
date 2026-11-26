@@ -8,10 +8,14 @@ import { thunderModel, modelText } from './model.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
 import { sameMeaning } from './same.mjs';
 import { COMPILER_VERSION } from './emit.mjs';
-import { READ_LESSONS } from './learn-lessons.mjs';
+import { READ_LESSONS, WRITE_LESSONS } from './learn-lessons.mjs';
+import { compileCore } from './core/index.mjs';
+import { runInProcess, testInProcess } from './core/engine-core.mjs';
+import { pythonToCore } from './core/from-python.mjs';
+import { explainRun } from './why.mjs';
 
 export const LEARN_SCHEMA = 'thunder-learn-v1';
-export { READ_LESSONS };
+export { READ_LESSONS, WRITE_LESSONS };
 
 const squash = (s) => String(s).replace(/[_\s]/g, '').toLowerCase();
 const EXT = { python: 'py', typescript: 'ts', javascript: 'js', java: 'java', go: 'go', csharp: 'cs', ruby: 'rb', php: 'php', rust: 'rs', kotlin: 'kt' };
@@ -19,6 +23,7 @@ const MODEL_SHOWS = new Set(['thing', 'flow']);
 
 /** What a lesson's quiz checks may look at: only what the compiler produced from the lesson's code. */
 function lessonContext(lesson) {
+  if (lesson.part === 'write') return writeContext(lesson);
   const files = lesson.files.map((f, i) => ({ path: `lesson${i ? i + 1 : ''}.${EXT[f.language] ?? 'txt'}`, source: f.code }));
   const readings = lesson.files.map((f) => readCode(f.code, { language: f.language }));
   const all = readings.flatMap((r) => r.items);
@@ -48,12 +53,39 @@ function lessonContext(lesson) {
 }
 
 /**
+ * What a write lesson's quiz may look at: its Thunder program compiled and run on the Thunder engine (no Python, so
+ * this works in a browser too), Python read as Core, or an agent's record read by thunder why.
+ */
+function writeContext(lesson) {
+  const compile = (source, file = 'main.thunder') => compileCore(source, { file });
+  const runCore = (source) => {
+    const r = compile(source);
+    if (!r.ok) return { ok: false, diagnostics: r.diagnostics, stdout: '', stderr: r.diagnostics.map((d) => `${d.code} ${d.message}`).join('\n'), status: 1 };
+    return { ok: true, diagnostics: [], ...runInProcess({ entry: r }) };
+  };
+  const testCore = (source) => {
+    const r = compile(source);
+    if (!r.ok) throw new Error(r.diagnostics.map((d) => `${d.code} line ${d.line}: ${d.message}`).join('; '));
+    return testInProcess({ results: [{ ...r, kind: 'src' }] });
+  };
+  const file = lesson.files[0];
+  const ctx = { compile, runCore, testCore };
+  if (file?.language === 'thunder' && !/^\s*Test "/m.test(file.code)) {
+    ctx.core = runCore(file.code);
+    if (!ctx.core.ok || ctx.core.status !== 0) throw new Error(`the lesson's program does not run cleanly: ${ctx.core.stderr}`);
+  }
+  if (lesson.asCore) ctx.asCore = pythonToCore(file.code);
+  if (lesson.why) ctx.why = explainRun(file.code);
+  return ctx;
+}
+
+/**
  * The tutorial: { schema, languageVersion, lessons }. Each lesson has its idea, a picture to hold in mind, its code
  * (snippet), the Thunder Text the compiler gives for it, quiz questions whose answers the compiler worked out, and
  * open questions to think about (reflect).
  */
 export function learnThunder() {
-  const lessons = READ_LESSONS.map((lesson) => {
+  const lessons = [...READ_LESSONS, ...WRITE_LESSONS].map((lesson) => {
     const ctx = lessonContext(lesson);
     const questions = (lesson.quiz || []).map((q, i) => {
       const where = `Lesson "${lesson.slug}", question ${i + 1}`;
@@ -66,9 +98,13 @@ export function learnThunder() {
     const snippets = lesson.files.map((f) => ({ language: f.language, label: f.label, code: f.code }));
     return {
       slug: lesson.slug, title: lesson.title, idea: lesson.idea, picture: lesson.picture, part: lesson.part ?? 'read',
+      ...(lesson.concept ? { concept: lesson.concept } : {}),
+      ...(lesson.commands ? { commands: [...lesson.commands] } : {}),
       snippet: snippets[0] ? { language: snippets[0].language, code: snippets[0].code } : null,
       snippets,
-      thunderText: ctx.text ?? (ctx.texts[0] || null),
+      thunderText: ctx.text ?? (ctx.texts?.[0] || null),
+      // What the lesson's program prints, worked out by running it (write lessons).
+      ...(ctx.core ? { output: ctx.core.stdout } : {}),
       questions,
       reflect: lesson.questions.map((q) => ({ prompt: q.q, answer: q.a })),
     };

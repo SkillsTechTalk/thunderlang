@@ -17,7 +17,8 @@ test('the export names its schema and the language version it was built against'
 
 test('every lesson has an idea, a picture, at least one compiler-graded question, and open questions', () => {
   const { lessons } = learnThunder();
-  assert.equal(lessons.length, 12);
+  assert.equal(lessons.filter((l) => l.part === 'read').length, 12);
+  assert.equal(lessons.filter((l) => l.part === 'write').length, 7);
   for (const l of lessons) {
     assert.ok(l.title && l.idea && l.picture && ['read', 'write'].includes(l.part), l.slug);
     assert.ok(l.questions.length >= 1, `${l.slug} has a quiz`);
@@ -34,8 +35,8 @@ test('the answers are worked out by the compiler, so a lesson that disagrees wit
   finally { q.expect = saved; }
 });
 
-test('the last two lessons teach reading a whole app in OpenThunder, and studying your own', () => {
-  const { lessons } = learnThunder();
+test('the reading part ends by teaching a whole app in OpenThunder, and studying your own', () => {
+  const lessons = learnThunder().lessons.filter((l) => l.part === 'read');
   assert.deepEqual(lessons.slice(-2).map((l) => l.slug), ['openthunder', 'study']);
   const app = lessons.at(-2);
   assert.deepEqual(app.questions.map((q) => q.answer), ['2', 'POST /orders', 'As a rule card']);

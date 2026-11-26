@@ -9,6 +9,12 @@ export interface LearnLesson {
   /** A picture to hold in mind. */
   picture: string;
   part: 'read' | 'write';
+  /** Write lessons: the programming concept it teaches ("Loops and lists: do something for each item"). */
+  concept?: string;
+  /** Write lessons: what to type in a terminal to do it yourself, in order. */
+  commands?: string[];
+  /** Write lessons: what the lesson's program prints, worked out by running it on the Thunder engine. */
+  output?: string;
   /** The lesson's code (the first file), or null for lessons with no code. */
   snippet: { language: string; code: string } | null;
   /** Every file the lesson shows (a lesson can show the same rule in several languages). */
@@ -32,3 +38,5 @@ export const LEARN_SCHEMA: 'thunder-learn-v1';
 export function learnThunder(): LearnThunder;
 /** The lesson sources (code, wording, and the checks that work out each answer). */
 export const READ_LESSONS: any[];
+/** Part 2, write and run: programs whose answers are worked out by running them (no Python needed). */
+export const WRITE_LESSONS: any[];
