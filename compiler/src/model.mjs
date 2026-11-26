@@ -1144,7 +1144,8 @@ export function readLevel(model, level, focus, { full = false } = {}) {
     const extra = [];
     if (!focus && model.permissions?.length) extra.push(`Permissions\n${model.permissions.map((p) => `  ${p.says ?? `${p.who} can ${p.can} ${p.on}`}${p.wide && !/\(wide\)/.test(p.says ?? '') ? ' (wide)' : ''}  (line ${p.line})`).join('\n')}\n`);
     if (!focus && model.settings?.length) extra.push(`Settings\n${model.settings.map((x) => `  Setting ${x.name}: ${settingWords(x, model)}  (line ${x.line})`).join('\n')}\n`);
-    const text = focus ? modelText(model, focus, { full }) : [...model.things.map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup').map((m) => modelText(model, m.id, { full })), ...extra].join('\n');
+    // The whole app: its screens first (as screens, not as the classes behind them), then everything else.
+    const text = focus ? modelText(model, focus, { full }) : [...(model.screens ?? []).map((sc) => screenText(sc)), ...model.things.filter((t) => !t.screen).map((t) => modelText(model, t.id)), ...model.members.filter((m) => !m.owner && m.kind !== 'setup' && !m.screen).map((m) => modelText(model, m.id, { full })), ...extra].join('\n');
     return { ...base, ...about, text };
   }
   return { ...base, ...about, language: (member ?? thing) ? (member?.language ?? model.files.find((f) => f.path === thing.file)?.language ?? null) : (model.files[0]?.language ?? null) };
