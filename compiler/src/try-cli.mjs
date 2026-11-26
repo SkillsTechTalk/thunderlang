@@ -4,6 +4,7 @@
 // the web editor (plainFromReading + explainPlain): the rule as the reader understood it from the code, run on the
 // values you give. Rules too complex for it are refused with the reason, never approximated.
 import { readFileSync } from 'node:fs';
+import { paint, useColor } from './term.mjs';
 import { basename } from 'node:path';
 import { createInterface } from 'node:readline';
 import { readCode } from './read.mjs';
@@ -132,7 +133,7 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
     const w = parseWith(plain, a.with);
     if (w.error) { console.error(`thunder try: ${w.error}`); return 2; }
     const t = tryRule(plain, w.values);
-    console.log(a.json ? JSON.stringify({ rule: rule.name, file, ...t }, null, 2) : renderTry(t));
+    console.log(a.json ? JSON.stringify({ rule: rule.name, file, ...t }, null, 2) : paint(renderTry(t)));
     return 0;
   }
 
@@ -140,7 +141,7 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
   const rl = createInterface({ input, terminal: false });
   const lines = rl[Symbol.asyncIterator]();
   const ask = async (q) => { output.write(q); const r = await lines.next(); if (r.done) return null; if (!input.isTTY) output.write(`${r.value}\n`); return r.value; };
-  const say = (s = '') => output.write(`${s}\n`);
+  const say = (s = '') => output.write(`${paint(s, useColor(output))}\n`);
   say(`⚡ Let's try "${rule.name}" from ${basename(file)}.`);
   say(`It takes: ${plain.inputs.map((i) => `${inputName(i)} (${kindText[i.kind] ?? i.kind})`).join(', ')}`);
   if (note) say(note);

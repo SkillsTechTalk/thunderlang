@@ -54,6 +54,7 @@ import { traceMain } from './trace-cli.mjs';
 import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
+import { paint, paintHelp, useColor } from './term.mjs';
 import { coreMain } from './core/cli.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
@@ -460,12 +461,9 @@ function printDiagnostics(diags) {
   return errors;
 }
 
-const HELP = `thunder , the ThunderLang compiler + engine (deterministic, no AI required)
+const HELP = `⚡ Thunder: every command. Most people only need the first four groups.
 
-The flow: author intent, inspect it, run and prove it, then keep real code aligned with it.
-
-usage: thunder <command> <file> [options]
-       thunder mission <Name> <command>     run any command on a mission by name
+usage: thunder <command> [file] [options]      Help for one command: thunder help <command>
 
 Start
   doctor [--json]            is this computer ready? Thunder, Node.js, Python, PATH, and optional toolchains (offline)
@@ -477,6 +475,43 @@ Write and run programs (Thunder Core, docs/core.md)
                              add --core for a single file with no project. run/test need Python 3.10+, or add
                              --engine thunder to run them on the Thunder engine (no Python; programs that Use a
                              Python module are refused there)
+
+Read and understand code
+  read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+  read <file|dir> --level big-picture|flow|details|text|original [--focus "<action or rule>"] [--json]
+                             read at one depth, from the same model OpenThunder shows: the big picture, one action's flow,
+                             its exact details, its Thunder Text, or the original lines
+  read <file.py> --as-core      the same code as Thunder Core you can edit and run (Python for now); lines it cannot say exactly are marked
+       for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
+       --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
+                             read code you don't know: its decision rules as ThunderLang + plain English,
+                             optionally rewritten in a language you know (--in typescript|python|go|rust|csharp|java)
+  try <file> [--focus "<rule>"] [--with "name=value, …"] [--json]   try a rule from your code with your own values: the answer and why (rules only; nothing changes)
+  why <run.json> [--step n] [--json]   what an AI agent did and why it stopped, in plain words, from its OpenTelemetry record
+  same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
+  review <base-ref> [head-ref] [--format markdown|json] [--paths <glob,...>] [--out <file>]
+                            review in Thunder: what changed in meaning between two git commits (head: the working tree
+                            when omitted), as Markdown for a pull request comment; read from git, no network
+  trace <folder…> [--json] [--out f]   Thunder Trace: routes, requests, and events linked across repositories, cited repo@sha:file:line
+  trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
+  repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
+  thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
+
+Change code
+  write <file> --edit '<json>' [--edit …] [--also <file>] [--apply] [--test "<cmd>"] [--candidate <file>] [--json]
+                            Writing in Thunder: change a step, question, Stop, input, or function in Thunder; the code is
+                            written as a minimal patch (TS/JS, Python, Go) and proven (the edited steps mean exactly
+                            the edit; everything else means the same). Dry run by default; --apply saves; --test runs a
+                            command on the changed code. Other cases print an instruction for an AI coding agent;
+                            --candidate checks code it wrote (labeled AI-written).
+  write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
+                            Thunder write: change a number, comparison, text value, or answer in a recovered rule;
+                            previews the exact code change and the cases whose answer changes; --write saves it
+
+────────────────────────────────────────────────────────────────────────
+Advanced: rules and missions (ThunderLang intent files), proofs, and tools for editors and CI.
+The flow: author intent, inspect it, run and prove it, then keep real code aligned with it.
+       thunder mission <Name> <command>     run any command on a mission by name
 
 Author
   init [Name]                scaffold a runnable starter mission (Name.thunder)   [alias: new --mission Name]
@@ -546,35 +581,7 @@ Graph & IR
   human <file> [--json | --format source]   experimental compact authoring and a decision reading view
   --version                 print the Thunder compiler version
   anchor <file> [--json]    show every Thunder step with its exact place in the file, and line coverage
-  write <file> --edit '<json>' [--edit …] [--also <file>] [--apply] [--test "<cmd>"] [--candidate <file>] [--json]
-                            Writing in Thunder: change a step, question, Stop, input, or function in Thunder; the code is
-                            written as a minimal patch (TS/JS, Python, Go) and proven (the edited steps mean exactly
-                            the edit; everything else means the same). Dry run by default; --apply saves; --test runs a
-                            command on the changed code. Other cases print an instruction for an AI coding agent;
-                            --candidate checks code it wrote (labeled AI-written).
-  write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
-                            Thunder write: change a number, comparison, text value, or answer in a recovered rule;
-                            previews the exact code change and the cases whose answer changes; --write saves it
-  repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
-  trace <folder…> [--json] [--out f]   Thunder Trace: routes, requests, and events linked across repositories, cited repo@sha:file:line
-  try <file> [--focus "<rule>"] [--with "name=value, …"] [--json]   try a rule from your code with your own values: the answer and why (rules only; nothing changes)
-  why <run.json> [--step n] [--json]   what an AI agent did and why it stopped, in plain words, from its OpenTelemetry record
-  trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
-  thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
-  review <base-ref> [head-ref] [--format markdown|json] [--paths <glob,...>] [--out <file>]
-                            review in Thunder: what changed in meaning between two git commits (head: the working tree
-                            when omitted), as Markdown for a pull request comment; read from git, no network
-  same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
-  read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
-  read <file|dir> --level big-picture|flow|details|text|original [--focus "<action or rule>"] [--json]
-                             read at one depth, from the same model OpenThunder shows: the big picture, one action's flow,
-                             its exact details, its Thunder Text, or the original lines
-  read <file.py> --as-core      the same code as Thunder Core you can edit and run (Python for now); lines it cannot say exactly are marked
-       for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
-       --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
-                             read code you don't know: its decision rules as ThunderLang + plain English,
-                             optionally rewritten in a language you know (--in typescript|python|go|rust|csharp|java)
   graph <file> [--safe]      the canonical Intent Graph (intent-graph-v1); --safe = display-safe on stdout
   migrate <graph.json> [--to <version>]   upgrade a persisted graph
   validate <graph.json> [--json]   check a graph is canonical (anti-fork)
@@ -609,13 +616,13 @@ function main() {
     const topic = cmd === 'help' ? restArgv.find((x) => !x.startsWith('-')) : null;
     if (topic) {
       const h = helpFor(topic, HELP);
-      if (h) { console.log(`${h}\n\nAll commands: thunder help --all`); process.exitCode = 0; }
-      else { console.error(unknownCommandText(topic, known)); process.exitCode = 2; }
+      if (h) { console.log(`${paintHelp(h)}\n\n${paint('All commands: thunder help --all')}`); process.exitCode = 0; }
+      else { console.error(paint(unknownCommandText(topic, known), useColor(process.stderr))); process.exitCode = 2; }
       return;
     }
     // The short home screen first; every command with --all. Exit codes are unchanged (2 with no command at all).
     // exitCode, not exit(): the full help is longer than a pipe's buffer, and exit() would cut it off when piped.
-    console.log(restArgv.includes('--all') ? HELP : homeText(COMPILER_VERSION, known.length));
+    console.log(restArgv.includes('--all') ? paintHelp(HELP) : paint(homeText(COMPILER_VERSION, known.length)));
     process.exitCode = cmd ? 0 : 2;
     return;
   }
@@ -623,7 +630,7 @@ function main() {
   if (cmd === 'completion') { process.exitCode = completionMain(restArgv, known); return; }
   if (cmd === 'doctor') { process.exitCode = doctorMain(restArgv, { version: COMPILER_VERSION, cliPath: process.argv[1] }); return; }
   // A command Thunder doesn't have (and not a file): say so, and suggest the closest ones, instead of failing later.
-  if (!known.includes(cmd) && !cmd.startsWith('-') && !existsSync(cmd)) { console.error(unknownCommandText(cmd, known)); process.exitCode = 2; return; }
+  if (!known.includes(cmd) && !cmd.startsWith('-') && !existsSync(cmd)) { console.error(paint(unknownCommandText(cmd, known), useColor(process.stderr))); process.exitCode = 2; return; }
   // Thunder Trace: links between repositories and what a change can affect (src/trace-cli.mjs).
   if (cmd === 'trace') { process.exitCode = traceMain(restArgv); return; }
   // Thunder Why: an AI agent's run explained in plain words, from its OpenTelemetry record (src/why-cli.mjs).
@@ -651,7 +658,7 @@ function main() {
         if (focus.error) throw new Error(focus.error);
         const r = readLevel(model, args.level, focus.id);
         if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
-        console.log(renderLevel(r, { sources: Object.fromEntries(files.map((f) => [f.path, f.source])), file }));
+        console.log(paint(renderLevel(r, { sources: Object.fromEntries(files.map((f) => [f.path, f.source])), file })));
         return;
       }
       if (statSync(file).isDirectory()) { readFolder(file, args); return; }
@@ -1295,7 +1302,7 @@ test Example
   }
 
   if (!file && cmd !== 'draft' && cmd !== 'mission' && !(cmd === 'test' && args.changed)) {
-    if (['run', 'test', 'build', 'check'].includes(cmd)) console.error(noProjectText(cmd, process.cwd()));
+    if (['run', 'test', 'build', 'check'].includes(cmd)) console.error(paint(noProjectText(cmd, process.cwd()), useColor(process.stderr)));
     else console.error(`thunder ${cmd}: missing a file argument. See: thunder help ${cmd}`);
     process.exit(2);
   }

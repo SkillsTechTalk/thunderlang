@@ -1,5 +1,12 @@
 # Unreleased
 
+- **Color in the terminal, and an easier full command list.** Screens people read (the home screen, `help`,
+  `doctor`, `new`, `why`, `try`, `read --level`, and the "did you mean" and "no project here" messages) use calm color:
+  green ✓, red ✗ only for real problems, yellow ! for warnings, commands to type in cyan, bold labels and headings.
+  Color is off for files, pipes, scripts, editors reading the output, `NO_COLOR`, and all JSON; `FORCE_COLOR=1` keeps
+  it. The words are identical with or without color (a test checks it). `thunder help --all` now starts with what most
+  people need (Start, Write and run programs, Read and understand code, Change code) and puts missions, proofs, and
+  editor tools under "Advanced"; every command is still listed. The home screen adds `thunder try`.
 - **The tutorial teaches writing and running Thunder.** `@skillstech/thunderlang/learn` gains part 2, "write and run":
   seven lessons (`part: 'write'`), each naming the concept it teaches: your first program in two commands
   (`thunder new hello`, `thunder run hello`, and why a bare `thunder run` right after fails), conditions, loops and
