@@ -108,7 +108,7 @@ test('mistakes in the command say what to do', () => {
     writeFileSync(join(dir, 'p.thunder'), 'say 1\n');
     const bad = thunder(['build', 'p.thunder', '--core', '--target', 'java'], dir);
     assert.equal(bad.status, 2);
-    assert.match(bad.stderr, /there is no target "java"\. Use --target python \(the default\) or --target typescript\./);
+    assert.match(bad.stderr, /there is no target "java"\. Use --target python \(the default\), --target typescript, or --target rust\./);
     const both = thunder(['run', 'p.thunder', '--core', '--target', 'typescript', '--engine', 'thunder'], dir);
     assert.equal(both.status, 2);
     assert.match(both.stderr, /choose one: --target typescript runs compiled TypeScript, --engine thunder runs Thunder directly\./);

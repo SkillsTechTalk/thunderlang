@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { resolve, relative, join } from 'node:path';
 import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGETS } from './project.mjs';
 import { runTypeScript } from './typescript-run.mjs';
+import { runRust, rustModule } from './rust-run.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
 import { paint } from '../term.mjs';
@@ -87,8 +88,9 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (cmd === 'format' || cmd === 'fmt') return format(t, a, cwd);
     if (a.engine !== null && !ENGINES.includes(a.engine)) { warn(`thunder ${cmd}: there is no engine "${a.engine}". Use --engine python (the default) or --engine thunder.`); return 2; }
     if (a.engine !== null && cmd !== 'run' && cmd !== 'test') { warn(`thunder ${cmd}: --engine is for thunder run and thunder test.`); return 2; }
-    if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default) or --target typescript.`); return 2; }
+    if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default), --target typescript, or --target rust.`); return 2; }
     if (a.target === 'typescript' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target typescript runs compiled TypeScript, --engine thunder runs Thunder directly.`); return 2; }
+    if (a.target === 'rust' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target rust runs compiled Rust, --engine thunder runs Thunder directly.`); return 2; }
     const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check', target: a.target });
     if (cmd === 'check') {
       if (a.json) { say(JSON.stringify({ ok: build.ok, files: build.results.map((r) => ({ file: relative(cwd, r.path), diagnostics: r.diagnostics })) }, null, 2)); return build.ok ? 0 : 1; }
@@ -99,6 +101,13 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     }
     if (!build.ok) { const n = report(build, cwd); warn(`thunder ${cmd}: ${n} problem${n === 1 ? '' : 's'}; nothing was ${cmd === 'build' ? 'built' : 'run'}.`); return 1; }
     const out = relative(cwd, build.outDir) || '.';
+    if (cmd === 'build' && build.target === 'rust') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Rust)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${rustModule(r.module)}.rs`);
+      say(`  ${out}/thunder_runtime.rs (the small runtime the generated code uses, standard library only), main.rs, and Cargo.toml`);
+      say(`  run it without Thunder: cd ${build.base === cwd ? '.' : relative(cwd, build.base)} && cargo run --offline --manifest-path ${relative(build.base, build.outDir) || '.'}/Cargo.toml   (add -- --tests for the tests)`);
+      return 0;
+    }
     if (cmd === 'build' && build.target === 'typescript') {
       say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (TypeScript)`);
       for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.ts`);
@@ -115,6 +124,7 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     }
     if (a.engine === 'thunder') return runOnEngine(cmd, build, warn, say);
     if (build.target === 'typescript') return runCompiledTypeScript(cmd, build, warn, say);
+    if (build.target === 'rust') return runCompiledRust(cmd, build, warn, say);
     const python = findPython();
     if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
@@ -141,6 +151,15 @@ function runCompiledTypeScript(cmd, build, warn, say) {
   if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
   const r = runTypeScript(build.outDir, cmd === 'run' ? `${build.entryModule}.ts` : 'run_tests.ts', { cwd: build.base, stdio: 'inherit' });
   if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
+  return r.status ?? 1;
+}
+
+/** thunder run / test with the Rust target: cargo builds the compiled Rust (offline), then it runs. */
+function runCompiledRust(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = runRust(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.stderr.trimEnd()}`); return 2; }
   return r.status ?? 1;
 }
 

@@ -633,7 +633,7 @@ export function jsonParse(text) {
     if (ch === '[') return arr(i + 1);
     if (s.startsWith('null', i)) return [null, i + 4];
     if (s.startsWith('true', i)) return [true, i + 4];
-    if (s.startsWith('false', i)) return [false, i + 4];
+    if (s.startsWith('false', i)) return [false, i + 5];
     NUM.lastIndex = i;
     const m = NUM.exec(s);
     if (m) {
