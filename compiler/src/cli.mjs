@@ -55,7 +55,7 @@ import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
 import { replayMain } from './replay-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
-import { paint, paintHelp, useColor } from './term.mjs';
+import { paint, paintHelp, paintThunder, useColor } from './term.mjs';
 import { coreMain } from './core/cli.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
@@ -675,7 +675,7 @@ function main() {
         if (!/\.py$/i.test(file) && (args.from || 'python') !== 'python') throw new Error('--as-core reads Python for now (other languages next).');
         const r = pythonToCore(readFileSync(file, 'utf8'));
         if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
-        console.log(r.core.trimEnd());
+        console.log(paintThunder(r.core.trimEnd()));
         const all = [...r.module.notTranslated, ...r.functions.flatMap((f) => f.notTranslated)];
         const exact = r.functions.filter((f) => f.exact);
         console.error(`\nthunder read --as-core: ${exact.length} of ${r.functions.length} function${r.functions.length === 1 ? '' : 's'} printed exactly as Thunder Core${all.length ? `; ${all.length} line${all.length === 1 ? '' : 's'} not translated (each stops with a clear error if it runs)` : ''}.`);

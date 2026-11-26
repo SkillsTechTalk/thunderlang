@@ -1,5 +1,11 @@
 # Unreleased
 
+- **Thunder Core in color, everywhere it is written.** The site's highlighter (docs, code cards, the editor, the
+  tutorial) knows Thunder Core: statement words (Set, When, Give, For each, Test…) bold, joining words softer, function
+  names after "To", record names after "A … has:", record kinds, money, percents and yes/no as values, text in green
+  with its {holes} marked, and comments after the code dimmed. The VS Code grammar gains the same roles. In the
+  terminal, `thunder read --as-core`, `thunder format`, and `thunder replay` print Thunder Core in the same colors (off
+  for files, pipes, `NO_COLOR`, and JSON).
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
   Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out

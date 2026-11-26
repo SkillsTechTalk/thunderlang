@@ -19,7 +19,7 @@ import { runJava } from './java-run.mjs';
 import { javaClassName } from './target-java.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
-import { paint, useColor } from '../term.mjs';
+import { paint, paintThunder, useColor } from '../term.mjs';
 import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
 import { recordedRun } from './engine-core.mjs';
 import { COMPILER_VERSION } from '../emit.mjs';
@@ -280,7 +280,7 @@ function format(t, a, cwd) {
     changed++;
     if (a.write) { writeFileSync(f, out); say(`formatted ${relative(cwd, f)}`); }
     else if (a.check) warn(`would format ${relative(cwd, f)}`);
-    else process.stdout.write(out);
+    else process.stdout.write(paintThunder(out));
   }
   if (a.check) return changed ? 1 : 0;
   if (a.write && !changed) say('thunder format: nothing to change.');
