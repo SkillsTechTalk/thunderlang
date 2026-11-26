@@ -37,7 +37,8 @@ Each compilation capability is advertised only once it works.
 | **Write whole programs** in Thunder (Thunder Core) and run them as Python: `thunder new`, `run`, `build`, `test` | Available <!-- capability:thunderCore --> |
 | **Compile Thunder Core** to Java, C#, TypeScript, Go, and Rust | Planned <!-- capability:coreTargets --> |
 
-Thunder Core is young: programs compile to Python only, and they cannot call Python libraries yet. For everything
+Thunder Core is young: programs compile to Python only. They can use Python libraries (`Use csv as csv`), written
+the Python way; Thunder's rules, like exact money, apply to Thunder values, not inside the library. For everything
 else, read and change your existing code in Thunder.
 
 **Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
