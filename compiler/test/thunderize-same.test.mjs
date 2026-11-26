@@ -126,10 +126,13 @@ test('both are exported from /core (browser-safe)', () => {
 
 test('same: matching words are not proof; different code under the same words is never called "same"', () => {
   const py = (op) => [{ path: 'm.py', source: `def f(a, b):\n    x = a ${op} b\n    save(x)\n    return x\n` }];
-  const r = sameMeaning(py('+'), py('-'));
+  // (Steps still shown as code: the code is compared, never the words.)
+  const r = sameMeaning(py('+'), py('&'));
   assert.notEqual(r.verdict, 'same');
   assert.equal(r.items[0].status, 'cannot-check');
-  assert.match(r.items[0].reason, /`x = a \+ b` before, `x = a - b` after/);
+  assert.match(r.items[0].reason, /`x = a \+ b` before, `x = a & b` after/);
+  // (Steps said in words, "a minus b" and "a times b": told apart by their words.)
+  assert.equal(sameMeaning(py('-'), py('*')).items[0].status, 'different');
   const g = (field) => [{ path: 'g.py', source: `def g(o):\n    total = compute(o.${field})\n    return total\n` }];
   assert.notEqual(sameMeaning(g('items'), g('lines')).verdict, 'same');
   // A real conversion across languages and naming conventions is still proven the same.

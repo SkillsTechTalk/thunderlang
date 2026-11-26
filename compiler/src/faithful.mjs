@@ -151,3 +151,17 @@ export function pythonImportSays(code) {
   }
   return null;
 }
+
+/**
+ * A Python slice (or the last item) in words, `{x}` standing for the list: `[1:]` "{x} without the first 1", `[:3]`
+ * "the first 3 of {x}", `[-2:]` "the last 2 of {x}", `[:-1]` "{x} without the last 1", `[-1]` "the last of {x}". Null
+ * for anything else (both ends, a step, or a name for an end). Used by the reader and by say-less's check.
+ */
+export function sliceWords(start, end, single) {
+  if (single != null) return single === '-1' ? 'the last of {x}' : null;
+  const n = (x) => (x == null || x === '' ? null : Number(x));
+  const a = n(start), b = n(end);
+  if (a != null && b == null) return a > 0 ? `{x} without the first ${a}` : a < 0 ? `the last ${-a} of {x}` : null;
+  if (a == null && b != null) return b > 0 ? `the first ${b} of {x}` : b < 0 ? `{x} without the last ${-b}` : null;
+  return null;
+}

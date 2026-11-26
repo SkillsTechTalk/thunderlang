@@ -50,7 +50,7 @@ function nodesOf(tree) {
   return out;
 }
 import { FORM_WORDS } from './form-words.mjs';
-import { asCodeWords, isCodeWords, stripQuoted, codeCounts, wordCounts, accountsFor, pythonImportSays } from './faithful.mjs';
+import { asCodeWords, isCodeWords, stripQuoted, codeCounts, wordCounts, accountsFor, pythonImportSays, sliceWords } from './faithful.mjs';
 
 export const WHY = {
   form: 'the reader did not recognize this form',
@@ -244,7 +244,7 @@ function inventedValue(says, code) {
   const text = String(code);
   for (const num of said.replace(/"(?:\\.|[^"\\])*"/g, ' ').match(/(?<![\w.«])-?\d+(?:\.\d+)?(?![\w.»])/g) || []) {
     const n = num.replace(/^-/, '');
-    if (!text.includes(n) && !/^[01]$/.test(n) && !statusNamed(n, text) && !text.includes(`..<${Number(n) + 1}`) && !new RegExp(`\\.\\.<\\s*${Number(n) + 1}\\b`).test(text) && !new RegExp(`\\brange\\((?:\\s*\\d+\\s*,)?\\s*${Number(n) + 1}\\s*\\)`).test(text)) return num;
+    if (!text.includes(n) && !/^[01]$/.test(n) && !statusNamed(n, text) && !text.includes(`..<${Number(n) + 1}`) && !new RegExp(`\\.\\.<?\\s*${Number(n) + 1}\\b`).test(text) && !new RegExp(`\\brange\\((?:\\s*\\d+\\s*,)?\\s*${Number(n) + 1}\\s*\\)`).test(text)) return num;
   }
   for (const q of String(says).replace(/^(?:If (?:not: )?|Repeats: |Fails with )?`[^]*`$/, '').match(/"(?:\\.|[^"\\])*"/g) || []) {
     if (!exactText(q.slice(1, -1), text)) return q;
@@ -448,9 +448,13 @@ function namesKept(tree, said) {
         // Calls that only walk a collection (`enumerate(xs)`, `d.items()`), or read an entry (`m.get(k)` as "the k entry in m").
         const own = c?.kind === 'member' && !(c.object?.kind === 'name' && /^[A-Z]/.test(c.object.name)) ? c.object : null;
         if (name && /^(?:enumerate|iter|iter_mut|into_iter|items|entries|values|stream|ToList|toList|AsEnumerable|toArray|asList|each_with_index|with_index|indices|withIndex|Values|Keys|keys)$/.test(name)) return ok(own) && ok(n.args);
+        // Rust `s.chars()` / `text.lines()` / `data.bytes()`: "the characters of s".
+        if (name && /^(?:chars|lines|bytes)$/.test(name) && own && sw.includes(` ${{ chars: 'characters', lines: 'lines', bytes: 'bytes' }[name]} of `)) return ok(own) && ok(n.args);
         // C's string compare: `!strcmp(a, "x")` is "a is "x"".
         if (name && /^(?:str|strn|mem|wcs|wcsn)(?:case)?cmp$|^_?str(?:n)?icmp$/.test(name) && / is /.test(sw)) return ok(n.args);
         if (name && /^(?:get|Get|fetch|at|get_or_default|getOrDefault|GetValueOrDefault|TryGetValue|getOrNull|Item)$/.test(name) && / entry | entries /.test(sw)) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
+        // `d.get("k")` as "the "k" value from d"; `d.get("k", x)` as "…, or x if it has none" (the fallback said).
+        if (name === 'get' && c?.kind === 'member' && n.args?.[0]?.kind === 'literal' && n.args[0].type === 'text' && / value from /.test(sw) && (n.args.length === 1 || (n.args.length === 2 && / if it has none /.test(sw)))) return ok(c.object) && ok(n.args);
         // "the result of X": the call is named, what it is given is one level down.
         if (name && has(name) && sw.includes(` result of ${splitWords(name).join(' ')} `)) return true;
         if (name && /^(?:new|New|create|of|from|make)$/.test(name) && / new /.test(sw) && c.kind === 'member') return ok(c.object);
@@ -755,13 +759,21 @@ function checkStep(step, ctx) {
     if (/^Sets .+ to /.test(says)) {
       const v = tree.kind === 'assign' ? tree.value : null;
       if (v) {
-        if (!newThing(v, says) && !namesKept(v, says)) return M('L327');
+        // A slice said by its ends ("the first 3 of xs"): the exact phrase for this slice, with the list's own name.
+        const sl = sliceOf(v);
+        if (sl) { if (!sliceSaid(sl, says)) return M('L327s'); }
+        else if (!newThing(v, says) && !namesKept(v, says)) return M('L327');
         if (castCount(v) && !/\bas\b|\bcopy\b|\bconverted\b|\bturned\b/.test(said)) return M('L328');
         if (!orderingKept(v, says)) return M('L329');
       }
     }
+    // Rust `let y = f(x)?;`: the words say it stops there when f fails (and only when the code has the ?).
+    if (lang === 'rust' && tree.kind === 'assign' && /^(?:Works out|Sets) /.test(says)) {
+      const q = tree.value?.kind === 'unary' && tree.value.op === '?';
+      if (q !== / and stops here if that fails$/.test(says)) return M('rust-q');
+    }
     if (/^Works out (.+?) from (.+)$/.test(says) && tree.kind === 'assign') {
-      const m = /^Works out (.+?) from ([\w ]+)$/.exec(says);
+      const m = /^Works out (.+?) from ([\w ]+?)(?:, and stops here if that fails)?$/.exec(says);
       const callees = chainCallees(tree.value);
       if (m && callees.length && !callees.some((c) => callNamed(c, m[2], code))) return M('L335');
     }
@@ -890,6 +902,25 @@ function shellConditionKept(code, says) {
 }
 
 let ctx_full = '';
+/** `xs[1:]` / `self.rows[-1]`: the list's path and the slice's words (sliceWords), or null. */
+function sliceOf(v) {
+  if (v?.kind !== 'index' || currentLang !== 'python') return null;
+  const path = (n) => (n?.kind === 'name' ? n.name : n?.kind === 'member' ? (path(n.object) ? `${path(n.object)}.${n.property}` : null) : null);
+  const p = path(v.object);
+  const num = (x) => (x == null ? undefined : x.kind === 'literal' && x.type === 'number' ? String(x.raw ?? x.value) : x.kind === 'unary' && x.op === '-' && x.value?.kind === 'literal' ? `-${x.value.raw ?? x.value.value}` : NaN);
+  const ix = v.index;
+  let t = null;
+  if (ix?.kind === 'slice' && !ix.step) { const a = num(ix.start), b = num(ix.end); if (!Number.isNaN(a) && !Number.isNaN(b)) t = sliceWords(a, b); }
+  else if (ix) { const k = num(ix); if (k === '-1') t = sliceWords(undefined, undefined, '-1'); }
+  return p && t ? { path: p, words: t } : null;
+}
+function sliceSaid(sl, said) {
+  const [pre, post] = sl.words.split('{x}').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  // (The value is everything after the first " to ": "Sets h to items without the first 1".)
+  const at = said.indexOf(' to ');
+  const m = at >= 0 && new RegExp(`^${pre}(?:the ([\\w ]+)'s )?([\\w ]+?)${post}$`).exec(said.slice(at + 4));
+  return !!m && pathSaid(sl.path, m[1], m[2]);
+}
 /** A plain path said as "the owner's last" (or just "last" with no owner other than self/this). */
 function pathSaid(path, owner, last) {
   const parts = String(path).split('.').filter((x) => !/^(?:self|this)$/.test(x));
@@ -905,6 +936,13 @@ function pythonRangeKept(v, argText, says) {
   if (args.length === 1 && v === '_') return new RegExp(`^Repeats ${args[0]} times${tail}`).test(says) && /^\w+$/.test(args[0]);
   const len = args.length === 1 && /^len\(\s*([A-Za-z_][\w.]*)\s*\)$/.exec(args[0]);
   if (len) return !!(w = new RegExp(`^For each position (.+?) in ${P}${tail}`).exec(says)) && sameWords(w[1], v) && pathSaid(len[1], w[2], w[3]);
+  // `range(a, n + 1)`: "Counts i from a to n" (n included).
+  if (args.length === 2 && /^[A-Za-z_][\w.]*\s*\+\s*1$/.test(args[1]) && /^(?:\d+|[A-Za-z_][\w.]*)$/.test(args[0])) {
+    w = new RegExp(`^Counts (.+?) from (.+?) to ${P}${tail}`).exec(says);
+    if (!w || !sameWords(w[1], v) || / up to /.test(says)) return false;
+    const from = /^\d+$/.test(args[0]) ? w[2] === args[0] : (() => { const p = new RegExp(`^${P}$`).exec(w[2]); return !!p && pathSaid(args[0], p[1], p[2]); })();
+    return from && pathSaid(args[1].replace(/\s*\+\s*1$/, ''), w[3], w[4]);
+  }
   const [a, b] = args.length === 1 ? ['0', args[0]] : args;
   if (args.length > 2 || !/^(?:\d+|[A-Za-z_][\w.]*)$/.test(a) || !/^(?:\d+|[A-Za-z_][\w.]*)$/.test(b)) return false;
   if (/^\d+$/.test(a) && /^\d+$/.test(b)) return !!(w = new RegExp(`^Counts (.+?) from (\\d+) to (\\d+)${tail}`).exec(says)) && sameWords(w[1], v) && w[2] === a && Number(w[3]) === Number(b) - 1 && Number(b) > Number(a);
@@ -937,6 +975,16 @@ function loopKept(step, tree, says, code, lang) {
   if (lang === 'python' && (m = /^for\s+\(?\s*(\w+)\s*,\s*(\w+)\s*\)?\s+in\s+enumerate\(\s*([A-Za-z_][\w.]*)\s*\)\s*:$/.exec(String(code).trim()))) {
     const w = /^For each (.+?) in (?:the ([\w ]+)'s )?([\w ]+), with its position (.+?) \(from 0\)(?: \(\d+ steps? inside\))?$/.exec(says);
     return w && sameWords(w[1], m[2]) && sameWords(w[4], m[1]) && pathSaid(m[3], w[2], w[3]) ? null : WHY.unparsed;
+  }
+  // Rust ranges: `for i in 0..n` "Counts i from 0 up to n (not n itself)", `a..=b` "from a to b".
+  if (lang === 'rust' && (m = /^for\s+(\w+)\s+in\s+(\d+|[A-Za-z_][\w.]*)\s*\.\.(=?)\s*(\d+|[A-Za-z_][\w.]*)\s*\{?$/.exec(String(code).trim()))) {
+    const [, v, a, inc, b] = m;
+    const P = "(?:the ([\\w ]+)'s )?([\\w ]+)";
+    const side = (c, said) => { if (/^\d+$/.test(c)) return said === c; const p = new RegExp(`^${P}$`).exec(said); return !!p && pathSaid(c, p[1], p[2]); };
+    const tail = '(?: \\(\\d+ steps? inside\\))?$';
+    if (/^\d+$/.test(a) && /^\d+$/.test(b) && !inc) { const w = new RegExp(`^Counts (.+?) from (\\d+) to (\\d+)${tail}`).exec(says); return w && sameWords(w[1], v) && w[2] === a && Number(w[3]) === Number(b) - 1 ? null : WHY.unparsed; }
+    const w = inc ? new RegExp(`^Counts (.+?) from (.+?) to (.+?)${tail}`).exec(says) : new RegExp(`^Counts (.+?) from (.+?) up to (.+?) \\(not (.+?) itself\\)${tail}`).exec(says);
+    return w && sameWords(w[1], v) && (inc ? !/ up to /.test(says) : w[3] === w[4]) && side(a, w[2]) && side(b, w[3]) ? null : WHY.unparsed;
   }
   if (tree && tree.kind === 'loop') {
     if (tree.form === 'each') {
@@ -980,6 +1028,9 @@ function loopKept(step, tree, says, code, lang) {
 /** A loop's collection in words: every name in it, or the last name of its path (`order.items` as "items"), or its call. */
 function iterableKept(it, words) {
   if (!it) return false;
+  // "the result of X": X is the call that gives the collection (the outermost one), not a call inside it.
+  const ro = /^the result of ([\w ]+)$/.exec(words);
+  if (ro) { const c = coreOf(it); const n = c?.kind === 'call' ? (c.callee.kind === 'member' ? c.callee.property : c.callee.name) : null; return !!n && sameWords(n, ro[1]); }
   if (namesKept(it, words)) return true;
   const w = ` ${splitWords(words).join(' ')} `;
   let c = coreOf(it);
