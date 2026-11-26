@@ -544,6 +544,69 @@ const AGENT_RUN = (() => {
   ] }] }] }, null, 2);
 })();
 
+// ── Changing real code safely ──────────────────────────────────────────────────────────────────────────────────
+// Three tools for code that already runs in several services: is every record limited to its caller, one rule
+// changed everywhere it is written, and a record of the evidence for a change. Every answer is worked out by the
+// tool itself on the lesson's files (accessFlow, writeRuleAcross, assemblePassport and checkPassport in ./core).
+
+const INVOICES_API = `import express from "express";
+import { db } from "./db";
+
+const app = express();
+
+app.get("/invoices/:id", async (req, res) => {
+  const invoice = await db.invoice.findFirst({
+    where: { id: req.params.id, tenantId: req.user.tenantId },
+  });
+  res.json(invoice);
+});
+
+app.get("/receipts/:id", async (req, res) => {
+  const receipt = await db.receipt.findUnique({ where: { id: req.params.id } });
+  res.json(receipt);
+});
+`;
+
+const INVOICES_DB = `import { PrismaClient } from "@prisma/client";
+
+export const db = new PrismaClient();
+`;
+
+const SHIP_WEB = `export function shippingFee(subtotal: number): number {
+  if (subtotal >= 50) return 0;
+  return 5.99;
+}
+`;
+
+const SHIP_ORDERS = `public static class Shipping
+{
+    public static decimal ShippingFee(decimal subtotal)
+    {
+        if (subtotal >= 50m) return 0m;
+        return 5.99m;
+    }
+}
+`;
+
+const SHIP_BILLING = `def shipping_fee(subtotal):
+    if subtotal >= 50:
+        return 0
+    return 5.99
+
+
+def coupon_allowed(subtotal):
+    if subtotal >= 50:
+        return True
+    return False
+`;
+
+const SHIP_TEST = `from receipt import shipping_fee
+
+
+def test_a_45_dollar_order_pays_shipping():
+    assert shipping_fee(45) == 5.99
+`;
+
 export const WRITE_LESSONS = [
   {
     slug: "first-program",
@@ -697,6 +760,88 @@ export const WRITE_LESSONS = [
     ],
     questions: [
       { q: "The refund did not go through. Was the customer refunded?", a: "Thunder can't know: the record shows the requests failed, not what the payment service did. It says the step may have partly happened, so a person checks." },
+    ],
+  },
+  {
+    slug: "access-check",
+    part: "write",
+    concept: "Ownership: every record a request asks for must belong to the person asking",
+    title: "Does every route keep each customer's records to them?",
+    idea: "A web route that looks up a record by the id in the address must also check that the record belongs to the caller, or anyone can read anyone's invoice by changing a number. thunder read ./api --access follows each request through the code into the database and gives every route one verdict: guarded, unguarded, or cannot tell. Each verdict points to its lines. Thunder says unguarded only when it followed every step; when something is out of reach (a file it was not given), it says cannot tell and names what stopped it.",
+    picture: "A hotel desk. One clerk checks that the room key belongs to the guest before handing it over; the other hands any key to whoever names a room number.",
+    commands: ["thunder read ./api --access"],
+    files: [{ language: "typescript", label: "api/routes.ts", code: INVOICES_API }, { language: "typescript", label: "api/db.ts", code: INVOICES_DB }],
+    access: true,
+    show: "run",
+    quiz: [
+      { prompt: "Which route lets one customer read another customer's record?", choices: ["GET /receipts/:id", "GET /invoices/:id", "Neither"], expect: "GET /receipts/:id",
+        explain: "The receipts lookup uses only the id from the address. The invoices lookup also requires tenantId to be the caller's own, so a different customer's id finds nothing.",
+        check: ({ access }) => { const u = access.routes.filter((r) => r.verdict === 'unguarded'); return u.length === 1 ? `${u[0].method} ${u[0].path}` : u.length ? 'Both' : 'Neither'; } },
+      { prompt: "Thunder is given routes.ts but not db.ts. What does it say about GET /receipts/:id?", choices: ["Cannot tell: db comes from a file it was not given", "Unguarded", "Guarded"], expect: "Cannot tell: db comes from a file it was not given",
+        explain: "Without db.ts, Thunder cannot see that db is the database, so it cannot follow the lookup. It names what stopped it instead of guessing either way.",
+        check: ({ accessOf }) => { const r = accessOf([0]).routes.find((x) => x.path === '/receipts/:id'); return r.verdict === 'cannot tell' && /outside these files/.test(r.why) ? 'Cannot tell: db comes from a file it was not given' : r.verdict === 'unguarded' ? 'Unguarded' : 'Guarded'; } },
+    ],
+    questions: [
+      { q: "Every route says guarded. Is the app safe?", a: "Each route limits the record it hands back to the caller, on the paths Thunder followed. That is one important check, not all of security: sign-in itself, what a role may do, and data that leaks through other means are separate questions." },
+      { q: "Why is cannot tell better than a guess?", a: "A wrong guarded hides a leak; a wrong unguarded wastes your time and teaches you to ignore warnings. Cannot tell, with what stopped it, tells you exactly where to look." },
+    ],
+  },
+  {
+    slug: "change-everywhere",
+    part: "write",
+    concept: "One business rule, written in several services, changed together",
+    title: "Change one rule in every service at once",
+    idea: "Free shipping from $50 is often written three times: the cart page (TypeScript), the orders service (C#), and billing's receipt (Python). Change one and forget another, and customers see one price and pay another. thunder write web orders billing finds every copy of the rule, shows the plan, and with --write changes all of them or none, touching only the rule's characters. A rule that only looks the same is listed for you to check by hand, never changed, and tests are never edited.",
+    picture: "Changing a price on the shelf tag, the till, and the receipt printer together, instead of hoping someone remembers the other two.",
+    commands: ["thunder write web orders billing --decision shippingFee --rule 1 --when \"subtotal >= 40\"", "thunder write web orders billing --decision shippingFee --rule 1 --when \"subtotal >= 40\" --write"],
+    files: [
+      { language: "typescript", label: "web/shipping.ts", code: SHIP_WEB },
+      { language: "csharp", label: "orders/Shipping.cs", code: SHIP_ORDERS },
+      { language: "python", label: "billing/receipt.py", code: SHIP_BILLING },
+      { language: "python", label: "billing/test_receipt.py", code: SHIP_TEST },
+    ],
+    across: { decision: "shippingFee", rule: 1, when: "subtotal >= 40" },
+    show: "run",
+    quiz: [
+      { prompt: "Free shipping moves from $50 to $40. How many files does Thunder change?", choices: ["3", "4", "1"], expect: "3",
+        explain: "The shipping rule in each service: shipping.ts, Shipping.cs, and receipt.py. The test file is never edited.",
+        check: ({ across }) => String(new Set(across.plan.map((p) => `${p.part}/${p.file}`)).size) },
+      { prompt: "coupon_allowed also says subtotal >= 50. What does Thunder do with it?", choices: ["Lists it to check by hand", "Changes it to 40 too"], expect: "Lists it to check by hand",
+        explain: "It has the same limit, but its name shares no word with shippingFee, so it is probably a different rule (the coupon minimum) that happens to use $50. Thunder lists it and leaves it alone.",
+        check: ({ across }) => (across.notIncluded.some((n) => n.decision === 'coupon_allowed') ? 'Lists it to check by hand' : 'Changes it to 40 too') },
+      { prompt: "The test expects a $45 order to pay $5.99. After the change, what is true?", choices: ["The test will fail and needs a person to update it", "Thunder updates the test"], expect: "The test will fail and needs a person to update it",
+        explain: "At $40, a $45 order ships free, so the test's expectation is now wrong. Thunder never edits tests: a test that disagrees is how you find out what the change means.",
+        check: ({ across }) => (across.files['billing/test_receipt.py'] === undefined && across.ok ? 'The test will fail and needs a person to update it' : 'Thunder updates the test') },
+    ],
+    questions: [
+      { q: "Why all or nothing?", a: "Half a change is the problem you started with: two services disagreeing. If any copy cannot be changed exactly, no file changes and Thunder says which one and why." },
+      { q: "The C# copy says 50m and the Python copy says 50. Why are they the same rule?", a: "Numbers are compared by value, and names as words (shippingFee, ShippingFee, and shipping_fee are the same name). Each copy keeps its own spelling: the C# becomes 40m." },
+    ],
+  },
+  {
+    slug: "passport",
+    part: "write",
+    concept: "Evidence: what was checked, how, and what it does not cover",
+    title: "Keep the evidence for a change",
+    idea: "When you change code, a reviewer asks: what changed, how do you know it works, and what did you not check? thunder passport writes that down as a Software Passport. Each claim has its basis (a command and its exit code, or the source lines) and the files it depended on, by fingerprint. A failed test is recorded as failed, never as passed, and deployment, real outside services, several machines, and load are always listed as not verified. Later, thunder passport check marks each claim current, or stale when a file it depended on has changed since.",
+    picture: "A building inspection certificate: what was inspected, by what test, on which date, and a note that it no longer counts once someone moves a wall.",
+    commands: ["thunder passport web billing --run \"web: node --test\" --run \"billing: python3 -m pytest\"", "thunder passport check"],
+    files: [{ language: "typescript", label: "web/shipping.ts", code: SHIP_WEB }, { language: "python", label: "billing/receipt.py", code: SHIP_BILLING }],
+    passport: [
+      { command: "node --test", part: "web", exitCode: 0, output: "1 passed" },
+      { command: "python3 -m pytest", part: "billing", exitCode: 0, output: "1 passed" },
+    ],
+    show: "run",
+    quiz: [
+      { prompt: "After the passport is made, someone edits web/shipping.ts. Which claim turns stale?", choices: ["The web test run", "The billing test run", "Both"], expect: "The web test run",
+        explain: "Only the web tests depended on shipping.ts. Billing's claim depended on receipt.py, which did not change, so it stays current. Nothing is re-run: check compares fingerprints.",
+        check: ({ passportCheck }) => { const c = passportCheck({ 'web/shipping.ts': SHIP_WEB.replace('50', '45') }); const stale = c.items.filter((i) => i.freshness === 'stale'); return stale.length === 2 ? 'Both' : /in web/.test(stale[0]?.claim) ? 'The web test run' : 'The billing test run'; } },
+      { prompt: "Every test passed. Does the passport say the change works in production?", choices: ["No: deployment is always listed as not verified", "Yes"], expect: "No: deployment is always listed as not verified",
+        explain: "Tests prove what they ran, on the machine they ran on. How it is deployed, real outside services, more than one machine, and heavy load are listed as not verified unless a claim covers them.",
+        check: ({ passport }) => (passport.unknowns.notVerified.some((x) => /^Deployment/.test(x)) ? 'No: deployment is always listed as not verified' : 'Yes') },
+    ],
+    questions: [
+      { q: "Why record a failed test instead of leaving it out?", a: "Leaving it out makes the passport look better than the truth. A reviewer needs to see the failure, and the passport says what it means: what that test covers is not verified." },
     ],
   },
 ];

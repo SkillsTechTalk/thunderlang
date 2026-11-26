@@ -1,3 +1,16 @@
+# Unreleased
+
+- **Three lessons on changing real code, in `@skillstech/thunderlang/learn`.** "Does every route keep each
+  customer's records to them?" (`thunder read --access`), "Change one rule in every service at once"
+  (`thunder write <folder…>`), and "Keep the evidence for a change" (`thunder passport`, `passport check`). They are
+  write lessons (now 10, 22 lessons in all), and like every lesson, each quiz answer is worked out by the tool itself
+  on the lesson's files, so the build fails if a tool ever disagrees with what a lesson teaches.
+- **Fix: `thunder write <folder…>` no longer changes a different rule that happens to share a condition.** A
+  decision with the same condition but a name that shares no word with the chosen one (`coupon_allowed` next to
+  `shippingFee`, both `subtotal >= 50`) is now listed as "check by hand" instead of being changed. Names are compared
+  as words, leaving out words like get, is, and calculate, so `shippingNote`, `ShippingFee`, and `get_shipping_fee`
+  still match.
+
 # 1.4.0
 
 **Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: the Software Passport
