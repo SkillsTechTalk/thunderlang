@@ -136,3 +136,4 @@ export { recoverModel } from './promote.mjs';
 export { stepShape } from './write-steps.mjs';
 // The Thunder Software Passport, pure half (assemble, check, render). buildPassport (folders, git, runs) is in the root entry.
 export { PASSPORT_SCHEMA, ALWAYS_NOT_VERIFIED, assemblePassport, summarize, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
+export { formatValue } from './plain-contract.mjs';

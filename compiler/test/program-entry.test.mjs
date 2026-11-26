@@ -50,7 +50,7 @@ test('everything OpenThunder uses is reachable from public entries (no paths int
       'readCode', 'searchReading', 'detectLanguage', // read.mjs
       'translateDecisions', 'translateDecisionsWithDiagnostics', // translate.mjs
       'thunderWrite', 'writeRule', // write.mjs, write-steps.mjs
-      'parseIntent', 'compileHumanContract', 'parsePlainContract', 'promoteDecision', // parse, human/plain contract, promote
+      'parseIntent', 'compileHumanContract', 'parsePlainContract', 'formatValue', 'promoteDecision', // parse, human/plain contract, promote
     ],
   };
   const missing = [...need.program.filter((k) => !(k in program)).map((k) => `program:${k}`), ...need.core.filter((k) => !(k in core)).map((k) => `core:${k}`)];
