@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ThunderLang",
+    name: "ThunderLang™",
     short_name: "ThunderLang",
     description:
-      "Thunder. Programming, made human. By SkillsTech.",
+      "Thunder™. Programming, made human. By SkillsTech.",
     start_url: "/",
     display: "standalone",
     background_color: "#05070E",
