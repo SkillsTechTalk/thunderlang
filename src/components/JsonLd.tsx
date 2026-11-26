@@ -18,7 +18,7 @@ const LANGUAGE = {
   name: "Thunder™",
   alternateName: ["ThunderLang", "Thunder programming language", "Thunder language"],
   description:
-    "Thunder is the human programming language: a human-native programming language for the AI era. Today its open-source compiler reads code in seventeen languages (C, C++, Swift, R, shell, PowerShell, and SQL included) as pictures and plain words, changes TypeScript, JavaScript, Python, and Go code from Thunder, and compiles rules to six languages. You can also write whole programs in Thunder and run them as Python. OpenThunder is the IDE for AI-written code.",
+    "Thunder is the human programming language: a human-native programming language for the AI era. Today its open-source compiler reads code in seventeen languages (C, C++, Swift, R, shell, PowerShell, and SQL included) as pictures and plain words, changes TypeScript, JavaScript, Python, and Go code from Thunder, and compiles rules to six languages. You can also write whole programs in Thunder and run them as Python or TypeScript. OpenThunder is the IDE for AI-written code.",
   url: `${URL}/language`,
   sameAs: [REPO, NPM],
 };

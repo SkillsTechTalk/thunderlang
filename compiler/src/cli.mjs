@@ -474,7 +474,8 @@ Write and run programs (Thunder Core, docs/core.md)
   run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file in one;
                              add --core for a single file with no project. run/test need Python 3.10+, or add
                              --engine thunder to run them on the Thunder engine (no Python; programs that Use a
-                             Python module are refused there)
+                             Python module are refused there). --target typescript compiles to TypeScript instead
+                             (generated/typescript/; runs on Node 22.6+, or with the typescript package)
 
 Read and understand code
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]

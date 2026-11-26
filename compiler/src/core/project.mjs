@@ -8,6 +8,10 @@ import { join, dirname, relative, resolve, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { compileCore } from './index.mjs';
 import { PYTHON_RUNTIME } from './runtime-python.mjs';
+import { writeTypeScript, typescriptDiagnostics } from './typescript-run.mjs';
+
+/** The languages a Thunder Core project can be compiled to. */
+export const TARGETS = ['python', 'typescript'];
 
 export const PROJECT_FILE = 'thunder.toml';
 
@@ -44,7 +48,7 @@ export function loadProject(root) {
   const toml = parseToml(readFileSync(join(root, PROJECT_FILE), 'utf8'));
   const build = toml.build ?? {};
   const target = String(build.target ?? 'python');
-  if (target !== 'python') throw new Error(`thunder.toml: target "${target}" is not supported yet. Thunder Core v0 builds Python (target = "python").`);
+  if (!TARGETS.includes(target)) throw new Error(`thunder.toml: target "${target}" is not supported yet. Thunder Core builds Python (target = "python") or TypeScript (target = "typescript").`);
   return {
     root,
     name: toml.project?.name ?? basename(root),
@@ -52,7 +56,7 @@ export function loadProject(root) {
     target,
     src: build.source ?? 'src',
     tests: build.tests ?? 'tests',
-    out: build.output ?? 'generated/python',
+    out: build.output ?? `generated/${target}`,
     entry: build.entry ?? null,
   };
 }
@@ -72,13 +76,16 @@ export function moduleNameFor(file) {
  * Compile a project (or a single file when `single` is given). Writes generated/python/<module>.py for every
  * file plus thunder_runtime.py. Returns { ok, results: [{ file, module, ok, diagnostics }], outDir, entryModule }.
  */
-export function buildProject({ root, single = null, includeTests = false, write = true, config = null }) {
+export function buildProject({ root, single = null, includeTests = false, write = true, config = null, target = null }) {
   const cfg = config ?? (single && !findProjectRoot(single) ? null : loadProject(root));
   const base = cfg ? cfg.root : dirname(resolve(single));
+  // --target overrides thunder.toml; a different target than the project's builds into generated/<target>.
+  const tgt = target ?? cfg?.target ?? 'python';
+  if (!TARGETS.includes(tgt)) throw new Error(`there is no target "${tgt}". Thunder Core builds python (the default) or typescript.`);
   const srcFiles = cfg ? thunderFiles(join(cfg.root, cfg.src)) : [];
   if (single && !srcFiles.includes(resolve(single))) srcFiles.unshift(resolve(single));
   const testFiles = includeTests && cfg ? thunderFiles(join(cfg.root, cfg.tests)) : [];
-  const outDir = join(base, cfg ? cfg.out : 'generated/python');
+  const outDir = join(base, cfg && (target == null || target === cfg.target) ? cfg.out : `generated/${tgt}`);
   const results = [];
   const used = new Set();
   const uniqueModule = (f, prefix = '') => { let n = prefix + moduleNameFor(f); let k = 2; while (used.has(n)) n = `${prefix}${moduleNameFor(f)}_${k++}`; used.add(n); return n; };
@@ -93,8 +100,11 @@ export function buildProject({ root, single = null, includeTests = false, write 
     const r = compileCore(readFileSync(f, 'utf8'), { file: rel, imported: srcOk, srcModules: srcOk.map((x) => x.module) });
     results.push({ ...r, path: f, rel, module: uniqueModule(f, 'tests_'), kind: 'test' });
   }
+  // A Python module (Use) cannot be compiled to TypeScript: refuse it before anything is written (TC405).
+  if (tgt === 'typescript') for (const r of results.filter((x) => x.ok)) { const d = typescriptDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   const ok = results.every((r) => r.ok);
-  if (ok && write) {
+  if (ok && write && tgt === 'typescript') writeTypeScript(results, outDir);
+  if (ok && write && tgt === 'python') {
     mkdirSync(outDir, { recursive: true });
     writeFileSync(join(outDir, 'thunder_runtime.py'), PYTHON_RUNTIME);
     for (const r of results) writeFileSync(join(outDir, `${r.module}.py`), r.python);
@@ -109,7 +119,7 @@ export function buildProject({ root, single = null, includeTests = false, write 
   }
   const entryPath = single ? resolve(single) : cfg?.entry ? join(cfg.root, cfg.entry) : join(base, cfg?.src ?? '.', 'main.thunder');
   const entry = results.find((r) => r.path === entryPath) ?? results.find((r) => r.kind === 'src');
-  return { ok, results, outDir, base, entryModule: entry?.module ?? null, entry, config: cfg };
+  return { ok, results, outDir, base, entryModule: entry?.module ?? null, entry, config: cfg, target: tgt };
 }
 
 /** The local Python 3.10+: $THUNDER_PYTHON, then python3, then python. Returns { cmd, version } or { error }. */

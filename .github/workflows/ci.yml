@@ -26,5 +26,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Thunder Core compiled to TypeScript: every Core test program, run on Python, the Thunder engine, and compiled
+      # TypeScript (here through the typescript package, on Node 20), with tsc --strict checking every generated file.
+      - name: Thunder Core TypeScript target (three-way conformance + tsc --strict)
+        run: node --test compiler/test/core-run.test.mjs compiler/test/core-stdlib.test.mjs compiler/test/core-engine.test.mjs compiler/test/core-typescript.test.mjs
+        env:
+          THUNDER_TSC: '1'
+
       - name: Build
         run: npm run build
