@@ -456,3 +456,247 @@ def place_order(order, card):
     ],
   },
 ];
+
+// ── Part 2: write and run ──────────────────────────────────────────────────────────────────────────────────────
+// Programs you write in Thunder Core. Every answer is worked out by compiling the lesson's program and running it on
+// the Thunder engine (engine-core.mjs, which needs no Python and runs in a browser too). Each lesson names the
+// programming concept it teaches, and `commands` are what to type in a terminal to do it yourself.
+
+/** The program `thunder new` writes (a test checks they stay the same). */
+export const STARTER_PROGRAM = `# Your first Thunder program. Run it with: thunder run
+
+To greet:
+  Receive name
+  Give "Hello, {name}!"
+
+say greet with "world"
+`;
+
+const CHOOSE = `Set total to $18.50
+
+When total is at least $20:
+  say "Delivery is free"
+Otherwise:
+  say "Delivery costs $3.99"
+`;
+
+const LOOP = `Set scores to [90, 75, 100]
+Set total to 0
+For each score in scores:
+  Increase total by score
+
+say "Total: {total}"
+say "First: {scores at 1}"
+`;
+
+const RECORD = `A Book has:
+  Title is text
+  Copies is a whole number
+  Never allow negative copies
+
+Set book to a Book with title "Matilda" and copies 1
+Set book's copies to book's copies - 1
+say "{book's title}: {book's copies} left"
+Set book's copies to book's copies - 1
+If this fails:
+  say "Not allowed: {error}"
+`;
+
+const FEE_TESTS = `To delivery fee:
+  Receive total
+  When total is at least $20:
+    Give $0
+  Otherwise:
+    Give $3.99
+
+Test "orders of $20 or more are free":
+  Expect delivery fee with $20 to be $0
+
+Test "small orders pay for delivery":
+  Expect delivery fee with $5 to be $2.99
+`;
+
+const SHOP_PY = `def delivery_fee(total):
+    if total >= 20:
+        return 0
+    return 3.99
+
+
+def safe_divide(a, b):
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return None
+`;
+
+/** A small agent run record (OpenTelemetry, GenAI conventions): a refund that could not reach the payment service. */
+const AGENT_RUN = (() => {
+  const t = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+  const ns = (ms) => String(1764064800000000000n + BigInt(ms) * 1000000n);
+  const kv = (o) => Object.entries(o).map(([key, v]) => ({ key, value: { stringValue: String(v) } }));
+  const fail = (type, message) => ({ status: { code: 2, message }, events: [{ name: 'exception', attributes: kv({ 'exception.type': type, 'exception.message': message }) }] });
+  const span = (id, parent, name, s, e, attrs, extra = {}) => ({ traceId: t, spanId: id, ...(parent ? { parentSpanId: parent } : {}), name, startTimeUnixNano: ns(s), endTimeUnixNano: ns(e), attributes: kv(attrs), ...extra });
+  const post = (id, s) => span(id, 'c8e0a2b4d6f81a3c', 'POST', s, s + 2900, { 'http.request.method': 'POST', 'url.full': 'https://pay.example.com/v1/refunds', 'error.type': 'ConnectionError' }, fail('ConnectionError', 'Connection refused'));
+  return JSON.stringify({ resourceSpans: [{ scopeSpans: [{ spans: [
+    span('7c1e4a9b2d3f5061', null, 'invoke_agent support-bot', 0, 12400, { 'gen_ai.operation.name': 'invoke_agent', 'gen_ai.agent.name': 'support-bot' }, fail('RuntimeError', 'tool failed')),
+    span('c8e0a2b4d6f81a3c', '7c1e4a9b2d3f5061', 'execute_tool refund_payment', 3150, 12350, { 'gen_ai.operation.name': 'execute_tool', 'gen_ai.tool.name': 'refund_payment', 'gen_ai.tool.call.arguments': '{"order_id": 1042, "amount": "40.00"}' }, fail('ConnectionError', 'failed after 3 attempts')),
+    post('1f3b5d7f9a1c3e50', 3200), post('6a8c0e2a4c6e8a01', 6300), post('b2d4f6b8d0f2b4d6', 9350),
+  ] }] }] }, null, 2);
+})();
+
+export const WRITE_LESSONS = [
+  {
+    slug: "first-program",
+    part: "write",
+    concept: "A program: instructions the computer follows, in order",
+    title: "Your first program, in two commands",
+    idea: "thunder new hello makes a folder called hello with a program inside. thunder run hello runs it. thunder new does not move you into the folder, so name it when you run it (or type cd hello first, then just thunder run).",
+    picture: "A recipe card. Writing it changes nothing; running it is cooking it.",
+    commands: ["thunder new hello", "thunder run hello"],
+    files: [{ language: "thunder", label: "hello/src/main.thunder", code: STARTER_PROGRAM }],
+    show: "run",
+    quiz: [
+      { prompt: "What does this program print?", choices: ["Hello, world!", "Hello, {name}!", "greet with \"world\""], expect: "Hello, world!",
+        explain: "To greet makes a step you can use; the last line uses it with \"world\". {name} inside text is filled in with the value, so it says Hello, world!",
+        check: ({ core }) => core.stdout.trim() },
+      { prompt: "Change \"world\" to \"Ada\" on the last line. What does it print now?", choices: ["Hello, Ada!", "Hello, world!", "Hello, {name}!"], expect: "Hello, Ada!",
+        explain: "The same steps run with a different value. That is the whole point of a step with an input: write it once, use it with anything.",
+        check: ({ runCore }) => runCore(STARTER_PROGRAM.replace('"world"', '"Ada"')).stdout.trim() },
+    ],
+    questions: [
+      { q: "You typed thunder new hello, then thunder run, and Thunder said there is no project here. Why?", a: "thunder new made the hello folder but did not move you into it. Run thunder run hello, or cd hello first." },
+      { q: "Which lines run first?", a: "To greet only describes a step; it runs when it is used. So the first thing that happens is the last line, which uses greet." },
+    ],
+  },
+  {
+    slug: "choose",
+    part: "write",
+    concept: "Conditions: the program chooses what to do",
+    title: "Write a choice and run it",
+    idea: "Open hello/src/main.thunder, write your own lines, and run it again. Thunder checks what you wrote first and explains any mistake by its line. By default your program runs as Python (Python 3.10 or newer); add --engine thunder to run it without Python. Python is the only full target today.",
+    picture: "A fork in a path with a sign: one way when the total is big enough, the other way otherwise.",
+    commands: ["thunder run hello", "thunder run hello --engine thunder"],
+    files: [{ language: "thunder", label: "hello/src/main.thunder", code: CHOOSE }],
+    show: "run",
+    quiz: [
+      { prompt: "What does this program print?", choices: ["Delivery costs $3.99", "Delivery is free"], expect: "Delivery costs $3.99",
+        explain: "$18.50 is not at least $20, so the Otherwise lines run.",
+        check: ({ core }) => core.stdout.trim() },
+      { prompt: "Change the total to $20. What does it print now?", choices: ["Delivery is free", "Delivery costs $3.99"], expect: "Delivery is free",
+        explain: "\"At least\" includes the limit itself: $20 is at least $20. The edge of a rule is where mistakes hide, so it is worth trying.",
+        check: ({ runCore }) => runCore(CHOOSE.replace('$18.50', '$20')).stdout.trim() },
+    ],
+    questions: [
+      { q: "Why is money written $18.50 and not 18.5?", a: "Money in Thunder is exact: $0.10 + $0.20 is exactly $0.30, and it always shows cents. A plain 18.5 would be a number, not money." },
+    ],
+  },
+  {
+    slug: "repeat",
+    part: "write",
+    concept: "Loops and lists: do something for each item",
+    title: "Go through a list",
+    idea: "A list holds several values in order. For each goes through them one at a time and runs the indented lines for every one. In Thunder the first item is at position 1, the way people count.",
+    picture: "A teacher reading a stack of tests, adding each score to a running total.",
+    commands: ["thunder run hello"],
+    files: [{ language: "thunder", label: "hello/src/main.thunder", code: LOOP }],
+    show: "run",
+    quiz: [
+      { prompt: "What is the total?", choices: ["Total: 265", "Total: 100", "Total: 90"], expect: "Total: 265",
+        explain: "The loop runs three times, once for each score: 90 + 75 + 100 = 265.",
+        check: ({ core }) => core.stdout.split('\n')[0] },
+      { prompt: "What does scores at 1 give?", choices: ["First: 90", "First: 75"], expect: "First: 90",
+        explain: "Positions start at 1, so scores at 1 is the first score. (In Python and JavaScript it would be scores[0]; Thunder counts like people do.)",
+        check: ({ core }) => core.stdout.split('\n')[1] },
+    ],
+    questions: [
+      { q: "How would you count only the scores of 90 or more?", a: "Inside the loop, add a choice: When score is at least 90: Increase count by 1." },
+    ],
+  },
+  {
+    slug: "records",
+    part: "write",
+    concept: "Records: data with a shape, and rules it must keep",
+    title: "Give your data a shape and a rule",
+    idea: "A record says what a kind of thing knows (a Book has a title and a number of copies). A Never rule on it is checked every time it changes, so a mistake is caught where it happens, with the rule's own words.",
+    picture: "A library card with fixed boxes to fill in, and a line printed at the bottom: copies can never go below zero.",
+    commands: ["thunder run hello"],
+    files: [{ language: "thunder", label: "hello/src/main.thunder", code: RECORD }],
+    show: "run",
+    quiz: [
+      { prompt: "The second change would make copies -1. What happens?", choices: ["Thunder refuses the change", "Copies becomes -1"], expect: "Thunder refuses the change",
+        explain: "Never allow negative copies is checked on every change. The change is refused, and If this fails catches it and says why: the rule, its line, and the value it would have had.",
+        check: ({ core }) => (core.stdout.split('\n')[1].startsWith('Not allowed:') ? 'Thunder refuses the change' : 'Copies becomes -1') },
+    ],
+    questions: [
+      { q: "Why put the rule on the record instead of checking before every change?", a: "Because then it cannot be forgotten. Every change to copies, anywhere in the program, is checked by the same rule." },
+    ],
+  },
+  {
+    slug: "python-as-thunder",
+    part: "write",
+    concept: "The same meaning in two languages, and honesty about the rest",
+    title: "Read Python as Thunder you can run",
+    idea: "thunder read shop.py --as-core turns Python into Thunder Core you can edit and run. A line Thunder cannot say with exactly the same meaning is never turned into something close: it is marked \"Not translated\", with the reason, and a Stop line that explains itself if it ever runs.",
+    picture: "A careful interpreter who translates every sentence they are sure of, and says \"I can't translate this one, here is why\" for the rest.",
+    commands: ["thunder read shop.py --as-core"],
+    files: [{ language: "python", label: "shop.py", code: SHOP_PY }],
+    asCore: true,
+    show: "run",
+    quiz: [
+      { prompt: "Which function comes across exactly?", choices: ["delivery fee", "safe divide", "both"], expect: "delivery fee",
+        explain: "delivery_fee is a comparison and two answers: Thunder says it exactly. safe_divide uses a Python try with a named error kind, which Core has no step for yet.",
+        check: ({ asCore }) => { const exact = asCore.functions.filter((f) => f.exact).map((f) => f.coreName); return exact.length === asCore.functions.length ? 'both' : exact.join(', '); } },
+      { prompt: "What happens if the part that was not translated runs?", choices: ["It stops with a clear message", "It guesses what the Python meant"], expect: "It stops with a clear message",
+        explain: "The not-translated line becomes Stop with \"Line 8 of the Python was not translated: try:\". Thunder never quietly does something different.",
+        check: ({ asCore }) => (/Stop with "Line \d+ of the Python was not translated/.test(asCore.core) ? 'It stops with a clear message' : 'It guesses what the Python meant') },
+    ],
+    questions: [
+      { q: "Why is \"not translated\" better than a close guess?", a: "A close guess looks right and behaves differently, which is the most dangerous kind of mistake. A marked line tells you exactly where to look." },
+    ],
+  },
+  {
+    slug: "check-test-verify",
+    part: "write",
+    concept: "Evidence: checking, testing, and verifying promise different things",
+    title: "Check, test, and verify",
+    idea: "thunder check reads your program before it runs and finds mistakes like a name that does not exist. thunder test runs your examples (Test blocks) and says which ones fail. thunder verify checks a change to the code, by a person or an AI, against the rules that must stay true. Each answers a different question; none replaces the others.",
+    picture: "A spell-checker (check), a practice exam (test), and an inspector who signs off on a renovation (verify).",
+    commands: ["thunder check hello", "thunder test hello"],
+    files: [{ language: "thunder", label: "hello/src/fee.thunder", code: FEE_TESTS }],
+    show: "run",
+    quiz: [
+      { prompt: "You write say totl instead of say total. When does Thunder tell you?", choices: ["Before it runs: it doesn't know what totl is", "Only when that line runs"], expect: "Before it runs: it doesn't know what totl is",
+        explain: "thunder check (and run, before running) reads the whole program first. An unknown name is found by its line, before anything happens.",
+        check: ({ compile }) => (compile('Set total to $18.50\nsay totl\n').diagnostics.some((d) => d.code === 'TC201') ? "Before it runs: it doesn't know what totl is" : 'Only when that line runs') },
+      { prompt: "Which test fails?", choices: ["small orders pay for delivery", "orders of $20 or more are free", "neither"], expect: "small orders pay for delivery",
+        explain: "The program gives $3.99 for a $5 order, but the test expected $2.99. thunder test shows both numbers and the line. Either the test or the program is wrong: a person decides which.",
+        check: ({ testCore }) => { const m = testCore(FEE_TESTS).stdout.match(/^FAIL {2}(.+?) \(/m); return m ? m[1] : 'neither'; } },
+    ],
+    questions: [
+      { q: "All your tests pass. Is the program right?", a: "It is right for the examples you wrote. Tests only cover what they check, which is why edge cases (like exactly $20) are worth a test of their own." },
+    ],
+  },
+  {
+    slug: "agent-why",
+    part: "write",
+    concept: "Reading what an AI agent did, and why it stopped",
+    title: "Ask what an AI agent did",
+    idea: "Agents leave a record of every step (an OpenTelemetry trace). thunder why run.json reads it and tells you in plain words what the agent did, what it changed, and why it stopped. When the record doesn't say whether a tool changes anything, Thunder guesses from the tool's name and says it guessed.",
+    picture: "A flight recorder, read back as a short story instead of a wall of numbers.",
+    commands: ["thunder why run.json"],
+    files: [{ language: "json", label: "run.json", code: AGENT_RUN }],
+    why: true,
+    show: "run",
+    quiz: [
+      { prompt: "How many times did the agent try to reach the payment service?", choices: ["3", "1", "0"], expect: "3",
+        explain: "Three POST requests in a row failed the same way, so Thunder shows them as one step with 3 tries.",
+        check: ({ why }) => String(why.problem.tries) },
+      { prompt: "How did Thunder decide that refund_payment changes something?", choices: ["From the tool's name (a guess)", "The tool declared it"], expect: "From the tool's name (a guess)",
+        explain: "The record does not say what the tool does, so Thunder used its name, and it says so. When a tool declares what it does (its MCP annotations), Thunder uses that instead.",
+        check: ({ why }) => (why.changes[0]?.basis === 'name' ? "From the tool's name (a guess)" : 'The tool declared it') },
+    ],
+    questions: [
+      { q: "The refund did not go through. Was the customer refunded?", a: "Thunder can't know: the record shows the requests failed, not what the payment service did. It says the step may have partly happened, so a person checks." },
+    ],
+  },
+];

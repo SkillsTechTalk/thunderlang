@@ -10,6 +10,9 @@ Part of [ThunderLang](https://thunderlang.dev), the intent language for AI-era s
 
 **Learn ThunderLang:** the [10-minute tutorial](https://thunderlang.dev/learn), then the
 [full course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
+The tutorial also ships in this package as data (`@skillstech/thunderlang/learn`): 12 lessons on reading code, and
+7 on writing and running Thunder programs, each naming the programming concept it teaches. Every quiz answer is
+worked out by the compiler, and for the writing lessons by running the program.
 
 ## Install
 
