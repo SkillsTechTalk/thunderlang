@@ -6,6 +6,27 @@
   suggest `thunder try`. `thunder try Mission.thunder` works on mission decisions: it asks for each value (or takes
   `--with "age=20"`), says the kind each value should be (worked out from the rules), and explains the answer in words
   ("age is at least 18 (age is 20)").
+- **Trademark marks.** Thunder™ and ThunderLang™ now carry ™ where the brand is shown prominently: the CLI's home
+  screen, `thunder --version`, `thunder help --all`, `thunder doctor`, the npm and VS Code descriptions (and the
+  extension's display name), the compiler README, and the site's logo and footer.
+- **Color in the terminal, and an easier full command list.** Screens people read (the home screen, `help`,
+  `doctor`, `new`, `why`, `try`, `read --level`, and the "did you mean" and "no project here" messages) use calm color:
+  green ✓, red ✗ only for real problems, yellow ! for warnings, commands to type in cyan, bold labels and headings.
+  Color is off for files, pipes, scripts, editors reading the output, `NO_COLOR`, and all JSON; `FORCE_COLOR=1` keeps
+  it. The words are identical with or without color (a test checks it). `thunder help --all` now starts with what most
+  people need (Start, Write and run programs, Read and understand code, Change code) and puts missions, proofs, and
+  editor tools under "Advanced"; every command is still listed. The home screen adds `thunder try`.
+- **Thunder Core compiles to TypeScript.** `thunder build --target typescript` (or `target = "typescript"` in
+  thunder.toml) writes one readable `.ts` file per Thunder file into `generated/typescript/`, with `// thunder:N` line
+  marks, the runtime, its types, and a `tsconfig.json`; `thunder run --target typescript` and `thunder test --target
+  typescript` run it on Node (Node 22.6+ strips the types itself; on an older Node, Thunder uses the `typescript`
+  package when it can find it, and otherwise says what is needed). One meaning: the runtime is the Thunder engine's own
+  value code (engine-values.mjs, byte for byte), and every Core test program now runs three ways (Python, the Thunder
+  engine, and compiled TypeScript), with the same output, errors, and exit status required: 136 programs on Node 18,
+  22, and 24. `tsc --strict` accepts the code generated for all of them. A program that uses a Python module (`Use`) is
+  refused for TypeScript before anything is written (new code TC405). The site lists Core → TypeScript as Available;
+  Java, C#, Go, and Rust stay Planned. CI now runs the compiler tests on Node 22, and the site job checks every
+  generated file with tsc.
 - **The tutorial teaches writing and running Thunder.** `@skillstech/thunderlang/learn` gains part 2, "write and run":
   seven lessons (`part: 'write'`), each naming the concept it teaches: your first program in two commands
   (`thunder new hello`, `thunder run hello`, and why a bare `thunder run` right after fails), conditions, loops and

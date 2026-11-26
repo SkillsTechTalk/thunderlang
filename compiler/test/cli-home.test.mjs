@@ -21,7 +21,7 @@ test('thunder with nothing shows a short home screen (exit code 2, as before); -
   const r = run([]);
   assert.equal(r.status, 2);
   assert.ok(r.stdout.split('\n').length <= 25, `home is ${r.stdout.split('\n').length} lines`);
-  assert.match(r.stdout, new RegExp(`^⚡ Thunder ${COMPILER_VERSION.replace(/\./g, '\\.')}: programming, made human\\.`));
+  assert.match(r.stdout, new RegExp(`^⚡ Thunder™ ${COMPILER_VERSION.replace(/\./g, '\\.')}: programming, made human\\.`));
   for (const s of ['thunder new hello', 'thunder run hello', 'thunder read app.py', 'thunder help --all', 'thunder doctor']) assert.ok(r.stdout.includes(s), s);
   assert.equal(run(['--help']).status, 0);
   assert.equal(run(['help']).stdout, r.stdout);
@@ -97,7 +97,7 @@ test('thunder doctor: what is ready, what is missing, and the exact fix (offline
   const cli = run(['doctor', '--json']);
   const j = JSON.parse(cli.stdout);
   assert.equal(cli.status, j.ok ? 0 : 1);
-  assert.match(run(['doctor']).stdout, /^Thunder doctor\n\n {2}✓ Thunder /);
+  assert.match(run(['doctor']).stdout, /^Thunder™ doctor\n\n {2}✓ Thunder /);
   assert.equal(run(['doctor', '--bogus']).status, 2);
 });
 

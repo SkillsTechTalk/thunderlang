@@ -17,7 +17,9 @@ import {
   pyLen, pyIter, pyList, add, sub, mul, neg, intMod, divide, modulo, roundTo, eq, compare, contains, pySort,
   attrErr, strMethod, splitLines, pySplit, pyStrip, jsonParse, jsonText, isInt, isNumber,
 } from './engine-values.mjs';
+import * as V from './engine-values.mjs';
 import { percentDecimal } from './target-python.mjs';
+import { firstLine } from './target-typescript.mjs';
 
 export const ENGINES = ['python', 'thunder'];
 
@@ -30,7 +32,7 @@ class Return { constructor(v) { this.v = v; } }
 const nativeOverflow = (e) => { try { return e instanceof RangeError || (e instanceof SyntaxError && e.message.endsWith('Stack overflow')); } catch { return true; } };
 class NeedsDeeperStack extends Error {}
 
-const MAX_FRAMES = 997; // as deep as the generated Python goes (recursion limit 1000, less its own frames)
+const MAX_FRAMES = V.MAX_FRAMES;
 
 /** The Python modules a program uses (Use), which this engine does not run. */
 export function pythonModulesUsed(results) {
@@ -102,18 +104,7 @@ class Engine {
     } finally { this.frames.pop(); }
   }
 
-  /** describe_error(error) in thunder_runtime.py. */
-  describeError(e) {
-    const where = e.where ?? [];
-    const inner = where[where.length - 1];
-    let message = explain(e);
-    let code = codeOf(e);
-    if (code === 'TC508' && !e.thunder) { message = `Python code used by this line failed: ${message}`; code = 'TC508'; }
-    let place = inner ? `${inner.file}, line ${inner.line}` : 'In the program';
-    const callers = where.slice(0, -1).map((f) => f.line);
-    if (callers.length && inner) place += ` (reached from line ${callers.reverse().join(', then line ')})`;
-    return `${place}: ${message}  [${code}]`;
-  }
+  describeError(e) { return V.describeError(e); }
 
   // ── calls ───────────────────────────────────────────────────────────────────────────────────────────────────
   call(fn, args) {
@@ -144,38 +135,19 @@ class Engine {
     });
   }
 
-  never(rule, value, env) {
-    if (truthy(this.x(rule.rule.cond, env, { subject: value }))) throw RuleBroken(`${rule.text} (the rule on line ${rule.line}), but the value is ${show(value)}.`);
-  }
+  never(rule, value, env) { V.never(this.x(rule.rule.cond, env, { subject: value }), rule.text, rule.line, value); }
 
-  newRecord(cls, given) {
-    const rec = new RecordVal(cls);
-    const missing = cls.fields.filter((f) => !given.has(f.py) && !['optional', 'list', 'map'].includes(f.type?.k));
-    if (missing.length) throw TypeErr(`${cls.py}.__init__() missing ${missing.length} required keyword-only argument${missing.length === 1 ? '' : 's'}: ${missing.map((f) => `'${f.py}'`).join(missing.length === 2 ? ' and ' : ', ')}`);
-    for (const f of cls.fields) {
-      const v = given.has(f.py) ? given.get(f.py) : f.type.k === 'optional' ? null : f.type.k === 'list' ? [] : new PyDict();
-      this.setAttr(rec, f.py, v);
-    }
-    return rec;
-  }
+  newRecord(cls, given) { return V.newRecordWith((o, k, v) => this.setAttr(o, k, v), cls, given); }
 
   /** obj.name = value (a record checks its Never rules first, as its __setattr__ does). */
   setAttr(obj, name, value) {
-    if (obj instanceof RecordVal) {
-      const env = { mod: obj.cls.mod, locals: new Map(), frame: this.frames[this.frames.length - 1] };
-      for (const rule of obj.cls.rules.get(name) ?? []) this.never(rule, value, env);
-      obj.f.set(name, value);
-      return;
-    }
-    if (obj instanceof Money) throw new PyErr('AttributeError', 'Money cannot be changed; make new money instead.');
-    throw attrErr(obj, name);
+    V.setAttrWith((rec) => {
+      const env = { mod: rec.cls.mod, locals: new Map(), frame: this.frames[this.frames.length - 1] };
+      for (const rule of rec.cls.rules.get(name) ?? []) this.never(rule, value, env);
+    }, obj, name, value);
   }
 
-  getAttr(obj, name) {
-    if (obj instanceof RecordVal && obj.f.has(name)) return obj.f.get(name);
-    if (obj instanceof Money && name === 'amount') return obj.amount;
-    throw attrErr(obj, name);
-  }
+  getAttr(obj, name) { return V.getAttr(obj, name); }
 
   // ── statements ──────────────────────────────────────────────────────────────────────────────────────────────
   block(body, env) { for (const s of body) this.stmt(s, env); }
@@ -343,135 +315,63 @@ class Engine {
 
   expect(s, env) {
     const text = (s.raw ?? 'Expect').trim();
-    if (s.mode === 'true') { if (this.x(s.e, env) !== true) throw ExpectationFailed(`${text}, but it was not true.`); return; }
+    if (s.mode === 'true') { V.expectTrue(this.x(s.e, env), text); return; }
     if (s.mode === 'fail') {
       const msg = s.msg ? this.x(s.msg, env) : null;
-      try { this.x(s.e, env); }
-      catch (e) {
-        if (e instanceof Return || e instanceof NeedsDeeperStack) throw e;
-        if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
-        const err = asPyErr(e);
-        if (err.thunder && msg !== null) {
-          if (typeof msg !== 'string') throw TypeErr(`'in <string>' requires string as left operand, not ${typeof msg === 'bigint' ? 'int' : 'object'}`);
-          if (!err.message.includes(msg)) throw ExpectationFailed(`${text}, but it failed with "${err.message}".`);
+      // A JavaScript stack overflow is not the program failing: let it reach the deeper-stack retry.
+      V.expectFailure(() => {
+        try { this.x(s.e, env); }
+        catch (e) {
+          if (e instanceof Return) return;
+          if (e instanceof NeedsDeeperStack) throw e;
+          if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
+          throw e;
         }
-        return;
-      }
-      throw ExpectationFailed(`${text}, but it did not fail.`);
+      }, text, msg);
+      return;
     }
     const actual = this.x(s.e, env);
-    let ok;
-    if (s.mode === 'cmp') ok = contains(actual, this.x(s.want, env));
-    else {
-      let c = s.check, negate = false;
-      if (c.k === 'not') { negate = true; c = c.e; }
-      let op, want = null;
-      const OPS = { '==': 'is', '!=': 'is not', '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' };
-      if (c.k === 'cmp') { op = OPS[c.op]; want = this.x(c.r, env); }
-      else if (c.k === 'adj') op = c.adj;
-      else if (c.k === 'isNothing') op = c.neg ? 'not nothing' : 'nothing';
-      else if (c.k === 'between') { op = 'between'; want = [this.x(c.lo, env), this.x(c.hi, env)]; }
-      else if (c.k === 'contains') { op = 'in'; want = this.x(c.l, env); }
-      else op = 'is';
-      const full = negate ? `not ${op}` : op;
-      const known = CHECKS[full];
-      ok = known ? known(actual, want) : !CHECKS[op](actual, want);
-    }
-    if (!ok) throw ExpectationFailed(`${text}, but it was ${show(actual)}.`);
+    if (s.mode === 'cmp') { V.expectValue(actual, 'contains', 'contains', this.x(s.want, env), text); return; }
+    let c = s.check, negate = false;
+    if (c.k === 'not') { negate = true; c = c.e; }
+    let op, want = null;
+    const OPS = { '==': 'is', '!=': 'is not', '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' };
+    if (c.k === 'cmp') { op = OPS[c.op]; want = this.x(c.r, env); }
+    else if (c.k === 'adj') op = c.adj;
+    else if (c.k === 'isNothing') op = c.neg ? 'not nothing' : 'nothing';
+    else if (c.k === 'between') { op = 'between'; want = [this.x(c.lo, env), this.x(c.hi, env)]; }
+    else if (c.k === 'contains') { op = 'in'; want = this.x(c.l, env); }
+    else op = 'is';
+    V.expectValue(actual, negate ? `not ${op}` : op, op, want, text);
   }
 
-  // ── runtime helpers that need the engine ────────────────────────────────────────────────────────────────────
+  // ── runtime helpers (shared with compiled TypeScript: engine-values.mjs) ────────────────────────────────────
   yn(e, env, ctx) {
     const v = this.x(e, env, ctx);
     const known = e.type?.k === 'bool' || ['cmp', 'contains', 'between', 'adj', 'isNothing', 'not', 'bool'].includes(e.k) || (e.k === 'bin' && (e.op === 'and' || e.op === 'or'));
     return known ? v : yesNo(v);
   }
 
-  rangeInt(v) {
-    if (typeof v === 'bigint') return v;
-    if (typeof v === 'boolean') return v ? 1n : 0n;
-    throw TypeErr(`'${v instanceof Dec ? 'decimal.Decimal' : v === null ? 'NoneType' : v instanceof Money ? 'Money' : typeof v === 'string' ? 'str' : 'object'}' object cannot be interpreted as an integer`);
-  }
-
-  unpack2(el) {
-    const items = Array.isArray(el) ? el : el instanceof Tuple ? el.items : typeof el === 'string' ? Array.from(el) : el instanceof PyDict ? el.keys() : null;
-    if (!items) throw TypeErr(`cannot unpack non-iterable ${el === null ? 'NoneType' : isInt(el) ? 'int' : el instanceof Dec ? 'decimal.Decimal' : typeof el === 'boolean' ? 'bool' : 'object'} object`);
-    if (items.length < 2) throw new PyErr('ValueError', `not enough values to unpack (expected 2, got ${items.length})`);
-    if (items.length > 2) throw new PyErr('ValueError', `too many values to unpack (expected 2, got ${items.length})`);
-    return items;
-  }
-
-  mapItems(m) { if (!(m instanceof PyDict)) throw attrErr(m, 'items'); return m.items(); }
-  pairsOf(c) { return c instanceof PyDict ? c.items() : pyList(c); }
+  rangeInt(v) { return V.rangeInt(v); }
+  unpack2(el) { return V.unpack2(el); }
+  mapItems(m) { return V.mapItems(m); }
+  pairsOf(c) { return V.pairsOf(c); }
 
   keyFn(field, env) {
     const frame = { file: env.frame.file, line: env.frame.line };
     return (item) => this.withFrame(frame, () => (field.dynamic ? this.getField(item, field.key) : this.getAttr(item, field.py)));
   }
 
-  itemAt(items, position, dflt) {
-    if (typeof position !== 'bigint') throw KindMismatch(`A position in a list is a whole number, not ${describe(position)}.`);
-    const list = Array.isArray(items) ? items : items instanceof Tuple ? items.items : null;
-    if (!list) throw TypeErr(`object of type '${items === null ? 'NoneType' : 'object'}' has no len()`);
-    if (position >= 1n && position <= BigInt(list.length)) return list[Number(position) - 1];
-    if (dflt !== undefined) return dflt;
-    throw MissingValue(`There is no item ${position}: the list has ${list.length} item${list.length === 1 ? '' : 's'}.`);
-  }
-  setItem(items, position, value) { this.itemAt(items, position); items[Number(position) - 1] = value; }
-  mapSet(m, k, v) {
-    if (m instanceof PyDict) { m.set(k, v); return; }
-    if (m === null) throw TypeErr("'NoneType' object does not support item assignment");
-    if (Array.isArray(m)) { this.setItem(m, k, v); return; }
-    throw TypeErr(`'${m instanceof Money ? 'Money' : 'object'}' object does not support item assignment`);
-  }
-  setEntry(c, k, v) {
-    if (Array.isArray(c)) this.setItem(c, k, v);
-    else if (c instanceof PyDict) c.set(k, v);
-    else if (c === null) throw MissingValue(`This value is nothing, so it has no entry for ${show(k)}.`);
-    else throw KindMismatch(`${describe(c)} has no entries that can be changed.`);
-  }
-  entry(c, k, dflt) {
-    if (Array.isArray(c) || c instanceof Tuple) return this.itemAt(c, k, dflt);
-    if (c instanceof PyDict) { if (c.has(k)) return c.get(k); if (dflt !== undefined) return dflt; throw MissingValue(`There is no entry for ${show(k)}.`); }
-    if (c === null) throw MissingValue(`This value is nothing, so it has no entry for ${show(k)}.`);
-    throw KindMismatch(`${describe(c)} has no entries.`);
-  }
-  mapGet(m, k, dflt) {
-    if (m instanceof PyDict) { if (m.has(k)) return m.get(k); if (dflt !== undefined) return dflt; throw new PyErr('KeyError', pyStr(k), [k]); }
-    if (m === null) throw dflt !== undefined ? attrErr(m, 'get') : TypeErr("'NoneType' object is not subscriptable");
-    if (dflt !== undefined) throw attrErr(m, 'get');
-    if (Array.isArray(m)) { const i = Number(k); if (typeof k === 'bigint' && i >= -m.length && i < m.length) return m.at(i); throw new PyErr('IndexError', 'list index out of range'); }
-    throw TypeErr(`'${m instanceof Money ? 'Money' : 'object'}' object is not subscriptable`);
-  }
-
-  getField(obj, key) {
-    if (obj === null) throw MissingValue(`This value is nothing, so it has no ${key}.`);
-    const names = [key, key.replace(/ /g, '_'), key.toLowerCase(), key.toLowerCase().replace(/ /g, '_')];
-    if (obj instanceof PyDict) {
-      for (const k of names) if (obj.has(k)) return obj.get(k);
-      for (const [k, v] of obj.m.values()) if (pyStrip(pyStr(k)).toLowerCase() === key.toLowerCase()) return v;
-      throw MissingValue(`There is no field "${key}". Fields here: ${obj.keys().map(pyStr).join(', ')}.`);
-    }
-    for (const k of names) {
-      if (obj instanceof RecordVal && obj.f.has(k)) return obj.f.get(k);
-      if (obj instanceof Money && k === 'amount') return obj.amount;
-    }
-    throw MissingValue(`${describe(obj)} has no field "${key}".`);
-  }
-  setField(obj, key, value) {
-    if (obj instanceof PyDict) { obj.set(key, value); return; }
-    const names = [key, key.replace(/ /g, '_'), key.toLowerCase(), key.toLowerCase().replace(/ /g, '_')];
-    for (const k of names) if (obj instanceof RecordVal && obj.f.has(k)) { this.setAttr(obj, k, value); return; }
-    throw MissingValue(`${describe(obj)} has no field "${key}".`);
-  }
-
-  addTo(target, value) { if (Array.isArray(target)) { target.push(value); return target; } return add(target, value); }
-  removeFrom(target, value) {
-    if (target instanceof PyDict) { if (!target.has(value)) throw MissingValue(`There is no entry for ${show(value)} to remove.`); target.delete(value); return; }
-    if (!contains(target, value)) throw MissingValue(`${show(value)} is not in the list, so it can't be removed.`);
-    if (!Array.isArray(target)) throw attrErr(target, 'remove');
-    target.splice(target.findIndex((x) => x === value || eq(x, value)), 1);
-  }
+  itemAt(items, position, dflt) { return V.itemAt(items, position, dflt); }
+  setItem(items, position, value) { V.setItem(items, position, value); }
+  mapSet(m, k, v) { V.mapSet(m, k, v); }
+  setEntry(c, k, v) { V.setEntry(c, k, v); }
+  entry(c, k, dflt) { return V.entry(c, k, dflt); }
+  mapGet(m, k, dflt) { return V.mapGet(m, k, dflt); }
+  getField(obj, key) { return V.getField(obj, key); }
+  setField(obj, key, value) { V.setFieldWith((o, k, v) => this.setAttr(o, k, v), obj, key, value); }
+  addTo(target, value) { return V.addTo(target, value); }
+  removeFrom(target, value) { V.removeFrom(target, value); }
 
   // ── expressions ─────────────────────────────────────────────────────────────────────────────────────────────
   x(e, env, ctx = {}) {
@@ -515,12 +415,12 @@ class Engine {
         const v = sub2(e.e);
         switch (e.to) {
           case 'list': return pyList(v);
-          case 'number': return toNumber(v);
-          case 'whole': return toWhole(v);
-          case 'money': return toMoney(v);
+          case 'number': return V.toNumber(v);
+          case 'whole': return V.toWhole(v);
+          case 'money': return V.toMoney(v);
           case 'text': return show(v);
-          case 'bool': return toYesNo(v);
-          case 'date': return toDate(v);
+          case 'bool': return V.toYesNo(v);
+          case 'date': return V.toDate(v);
           default: return v;
         }
       }
@@ -565,16 +465,11 @@ class Engine {
       }
       case 'between': { const lo = sub2(e.lo), v = sub2(e.e); if (!compare('<=', lo, v)) return false; return compare('<=', v, sub2(e.hi)); }
       case 'contains': { const item = sub2(e.r); return contains(sub2(e.l), item); }
-      case 'affix': {
-        const t = sub2(e.l), a = sub2(e.r);
-        const what = e.end ? '"ends with"' : '"starts with"';
-        textOf(t, what); textOf(a, what);
-        return e.end ? t.endsWith(a) : t.startsWith(a);
-      }
+      case 'affix': return V.affix(sub2(e.l), sub2(e.r), e.end);
       case 'sortedValues': return pySort(pyList(sub2(e.list)), null, !!e.desc);
-      case 'joined': return joined(sub2(e.list), sub2(e.sep));
-      case 'splitAt': return splitAt(sub2(e.text), sub2(e.sep));
-      case 'replacing': return replacing(sub2(e.text), sub2(e.from), sub2(e.to));
+      case 'joined': return V.joined(sub2(e.list), sub2(e.sep));
+      case 'splitAt': return V.splitAt(sub2(e.text), sub2(e.sep));
+      case 'replacing': return V.replacing(sub2(e.text), sub2(e.from), sub2(e.to));
       case 'adj': {
         const v = sub2(e.e);
         if (e.adj === 'empty') return eq(pyLen(v), 0n);
@@ -585,45 +480,9 @@ class Engine {
     }
   }
 
-  op(op, a) {
-    switch (op) {
-      case 'sum': return totalOf(pyList(a));
-      case 'average': { const items = pyList(a); if (!items.length) throw MissingValue("I can't take the average of an empty list."); return divide(totalOf(items), BigInt(items.length)); }
-      case 'count': case 'length': return pyLen(a);
-      case 'min': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no smallest item.'); return items.reduce((best, x) => (compare('<', x, best) ? x : best)); }
-      case 'max': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no largest item.'); return items.reduce((best, x) => (compare('>', x, best) ? x : best)); }
-      case 'first': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no first item.'); return items[0]; }
-      case 'last': { const items = pyList(a); if (!items.length) throw MissingValue('An empty list has no last item.'); return items[items.length - 1]; }
-      case 'words': return pySplit(pyStr(a)).map((p) => stripPunct(p)).filter(Boolean);
-      case 'lines': return splitLines(strMethod(a, 'splitlines'));
-      case 'lowercase': return strMethod(a, 'lower').toLowerCase();
-      case 'uppercase': return strMethod(a, 'upper').toUpperCase();
-      case 'trimmed': return pyStrip(strMethod(a, 'strip'));
-      case 'parts': return pySplit(textOf(a, '"the parts of"'));
-      case 'abs': {
-        if (a instanceof Money) return new Money(a.amount.abs());
-        if (typeof a === 'boolean' || !(isNumber(a))) throw KindMismatch(`"the absolute value of" needs a number or money, but it is ${describe(a)}.`);
-        return typeof a === 'bigint' ? (a < 0n ? -a : a) : a.abs();
-      }
-      case 'jsonText': return jsonText(a);
-      case 'jsonData': return jsonParse(textOf(a, '"the JSON data in"'));
-      case 'keys': if (!(a instanceof PyDict)) throw attrErr(a, 'keys'); return a.keys();
-      case 'values': if (!(a instanceof PyDict)) throw attrErr(a, 'values'); return a.values();
-      default: throw new PyErr('NameError', `name '${op}' is not defined`);
-    }
-  }
+  op(op, a) { return V.applyOp(op, a); }
 
-  readFile(path) {
-    if (typeof path !== 'string') throw TypeErr(`expected str, bytes or os.PathLike object, not ${path === null ? 'NoneType' : 'object'}`);
-    try {
-      if (!this.readText) throw Object.assign(new Error('no files here'), { code: 'ENOENT' });
-      return this.readText(path, this.cwd);
-    }
-    catch (err) {
-      if (err.code === 'ENOENT') throw MissingValue(`There is no file "${path}" (looked in the folder the program runs in).`);
-      throw new PyErr(err.code === 'EISDIR' ? 'IsADirectoryError' : 'OSError', err.message);
-    }
-  }
+  readFile(path) { return V.readTextVia(this.readText, this.cwd, path); }
 
   /** Text with {holes}: text and whole numbers as they are, anything else shown the Thunder way. */
   str(e, env, ctx) {
@@ -655,115 +514,6 @@ class Engine {
   }
 }
 
-/** The Thunder line of the first generated line of a function, or null when that line carries no mark. */
-function firstLine(f) {
-  if (f.params.some((p) => p.dflt?.k === 'name')) return null;
-  const ruled = f.params.find((p) => p.rules?.length);
-  if (ruled) return ruled.line;
-  const s = f.body[0];
-  if (!s) return null;
-  return s.k === 'if' ? s.branches[0].line : s.line;
-}
-
-const CHECKS = {
-  is: (a, b) => eq(a, b),
-  'is not': (a, b) => !eq(a, b),
-  'at least': (a, b) => compare('>=', a, b),
-  'at most': (a, b) => compare('<=', a, b),
-  'more than': (a, b) => compare('>', a, b),
-  'less than': (a, b) => compare('<', a, b),
-  nothing: (a) => a === null,
-  'not nothing': (a) => a !== null,
-  empty: (a) => eq(pyLen(a), 0n),
-  positive: (a) => compare('>', a, 0n),
-  negative: (a) => compare('<', a, 0n),
-  zero: (a) => eq(a, 0n),
-  between: (a, b) => compare('<=', b[0], a) && compare('<=', a, b[1]),
-  in: (a, b) => contains(b, a),
-  contains: (a, b) => contains(a, b),
-};
-
-// ── conversions and text helpers (thunder_runtime.py) ──────────────────────────────────────────────────────────
-
-const NUMBER = /^[+-]?(\d[\d_]*)(\.\d+)?$/;
-
-function toNumber(x) {
-  if (isNumber(x)) return x;
-  if (x instanceof Money) return x.amount;
-  if (typeof x === 'string') {
-    const s = pyStrip(x).replace(/,/g, '');
-    if (NUMBER.test(s)) return s.includes('.') ? Dec.parse(s) : BigInt(s.replace(/_/g, ''));
-  }
-  throw ConversionFailed(`${describe(x)} is not a number.`);
-}
-function toWhole(x) {
-  const n = toNumber(x);
-  if (typeof n === 'bigint') return n;
-  if (n.isIntegral()) return n.toBigInt();
-  throw ConversionFailed(`${show(n)} is not a whole number.`);
-}
-function toMoney(x) {
-  if (x instanceof Money) return x;
-  if (typeof x === 'string') {
-    let s = pyStrip(x).replace(/,/g, '');
-    const negative = s.startsWith('-');
-    s = s.replace(/^-+/, '').replace(/^\$+/, '');
-    if (NUMBER.test(s)) return Money.of((negative ? '-' : '') + s);
-    throw ConversionFailed(`${describe(x)} is not an amount of money.`);
-  }
-  return new Money(toDec(toNumber(x)));
-}
-function toYesNo(x) {
-  if (typeof x === 'boolean') return x;
-  if (typeof x === 'string' && ['yes', 'true'].includes(pyStrip(x).toLowerCase())) return true;
-  if (typeof x === 'string' && ['no', 'false'].includes(pyStrip(x).toLowerCase())) return false;
-  throw ConversionFailed(`${describe(x)} is not yes or no.`);
-}
-function toDate(x) {
-  if (x instanceof PyDate) return x;
-  const d = PyDate.parse(pyStrip(pyStr(x)));
-  if (d) return d;
-  throw ConversionFailed(`${describe(x)} is not a date (write it as YYYY-MM-DD).`);
-}
-
-function totalOf(items) {
-  if (!items.length) return 0n;
-  let result = items[0];
-  for (const x of items.slice(1)) result = add(result, x);
-  return result;
-}
-function textOf(v, what) {
-  if (typeof v !== 'string') throw KindMismatch(`${what} needs text, but it is ${describe(v)}.`);
-  return v;
-}
-function joined(items, sep) {
-  sep = textOf(sep, '"joined with"');
-  const out = [];
-  pyIter(items).forEach((x, i) => {
-    if (typeof x !== 'string') throw KindMismatch(`"joined with" joins text, but item ${i + 1} is ${describe(x)}. Turn it into text first.`);
-    out.push(x);
-  });
-  return out.join(sep);
-}
-function splitAt(text, sep) {
-  sep = textOf(sep, '"split at"');
-  if (sep === '') throw KindMismatch('"split at" needs something to split at, not empty text.');
-  return textOf(text, '"split at"').split(sep);
-}
-function replacing(text, old, nw) {
-  old = textOf(old, '"replacing"');
-  if (old === '') throw KindMismatch('"replacing" needs something to replace, not empty text.');
-  const t = textOf(text, '"replacing"');
-  return t.split(old).join(textOf(nw, '"replacing … with"'));
-}
-const PUNCT = new Set(Array.from(".,;:!?\"'()[]{}<>“”‘’…-"));
-function stripPunct(w) {
-  const a = Array.from(w);
-  let i = 0, j = a.length;
-  while (i < j && PUNCT.has(a[i])) i++;
-  while (j > i && PUNCT.has(a[j - 1])) j--;
-  return a.slice(i, j).join('');
-}
 
 // ── public API ─────────────────────────────────────────────────────────────────────────────────────────────────
 

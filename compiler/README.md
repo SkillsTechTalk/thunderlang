@@ -1,6 +1,6 @@
 # @skillstech/thunderlang
 
-Deterministic ThunderLang compiler and CLI. **No AI required.** Turns a `.intent` file into
+Deterministic ThunderLang™ compiler and CLI for Thunder™, the human programming language. **No AI required.** Turns a `.intent` file into
 the canonical **Intent Graph** plus diagnostics, docs, a test plan, and a proof artifact,
 and, for decisions, lifecycles, and outcomes, **executes the intent directly** (no code
 generated). Every output is pure and deterministic: the same source always yields the same

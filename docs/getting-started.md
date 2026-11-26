@@ -10,8 +10,15 @@ Want to learn the language itself first? Take the [10-minute tutorial](https://t
 
 ```bash
 npm install -g @skillstech/thunderlang
-thunder help
+thunder              # the main things to do, with examples
+thunder doctor       # is everything ready?
+thunder help --all   # every command
 ```
+
+In a terminal, Thunder uses a little color to make screens easy to scan: green ✓ for what worked, red ✗ only for
+real problems, yellow for warnings, and commands to type in cyan. Every mark also has its words, so nothing depends
+on color. Output to a file, a pipe, a script, or `--json` has no color; set `NO_COLOR=1` to turn it off everywhere, or
+`FORCE_COLOR=1` to keep it when piping.
 
 No install needed to try it: prefix any command with `npx -y @skillstech/thunderlang` (for
 example `npx -y @skillstech/thunderlang help`).
