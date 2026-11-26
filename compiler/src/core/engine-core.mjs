@@ -18,6 +18,7 @@ import {
   attrErr, strMethod, splitLines, pySplit, pyStrip, jsonParse, jsonText, isInt, isNumber,
 } from './engine-values.mjs';
 import * as V from './engine-values.mjs';
+import { shownText, copyValue, typedNumber, problemText } from './screen-values.mjs';
 import { percentDecimal } from './target-python.mjs';
 import { firstLine } from './target-typescript.mjs';
 
@@ -319,6 +320,7 @@ class Engine {
         return;
       }
       case 'do': this.x(s.e, env); return;
+      case 'open': env.opens = s.name; return;
       case 'tryFail':
         try { this.stmt(s.stmt, env); }
         catch (e) {
@@ -622,6 +624,228 @@ export function testInProcess({ results, cwd, deeper = false, readText = null } 
   const total = passed + failed;
   eng.out.push(`${total} test${total === 1 ? '' : 's'}: ${passed} passed, ${failed} failed\n`);
   return { status: failed ? 1 : 0, stdout: eng.out.join(''), stderr: '' };
+}
+
+// ── screens ────────────────────────────────────────────────────────────────────────────────────────────────────
+//
+// A screen is shown as a tree of plain values (the same tree compiled React's HTML is read back into by the
+// conformance tests), and changed one event at a time: a press runs its steps on copies of the remembered values
+// and keeps them only if every step works; typing sets the box's value. Each shown screen remembers its own values,
+// by its place on the screen (as React keeps a component's state by its place), and forgets them when it goes away.
+//
+//   { k: 'screen', name, children: [...] }       a screen (the app's, or one shown inside another)
+//   { k: 'heading', text }   { k: 'text', text }   { k: 'row', children }   { k: 'list', items: [[...], ...] }
+//   { k: 'textbox' | 'numberbox', label, value }   { k: 'button', label, off }
+//   { k: 'problem', text }                         what the last press or typing on this screen said, when it failed
+//   { k: 'failed', text }                          the app could not be shown (the same message thunder run gives)
+
+class ScreenApp {
+  constructor(eng, entry) {
+    this.eng = eng;
+    this.entry = entry;
+    this.screens = new Map(entry.info.screens.map((s) => [s.name, s]));
+    this.current = entry.info.screens[0] ?? null;
+    this.places = new Map(); // place -> { values: Map(py -> value), problem }
+    this.handlers = [];
+    try { this.mod = eng.load(entry); } catch (e) { this.loadFailed = e; }
+  }
+
+  /** The app as it is now, as a tree. */
+  render() {
+    this.handlers = [];
+    if (this.loadFailed) return { k: 'failed', text: this.eng.describeError(asPyErr(this.loadFailed)) };
+    if (!this.current) return { k: 'failed', text: 'This program has no Screen to show.' };
+    const seen = new Set();
+    try {
+      const tree = this.screen(this.current, new Map(), this.current.name, seen);
+      for (const k of [...this.places.keys()]) if (!seen.has(k)) this.places.delete(k); // gone: forgotten
+      return tree;
+    } catch (e) {
+      if (e instanceof NeedsDeeperStack) throw e;
+      this.places.clear();
+      return { k: 'failed', text: this.eng.describeError(asPyErr(e)) };
+    }
+  }
+
+  /** One screen at a place: its inputs (given, or their defaults), its remembered values, and what it shows. */
+  screen(s, given, place, seen) {
+    seen.add(place);
+    const eng = this.eng;
+    const frame = { file: this.mod.file, line: s.line };
+    // A screen shown inside another is shown on its own (as React renders each component by itself).
+    const saved = eng.frames;
+    eng.frames = [];
+    try {
+      return eng.withFrame(frame, () => {
+        const env = { mod: this.mod, locals: new Map(), frame };
+        for (const p of s.params) {
+          if (given.has(p.py)) env.locals.set(p.py, given.get(p.py));
+          else { frame.line = p.line; env.locals.set(p.py, p.dflt ? eng.x(p.dflt, env) : null); }
+        }
+        let st = this.places.get(place);
+        if (!st) {
+          const values = new Map();
+          st = { values, problem: null };
+          for (const r of s.remember) { frame.line = r.line; const v = eng.x(r.e, env); values.set(r.py, v); env.locals.set(r.py, v); }
+          this.places.set(place, st);
+        }
+        for (const [k, v] of st.values) env.locals.set(k, v);
+        const children = this.elements(s.body, env, s, place, st, seen);
+        if (st.problem !== null) children.push({ k: 'problem', text: st.problem });
+        return { k: 'screen', name: s.text, children };
+      });
+    } finally { eng.frames = saved; }
+  }
+
+  elements(els, env, s, place, st, seen) {
+    const eng = this.eng;
+    const fr = env.frame;
+    const out = [];
+    els.forEach((el, i) => {
+      const at = `${place}/${i}`;
+      fr.line = el.line;
+      switch (el.k) {
+        case 'heading': out.push({ k: 'heading', text: shownText(eng.x(el.e, env), el.e.type?.k) }); return;
+        case 'text': out.push({ k: 'text', text: shownText(eng.x(el.e, env), el.e.type?.k) }); return;
+        case 'when': {
+          for (let b = 0; b < el.branches.length; b++) {
+            fr.line = el.branches[b].line;
+            if (eng.yn(el.branches[b].cond, env)) { out.push(...this.elements(el.branches[b].body, env, s, `${at}.${b}`, st, seen)); return; }
+          }
+          if (el.otherwise) out.push(...this.elements(el.otherwise, env, s, `${at}.else`, st, seen));
+          return;
+        }
+        case 'list': {
+          const items = pyIter(eng.x(el.iter, env));
+          out.push({ k: 'list', items: items.map((item, n) => {
+            const inner = { ...env, locals: new Map(env.locals) };
+            inner.locals.set(el.v.py, item);
+            return this.elements(el.body, inner, s, `${at}#${n}`, st, seen);
+          }) });
+          return;
+        }
+        case 'row': out.push({ k: 'row', children: this.elements(el.body, env, s, at, st, seen) }); return;
+        case 'textbox': case 'numberbox': {
+          const label = pyStr(eng.x(el.label, env));
+          const v = env.locals.get(el.target.ref.py);
+          out.push({ k: el.k, label, value: el.k === 'textbox' ? pyStr(v) : show(v) });
+          this.handlers.push({ kind: 'box', label, type: (text) => {
+            try { st.values.set(el.target.ref.py, el.k === 'textbox' ? String(text) : typedNumber(text, el.boxKind)); st.problem = null; }
+            catch (e) { st.problem = problemText(e); }
+          } });
+          return;
+        }
+        case 'button': {
+          const label = pyStr(eng.x(el.label, env));
+          fr.line = el.line;
+          const off = el.off ? eng.yn(el.off, env) : false;
+          out.push({ k: 'button', label, off });
+          const locals = new Map(env.locals);
+          this.handlers.push({ kind: 'button', label, off, press: () => this.press(el, locals, st) });
+          return;
+        }
+        case 'child': {
+          const target = this.screens.get(el.screen.name);
+          const given = new Map();
+          for (const g of el.given) { fr.line = g.line; given.set(g.py, eng.x(g.e, env)); }
+          out.push(this.screen(target, given, `${at}:${target.name}`, seen));
+          return;
+        }
+        default: return;
+      }
+    });
+    return out;
+  }
+
+  /** A press: its steps run on copies of the screen's remembered values; they are kept only if every step works. */
+  press(el, locals, st) {
+    let opens = el.opens?.name ?? null;
+    if (el.press) {
+      const eng = this.eng;
+      const frame = { file: this.mod.file, line: el.press.line };
+      const env = { mod: this.mod, locals: new Map(locals), frame, opens: null };
+      for (const [k, v] of st.values) env.locals.set(k, copyValue(v));
+      try {
+        eng.withFrame(frame, () => eng.block(el.press.body, env));
+      } catch (e) {
+        if (e instanceof NeedsDeeperStack) throw e;
+        st.problem = problemText(e);
+        return;
+      }
+      for (const k of st.values.keys()) st.values.set(k, env.locals.get(k));
+      st.problem = null;
+      opens = env.opens ?? opens;
+    }
+    if (opens && opens !== this.current.name) { this.current = this.screens.get(opens); this.places.clear(); }
+  }
+
+  /** The button or box with this label (the nth one, from 1, when several have it). */
+  find(kind, label, nth = 1) {
+    const all = this.handlers.filter((h) => h.kind === kind && h.label === label);
+    const h = all[nth - 1];
+    if (!h) {
+      const labels = [...new Set(this.handlers.filter((x) => x.kind === kind).map((x) => `"${x.label}"`))];
+      throw new Error(`There is no ${kind === 'box' ? 'box' : 'button'} "${label}" on the screen${all.length ? ` (only ${all.length})` : ''}.${labels.length ? ` There is ${labels.join(', ')}.` : ''}`);
+    }
+    return h;
+  }
+}
+
+/**
+ * Show a program's screens and change them one event at a time, on the Thunder engine:
+ *   const app = screenApp({ entry }); app.render() -> tree; app.press("Add"); app.type("Name", "Ada"); app.render()
+ * A press on a button that is off does nothing (and says so). Each event is followed by a render, as in React.
+ */
+export function screenApp({ entry, cwd = '.', readText = null } = {}) {
+  const app = new ScreenApp(new Engine({ cwd, readText }), entry);
+  let tree = app.render();
+  return {
+    render: () => tree,
+    get screen() { return app.current?.text ?? null; },
+    press(label, nth = 1) {
+      const h = app.find('button', label, nth);
+      if (h.off) return { off: true, tree };
+      h.press();
+      tree = app.render();
+      return { off: false, tree };
+    },
+    type(label, text, nth = 1) {
+      app.find('box', label, nth).type(text);
+      tree = app.render();
+      return { tree };
+    },
+  };
+}
+
+/** A screen tree as an outline people read (thunder run). */
+export function screenOutline(tree, indent = '') {
+  const L = [];
+  const q = (t) => JSON.stringify(t);
+  const walk = (n, ind) => {
+    switch (n.k) {
+      case 'failed': L.push(`${ind}✗ The screen could not be shown: ${n.text}`); return;
+      case 'screen': L.push(`${ind}Screen ${q(n.name)}`); for (const c of n.children) walk(c, `${ind}  `); return;
+      case 'heading': L.push(`${ind}Heading: ${n.text}`); return;
+      case 'text': L.push(`${ind}${n.text}`); return;
+      case 'row': L.push(`${ind}Row:`); for (const c of n.children) walk(c, `${ind}  `); return;
+      case 'list':
+        if (!n.items.length) { L.push(`${ind}List: (no items)`); return; }
+        L.push(`${ind}List:`);
+        for (const item of n.items) {
+          const start = L.length;
+          for (const c of item) walk(c, `${ind}    `);
+          if (L.length > start) L[start] = `${ind}  • ${L[start].slice(ind.length + 4)}`; else L.push(`${ind}  •`);
+        }
+        return;
+      case 'textbox': L.push(`${ind}Text box ${q(n.label)}: ${q(n.value)}`); return;
+      case 'numberbox': L.push(`${ind}Number box ${q(n.label)}: ${n.value}`); return;
+      case 'button': L.push(`${ind}Button ${q(n.label)}${n.off ? ' (off)' : ''}`); return;
+      case 'problem': L.push(`${ind}! ${n.text}`); return;
+      default: return;
+    }
+  };
+  walk(tree, indent);
+  return L.join('\n');
 }
 
 /**

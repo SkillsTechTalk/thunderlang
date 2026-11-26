@@ -1,0 +1,32 @@
+# Each screen shown inside another remembers its own values, by its place, and forgets them when it goes away.
+# do: press "Like" 1
+# do: press "Like" 1
+# do: press "Like" 2
+# do: press "Hide the first"
+# do: press "Show the first"
+# do: press "Like" 3
+
+Screen Board:
+  Remember first shown starting at yes
+  When first shown:
+    Show Card:
+      title: "First"
+    Show a button "Hide the first":
+      When pressed:
+        Set first shown to no
+  Otherwise:
+    Show a button "Show the first":
+      When pressed:
+        Set first shown to yes
+  Show a list with each title in ["Second", "Third"]:
+    Show Card:
+      title: title
+
+Screen Card:
+  Receive title as text
+  Remember likes starting at 0
+  Show a heading: title
+  Show "{likes} likes"
+  Show a button "Like":
+    When pressed:
+      Increase likes by 1

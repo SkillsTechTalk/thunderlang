@@ -46,6 +46,12 @@ export function pyName(key, style = 'snake') {
   return n;
 }
 
+/** The closest name, also when two letters are swapped ("cuont" for "count"). */
+function nearName(word, options) {
+  const sorted = (w) => [...w].sort().join('');
+  return closest(word, options) ?? options.find((o) => o.length === word.length && sorted(o) === sorted(word)) ?? null;
+}
+
 class Scope {
   constructor(parent, kind) { this.parent = parent; this.kind = kind; this.vars = new Map(); }
   get(key) { return this.vars.get(key) ?? this.parent?.get(key); }
@@ -68,7 +74,8 @@ class Checker {
     this.rules = []; // top-level and record Never rules
     this.mainNames = new Map(); // key -> first line it is set in the main program
     this.elem = []; // stack of { type } for where / from / sorted
-    this.info = { records: [], funcs: [], consts: [], modules: [], tests: [], rules: [], usesDecimal: false };
+    this.info = { records: [], funcs: [], consts: [], modules: [], tests: [], rules: [], screens: [], usesDecimal: false };
+    this.screens = new Map(); // key -> screen stmt
   }
   err(code, line, msg, hint) { this.d.push(diag(code, line, msg, hint)); }
 
@@ -87,6 +94,11 @@ class Checker {
       if (s.k === 'record') this.declare(s, 'record', s.line, { py: pyName(s.name, 'pascal'), stmt: s });
       else if (s.k === 'func') this.declare(s, 'func', s.line, { py: pyName(s.name), stmt: s, ret: UNKNOWN });
       else if (s.k === 'use') this.declare(s, 'module', s.line, { py: pyName(s.name), module: s.module, type: T('module') });
+      else if (s.k === 'screen') {
+        const prev = this.screens.get(s.name);
+        if (prev) this.err('TC203', s.line, `There is already a screen called "${s.text}" (line ${prev.line}).`, 'Give one of them a different name.');
+        else { this.screens.set(s.name, s); s.py = pyName(s.name, 'pascal'); for (const p of s.params) p.py = pyName(p.name); }
+      }
     }
     for (const s of top) if (s.k === 'record') this.checkRecordShape(s);
     collectMainNames(top, this.mainNames);
@@ -103,9 +115,14 @@ class Checker {
     // 4. Functions, then tests, then the main program.
     for (const s of top) if (s.k === 'func') this.checkFunc(s);
     for (const s of top) if (s.k === 'test') { s.py = `test_${pyName(s.title.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() || 'unnamed')}`.replace(/_+$/, ''); this.uniqueTestName(s); const sc = new Scope(this.global, 'test'); this.block(s.body, sc, { inTest: true }); this.info.tests.push(s); }
+    for (const s of this.screens.values()) this.checkScreen(s);
+    this.info.screens = [...this.screens.values()];
+    const first = this.info.screens[0];
+    const needs = first ? first.params.filter((p) => !p.dflt) : [];
+    if (needs.length) this.err('TC214', first.line, `"${first.text}" is the first screen, where the app starts, so nothing gives it ${needs.map((p) => p.text).join(', ')}.`, `Put the screen the app starts on first, or give ${needs.length === 1 ? 'the input' : 'each input'} a value for when it isn't given: Receive ${needs[0].text} (… if not given).`);
     const main = new Scope(this.global, 'main');
     this.mainScope = main;
-    const mainBody = top.filter((s) => !['record', 'func', 'use', 'keep', 'never', 'test'].includes(s.k));
+    const mainBody = top.filter((s) => !['record', 'func', 'use', 'keep', 'never', 'test', 'screen'].includes(s.k));
     this.block(mainBody, main, {});
     this.p.main = mainBody;
     this.info.records = [...this.records.values()];
@@ -219,7 +236,18 @@ class Checker {
 
   stmt(s, sc, ctx) {
     const line = s.line;
+    if (ctx.inPress && (s.k === 'say' || s.k === 'give' || s.k === 'expect')) {
+      const word = { say: 'Say', give: 'Give', expect: 'Expect' }[s.k];
+      this.err('TC407', line, `"${word}" can't run when a button is pressed.`, s.k === 'say' ? 'A screen shows things instead: Remember a value, set it here, and Show it on the screen.' : s.k === 'give' ? 'A button gives nothing back. Set a remembered value instead.' : 'Expect lines go in a "Test" block.');
+      return;
+    }
     switch (s.k) {
+      case 'open': {
+        if (!ctx.inPress) { this.err('TC402', line, '"Open" is a step for a button: under "When pressed:".'); return; }
+        this.screenRef(s, line);
+        return;
+      }
+      case 'screen': this.err('TC402', line, 'A "Screen" must be written at the left edge of the file.'); return;
       case 'say': this.ex(s.e, sc); return;
       case 'set': return this.checkSet(s, sc, ctx);
       case 'keep': this.err('TC402', line, '"Keep" is written at the left edge of the file, not inside a block.', 'Keep values are fixed for the whole program.'); return;
@@ -304,6 +332,130 @@ class Checker {
     }
   }
 
+  // ------------------------------------------------------------ screens
+
+  inputChanged(e, entry, line) {
+    if (entry.kind === 'item') {
+      this.err('TC213', line, `"${e.text}" is an item of the list shown on line ${entry.line}, so it can't be changed here.`, 'Change the remembered list it comes from instead (for example: Remove it from the list, then Add the changed one).');
+      return;
+    }
+    this.err('TC213', line, `"${e.text}" is an input of the screen (line ${entry.line}): the screen that shows it gives it, so it can't be changed here.`,
+      `To change it on this screen, remember a copy: Remember ${e.text} now starting at ${e.text}, and change that.`);
+  }
+
+  /** "opens Home" / "Open Home": the screen must exist, and it must not need inputs (nothing gives them). */
+  screenRef(s, line) {
+    const target = this.screens.get(s.name);
+    if (!target) {
+      const near = nearName(s.name, [...this.screens.keys()]);
+      this.err('TC212', line, `I don't know a screen called "${s.text}".`, near ? `Did you mean "${this.screens.get(near).text}"?` : this.screens.size ? `The screens: ${[...this.screens.values()].map((x) => x.text).join(', ')}.` : 'Write it: Screen <name>: and what it shows.');
+      return null;
+    }
+    s.py = target.py;
+    const needs = target.params.filter((p) => !p.dflt);
+    if (needs.length) this.err('TC214', line, `"${target.text}" needs ${needs.map((p) => p.text).join(', ')}, and a screen that is opened is given no inputs.`, `Give ${needs.length === 1 ? 'it' : 'each'} a value to use when it isn't given: Receive ${needs[0].text} (… if not given). Or show it inside this screen: Show ${target.text}: with the inputs under it.`);
+    return target;
+  }
+
+  checkScreen(s) {
+    const sc = new Scope(this.global, 'screen');
+    sc.screen = s;
+    for (const p of s.params) {
+      if (p.dflt) this.ex(p.dflt, this.global, {});
+      if (sc.vars.has(p.name)) this.err('TC203', p.line, `"${p.text}" is received twice.`);
+      if (this.global.vars.has(p.name)) this.err('TC203', p.line, `"${p.text}" is already the name of ${this.global.vars.get(p.name).kind === 'func' ? 'a function' : 'something else'} (line ${this.global.vars.get(p.name).line}).`, 'Receive it under a different name.');
+      this.resolveType(p.type, p.line);
+      if (p.type && p.dflt && known(p.type) && known(p.dflt.type) && !compatible(p.type, p.dflt.type) && p.dflt.type.k !== 'nothing') this.err('TC303', p.line, `"${p.text}" is ${typeWords(p.type)}, but its default is ${typeWords(p.dflt.type)}.`);
+      p.py = pyName(p.name);
+      sc.vars.set(p.name, { kind: 'input', py: p.py, type: p.type ?? (p.dflt && known(p.dflt.type) ? p.dflt.type : UNKNOWN), line: p.line });
+    }
+    for (const r of s.remember) {
+      const t = this.ex(r.e, sc);
+      this.resolveType(r.type, r.line);
+      if (r.type && known(r.type) && known(t) && !compatible(r.type, t) && !(t.k === 'list' && r.type.k === 'list' && !known(t.of))) this.err('TC303', r.line, `"${r.text}" is ${typeWords(r.type)}, but it starts at ${typeWords(t)}.`);
+      if (sc.vars.has(r.name)) { this.err('TC203', r.line, `"${r.text}" is already ${sc.vars.get(r.name).kind === 'input' ? 'an input' : 'remembered'} on line ${sc.vars.get(r.name).line}.`, 'Give one of them a different name.'); continue; }
+      if (this.global.vars.has(r.name)) { this.err('TC203', r.line, `"${r.text}" is already the name of ${this.global.vars.get(r.name).kind === 'func' ? 'a function' : 'something else'} (line ${this.global.vars.get(r.name).line}).`); continue; }
+      r.py = pyName(r.name);
+      sc.vars.set(r.name, { kind: 'state', py: r.py, type: r.type ?? t, line: r.line });
+    }
+    this.elements(s.body, sc, s);
+  }
+
+  elements(els, sc, screen) {
+    for (const el of els) {
+      const line = el.line;
+      switch (el.k) {
+        case 'heading': case 'text': this.ex(el.e, sc); break;
+        case 'when':
+          for (const b of el.branches) { this.cond(b.cond, sc); this.elements(b.body, sc, screen); }
+          if (el.otherwise) this.elements(el.otherwise, sc, screen);
+          break;
+        case 'list': {
+          const it = this.ex(el.iter, sc);
+          if (known(it) && it.k !== 'list' && it.k !== 'optional') this.err('TC305', line, `"Show a list" goes through a list, but this is ${typeWords(it)}.`);
+          const inner = new Scope(sc, 'loop');
+          el.v.py = pyName(el.v.name);
+          inner.vars.set(el.v.name, { kind: 'item', py: el.v.py, type: it.k === 'list' ? it.of ?? UNKNOWN : UNKNOWN, line });
+          this.elements(el.body, inner, screen);
+          break;
+        }
+        case 'row': this.elements(el.body, sc, screen); break;
+        case 'textbox': case 'numberbox': {
+          this.ex(el.label, sc);
+          const v = sc.get(el.target.name);
+          if (!v || (v.kind !== 'state' && v.kind !== 'input')) {
+            const near = nearName(el.target.name, [...sc.vars.keys()].filter((k) => sc.vars.get(k).kind === 'state'));
+            this.err('TC201', line, `A box changes a remembered value, and this screen remembers nothing called "${el.target.text}".`, near ? `Did you mean "${near}"?` : `Add it at the top of the screen: Remember ${el.target.text} starting at ${el.k === 'textbox' ? '""' : '0'}.`);
+            break;
+          }
+          if (v.kind === 'input') { this.inputChanged(el.target, v, line); break; }
+          el.target.ref = v;
+          if (el.k === 'textbox' && known(v.type) && v.type.k !== 'text') this.err('TC305', line, `A text box holds text, but "${el.target.text}" is ${typeWords(v.type)}.`, numeric(v.type) ? `Use a number box: Show a number box … for ${el.target.text}.` : null);
+          if (el.k === 'numberbox' && known(v.type) && !numeric(v.type)) this.err('TC305', line, `A number box holds a number, but "${el.target.text}" is ${typeWords(v.type)}.`, v.type.k === 'text' ? `Use a text box: Show a text box … for ${el.target.text}.` : 'Money in a box is not supported yet: remember a number.');
+          if (!known(v.type)) v.type = el.k === 'textbox' ? T('text') : T('number');
+          el.boxKind = v.type.k;
+          break;
+        }
+        case 'button': {
+          this.ex(el.label, sc);
+          if (el.off) this.cond(el.off, sc);
+          if (el.opens) this.screenRef(el.opens, line);
+          if (el.press) {
+            const ps = new Scope(sc, 'press');
+            this.block(el.press.body, ps, { inPress: true });
+            el.press.locals = [...ps.vars.values()].map((v) => v.py);
+          }
+          break;
+        }
+        case 'child': {
+          const target = this.screens.get(el.screen.name);
+          if (!target) break; // (the parser knew it)
+          el.screen.py = target.py;
+          if (target === screen) { this.err('TC402', line, `"${screen.text}" can't show itself: it would never finish showing.`); break; }
+          const keys = target.params.map((p) => p.name);
+          const given = new Map();
+          for (const g of el.given) {
+            const t = this.ex(g.e, sc);
+            const p = target.params.find((x) => x.name === g.name);
+            if (!p) {
+              const near = nearName(g.name, keys);
+              this.err('TC214', g.line, `"${target.text}" has no input called "${g.text}".${near ? ` Did you mean "${near}"?` : ''}`, keys.length ? `Its inputs: ${keys.join(', ')}.` : `"${target.text}" receives no inputs.`);
+              continue;
+            }
+            if (given.has(g.name)) { this.err('TC114', g.line, `"${g.text}" is given twice (also on line ${given.get(g.name).line}).`, 'Give each input once.'); continue; }
+            given.set(g.name, g);
+            g.py = p.py;
+            if (p.type && known(p.type) && known(t) && !compatible(p.type, t)) this.err('TC303', g.line, `"${target.text}" receives ${p.text} as ${typeWords(p.type)}, but ${typeWords(t)} was given.`);
+          }
+          const missing = target.params.filter((p) => !p.dflt && !given.has(p.name));
+          if (missing.length) this.err('TC214', line, `"${target.text}" needs ${missing.map((p) => p.text).join(', ')}, but ${missing.length === 1 ? 'it is' : 'they are'} not given.`, `Write it as a block:\n    Show ${target.text}:\n      ${missing.map((p) => `${p.text}: …`).join('\n      ')}`);
+          break;
+        }
+        default: this.err('TC402', line, `A screen can't show "${el.k}" yet.`);
+      }
+    }
+  }
+
   localPy(key, sc) { return pyName(key); }
 
   checkSet(s, sc, ctx) {
@@ -315,6 +467,7 @@ class Checker {
       if (g && g.kind === 'const') { this.err('TC205', line, `"${tgt.text}" is kept at a fixed value (line ${g.line}), so it can't be set.`, 'Use a different name for a value that changes, or change the Keep line.'); return; }
       if (g && g.kind !== 'const') { this.err('TC203', line, `"${tgt.text}" is already the name of ${g.kind === 'func' ? 'a function' : g.kind === 'record' ? 'a record' : 'a module'} (line ${g.line}).`, 'Give this value a different name.'); return; }
       const cur = sc.get(tgt.name);
+      if (cur && (cur.kind === 'input' || cur.kind === 'item')) { this.inputChanged(tgt, cur, line); return; }
       if (cur && cur.kind !== 'subject') {
         if (cur.kind === 'param' && cur.type && known(cur.type) && known(tv) && !compatible(cur.type, tv)) this.err('TC303', line, `"${tgt.text}" is ${typeWords(cur.type)}, so it can't be set to ${typeWords(tv)}.`);
         else if (known(cur.type) && known(tv) && !compatible(cur.type, tv)) this.err('TC303', line, `"${tgt.text}" was ${typeWords(cur.type)} (line ${cur.line}); now it is set to ${typeWords(tv)}. A name keeps one kind of value.`, 'Use a new name for the new kind of value.');
@@ -337,6 +490,9 @@ class Checker {
     this.afterAssign(s, tgt, sc);
   }
   lvalue(e, sc, line) {
+    let root = e;
+    while (root.k === 'field' || root.k === 'at') root = root.obj;
+    if (root.k === 'name' && (root.ref?.kind === 'input' || root.ref?.kind === 'item')) { this.inputChanged(root, root.ref, line); return; }
     if (e.k === 'name') {
       if (e.ref?.kind === 'const') this.err('TC205', line, `"${e.text}" is kept at a fixed value, so it can't be changed.`);
     } else if (e.k === 'field' || e.k === 'at') {

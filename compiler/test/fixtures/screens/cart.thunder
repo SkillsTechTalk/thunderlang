@@ -1,0 +1,60 @@
+# A shop with a cart: records, a function, a screen shown inside another with an input, a list of rows,
+# When / Otherwise, boxes, a press that stops with a message, and a number box given text that is not a number.
+# do: press "Add"
+# do: type "Name" "Pear"
+# do: press "Add"
+# do: type "Price" "2"
+# do: press "Add"
+# do: type "Name" "Fig"
+# do: type "Price" "x"
+# do: type "Price" "3.5"
+# do: type "Price" "3"
+# do: press "Add"
+# do: type "Coupon code" "SAVE"
+# do: press "Clear"
+# do: press "Back"
+
+An Item has:
+  Name is text
+  Price is number
+
+To add up:
+  Receive items as a list of Item
+  Set sum to 0
+  For each item in items:
+    Increase sum by item's price
+  Give sum
+
+Screen Shop:
+  Remember cart as a list of Item, starting at []
+  Remember name as text, starting at ""
+  Remember price starting at 0
+  Show a heading "Shop"
+  Show a text box "Name" for name
+  Show a number box "Price" for price
+  Show a button "Add" (off when name is empty):
+    When pressed:
+      When price is at most 0:
+        Stop with "The price must be more than 0"
+      Add an Item with name name and price price to cart
+      Set name to ""
+  Show Cart:
+    items: cart
+
+Screen Cart:
+  Receive items as a list of Item, title as text ("Your cart" if not given)
+  Remember coupon as text, starting at ""
+  Show a heading: title
+  When items is empty:
+    Show "Your cart is empty"
+  Otherwise:
+    Show a list with each item in items:
+      Show a row:
+        Show item's name
+        Show item's price
+    Show "Total: {add up with items}"
+  Show a text box "Coupon code" for coupon
+  Show a button "Clear" (off when coupon is empty):
+    When pressed:
+      Set coupon to ""
+  Show a button "Back" that opens Shop
