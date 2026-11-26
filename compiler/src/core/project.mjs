@@ -12,11 +12,12 @@ import { writeTypeScript, typescriptDiagnostics } from './typescript-run.mjs';
 import { writeCSharp, csharpDiagnostics } from './csharp-run.mjs';
 import { writeRust, rustDiagnostics } from './rust-run.mjs';
 import { writeGo, goDiagnostics } from './go-run.mjs';
+import { writeJava, javaDiagnostics } from './java-run.mjs';
 
 /** The languages a Thunder Core project can be compiled to. */
-export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go'];
+export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go', 'java'];
 /** How a target is named to people. */
-export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust', go: 'Go' };
+export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust', go: 'Go', java: 'Java' };
 
 export const PROJECT_FILE = 'thunder.toml';
 
@@ -110,8 +111,11 @@ export function buildProject({ root, single = null, includeTests = false, write 
   if (tgt === 'csharp') for (const r of results.filter((x) => x.ok)) { const d = csharpDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   if (tgt === 'rust') for (const r of results.filter((x) => x.ok)) { const d = rustDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   if (tgt === 'go') for (const r of results.filter((x) => x.ok)) { const d = goDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  // The same for Java: Python modules exist only for the Python target.
+  if (tgt === 'java') for (const r of results.filter((x) => x.ok)) { const d = javaDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   const ok = results.every((r) => r.ok);
   if (ok && write && tgt === 'typescript') writeTypeScript(results, outDir);
+  if (ok && write && tgt === 'java') writeJava(results, outDir);
   if (ok && write && tgt === 'python') {
     mkdirSync(outDir, { recursive: true });
     writeFileSync(join(outDir, 'thunder_runtime.py'), PYTHON_RUNTIME);

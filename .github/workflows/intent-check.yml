@@ -27,6 +27,11 @@ jobs:
         with:
           go-version: '1.22'
           cache: false
+      # A JDK: every Core test program is also checked as compiled Java (compiler/test/core-engines.mjs).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       # The compiler is pure Node (no dependencies), so no install step is needed.
       - name: intent check (all .thunder files)

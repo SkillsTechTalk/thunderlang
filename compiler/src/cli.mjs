@@ -478,6 +478,7 @@ Write and run programs (Thunder Core, docs/core.md)
                              (generated/typescript/; runs on Node 22.6+, or with the typescript package);
                              --target csharp compiles to C# (generated/csharp/; builds and runs with the .NET 8+ SDK)
                              --target go compiles to Go (generated/go/; needs the go toolchain to run)
+                             --target java compiles to Java (generated/java/; runs with a JDK 17+)
 
 Read and understand code
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]

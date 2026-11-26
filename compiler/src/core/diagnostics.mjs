@@ -38,7 +38,7 @@ export const CODES = {
   TC402: 'Thunder Core does not support this yet',
   TC403: 'A "Never" rule names more than one changing value',
   TC404: 'A default for an input must be a fixed value, after the inputs without one',
-  TC405: 'A Python module ("Use") cannot be used when compiling to a target other than Python (TypeScript, Rust)',
+  TC405: 'A Python module ("Use") can be used only when compiling to Python',
   TC501: 'Divided by zero (runtime)',
   TC502: 'Nothing used where a value was needed (runtime)',
   TC503: 'A field or entry is missing (runtime)',

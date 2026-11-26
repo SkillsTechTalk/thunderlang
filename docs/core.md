@@ -11,9 +11,9 @@ them, compiles them to Python, and runs them. The generated Python is ordinary c
                                        a failure names the Thunder line ◀┘ (TC5xx)
 ```
 
-**Status (v0).** There are three compilation targets: **Python 3.10+** (the default), **TypeScript** (see
-"Compile to TypeScript"), **C#** (see "Compile to C#"), **Rust** (see "Compile to Rust"), and **Go** (see "Compile to Go"). Java is planned. They will not be listed as available until they pass
-the same tests.
+**Status (v0).** There are six compilation targets: **Python 3.10+** (the default), **TypeScript**, **C#**, **Java**,
+**Go**, and **Rust** (see "Compile to …" below for each), plus the **Thunder engine**, which runs a program directly.
+Every Core test program gives the same output, errors included, on all of them; a target is listed only once it does.
 The rules below in "What a value means" are the rules every future target must keep.
 
 ## Start
@@ -258,7 +258,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC2xx | names: unknown names, fields, records |
 | TC3xx | kinds of values that cannot do what the line asks |
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
-| TC405 | a Python module (`Use`) in a program compiled to TypeScript |
+| TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
 | TC501 | divided by zero |
 | TC502 | nothing used where a value was needed |
 | TC503 | a missing map entry or list position |
@@ -412,6 +412,33 @@ Thunder, and `go run -tags thundertests .` runs its tests.
 - **How it runs.** Go 1.21 or newer (`go` on the PATH, or `THUNDER_GO`). `thunder build --target go` works without it.
 - **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
   (TC405). Go packages are not available from Thunder yet.
+
+
+## Compile to Java
+
+The same program, compiled to Java (17 or newer) and run on the JVM:
+
+```sh
+thunder build --target java     # generated/java/: app/<Class>.java per file, app/RunTests.java, the runtime in thunder/
+thunder run --target java       # compile with javac and run
+thunder test --target java      # run every Test block as Java
+```
+
+Or set it for the project in `thunder.toml`: `target = "java"` under `[build]`.
+
+- **The same meaning.** Every Core test program runs four ways: compiled to Python, on the Thunder engine, compiled to
+  TypeScript, and compiled to Java. The output, every error (its code, its words, its line, and "reached from"), and
+  the exit status must be the same, or the tests fail. The Java runtime (`thunder/ThunderRuntime.java`, JDK only)
+  follows the Thunder engine's value code line for line: exact decimals as Python's `Decimal`, money rounded half up,
+  positions from 1, strict yes/no, and the same messages.
+- **Readable.** One class per Thunder file (`main.thunder` is `app.Main`), with a static method per function, records,
+  and kept values; every line ends with `// thunder:N`. Calls go as deep as on Python: the program runs on a thread
+  with a deep stack, and a program that goes deeper stops at the same call with the same message.
+- **How it runs.** Thunder finds the JDK through `THUNDER_JAVA_HOME`, `JAVA_HOME`, or the PATH; without one it says what
+  to install. `thunder build` needs no JDK. The built program runs without Thunder: `javac` the files in `app/` and
+  `thunder/`, then `java -cp classes app.Main`.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target too (TC405). Maven libraries
+  are not available from Thunder yet; Thunder never swaps in a different library.
 
 
 ## What the generated Python looks like
