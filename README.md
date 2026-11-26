@@ -137,6 +137,21 @@ compiler is built in.
 Until Thunder write ships in OpenThunder, a Thundered rule there offers **Propose rule change**, never "Update code". Nothing is ever
 transformed silently.
 
+## Start in your terminal
+
+```bash
+npm install -g @skillstech/thunderlang
+thunder                              # the main things to do, with examples
+thunder doctor                       # is everything ready?
+thunder new hello                    # make your first program
+thunder run hello                    # run it (as Python; add --engine thunder to run it without Python)
+thunder read app.py --level flow --focus "checkout"   # read code you didn't write, one level at a time
+thunder try rules.py                 # try a rule with your own values: the answer, and why
+thunder why run.json                 # what an AI agent did, what it changed, and why it stopped
+```
+
+`thunder help --all` lists every command, with what most people need first.
+
 ## Thunder Text, the compiler, and the CLI
 
 **Thunder Text** is the interim written form: a Thunder picture in readable, structured words, saved so it can be
@@ -170,9 +185,6 @@ thunder test Rules.thunder                                    # in-file examples
 thunder gen Rules.thunder --target python                     # TypeScript, Python, C#, or Java
 thunder verify-diff Rules.thunder --before old.ts --after new.ts   # block an AI change that breaks a rule
 ```
-
-`thunder text` (alias `thunder plain`) ships in the next release of `@skillstech/thunderlang`; until then run it from
-this repository with `node compiler/src/cli.mjs text <file>`.
 
 The compiler is deterministic (no AI, no key, no network) and explains its findings instead of just flagging them:
 
@@ -223,8 +235,9 @@ Read more: [Thunder V1 spec](./docs/spec.md) · [Manifesto](./docs/manifesto.md)
 
 ## Status
 
-Pre-1.0 and honest. The compiler is real, deterministic, and tested (775+ compiler tests, including fuzz,
-property, and composition tests, with CI guards for checks, docs, schema sync, and formatting). The visual card,
+Honest about what works. The compiler is real, deterministic, and tested (1,700+ compiler tests, including fuzz,
+property, composition, and cross-engine conformance tests, with CI guards for checks, docs, schema sync, status
+labels, and formatting). The visual card,
 plain notation, and Thunder map are experimental. Whether Thunder is easier to read than Python for
 non-programmers is a hypothesis we are testing, not a claim. Thunder sits above programming languages; it reads
 and targets TypeScript, Python, Java, .NET, Rust, and Go rather than replacing them.

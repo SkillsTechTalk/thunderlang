@@ -1,4 +1,9 @@
-# Unreleased
+# 1.2.0
+
+**Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why
+--json`, a step's `effect` is now one of six kinds (`money`, `delete`, `send`, `create`, `change`, `read`; or
+`unknown` / `none`) instead of `change`, and `changes[]` items gain `kind`. `thunder` with no command now prints a
+short home screen; the full list is `thunder help --all`. Color is used only when the output is a terminal.
 
 - **`thunder init` is friendlier, and mission rules can be tried without JSON.** `thunder init` now says what it made
   (a starter mission: a product's rules and the examples that prove them), lists what to try next, and points
