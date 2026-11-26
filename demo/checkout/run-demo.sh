@@ -8,6 +8,9 @@
 #   demo/checkout/run-demo.sh --tests     also each part's own tests (with --before: the known-bug tests)
 #   demo/checkout/run-demo.sh --thunder   what Thunder reads: the big picture, the links, the change's impact,
 #                                         and the review of the change (before -> after), from a scratch git repo
+#   demo/checkout/run-demo.sh --passport  the change's Thunder passport (passport.json and passport.md here): it runs
+#                                         each part's tests and records them as evidence; then it edits a billing
+#                                         file in the scratch copy and shows the test evidence turning stale
 #
 # Needs Python 3.10+, .NET 10, and Node 22.18+ (it runs the TypeScript directly). Scratch copies go in a new
 # folder under the system's temp folder.
@@ -16,19 +19,21 @@ here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 BILLING_PORT=8101
 ORDERS_PORT=8102
-before=false; tests=false; thunder=false
+before=false; tests=false; thunder=false; passport=false
 for a in "$@"; do
   case "$a" in
     --before) before=true ;;
     --tests) tests=true ;;
     --thunder) thunder=true ;;
-    *) echo "run-demo.sh: there is no option $a (try --before, --tests, --thunder)"; exit 2 ;;
+    --passport) passport=true ;;
+    *) echo "run-demo.sh: there is no option $a (try --before, --tests, --thunder, --passport)"; exit 2 ;;
   esac
 done
 
 # A scratch git repo with two commits: the app before the fix, then after it (the folder as it is here).
 scratch() {
   local s; s="$(mktemp -d "${TMPDIR:-/tmp}/lumen-checkout.XXXXXX")"
+  export GIT_AUTHOR_DATE="2026-11-26T12:00:00Z" GIT_COMMITTER_DATE="2026-11-26T12:00:00Z"   # the same commits every time
   (cd "$here" && tar --exclude bin --exclude obj --exclude __pycache__ -cf - .) | (cd "$s" && tar -xf -)
   (cd "$s" && git init -q && git apply -R change.patch && git add -A && git -c user.name=demo -c user.email=demo@example.invalid commit -qm "before: a retried checkout charges twice" \
     && git apply change.patch && git add -A && git -c user.name=demo -c user.email=demo@example.invalid commit -qm "after: one idempotency key from the page to billing")
@@ -43,6 +48,22 @@ if $thunder; then
   echo; echo "== thunder trace web orders billing"; thunder trace web orders billing
   echo; echo "== thunder trace impact --diff --base HEAD~1 web orders billing"; thunder trace impact --diff --base HEAD~1 web orders billing
   echo; echo "== thunder review HEAD~1 HEAD"; thunder review HEAD~1 HEAD
+  exit 0
+fi
+
+if $passport; then
+  s="$(scratch)"
+  thunder() { node "$repo/compiler/src/cli.mjs" "$@"; }
+  cd "$s"
+  echo "== thunder passport web orders billing --base HEAD~1 (running each part's tests)"
+  thunder passport web orders billing --base HEAD~1 \
+    --purpose "Prevent duplicate charges when a payment request is retried: one press of Place order charges the customer once." \
+    --run "billing: python3 -m unittest" --run "orders: dotnet run -- --test" --run "web: node --test checkout.test.ts" \
+    --out passport.json --md-out passport.md || true
+  cp passport.json passport.md "$here/"
+  echo; echo "== Someone edits billing/billing.py after the passport was built"
+  printf '\n# an edit after the passport was built\n' >> billing/billing.py
+  thunder passport check passport.json
   exit 0
 fi
 

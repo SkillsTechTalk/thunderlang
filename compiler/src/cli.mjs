@@ -52,6 +52,7 @@ import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, 
 import { thunderModel } from './model.mjs';
 import { LEVELS, readLevel, renderLevel, findFocus, nearestLevel } from './read-level.mjs';
 import { traceMain } from './trace-cli.mjs';
+import { passportMain } from './passport-cli.mjs';
 import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
 import { replayMain } from './replay-cli.mjs';
@@ -504,6 +505,8 @@ Read and understand code
                             when omitted), as Markdown for a pull request comment; read from git, no network
   trace <folder…> [--json] [--out f]   Thunder Trace: routes, requests, and events linked across repositories, cited repo@sha:file:line
   trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
+  passport <folder…> [--base ref] [--run "part: cmd"…] [--purpose …]   an evidence record: behavior, links, effects, evidence with its limits, what is not verified
+  passport check <passport.json>   which of its claims are still about the code as it is now (current or stale)
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
 
@@ -643,6 +646,7 @@ function main() {
   if (!known.includes(cmd) && !cmd.startsWith('-') && !existsSync(cmd)) { console.error(paint(unknownCommandText(cmd, known), useColor(process.stderr))); process.exitCode = 2; return; }
   // Thunder Trace: links between repositories and what a change can affect (src/trace-cli.mjs).
   if (cmd === 'trace') { process.exitCode = traceMain(restArgv); return; }
+  if (cmd === 'passport') { passportMain(restArgv).then((code) => { process.exitCode = code; }); return; }
   // Thunder Why: an AI agent's run explained in plain words, from its OpenTelemetry record (src/why-cli.mjs).
   if (cmd === 'why') { process.exitCode = whyMain(restArgv); return; }
   // Thunder Try: try a rule from your code with your own values, and see the answer and why (src/try-cli.mjs).

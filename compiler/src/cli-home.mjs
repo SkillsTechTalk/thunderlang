@@ -9,7 +9,7 @@ import { findPython, findProjectRoot } from './core/project.mjs';
 import { paint, useColor } from './term.mjs';
 
 /** The commands `thunder` understands besides those listed in the full help (kept in sync by a test). */
-export const EXTRA_COMMANDS = ['doctor', 'completion', 'plain', 'ai', 'coverage', 'completions', 'hover', 'format', 'help', 'version', 'mission', 'why', 'trace', 'graph', 'proof', 'build'];
+export const EXTRA_COMMANDS = ['doctor', 'completion', 'plain', 'ai', 'coverage', 'completions', 'hover', 'format', 'help', 'version', 'mission', 'why', 'trace', 'passport', 'graph', 'proof', 'build'];
 
 /** Every command name: the ones the full help lists, plus EXTRA_COMMANDS. */
 export function knownCommands(fullHelp) {

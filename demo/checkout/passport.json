@@ -1,0 +1,559 @@
+{
+  "schema": "thunder-passport-v1",
+  "subject": {
+    "kind": "change",
+    "parts": [
+      {
+        "name": "web",
+        "path": "web",
+        "sha": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "dirty": false
+      },
+      {
+        "name": "orders",
+        "path": "orders",
+        "sha": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "dirty": false
+      },
+      {
+        "name": "billing",
+        "path": "billing",
+        "sha": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "dirty": false
+      }
+    ]
+  },
+  "purpose": {
+    "stated": true,
+    "text": "Prevent duplicate charges when a payment request is retried: one press of Place order charges the customer once.",
+    "source": "given with --purpose"
+  },
+  "behavior": [
+    {
+      "part": "billing",
+      "file": "billing.py",
+      "lines": [
+        37,
+        53
+      ],
+      "name": "Charge",
+      "kind": "steps",
+      "change": "changed",
+      "text": "Charge (Billing)\n  Author's note: Charge the customer once per idempotency key: asking again with the same key gives back the first payment.\n  You give it: order ref, amount cents, idempotency key\n  - Ask: Is amount cents at most 0?  (line 39)\n    Yes:\n      - Stop: ValueError: \"The amount to charge must be more than zero\"  (line 40)\n    No: continue\n  - Ask: Is idempotency key set?  (line 41)\n    Yes: continue\n    No:\n      - Stop: ValueError: \"A charge needs an idempotency key, so a retry is never char…\"  (line 42)\n  - Uses self.lock  (line 43)\n    - Sets first to the idempotency key entry in by key  (line 44)\n    - Ask: Is first set?  (line 45)\n      Yes:\n        - Ask: Is the first's amount cents amount cents?  (line 46)\n          Yes: continue\n          No:\n            - Stop: ValueError: \"This idempotency key was already used for a different amount\"  (line 47)\n        - Gives back first  (line 48)\n      No: continue\n    - Works out charge id from charge  (line 49)\n    - `payment = Payment(charge_id, order_ref, amount_cents, \"charged\")` (code, not explained)  (line 50)\n    - Adds payment to payments  (line 51)\n    - Stores payment under idempotency key in by key  (line 52)\n    - Gives back payment  (line 53)"
+    },
+    {
+      "part": "billing",
+      "file": "server.py",
+      "lines": [
+        11,
+        39
+      ],
+      "name": "Make handler",
+      "kind": "steps",
+      "change": "changed",
+      "text": "Make handler\n  You give it: billing\n  - `class Handler(BaseHTTPRequestHandler):` (code, not explained)  (line 12)\n  - Gives back handler  (line 39)"
+    },
+    {
+      "part": "billing",
+      "file": "server.py",
+      "lines": [
+        13,
+        21
+      ],
+      "name": "Do post",
+      "kind": "action",
+      "change": "changed",
+      "text": "Do post (Handler)\n  When someone calls POST /charges\n  You get back: the result of answer\n  - Ask: Is path \"/charges\"?  (line 14)\n    Yes: continue\n    No:\n      - Gives back the result of answer  (line 15)\n  - Reads a worked-out value as JSON (as body)  (line 16)\n  - Tries the next steps and handles the errors named below  (line 17)\n    - Works out payment from charge  (line 18)\n    If ValueError goes wrong:\n      - Gives back the result of answer  (line 20)\n  - Gives back the result of answer  (line 21)"
+    },
+    {
+      "part": "orders",
+      "file": "BillingClient.cs",
+      "lines": [
+        17,
+        24
+      ],
+      "name": "Charge async",
+      "kind": "steps",
+      "change": "changed",
+      "text": "Charge async (Billing client)\n  You give it: order ref, amount cents, idempotency key\n  - `var json = JsonSerializer.Serialize(new { order_ref = orderRef, amount_cents = amountCent…` (code, not explained)  (line 19)\n  - Sends a POST request to /charges (as response)  (line 20)\n  - Calls ensure success status code  (line 21)\n  - Works out body from read from json async>  (line 22)\n  - Gives back a new ChargeResult  (line 23)"
+    },
+    {
+      "part": "orders",
+      "file": "OrderService.cs",
+      "lines": [
+        19,
+        26
+      ],
+      "name": "Place order async",
+      "kind": "steps",
+      "change": "changed",
+      "text": "Place order async (Order service)\n  You give it: request\n  - Ask: The request's idempotency key is empty or missing?  (line 21)\n    Yes:\n      - Gives back a new OrderResult  (line 23)\n    No: continue\n  - Gives back the entry for the request's idempotency key in by key, made by place new order async if it is missing (a later call with the same idempotency key gets that same entry)  (line 25)"
+    },
+    {
+      "part": "orders",
+      "file": "OrderService.cs",
+      "lines": [
+        28,
+        48
+      ],
+      "name": "Place new order async",
+      "kind": "steps",
+      "change": "changed",
+      "text": "Place new order async (Order service)\n  You give it: request\n  - Ask: Is the request's items.Count 0?  (line 30)\n    Yes:\n      - Gives back a new OrderResult  (line 32)\n    No: continue\n  - Ask: `request.Items.Any(i => !Pricing.UnitPrices.ContainsKey(i.Sku))`? (code, not explained)  (line 34)\n    Yes:\n      - Gives back a new OrderResult  (line 36)\n    No: continue\n  - Ask: Inventory.Reserve(the request's items)?  (line 38)\n    Yes: continue\n    No:\n      - Gives back a new OrderResult  (line 40)\n  - Works out price from price of items  (line 42)\n  - Sets order id to text built from its parts  (line 43)\n  - Works out payment from charge async  (line 44)\n  - Creates a new OrderResult as order  (line 45)\n  - `lock (_orders) _orders.Add(order);` (code, not explained)  (line 46)\n  - Gives back order  (line 47)"
+    },
+    {
+      "part": "web",
+      "file": "checkout.ts",
+      "lines": [
+        16,
+        38
+      ],
+      "name": "Place order",
+      "kind": "steps",
+      "change": "changed",
+      "text": "Place order\n  Author's note: Place the order. A request that takes longer than timeoutMs is abandoned and sent again (the same order, by its key), up to `tries` times.\n  You give it: cart, coupon, options\n  You get back: a Promise<OrderAnswer>\n  - Ask: Is the length of cart 0?  (line 17)\n    Yes:\n      - Gives back placed and message  (line 18)\n    No: continue\n  - Sets idempotency key to a new random ID  (line 20)\n  - Turns items (cart), coupon and idempotency key into JSON text (as body)  (line 21)\n  - Counts attempt from 1 while attempt is at most options.tries  (line 22)\n    For each:\n      - Tries the next steps and handles any error  (line 23)\n        - Sends a POST request to …/orders (as response)  (line 24)\n        - Gives back a response  (line 30)\n        If anything goes wrong:\n          - `const timedOut = error instanceof DOMException && (error.name === \"TimeoutError\" || error…` (code, not explained)  (line 32)\n          - Ask: Timed out is not set or attempt is the options's tries?  (line 33)\n            Yes:\n              - Gives back placed and message  (line 34)\n            No: continue\n  - Gives back placed and message  (line 38)"
+    }
+  ],
+  "dependencies": {
+    "files": [
+      {
+        "part": "web",
+        "file": "checkout.test.ts",
+        "sha256": "sha256:327e4ed09ba13e105f088f91b7552e50e2573699f6927e448ae3cd14409f58f7"
+      },
+      {
+        "part": "web",
+        "file": "checkout.ts",
+        "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+      },
+      {
+        "part": "web",
+        "file": "place-order.ts",
+        "sha256": "sha256:d90579cc938f9dd5d38c9a3bab7b685cbb449c0163ab5118e7fce441596f2ece"
+      },
+      {
+        "part": "orders",
+        "file": "BillingClient.cs",
+        "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+      },
+      {
+        "part": "orders",
+        "file": "Inventory.cs",
+        "sha256": "sha256:6bc08d2267a2b9094c1970196047139c3945ba051085e76f9bdffcd12e683464"
+      },
+      {
+        "part": "orders",
+        "file": "OrderService.cs",
+        "sha256": "sha256:ddb9c185ab529325b771b74e587ce3453910268e228f4861f1f63a61293f075f"
+      },
+      {
+        "part": "orders",
+        "file": "Pricing.cs",
+        "sha256": "sha256:580d2771bc1a757ae9273c24f584951878f5992873a935f1c3521c630372d01c"
+      },
+      {
+        "part": "orders",
+        "file": "Program.cs",
+        "sha256": "sha256:1b636a608c0a23f687812430df139c6266fc572394a195b90174bdbda25cb9cb"
+      },
+      {
+        "part": "orders",
+        "file": "SelfTests.cs",
+        "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
+      },
+      {
+        "part": "billing",
+        "file": "billing.py",
+        "sha256": "sha256:ad81f4479a5e7d4c1cd79397bf45ff50abde9b5a0b3646adc79eff894ebf864b"
+      },
+      {
+        "part": "billing",
+        "file": "server.py",
+        "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+      },
+      {
+        "part": "billing",
+        "file": "test_billing.py",
+        "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+      }
+    ],
+    "links": [
+      {
+        "kind": "http",
+        "says": "orders calls billing: POST /charges (handled by Do post)",
+        "from": "orders@b6d519c:BillingClient.cs:20",
+        "to": "billing@b6d519c:server.py:13"
+      },
+      {
+        "kind": "http",
+        "says": "web calls orders: POST /orders (handled by Post /orders)",
+        "from": "web@b6d519c:checkout.ts:24",
+        "to": "orders@b6d519c:Program.cs:18"
+      }
+    ],
+    "packages": [],
+    "services": [
+      {
+        "part": "web",
+        "calls": "POST computed/orders",
+        "at": "web:checkout.ts:24"
+      }
+    ]
+  },
+  "effects": [
+    {
+      "part": "billing",
+      "file": "billing.py",
+      "line": 44,
+      "in": "Charge",
+      "kind": "reads",
+      "says": "Sets first to the idempotency key entry in by key",
+      "how": "detected",
+      "basis": "read from code; nothing was run"
+    },
+    {
+      "part": "billing",
+      "file": "billing.py",
+      "line": 52,
+      "in": "Charge",
+      "kind": "writes",
+      "says": "Stores payment under idempotency key in by key",
+      "how": "detected",
+      "basis": "read from code; nothing was run"
+    },
+    {
+      "part": "orders",
+      "file": "BillingClient.cs",
+      "line": 20,
+      "in": "Charge async",
+      "kind": "calls another part",
+      "says": "Sends a POST request to /charges (as response)",
+      "how": "detected",
+      "basis": "read from code; nothing was run"
+    },
+    {
+      "part": "web",
+      "file": "checkout.ts",
+      "line": 24,
+      "in": "Place order",
+      "kind": "calls another part",
+      "says": "Sends a POST request to …/orders (as response)",
+      "how": "detected",
+      "basis": "read from code; nothing was run"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "kind": "test-run",
+      "status": "passed",
+      "claim": "`python3 -m unittest` in billing exited with 0.",
+      "basis": {
+        "command": "python3 -m unittest",
+        "cwd": "billing",
+        "exitCode": 0,
+        "outputDigest": "sha256:d90375e231bebc278d6e75f6d5e0375c8b90a6e28600226ffd86fbb8fd61279a",
+        "outputTail": ".....\n----------------------------------------------------------------------\nRan 5 tests in 0.205s\n\nOK"
+      },
+      "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
+      "inputs": [
+        {
+          "part": "billing",
+          "file": "billing.py",
+          "sha256": "sha256:ad81f4479a5e7d4c1cd79397bf45ff50abde9b5a0b3646adc79eff894ebf864b"
+        },
+        {
+          "part": "billing",
+          "file": "server.py",
+          "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+        },
+        {
+          "part": "billing",
+          "file": "test_billing.py",
+          "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "kind": "test-run",
+      "status": "passed",
+      "claim": "`dotnet run -- --test` in orders exited with 0.",
+      "basis": {
+        "command": "dotnet run -- --test",
+        "cwd": "orders",
+        "exitCode": 0,
+        "outputDigest": "sha256:0ccd1f913e96b3272833fb8f482a1dd97cf697d738fbd09af5408001f66052e4",
+        "outputTail": "ok      prices: $55.00 of items, SAVE10, 8% tax\nok      the coupon needs $50 of items\nok      an order is reserved, charged once, and recorded\nok      too few in stock: nothing is charged\nok      a retried order is charged once\nok      two presses with different keys are two orders\nok      an order without a key is refused, and nothing is charged\norders: all checks passed"
+      },
+      "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
+      "inputs": [
+        {
+          "part": "orders",
+          "file": "BillingClient.cs",
+          "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+        },
+        {
+          "part": "orders",
+          "file": "Inventory.cs",
+          "sha256": "sha256:6bc08d2267a2b9094c1970196047139c3945ba051085e76f9bdffcd12e683464"
+        },
+        {
+          "part": "orders",
+          "file": "OrderService.cs",
+          "sha256": "sha256:ddb9c185ab529325b771b74e587ce3453910268e228f4861f1f63a61293f075f"
+        },
+        {
+          "part": "orders",
+          "file": "Pricing.cs",
+          "sha256": "sha256:580d2771bc1a757ae9273c24f584951878f5992873a935f1c3521c630372d01c"
+        },
+        {
+          "part": "orders",
+          "file": "Program.cs",
+          "sha256": "sha256:1b636a608c0a23f687812430df139c6266fc572394a195b90174bdbda25cb9cb"
+        },
+        {
+          "part": "orders",
+          "file": "SelfTests.cs",
+          "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "kind": "test-run",
+      "status": "passed",
+      "claim": "`node --test checkout.test.ts` in web exited with 0.",
+      "basis": {
+        "command": "node --test checkout.test.ts",
+        "cwd": "web",
+        "exitCode": 0,
+        "outputDigest": "sha256:ce3a23df0b56afaa140a53f14f6f49a3b1d768aa8e73173fa11071da5c0e2dfa",
+        "outputTail": "✔ an empty cart is not sent (0.401917ms)\n✔ a slow answer is abandoned and the order is sent again (67.000458ms)\n✔ a retry says it is the same order as the first try (52.070083ms)\n✔ two presses of Place order are two orders: each has its own key (3.001125ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 183.210917"
+      },
+      "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "checkout.test.ts",
+          "sha256": "sha256:327e4ed09ba13e105f088f91b7552e50e2573699f6927e448ae3cd14409f58f7"
+        },
+        {
+          "part": "web",
+          "file": "checkout.ts",
+          "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+        },
+        {
+          "part": "web",
+          "file": "place-order.ts",
+          "sha256": "sha256:d90579cc938f9dd5d38c9a3bab7b685cbb449c0163ab5118e7fce441596f2ece"
+        }
+      ]
+    },
+    {
+      "id": "e4",
+      "kind": "trace-link",
+      "status": "read",
+      "claim": "orders calls billing with POST /charges, and billing handles it.",
+      "basis": {
+        "from": "orders@b6d519c:BillingClient.cs:20",
+        "to": "billing@b6d519c:server.py:13",
+        "rules": "thunder-trace rules v1"
+      },
+      "scope": "Read from code; nothing was run. It does not show that the call succeeds or what it answers.",
+      "inputs": [
+        {
+          "part": "orders",
+          "file": "BillingClient.cs",
+          "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+        },
+        {
+          "part": "billing",
+          "file": "server.py",
+          "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+        }
+      ]
+    },
+    {
+      "id": "e5",
+      "kind": "trace-link",
+      "status": "read",
+      "claim": "web calls orders with POST /orders, and orders handles it.",
+      "basis": {
+        "from": "web@b6d519c:checkout.ts:24",
+        "to": "orders@b6d519c:Program.cs:18",
+        "rules": "thunder-trace rules v1"
+      },
+      "scope": "Read from code; nothing was run. It does not show that the call succeeds or what it answers.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "checkout.ts",
+          "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+        },
+        {
+          "part": "orders",
+          "file": "Program.cs",
+          "sha256": "sha256:1b636a608c0a23f687812430df139c6266fc572394a195b90174bdbda25cb9cb"
+        }
+      ]
+    },
+    {
+      "id": "e6",
+      "kind": "review",
+      "status": "read",
+      "claim": "What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.",
+      "basis": {
+        "base": "b7993966e79175daf466fb13d040fe85f4577ba1",
+        "head": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+        "schema": "thunder-review-v1",
+        "meaning": 23,
+        "risk": 1,
+        "form": 0
+      },
+      "scope": "What the code says before and after; not whether it runs or is right.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "checkout.test.ts",
+          "sha256": "sha256:327e4ed09ba13e105f088f91b7552e50e2573699f6927e448ae3cd14409f58f7"
+        },
+        {
+          "part": "web",
+          "file": "checkout.ts",
+          "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+        },
+        {
+          "part": "orders",
+          "file": "BillingClient.cs",
+          "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+        },
+        {
+          "part": "orders",
+          "file": "OrderService.cs",
+          "sha256": "sha256:ddb9c185ab529325b771b74e587ce3453910268e228f4861f1f63a61293f075f"
+        },
+        {
+          "part": "orders",
+          "file": "SelfTests.cs",
+          "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
+        },
+        {
+          "part": "billing",
+          "file": "billing.py",
+          "sha256": "sha256:ad81f4479a5e7d4c1cd79397bf45ff50abde9b5a0b3646adc79eff894ebf864b"
+        },
+        {
+          "part": "billing",
+          "file": "server.py",
+          "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+        },
+        {
+          "part": "billing",
+          "file": "test_billing.py",
+          "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+        }
+      ]
+    }
+  ],
+  "unknowns": {
+    "notRead": [
+      {
+        "part": "billing",
+        "file": "billing.py",
+        "line": 50,
+        "what": "shown as code: payment = Payment(charge_id, order_ref, amount_cents, \"charged\")"
+      },
+      {
+        "part": "billing",
+        "file": "server.py",
+        "line": 12,
+        "what": "shown as code: class Handler(BaseHTTPRequestHandler):"
+      },
+      {
+        "part": "orders",
+        "file": "BillingClient.cs",
+        "line": 19,
+        "what": "shown as code: var json = JsonSerializer.Serialize(new { order_ref = orderRef, amount_cents = amountCent…"
+      },
+      {
+        "part": "orders",
+        "file": "OrderService.cs",
+        "line": 46,
+        "what": "shown as code: lock (_orders) _orders.Add(order);"
+      },
+      {
+        "part": "web",
+        "file": "checkout.ts",
+        "line": 32,
+        "what": "shown as code: const timedOut = error instanceof DOMException && (error.name === \"TimeoutError\" || error…"
+      }
+    ],
+    "notLinked": [],
+    "untested": [],
+    "notVerified": [
+      "Deployment: how it is configured and run in a real environment.",
+      "External services: real providers, their answers, and their outages (tests use what the code was given).",
+      "More than one process or machine: anything kept in memory is not shared between copies.",
+      "Load and timing: behavior under many requests at once, beyond what the tests ran."
+    ]
+  },
+  "history": {
+    "base": "b7993966e79175daf466fb13d040fe85f4577ba1",
+    "head": "b6d519c5e0dea246905508ea2e770e93a8c28163",
+    "changedFiles": [
+      {
+        "part": "web",
+        "file": "checkout.test.ts",
+        "status": "changed"
+      },
+      {
+        "part": "web",
+        "file": "checkout.ts",
+        "status": "changed"
+      },
+      {
+        "part": "orders",
+        "file": "BillingClient.cs",
+        "status": "changed"
+      },
+      {
+        "part": "orders",
+        "file": "OrderService.cs",
+        "status": "changed"
+      },
+      {
+        "part": "orders",
+        "file": "SelfTests.cs",
+        "status": "changed"
+      },
+      {
+        "part": "billing",
+        "file": "billing.py",
+        "status": "changed"
+      },
+      {
+        "part": "billing",
+        "file": "server.py",
+        "status": "changed"
+      },
+      {
+        "part": "billing",
+        "file": "test_billing.py",
+        "status": "changed"
+      }
+    ],
+    "thunder": "1.3.0",
+    "builtAt": "2026-11-26T07:52:51.267Z"
+  },
+  "summary": {
+    "claims": 6,
+    "passed": 3,
+    "failed": 0,
+    "readFromCode": 3,
+    "unknowns": 5,
+    "notVerified": 4
+  },
+  "fingerprint": "sha256:b62448412290e74089d201354b262ed0ee925ce5334d5a0e06fa73a45542d8cc"
+}

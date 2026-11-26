@@ -1,5 +1,14 @@
 # Unreleased
 
+- **The Thunder Software Passport (`thunder passport`).** An evidence record for a feature or a change
+  (`thunder-passport-v1`): purpose (only what you state, else "not stated"), behavior as Thunder Text with lines,
+  dependencies (every file by content hash, Trace links, packages, services), effects detected in code, evidence, unknowns,
+  and history. Each claim has a basis (a command with its exit code and output digest, or source lines), what it does not
+  cover, and the files it depended on. A failed `--run` is recorded as failed (exit 1), never as passed, and "not verified"
+  always lists deployment, real external services, more than one process, and load. `thunder passport check` marks each
+  claim current or stale when a file it depended on changed, without re-running anything. Ownership-check verdicts join
+  as evidence when that check is present. Pure half in `@skillstech/thunderlang/core` (`assemblePassport`,
+  `checkPassport`); `buildPassport` in the root entry. The checkout demo has its passport (`run-demo.sh --passport`).
 - **Access flow: does every path limit the record to the caller?** For TypeScript and JavaScript web routes (Express,
   Fastify, Hono, Next.js), Thunder follows the request's values through the handler, the project's helpers,
   repositories, classes, and middleware, and into the database (Prisma, Drizzle, Knex, raw SQL, postgres.js, Mongoose).

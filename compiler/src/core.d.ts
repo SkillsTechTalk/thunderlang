@@ -179,3 +179,5 @@ export type { ColorRole as VisualColorRole } from './visual.mjs';
 export type { ThunderModel, Member, Thing, FlowNode, Flow, LevelView } from './model.mjs';
 export { terminatorEffect, toThunderCondition, toThunderOutcome, sayCondition } from './read.mjs';
 export type { ReadStep } from './read.mjs';
+export { PASSPORT_SCHEMA, ALWAYS_NOT_VERIFIED, assemblePassport, summarize, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
+export type { Passport, PassportEvidence, PassportCheck, PassportInput } from './passport.mjs';
