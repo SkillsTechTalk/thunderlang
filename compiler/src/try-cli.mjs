@@ -4,10 +4,13 @@
 // the web editor (plainFromReading + explainPlain): the rule as the reader understood it from the code, run on the
 // values you give. Rules too complex for it are refused with the reason, never approximated.
 import { readFileSync } from 'node:fs';
+import { paint, useColor } from './term.mjs';
 import { basename } from 'node:path';
 import { createInterface } from 'node:readline';
 import { readCode } from './read.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
+import { parseIntent } from './parse.mjs';
+import { evaluateDecision } from './runtime.mjs';
 
 const USAGE = `usage: thunder try <file> [--focus "<rule>"] [--with "name=value, name=value"] [--json]
 Try a rule from your code with your own values, and see the answer and why. Without --with, Thunder asks.
@@ -17,7 +20,7 @@ const squash = (s) => String(s ?? '').toLowerCase().replace(/^(the|it is|is)\s+/
 const human = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim().toLowerCase();
 const outcomeText = (o) => { const h = human(o); return h.charAt(0).toUpperCase() + h.slice(1); };
 const inputName = (i) => String(i.label).replace(/^(the|it is)\s+/, '');
-const kindText = { number: 'a number', yesno: 'yes or no', text: 'some text' };
+const kindText = { number: 'a number', yesno: 'yes or no', text: 'some text', any: 'a value' };
 
 /** A typed value from what a person wrote, or { error } saying what to write instead. */
 export function parseValue(input, raw) {
@@ -31,7 +34,61 @@ export function parseValue(input, raw) {
     if (/^(n|no|false|0)$/i.test(t)) return { value: false };
     return { error: `"${t}" isn't yes or no. Write yes or no.` };
   }
+  if (input.kind === 'any') {
+    if (/^-?[$]?[\d,]*\.?\d+%?$/.test(t)) return { value: Number(t.replace(/[$,%]/g, '')) };
+    if (/^(yes|true)$/i.test(t)) return { value: true };
+    if (/^(no|false)$/i.test(t)) return { value: false };
+  }
   return { value: t };
+}
+
+// ── Rules in a mission file (ThunderLang™ decisions) ───────────────────────────────────────────────────────────
+
+/** The decisions in a mission file, or null when the file is not one. */
+export function missionRules(source) {
+  let ast;
+  try { ast = parseIntent(source); } catch { return null; }
+  if (!ast?.decisions?.length) return null;
+  return ast.decisions.map((dec) => ({
+    name: outcomeText(dec.name), dec,
+    plain: { inputs: (dec.inputs || []).map((x) => {
+      const id = String(x?.name ?? x).split(/[\s:]/)[0];
+      // The kind, from how the rules use it: compared with a number, or used as a yes/no on its own.
+      const whens = (dec.rules || []).map((r) => r.when || '').join(' ; ');
+      const num = new RegExp(`\\b${id}\\s*(>=|<=|>|<|==|!=)\\s*-?\\d|-?\\d\\s*(>=|<=|>|<|==|!=)\\s*${id}\\b`).test(whens);
+      const yesno = !num && new RegExp(`(^|[!(&|;]\\s*)${id}\\s*($|[)&|;])|\\b${id}\\s*==\\s*(true|false)\\b`).test(whens);
+      return { id, label: human(id), kind: num ? 'number' : yesno ? 'yesno' : 'any' };
+    }) },
+  }));
+}
+
+/** A mission condition in words: "age >= 18" -> "age is at least 18". */
+export function conditionWords(expr) {
+  return String(expr)
+    .replace(/\s*>=\s*/g, ' is at least ').replace(/\s*<=\s*/g, ' is at most ')
+    .replace(/\s*!=\s*/g, ' is not ').replace(/\s*==\s*/g, ' is ')
+    .replace(/\s*>\s*/g, ' is more than ').replace(/\s*<\s*/g, ' is less than ')
+    .replace(/\s*&&\s*/g, ' and ').replace(/\s*\|\|\s*/g, ' or ').replace(/!\s*(?=\w)/g, 'not ')
+    .replace(/\b([a-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+|[a-z]+[A-Z][A-Za-z0-9]*)\b/g, (w) => human(w))
+    .replace(/\s+/g, ' ').trim();
+}
+
+/** Try a mission decision: the same answer and reasons shape as tryRule. */
+export function tryMission(rule, values) {
+  const run = evaluateDecision(rule.dec, values);
+  const ids = rule.plain.inputs.map((i) => i.id);
+  const seen = (when) => ids.filter((id) => new RegExp(`\\b${id}\\b`).test(when)).map((id) => `${human(id)} is ${typeof values[id] === 'boolean' ? (values[id] ? 'yes' : 'no') : values[id]}`).join(', ');
+  const why = [];
+  for (const t of run.trace) {
+    if (!t.when) continue;
+    const result = rule.dec.rules.find((r) => r.name === t.rule)?.result;
+    if (t.error) { why.push({ ok: false, text: conditionWords(t.when), actual: `could not be worked out: ${t.error}`, yesno: true }); continue; }
+    if (t.matched && t.rule === run.matched) { why.push({ ok: true, text: conditionWords(t.when), actual: seen(t.when), yesno: true }); why.push({ answer: true, text: `so: ${outcomeText(result)}` }); break; }
+    why.push({ ok: false, text: conditionWords(t.when), actual: seen(t.when), yesno: true, skipped: outcomeText(result) });
+  }
+  if (run.matched === 'default') why.push({ answer: true, text: `none of the rules matched, so: ${outcomeText(run.result)} (otherwise)` });
+  if (run.undecided) why.push({ answer: true, text: 'no rule matched and there is no "otherwise" answer, so the rule gives no answer' });
+  return { answer: run.undecided ? 'No answer' : outcomeText(run.result), outcome: run.result, ruleIndex: run.matched === 'default' ? -1 : rule.dec.rules.findIndex((r) => r.name === run.matched), why, values };
 }
 
 /** Parse --with "a=1, b=yes" into { inputId: value }, or { error }. */
@@ -107,7 +164,8 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
   const file = a._[0];
   let source;
   try { source = readFileSync(file, 'utf8'); } catch (e) { console.error(`thunder try: couldn't open ${file}${e.code === 'ENOENT' ? ': there is no such file' : `: ${e.message}`}.`); return 2; }
-  const rules = rulesIn(source, file);
+  const mission = /\.(thunder|intent)$/i.test(file) ? missionRules(source) : null;
+  const rules = mission ?? rulesIn(source, file);
   if (!rules.length) { console.error(`thunder try: Thunder found no rules in ${file}. A rule decides between answers, like "if days late <= 7: return SmallFee". See what it does find: thunder read ${file}`); return 2; }
 
   let rule;
@@ -124,6 +182,7 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
     console.error(`thunder try: ${file} has ${rules.length} rules. Pick one:\n${rules.map((r) => `  thunder try ${file} --focus "${r.name}"`).join('\n')}`);
     return 2;
   }
+  const run = (values) => (mission ? tryMission(rule, values) : tryRule(rule.plain, values));
   if (!rule.plain) { console.error(`thunder try: "${rule.name}" can't be tried: ${rule.why}. Read it instead: thunder read ${file} --level flow --focus "${rule.name}"`); return 2; }
   const plain = rule.plain;
   const note = plain.needsReview?.some((n) => /inferred/.test(n)) ? 'Note: the code does not say what kind some values are; Thunder worked it out from how the rule uses them.' : null;
@@ -131,8 +190,8 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
   if (a.with.length) {
     const w = parseWith(plain, a.with);
     if (w.error) { console.error(`thunder try: ${w.error}`); return 2; }
-    const t = tryRule(plain, w.values);
-    console.log(a.json ? JSON.stringify({ rule: rule.name, file, ...t }, null, 2) : renderTry(t));
+    const t = run(w.values);
+    console.log(a.json ? JSON.stringify({ rule: rule.name, file, ...t }, null, 2) : paint(renderTry(t)));
     return 0;
   }
 
@@ -140,7 +199,7 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
   const rl = createInterface({ input, terminal: false });
   const lines = rl[Symbol.asyncIterator]();
   const ask = async (q) => { output.write(q); const r = await lines.next(); if (r.done) return null; if (!input.isTTY) output.write(`${r.value}\n`); return r.value; };
-  const say = (s = '') => output.write(`${s}\n`);
+  const say = (s = '') => output.write(`${paint(s, useColor(output))}\n`);
   say(`⚡ Let's try "${rule.name}" from ${basename(file)}.`);
   say(`It takes: ${plain.inputs.map((i) => `${inputName(i)} (${kindText[i.kind] ?? i.kind})`).join(', ')}`);
   if (note) say(note);
@@ -158,7 +217,7 @@ export async function tryMain(argv, { input = process.stdin, output = process.st
       }
     }
     say('');
-    say(renderTry(tryRule(plain, values)));
+    say(renderTry(run(values)));
     say('');
     const again = await ask('Try another? (y/n) > ');
     if (again == null || !/^y/i.test(again.trim())) { rl.close(); return 0; }

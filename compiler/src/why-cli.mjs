@@ -1,6 +1,7 @@
 // thunder why: an AI agent's run explained in plain words (src/why.mjs, docs/why.md).
 //   thunder why <run.json> [--step n] [--run id] [--json]
 import { readFileSync } from 'node:fs';
+import { paint } from './term.mjs';
 import { explainRun, renderWhy, renderFull, renderStep, toolAnnotations, EFFECT_KINDS } from './why.mjs';
 
 const USAGE = `usage: thunder why <run.json> [--steps] [--step n] [--tools tools.json] [--allow read,send] [--run id] [--json]
@@ -35,6 +36,6 @@ export function whyMain(argv) {
   const r = explainRun(text, { run: a.run, tools, allow: a.allow });
   if (!r.ok) { console.error(`thunder why: ${r.why}`); return 2; }
   if (a.json) console.log(JSON.stringify(a.step != null ? r.steps.find((s) => s.n === Number(a.step)) ?? null : r, null, 2));
-  else console.log(a.step != null ? renderStep(r, a.step) : a.steps ? renderFull(r) : renderWhy(r, { file: a._[0] === '-' ? '-' : a._[0] }));
+  else console.log(paint(a.step != null ? renderStep(r, a.step) : a.steps ? renderFull(r) : renderWhy(r, { file: a._[0] === '-' ? '-' : a._[0] })));
   return r.notAllowed?.length ? 1 : 0;
 }

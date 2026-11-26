@@ -10,8 +10,15 @@ Want to learn the language itself first? Take the [10-minute tutorial](https://t
 
 ```bash
 npm install -g @skillstech/thunderlang
-thunder help
+thunder              # the main things to do, with examples
+thunder doctor       # is everything ready?
+thunder help --all   # every command
 ```
+
+In a terminal, Thunder uses a little color to make screens easy to scan: green ✓ for what worked, red ✗ only for
+real problems, yellow for warnings, and commands to type in cyan. Every mark also has its words, so nothing depends
+on color. Output to a file, a pipe, a script, or `--json` has no color; set `NO_COLOR=1` to turn it off everywhere, or
+`FORCE_COLOR=1` to keep it when piping.
 
 No install needed to try it: prefix any command with `npx -y @skillstech/thunderlang` (for
 example `npx -y @skillstech/thunderlang help`).
@@ -77,14 +84,18 @@ That writes `Eligibility.thunder` with a goal, a guarantee, a `never` rule, an e
 
 ## Run it (no code, no AI)
 
-A decision is a program. Give it inputs and it decides:
+A decision is a program. Try it with your own values, and it tells you the answer and why:
 
-```bash
-thunder run Eligibility.thunder --inputs '{"age":20}'
-#   decision Example: Allowed  [rule: adult]
+```text
+$ thunder try Eligibility.thunder --with "age=20"
+Answer: Allowed
+Why:
+  ✓ age is at least 18  (age is 20)
+  → so: Allowed
 ```
 
-The trace shows which rule fired. Change the input and the result changes, deterministically, before
+Without `--with`, Thunder asks for each value. (Scripts can give all values as JSON:
+`thunder run Eligibility.thunder --inputs '{"age":20}'`.) Change the input and the result changes, deterministically, before
 any implementation exists.
 
 ## Test it, in the same file
