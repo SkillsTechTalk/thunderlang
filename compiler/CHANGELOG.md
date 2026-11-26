@@ -10,6 +10,31 @@
   checked against its code, with tests that a wrong sentence is still shown as code. Also fixed: a `%` followed by a
   letter inside a text could stop a whole Python file from being read. `reading-quality.mjs --shapes N` ranks what is
   still shown as code by its shape (names as x), never printing the code.
+- **React and Angular screens are read as what a person sees and does.** A React component (function or arrow
+  returning JSX, `memo`/`forwardRef` too) and an Angular `@Component` are now **screens** in the model
+  (`model.screens`; the function or class behind each points to it). A screen says what it receives (props with
+  their types; `@Input`/`input()`), what it remembers (`useState`/`useReducer`/hooks; fields, `signal`, `computed`),
+  what it shows (JSX or the template, inline or `templateUrl`, in words: headings, lists "one of these per item in
+  items", choices "when … / otherwise", text boxes, buttons, links), what happens when someone acts (`onClick`,
+  `(click)`, … : sets coupon, runs checkout, sends the checkout event, tells the parent), what runs by itself
+  (`useEffect` with its dependencies, `ngOnInit` and the other hooks), what it sends (`@Output`/`output()`), and the
+  screens it shows (linked by name or selector). Anything not understood (spread props, other expressions, unknown
+  directives) is listed as not read. `thunder read --level` shows screens at every level; the big picture lists the
+  app's screens once. `collectReadableFiles` takes `templates: true` to bring `*.component.html` files.
+- **Docs pages look like a polished reference.** Every code block is a small editor window with a title bar
+  (Thunder, Terminal, Output, Diagram, Python, thunder.toml…) and a Copy button; Python, TypeScript, JSON, YAML, and
+  TOML are colored too. Headings can be linked to, long docs get an "On this page" list that follows your reading,
+  and tables, notes, and inline code are calmer.
+- **Thunder Core in color, everywhere it is written.** The site's highlighter (docs, code cards, the editor, the
+  tutorial) knows Thunder Core: statement words (Set, When, Give, For each, Test…) bold, joining words softer, function
+  names after "To", record names after "A … has:", record kinds, money, percents and yes/no as values, text in green
+  with its {holes} marked, and comments after the code dimmed. The VS Code grammar gains the same roles. In the
+  terminal, `thunder read --as-core`, `thunder format`, and `thunder replay` print Thunder Core in the same colors (off
+  for files, pipes, `NO_COLOR`, and JSON).
+- **Fix: `thunder run hello` inside the hello project crashed** with a raw Node error (it looked for a file named
+  hello). Inside a project, its own name now means the project, from any folder in it. A file that is not there is
+  said in words everywhere ("there is no file or folder called … here", where you are, and what to type), never a
+  stack trace.
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
   Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out

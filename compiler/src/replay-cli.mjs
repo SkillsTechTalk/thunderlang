@@ -5,7 +5,7 @@
 //   thunder replay <file> [--step n] [--json]
 import { readFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
-import { paint, useColor } from './term.mjs';
+import { paint, paintThunderLine, useColor } from './term.mjs';
 
 const SCHEMA = 'thunder-time-machine-v1';
 const USAGE = `usage: thunder replay <recording.json> [--step n] [--json]
@@ -47,7 +47,7 @@ export function renderStep(trace, i) {
   const s = steps[i];
   if (!s) return `There is no step ${i + 1}. This recording has ${steps.length} step${steps.length === 1 ? '' : 's'}.`;
   const where = s.fn ? `inside "${s.fn.replace(/_/g, ' ')}"` : 'in the program';
-  const L = [`⏱ Step ${s.n} of ${steps.length} · ${s.file}, line ${s.line} · ${where}`, `  ${lineText(trace, s.file, s.line)}`];
+  const L = [`⏱ Step ${s.n} of ${steps.length} · ${s.file}, line ${s.line} · ${where}`, `  ${paintThunderLine(lineText(trace, s.file, s.line), useColor())}`];
   // A call: the steps deeper than this one, right after it, belong to the function it called.
   let j = i + 1;
   while (j < steps.length && steps[j].depth > s.depth) j++;

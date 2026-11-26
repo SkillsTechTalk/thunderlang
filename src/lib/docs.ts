@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { marked } from "marked";
+import { marked, Marked } from "marked";
 import { thunderCodeRenderer } from "./thunder-tokens";
 import { terminalCodeRenderer } from "./terminal-tokens";
+import { docCodeRenderer, slugger } from "./doc-code";
 
 /**
  * Reads the language docs (docs/*.md) and examples (examples/*.thunder) from the
@@ -312,12 +313,34 @@ export function getDocCategories(): DocCategory[] {
   return cats.filter((c) => c.docs.length > 0);
 }
 
-export function getDoc(slug: string): { label: string; html: string } | null {
+export type DocHeading = { id: string; text: string };
+
+/**
+ * One doc as HTML, plus its sections for "On this page". Code blocks become code windows (src/lib/doc-code.ts), and
+ * every heading gets an id and a # link, so a section can be linked to.
+ */
+export function getDoc(slug: string): { label: string; html: string; headings: DocHeading[] } | null {
   const file = path.join(DOCS_DIR, `${slug}.md`);
   if (!fs.existsSync(file)) return null;
   const raw = fs.readFileSync(file, "utf8");
-  const html = marked.parse(raw) as string;
-  return { label: DOC_LABELS[slug] ?? slug, html };
+  const id = slugger();
+  const headings: DocHeading[] = [];
+  const md = new Marked({ gfm: true });
+  md.use({
+    renderer: {
+      code: (block) => docCodeRenderer(block),
+      heading({ tokens, depth }) {
+        const inner = this.parser.parseInline(tokens);
+        const text = inner.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+        if (depth === 1) return `<h1>${inner}</h1>\n`;
+        const hid = id(text);
+        if (depth === 2) headings.push({ id: hid, text });
+        return `<h${depth} id="${hid}">${inner}<a class="heading-anchor" href="#${hid}" aria-label="Link to this section">#</a></h${depth}>\n`;
+      },
+    },
+  });
+  const html = md.parse(raw) as string;
+  return { label: DOC_LABELS[slug] ?? slug, html, headings };
 }
 
 export type ExampleStatus = "runnable" | "compiler-valid";

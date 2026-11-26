@@ -87,3 +87,46 @@ export function paintHelp(text, on = useColor()) {
     return line;
   }).join('\n');
 }
+
+// ── Thunder Core in the terminal: the same roles as the editor and the site ─────────────────────────────────────
+const CORE_LEADS = new Set(['Set', 'say', 'Say', 'print', 'Keep', 'Increase', 'Decrease', 'Add', 'Remove', 'Sort', 'Reverse', 'When', 'If', 'Otherwise', 'For', 'Repeat', 'Stop', 'Give', 'Receive', 'Test', 'Expect', 'Use', 'Never', 'To', 'A', 'An']);
+const CORE_JOIN = new Set(['to', 'with', 'by', 'from', 'as', 'at', 'least', 'most', 'more', 'less', 'than', 'each', 'while', 'until', 'times', 'of', 'where', 'sorted', 'descending', 'be', 'fail', 'fails', 'is', 'and', 'or', 'not', 'has', 'allow', 'back', 'in', 'when', 'if', 'this']);
+const CORE_VALUES = new Set(['yes', 'no', 'nothing', 'true', 'false']);
+const CORE_KINDS = new Set(['text', 'money', 'number', 'whole', 'date', 'optional', 'list', 'map']);
+const TOKENS = /("(?:[^"\\]|\\.)*"?)|((?<=\s)#.*$)|(-?\$\d[\d,]*(?:\.\d+)?|\d+(?:\.\d+)?%?)|([A-Za-z_][A-Za-z0-9_]*)|(\s+)|(.)/g;
+const ansi = (code, s, on) => (on ? `\x1b[${code}m${s}\x1b[0m` : s);
+
+/** Color one line of Thunder Core: statement words, joining words, values, text (with its {holes}), names, comments. */
+export function paintThunderLine(line, on = useColor()) {
+  if (!on) return line;
+  if (/^\s*#/.test(line)) return ansi('2', line, on);
+  const fnDef = /^\s*To [a-z]/.test(line);
+  const recDef = /^\s*An? [A-Z]\w*(?: [A-Z]\w*)* has:/.test(line);
+  const fieldLine = /^\s*[a-z][a-z0-9_]*(?: [a-z][a-z0-9_]*)*:\s+\S/.test(line);
+  const kindLine = /^\s+[A-Z][\w ]* is (?:an? )?(?:optional )?(?:text|money|number|whole number|date|yes\/no|list|map)\b/.test(line);
+  let out = '', leading = true, inName = false, beforeColon = fieldLine, first = true;
+  for (const m of line.matchAll(TOKENS)) {
+    const [t, str, comment, num, word, space] = m;
+    if (space) { out += t; continue; }
+    if (str) { out += ansi('32', t.replace(/\{[^{}"]+\}/g, (h) => `\x1b[1;33m${h}\x1b[0;32m`), on); leading = false; continue; }
+    if (comment) { out += ansi('2', t, on); continue; }
+    if (num) { out += ansi('33', t, on); leading = false; continue; }
+    if (!word) { if (t === ':') { beforeColon = false; inName = false; } out += t; leading = false; continue; }
+    let code = null;
+    if (beforeColon) code = '36';
+    else if (kindLine && first) code = '36';
+    else if (kindLine && (CORE_KINDS.has(t) || CORE_VALUES.has(t))) code = '36;1';
+    else if (leading && CORE_LEADS.has(t)) { code = '1;35'; inName = fnDef && t === 'To'; }
+    else if (inName) code = '34';
+    else if (CORE_VALUES.has(t)) code = '33';
+    else if (t === 'each' && /^\s*For each/.test(line)) code = '1;35';
+    else if (CORE_JOIN.has(t)) code = '35';
+    else if (/^[A-Z]/.test(t) && (recDef || !first)) code = '36';
+    out += code ? ansi(code, t, on) : t;
+    leading = false; first = false;
+  }
+  return out;
+}
+
+/** Color a whole Thunder Core program (plain when color is off). */
+export const paintThunder = (text, on = useColor()) => (on ? String(text).split('\n').map((l) => paintThunderLine(l, on)).join('\n') : text);
