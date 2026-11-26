@@ -8,7 +8,7 @@ import { getDocCategories } from "@/lib/docs";
 export const metadata = pageMeta({
   title: "Documentation",
   description:
-    "Early documentation for ThunderLang, an Intent-Oriented Programming language by SkillsTech. Concepts, the Mission structure, contracts, and verification.",
+    "Documentation for Thunder™ (also called ThunderLang™), the human programming language: read code in Thunder, write and run programs, check AI changes, and the full reference.",
   path: "/docs",
 });
 

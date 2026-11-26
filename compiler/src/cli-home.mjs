@@ -6,6 +6,7 @@ import { delimiter, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { findPython, findProjectRoot } from './core/project.mjs';
+import { paint, useColor } from './term.mjs';
 
 /** The commands `thunder` understands besides those listed in the full help (kept in sync by a test). */
 export const EXTRA_COMMANDS = ['doctor', 'completion', 'plain', 'ai', 'coverage', 'completions', 'hover', 'format', 'help', 'version', 'mission', 'why', 'trace', 'graph', 'proof', 'build'];
@@ -18,13 +19,14 @@ export function knownCommands(fullHelp) {
 
 /** The home screen: the few things most people need, with real examples. */
 export function homeText(version, commandCount) {
-  return `⚡ Thunder ${version}: programming, made human.
+  return `⚡ Thunder™ ${version}: programming, made human.
 
 Start here
   thunder new hello        create a program
   thunder run hello        run it
   thunder test hello       check that it works
   thunder read app.py      understand code you already have
+  thunder try rules.py     try a rule with your own values: the answer, and why
   thunder why run.json     see what an AI agent did, and why
 
 More
@@ -216,7 +218,7 @@ export function doctor({ version, cliPath, cwd = process.cwd(), env = process.en
 
 export function renderDoctor(r) {
   const mark = (ok) => (ok === true ? '✓' : ok === 'warn' ? '!' : '✗');
-  const L = ['Thunder doctor', ''];
+  const L = ['Thunder™ doctor', ''];
   for (const c of r.checks) {
     L.push(`  ${mark(c.ok)} ${c.what}${c.detail ? `  (${c.detail})` : ''}`);
     if (c.fix && c.ok !== true) L.push(`      ${c.fix}`);
@@ -235,6 +237,6 @@ export function doctorMain(argv, { version, cliPath }) {
   const bad = argv.find((a) => a !== '--json');
   if (bad) { console.error(`thunder doctor: there is no option ${bad}. It takes only --json.`); return 2; }
   const r = doctor({ version, cliPath, cwd: resolve(process.cwd()) });
-  console.log(json ? JSON.stringify(r, null, 2) : renderDoctor(r));
+  console.log(json ? JSON.stringify(r, null, 2) : paint(renderDoctor(r)));
   return r.ok ? 0 : 1;
 }

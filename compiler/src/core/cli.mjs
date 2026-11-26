@@ -14,6 +14,7 @@ import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGE
 import { runTypeScript } from './typescript-run.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
+import { paint } from '../term.mjs';
 import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
 
 const CORE_COMMANDS = new Set(['new', 'run', 'build', 'test', 'check', 'format', 'fmt']);
@@ -54,7 +55,7 @@ export function coreTarget(cmd, argv, cwd = process.cwd()) {
   return null;
 }
 
-const say = (s = '') => process.stdout.write(`${s}\n`);
+const say = (s = '') => process.stdout.write(`${paint(s)}\n`);
 const warn = (s = '') => process.stderr.write(`${s}\n`);
 
 function report(build, cwd) {

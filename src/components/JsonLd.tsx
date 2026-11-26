@@ -15,7 +15,7 @@ const PUBLISHER = { "@type": "Organization", "@id": `${URL}/#publisher`, name: "
 const LANGUAGE = {
   "@type": "ComputerLanguage",
   "@id": `${URL}/#thunder`,
-  name: "Thunder",
+  name: "Thunder™",
   alternateName: ["ThunderLang", "Thunder programming language", "Thunder language"],
   description:
     "Thunder is the human programming language: a human-native programming language for the AI era. Today its open-source compiler reads code in seventeen languages (C, C++, Swift, R, shell, PowerShell, and SQL included) as pictures and plain words, changes TypeScript, JavaScript, Python, and Go code from Thunder, and compiles rules to six languages. You can also write whole programs in Thunder and run them as Python or TypeScript. OpenThunder is the IDE for AI-written code.",
@@ -47,7 +47,7 @@ export const SITE_GRAPH = {
 export const COMPILER_LD = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "ThunderLang compiler (thunder)",
+  name: "ThunderLang™ compiler (thunder)",
   alternateName: NPM_PACKAGE,
   applicationCategory: "DeveloperApplication",
   operatingSystem: "macOS, Windows, Linux (Node.js 18 or newer)",

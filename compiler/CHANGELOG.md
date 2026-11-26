@@ -1,5 +1,15 @@
 # Unreleased
 
+- **Trademark marks.** Thunder™ and ThunderLang™ now carry ™ where the brand is shown prominently: the CLI's home
+  screen, `thunder --version`, `thunder help --all`, `thunder doctor`, the npm and VS Code descriptions (and the
+  extension's display name), the compiler README, and the site's logo and footer.
+- **Color in the terminal, and an easier full command list.** Screens people read (the home screen, `help`,
+  `doctor`, `new`, `why`, `try`, `read --level`, and the "did you mean" and "no project here" messages) use calm color:
+  green ✓, red ✗ only for real problems, yellow ! for warnings, commands to type in cyan, bold labels and headings.
+  Color is off for files, pipes, scripts, editors reading the output, `NO_COLOR`, and all JSON; `FORCE_COLOR=1` keeps
+  it. The words are identical with or without color (a test checks it). `thunder help --all` now starts with what most
+  people need (Start, Write and run programs, Read and understand code, Change code) and puts missions, proofs, and
+  editor tools under "Advanced"; every command is still listed. The home screen adds `thunder try`.
 - **Thunder Core compiles to TypeScript.** `thunder build --target typescript` (or `target = "typescript"` in
   thunder.toml) writes one readable `.ts` file per Thunder file into `generated/typescript/`, with `// thunder:N` line
   marks, the runtime, its types, and a `tsconfig.json`; `thunder run --target typescript` and `thunder test --target
