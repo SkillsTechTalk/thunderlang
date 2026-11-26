@@ -18,7 +18,9 @@ test('intent init scaffolds a Name.intent file', () => {
   const res = cli('init', 'Checkout', '--out', tmp);
   assert.equal(res.status, 0, res.stderr);
   assert.ok(existsSync(join(tmp, 'Checkout.thunder')));
-  assert.match(res.stdout, /next: thunder check/);
+  assert.match(res.stdout, /^Created .*Checkout\.thunder: a starter mission/);
+  assert.match(res.stdout, /thunder try .*Checkout\.thunder {6}try the rule with your own values/);
+  assert.match(res.stdout, /Just starting out\? A program in plain words is easier: thunder new hello/);
 });
 
 test('the scaffold is valid, runnable, and its tests pass (instant success)', () => {

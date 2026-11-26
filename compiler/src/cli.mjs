@@ -1255,7 +1255,10 @@ function main() {
       console.error(`thunder init: ${target} already exists (use --force to overwrite).`);
       process.exit(1); return;
     }
-    const starter = `mission ${name}
+    const starter = `# A mission: what one part of your product must do, the rules it follows, and examples that prove them.
+# Run the examples:  thunder test ${basename(target)}
+# Try the rule:      thunder try ${basename(target)}
+mission ${name}
 use product
 
 goal
@@ -1268,7 +1271,7 @@ guarantee an example property that must always hold
 never
   do something this mission must never do
 
-# A runnable decision. Try: thunder run ${name}.intent --inputs '{"age":20}'
+# A rule that decides: people 18 or older are allowed. Try it: thunder try ${basename(target)}
 decision Example
   inputs
     age
@@ -1278,7 +1281,7 @@ decision Example
   default
     return Blocked
 
-# Tests live in the file. Try: thunder test ${name}.intent
+# Examples that prove the rule. Run them: thunder test ${basename(target)}
 test Example
   case adult
     given age 20
@@ -1289,8 +1292,14 @@ test Example
 `;
     if (target.includes('/')) mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, starter);
-    console.log(`thunder ${cmd}: wrote ${target}`);
-    console.log(`  next: thunder check ${target}  |  thunder run ${target} --inputs '{"age":20}'  |  thunder test ${target}`);
+    console.log(`Created ${target}: a starter mission, the ThunderLang™ format for a product's rules and the examples that prove them.`);
+    console.log('');
+    console.log('Try it:');
+    console.log(`  thunder test ${target}     run the examples written in the file`);
+    console.log(`  thunder try ${target}      try the rule with your own values`);
+    console.log(`  thunder check ${target}    look for mistakes, explained in plain words`);
+    console.log('');
+    console.log('Just starting out? A program in plain words is easier: thunder new hello');
     return;
   }
 

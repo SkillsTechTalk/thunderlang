@@ -2,12 +2,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { READ_LESSONS } from '../src/learn-lessons.mjs';
-import { rulesIn, tryRule, parseWith, parseValue } from '../src/try-cli.mjs';
+import { rulesIn, tryRule, parseWith, parseValue, conditionWords } from '../src/try-cli.mjs';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli.mjs');
 const dir = mkdtempSync(join(tmpdir(), 'thunder-try-'));
@@ -71,4 +71,21 @@ test('the answer is the engine\'s, from the rule the reader understood', () => {
   const w = parseWith(rule.plain, ['days late=8']);
   assert.equal(tryRule(rule.plain, w.values).answer, 'Big');
   assert.equal(tryRule(rule.plain, parseWith(rule.plain, ['days late=7']).values).answer, 'Small');
+});
+
+test('mission files: thunder init, then thunder try asks in plain words (no JSON)', () => {
+  const d = mkdtempSync(join(tmpdir(), 'thunder-try-mission-'));
+  try {
+    spawnSync(process.execPath, [CLI, 'init', 'Signup', '--out', d], { encoding: 'utf8' });
+    const f = join(d, 'Signup.thunder');
+    assert.match(readFileSync(f, 'utf8'), /# Try the rule: {6}thunder try Signup\.thunder/);
+    assert.equal(cli([f, '--with', 'age=20']).stdout, 'Answer: Allowed\nWhy:\n  ✓ age is at least 18  (age is 20)\n  → so: Allowed\n');
+    assert.equal(cli([f, '--with', 'age=10']).stdout, 'Answer: Blocked\nWhy:\n  ✗ age is at least 18  (age is 10), so not Allowed\n  → none of the rules matched, so: Blocked (otherwise)\n');
+    const asked = cli([f], '15\nn\n');
+    assert.match(asked.stdout, /It takes: age \(a number\)\n/);
+    assert.match(asked.stdout, /Answer: Blocked/);
+    assert.match(cli([f, '--with', 'age=old']).stderr, /age: "old" isn't a number\./);
+  } finally { rmSync(d, { recursive: true }); }
+  assert.equal(conditionWords('age >= 18 && member == true'), 'age is at least 18 and member is true');
+  assert.equal(conditionWords('total_spent < 100 || !isBanned'), 'total spent is less than 100 or not is banned');
 });
