@@ -580,7 +580,27 @@ function sayCommon(value) {
   if ((m = e.match(/^new\s*\(\s*(?:[\w]+\.)?([A-Z]\w*)\s*\)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^&([A-Z]\w*)$/))) return `a new ${m[1]}`;
   if ((m = e.match(/^[\w.]+\.(?:get|get_or_404|find|Find|findById|find_by_id)\(\s*([A-Z]\w*)\s*,\s*([\w.]+)\s*\)$/))) return `the ${m[1]} with ${lastSeg(m[2])}`;
-  if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return `the ${lastSeg(m[2])} entry in ${possessiveWords(m[1])}`;
+  // (A key that is another value's field keeps its owner: `touched.get(f.id)` is "the entry for f's id in touched".)
+  if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return /\./.test(m[2]) && !/^(?:self|this)\./.test(m[2]) ? `the entry for ${possessiveWords(m[2])} in ${possessiveWords(m[1])}` : `the ${lastSeg(m[2])} entry in ${possessiveWords(m[1])}`;
+  // Everyday JavaScript and TypeScript calls, said by what they give back (only when what they are given is a name).
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    const plain = (x) => (/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(String(x).trim()) ? possessiveWords(String(x).trim().replace(/\?\./g, '.')) : null);
+    const one = (re) => { const mm = e.match(re); return mm ? plain(mm[1]) : null; };
+    let w;
+    if ((w = one(/^Object\.keys\(\s*([^(),]+?)\s*\)$/))) return `the keys of ${w}`;
+    if ((w = one(/^Object\.values\(\s*([^(),]+?)\s*\)$/))) return `the values in ${w}`;
+    if ((w = one(/^Object\.entries\(\s*([^(),]+?)\s*\)$/))) return `each key and value in ${w}`;
+    if ((w = one(/^Date\.parse\(\s*([^(),]+?)\s*\)$/))) return `the time written in ${w}`;
+    if ((w = one(/^Array\.from\(\s*([^(),]+?)\s*\)$/))) return `a list made from ${w}`;
+    if ((m = e.match(/^([A-Z][\w$]*)\.from\(\s*([^(),]+?)\s*\)$/)) && plain(m[2])) return `a ${m[1]} made from ${plain(m[2])}`;
+    if ((m = e.match(/^([\w$.]+)\.exec\(\s*([^(),]+?)\s*\)$/)) && plain(m[1]) && plain(m[2])) return `the first match of ${plain(m[1])} in ${plain(m[2])}`;
+    if ((m = e.match(/^([A-Z][\w$]*)\.parse\(\s*([^(),]+?)\s*\)$/)) && plain(m[2]) && m[1] !== 'JSON' && m[1] !== 'Date') return `${plain(m[2])}, checked and read by ${m[1]}`;
+    if ((m = e.match(/^Math\.(max|min)\(\s*([^()]+?)\s*\)$/))) {
+      const xs = splitTopArgs(m[2]).map(plain);
+      if (xs.length >= 2 && xs.every(Boolean)) return `the ${m[1] === 'max' ? 'largest' : 'smallest'} of ${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+    }
+    if ((m = e.match(/^Math\.(round|floor|ceil|abs|trunc)\(\s*([^(),]+?)\s*\)$/)) && plain(m[2])) return { round: `${plain(m[2])} rounded`, floor: `${plain(m[2])} rounded down`, ceil: `${plain(m[2])} rounded up`, abs: `the absolute value of ${plain(m[2])}`, trunc: `${plain(m[2])} without its fraction` }[m[1]];
+  }
   const wholeCall = (() => { const c = e.match(/^(?:new\s+)?[\w$.]+(?:<[^()]*?>)?\s*\(/); return !!c && closeOf(e, c[0].length - 1) === e.length - 1; })();
   if (/["'`]\s*\+|\+\s*["'`]/.test(e) && !/[<>=!&|]/.test(e) && !wholeCall) return 'text built from its parts';
   // PHP joins text with ` . ` (spaced when PHP is read): `$a . ':' . $b`.

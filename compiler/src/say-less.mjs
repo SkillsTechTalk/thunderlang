@@ -446,6 +446,14 @@ function namesKept(tree, said) {
         // "the result of X": the call is named, what it is given is one level down.
         if (name && has(name) && sw.includes(` result of ${splitWords(name).join(' ')} `)) return true;
         if (name && /^(?:new|New|create|of|from|make)$/.test(name) && / new /.test(sw) && c.kind === 'member') return ok(c.object);
+        // Everyday JavaScript calls said by what they give back (steps.mjs sayCommon): the words name every argument.
+        const onType = c?.kind === 'member' && c.object?.kind === 'name' ? c.object.name : null;
+        if (onType === 'Math' && /^(?:max|min)$/.test(name) && / (?:largest|smallest) /.test(sw)) return ok(n.args);
+        if (onType === 'Math' && /^(?:round|floor|ceil|abs|trunc)$/.test(name) && / (?:rounded|absolute|fraction) /.test(sw)) return ok(n.args);
+        if (onType === 'Date' && name === 'parse' && / time written /.test(sw)) return ok(n.args);
+        if (name === 'exec' && / first match of /.test(sw)) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
+        if (name === 'parse' && onType && /^[A-Z]/.test(onType) && / checked and read by /.test(sw) && has(onType)) return ok(n.args);
+        if (name === 'from' && onType && / made from /.test(sw)) return ok(n.args);
         // Questions about a collection said in words: "any item in xs matches", "every …", "the first … that matches".
         if (name && /^(?:any|some|all|every|none|find|first|filter|where|select|detect|find_index|findIndex|includes|include\?|contains|Contains|any\?|all\?|none\?|exists|Any|All|Exists|in_array|has|hasOwnProperty|has_key|key\?|containsKey|ContainsKey|startswith|endswith|startsWith|endsWith|StartsWith|EndsWith|start_with\?|end_with\?)$/.test(name) && / (?:any|every|all|no|first|matches|match|in|has|contains|starts|ends|one of) /.test(sw)) return ok(own) && n.args.every((a) => a.kind === 'lambda' || ok(a));
         if (name && /^(?:len|length|size|count|nrow|NROW|Count|sizeof|strlen|wcslen|mb_strlen|nchar|str_length|lengths|Length)$/.test(name) && howMany) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
