@@ -26,7 +26,9 @@ export const ENGINES = ['python', 'thunder'];
 class Return { constructor(v) { this.v = v; } }
 
 /** JavaScript ran out of stack before Thunder's own limit: the run is retried on a thread with a deeper stack. */
-const nativeOverflow = (e) => e instanceof RangeError && /call stack/i.test(e.message);
+// Kept cheap on purpose: near the limit even a regular expression can run out of stack. A false alarm only means the
+// run is repeated on the deep-stack thread, so any RangeError (or a regular expression's "Stack overflow") counts.
+const nativeOverflow = (e) => { try { return e instanceof RangeError || (e instanceof SyntaxError && e.message.endsWith('Stack overflow')); } catch { return true; } };
 class NeedsDeeperStack extends Error {}
 
 const MAX_FRAMES = 997; // as deep as the generated Python goes (recursion limit 1000, less its own frames)
