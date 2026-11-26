@@ -1,3 +1,14 @@
+# Unreleased
+
+- **`thunder why` is short now, and says what the agent did to the world.** The first screen is a few lines: what
+  happened, why it stopped, what it did, and what to do next; `--steps` gives every step. Each step that does something
+  gets one kind, most serious first: moves money, deletes, sends, creates, changes, reads. The kind comes from the
+  strongest evidence: what the tool declares (its MCP annotations with `--tools tools.json`, or `thunder.effect` on the
+  span), then the request method or database operation, and only then the tool's name, where every word counts and the
+  most serious wins (`get_and_delete` now deletes; it was read as `get`). Guesses are labeled. `--allow read,send`
+  names anything beyond those kinds and exits 1. JSON: new `effects` (and `allowed`/`notAllowed`); `changes` items now
+  carry `kind`, and a step's `effect` is one of the six kinds (it was `change`).
+
 # 1.1.0
 
 - **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry
