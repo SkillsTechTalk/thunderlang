@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli.mjs');
-const help = () => spawnSync(process.execPath, [CLI, '--help'], { encoding: 'utf8' });
+const help = () => spawnSync(process.execPath, [CLI, 'help', '--all'], { encoding: 'utf8' });
 
 // Every command the CLI supported before the grouped-help refactor. The help text
 // must keep listing all of them: grouping is a presentation change, never a removal.

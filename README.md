@@ -31,14 +31,15 @@ Each compilation capability is advertised only once it works.
 
 | Capability | Status |
 |---|---|
-| **Read** existing code in Thunder: 17 languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available |
-| **Change** existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available |
-| **Compile rules**: decisions written in Thunder compile to TypeScript, Python, Go, Rust, C#, and Java, and their examples run against the generated code | Available |
-| **Write whole programs** in Thunder (Thunder Core), compiled to Python first | Coming |
-| **Compile Thunder Core** to Java, C#, TypeScript, Go, and Rust | Planned |
+| **Read** existing code in Thunder: 17 languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available <!-- capability:thunderedRead --> |
+| **Change** existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available <!-- capability:thunderedEdit --> |
+| **Compile rules**: decisions written in Thunder compile to TypeScript, Python, Go, Rust, C#, and Java, and their examples run against the generated code | Available <!-- capability:decisionTargets --> |
+| **Write whole programs** in Thunder (Thunder Core) and run them as Python: `thunder new`, `run`, `build`, `test` | Available <!-- capability:thunderCore --> |
+| **Compile Thunder Core** to Java, C#, TypeScript, Go, and Rust | Planned <!-- capability:coreTargets --> |
 
-Thunder is not yet a general-purpose programming language: until Thunder Core ships, you write rules in Thunder and
-read and change everything else.
+Thunder Core is young: programs compile to Python only. They can use Python libraries (`Use csv as csv`), written
+the Python way; Thunder's rules, like exact money, apply to Thunder values, not inside the library. For everything
+else, read and change your existing code in Thunder.
 
 **Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
 AI-written code.** Like Python and PyCharm: Thunder stands on its own, and OpenThunder is the IDE built for it.

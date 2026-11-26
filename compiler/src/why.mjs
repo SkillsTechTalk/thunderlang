@@ -142,38 +142,64 @@ function messagesOf(a, which) {
   return out;
 }
 
-const READ_VERBS = new Set('get list search find lookup look fetch read query retrieve check view show describe count load browse inspect peek lookup_ verify validate calculate compute estimate summarize'.split(' '));
-const CHANGE_VERBS = new Set('create add insert update set edit modify change delete remove drop cancel send post email notify message sms charge pay refund transfer write save store upload book reserve schedule submit approve reject close issue publish deploy merge push assign grant revoke rename move archive restore reset'.split(' '));
+// ── What a step does to the world ─────────────────────────────────────────────────────────────────────────────
+// Kinds, most serious first. A step's effect comes from the strongest evidence the record has:
+//   declared  the tool says so (MCP annotations from --tools, or a thunder.effect attribute on the span)
+//   method    the HTTP request method          operation  the database operation
+//   name      the tool's name: every word counts, and the most serious one wins (get_and_delete deletes)
+export const EFFECT_KINDS = ['money', 'delete', 'send', 'create', 'change', 'read'];
+const VERBS = {
+  money: 'charge pay payment refund transfer payout withdraw deposit purchase buy checkout bill',
+  delete: 'delete remove drop purge destroy erase truncate wipe unlink rm del',
+  send: 'send email mail notify message sms text tweet reply publish broadcast page post dm alert',
+  create: 'create add insert new make book reserve schedule upload register submit open issue generate',
+  change: 'update set edit modify change write save store cancel approve reject close assign grant revoke rename move archive restore reset deploy merge push apply patch enable disable mark replace upsert',
+  read: 'get list search find lookup look fetch read query retrieve check view show describe count load browse inspect peek verify validate calculate compute estimate summarize download scan',
+};
+const VERB_KIND = new Map();
+for (const k of [...EFFECT_KINDS].reverse()) for (const v of VERBS[k].split(' ')) VERB_KIND.set(v, k);
 
-/** Does this step change anything? { effect: 'read'|'change'|'unknown'|'none', basis } */
-function effectOf(s) {
+/** MCP tool annotations (from --tools) as an effect kind, or null when they say nothing. */
+function declaredFromAnnotations(ann) {
+  if (!ann || typeof ann !== 'object') return null;
+  if (ann.readOnlyHint === true) return 'read';
+  if (ann.readOnlyHint === false || ann.destructiveHint != null) return ann.destructiveHint === false ? 'change' : 'delete'; // the MCP default for a tool that writes is "may be destructive"
+  return null;
+}
+
+/** What this step does to the world: { effect, basis, resource }. */
+function effectOf(s, tools) {
   if (s.kind === 'model' || s.kind === 'agent') return { effect: 'none', basis: 'kind' };
+  if (s.declared && EFFECT_KINDS.includes(s.declared)) return { effect: s.declared, basis: 'declared' };
+  if (s.kind === 'tool') {
+    const d = declaredFromAnnotations(tools?.get(s.tool));
+    if (d) return { effect: d, basis: 'declared' };
+  }
   if (s.kind === 'retrieve') return { effect: 'read', basis: 'kind' };
   if (s.kind === 'http') {
     const m = String(s.method).toUpperCase();
-    if (['GET', 'HEAD', 'OPTIONS'].includes(m)) return { effect: 'read', basis: 'method' };
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(m)) return { effect: 'change', basis: 'method' };
-    return { effect: 'unknown', basis: 'method' };
+    const kind = { GET: 'read', HEAD: 'read', OPTIONS: 'read', POST: 'change', PUT: 'change', PATCH: 'change', DELETE: 'delete' }[m];
+    return { effect: kind ?? 'unknown', basis: 'method' };
   }
   if (s.kind === 'db') {
     const op = String(s.dbOp || '').toUpperCase();
     if (/^(SELECT|FIND|GET|SCAN|QUERY|COUNT|AGGREGATE|SHOW|DESCRIBE|EXPLAIN|MGET|HGET|HGETALL|EXISTS)/.test(op)) return { effect: 'read', basis: 'operation' };
-    if (/^(INSERT|UPDATE|DELETE|UPSERT|MERGE|REPLACE|CREATE|DROP|ALTER|TRUNCATE|SET|DEL|HSET|PUT|INCR|LPUSH|RPUSH)/.test(op)) return { effect: 'change', basis: 'operation' };
+    if (/^(DELETE|DROP|TRUNCATE|DEL\b|DEL$|HDEL|UNLINK)/.test(op)) return { effect: 'delete', basis: 'operation' };
+    if (/^(INSERT|CREATE|LPUSH|RPUSH|SADD|XADD)/.test(op)) return { effect: 'create', basis: 'operation' };
+    if (/^(UPDATE|UPSERT|MERGE|REPLACE|ALTER|SET|HSET|PUT|INCR|DECR)/.test(op)) return { effect: 'change', basis: 'operation' };
     return { effect: 'unknown', basis: 'operation' };
   }
   if (s.kind === 'tool') {
     const words = String(s.tool).replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-    for (const w of words) {
-      if (CHANGE_VERBS.has(w)) return { effect: 'change', basis: 'name' };
-      if (READ_VERBS.has(w)) return { effect: 'read', basis: 'name' };
-    }
-    return { effect: 'unknown', basis: 'name' };
+    const kinds = words.map((w) => VERB_KIND.get(w)).filter(Boolean);
+    const worst = EFFECT_KINDS.find((k) => kinds.includes(k));
+    return { effect: worst ?? 'unknown', basis: 'name' };
   }
   return { effect: 'unknown', basis: 'kind' };
 }
 
 /** A raw span as a step: what kind of thing happened, with the facts the story needs. */
-function stepOf(r) {
+function stepOf(r, tools) {
   const a = r.attrs;
   const op = String(a['gen_ai.operation.name'] ?? '').toLowerCase();
   const oi = String(a['openinference.span.kind'] ?? '').toUpperCase();
@@ -192,6 +218,7 @@ function stepOf(r) {
     durationMs: r.start != null && r.end != null && r.end >= r.start ? (r.end - r.start) / 1e6 : null,
     kind,
   };
+  if (a['thunder.effect'] != null) s.declared = String(a['thunder.effect']).toLowerCase();
   if (kind === 'agent') s.agent = a['gen_ai.agent.name'] ?? (r.name.replace(/^invoke_agent\s*/i, '') || r.name);
   if (kind === 'tool') { s.tool = String(tool ?? r.name.replace(/^execute_tool\s*/i, '')); s.args = a['gen_ai.tool.call.arguments'] ?? a['tool.parameters'] ?? a['input.value']; s.result = a['gen_ai.tool.call.result'] ?? a['output.value']; }
   if (kind === 'model') {
@@ -228,7 +255,7 @@ function stepOf(r) {
     };
   }
   if (kind === 'model' && !s.failed && ['length', 'max_tokens', 'content_filter'].includes(String(s.finish))) s.warning = String(s.finish);
-  Object.assign(s, effectOf(s));
+  Object.assign(s, effectOf(s, tools));
   return s;
 }
 
@@ -300,6 +327,15 @@ function outcome(s) {
   if (s.kind === 'model' || s.kind === 'agent') return '';
   return 'it worked';
 }
+/** A step's name, for short lines: "refund_payment", pay.example.com, the database. */
+const nameOf = (s) => s.kind === 'tool' ? `"${s.tool}"` : s.kind === 'http' ? (() => { try { return new URL(s.url).host; } catch { return s.url || s.name; } })() : s.kind === 'db' ? `the database${s.table ? ` (${s.table})` : ''}` : s.kind === 'model' ? 'the AI' : `"${s.name}"`;
+/** One short line for a step that had trouble but carried on, or a problem: "\"search_web\" worked on the second try; …". */
+function shortTrouble(s) {
+  const first = (s.tries || []).find((t) => t.failed);
+  if (!s.failed && first) return `${nameOf(s)} worked on the ${ordinal(s.tries.length)} try; the first time, ${lower(plainError(first.error).what)}`;
+  return `${nameOf(s)}: ${lower(plainError({ ...s.error, finish: s.finish ?? s.warning }).what)}`;
+}
+
 const sentence = (s) => {
   const o = outcome(s);
   const tries = s.tries?.length > 1 && !(s.tries || []).every((t, i, xs) => i === xs.length - 1 || t.failed) ? '' : s.tries?.length > 1 && s.failed ? ` (${s.tries.length} tries)` : '';
@@ -353,7 +389,14 @@ const flatten = (steps, depth = 0, out = []) => { for (const s of steps) { out.p
  * Explain one agent run. `input` is the record's text (or parsed JSON). Options: { run } picks a trace id when the
  * record holds several runs (default: the latest).
  */
-export function explainRun(input, { run } = {}) {
+/** MCP tool definitions (a tools/list result, or an array of tools) as name -> annotations. */
+export function toolAnnotations(input) {
+  const v = typeof input === 'string' ? JSON.parse(input) : input;
+  const list = Array.isArray(v) ? v : v?.tools ?? v?.result?.tools ?? [];
+  return new Map(list.filter((t) => t && t.name).map((t) => [String(t.name), t.annotations ?? null]));
+}
+
+export function explainRun(input, { run, tools = null, allow = null } = {}) {
   const raw = collectSpans(parseInput(input)).filter((r) => r.id);
   if (!raw.length) {
     return { ok: false, why: 'Thunder found no steps in this file. It reads OpenTelemetry traces: an OTLP JSON export, the collector\'s file exporter, or the Python console exporter.' };
@@ -367,7 +410,7 @@ export function explainRun(input, { run } = {}) {
     chosen = runs.find((r) => r.id.startsWith(String(run).toLowerCase()));
     if (!chosen) return { ok: false, why: `No run in this file starts with ${run}. The runs are: ${runs.map((r) => r.id.slice(0, 8)).join(', ')}.` };
   }
-  const all = chosen.spans.map(stepOf);
+  const all = chosen.spans.map((r) => stepOf(r, tools));
   const t0 = Number.isFinite(chosen.start) ? chosen.start : null;
   const tree = arrange(all);
   const flat = flatten(tree);
@@ -397,6 +440,7 @@ export function explainRun(input, { run } = {}) {
     const parentStep = flat.map((f) => f.step).find((s) => s.id === problemStep.parent && MEANINGFUL.has(s.kind) && s.kind !== 'agent');
     problem = {
       step: problemStep.n,
+      short: `${lower(plain.what).replace(/\.$/, '')}${problemStep.kind === 'http' ? ` (${nameOf(problemStep)})` : ''}${parentStep?.kind === 'tool' ? `, while using "${parentStep.tool}"` : problemStep.kind === 'tool' ? `, in ${nameOf(problemStep)}` : ''}${tries > 1 ? `. It tried ${tries} times` : ''}.`,
       inside: parentStep ? { step: parentStep.n, text: parentStep.kind === 'tool' ? `"${parentStep.tool}"` : doing(parentStep) } : null,
       what: `${doing(problemStep)}: ${lower(plain.what)}`.replace(/\.?$/, '.'),
       tries,
@@ -410,14 +454,19 @@ export function explainRun(input, { run } = {}) {
   }
 
   const stepById = new Map(flat.map((f) => [f.step.id, f.step]));
-  const underChange = (s) => { for (let p = stepById.get(s.parent); p; p = stepById.get(p.parent)) if (p.effect === 'change' || p.effect === 'unknown') return true; return false; };
-  const changes = flat.map((f) => f.step).filter((s) => s.effect === 'change' && !underChange(s)).map((s) => ({
-    step: s.n, text: doing(s), worked: !s.failed, basis: s.basis, tries: s.tries?.length ?? 1,
+  const underChange = (s) => { for (let p = stepById.get(s.parent); p; p = stepById.get(p.parent)) if ((EFFECT_KINDS.includes(p.effect) && p.effect !== 'read') || p.effect === 'unknown') return true; return false; };
+  // Effects: what the run did to the world, outermost step only (a tool's own request is not counted again).
+  const effects = flat.map((f) => f.step).filter((s) => EFFECT_KINDS.includes(s.effect) && !underChange(s)).map((s) => ({
+    step: s.n, kind: s.effect, basis: s.basis, text: doing(s), name: s.tool ?? (s.kind === 'http' ? `${s.method} ${hostPath(s.url)}` : s.kind === 'db' ? `${s.db} ${s.table ?? ''}`.trim() : s.name),
+    worked: !s.failed, tries: s.tries?.length ?? 1,
   }));
+  const changes = effects.filter((e) => e.kind !== 'read');
+  const allowed = allow ? new Set(allow) : null;
+  const notAllowed = allowed ? effects.filter((e) => !allowed.has(e.kind)) : [];
   const unknown = flat.map((f) => f.step).filter((s) => s.effect === 'unknown' && !underChange(s)).map((s) => ({ step: s.n, text: doing(s) }));
   const recovered = stopped ? [] : [...failedSteps, ...flat.map((f) => f.step).filter((s) => !s.failed && (s.tries || []).some((t) => t.failed))]
-    .sort((x, y) => x.n - y.n).map((s) => ({ step: s.n, text: sentence(s) }));
-  const warnings = flat.map((f) => f.step).filter((s) => s.warning).map((s) => ({ step: s.n, text: plainError({ finish: s.warning }).what }));
+    .sort((x, y) => x.n - y.n).map((s) => ({ step: s.n, text: sentence(s), short: shortTrouble(s) }));
+  const warnings = flat.map((f) => f.step).filter((s) => s.warning).map((s) => ({ step: s.n, text: plainError({ finish: s.warning }).what, short: plainError({ finish: s.warning }).what }));
 
   const status = stopped ? 'stopped' : recovered.length || warnings.length ? 'finished-with-problems' : 'finished';
   const who = agentName ? `The agent "${agentName}"` : 'The agent';
@@ -433,7 +482,8 @@ export function explainRun(input, { run } = {}) {
     status, headline,
     asked: ask ? short(hide(ask), 200) : null,
     answered: !stopped && lastFinal ? short(hide(lastFinal.said), 200) : null,
-    problem, recovered, warnings, changes, unknown,
+    problem, recovered, warnings, effects, changes, unknown,
+    ...(allowed ? { allowed: [...allowed], notAllowed } : {}),
     durationMs,
     steps: flat.map(({ step: s, depth }) => ({
       n: s.n, depth, kind: s.kind, text: doing(s), outcome: outcome(s), sentence: sentence(s), failed: !!s.failed, effect: s.effect,
@@ -460,10 +510,44 @@ function detailsOf(s) {
 // ── Printing ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 const at = (ms) => (ms == null ? '' : `+${(ms / 1000).toFixed(1)}s`);
-const basisNote = { name: "judged from the tool's name", method: 'judged from the request method', operation: 'judged from the database operation' };
+const basisNote = { name: 'guessed from its name', declared: 'the tool says so', method: 'from the request method', operation: 'from the database operation' };
+// What each kind of effect is called, as a past action and as an attempt.
+const DID = { money: 'Moved money', delete: 'Deleted something', send: 'Sent something', create: 'Created something', change: 'Changed something', read: 'Read' };
+const TRIED = { money: 'Tried to move money', delete: 'Tried to delete something', send: 'Tried to send something', create: 'Tried to create something', change: 'Tried to change something', read: 'Tried to read' };
+const effectName = (e) => (/^[A-Z]+ /.test(e.name) ? e.name : `"${e.name}"`);
+const effectLine = (e) => `${e.worked ? DID[e.kind] : TRIED[e.kind]} with ${effectName(e)}${e.basis === 'name' || e.basis === 'declared' ? ` (${basisNote[e.basis]})` : ''}.${e.worked ? '' : ' It did not go through, but may have partly happened.'}`;
+const andList = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs.join(''));
 
-/** The story as text: what happened, what went wrong, what changed, step by step, how sure. */
-export function renderWhy(r) {
+/** The short story: a few lines anyone can read. Every step is one flag away (--steps). */
+export function renderWhy(r, { file = 'run.json' } = {}) {
+  if (!r.ok) return r.why;
+  const who = r.headline.match(/^The agent( "[^"]+")?/)[0];
+  const took = r.durationMs != null ? ` ${r.status === 'stopped' ? 'after' : 'in'} ${secs(r.durationMs)}` : '';
+  const head = r.status === 'stopped' ? `✗ ${who} stopped${took}.`
+    : r.status === 'finished-with-problems' ? `✓ ${who} finished${took}, with ${r.recovered.length + r.warnings.length === 1 ? 'one problem' : `${r.recovered.length + r.warnings.length} problems`} along the way.`
+    : `✓ ${who} finished${took}.`;
+  const L = [head];
+  if (r.asked) L.push(`  Asked: ${quote(r.asked, 100)}`);
+  if (r.answered) L.push(`  Answered: ${quote(r.answered, 100)}`);
+  L.push('');
+  const row = (label, text) => L.push(`  ${label.padEnd(9)} ${text}`);
+  if (r.problem) {
+    const p = r.problem;
+    row('Why:', p.short.charAt(0).toUpperCase() + p.short.slice(1));
+  }
+  for (const x of [...r.recovered, ...r.warnings]) row('Problem:', `${x.short.charAt(0).toUpperCase()}${x.short.slice(1)}`.replace(/\.?$/, '.'));
+  const did = r.changes.length ? r.changes.map(effectLine) : [r.effects.length ? 'Only read things.' : 'Nothing that changes anything.'];
+  did.forEach((t, i) => row(i ? '' : 'Did:', t));
+  if (r.unknown.length) row('Unclear:', `can't tell what ${r.unknown.map((u) => u.text.replace(/^Used /, '').split(' with ')[0]).join(', ')} does.`);
+  for (const e of r.notAllowed ?? []) row('Not OK:', `${effectName(e)} ${e.worked ? DID[e.kind].toLowerCase() : TRIED[e.kind].toLowerCase()}. Only ${andList(r.allowed)} ${r.allowed.length === 1 ? 'is' : 'are'} allowed.`);
+  if (r.problem?.next) row('Next:', r.problem.next);
+  L.push('', `  Every step: thunder why ${file} --steps`);
+  if (r.otherRuns.length) L.push(`  This file has ${r.otherRuns.length + 1} runs; this is the latest. Others: --run ${r.otherRuns.map((x) => x.slice(0, 8)).join(', ')}`);
+  return L.join('\n');
+}
+
+/** The whole story: what happened, what went wrong, what changed, step by step, how sure. */
+export function renderFull(r) {
   if (!r.ok) return r.why;
   const L = [];
   L.push('What happened');
@@ -488,13 +572,10 @@ export function renderWhy(r) {
     L.push('');
   }
 
-  L.push('What it changed');
-  if (!r.changes.length) L.push(`  Nothing. No step in the record changes anything${r.unknown.length ? ', but some steps could not be judged (below)' : ''}.`);
-  for (const c of r.changes) {
-    const how = basisNote[c.basis] ? ` (${basisNote[c.basis]})` : '';
-    L.push(c.worked ? `  Step ${c.step}. Changed: ${c.text}${how}.`
-      : `  Step ${c.step}. Tried to change, but it did not work: ${c.text}${how}. The record can't show whether anything was partly done.`);
-  }
+  L.push('What it did');
+  if (!r.changes.length) L.push(`  Nothing that changes anything${r.unknown.length ? ', but some steps could not be judged (below)' : ''}.`);
+  for (const c of r.changes) L.push(`  Step ${c.step}. ${effectLine(c)}`);
+  for (const e of r.notAllowed ?? []) L.push(`  Not allowed: step ${e.step} ${DID[e.kind].toLowerCase()}${e.worked ? '' : ' (tried)'}. Allowed: ${r.allowed.join(', ')}.`);
   if (r.unknown.length) L.push(`  Could not judge whether ${r.unknown.length === 1 ? 'this step changes' : 'these steps change'} anything: ${r.unknown.map((u) => `step ${u.step} (${u.text})`).join('; ')}.`);
   L.push('');
 
