@@ -94,7 +94,7 @@ test('CLI produces reading text, canonical source, and JSON using the same model
     else if (flags.includes('source')) assert.equal(run.stdout, compileHumanContract(source));
     else assert.match(run.stdout, /Contract examples: 5\/5 passed/);
   }
-  const help = spawnSync(process.execPath, [CLI, 'help'], { encoding: 'utf8' });
+  const help = spawnSync(process.execPath, [CLI, 'help', '--all'], { encoding: 'utf8' });
   assert.match(help.stdout, /human <file>/);
 });
 
