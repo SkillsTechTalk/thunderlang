@@ -1,4 +1,12 @@
-# Unreleased
+# 1.4.0
+
+**Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: the Software Passport
+(`thunder passport`, `thunder passport check`; schema `thunder-passport-v1`), ownership checks on TypeScript web routes
+(`thunder read <dir> --access`, `accessFlow()`; schema `thunder-access-v1`), and a public, browser-safe library entry,
+`@skillstech/thunderlang/program` (compile, run, screens, and all seven targets). `./core` now also exports what apps
+used to reach through paths into `src/`; switch to the public entries, since `src/` paths are not part of the API. The
+repository gains a three-language checkout demo (`demo/checkout/`) with its walkthrough.
+
 
 - **The Thunder Software Passport (`thunder passport`).** An evidence record for a feature or a change
   (`thunder-passport-v1`): purpose (only what you state, else "not stated"), behavior as Thunder Text with lines,

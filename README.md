@@ -154,6 +154,8 @@ thunder why run.json                 # what an AI agent did, what it changed, an
 thunder run hello --record run.json   # record a run; step through it with: thunder replay run.json
 thunder build hello --target go       # the same program as Go (also typescript, csharp, java, rust)
 thunder build shop --target react     # a program with Screens, as a React app you own
+thunder read ./api --access           # does every route that returns a record limit it to the caller?
+thunder passport web orders billing --base main --run "billing: python3 -m unittest"   # evidence for a change
 ```
 
 `thunder help --all` lists every command, with what most people need first.
