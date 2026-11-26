@@ -1,5 +1,6 @@
 // The Lumen Supply checkout page's logic: send the cart to the orders service, wait a few seconds, and try again
-// once if the answer did not come in time. What it shows the customer comes back as a message.
+// once if the answer did not come in time. Every try carries the same idempotency key, so the store treats a retry
+// as the same order, not a new one. What it shows the customer comes back as a message.
 
 export type CartLine = { sku: string; quantity: number };
 
@@ -11,12 +12,13 @@ export type CheckoutOptions = {
   tries: number;
 };
 
-/** Place the order. A request that takes longer than timeoutMs is abandoned and sent again, up to `tries` times. */
+/** Place the order. A request that takes longer than timeoutMs is abandoned and sent again (the same order, by its key), up to `tries` times. */
 export async function placeOrder(cart: CartLine[], coupon: string | null, options: CheckoutOptions): Promise<OrderAnswer> {
   if (cart.length === 0) {
     return { placed: false, message: "Your cart is empty" };
   }
-  const body = JSON.stringify({ items: cart, coupon });
+  const idempotencyKey = crypto.randomUUID();
+  const body = JSON.stringify({ items: cart, coupon, idempotencyKey });
   for (let attempt = 1; attempt <= options.tries; attempt++) {
     try {
       const response = await fetch(`${options.ordersUrl}/orders`, {

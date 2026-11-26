@@ -15,7 +15,7 @@ def make_handler(billing):
                 return self.answer(404, {"error": "There is no such page"})
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             try:
-                payment = billing.charge(body["order_ref"], body["amount_cents"])
+                payment = billing.charge(body["order_ref"], body["amount_cents"], body.get("idempotency_key"))
             except ValueError as problem:
                 return self.answer(400, {"error": str(problem)})
             return self.answer(200, asdict(payment))

@@ -31,16 +31,25 @@ class Billing:
     def __init__(self, provider):
         self.provider = provider
         self.payments = []
+        self.by_key = {}
         self.lock = threading.Lock()
 
-    def charge(self, order_ref, amount_cents):
-        """Charge the customer once for an order and record the payment."""
+    def charge(self, order_ref, amount_cents, idempotency_key):
+        """Charge the customer once per idempotency key: asking again with the same key gives back the first payment."""
         if amount_cents <= 0:
             raise ValueError("The amount to charge must be more than zero")
+        if not idempotency_key:
+            raise ValueError("A charge needs an idempotency key, so a retry is never charged twice")
         with self.lock:
+            first = self.by_key.get(idempotency_key)
+            if first is not None:
+                if first.amount_cents != amount_cents:
+                    raise ValueError("This idempotency key was already used for a different amount")
+                return first
             charge_id = self.provider.charge(order_ref, amount_cents)
             payment = Payment(charge_id, order_ref, amount_cents, "charged")
             self.payments.append(payment)
+            self.by_key[idempotency_key] = payment
             return payment
 
     def charged_total(self):

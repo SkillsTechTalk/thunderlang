@@ -6,7 +6,7 @@ public static class SelfTests
     private class CountingBilling(int delayMs = 0) : IBilling
     {
         public int Charges;
-        public async Task<ChargeResult> ChargeAsync(string orderRef, long amountCents)
+        public async Task<ChargeResult> ChargeAsync(string orderRef, long amountCents, string idempotencyKey)
         {
             await Task.Delay(delayMs);
             var n = Interlocked.Increment(ref Charges);
@@ -45,23 +45,38 @@ public static class SelfTests
         {
             var billing = new CountingBilling();
             var shelf = Shelf();
-            var result = await new OrderService(shelf, billing).PlaceOrderAsync(new(Cart, null));
+            var result = await new OrderService(shelf, billing).PlaceOrderAsync(new(Cart, null, "key-1"));
             return result.Placed && billing.Charges == 1 && shelf.InStock("lamp") == 8;
         });
         await Check("too few in stock: nothing is charged", async () =>
         {
             var billing = new CountingBilling();
-            var result = await new OrderService(Shelf(), billing).PlaceOrderAsync(new([new("shade", 6)], null));
+            var result = await new OrderService(Shelf(), billing).PlaceOrderAsync(new([new("shade", 6)], null, "key-1"));
             return !result.Placed && billing.Charges == 0;
         });
         await Check("a retried order is charged once", async () =>
         {
             var billing = new CountingBilling(delayMs: 200);
+            var shelf = Shelf();
+            var service = new OrderService(shelf, billing);
+            var request = new OrderRequest(Cart, null, "key-1");
+            var answers = await Task.WhenAll(service.PlaceOrderAsync(request), service.PlaceOrderAsync(request));
+            return billing.Charges == 1 && shelf.InStock("lamp") == 8 && answers[0].OrderId == answers[1].OrderId;
+        });
+        await Check("two presses with different keys are two orders", async () =>
+        {
+            var billing = new CountingBilling();
             var service = new OrderService(Shelf(), billing);
-            var request = new OrderRequest(Cart, null);
-            await Task.WhenAll(service.PlaceOrderAsync(request), service.PlaceOrderAsync(request));
-            return billing.Charges == 1;
-        }, knownBug: true);
+            await service.PlaceOrderAsync(new(Cart, null, "key-1"));
+            await service.PlaceOrderAsync(new(Cart, null, "key-2"));
+            return billing.Charges == 2;
+        });
+        await Check("an order without a key is refused, and nothing is charged", async () =>
+        {
+            var billing = new CountingBilling();
+            var result = await new OrderService(Shelf(), billing).PlaceOrderAsync(new(Cart, null));
+            return !result.Placed && billing.Charges == 0;
+        });
 
         Console.WriteLine(failed == 0 ? "orders: all checks passed" : $"orders: {failed} failed");
         return failed == 0 ? 0 : 1;

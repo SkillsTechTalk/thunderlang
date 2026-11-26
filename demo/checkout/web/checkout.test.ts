@@ -42,11 +42,20 @@ test("a slow answer is abandoned and the order is sent again", async () => {
   assert.match(resultMessage(answer), /Order ord-2 is placed: \$53\.46/);
 });
 
-test("a retry says it is the same order as the first try", { todo: "known bug: a retry looks like a brand-new order" }, async () => {
+test("a retry says it is the same order as the first try", async () => {
   const sent: Sent[] = [];
   globalThis.fetch = slowFirstAnswer(500, sent);
   await placeOrder(cart, null, { ordersUrl: "http://x", timeoutMs: 50, tries: 2 });
   const keys = sent.map((s) => JSON.parse(s.body).idempotencyKey);
   assert.ok(keys[0], "the first try carries a key");
   assert.equal(keys[1], keys[0]);
+});
+
+test("two presses of Place order are two orders: each has its own key", async () => {
+  const sent: Sent[] = [];
+  globalThis.fetch = slowFirstAnswer(0, sent);
+  await placeOrder(cart, null, { ordersUrl: "http://x", timeoutMs: 50, tries: 2 });
+  await placeOrder(cart, null, { ordersUrl: "http://x", timeoutMs: 50, tries: 2 });
+  const keys = sent.map((s) => JSON.parse(s.body).idempotencyKey);
+  assert.notEqual(keys[0], keys[1]);
 });
