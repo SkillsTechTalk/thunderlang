@@ -102,6 +102,21 @@ say calculate discount with 150 and true
 `Receive` comes first: one line (`Receive total and member`) or one line per input. You can name the kind of
 each input: `Receive total as money, member as yes/no`, or `Receive member as yes or no`.
 
+An input can have a default, used when a call leaves it out:
+
+```thunder
+To taxed price:
+  Receive price and rate (7% if not given)
+  Give price + price * rate
+
+say taxed price with 100          # 107
+say taxed price with 100 and 20%  # 120
+```
+
+A default is a fixed value: a number, money, a percent, text, yes/no, `nothing`, or a kept value. Inputs with a
+default come after the inputs without one. A list or a map cannot be a default. In Python such a default is made once
+and shared by every call, a classic surprise; give `nothing`, and Set the list inside the function.
+
 A long condition can continue on the next line. Indent it further and start it with `and` or `or`:
 
 ```thunder

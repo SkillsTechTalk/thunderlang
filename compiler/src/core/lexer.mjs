@@ -68,7 +68,7 @@ function readString(text, start, line, colOffset) {
     const c = text[i];
     if (c === '\\') {
       const n = text[i + 1];
-      buf += n === 'n' ? '\n' : n === 't' ? '\t' : n ?? '';
+      buf += n === 'n' ? '\n' : n === 't' ? '\t' : n === 'r' ? '\r' : n ?? '';
       i += 2; continue;
     }
     if (c === close || (close === '”' && c === '"')) {

@@ -189,7 +189,17 @@ class Checker {
     const sc = new Scope(this.global, 'func');
     sc.func = f;
     f.gives = [];
+    let sawDefault = false;
     for (const p of f.params) {
+      if (p.dflt) {
+        sawDefault = true;
+        // A default is a fixed value (Python would create a list or map default once and share it between calls).
+        const fixed = (e) => ['num', 'money', 'percent', 'bool', 'nothing'].includes(e.k) || (e.k === 'str' && e.parts.every((x) => typeof x === 'string'))
+          || (e.k === 'neg' && fixed(e.e)) || (e.k === 'name' && this.global.vars.get(e.key ?? e.name)?.kind === 'const');
+        const dt = this.ex(p.dflt, this.global, {});
+        if (!fixed(p.dflt)) this.err('TC404', p.line, `The default for "${p.text}" must be a fixed value: a number, money, a percent, text, yes/no, nothing, or a kept value.`, p.dflt.k === 'list' || p.dflt.k === 'map' ? 'A list or a map as a default would be shared between calls. Give nothing, and Set it inside the function.' : null);
+        else if (p.type && known(p.type) && known(dt) && !compatible(p.type, dt) && dt.k !== 'nothing') this.err('TC303', p.line, `"${p.text}" is ${typeWords(p.type)}, but its default is ${typeWords(dt)}.`);
+      } else if (sawDefault) this.err('TC404', p.line, `"${p.text}" has no default, so it must come before the inputs that have one.`);
       if (sc.vars.has(p.name)) this.err('TC203', p.line, `"${p.text}" is received twice.`);
       if (this.global.vars.has(p.name)) this.err('TC203', p.line, `"${p.text}" is already the name of ${this.global.vars.get(p.name).kind === 'func' ? 'a function' : 'something else'} (line ${this.global.vars.get(p.name).line}).`, 'Receive it under a different name.');
       this.resolveType(p.type, p.line);
@@ -563,10 +573,12 @@ class Checker {
     if (!f) { this.err('TC201', e.line, `I don't know a function called "${e.text}".`); return UNKNOWN; }
     e.py = f.py;
     const ts = e.args.map((a) => this.ex(a, sc, o));
-    if (ts.length !== f.params.length) {
-      this.err('TC207', e.line, `"${f.text}" receives ${f.params.length} value${f.params.length === 1 ? '' : 's'} (${f.params.map((p) => p.text).join(', ') || 'none'}), but ${ts.length} ${ts.length === 1 ? 'was' : 'were'} given.`,
+    const required = f.params.filter((p) => !p.dflt).length;
+    if (ts.length < required || ts.length > f.params.length) {
+      const range = required === f.params.length ? `${f.params.length} value${f.params.length === 1 ? '' : 's'}` : `${required} to ${f.params.length} values`;
+      this.err('TC207', e.line, `"${f.text}" receives ${range} (${f.params.map((p) => (p.dflt ? `${p.text}, if given` : p.text)).join(', ') || 'none'}), but ${ts.length} ${ts.length === 1 ? 'was' : 'were'} given.`,
         f.params.length > 1 && ts.length === 1 ? `Separate the values with commas or "and": ${f.text} with ${f.params.map((p) => p.text).join(' and ')}. To give a yes/no made with "and", put it in parentheses.` : null);
-    } else f.params.forEach((p, k) => { if (p.type && known(p.type) && known(ts[k]) && !compatible(p.type, ts[k])) this.err('TC303', e.line, `"${f.text}" receives ${p.text} as ${typeWords(p.type)}, but ${typeWords(ts[k])} was given.`); });
+    } else f.params.slice(0, ts.length).forEach((p, k) => { if (p.type && known(p.type) && known(ts[k]) && !compatible(p.type, ts[k])) this.err('TC303', e.line, `"${f.text}" receives ${p.text} as ${typeWords(p.type)}, but ${typeWords(ts[k])} was given.`); });
     return entry?.ret ?? UNKNOWN;
   }
 
