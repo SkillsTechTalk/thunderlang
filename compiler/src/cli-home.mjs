@@ -19,7 +19,7 @@ export function knownCommands(fullHelp) {
 
 /** The home screen: the few things most people need, with real examples. */
 export function homeText(version, commandCount) {
-  return `⚡ Thunder ${version}: programming, made human.
+  return `⚡ Thunder™ ${version}: programming, made human.
 
 Start here
   thunder new hello        create a program
@@ -218,7 +218,7 @@ export function doctor({ version, cliPath, cwd = process.cwd(), env = process.en
 
 export function renderDoctor(r) {
   const mark = (ok) => (ok === true ? '✓' : ok === 'warn' ? '!' : '✗');
-  const L = ['Thunder doctor', ''];
+  const L = ['Thunder™ doctor', ''];
   for (const c of r.checks) {
     L.push(`  ${mark(c.ok)} ${c.what}${c.detail ? `  (${c.detail})` : ''}`);
     if (c.fix && c.ok !== true) L.push(`      ${c.fix}`);

@@ -13,6 +13,7 @@ export function Logo({ className = "" }: { className?: string }) {
       <span className="text-lg font-semibold tracking-tight">
         <span className="text-white">Thunder</span>
         <span className="text-gradient-gold">Lang</span>
+        <sup className="ml-0.5 align-super text-[0.55em] font-semibold text-haze-300">™</sup>
       </span>
       <span className="whitespace-nowrap border-l border-white/15 pl-2.5 text-xs font-medium text-haze-300 sm:text-sm lg:hidden xl:inline">Programming Language</span>
     </Link>

@@ -72,8 +72,8 @@ export function Footer() {
       <div className="border-t border-white/8">
         <div className="container-x flex flex-col items-center justify-between gap-3 py-6 text-xs text-haze-400 sm:flex-row">
           <p>
-            © {new Date().getFullYear()} {siteConfig.builtBy}. ThunderLang is a
-            Skills Tech Talk project.
+            © {new Date().getFullYear()} {siteConfig.builtBy}. ThunderLang™ is a
+            Skills Tech Talk project. Thunder™ and ThunderLang™ are trademarks.
           </p>
           <p className="flex items-center gap-4">
             <span>AI writes the code. Humans understand the logic.</span>

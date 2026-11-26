@@ -461,7 +461,7 @@ function printDiagnostics(diags) {
   return errors;
 }
 
-const HELP = `⚡ Thunder: every command. Most people only need the first four groups.
+const HELP = `⚡ Thunder™: every command. Most people only need the first four groups.
 
 usage: thunder <command> [file] [options]      Help for one command: thunder help <command>
 
@@ -509,7 +509,7 @@ Change code
                             previews the exact code change and the cases whose answer changes; --write saves it
 
 ────────────────────────────────────────────────────────────────────────
-Advanced: rules and missions (ThunderLang intent files), proofs, and tools for editors and CI.
+Advanced: rules and missions (ThunderLang™ intent files), proofs, and tools for editors and CI.
 The flow: author intent, inspect it, run and prove it, then keep real code aligned with it.
        thunder mission <Name> <command>     run any command on a mission by name
 
@@ -607,7 +607,7 @@ function main() {
   const args = parseArgs(restArgv);
   const file = args._[0];
   if (cmd === '--version' || cmd === '-v' || cmd === 'version') {
-    console.log(`thunder ${COMPILER_VERSION} (the Thunder compiler, also called ThunderLang)`);
+    console.log(`thunder ${COMPILER_VERSION} (the Thunder™ compiler, also called ThunderLang™)`);
     return;
   }
   const known = [...new Set([...knownCommands(HELP), ...Object.keys(VIEWS)])].sort();

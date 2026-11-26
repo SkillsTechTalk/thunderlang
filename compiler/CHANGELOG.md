@@ -1,5 +1,8 @@
 # Unreleased
 
+- **Trademark marks.** Thunder™ and ThunderLang™ now carry ™ where the brand is shown prominently: the CLI's home
+  screen, `thunder --version`, `thunder help --all`, `thunder doctor`, the npm and VS Code descriptions (and the
+  extension's display name), the compiler README, and the site's logo and footer.
 - **Color in the terminal, and an easier full command list.** Screens people read (the home screen, `help`,
   `doctor`, `new`, `why`, `try`, `read --level`, and the "did you mean" and "no project here" messages) use calm color:
   green ✓, red ✗ only for real problems, yellow ! for warnings, commands to type in cyan, bold labels and headings.
