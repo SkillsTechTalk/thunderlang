@@ -106,6 +106,48 @@ How does it go?
 `details` list the choices as ready-to-run commands. Every level ends by suggesting the next one. A step Thunder
 could not explain is marked `[not read: shown as code]`; `--level original` shows the line itself.
 
+## React and Angular screens
+
+A React component (a function or arrow that returns JSX, including `memo` and `forwardRef`) and an Angular
+`@Component` class are read as **screens**: what a person sees and does.
+
+```text
+$ thunder read src/Cart.tsx --level flow --focus cart
+Flow · Cart  (React screen, Cart.tsx:12)
+
+  When items is empty, it shows only:
+    • a paragraph: "Your cart is empty"  (line 20)
+  It shows:
+    • a heading: "{title}"  (line 24)
+    • a list  (line 25)
+        • one of these per item in items:  (line 26)
+            • a row: "{item's name}: {item's price}"  (line 26)
+    • a text box: "Coupon code" (showing coupon); when it changes: sets coupon to what was typed or chosen  (line 31)
+    • a button: "Checkout" (turned off when …); when it is pressed: tells the parent (on checkout)  (line 33)
+```
+
+| Read | React | Angular |
+|---|---|---|
+| What it receives | props (destructured or `props.x`), with their types when the file declares them | `@Input()`, `input()`, `input.required()` |
+| What it remembers | `useState`, `useReducer`, `useContext`, `useMemo`, other hooks | class fields, `signal()`, `computed()`, injected services |
+| What it shows | the JSX it returns, and early returns (`if (…) return …`) | the template, inline or from `templateUrl` |
+| Choices and lists | `cond && <X/>`, `a ? <X/> : <Y/>`, `list.map(…)` | `@if`/`@else`, `@for`/`@empty`, `*ngIf`, `*ngFor` |
+| Events | `onClick`, `onChange`, `onSubmit`, … with what runs (a setter, a handler, a prop callback) | `(click)`, `(ngSubmit)`, … with what runs (`x.set(…)`, `out.emit()`, a method) |
+| By itself | `useEffect` with its dependencies ("When coupon changes") | `ngOnInit`, `ngOnChanges`, `ngAfterViewInit`, `ngOnDestroy` |
+| What it sends | (callbacks are props) | `@Output()`, `output()` |
+| Other screens | components it renders, linked by name | elements it renders, linked by `selector` |
+
+Elements are said in words ("a heading", "a button", "an email box", "a link … (to /settings)"); `div`, `span`, and
+other wrappers are left out. Every line keeps its line number in the file (for a `templateUrl`, in the template).
+
+**Not read yet, and said so:** spread props (`{...rest}`), expressions in what a screen shows other than names,
+conditions, and `.map`, render props, `*ngIf … else` templates kept elsewhere, other structural directives, and
+`@switch`/`@defer` blocks. Each is listed under "Not read" (and marked `?` in `thunder read --level`), never guessed.
+A folder read brings each `*.component.html` with its component; reading one Angular file also reads its
+`templateUrl` file next to it. Screens are in the model (`model.screens`) that OpenThunder reads.
+
+**Pages and parts.** Each screen has a `role`: `page` when it is a Next.js page file (`app/**/page.tsx`, `pages/…`) or a component a router opens (Angular `Routes`, React Router `element={<X />}`), with `roleWhy` saying which; `part` when another screen shows it; `top` when nothing here shows it. The big picture lists pages first. A line Thunder did not read has `notRead: true` and its exact `code`.
+
 ## Try a rule: what if?
 
 `thunder try` runs one rule from your code on values you choose, and shows the answer and why, check by check.

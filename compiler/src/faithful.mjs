@@ -135,3 +135,33 @@ export function accountsFor(code, said, tree = null) {
 export const asCodeWords = (code, n = 120) => { const t = String(code).replace(/\s+/g, ' ').trim(); return `\`${t.length > n ? `${t.slice(0, n - 1)}…` : t}\``; };
 /** True when a condition's words are the code itself (the gate fell back). */
 export const isCodeWords = (said) => /^`[^]*`$/.test(String(said).trim());
+
+/** A Python import in words (the reader's form in steps.mjs, checked by say-less): null when it is not one plain import. */
+export function pythonImportSays(code) {
+  const t = String(code).trim().replace(/\s*#.*$/, '');
+  const named = (x) => { const m = /^([A-Za-z_]\w*)(?:\s+as\s+([A-Za-z_]\w*))?$/.exec(x.trim()); return m ? (m[2] && m[2] !== m[1] ? `${m[1]} (called ${m[2]} here)` : m[1]) : null; };
+  const list = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+  let m;
+  if ((m = /^import\s+([A-Za-z_][\w.]*)(?:\s+as\s+([A-Za-z_]\w*))?$/.exec(t))) return `Loads the ${m[1]} module${m[2] && m[2] !== m[1] ? `, called ${m[2]} here` : ''}`;
+  if ((m = /^from\s+(\.?)([A-Za-z_][\w.]*)?\s+import\s+\(?([^()*]+?)\)?$/.exec(t))) {
+    const names = m[3].split(',').map((x) => x.trim()).filter(Boolean).map(named);
+    if (!names.length || names.some((x) => !x) || (!m[1] && !m[2])) return null;
+    const from = m[1] ? (m[2] ? `the ${m[2]} module in this package` : 'this package') : `the ${m[2]} module`;
+    return `Loads ${list(names)} from ${from}`;
+  }
+  return null;
+}
+
+/**
+ * A Python slice (or the last item) in words, `{x}` standing for the list: `[1:]` "{x} without the first 1", `[:3]`
+ * "the first 3 of {x}", `[-2:]` "the last 2 of {x}", `[:-1]` "{x} without the last 1", `[-1]` "the last of {x}". Null
+ * for anything else (both ends, a step, or a name for an end). Used by the reader and by say-less's check.
+ */
+export function sliceWords(start, end, single) {
+  if (single != null) return single === '-1' ? 'the last of {x}' : null;
+  const n = (x) => (x == null || x === '' ? null : Number(x));
+  const a = n(start), b = n(end);
+  if (a != null && b == null) return a > 0 ? `{x} without the first ${a}` : a < 0 ? `the last ${-a} of {x}` : null;
+  if (a == null && b != null) return b > 0 ? `the first ${b} of {x}` : b < 0 ? `{x} without the last ${-b}` : null;
+  return null;
+}

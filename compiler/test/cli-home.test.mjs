@@ -112,3 +112,20 @@ test('thunder completion prints a script for zsh, bash, and fish', () => {
   assert.equal(bad.status, 2);
   assert.match(bad.stderr, /name your shell: thunder completion zsh, bash, or fish\. \(There is no "tcsh"\.\)/);
 });
+
+test('inside a project, its own name runs it; a missing file is said in words, never a crash', { skip: spawnSync('python3', ['--version']).status !== 0 && 'needs Python' }, () => {
+  const d = tmp();
+  try {
+    run(['new', 'hello'], d);
+    const inside = join(d, 'hello');
+    assert.equal(run(['run', 'hello'], inside).stdout, 'Hello, world!\n');
+    assert.equal(run(['run', 'hello'], join(inside, 'src')).stdout, 'Hello, world!\n');
+    const missing = run(['test', 'whatever'], join(inside, 'src'));
+    assert.equal(missing.status, 2);
+    assert.match(missing.stderr, /^thunder test: there is no file or folder called "whatever" here\.\nYou're in: .*\nYou're inside the Thunder project "hello"\. Run it with: thunder test\n$/);
+    const lift = run(['lift', 'nope.py'], d);
+    assert.equal(lift.status, 2);
+    assert.match(lift.stderr, /there is no file or folder called "nope\.py" here\.[\s\S]*See the main commands with: thunder help/);
+    assert.doesNotMatch(lift.stderr, /node:fs|ENOENT|at /);
+  } finally { rmSync(d, { recursive: true }); }
+});

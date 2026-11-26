@@ -50,7 +50,7 @@ function nodesOf(tree) {
   return out;
 }
 import { FORM_WORDS } from './form-words.mjs';
-import { asCodeWords, isCodeWords, stripQuoted, codeCounts, wordCounts, accountsFor } from './faithful.mjs';
+import { asCodeWords, isCodeWords, stripQuoted, codeCounts, wordCounts, accountsFor, pythonImportSays, sliceWords } from './faithful.mjs';
 
 export const WHY = {
   form: 'the reader did not recognize this form',
@@ -166,6 +166,14 @@ function codeWordSet(code) {
 }
 
 /** The first word that has no source: not in the code, not a fixed word, and not an idiom with its trigger. */
+// Words a Python import is read with ("Loads x from the y module" / "from this package" / ", called z here"): they
+// add to what a word may stand for and never take away (a word with its usual meaning is still checked as before).
+const IDIOM_EXTRA = new Set([
+  [/^(?:module|loads)$/, /^\s*(?:from\s+\S+\s+)?import\s/],
+  [/^package$/, /^\s*from\s+\.\w*\s+import\s/],
+  [/^(?:called|here)$/, /^\s*(?:from\s+\S+\s+)?import\s.*\bas\b/],
+]);
+IDIOM.push(...IDIOM_EXTRA);
 const IDIOM_OF = new Map();
 function unsourcedWord(says, code) {
   let have = null;
@@ -178,7 +186,7 @@ function unsourcedWord(says, code) {
     if (/^\d+$/.test(w)) continue;
     let idiom = IDIOM_OF.get(w);
     if (idiom === undefined) { idiom = IDIOM.find(([re]) => re.test(w)) ?? null; IDIOM_OF.set(w, idiom); }
-    if (idiom) { if (idiom[1].test(code) || inCode(w)) continue; return w; }
+    if (idiom) { if (idiom[1].test(code) || inCode(w)) continue; if (!IDIOM_EXTRA.has(idiom)) return w; }
     if (GLUE.has(w) || FORM_WORDS.has(w)) continue;
     if (/ing$/.test(w)) { const st = w.slice(0, -3); if ([`${st}s`, `${st}es`, `${st}e`, `${st.slice(0, -1)}s`].some((x) => FORM_WORDS.has(x))) continue; }
     if (inCode(w)) continue;
@@ -236,7 +244,7 @@ function inventedValue(says, code) {
   const text = String(code);
   for (const num of said.replace(/"(?:\\.|[^"\\])*"/g, ' ').match(/(?<![\w.«])-?\d+(?:\.\d+)?(?![\w.»])/g) || []) {
     const n = num.replace(/^-/, '');
-    if (!text.includes(n) && !/^[01]$/.test(n) && !statusNamed(n, text) && !text.includes(`..<${Number(n) + 1}`) && !new RegExp(`\\.\\.<\\s*${Number(n) + 1}\\b`).test(text)) return num;
+    if (!text.includes(n) && !/^[01]$/.test(n) && !statusNamed(n, text) && !text.includes(`..<${Number(n) + 1}`) && !new RegExp(`\\.\\.<?\\s*${Number(n) + 1}\\b`).test(text) && !new RegExp(`\\brange\\((?:\\s*\\d+\\s*,)?\\s*${Number(n) + 1}\\s*\\)`).test(text)) return num;
   }
   for (const q of String(says).replace(/^(?:If (?:not: )?|Repeats: |Fails with )?`[^]*`$/, '').match(/"(?:\\.|[^"\\])*"/g) || []) {
     if (!exactText(q.slice(1, -1), text)) return q;
@@ -266,7 +274,7 @@ function textSkeleton(t, words = false, open = false) {
     }
     if (c === '$' && /[A-Za-z_]/.test(n ?? '')) { let j = i + 1; while (j < s.length && /\w/.test(s[j])) j++; out += '\u0001'; i = j - 1; continue; }
     if (c === '$' && /[0-9*@#?!$-]/.test(n ?? '')) { out += '\u0001'; i++; continue; }
-    if (c === '%' && /[-+ #0-9.]*[sdifgxXoucpqvT]/.test(s.slice(i + 1, i + 6))) { const m = /^[-+ #0-9.]*[a-zA-Z]/.exec(s.slice(i + 1)); out += '\u0001'; i += m[0].length; continue; }
+    if (c === '%' && /^[-+ #0-9.]*[sdifgxXoucpqvT]/.test(s.slice(i + 1, i + 6))) { const m = /^[-+ #0-9.]*[a-zA-Z]/.exec(s.slice(i + 1)); out += '\u0001'; i += m[0].length; continue; }
     if (c === '\\' && /["'`\\]/.test(n ?? '')) { out += n; i++; continue; }
     out += c;
   }
@@ -440,9 +448,13 @@ function namesKept(tree, said) {
         // Calls that only walk a collection (`enumerate(xs)`, `d.items()`), or read an entry (`m.get(k)` as "the k entry in m").
         const own = c?.kind === 'member' && !(c.object?.kind === 'name' && /^[A-Z]/.test(c.object.name)) ? c.object : null;
         if (name && /^(?:enumerate|iter|iter_mut|into_iter|items|entries|values|stream|ToList|toList|AsEnumerable|toArray|asList|each_with_index|with_index|indices|withIndex|Values|Keys|keys)$/.test(name)) return ok(own) && ok(n.args);
+        // Rust `s.chars()` / `text.lines()` / `data.bytes()`: "the characters of s".
+        if (name && /^(?:chars|lines|bytes)$/.test(name) && own && sw.includes(` ${{ chars: 'characters', lines: 'lines', bytes: 'bytes' }[name]} of `)) return ok(own) && ok(n.args);
         // C's string compare: `!strcmp(a, "x")` is "a is "x"".
         if (name && /^(?:str|strn|mem|wcs|wcsn)(?:case)?cmp$|^_?str(?:n)?icmp$/.test(name) && / is /.test(sw)) return ok(n.args);
         if (name && /^(?:get|Get|fetch|at|get_or_default|getOrDefault|GetValueOrDefault|TryGetValue|getOrNull|Item)$/.test(name) && / entry | entries /.test(sw)) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
+        // `d.get("k")` as "the "k" value from d"; `d.get("k", x)` as "…, or x if it has none" (the fallback said).
+        if (name === 'get' && c?.kind === 'member' && n.args?.[0]?.kind === 'literal' && n.args[0].type === 'text' && / value from /.test(sw) && (n.args.length === 1 || (n.args.length === 2 && / if it has none /.test(sw)))) return ok(c.object) && ok(n.args);
         // "the result of X": the call is named, what it is given is one level down.
         if (name && has(name) && sw.includes(` result of ${splitWords(name).join(' ')} `)) return true;
         if (name && /^(?:new|New|create|of|from|make)$/.test(name) && / new /.test(sw) && c.kind === 'member') return ok(c.object);
@@ -747,13 +759,24 @@ function checkStep(step, ctx) {
     if (/^Sets .+ to /.test(says)) {
       const v = tree.kind === 'assign' ? tree.value : null;
       if (v) {
-        if (!newThing(v, says) && !namesKept(v, says)) return M('L327');
+        // A slice said by its ends ("the first 3 of xs"): the exact phrase for this slice, with the list's own name.
+        const sl = sliceOf(v);
+        if (sl) { if (!sliceSaid(sl, says)) return M('L327s'); }
+        // A template said as its text with «…» for a value worked out inside it: the text is checked as exact (values
+        // and quoted text above); what is inside a «…» is one level down, as in any summary.
+        else if (v.kind === 'template' && /^Sets [^"]+ to "[^"]*«…»[^"]*"$/.test(says)) { /* summary */ }
+        else if (!newThing(v, says) && !namesKept(v, says)) return M('L327');
         if (castCount(v) && !/\bas\b|\bcopy\b|\bconverted\b|\bturned\b/.test(said)) return M('L328');
         if (!orderingKept(v, says)) return M('L329');
       }
     }
+    // Rust `let y = f(x)?;`: the words say it stops there when f fails (and only when the code has the ?).
+    if (lang === 'rust' && tree.kind === 'assign' && /^(?:Works out|Sets) /.test(says)) {
+      const q = tree.value?.kind === 'unary' && tree.value.op === '?';
+      if (q !== / and stops here if that fails$/.test(says)) return M('rust-q');
+    }
     if (/^Works out (.+?) from (.+)$/.test(says) && tree.kind === 'assign') {
-      const m = /^Works out (.+?) from ([\w ]+)$/.exec(says);
+      const m = /^Works out (.+?) from ([\w ]+?)(?:, and stops here if that fails)?$/.exec(says);
       const callees = chainCallees(tree.value);
       if (m && callees.length && !callees.some((c) => callNamed(c, m[2], code))) return M('L335');
     }
@@ -882,6 +905,55 @@ function shellConditionKept(code, says) {
 }
 
 let ctx_full = '';
+/** `xs[1:]` / `self.rows[-1]`: the list's path and the slice's words (sliceWords), or null. */
+function sliceOf(v) {
+  if (v?.kind !== 'index' || currentLang !== 'python') return null;
+  const path = (n) => (n?.kind === 'name' ? n.name : n?.kind === 'member' ? (path(n.object) ? `${path(n.object)}.${n.property}` : null) : null);
+  const p = path(v.object);
+  const num = (x) => (x == null ? undefined : x.kind === 'literal' && x.type === 'number' ? String(x.raw ?? x.value) : x.kind === 'unary' && x.op === '-' && x.value?.kind === 'literal' ? `-${x.value.raw ?? x.value.value}` : NaN);
+  const ix = v.index;
+  let t = null;
+  if (ix?.kind === 'slice' && !ix.step) { const a = num(ix.start), b = num(ix.end); if (!Number.isNaN(a) && !Number.isNaN(b)) t = sliceWords(a, b); }
+  else if (ix) { const k = num(ix); if (k === '-1') t = sliceWords(undefined, undefined, '-1'); }
+  return p && t ? { path: p, words: t } : null;
+}
+function sliceSaid(sl, said) {
+  const [pre, post] = sl.words.split('{x}').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  // (The value is everything after the first " to ": "Sets h to items without the first 1".)
+  const at = said.indexOf(' to ');
+  const m = at >= 0 && new RegExp(`^${pre}(?:the ([\\w ]+)'s )?([\\w ]+?)${post}$`).exec(said.slice(at + 4));
+  return !!m && pathSaid(sl.path, m[1], m[2]);
+}
+/** A plain path said as "the owner's last" (or just "last" with no owner other than self/this). */
+function pathSaid(path, owner, last) {
+  const parts = String(path).split('.').filter((x) => !/^(?:self|this)$/.test(x));
+  if (!parts.length || !sameWords(parts[parts.length - 1], last)) return false;
+  return parts.length > 1 ? !!owner && sameWords(parts[parts.length - 2], owner) : !owner;
+}
+/** A Python `range(…)` loop's words: the counter, where it starts, and where it stops (the end itself not included). */
+function pythonRangeKept(v, argText, says) {
+  const args = argText.split(',').map((x) => x.trim());
+  const tail = '(?: \\(\\d+ steps? inside\\))?$';
+  const P = "(?:the ([\\w ]+)'s )?([\\w ]+)";
+  let w;
+  if (args.length === 1 && v === '_') return new RegExp(`^Repeats ${args[0]} times${tail}`).test(says) && /^\w+$/.test(args[0]);
+  const len = args.length === 1 && /^len\(\s*([A-Za-z_][\w.]*)\s*\)$/.exec(args[0]);
+  if (len) return !!(w = new RegExp(`^For each position (.+?) in ${P}${tail}`).exec(says)) && sameWords(w[1], v) && pathSaid(len[1], w[2], w[3]);
+  // `range(a, n + 1)`: "Counts i from a to n" (n included).
+  if (args.length === 2 && /^[A-Za-z_][\w.]*\s*\+\s*1$/.test(args[1]) && /^(?:\d+|[A-Za-z_][\w.]*)$/.test(args[0])) {
+    w = new RegExp(`^Counts (.+?) from (.+?) to ${P}${tail}`).exec(says);
+    if (!w || !sameWords(w[1], v) || / up to /.test(says)) return false;
+    const from = /^\d+$/.test(args[0]) ? w[2] === args[0] : (() => { const p = new RegExp(`^${P}$`).exec(w[2]); return !!p && pathSaid(args[0], p[1], p[2]); })();
+    return from && pathSaid(args[1].replace(/\s*\+\s*1$/, ''), w[3], w[4]);
+  }
+  const [a, b] = args.length === 1 ? ['0', args[0]] : args;
+  if (args.length > 2 || !/^(?:\d+|[A-Za-z_][\w.]*)$/.test(a) || !/^(?:\d+|[A-Za-z_][\w.]*)$/.test(b)) return false;
+  if (/^\d+$/.test(a) && /^\d+$/.test(b)) return !!(w = new RegExp(`^Counts (.+?) from (\\d+) to (\\d+)${tail}`).exec(says)) && sameWords(w[1], v) && w[2] === a && Number(w[3]) === Number(b) - 1 && Number(b) > Number(a);
+  w = new RegExp(`^Counts (.+?) from (.+?) up to (.+?) \\(not (.+?) itself\\)${tail}`).exec(says);
+  if (!w || !sameWords(w[1], v) || w[3] !== w[4]) return false;
+  const side = (code, said) => { if (/^\d+$/.test(code)) return said === code; const p = new RegExp(`^${P}$`).exec(said); return !!p && pathSaid(code, p[1], p[2]); };
+  return side(a, w[2]) && side(b, w[3]);
+}
 /** "Repeats N times": N is in the code, with a repeat construct (`range(N)`, `N.times`, `repeat(N)`, `1..N`). */
 function repeatsKept(says, full) {
   const n = /^Repeats (\w+) times/.exec(says)[1];
@@ -900,6 +972,23 @@ function loopKept(step, tree, says, code, lang) {
   if (/^Runs once, then repeats/.test(says)) return doWhileKept(says, ctx_full, lang);
   if (/^Repeats (\w+) times/.test(says)) return repeatsKept(says, ctx_full) ? null : WHY.form;
   if (/^`/.test(says) || /^Repeats (?:for|while) `/.test(says)) return null;
+  let m;
+  // Python counting loops, checked against their own code: range(N), range(a, b), range(len(xs)), enumerate(xs).
+  if (lang === 'python' && (m = /^for\s+(\w+)\s+in\s+range\((.*)\)\s*:$/.exec(String(code).trim()))) return pythonRangeKept(m[1], m[2], says) ? null : WHY.unparsed;
+  if (lang === 'python' && (m = /^for\s+\(?\s*(\w+)\s*,\s*(\w+)\s*\)?\s+in\s+enumerate\(\s*([A-Za-z_][\w.]*)\s*\)\s*:$/.exec(String(code).trim()))) {
+    const w = /^For each (.+?) in (?:the ([\w ]+)'s )?([\w ]+), with its position (.+?) \(from 0\)(?: \(\d+ steps? inside\))?$/.exec(says);
+    return w && sameWords(w[1], m[2]) && sameWords(w[4], m[1]) && pathSaid(m[3], w[2], w[3]) ? null : WHY.unparsed;
+  }
+  // Rust ranges: `for i in 0..n` "Counts i from 0 up to n (not n itself)", `a..=b` "from a to b".
+  if (lang === 'rust' && (m = /^for\s+(\w+)\s+in\s+(\d+|[A-Za-z_][\w.]*)\s*\.\.(=?)\s*(\d+|[A-Za-z_][\w.]*)\s*\{?$/.exec(String(code).trim()))) {
+    const [, v, a, inc, b] = m;
+    const P = "(?:the ([\\w ]+)'s )?([\\w ]+)";
+    const side = (c, said) => { if (/^\d+$/.test(c)) return said === c; const p = new RegExp(`^${P}$`).exec(said); return !!p && pathSaid(c, p[1], p[2]); };
+    const tail = '(?: \\(\\d+ steps? inside\\))?$';
+    if (/^\d+$/.test(a) && /^\d+$/.test(b) && !inc) { const w = new RegExp(`^Counts (.+?) from (\\d+) to (\\d+)${tail}`).exec(says); return w && sameWords(w[1], v) && w[2] === a && Number(w[3]) === Number(b) - 1 ? null : WHY.unparsed; }
+    const w = inc ? new RegExp(`^Counts (.+?) from (.+?) to (.+?)${tail}`).exec(says) : new RegExp(`^Counts (.+?) from (.+?) up to (.+?) \\(not (.+?) itself\\)${tail}`).exec(says);
+    return w && sameWords(w[1], v) && (inc ? !/ up to /.test(says) : w[3] === w[4]) && side(a, w[2]) && side(b, w[3]) ? null : WHY.unparsed;
+  }
   if (tree && tree.kind === 'loop') {
     if (tree.form === 'each') {
       const m = /^For each (.+?) in (.+?)(?:, only those where .*)?(?: \(\d+ steps? inside\))?$/.exec(says);
@@ -942,6 +1031,9 @@ function loopKept(step, tree, says, code, lang) {
 /** A loop's collection in words: every name in it, or the last name of its path (`order.items` as "items"), or its call. */
 function iterableKept(it, words) {
   if (!it) return false;
+  // "the result of X": X is the call that gives the collection (the outermost one), not a call inside it.
+  const ro = /^the result of ([\w ]+)$/.exec(words);
+  if (ro) { const c = coreOf(it); const n = c?.kind === 'call' ? (c.callee.kind === 'member' ? c.callee.property : c.callee.name) : null; return !!n && sameWords(n, ro[1]); }
   if (namesKept(it, words)) return true;
   const w = ` ${splitWords(words).join(' ')} `;
   let c = coreOf(it);
@@ -1039,6 +1131,8 @@ function safeForm(step, says, code, lang = '') {
   // `static MSG: &str = "never fail"` / `let x = 5`: "Sets msg to "never fail"".
   if ((m = /^(?:(?:let|const|static|var|val|final|readonly)\s+)?(?:mut\s+)?([A-Za-z_]\w*)\s*(?::[^=]+)?=\s*("(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?|true|false)\s*;?$/.exec(c)) && says === `Sets ${splitWords(m[1]).join(' ')} to ${m[2]}`) return null;
   if ((m = /^(?:(?:let|const|static|var|val)\s+)?(?:mut\s+)?([A-Za-z_]\w*)\s*(?::[^=]+)?=\s*(?:r#*)?"(?:\\.|[^"\\])*\\?$/.exec(c)) && says === `Sets ${splitWords(m[1]).join(' ')} to a text written over several lines`) return null;
+  // A Python import inside a function: the words name every name it loads and the module, as written.
+  if (lang === 'python' && /^(?:from|import)\s/.test(c)) return pythonImportSays(c) === says ? null : WHY.unparsed;
   // `const { a, b } = await import('./x')`: "Loads a, b from ./x".
   if ((m = /^(?:const|let|var)\s*\{([^}]*)\}\s*=\s*(?:await\s+)?(?:import|require)\(\s*['"`]([^'"`]+)['"`]\s*\)/.exec(c))) {
     const w = /^Loads (.+) from (\S+)$/.exec(says);

@@ -96,6 +96,9 @@
   .tok-str {
     @apply text-[#BEF264];
   }
+  .tok-interp {
+    @apply font-semibold text-[#FCD34D];
+  }
   .tok-comment {
     @apply text-haze-400 italic;
   }
@@ -159,13 +162,16 @@
 
 /* Rendered Markdown docs (docs/*.md) */
 .doc-prose {
-  @apply text-[15px] leading-relaxed text-haze-200;
+  @apply text-[15.5px] leading-[1.75] text-haze-200;
 }
 .doc-prose h1 {
-  @apply mt-0 mb-6 text-3xl font-semibold tracking-tight text-white;
+  @apply mt-0 mb-5 text-[2.1rem] font-semibold leading-tight tracking-[-0.02em] text-white sm:text-[2.5rem];
+}
+.doc-prose h1 + p {
+  @apply text-[17px] leading-[1.7] text-haze-200;
 }
 .doc-prose h2 {
-  @apply mt-12 mb-4 border-t border-white/8 pt-8 text-2xl font-semibold tracking-tight text-white;
+  @apply mt-14 mb-4 border-t border-white/[0.06] pt-10 text-[1.6rem] font-semibold tracking-[-0.015em] text-white;
 }
 .doc-prose h3 {
   @apply mt-8 mb-3 text-lg font-semibold text-white;
@@ -192,17 +198,59 @@
   @apply pl-1;
 }
 .doc-prose blockquote {
-  @apply my-5 rounded-r-lg border-l-2 border-gold-300/50 bg-white/[0.03] py-2 pl-4 pr-3 text-haze-300;
+  @apply my-6 rounded-xl border border-[#b49bff]/20 bg-[#b49bff]/[0.05] px-5 py-3 text-haze-200;
 }
 .doc-prose blockquote p {
   @apply my-1;
 }
 .doc-prose code {
-  @apply rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[0.85em] text-gold-200;
+  @apply rounded-md border border-white/[0.07] bg-white/[0.045] px-1.5 py-[0.1em] font-mono text-[0.84em] text-gold-200;
 }
+.doc-prose pre code { border: 0; }
 .doc-prose pre {
   @apply my-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/80 p-4 text-[13px] leading-relaxed;
 }
+/* Docs code windows (src/lib/doc-code.ts): a title bar saying what the block is, a Copy button, then the code. */
+.doc-prose .code-window {
+  @apply relative my-6 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0b0f1a];
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+}
+.doc-prose .code-window.code-thunder {
+  border-color: rgba(180, 155, 255, 0.22);
+  background: linear-gradient(180deg, rgba(180, 155, 255, 0.05), rgba(180, 155, 255, 0) 120px), #0b0f1a;
+}
+.doc-prose .code-window.code-shell,
+.doc-prose .code-window.code-output { @apply bg-[#070a12]; }
+.doc-prose .code-bar {
+  @apply flex h-9 items-center gap-3 border-b border-white/[0.06] bg-white/[0.025] px-3.5 text-[12px];
+}
+.doc-prose .code-dots { @apply flex gap-1.5; }
+.doc-prose .code-dots i { @apply block h-2.5 w-2.5 rounded-full bg-white/[0.12]; }
+.doc-prose .code-title { @apply font-medium tracking-wide text-haze-300; }
+.doc-prose .code-thunder .code-title { @apply text-[#C4B5FD]; }
+.doc-prose .code-shell .code-title { @apply text-[#67E8F9]; }
+.doc-prose .code-copy {
+  @apply ml-auto rounded-md border border-white/10 px-2.5 py-1 text-[12px] font-medium text-haze-300 transition-colors hover:border-white/25 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b49bff];
+}
+.doc-prose .code-copy[data-state="done"] { @apply border-[#6EE7B7]/40 text-[#6EE7B7]; }
+.doc-prose .code-copy[data-state="failed"] { @apply border-[#FCA5A5]/40 text-[#FCA5A5]; }
+.doc-prose .code-window pre {
+  @apply m-0 rounded-none border-0 bg-transparent px-5 py-4 text-[13px] leading-[1.7];
+  scrollbar-width: thin;
+  scrollbar-color: #394150 transparent;
+}
+.doc-prose .code-window pre code { @apply text-haze-100; }
+.doc-prose .code-diagram pre code { @apply text-haze-300; }
+
+/* Headings link to themselves: the # shows on hover or focus, and the page scrolls to them below the header. */
+.doc-prose h2, .doc-prose h3, .doc-prose h4 { @apply relative scroll-mt-24; }
+.doc-prose .heading-anchor {
+  @apply ml-2 font-normal text-haze-500 no-underline opacity-0 transition-opacity;
+}
+.doc-prose :is(h2, h3, h4):hover .heading-anchor,
+.doc-prose .heading-anchor:focus-visible { @apply opacity-100; }
+.doc-prose .heading-anchor:hover { @apply text-[#b49bff] no-underline; }
+
 .doc-prose pre code {
   @apply bg-transparent p-0 text-haze-100;
 }
@@ -224,14 +272,20 @@ pre.terminal-code code {
   @apply my-8 border-white/10;
 }
 .doc-prose table {
-  @apply my-6 block w-full overflow-x-auto text-sm;
+  @apply my-7 block w-full overflow-x-auto rounded-xl border border-white/[0.08] text-sm;
+  border-collapse: separate;
+  border-spacing: 0;
+  scrollbar-width: thin;
+  scrollbar-color: #394150 transparent;
 }
 .doc-prose th {
-  @apply border-b border-white/15 px-3 py-2 text-left font-semibold text-white;
+  @apply border-b border-white/10 bg-white/[0.035] px-4 py-2.5 text-left text-[12.5px] font-semibold uppercase tracking-[0.06em] text-haze-300;
 }
 .doc-prose td {
-  @apply border-b border-white/8 px-3 py-2 align-top text-haze-300;
+  @apply border-b border-white/[0.06] px-4 py-2.5 align-top text-haze-300;
 }
+.doc-prose tr:last-child td { @apply border-b-0; }
+.doc-prose tbody tr:hover td { @apply bg-white/[0.02]; }
 
 /* Gradient wordmark accent used for the "Lang" / highlighted words */
 .text-gradient-gold {

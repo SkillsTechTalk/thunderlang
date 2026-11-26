@@ -244,7 +244,8 @@ function balancedReturnHead(after) {
     if (c === '=' && after[i + 1] === '>') { if (depth === 0) break; i++; continue; } // => ends the type, or is a function type's arrow
     if (c === '<' || c === '(' || c === '[') depth++;
     else if (c === '>' || c === ')' || c === ']') depth--;
-    else if (c === '{') { if (depth === 0) break; depth++; }
+    // (At the top, a "{" with no type before it, or after | or &, starts an object type: `): { ok: boolean } {`.)
+    else if (c === '{') { if (depth === 0 && !/^$|[|&]$/.test(after.slice(lead[0].length, i).trim())) break; depth++; }
     else if (c === '}') depth--;
     else if (c === ';' && depth === 0) break;
     else if (c === '"' || c === "'" || c === '`') { const q = c; i++; while (i < after.length && after[i] !== q) i++; }
