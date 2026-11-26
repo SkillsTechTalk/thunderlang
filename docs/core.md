@@ -11,8 +11,9 @@ them, compiles them to Python, and runs them. The generated Python is ordinary c
                                        a failure names the Thunder line ◀┘ (TC5xx)
 ```
 
-**Status (v0).** There is one compilation target, **Python 3.10+**. Other targets are planned. They will
-not be listed as available until they work.
+**Status (v0).** There are two compilation targets: **Python 3.10+** (the default) and **TypeScript** (see
+"Compile to TypeScript"). Java, C#, Go, and Rust are planned. They will not be listed as available until they pass
+the same tests.
 The rules below in "What a value means" are the rules every future target must keep.
 
 ## Start
@@ -250,6 +251,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC2xx | names: unknown names, fields, records |
 | TC3xx | kinds of values that cannot do what the line asks |
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
+| TC405 | a Python module (`Use`) in a program compiled to TypeScript |
 | TC501 | divided by zero |
 | TC502 | nothing used where a value was needed |
 | TC503 | a missing map entry or list position |
@@ -290,6 +292,36 @@ program in Thunder's Core tests runs on both engines, and the results must match
   Python.
 - Calls can go as deep as on Python (about a thousand), and a program that goes deeper stops at the same call with
   the same message.
+
+## Compile to TypeScript
+
+The same program, compiled to TypeScript and run on Node:
+
+```sh
+thunder build --target typescript     # generated/typescript/: one .ts per file, the runtime, its types, tsconfig.json
+thunder run --target typescript       # run the compiled TypeScript
+thunder test --target typescript      # run every Test block as TypeScript
+```
+
+Or set it for the project in `thunder.toml`: `target = "typescript"` under `[build]` (output goes to
+`generated/typescript` unless `output` says otherwise).
+
+- **The same meaning.** Every Core test program runs three ways: compiled to Python, on the Thunder engine, and
+  compiled to TypeScript. The output, every error (its code, its words, its line, and "reached from"), and the exit
+  status must be the same, or the tests fail. The runtime written next to the TypeScript (`thunder_runtime.mjs`) is
+  the Thunder engine's own value code, so exact numbers, money rounded half up, positions from 1, and yes/no checks
+  are not reimplemented a third time.
+- **Readable, typed, erasable.** Plain exported functions, records, and kept values; every line ends with
+  `// thunder:N`. The code uses only types Node can strip, and `tsc --strict` accepts it (`tsc -p generated/typescript`).
+  Values whose kind Thunder checks while running are typed `any`.
+- **How it runs.** Node 23.6 and newer run TypeScript directly; Node 22.6 needs `--experimental-strip-types`, which
+  Thunder adds. On an older Node, Thunder removes the types with the `typescript` package if it can find it (in the
+  project or next to Thunder); otherwise it says what to install. `thunder build` needs neither.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405): Python modules exist only for Python, and Thunder never swaps in a different library. npm libraries are not
+  available from Thunder yet.
+
+Java, C#, Go, and Rust are planned. Each will be listed as available only once it passes the same tests.
 
 ## What the generated Python looks like
 

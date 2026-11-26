@@ -13,6 +13,7 @@ import { formatDiagnostic } from './diagnostics.mjs';
 export { parseCore } from './parser.mjs';
 export { checkCore } from './check.mjs';
 export { toPython } from './target-python.mjs';
+export { toTypeScript, pythonOnlyUses } from './target-typescript.mjs';
 export { PYTHON_RUNTIME, RUNTIME_VERSION } from './runtime-python.mjs';
 export { CODES, formatDiagnostic } from './diagnostics.mjs';
 export { formatCore } from './format.mjs';
