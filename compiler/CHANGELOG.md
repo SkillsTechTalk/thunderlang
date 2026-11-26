@@ -1,5 +1,9 @@
 # Unreleased
 
+- **Docs pages look like a polished reference.** Every code block is a small editor window with a title bar
+  (Thunder, Terminal, Output, Diagram, Python, thunder.toml…) and a Copy button; Python, TypeScript, JSON, YAML, and
+  TOML are colored too. Headings can be linked to, long docs get an "On this page" list that follows your reading,
+  and tables, notes, and inline code are calmer.
 - **Thunder Core in color, everywhere it is written.** The site's highlighter (docs, code cards, the editor, the
   tutorial) knows Thunder Core: statement words (Set, When, Give, For each, Test…) bold, joining words softer, function
   names after "To", record names after "A … has:", record kinds, money, percents and yes/no as values, text in green
