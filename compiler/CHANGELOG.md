@@ -1,5 +1,13 @@
 # Unreleased
 
+- **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry
+  record and says what the agent was asked and answered, what went wrong, what happened just before, what would have
+  changed the outcome, and what it changed, with every step in order. It reads OTLP JSON, the collector's file
+  exporter, the Python console exporter, and OpenInference span arrays, with the GenAI, OpenInference, HTTP, and
+  database conventions. Retries are one step ("3 tries"); a failed change is never reported as done; a tool whose
+  name doesn't say whether it changes anything is listed as "could not judge". Errors are in plain words, with the
+  original kept in the details. Values that look like secrets are hidden. `--step n` shows one step in full;
+  `--json` gives the same as data. Nothing is run and no AI is used. Also available as `@skillstech/thunderlang/why`.
 - **Inputs with defaults.** `Receive price and rate (7% if not given)`: a call may leave the input out. A default
   is a fixed value: a number, money, a percent, text, yes/no, `nothing`, or a kept value. It comes after the inputs
   without one. A list or map default is an error (TC404), because Python would share it between calls. `--as-core`

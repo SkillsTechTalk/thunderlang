@@ -1,0 +1,445 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "support-bot"
+            }
+          }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {
+            "name": "agent"
+          },
+          "spans": [
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "7c1e4a9b2d3f5061",
+              "name": "invoke_agent support-bot",
+              "kind": 1,
+              "startTimeUnixNano": "1764064800000000000",
+              "endTimeUnixNano": "1764064812400000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "invoke_agent"
+                  }
+                },
+                {
+                  "key": "gen_ai.agent.name",
+                  "value": {
+                    "stringValue": "support-bot"
+                  }
+                },
+                {
+                  "key": "gen_ai.system",
+                  "value": {
+                    "stringValue": "anthropic"
+                  }
+                }
+              ],
+              "status": {
+                "code": 2,
+                "message": "tool refund_payment failed"
+              },
+              "events": [
+                {
+                  "name": "exception",
+                  "timeUnixNano": "1764064800000000000",
+                  "attributes": [
+                    {
+                      "key": "exception.type",
+                      "value": {
+                        "stringValue": "RuntimeError"
+                      }
+                    },
+                    {
+                      "key": "exception.message",
+                      "value": {
+                        "stringValue": "tool refund_payment failed"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "3fa8c2e1d4b7a690",
+              "parentSpanId": "7c1e4a9b2d3f5061",
+              "name": "chat claude-sonnet-5-5",
+              "kind": 1,
+              "startTimeUnixNano": "1764064800010000000",
+              "endTimeUnixNano": "1764064801150000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "claude-sonnet-5-5"
+                  }
+                },
+                {
+                  "key": "gen_ai.input.messages",
+                  "value": {
+                    "stringValue": "[{\"role\":\"system\",\"parts\":[{\"type\":\"text\",\"content\":\"You are a support agent.\"}]},{\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"content\":\"Please refund order 1042, it arrived broken.\"}]}]"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[{\"role\":\"assistant\",\"parts\":[{\"type\":\"tool_call\",\"name\":\"lookup_order\",\"arguments\":{\"order_id\":1042}}]}]"
+                  }
+                },
+                {
+                  "key": "gen_ai.response.finish_reasons",
+                  "value": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "tool_use"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.input_tokens",
+                  "value": {
+                    "intValue": "412"
+                  }
+                },
+                {
+                  "key": "gen_ai.usage.output_tokens",
+                  "value": {
+                    "intValue": "38"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "9b2d4f6a8c0e1357",
+              "parentSpanId": "7c1e4a9b2d3f5061",
+              "name": "execute_tool lookup_order",
+              "kind": 1,
+              "startTimeUnixNano": "1764064801200000000",
+              "endTimeUnixNano": "1764064801650000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "lookup_order"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"order_id\":1042}"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.result",
+                  "value": {
+                    "stringValue": "{\"order_id\":1042,\"total\":\"40.00\",\"status\":\"delivered\"}"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "e4c6a8b0d2f41368",
+              "parentSpanId": "9b2d4f6a8c0e1357",
+              "name": "GET",
+              "kind": 1,
+              "startTimeUnixNano": "1764064801220000000",
+              "endTimeUnixNano": "1764064801600000000",
+              "attributes": [
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "GET"
+                  }
+                },
+                {
+                  "key": "url.full",
+                  "value": {
+                    "stringValue": "https://orders.internal/api/orders/1042"
+                  }
+                },
+                {
+                  "key": "http.response.status_code",
+                  "value": {
+                    "intValue": "200"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "5d7f9b1c3e5a7092",
+              "parentSpanId": "7c1e4a9b2d3f5061",
+              "name": "chat claude-sonnet-5-5",
+              "kind": 1,
+              "startTimeUnixNano": "1764064801700000000",
+              "endTimeUnixNano": "1764064803100000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "chat"
+                  }
+                },
+                {
+                  "key": "gen_ai.request.model",
+                  "value": {
+                    "stringValue": "claude-sonnet-5-5"
+                  }
+                },
+                {
+                  "key": "gen_ai.output.messages",
+                  "value": {
+                    "stringValue": "[{\"role\":\"assistant\",\"parts\":[{\"type\":\"text\",\"content\":\"The order was delivered broken; I will refund the full $40.\"},{\"type\":\"tool_call\",\"name\":\"refund_payment\",\"arguments\":{\"order_id\":1042,\"amount\":\"40.00\"}}]}]"
+                  }
+                }
+              ],
+              "status": {}
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "c8e0a2b4d6f81a3c",
+              "parentSpanId": "7c1e4a9b2d3f5061",
+              "name": "execute_tool refund_payment",
+              "kind": 1,
+              "startTimeUnixNano": "1764064803150000000",
+              "endTimeUnixNano": "1764064812350000000",
+              "attributes": [
+                {
+                  "key": "gen_ai.operation.name",
+                  "value": {
+                    "stringValue": "execute_tool"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.name",
+                  "value": {
+                    "stringValue": "refund_payment"
+                  }
+                },
+                {
+                  "key": "gen_ai.tool.call.arguments",
+                  "value": {
+                    "stringValue": "{\"order_id\":1042,\"amount\":\"40.00\",\"api_key\":\"sk-live-abcdef1234567890\"}"
+                  }
+                }
+              ],
+              "status": {
+                "code": 2,
+                "message": "tool failed after 3 attempts"
+              },
+              "events": [
+                {
+                  "name": "exception",
+                  "timeUnixNano": "1764064800000000000",
+                  "attributes": [
+                    {
+                      "key": "exception.type",
+                      "value": {
+                        "stringValue": "ConnectionError"
+                      }
+                    },
+                    {
+                      "key": "exception.message",
+                      "value": {
+                        "stringValue": "tool failed after 3 attempts"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "1f3b5d7f9a1c3e50",
+              "parentSpanId": "c8e0a2b4d6f81a3c",
+              "name": "POST",
+              "kind": 1,
+              "startTimeUnixNano": "1764064803200000000",
+              "endTimeUnixNano": "1764064806200000000",
+              "attributes": [
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "url.full",
+                  "value": {
+                    "stringValue": "https://pay.example.com/v1/refunds"
+                  }
+                },
+                {
+                  "key": "error.type",
+                  "value": {
+                    "stringValue": "ConnectionError"
+                  }
+                }
+              ],
+              "status": {
+                "code": 2,
+                "message": "HTTPSConnectionPool(host='pay.example.com', port=443): Max retries exceeded (Connection refused)"
+              },
+              "events": [
+                {
+                  "name": "exception",
+                  "timeUnixNano": "1764064800000000000",
+                  "attributes": [
+                    {
+                      "key": "exception.type",
+                      "value": {
+                        "stringValue": "requests.exceptions.ConnectionError"
+                      }
+                    },
+                    {
+                      "key": "exception.message",
+                      "value": {
+                        "stringValue": "HTTPSConnectionPool(host='pay.example.com', port=443): Max retries exceeded (Connection refused)"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "6a8c0e2a4c6e8a01",
+              "parentSpanId": "c8e0a2b4d6f81a3c",
+              "name": "POST",
+              "kind": 1,
+              "startTimeUnixNano": "1764064806300000000",
+              "endTimeUnixNano": "1764064809300000000",
+              "attributes": [
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "url.full",
+                  "value": {
+                    "stringValue": "https://pay.example.com/v1/refunds"
+                  }
+                },
+                {
+                  "key": "error.type",
+                  "value": {
+                    "stringValue": "ConnectionError"
+                  }
+                }
+              ],
+              "status": {
+                "code": 2,
+                "message": "HTTPSConnectionPool(host='pay.example.com', port=443): Max retries exceeded (Connection refused)"
+              },
+              "events": [
+                {
+                  "name": "exception",
+                  "timeUnixNano": "1764064800000000000",
+                  "attributes": [
+                    {
+                      "key": "exception.type",
+                      "value": {
+                        "stringValue": "requests.exceptions.ConnectionError"
+                      }
+                    },
+                    {
+                      "key": "exception.message",
+                      "value": {
+                        "stringValue": "HTTPSConnectionPool(host='pay.example.com', port=443): Max retries exceeded (Connection refused)"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "traceId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+              "spanId": "b2d4f6b8d0f2b4d6",
+              "parentSpanId": "c8e0a2b4d6f81a3c",
+              "name": "POST",
+              "kind": 1,
+              "startTimeUnixNano": "1764064809350000000",
+              "endTimeUnixNano": "1764064812300000000",
+              "attributes": [
+                {
+                  "key": "http.request.method",
+                  "value": {
+                    "stringValue": "POST"
+                  }
+                },
+                {
+                  "key": "url.full",
+                  "value": {
+                    "stringValue": "https://pay.example.com/v1/refunds"
+                  }
+                },
+                {
+                  "key": "error.type",
+                  "value": {
+                    "stringValue": "ConnectionError"
+                  }
+                }
+              ],
+              "status": {
+                "code": 2,
+                "message": "HTTPSConnectionPool(host='pay.example.com', port=443): Max retries exceeded (Connection refused)"
+              },
+              "events": [
+                {
+                  "name": "exception",
+                  "timeUnixNano": "1764064800000000000",
+                  "attributes": [
+                    {
+                      "key": "exception.type",
+                      "value": {
+                        "stringValue": "requests.exceptions.ConnectionError"
+                      }
+                    },
+                    {
+                      "key": "exception.message",
+                      "value": {
+                        "stringValue": "HTTPSConnectionPool(host='pay.example.com', port=443): Max retries exceeded (Connection refused)"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

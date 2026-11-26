@@ -1,0 +1,85 @@
+{
+    "name": "SELECT",
+    "context": {
+        "trace_id": "0x0123456789abcdef0123456789abcdef",
+        "span_id": "0x2000000000000002",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x2000000000000001",
+    "start_time": "2026-11-25T09:00:00.030Z",
+    "end_time": "2026-11-25T09:00:00.080Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.system": "postgresql",
+        "db.statement": "SELECT total FROM invoices WHERE month = %s"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "service.name": "report-bot"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "chat claude-haiku-5-5",
+    "context": {
+        "trace_id": "0x0123456789abcdef0123456789abcdef",
+        "span_id": "0x2000000000000003",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x2000000000000001",
+    "start_time": "2026-11-25T09:00:00.100Z",
+    "end_time": "2026-11-25T09:00:00.900Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.model": "claude-haiku-5-5",
+        "gen_ai.response.finish_reasons": [
+            "max_tokens"
+        ],
+        "gen_ai.output.messages": "[{\"role\":\"assistant\",\"parts\":[{\"type\":\"text\",\"content\":\"November revenue was\"}]}]"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "service.name": "report-bot"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "invoke_agent report-bot",
+    "context": {
+        "trace_id": "0x0123456789abcdef0123456789abcdef",
+        "span_id": "0x2000000000000001",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": null,
+    "start_time": "2026-11-25T09:00:00.000Z",
+    "end_time": "2026-11-25T09:00:00.950Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "gen_ai.operation.name": "invoke_agent",
+        "gen_ai.agent.name": "report-bot"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "service.name": "report-bot"
+        },
+        "schema_url": ""
+    }
+}
