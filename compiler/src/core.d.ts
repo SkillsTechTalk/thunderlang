@@ -17,6 +17,24 @@ export { EXPR_SCHEMA, RENDER_LANGUAGES, parseExpr, parseStatement, renderExpr, r
 export type { Expr } from './meaning.mjs';
 export { VISUAL_SCHEMA, THUNDER_VISUAL, LEVELS, PLACES, visualFor, visualForStep, thunderText, thunderTokens } from './visual.mjs';
 export { MODEL_SCHEMA, THING_LANGUAGES, thunderModel, modelText, readLevel, flowOf, ruleFlow, askAsQuestion, stepDoes, pathsOf } from './model.mjs';
+/** A React or Angular component read as a screen (src/screens.mjs). */
+export interface Screen {
+  id: string; kind: 'screen'; framework: 'react' | 'angular'; name: string; label: string; file: string; lines: [number, number];
+  selector?: string; template?: string; member?: string; thing?: string;
+  inputs: Array<{ name: string; label: string; kind?: string; optional?: boolean; required?: boolean; start?: string; callback?: boolean }>;
+  state: Array<{ name: string; label: string; start?: string; how: string; line?: number }>;
+  shows: ScreenLine[]; early?: Array<{ when: string; shows: ScreenLine[]; line?: number }>;
+  events: Array<{ on: string; event: string; when: string; runs: string; line?: number; member?: string; file?: string }>;
+  effects: Array<{ when: string; runs: string; line?: number; member?: string }>;
+  outputs: Array<{ name: string; label: string; line?: number }>; services?: string[];
+  uses: Array<{ id?: string; label: string; outside?: boolean }>; usedBy?: Array<{ id: string; label: string }>;
+  notRead: Array<{ line?: number; code: string; why: string; file?: string }>;
+  /** page: a Next.js page file or a component a router opens; top: no other screen shows it; part: shown inside another. */
+  role?: 'page' | 'top' | 'part'; roleWhy?: string;
+}
+export interface ScreenLine { says: string; line?: number; kids?: ScreenLine[]; otherwise?: { says: string; line?: number; kids: ScreenLine[] }; notRead?: boolean; /** for a not-read line: the code, without the "not read:" words */ code?: string }
+export function readScreens(files: Array<{ path: string; source: string }>, options?: { members?: unknown[] }): Screen[];
+export function screenText(screen: Screen): string;
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
 export type { RunEvent, RuntimeOverlay, MemberRun, NodeRun, ParsedStack, ErrorExplanation } from './running.mjs';
 export { linkSystem, callsSummary, areaOf } from './system.mjs';

@@ -9,7 +9,7 @@ import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
-import { toGo, pythonOnlyUses, id, goStr } from './target-go.mjs';
+import { toGo, pythonOnlyUses, id, goStr, goNamespaces as namespaces } from './target-go.mjs';
 import { diag } from './diagnostics.mjs';
 
 export const GO_RUNTIME = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'runtime-go', 'thunder_runtime.go'), 'utf8');
@@ -21,31 +21,6 @@ export function goDiagnostics(result) {
     'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'));
 }
 
-const own = (r) => (s) => !r.info.imported?.has(s);
-
-/**
- * The Go names of every module-level thing (records, functions, kept values), per module. A name two Thunder files
- * both define gets its module in front (orders_total), so the one Go package can hold them all.
- */
-function namespaces(results) {
-  const defs = new Map();
-  for (const r of results) for (const s of [...r.info.records, ...r.info.funcs, ...r.info.consts].filter(own(r))) (defs.get(s.py) ?? defs.set(s.py, []).get(s.py)).push(r.module);
-  const goName = (module, py) => ((defs.get(py)?.length ?? 0) > 1 ? `${module}_${py}` : id(py));
-  const out = new Map();
-  for (const r of results) {
-    const visible = new Map();
-    const funcs = new Map();
-    const take = (x) => {
-      for (const s of [...x.info.records, ...x.info.funcs, ...x.info.consts].filter(own(x))) visible.set(s.py, goName(x.module, s.py));
-      for (const f of x.info.funcs.filter(own(x))) funcs.set(f.py, f.params.length);
-    };
-    // A test file sees every src file's names (as the Python target's `from <module> import *`), later ones winning.
-    if (r.kind === 'test') for (const s of results.filter((x) => x.kind !== 'test')) take(s);
-    take(r);
-    out.set(r.module, { name: (py) => visible.get(py) ?? id(py), has: (py) => visible.has(py), params: (py) => funcs.get(py) ?? null });
-  }
-  return out;
-}
 
 /** Compile checked results to Go: { [file]: text } for the module files. */
 export function compileGo(results) {

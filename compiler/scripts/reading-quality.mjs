@@ -27,7 +27,8 @@ const half = opt('--half', 'all');
 const maxFiles = Number(opt('--max-files', 300));
 const samplesWanted = Number(opt('--samples', 3));
 const json = args.includes('--json');
-const folders = args.filter((a, i) => !a.startsWith('--') && !['--half', '--max-files', '--samples'].includes(args[i - 1]));
+const shapesWanted = Number(opt('--shapes', 0));
+const folders = args.filter((a, i) => !a.startsWith('--') && !['--half', '--max-files', '--samples', '--shapes'].includes(args[i - 1]));
 if (!folders.length) { console.error('usage: reading-quality.mjs <folder> … [--half dev|held|all] [--max-files n] [--samples n] [--json]'); process.exit(2); }
 
 const SKIP = /(^|\/)(node_modules|dist|build|out|vendor|generated|coverage|\.next|__pycache__|site-packages|venv|\.venv|target|bin|obj)(\/|$)|\.min\.|\.d\.ts$|\.generated\.|_pb2\.py$|\.test\.|\.spec\.|(^|\/)(tests?|__tests__|__mocks__|fixtures?|e2e|migrations)\//;
@@ -44,10 +45,24 @@ const words = (s) => String(s).replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[
 const stats = new Map(); // language -> { files, members, steps, counts, samples }
 const of = (lang) => stats.get(lang) ?? stats.set(lang, { files: 0, members: 0, steps: 0, counts: Object.fromEntries(PATTERNS.map((p) => [p, 0])), samples: Object.fromEntries(PATTERNS.map((p) => [p, []])) }).get(lang);
 
+// The SHAPE of a step shown as code: names become x, text "s", numbers 0; keywords and punctuation stay. Shapes are
+// printed instead of code, so nothing from a private file is shown, and the most frequent shapes say what to teach next.
+const KEYWORDS = new Set('if else elif for while return const let var function async await new this self def class import from export default try catch finally throw raise in of is not and or None null undefined true false True False with as lambda yield match case break continue pass del global nonlocal assert fn let mut impl pub use mod struct enum where loop move ref Some None Ok Err typeof instanceof void delete switch static public private protected readonly interface type extends implements super get set'.split(' '));
+const shapeOf = (code) => String(code).replace(/…$/, '')
+  .replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1?/g, '"s"')
+  .replace(/\b\d+(?:\.\d+)?\b/g, '0')
+  .replace(/[A-Za-z_$][\w$]*/g, (w) => (KEYWORDS.has(w) ? w : 'x'))
+  .replace(/x(?:\s*\.\s*x)+/g, 'x.x').replace(/\s+/g, ' ').trim();
+
 function check(lang, id, line, text, member) {
   const s = of(lang);
   const hit = (p) => { s.counts[p]++; if (s.samples[p].length < samplesWanted) s.samples[p].push(`${id}:${line ?? '?'}`); };
-  if (/\(code, not explained\)/.test(text)) { hit('code'); return; }
+  if (/\(code, not explained\)/.test(text)) {
+    hit('code');
+    const code = (text.match(/`(.*)` \(code, not explained\)/) || [])[1];
+    if (code != null) { s.shapes ??= new Map(); const k = shapeOf(code); s.shapes.set(k, (s.shapes.get(k) ?? 0) + 1); }
+    return;
+  }
   const said = text.replace(/\s+\(line \d+\)$/, '').trim();
   if (DANGLING.test(said)) hit('dangling');
   if (/^Calls [\w ]+ with these steps$/.test(said)) hit('theseSteps');
@@ -108,5 +123,9 @@ if (json) {
     console.log(`\n${lang}: ${s.files} files, ${s.members} members, ${s.steps} steps, code ${(100 * s.counts.code / Math.max(1, s.steps)).toFixed(1)}%`);
     console.log(`  ${PATTERNS.filter((p) => p !== 'code').map((p) => `${p} ${s.counts[p]}`).join(' · ')}`);
     for (const p of PATTERNS) if (s.samples[p].length) console.log(`    ${p}: ${s.samples[p].join(' ')}`);
+    if (shapesWanted && s.shapes) {
+      console.log(`  top shapes shown as code:`);
+      for (const [k, n] of [...s.shapes.entries()].sort((a, b) => b[1] - a[1]).slice(0, shapesWanted)) console.log(`    ${String(n).padStart(4)}  ${k.slice(0, 110)}`);
+    }
   }
 }

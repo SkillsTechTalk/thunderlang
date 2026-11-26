@@ -55,8 +55,9 @@ import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
 import { replayMain } from './replay-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
-import { paint, paintHelp, useColor } from './term.mjs';
+import { paint, paintHelp, paintThunder, useColor } from './term.mjs';
 import { coreMain } from './core/cli.mjs';
+import { findProjectRoot } from './core/project.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
 import { draftIntent } from './draft.mjs';
@@ -660,7 +661,9 @@ function main() {
           throw new Error(`there is no level "${args.level}". The levels are: ${ids.join(', ')}.${near ? ` Did you mean --level ${near}?` : ''}`);
         }
         const isDir = statSync(file).isDirectory();
-        const files = isDir ? collectReadableFiles(file, { maxFiles: 5000 }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        const files = isDir ? collectReadableFiles(file, { maxFiles: 5000, templates: true }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        // One Angular component file: its templateUrl file is read with it, so the screen shows its template.
+        if (!isDir) for (const tu of files[0].source.matchAll(/templateUrl\s*:\s*['"`]([^'"`]+)['"`]/g)) { try { files.push({ path: tu[1].replace(/^\.\//, ''), source: readFileSync(join(dirname(file), tu[1]), 'utf8') }); } catch { /* not there: the screen says so */ } }
         const model = thunderModel(files, { name: basename(resolve(file)) });
         const focus = findFocus(model, args.focus);
         if (focus.error) throw new Error(focus.error);
@@ -675,7 +678,7 @@ function main() {
         if (!/\.py$/i.test(file) && (args.from || 'python') !== 'python') throw new Error('--as-core reads Python for now (other languages next).');
         const r = pythonToCore(readFileSync(file, 'utf8'));
         if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
-        console.log(r.core.trimEnd());
+        console.log(paintThunder(r.core.trimEnd()));
         const all = [...r.module.notTranslated, ...r.functions.flatMap((f) => f.notTranslated)];
         const exact = r.functions.filter((f) => f.exact);
         console.error(`\nthunder read --as-core: ${exact.length} of ${r.functions.length} function${r.functions.length === 1 ? '' : 's'} printed exactly as Thunder Core${all.length ? `; ${all.length} line${all.length === 1 ? '' : 's'} not translated (each stops with a clear error if it runs)` : ''}.`);
@@ -954,7 +957,7 @@ function main() {
       if (opt('--otlp')) evidence.push(...fromOtlp(readFileSync(opt('--otlp'), 'utf8')));
     } catch (e) { console.error(`thunder runtime: ${e.message}`); process.exit(2); return; }
     if (!evidence.length) { console.error(`thunder runtime: no evidence given.\n${usage}`); process.exit(2); return; }
-    const model = thunderModel(collectReadableFiles(folder, { maxFiles: 5000 }).filter((f) => f.source), { name: basename(resolve(folder)) });
+    const model = thunderModel(collectReadableFiles(folder, { maxFiles: 5000, templates: true }).filter((f) => f.source), { name: basename(resolve(folder)) });
     const overlay = runtimeOverlay(model, evidence);
     const explained = stacks.map((s) => explainError(model, s));
     if (restArgv.includes('--json')) { console.log(JSON.stringify({ ...overlay, errors: explained }, null, 2)); return; }
@@ -2754,4 +2757,19 @@ test Example
   printDiagnostics(diagnostics);
 }
 
-main();
+/** A file that is not there is said in words, never as a crash: what was looked for, where, and what to type. */
+function missingFile(e) {
+  if (!e || e.code !== 'ENOENT' || !e.path) return false;
+  const cmd = process.argv[2] ?? 'thunder';
+  const name = relative(process.cwd(), e.path) || e.path;
+  const lines = [`thunder ${cmd}: there is no file or folder called "${name}" here.`, `You're in: ${process.cwd()}`];
+  let root = null;
+  try { root = findProjectRoot(process.cwd()); } catch { /* none */ }
+  if (root && ['run', 'test', 'build', 'check'].includes(cmd)) lines.push(`You're inside the Thunder project "${basename(root)}". Run it with: thunder ${cmd}`);
+  else lines.push('See the main commands with: thunder help');
+  console.error(paint(lines.join('\n'), useColor(process.stderr)));
+  process.exitCode = 2;
+  return true;
+}
+process.on('uncaughtException', (e) => { if (!missingFile(e)) { console.error(e); process.exitCode = 1; } });
+try { main(); } catch (e) { if (!missingFile(e)) throw e; }

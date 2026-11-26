@@ -55,3 +55,17 @@ test('marks, labels, and commands', () => {
   assert.equal(commands('Another thunder comes first on your PATH', true), 'Another thunder comes first on your PATH');
   assert.match(paintHelp('Start\n  doctor [--json]   ready?', true), /\x1b\[1mStart\x1b\[22m\n {2}\x1b\[36mdoctor\x1b\[39m \x1b\[2m\[--json\]/);
 });
+
+test('Thunder Core in the terminal: statement words, names, values, text and its holes, comments; same words without color', async () => {
+  const { paintThunder, paintThunderLine } = await import('../src/term.mjs');
+  const src = 'A Trade has:\n  Symbol is text\nTo calculate discount:\n  When member is yes and total is at least $100:\n    Give 20% of total   # members save\nsay "Hello, {name}!"\nSet first trade to a Trade:\n  buy price: $20.00';
+  assert.equal(plain(paintThunder(src, true)), src);
+  assert.equal(paintThunder(src, false), src);
+  const line = (l) => paintThunderLine(l, true);
+  assert.match(line('To calculate discount:'), /\x1b\[1;35mTo\x1b\[0m \x1b\[34mcalculate\x1b\[0m \x1b\[34mdiscount\x1b\[0m:/);
+  assert.match(line('A Trade has:'), /\x1b\[1;35mA\x1b\[0m \x1b\[36mTrade\x1b\[0m/);
+  assert.match(line('  When total is at least $100:'), /\x1b\[33m\$100\x1b\[0m/);
+  assert.match(line('say "Hello, {name}!"'), /\x1b\[32m"Hello, \x1b\[1;33m\{name\}\x1b\[0;32m!"\x1b\[0m/);
+  assert.match(line('    Give 0   # why'), /\x1b\[2m# why\x1b\[0m$/);
+  assert.match(line('  buy price: $20.00'), /\x1b\[36mbuy\x1b\[0m \x1b\[36mprice\x1b\[0m:/);
+});
