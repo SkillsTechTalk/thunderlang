@@ -1,5 +1,11 @@
 # Unreleased
 
+- **Thunder Core in color, everywhere it is written.** The site's highlighter (docs, code cards, the editor, the
+  tutorial) knows Thunder Core: statement words (Set, When, Give, For each, Test…) bold, joining words softer, function
+  names after "To", record names after "A … has:", record kinds, money, percents and yes/no as values, text in green
+  with its {holes} marked, and comments after the code dimmed. The VS Code grammar gains the same roles. In the
+  terminal, `thunder read --as-core`, `thunder format`, and `thunder replay` print Thunder Core in the same colors (off
+  for files, pipes, `NO_COLOR`, and JSON).
 - **Fix: `thunder run hello` inside the hello project crashed** with a raw Node error (it looked for a file named
   hello). Inside a project, its own name now means the project, from any folder in it. A file that is not there is
   said in words everywhere ("there is no file or folder called … here", where you are, and what to type), never a

@@ -96,6 +96,9 @@
   .tok-str {
     @apply text-[#BEF264];
   }
+  .tok-interp {
+    @apply font-semibold text-[#FCD34D];
+  }
   .tok-comment {
     @apply text-haze-400 italic;
   }

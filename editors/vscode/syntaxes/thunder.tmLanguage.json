@@ -2,16 +2,48 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "ThunderLang",
   "scopeName": "source.thunder",
-  "fileTypes": ["thunder", "tl", "intent"],
+  "fileTypes": [
+    "thunder",
+    "tl",
+    "intent"
+  ],
   "patterns": [
-    { "include": "#comment" },
-    { "include": "#string" },
-    { "include": "#block-keyword" },
-    { "include": "#field-value" },
-    { "include": "#field-type" },
-    { "include": "#operator" },
-    { "include": "#number" },
-    { "include": "#type" }
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#core-definition"
+    },
+    {
+      "include": "#core-keyword"
+    },
+    {
+      "include": "#block-keyword"
+    },
+    {
+      "include": "#field-value"
+    },
+    {
+      "include": "#field-type"
+    },
+    {
+      "include": "#operator"
+    },
+    {
+      "include": "#core-value"
+    },
+    {
+      "include": "#core-soft"
+    },
+    {
+      "include": "#number"
+    },
+    {
+      "include": "#type"
+    }
   ],
   "repository": {
     "comment": {
@@ -22,28 +54,51 @@
       "name": "string.quoted.double.thunder",
       "begin": "\"",
       "end": "\"",
-      "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.thunder" }]
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.thunder"
+        },
+        {
+          "match": "\\{[^{}\"]+\\}",
+          "name": "variable.other.interpolation.thunder"
+        }
+      ]
     },
     "block-keyword": {
       "comment": "A line-leading keyword introduces a block or a field (indentation-structured).",
       "match": "^\\s*(mission|use|goal|why|because|requires|inputs?|outputs?|guarantees?|never|constraints?|assumptions?|risks|target|style|verify|errors|examples|service|api|event|database|architecture|selection|title|for|persona|customer|problem|evidence|opportunity|outcome_contract|outcome|metric|scope|include|exclude|non_goal|owner|unknown|question|assumption|experience|pattern|decision|rule|default|when|return|command|on|compensate|notify|preserve|lifecycle|state|transition|from|to|terminal|always|eventually|until|conflict|options|between|resolve_by|resolution|choose|approval|capability|interface|provides|slo|release|result|learning|component|artifact|test|case|scenario|given|expect|events|data|waiver|note|implements|covers|variant|token|classification|purpose|retention|basis|baseline|window|direction|includes|measures|value|kind|ref|version|status|date|reason|approved_by|by|at|decision|expires|before|idempotency_key|timeout|retry|backoff|confidence|source|recover|follows|actor|accessible|responsive|asked_of|resolve|validate)\\b",
-      "captures": { "1": { "name": "keyword.control.thunder" } }
+      "captures": {
+        "1": {
+          "name": "keyword.control.thunder"
+        }
+      }
     },
     "field-value": {
       "comment": "A record or a call written as a block: buy price: $20.00 (every word of the name is the field).",
       "match": "^\\s+([a-z][a-z0-9_]*(?: [a-z][a-z0-9_]*)*)(:)(?=\\s+\\S)",
       "captures": {
-        "1": { "name": "variable.other.property.thunder" },
-        "2": { "name": "punctuation.separator.key-value.thunder" }
+        "1": {
+          "name": "variable.other.property.thunder"
+        },
+        "2": {
+          "name": "punctuation.separator.key-value.thunder"
+        }
       }
     },
     "field-type": {
       "comment": "A typed field: name: Type (optionally List<Type>).",
       "match": "\\b([a-z][A-Za-z0-9_.]*)\\s*(:)\\s*([A-Z][A-Za-z0-9]*(?:<[^>]+>)?)",
       "captures": {
-        "1": { "name": "variable.other.member.thunder" },
-        "2": { "name": "punctuation.separator.thunder" },
-        "3": { "name": "entity.name.type.thunder" }
+        "1": {
+          "name": "variable.other.member.thunder"
+        },
+        "2": {
+          "name": "punctuation.separator.thunder"
+        },
+        "3": {
+          "name": "entity.name.type.thunder"
+        }
       }
     },
     "operator": {
@@ -59,6 +114,83 @@
       "comment": "PascalCase identifiers are entities/types in ThunderLang.",
       "match": "\\b([A-Z][A-Za-z0-9]*)(?:<[^>]+>)?\\b",
       "name": "entity.name.type.thunder"
+    },
+    "core-definition": {
+      "comment": "Thunder Core: 'To calculate discount:' names a function; 'A Trade has:' names a record.",
+      "patterns": [
+        {
+          "match": "^\\s*(To)\\s+([a-z][\\w ]*?)(:)\\s*$",
+          "captures": {
+            "1": {
+              "name": "keyword.control.thunder"
+            },
+            "2": {
+              "name": "entity.name.function.thunder"
+            },
+            "3": {
+              "name": "punctuation.separator.thunder"
+            }
+          }
+        },
+        {
+          "match": "^\\s*(An?)\\s+([A-Z]\\w*(?: [A-Z]\\w*)*)\\s+(has)(:)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.thunder"
+            },
+            "2": {
+              "name": "entity.name.type.thunder"
+            },
+            "3": {
+              "name": "keyword.other.thunder"
+            },
+            "4": {
+              "name": "punctuation.separator.thunder"
+            }
+          }
+        },
+        {
+          "match": "^\\s+([A-Z][\\w ]*?)\\s+(is)\\s+((?:an? )?(?:optional )?(?:text|money|number|whole number|date|yes/no|yes or no|list|map)\\b[\\w ]*)",
+          "captures": {
+            "1": {
+              "name": "variable.other.property.thunder"
+            },
+            "2": {
+              "name": "keyword.operator.thunder"
+            },
+            "3": {
+              "name": "support.type.thunder"
+            }
+          }
+        }
+      ]
+    },
+    "core-keyword": {
+      "comment": "Thunder Core statement words at the start of a line.",
+      "match": "^\\s*(Set|say|Say|print|Keep|Increase|Decrease|Add|Remove|Sort|Reverse|When|If|Otherwise(?: when| if)?|For each|Repeat(?: while| until)?|Stop with|Give(?: back)?|Receive|Test|Expect|Use|Never allow)\\b",
+      "captures": {
+        "1": {
+          "name": "keyword.control.thunder"
+        }
+      }
+    },
+    "core-soft": {
+      "comment": "Small words that join a statement's parts.",
+      "match": "\\b(to|with|by|from|as|at least|at most|more than|less than|each|while|until|times|of|where|sorted|descending|be|fail|this fails|joined with|split at|replacing|starts with|ends with|contains)\\b",
+      "name": "keyword.other.thunder"
+    },
+    "core-value": {
+      "comment": "Money, percents, and yes / no / nothing.",
+      "patterns": [
+        {
+          "match": "-?\\$\\d[\\d,]*(?:\\.\\d+)?",
+          "name": "constant.numeric.money.thunder"
+        },
+        {
+          "match": "\\b(yes|no|nothing|true|false)\\b",
+          "name": "constant.language.thunder"
+        }
+      ]
     }
   }
 }
