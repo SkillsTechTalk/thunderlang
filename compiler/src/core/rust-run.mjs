@@ -3,7 +3,7 @@
 // The output is a small Cargo project: main.rs (which runs the program or its tests), one <module>.rs per Thunder
 // file, and thunder_runtime.rs (a library crate, standard library only). It builds offline with no dependencies:
 // `cargo build` (or plain rustc). Running needs the Rust toolchain; without it, Thunder says plainly what to install.
-import { writeFileSync, mkdirSync, readFileSync, existsSync, copyFileSync, rmSync, readdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync, copyFileSync, rmSync, readdirSync, mkdtempSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -138,14 +138,19 @@ export function runtimeRlib() {
   const dir = join(CACHE, `runtime-${sha(RUST_RUNTIME + tc.version)}`);
   const lib = join(dir, 'libthunder_runtime.rlib');
   if (!existsSync(lib)) {
+    // Built in a folder of its own (rustc writes its temporary object files next to the output, under the same names
+    // in every process), then moved into the cache in one step, so builds running side by side never collide.
     mkdirSync(dir, { recursive: true });
-    const srcPath = join(dir, 'thunder_runtime.rs');
-    writeFileSync(srcPath, RUST_RUNTIME);
-    const tmpLib = join(dir, `lib.${process.pid}.rlib`);
-    const r = spawnSync(tc.rustc, ['--edition', '2021', '--crate-type', 'rlib', '--crate-name', 'thunder_runtime', '-O', srcPath, '-o', tmpLib], { encoding: 'utf8' });
-    if (r.status !== 0) return { error: `The Rust runtime did not build:\n${r.stderr}` };
-    copyFileSync(tmpLib, lib);
-    rmSync(tmpLib, { force: true });
+    const work = mkdtempSync(join(CACHE, 'build-'));
+    try {
+      const srcPath = join(work, 'thunder_runtime.rs');
+      writeFileSync(srcPath, RUST_RUNTIME);
+      const tmpLib = join(work, 'libthunder_runtime.rlib');
+      const r = spawnSync(tc.rustc, ['--edition', '2021', '--crate-type', 'rlib', '--crate-name', 'thunder_runtime', '-O', srcPath, '-o', tmpLib], { encoding: 'utf8' });
+      if (r.status !== 0) return { error: `The Rust runtime did not build:\n${r.stderr}` };
+      if (!existsSync(join(dir, 'thunder_runtime.rs'))) writeFileSync(join(dir, 'thunder_runtime.rs'), RUST_RUNTIME);
+      if (!existsSync(lib)) renameSync(tmpLib, lib);
+    } finally { rmSync(work, { recursive: true, force: true }); }
   }
   runtimeLib = { lib, dir, version: tc.version };
   return runtimeLib;
@@ -160,11 +165,13 @@ export function buildWithRustc(outDir, binaryOut = null) {
   const cached = join(CACHE, 'bin', key, process.platform === 'win32' ? 'program.exe' : 'program');
   if (!existsSync(cached)) {
     mkdirSync(dirname(cached), { recursive: true });
-    const tmpBin = `${cached}.${process.pid}`;
-    const r = spawnSync('rustc', ['--edition', '2021', '-C', 'opt-level=0', '-C', 'debuginfo=0', join(outDir, 'main.rs'), '--extern', `thunder_runtime=${rt.lib}`, '-L', rt.dir, '-o', tmpBin], { encoding: 'utf8' });
-    if (r.status !== 0) return { ok: false, output: `${r.stdout}${r.stderr}`.trim() };
-    copyFileSync(tmpBin, cached);
-    rmSync(tmpBin, { force: true });
+    const work = mkdtempSync(join(CACHE, 'build-'));
+    try {
+      const tmpBin = join(work, process.platform === 'win32' ? 'program.exe' : 'program');
+      const r = spawnSync('rustc', ['--edition', '2021', '-C', 'opt-level=0', '-C', 'debuginfo=0', join(outDir, 'main.rs'), '--extern', `thunder_runtime=${rt.lib}`, '-L', rt.dir, '-o', tmpBin], { encoding: 'utf8' });
+      if (r.status !== 0) return { ok: false, output: `${r.stdout}${r.stderr}`.trim() };
+      if (!existsSync(cached)) renameSync(tmpBin, cached);
+    } finally { rmSync(work, { recursive: true, force: true }); }
   }
   if (binaryOut) { mkdirSync(dirname(binaryOut), { recursive: true }); copyFileSync(cached, binaryOut); return { ok: true, binary: binaryOut }; }
   return { ok: true, binary: cached };
