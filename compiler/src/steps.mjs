@@ -1375,6 +1375,16 @@ export function stripTsTypes(text) {
 }
 
 export function classifyStatement(raw, opts) {
+  // An event handler whose body is one expression: `child.on('close', (c) => resolve(c))` -> Whenever "close" happens,
+  // it calls resolve. (A handler with a block body is read with its steps, elsewhere.)
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    const ev = /^\s*[\w$.]+\.(?:on|once|addEventListener|addListener)\(\s*(['"`])([\w:.\-]+)\1\s*,\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>\s*(?!\{)([\s\S]+?)\)\s*;?\s*$/.exec(String(raw));
+    if (ev && balancedText(ev[3])) {
+      const body = ev[3].trim();
+      const c = callee(body);
+      if (c && closeOf(body, body.indexOf('(')) === body.length - 1) return { kind: 'call', says: `Whenever "${ev[2]}" happens, it calls ${callWords(c, body)}`, code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90), callee: c, expr: statementExpr(raw) };
+    }
+  }
   // Two loops on one line (`for (const r of rows) for (const f of r.files) {`): each, in order, never one mixed loop.
   if (LANG === 'typescript' || LANG === 'javascript') {
     const t = String(raw).trim();
