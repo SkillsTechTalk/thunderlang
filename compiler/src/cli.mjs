@@ -49,6 +49,7 @@ import { verifyDiff } from './verify-diff.mjs';
 import { verifyRun, executedText, mergeTraces } from './executed.mjs';
 import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, parseStacks, explainError, countWords } from './running.mjs';
 import { thunderModel } from './model.mjs';
+import { LEVELS, readLevel, renderLevel, findFocus, nearestLevel } from './read-level.mjs';
 import { traceMain } from './trace-cli.mjs';
 import { whyMain } from './why-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
@@ -334,6 +335,8 @@ function parseArgs(argv) {
     else if (a === '--role') args.role = argv[++i];
     else if (a === '--note') args.note = argv[++i];
     else if (a === '--search') args.search = argv[++i];
+    else if (a === '--level') args.level = argv[++i] ?? '';
+    else if (a === '--focus') args.focus = argv[++i];
     else if (a === '--kind') args.kind = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
     else if (a === '--in') args.inLang = argv[++i];
     else if (a === '--answer') args.answer = argv[++i];
@@ -560,6 +563,9 @@ Graph & IR
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+  read <file|dir> --level big-picture|flow|details|text|original [--focus "<action or rule>"] [--json]
+                             read at one depth, from the same model OpenThunder shows: the big picture, one action's flow,
+                             its exact details, its Thunder Text, or the original lines
   read <file.py> --as-core      the same code as Thunder Core you can edit and run (Python for now); lines it cannot say exactly are marked
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
@@ -625,6 +631,23 @@ function main() {
   if (cmd === 'read') {
     try {
       if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');
+      if (args.level != null) {
+        // The five reading levels, from the same model OpenThunder shows (src/read-level.mjs).
+        const ids = LEVELS.map((l) => l.id);
+        if (!ids.includes(args.level)) {
+          const near = nearestLevel(args.level);
+          throw new Error(`there is no level "${args.level}". The levels are: ${ids.join(', ')}.${near ? ` Did you mean --level ${near}?` : ''}`);
+        }
+        const isDir = statSync(file).isDirectory();
+        const files = isDir ? collectReadableFiles(file, { maxFiles: 5000 }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        const model = thunderModel(files, { name: basename(resolve(file)) });
+        const focus = findFocus(model, args.focus);
+        if (focus.error) throw new Error(focus.error);
+        const r = readLevel(model, args.level, focus.id);
+        if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
+        console.log(renderLevel(r, { sources: Object.fromEntries(files.map((f) => [f.path, f.source])), file }));
+        return;
+      }
       if (statSync(file).isDirectory()) { readFolder(file, args); return; }
       if (args.asCore) {
         // Reading and writing are one language: the reader's meaning tree printed as Thunder Core (docs/core.md).

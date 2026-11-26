@@ -62,6 +62,50 @@ thunder read grading.py --json
 - `--in` rewrites each decision in `typescript`, `python`, `go`, `rust`, `csharp`, or `java`.
 - `--from` sets the source language when the file extension does not.
 
+## Read at one depth
+
+The same five levels OpenThunder shows, in the terminal. Each answers one question:
+
+| Level | The question it answers |
+|---|---|
+| `big-picture` | What is it, and what can it do? |
+| `flow` | How does one action or rule go? |
+| `details` | Exactly what happens: every way it ends, what it changes and when, and what the code cannot tell you |
+| `text` | What does it say, in words? (Thunder Text) |
+| `original` | Which code says so? (the exact lines, with their numbers) |
+
+```sh
+thunder read library.py --level big-picture
+thunder read library.py --level flow --focus "Return book"
+thunder read library.py --level details --focus "Return book"
+thunder read library.py --level original --focus "late fee"
+thunder read src/ --level big-picture          # a whole folder
+thunder read library.py --level flow --focus "Return book" --json   # the model level itself
+```
+
+```text
+Flow · Return book  (library.py:30)
+How does it go?
+
+  ▶ You give it: student, book, days late
+  ◆ Is book in the student's books?  (line 32)
+      yes → carry on
+      no →
+          ✗ Stop: NotBorrowed: "This student does not have this book"  (line 33)
+  • Removes book from student's books  (line 34)
+  ◆ Is days late more than 0?  (line 35)
+      yes →
+          • Works out fee from late fee  (line 36)
+          • Adds fee to student's fees  (line 37)
+      no →
+          • Adds 1 to the student's thanks  (line 39)
+  ■ Done
+```
+
+`--focus` takes the name of an action, rule, or Thing (case, spaces, and `_` don't matter). Without it, `flow` and
+`details` list the choices as ready-to-run commands. Every level ends by suggesting the next one. A step Thunder
+could not explain is marked `[not read: shown as code]`; `--level original` shows the line itself.
+
 ## In a coding agent
 
 The `intent_read` MCP tool takes the same options (`query`, `kinds`, `in`). For a repository, `intent_read_repo` takes a folder plus the same filters as the terminal (`kinds`, `languages`, `folder`, `answer`, `input`). It reads your local files, so it runs only in local agents such as Claude Code and Codex, never on the hosted endpoint. Ask your agent "what does this file decide?" and it can answer from the reading instead of guessing. See [ThunderLang for AI agents](/docs/mcp) to connect Claude Code, Codex, or ChatGPT.
