@@ -1,5 +1,9 @@
 # Unreleased
 
+- **Fix: `thunder run hello` inside the hello project crashed** with a raw Node error (it looked for a file named
+  hello). Inside a project, its own name now means the project, from any folder in it. A file that is not there is
+  said in words everywhere ("there is no file or folder called … here", where you are, and what to type), never a
+  stack trace.
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
   Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out
