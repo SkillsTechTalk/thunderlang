@@ -25,7 +25,7 @@ test('`*out = v` writes where out points (out itself is unchanged)', () => {
 
 test('compound operators: += and -= of a call add and subtract; bit operators are shown as code', () => {
   const t = thunderText('a.c', 'void f(int n) {\n    total += size_of(n);\n    left -= used(n);\n    flags &= ~MASK;\n    bits <<= 2;\n}\n');
-  assert.match(t, /Adds the result of size of to total/);
+  assert.match(t, /Adds the result of size of n to total/); // (it once said "size of to total")
   assert.match(t, /Subtracts the result of used from left/);
   assert.match(t, /`flags &= ~MASK;` \(code, not explained\)/);
   assert.match(t, /`bits <<= 2;` \(code, not explained\)/);

@@ -27,6 +27,31 @@
   program (136) gives the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Java.
   Thunder finds the JDK through THUNDER_JAVA_HOME, JAVA_HOME, or the PATH, and says what to install when there is
   none; building needs no JDK. A program that uses a Python module is refused for Java (TC405).
+- **Readings say more, more precisely (a reading-quality sweep on real code).** A message says what it writes
+  (`Writes a log or message: "Wrote «opts.out»."`, values in text as «placeholders»); an add says what it adds ("Adds an
+  entry (title, rows, source) to out", "Adds the c's id to items"); a call's single argument is named ("Calls add
+  command (with the result of rules command)"); everyday calls are said by what they give back (`Object.keys(x)` "the
+  keys of x", `Date.parse(t)`, `Buffer.from(b)`, `re.exec(s)` "the first match of re in s", `Schema.parse(body)`,
+  `Math.max(a, b)` "the largest of a and b", Python `Settings()` "a new Settings", `list(x)`, `sorted(x)`,
+  `xs.index(v)` "the position of v in xs"); callbacks are said by purpose (`program.command('check')` "Defines the
+  command "check"", a database transaction, progress shown); a one-expression event handler says when it runs; type
+  checks take "a" or "an" by sound ("an Error"); a map key keeps its owner ("the entry for the row's id in seen"); a
+  file path reads "at <name>". Fix: a Python variable named `match` was read as a `match` statement. The faithfulness
+  checks were taught each new form, so a sentence they cannot verify still falls back to code.
+  `compiler/scripts/reading-quality.mjs` measures these patterns on any folders.
+- **TypeScript web routes read as actions, even when the handler is wrapped.** `fastify.post('/x', handle(async
+  (request) => { … }))` and one-expression handlers (`fastify.get('/x', handle(async (request) => view(…)))`) are now
+  actions ("When someone calls POST /x"), like unwrapped ones. The function that registers them lists each once
+  ("Handles POST /x (its steps are in that action)") instead of repeating its steps as "Calls post with these steps".
+  TypeScript types are set aside when a statement is read: `(request.body ?? {}) as { … }` reads "Sets b to the
+  request's body, or an empty lookup table when that has no value", `ctx.repo!` reads "Sets repo to the ctx's repo",
+  and `const reviews: Record<…> = {}` reads "Sets reviews to an empty lookup table". Two loops on one line are no
+  longer read as one loop mixing their names.
+- **Reading fixes (reported from OpenThunder).** (1) A helper assigned below a typed variable (`let a: { … } | undefined;`
+  then `const approve = (x) => {`) was named after the variable; the type annotation now stops at its statement's end.
+  (2) A call named after a preposition no longer leaves a sentence hanging: `changeApprovalFor(x, …)` reads "change
+  approval for x" (its first argument, when that is a plain name), or "change approval" otherwise, never "change
+  approval for ". (3) "an AgentCheckResult", "an Order", "a User", "a URL": the article follows the sound.
 
 # 1.2.0
 
