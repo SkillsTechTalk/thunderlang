@@ -376,14 +376,15 @@ function valueChanges(o, n) {
   return ` (values ${onlyA.length ? `${onlyA.slice(0, 4).join(', ')} removed` : ''}${onlyA.length && onlyB.length ? ', ' : ''}${onlyB.length ? `${onlyB.slice(0, 4).join(', ')} added` : ''})`;
 }
 
-function compareMember(o, n, items) {
+function compareMember(o, n, items, { extracted = false } = {}) {
   const subject = subjectOf(n);
   const sameCode = sameTokens(o.tokens, n.tokens);
   const sameThunder = o.sig === n.sig;
   const renamedOrMoved = [];
   if (o.m.file !== n.m.file) renamedOrMoved.push(`moved from ${o.m.file} to ${n.m.file}`);
   // A route handler is named after its address: a new address is said once, as the address.
-  if (nameKey(o.m.name) !== nameKey(n.m.name) && (o.m.route ?? '') === (n.m.route ?? '')) renamedOrMoved.push(`renamed from ${o.m.label} to ${n.m.label}`);
+  // (Steps moved into a new function are not a rename: the old function is still there and runs the new one.)
+  if (!extracted && nameKey(o.m.name) !== nameKey(n.m.name) && (o.m.route ?? '') === (n.m.route ?? '')) renamedOrMoved.push(`renamed from ${o.m.label} to ${n.m.label}`);
   const moveKind = o.m.file !== n.m.file && nameKey(o.m.name) === nameKey(n.m.name) ? 'moved' : 'renamed';
   const formOnly = (why) => items.push(item(renamedOrMoved.length ? moveKind : 'form', 'form', subject, whereOf(n),
     `${renamedOrMoved.length ? `${cap(renamedOrMoved.join(' and '))}. ` : ''}Only the form changed: ${why}`));
@@ -520,6 +521,18 @@ function enclosingName(lines, line) {
  * pass only the files that changed (and, for a moved file, both paths) or whole trees. Returns
  * { schema, summary, items, notRead, unchanged } with items ordered by importance (risk, then meaning, then form).
  */
+/** Whether most of `a`'s code tokens (by count) are also in `b`: three out of four or more, ignoring punctuation. */
+function mostlyIn(a, b) {
+  const words = (ts) => ts.map((t) => t.t).filter((t) => /\w/.test(t));
+  const have = new Map();
+  for (const t of words(b)) have.set(t, (have.get(t) || 0) + 1);
+  const want = words(a);
+  if (want.length < 12) return false;
+  let hit = 0;
+  for (const t of want) { const c = have.get(t) || 0; if (c) { hit++; have.set(t, c - 1); } }
+  return hit / want.length >= 0.75;
+}
+
 export function thunderReview(oldFiles, newFiles) {
   detailsCache = new WeakMap();
   const A = side(oldFiles || []), B = side(newFiles || []);
@@ -551,8 +564,23 @@ export function thunderReview(oldFiles, newFiles) {
       || (o.m.rule && e.m.rule && !o.m.rule.partial && !e.m.rule.partial && comparePlainRules(o.m.rule, e.m.rule).same)));
     if (n) { used.add(n); pairs.push([o, n]); o.paired = true; }
   }
+  // 5. Steps moved into a new function: the function now runs a new one in the same file, and most of its old code
+  //    is there. Its old steps are compared with the new function (what really changed in them), and the function
+  //    itself is said to run it, instead of "no longer gives back …" for every step that only moved.
+  const movedInto = new Map();
+  for (const [o, n] of pairs) {
+    const named = new Set(n.tokens.map((t) => t.t));
+    const target = leftB().find((b) => b.m.file === n.m.file && b.m.kind !== 'not-read' && named.has(b.m.name) && b.m.name !== n.m.name && mostlyIn(o.tokens, b.tokens));
+    if (target) { used.add(target); movedInto.set(o, target); }
+  }
   let unchanged = 0;
-  for (const [o, n] of pairs) if (compareMember(o, n, items) === 'unchanged') unchanged++;
+  for (const [o, n] of pairs) {
+    const into = movedInto.get(o);
+    if (!into) { if (compareMember(o, n, items) === 'unchanged') unchanged++; continue; }
+    const now = n.text.slice(1).map((l) => l.trim()).filter(Boolean);
+    items.push(item('moved-into', 'meaning', subjectOf(n), whereOf(n), `Its steps moved to ${subjectOf(into)}, a new function it now runs; what changed in them is listed under ${subjectOf(into)}.`, { before: null, after: now }));
+    compareMember(o, into, items, { extracted: true });
+  }
   for (const o of leftA()) items.push(item('removed', 'meaning', subjectOf(o), whereOf(o), `Removed ${KIND_WORD[o.m.kind] ?? 'function'}: ${subjectOf(o)}.`, { before: o.text, after: null }));
   for (const n of leftB()) items.push(item('added', n.m.kind === 'not-read' ? 'risk' : 'meaning', subjectOf(n), whereOf(n),
     n.m.kind === 'not-read' ? "New function that Thunder cannot read yet: check the code itself." : `New ${KIND_WORD[n.m.kind] ?? 'function'}: ${subjectOf(n)}${summaryOf(n)}.`, { before: null, after: n.text }));

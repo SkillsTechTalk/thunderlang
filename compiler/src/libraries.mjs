@@ -102,6 +102,19 @@ const CATALOG = [
   { re: /^http\s*\.\s*(Get|Post|Head)\s*\(/, say: (m, c) => ({ says: `Sends a ${m[1].toUpperCase()} request to ${URL_WORDS(splitTop(inside(c, c.indexOf('(')) ?? '')[0])}`, does: 'ask' }) },
   { re: /^reqwest\s*::\s*get\s*\(/, say: (m, c) => ({ says: `Sends a GET request to ${URL_WORDS(splitTop(inside(c, c.indexOf('(')) ?? '')[0])}`, does: 'ask' }) },
 
+  // ── A new random ID: crypto.randomUUID(), uuid.uuid4(), Guid.NewGuid(), uuidv4(), UUID.randomUUID() ──
+  { re: /^(?:(?:globalThis\.|window\.)?crypto\.randomUUID|uuid\.uuid4|Guid\.NewGuid|uuidv4|uuid\.v4|UUID\.randomUUID|Uuid::new_v4)\s*\(\s*\)(?:\.(?:ToString|toString|hex)\(\)|\.hex)?$/, say: () => ({ says: 'a new random ID', does: 'calculate', value: true }) },
+
+  // ── .NET: a shared lookup table that makes an entry only once (ConcurrentDictionary.GetOrAdd) ──
+  // `byKey.GetOrAdd(key, _ => new Lazy<Task<T>>(() => Place(request))).Value`: later calls with the same key get the
+  // entry made the first time. The function that makes it is named when the code names one.
+  { re: /^(?:this\.)?(_?[A-Za-z]\w*)\s*\.\s*GetOrAdd\s*\(/, say: (m, c) => {
+    const args = splitTop(inside(c, c.indexOf('(', m.index + m[0].length - 1)) ?? '');
+    if (args.length !== 2) return null;
+    const made = [...args[1].matchAll(/\b([A-Za-z_]\w*)\s*\(/g)].map((x) => x[1]).filter((x) => !/^(?:new|Lazy|Task|ValueTask)$/.test(x)).pop();
+    return { says: `the entry for ${valueWords(args[0])} in ${words(m[1])}, made${made ? ` by ${words(made)}` : ''} if it is missing (a later call with the same ${valueWords(args[0]).replace(/^the [\w ]+'s /, '')} gets that same entry)`, does: 'find', value: true };
+  } },
+
   // ── Prisma ──
   { re: /^(?:this\.)?prisma\s*\.\s*(\w+)\s*\.\s*(findUnique|findUniqueOrThrow|findFirst|findFirstOrThrow|findMany|create|createMany|update|updateMany|upsert|delete|deleteMany|count|aggregate)\s*\(/, say: (m, c) => {
     const thing = words(m[1]), args = inside(c, c.indexOf('(', m.index + m[0].length - 1)) ?? '', whose = whereOf(args);
@@ -176,6 +189,14 @@ const CATALOG = [
 
   // ── JSON, files, time ──
   { re: /^JSON\s*\.\s*parse\s*\(\s*(.+)\)$/, say: (m) => ({ says: `Reads ${valueWords(m[1])} as JSON`, does: 'calculate' }) },
+  // An object written right there names its fields: JSON.stringify({ items: cart, coupon }) -> "Turns items (cart) and coupon into JSON text".
+  { re: /^JSON\s*\.\s*stringify\s*\(\s*\{/, say: (m, c) => {
+    const obj = inside(c, c.indexOf('{'));
+    const fields = obj == null ? null : splitTop(obj).filter((x) => x.trim()).map((x) => x.trim().match(/^([A-Za-z_$][\w$]*)(?:\s*:\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)?))?$/));
+    if (!fields?.length || fields.some((f) => !f)) return null;
+    const said = fields.map((f) => (f[2] && f[2] !== f[1] ? `${words(f[1])} (${valueWords(f[2])})` : words(f[1])));
+    return { says: `Turns ${said.length === 1 ? said[0] : `${said.slice(0, -1).join(', ')} and ${said.at(-1)}`} into JSON text`, does: 'calculate' };
+  } },
   { re: /^JSON\s*\.\s*stringify\s*\(\s*([^,]+)/, say: (m) => ({ says: `Turns ${valueWords(m[1])} into JSON text`, does: 'calculate' }) },
   { re: /^json\s*\.\s*(loads|load)\s*\(\s*(.+)\)$/, say: (m) => ({ says: `Reads ${valueWords(m[2])} as JSON`, does: 'calculate' }) },
   { re: /^json\s*\.\s*(dumps|dump)\s*\(\s*([^,)]+)/, say: (m) => ({ says: `Turns ${valueWords(m[2])} into JSON text`, does: 'calculate' }) },

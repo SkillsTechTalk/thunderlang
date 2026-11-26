@@ -69,3 +69,35 @@ test("a folder's big picture does not take one file's description as the whole a
   assert.equal(readLevel(thunderModel(files, { name: 'app' }), 'big-picture').purpose, undefined);
   assert.equal(readLevel(thunderModel(files.slice(0, 1), { name: 'app' }), 'big-picture').purpose, 'Billing only.');
 });
+
+test('C# idioms in words: IsNullOrEmpty, Task.FromResult, and GetOrAdd (made only when missing)', () => {
+  const src = 'public class Orders\n{\n    public Task<string> PlaceAsync(Req req)\n    {\n        if (string.IsNullOrEmpty(req.Key))\n        {\n            return Task.FromResult(new Answer(false));\n        }\n        return _byKey.GetOrAdd(req.Key, _ => new Lazy<Task<string>>(() => PlaceNewAsync(req))).Value;\n    }\n}\n';
+  const said = steps('Orders.cs', src, 'PlaceAsync').join('\n');
+  assert.match(said, /The req's key is empty or missing\?/);
+  assert.match(said, /Gives back a new Answer/);
+  assert.match(said, /Gives back the entry for the req's key in by key, made by place new async if it is missing/);
+  // Not a faithful reading without its "or": a plain call stays a call.
+  const plain = 'public class O\n{\n    public bool F(string k)\n    {\n        if (Valid(k))\n        {\n            return true;\n        }\n        return false;\n    }\n}\n';
+  assert.doesNotMatch(steps('O.cs', plain, 'F').join('\n'), /empty or missing/);
+});
+
+test('TypeScript: a JSON body names its fields, and a new random ID is said as one', () => {
+  const src = 'export function body(cart: string[], coupon: string) {\n  const key = crypto.randomUUID();\n  const text = JSON.stringify({ items: cart, coupon, key });\n  return text;\n}\n';
+  const said = steps('b.ts', src, 'body').join('\n');
+  assert.match(said, /Sets key to a new random ID/);
+  assert.match(said, /Turns items \(cart\), coupon and key into JSON text/);
+  // Anything else stays as before: a computed field is not named as if it were plain.
+  const other = 'export function b2(a: number) {\n  const text = JSON.stringify({ total: a * 2 });\n  return text;\n}\n';
+  assert.doesNotMatch(steps('c.ts', other, 'b2').join('\n'), /Turns total/);
+});
+
+test('review: steps moved into a new function are said as moved, not as removed', async () => {
+  const { thunderReview } = await import('../src/review.mjs');
+  const before = 'def place(order, stock, billing):\n    if not order.items:\n        return "empty"\n    if not stock.reserve(order.items):\n        return "no stock"\n    total = sum(i.price for i in order.items)\n    payment = billing.charge(order.id, total)\n    return payment\n';
+  const after = 'def place(order, stock, billing, seen):\n    if order.key in seen:\n        return seen[order.key]\n    seen[order.key] = place_new(order, stock, billing)\n    return seen[order.key]\n\n\ndef place_new(order, stock, billing):\n    if not order.items:\n        return "empty"\n    if not stock.reserve(order.items):\n        return "no stock"\n    total = sum(i.price for i in order.items)\n    payment = billing.charge(order.id, total)\n    return payment\n';
+  const r = thunderReview([{ path: 'orders.py', source: before }], [{ path: 'orders.py', source: after }]);
+  const says = r.items.map((x) => `${x.subject}: ${x.says}`).join('\n');
+  assert.match(says, /Place: Its steps moved to Place new, a new function it now runs/);
+  assert.doesNotMatch(says, /Place: No longer/);
+  assert.doesNotMatch(says, /Renamed from Place to Place new/);
+});

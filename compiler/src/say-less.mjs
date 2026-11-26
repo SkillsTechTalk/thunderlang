@@ -385,6 +385,15 @@ function newThing(v, says) {
   if (!m) return false;
   let c = coreOf(v);
   if (c?.kind === 'unary' && c.op === '&') c = coreOf(c.value);
+  // "a new random ID" for the calls that make one (crypto.randomUUID(), uuid.uuid4(), Guid.NewGuid(), …), and for
+  // its text form (`.ToString()`, `.hex`).
+  if (m[1] === 'random ID') {
+    let x = c;
+    if (x?.kind === 'call' && x.callee?.kind === 'member' && /^(?:ToString|toString)$/.test(x.callee.property)) x = x.callee.object;
+    if (x?.kind === 'member' && x.property === 'hex') x = x.object;
+    const name = x?.kind === 'call' ? (x.callee?.kind === 'member' ? x.callee.property : x.callee?.name) : null;
+    return /^(?:randomUUID|uuid4|NewGuid|uuidv4|v4|new_v4)$/.test(name ?? '') && !(x.args?.length);
+  }
   const type = c?.kind === 'object' ? c.type : c?.kind === 'call' ? (c.callee.kind === 'name' ? c.callee.name : c.callee.kind === 'member' ? (/^(?:new|New)$/.test(c.callee.property) ? (c.callee.object.name ?? c.callee.object.property) : c.callee.property) : null) : null;
   return !!type && sameWords(String(type).replace(/<.*$/, '').split(/::|\./).pop(), m[1]);
 }
@@ -476,6 +485,8 @@ function namesKept(tree, said) {
         if (name && /^(?:any|some|all|every|none|find|first|filter|where|select|detect|find_index|findIndex|includes|include\?|contains|Contains|any\?|all\?|none\?|exists|Any|All|Exists|in_array|has|hasOwnProperty|has_key|key\?|containsKey|ContainsKey|startswith|endswith|startsWith|endsWith|StartsWith|EndsWith|start_with\?|end_with\?)$/.test(name) && / (?:any|every|all|no|first|matches|match|in|has|contains|starts|ends|one of) /.test(sw)) return ok(own) && n.args.every((a) => a.kind === 'lambda' || ok(a));
         if (name && /^(?:len|length|size|count|nrow|NROW|Count|sizeof|strlen|wcslen|mb_strlen|nchar|str_length|lengths|Length)$/.test(name) && howMany) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
         if (name && /^(?:isinstance|is_a\??|kind_of\??|instance_of\??|inherits|is)$/.test(name) && isA) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
+        // (C#'s String.IsNullOrEmpty(x) is a question about x: the type it is asked on is not a value.)
+        if (name && /^IsNullOr(?:Empty|WhiteSpace)$/.test(name) && c?.kind === 'member' && /^[Ss]tring$/.test(c.object?.name ?? '') && setWords) return ok(n.args);
         if (name && /^(?:is\.null|is_null|isNull|is\.na|isset|empty|is_none|isNone|isNil|is_nil|nil\?|null\?|blank\?|present\?|empty\?|isEmpty|IsNullOrEmpty|IsNullOrWhiteSpace|isBlank|isNotEmpty|isNotBlank|any\?|none\?)$/.test(name) && setWords) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
         return (name == null || has(name)) && (c?.kind !== 'member' || ok(c.object) || /^[A-Z]/.test(c.object?.name ?? '')) && ok(n.args);
       }
@@ -500,7 +511,9 @@ const KEYWORD_CALLEE = /^(?:use|unsafe|using|foreach|for|type|return|pub|public|
 
 const coreOf = (e) => {
   let c = e;
-  while (c && ((c.kind === 'unary' && (c.op === 'await' || c.op === '?' || c.op === '!!')) || (c.kind === 'cast' && c.form === 'nonnull'))) c = c.value;
+  // (.NET: a get-or-add of a Lazy, `byKey.GetOrAdd(k, _ => new Lazy<T>(…)).Value`, gives the entry's value: the call is the core.)
+  while (c && ((c.kind === 'unary' && (c.op === 'await' || c.op === '?' || c.op === '!!')) || (c.kind === 'cast' && c.form === 'nonnull')
+    || (c.kind === 'member' && c.property === 'Value' && c.object?.kind === 'call' && c.object.callee?.property === 'GetOrAdd'))) c = c.kind === 'member' ? c.object : c.value;
   return c;
 };
 /** The names of the calls along a value's receiver chain: a.b().c() -> [b, c]. */
@@ -824,7 +837,8 @@ function conditionCore(test, says, code, lang) {
   const said = claimText(says);
   const tn = treeNegations(test), wn = saidNegations(says);
   if (tn !== wn) return M('L378');
-  let logic = 0; for (const n of nodesOf(test)) if (n.kind === 'logic') logic += n.operands.length - 1;
+  // (String.IsNullOrEmpty(x) asks "null, or empty": the "or" is in its name; see accountsFor.)
+  let logic = 0; for (const n of nodesOf(test)) if (n.kind === 'logic') logic += n.operands.length - 1; else if (n.kind === 'call' && /^IsNullOr(?:Empty|WhiteSpace)$/.test(n.callee?.property ?? '')) logic++;
   const wl = (said.match(/\band\b|\bor\b/g) || []).length;
   if (logic !== wl) return M('L381');
   if (!orderingKept(test, says)) return M('L382');
