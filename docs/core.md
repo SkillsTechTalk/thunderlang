@@ -150,6 +150,45 @@ If this fails:
 
 A `Never allow` rule is checked on every change. A change that breaks the rule fails, and the old value stays.
 
+### Records and calls written as blocks
+
+A record with many fields is easier to read as a block: end the line with `:` and give one `field: value` per line.
+
+```thunder
+A Trade has:
+  Symbol is text
+  Quantity is whole number
+  Buy price is money
+  Sell price is money
+
+Set first trade to a Trade:
+  symbol: "ACME"
+  quantity: 10
+  buy price: $20.00
+  sell price: $40.00
+```
+
+It is the same program as `Set first trade to a Trade with symbol "ACME" and quantity 10 and …`. It works wherever a
+record ends the line: `Set … to a Trade:`, `Give a Trade:`, `Add a Trade to trades:`, `Expect a Trade to fail with
+"…":`, and as the last value of a call (`say calculate profit with a Trade:`).
+
+A function can be called the same way, with its inputs by name, in any order. An input with a default may be left out:
+
+```thunder
+To taxed price:
+  Receive price and rate (7% if not given)
+  Give price + price * rate
+
+Set total to taxed price:
+  price: $100
+  rate: 20%
+```
+
+Names work only for a function whose inputs are known in the program (or in the project's `src/`). Each line must be
+`name: value`; a name given twice, a field the record does not have, an input the function does not receive, or a
+missing input that has no default is reported with its line and, when it is close, the name you probably meant
+(TC113 to TC117, and TC206).
+
 ### Tests
 
 ```thunder
@@ -159,6 +198,40 @@ Test "members spending at least 100 get 20% off":
 ```
 
 `thunder test` runs every `Test` block in the project and reports `PASS` or `FAIL` with the Thunder line.
+
+## The Thunder style (`thunder format`)
+
+There is one way to write Thunder, and `thunder format` writes it. It should read well in plain text: in a terminal, a
+diff, or on paper, with no colors.
+
+- **Two spaces per level.** No tabs, no trailing spaces, at most one blank line in a row.
+- **Short stays short.** A record built on one line keeps that line while it has 1 to 3 fields and fits in 100 columns.
+  With 4 or more fields, or past 100 columns, it becomes a block of `field: value` lines.
+- **Long conditions wrap before `and` / `or`**, one part per line, indented two spaces:
+
+  ```thunder
+  When member is yes
+    and total is at least 100
+    and day is "Friday":
+    Give 20% of total
+  ```
+
+- **Space between ideas.** One blank line around every function (`To`), record (`A … has`), and `Test` block. A comment
+  right above one stays with it.
+- **One spelling for each thing.** `When`, `Otherwise`, `Set`, `Give`, `Receive`: Thunder keeps a small vocabulary on
+  purpose, so every program reads the same way.
+
+Formatting never changes what a program means: a block is the same program as the one-line form, and a wrapped
+condition is joined back into one line when it is read. Comments stay where they are, a program already in the Thunder
+style is left exactly as it is, and formatting twice gives the same text as formatting once. The tests format every
+Core program the examples, these docs, and the Core tests use, and check each gives the same program and the same
+output.
+
+```sh
+thunder format              # print the formatted program
+thunder format --write      # save it
+thunder format --check      # exit 1 if a file is not in the Thunder style (for CI)
+```
 
 ## Values
 
@@ -255,6 +328,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | Codes | Meaning |
 | --- | --- |
 | TC1xx | the line does not fit the grammar (indentation, missing words) |
+| TC113–TC117 | a record or a call written as a block: a line that is not `name: value`, a name given twice, an unknown or missing input, or no record or call to give the lines to |
 | TC2xx | names: unknown names, fields, records |
 | TC3xx | kinds of values that cannot do what the line asks |
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
