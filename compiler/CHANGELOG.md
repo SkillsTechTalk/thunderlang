@@ -1,4 +1,12 @@
-# Unreleased
+# 1.3.0
+
+**Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: Thunder Core compiles to
+C#, Java, Go, and Rust (with Python and TypeScript, six targets, each giving the same output on every Core test
+program); the Time Machine (`thunder run --record`, `thunder replay`); block records and named inputs with a semantic
+formatter (`thunder format` may now rewrite long one-line records as blocks: run `thunder format --write` to adopt it);
+screens: write a `Screen` in Thunder Core and build it as a React app (`thunder build --target react`), and read React
+and Angular components as screens (`model.screens`, with pages marked); the live translator at thunderlang.dev/live;
+and clearer readings of real code, with fewer steps left as code. TC405's wording is now target-neutral.
 
 - **Thunder screens, built as React apps.** A `Screen` says what a person sees: `Receive` its inputs, `Remember` the
   values it keeps (`Remember coupon as text, starting at ""`), then `Show` a heading, text, a list (`Show a list with

@@ -2,7 +2,7 @@
   "name": "thunderlang",
   "displayName": "ThunderLang™",
   "description": "Thunder™, the human programming language, in VS Code. Read and check ThunderLang™ rules: highlighting, live errors, completion, and hover from the same compiler that checks AI changes against your rules. Runs locally, no AI involved.",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "publisher": "openthunder",
   "license": "Apache-2.0",
   "icon": "icon.png",
