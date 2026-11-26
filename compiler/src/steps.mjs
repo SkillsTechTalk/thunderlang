@@ -2430,6 +2430,20 @@ export function stepsFrom(statements) {
       st.route = { method: r[1].toUpperCase(), path: r[2] };
     }
   }
+  // "Calls X with these steps", said by what the call is for (JavaScript, TypeScript): a command-line command
+  // (`program.command('check')…`), a database transaction, progress shown while it works, or the name it registers.
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    for (const st of steps) {
+      const said = /^Calls ([\w ]+) with these steps$/.exec(String(st.says ?? ''));
+      if (!said) continue;
+      const code = String(st.code ?? '');
+      let m;
+      if ((m = /\.command\(\s*(['"`])([\w:.\-]+)(?:\s[^'"`]*)?\1\s*\)/.exec(code))) st.says = `Defines the command "${m[2]}"; when it runs, it does these steps`;
+      else if (/\.transaction\(\s*(?:async\s*)?\(/.test(code)) st.says = 'Does these steps in one database transaction';
+      else if (/\.withProgress\(/.test(code)) st.says = 'Shows progress while it does these steps';
+      else if ((m = /^\s*(?:await\s+)?[\w$.]+\(\s*(['"`])([^'"`$]{1,60})\1\s*,/.exec(code))) st.says = `Calls ${said[1]} ("${m[2]}") with these steps`;
+    }
+  }
   // Every step is kept (anchoring needs all of them); `more` tells a view how many to fold away.
   const more = Math.max(0, steps.length - MAX_STEPS);
   for (const st of steps) if (restates(st)) st.restates = true;

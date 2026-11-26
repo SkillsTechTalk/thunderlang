@@ -127,7 +127,7 @@ test('callbacks: timers, events and promises say when their steps run; other cal
 }
 `;
   const w = byName(readCode(src, { language: 'javascript' }), 'wire');
-  assert.deepEqual(said(w.steps), ['After 300 milliseconds', 'Whenever "click" happens', 'When load is done', 'Calls describe thing with these steps', 'Makes a new Promise with these steps', 'Returns a new Promise']);
+  assert.deepEqual(said(w.steps), ['After 300 milliseconds', 'Whenever "click" happens', 'When load is done', 'Calls describe thing ("x") with these steps', 'Makes a new Promise with these steps', 'Returns a new Promise']);
   assert.deepEqual(said(w.steps[1].children), ["If the e's shift key is set"]);
   assert.equal(w.steps[4].children.length, 2);
 });
