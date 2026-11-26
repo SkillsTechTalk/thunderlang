@@ -135,6 +135,27 @@ function matchClose(src, open) {
 // The language being read. Only Rust has lifetimes ('static, 'a), which look like an opening quote.
 let READING_RUST = false;
 
+/** For C# and Java: a flag per character, 1 inside text ("…", $"…", @"…", '…', """…""") or a comment. */
+function textRanges(src) {
+  const flags = new Uint8Array(src.length + 1);
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '/' && src[i + 1] === '/') { const e = src.indexOf('\n', i); const end = e < 0 ? src.length : e; flags.fill(1, i, end); i = end; continue; }
+    if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); const end = e < 0 ? src.length : e + 2; flags.fill(1, i, end); i = end - 1; continue; }
+    if (c === '"' || c === '\'') {
+      let end;
+      if (c === '"' && src[i - 1] === '@' || (c === '"' && src[i - 1] === '$' && src[i - 2] === '@')) {
+        // A verbatim string: "" is a quote inside it.
+        end = i + 1;
+        while (end < src.length && !(src[end] === '"' && src[end + 1] !== '"')) end += src[end] === '"' ? 2 : 1;
+      } else end = skipString(src, i);
+      flags.fill(1, i, Math.min(src.length, end + 1));
+      i = end;
+    }
+  }
+  return flags;
+}
+
 function skipString(src, i) {
   const q = src[i];
   // A multi-line string (triple quotes in Swift, Kotlin, Java, C#) runs to its closing triple quote.
@@ -338,6 +359,9 @@ function findFunctions(src, language) {
   patterns.javascript = patterns.typescript;
   patterns.csharp = [/(?:(?:public|private|protected|internal|static|virtual|override|async|sealed|abstract|readonly)\s+)*[\w.<>\[\],?\s]+?\s+(\w+)\s*\(/g];
   const seen = new Set();
+  // C# and Java: words inside text (`$"known bug (fails as expected) {name}"`) are never a method, and neither is a
+  // lambda passed as an argument (`Check("…", async () => { … })`).
+  const inText = (language === 'csharp' || language === 'java') ? textRanges(src) : null;
   for (const re of patterns[language] || []) {
     let m;
     re.lastIndex = 0;
@@ -345,6 +369,7 @@ function findFunctions(src, language) {
       const name = m[1];
       const open = src.indexOf('(', m.index + m[0].length - 1);
       if (KEYWORDS_NOT_FN.has(name) || open < 0) continue;
+      if (inText && (inText[m.index + m[0].lastIndexOf(name, m[0].length - 1)] || (language === 'csharp' && name === 'async'))) continue;
       const close = matchClose(src, open);
       if (close < 0) continue;
       // After the parameter list: an optional return type / throws clause, then a body. A signature's head is short,
@@ -419,6 +444,9 @@ function findFunctions(src, language) {
     ? [/\bRoute::(get|post|put|patch|delete|any)\(\s*['"]([^'"]+)['"]\s*,\s*(?:static\s+)?function\s*\(/g]
     : language === 'go'
     ? [/\.(Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE|HandleFunc|Handle)\(\s*"([^"]+)"\s*,\s*func\s*\(/g]
+    : language === 'csharp'
+    // ASP.NET minimal APIs: app.MapPost("/orders", async (OrderRequest request, OrderService orders) => { … })
+    ? [/\b\w+\.Map(Get|Post|Put|Patch|Delete)\(\s*"([^"]+)"\s*,\s*(?:async\s*)?\(/g]
     : (language === 'typescript' || language === 'javascript')
       // (The handler may be wrapped: `fastify.get('/x', handle(async (request) => …))`, `asyncHandler(…)`.)
       ? [/\b\w+\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,(?:[^,()]*,)*?\s*(?:[A-Za-z_$][\w$.]*(?:<[^<>()]*>)?\(\s*)*(?:async\s*)?(?:function\s*\w*\s*)?\(/g]
@@ -435,7 +463,7 @@ function findFunctions(src, language) {
         // An arrow whose body is one expression: `async (request) => practiceView(…)`. It gives back that value;
         // the expression runs to the first ")" or "," that closes the call around it.
         const arrow = /^\s*(?::\s*[^=()]+)?=>\s*/.exec(src.slice(close + 1));
-        if (!(language === 'typescript' || language === 'javascript') || !arrow || src[close + 1 + arrow[0].length] === '{') continue;
+        if (!(language === 'typescript' || language === 'javascript' || language === 'csharp') || !arrow || src[close + 1 + arrow[0].length] === '{') continue;
         const from = close + 1 + arrow[0].length;
         let depth = 0, end = from, q = null;
         for (; end < src.length; end++) {
@@ -1179,6 +1207,14 @@ function annotateRoutes(fns, src) {
     const above = fn.decorators
       ? [...fn.decorators].reverse()
       : lines.slice(Math.max(0, fn.line - 6), Math.max(0, fn.line - 1)).reverse().map((x) => x.trim());
+    // Python's standard library server: a handler's do_POST answers POST, and the one path it checks
+    // (`if self.path != "/charges": …`) is its route. Two or more paths checked: no single route, so none is named.
+    const std = /^do_(GET|POST|PUT|PATCH|DELETE|HEAD)$/.exec(fn.name ?? '');
+    const stdBody = typeof fn.body === 'string' ? fn.body : Array.isArray(fn.pyBody) ? fn.pyBody.map((x) => x.text).join('\n') : null;
+    if (std && stdBody) {
+      const paths = new Set([...stdBody.matchAll(/\bself\.path\s*(?:==|!=)\s*['"](\/[^'"]*)['"]/g)].map((x) => x[1]));
+      if (paths.size === 1) { fn.route = { method: std[1], path: [...paths][0] }; continue; }
+    }
     for (const l of above) {
       let m;
       if ((m = l.match(/^@\w+\.(get|post|put|patch|delete)\(\s*['"]([^'"]*)['"]/i))) { fn.route = { method: m[1].toUpperCase(), path: m[2] }; break; }

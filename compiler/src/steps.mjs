@@ -315,6 +315,10 @@ function sayCodeConditionInner(cond) {
     if (call[2] === 'is_null') return `${what} is ${call[1] ? 'not ' : ''}null`;
     return call[2] === 'isset' ? `${what} is ${call[1] ? 'not ' : ''}set` : `${what} is ${neg ? 'not ' : ''}empty`;
   }
+  // C#: String.IsNullOrEmpty(x) -> "x is empty or missing"; IsNullOrWhiteSpace -> "x is blank or missing".
+  if ((call = c.match(/^(!|not\s+)?[Ss]tring\.IsNullOr(Empty|WhiteSpace)\(\s*([\w$.]+)\s*\)$/))) {
+    return `${possessiveWords(call[3])} is ${call[1] ? 'not ' : ''}${call[2] === 'Empty' ? 'empty' : 'blank'}${call[1] ? ' and is set' : ' or missing'}`;
+  }
   // isObject(x) -> "x is object"; !isRequest(options.request) -> "the options's request is not request".
   if ((call = c.match(/^(!|not\s+)?(?:(?:self|this)\.)?is_?([A-Z]\w*)\s*\(\s*([\w$.]+)\s*\)$/)) && !/^(?:Empty|Set|Null)$/.test(call[2])) {
     return `${possessiveWords(call[3])} is ${call[1] ? 'not ' : ''}${words(call[2])}`;
@@ -1538,6 +1542,12 @@ export function statementExpr(raw) {
 }
 const codeExpr = (text) => ({ kind: 'code', text: String(text ?? '').replace(/\s+/g, ' ').trim() });
 
+/**
+ * A first line that opens an object as a call's argument, `fetch(url, {` / `post({`: the statement goes on to the
+ * line that closes the call, so it is read whole. (A callback, `items.forEach((x) => {`, is a block: not this.)
+ */
+const callWithObject = (first) => /[(,]\s*\{\s*$/.test(first) && !/=>\s*\{\s*$/.test(first) && !bracketsClosed(first.replace(/\{\s*$/, ''));
+
 function classifyWords(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
@@ -1559,11 +1569,13 @@ function classifyWords(raw, { inner = 0 } = {}) {
     const rest = c > 0 ? text.slice(c + 1).trim() : '';
     if (rest && !rest.startsWith('{') && !text.slice(c + 1).split('\n')[0].trim()) first = `${text.slice(0, c + 1).replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')} ${rest.replace(/\s+/g, ' ')}`.trim();
   }
+  // C#: `return Task.FromResult(x);` gives back x (as a finished task): read as `return x;`.
+  if (LANG === 'csharp') first = first.replace(/^return\s+(?:Task|ValueTask)\.FromResult\((.*)\)\s*;?$/, 'return $1;');
   // `return (` with JSX on the next line: what is drawn on screen.
   if (/^return\s*\(\s*$/.test(first) && /^\s*</.test(text.split('\n')[1] || '')) first = `return (${text.split('\n')[1].trim()}`;
   // A statement written over several lines (`return a\n  && b`, `x =\n  cond ? y : z`, `return (\n  <div>…`) is read
   // whole, so a value is never cut to its first line.
-  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && (!/[{:]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^(?:const|let|var|val)\s*[{[]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first)) && !/=>\s*\{?\s*$/.test(first) && text.length < 2000 && balancedText(text) && (!/\{\s*$/.test(text.split('\n')[0]) || /^(?:const|let|var|val)\s*[{[]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first))) {
+  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && (!/[{:]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^(?:const|let|var|val)\s*[{[]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first) || callWithObject(first)) && !/=>\s*\{?\s*$/.test(first) && text.length < 2000 && balancedText(text) && (!/\{\s*$/.test(text.split('\n')[0]) || /^(?:const|let|var|val)\s*[{[]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first) || callWithObject(first))) {
     const lines = text.split('\n');
     const joined = lines.map((l) => l.trim()).join(' ');
     if (!bracketsClosed(first) || /(?:[-+*/%&|^=<>?:.,(\[]|\b(?:and|or|not|in))\s*$/.test(first) || /^\s*(?:[-+*/%&|^=<>?:.)\]]|&&|\|\||\b(?:and|or)\b)/.test(lines[1] || '')) first = joined;

@@ -1,0 +1,134 @@
+# Lumen Supply checkout: one bug, three languages
+
+A small shop, written for this demo. Lumen Supply is a made-up brand. Three parts talk over HTTP:
+
+| Part | Language | What it does |
+|---|---|---|
+| `web/` | TypeScript | The checkout page's logic. It sends the cart, gives up after a second, and tries once more. |
+| `orders/` | C# (ASP.NET minimal API) | Checks the shelf, holds the items, works out the price (coupon, 8% tax), asks billing to charge, and records the order. |
+| `billing/` | Python (standard library) | Charges through a fake payment provider and records each payment. |
+
+**The bug.** The payment provider is slow, so the page gives up and tries again. Nothing tells the store that the second try is the same order. One press of "Place order" charges the customer twice, takes the items off the shelf twice, and then tells the customer it failed.
+
+**The change.** "Prevent duplicate charges when a payment request is retried." Every try of one press now carries the same idempotency key, from the page through orders to billing. Orders gives a retry the first order, even while that order is still being placed. Billing charges once per key: a second request with the same key gets the first payment back, and the same key with a different amount is refused. The whole change is `change.patch`.
+
+## The 90-second story
+
+Every output below is real, copied from runs of `run-demo.sh` (Thunder 1.3.0 from this repository, plus the reader fixes in this PR).
+
+**1. One press, before the fix: charged twice.** Run `demo/checkout/run-demo.sh --before`:
+
+```text
+== One customer presses "Place order" once (2 lamps, 2 bulbs, coupon SAVE10)
+We couldn't reach the store. Please try again.
+
+== What billing charged
+  ch_1  ord-1001  $53.46
+  ch_2  ord-1002  $53.46
+  2 charges, $106.92 in total  <- the customer was charged more than once
+== Lamps left on the shelf (10 at the start)
+  lamps: 6
+```
+
+**2. Thunder reads the app you don't know: three languages, one picture.** Run `demo/checkout/run-demo.sh --thunder`. It reads three folders as three repositories and links them, each end cited to a file and line:
+
+```text
+Thunder Trace: 3 repositories, 2 links between them
+
+Links between repositories
+  orders → billing: Charge async sends POST /charges, handled by Do post
+      orders@…:BillingClient.cs:20  →  billing@…:server.py:13
+  web → orders: Place order sends POST /orders, handled by Post /orders (matched by path; the base address is set when it runs)
+      web@…:checkout.ts:24  →  orders@…:Program.cs:18
+```
+
+The page's retry, read from the TypeScript (`thunder read demo/checkout --level flow --focus "Place order"`, after the fix):
+
+```text
+  • Sets idempotency key to a new random ID  (line 20)
+  • Turns items (cart), coupon and idempotency key into JSON text (as body)  (line 21)
+  ↻ Counts attempt from 1 while attempt is at most options.tries  (line 22)
+      • Tries the next steps and handles any error  (line 23)
+          • Sends a POST request to …/orders (as response)  (line 24)
+```
+
+**3. The change, read across all three languages.** Orders (C#), `--focus "Place order async"`:
+
+```text
+  ◆ The request's idempotency key is empty or missing?  (line 21)
+      yes →
+          ■ Gives back a new OrderResult  (line 23)
+      no → carry on
+  ■ Gives back the entry for the request's idempotency key in by key, made by place new order async if it is missing (a later call with the same idempotency key gets that same entry)  (line 25)
+```
+
+From `thunder review` of before → after (23 changes in meaning, 1 risk), the Python billing side:
+
+```text
+- Charge · billing/billing.py:42: Now stops with ValueError ("A charge needs an idempotency key, so a retry is never char…") when amount cents is not at most 0 and idempotency key is not set.
+- Charge · billing/billing.py:47: Now stops with ValueError ("This idempotency key was already used for a different amount") when … first is set and the first's amount cents is not amount cents.
+- Charge · billing/billing.py:48: Now also gives back first when amount cents is not at most 0 and first is set.
+- Charge and 2 more · billing/billing.py:37: Now also takes idempotency key.   (also: Charge async in orders/BillingClient.cs)
+- Place order async · orders/OrderService.cs:19: Its steps moved to Place new order async, a new function it now runs; …
+- Place order · web/checkout.ts:20: Now also sets idempotency key to a new random ID when the length of cart is not 0.
+- Order request · orders/OrderService.cs:5: Order request now also knows idempotency key (nothing at first).
+```
+
+What the change can affect across the three parts (`thunder trace impact --diff`):
+
+```text
+Thunder Trace impact: 3 findings, 1 high risk. Stops at the first hop.
+
+HIGH   billing: POST /charges changed, and 1 caller in other repositories depends on it
+         ← orders: Charge async (same path from another app)  orders@…:BillingClient.cs:20
+MEDIUM orders: a POST request to /charges changed; it is handled in billing
+MEDIUM web: a POST request to /orders changed; it is handled in orders
+```
+
+**4. After the fix: charged once.** Run `demo/checkout/run-demo.sh --tests`:
+
+```text
+== One customer presses "Place order" once (2 lamps, 2 bulbs, coupon SAVE10)
+Thank you! Order ord-1001 is placed: $53.46 was charged.
+
+== What billing charged
+  ch_1  ord-1001  $53.46
+  1 charge, $53.46 in total  <- charged once
+== Lamps left on the shelf (10 at the start)
+  lamps: 8
+```
+
+## Verified (and how)
+
+- **The bug, end to end.** One press charged $53.46 twice, took 4 lamps instead of 2, and said it failed. The run used the real billing, orders and web code over local HTTP (`run-demo.sh --before`).
+- **The fix, end to end.** One press charged once, took 2 lamps, and said it succeeded (`run-demo.sh`).
+- **Each part's own tests, before the fix**, each marked as a known bug in its own language:
+  - Python: `expectedFailure`.
+  - C#: a "known bug" check that must fail.
+  - TypeScript: a `todo` test.
+- **The same tests after the fix**, each passing, plus new ones:
+  - Python, 5 tests: a retried charge is charged once (with a concurrent retry), a key reused for another amount is refused, and a charge without a key is refused.
+  - C#, 7 checks: a retried order (concurrent) is charged once and takes stock once, different keys are different orders, and an order without a key is refused.
+  - TypeScript, 4 tests: a retry carries the first try's key, and two presses have different keys.
+- **Readings with source lines:** every Thunder line above names its file and line, and the two Trace links name both ends.
+
+## Not verified
+
+- **A real payment provider** and its own idempotency rules. The provider here is a fake.
+- **Deployment:** more than one copy of orders or billing. The key table is held in memory in one process, so two copies would not share it, and a restart forgets it.
+- **Concurrency beyond the tests:** the tests cover two requests at once with the same key. Billing holds one lock around every charge, which is simple and correct but slow under load. That was not measured.
+- **How long a key is kept:** forever, in memory.
+- **Steps Thunder showed as code instead of words** (10 of 243 steps in the app, mostly in tests):
+  - `items.Any(i => …)` conditions in `Inventory.Reserve` and `Place new order async`
+  - `lock (_orders) _orders.Add(order)`
+  - Python's `sum(… for p in … if …)` in `charged_total`
+  - the `timedOut` line in the page's retry
+  - the text template in `resultMessage`
+- **The review's weaker spots:**
+  - It reports that the C# charge call now passes the key only inside a group ("Thunder reads the same, but the code differs in details…").
+  - It lists the new `IdempotencyKey` on the C# request record as a field ("Order request now also knows idempotency key"), not as a change to what `POST /orders` accepts.
+  - Trace impact flags the requests to `/orders` and `/charges`, but it does not yet tie a change to a request's shape to the route that receives it.
+
+## What this demo does not claim
+
+The title of the flagship story is "I changed an application written in three languages without editing any of them". **This demo does not do that yet.** Here the change was written by hand in each language, and Thunder **read**, **linked**, **reviewed**, and **scoped** it. Writing one Thunder change that edits the TypeScript, the C#, and the Python together is the next step, and it is not built.

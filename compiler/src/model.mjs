@@ -41,6 +41,8 @@ function startValue(expr, params = {}) {
   if (/^(True|true)$/.test(e)) return 'yes at first';
   if (/^(False|false)$/.test(e)) return 'no at first';
   if (/^-?\d+(\.\d+)?$/.test(e)) return `${e} at first`;
+  // A typed number (C# 0.08m, Java 10L, 2.5f): the number, without its type letter.
+  if (/^-?\d+(\.\d+)?(?:[mMfFdDlL]|[uU][lL]?|[lL][uU])$/.test(e)) return `${e.replace(/[a-zA-Z]+$/, '')} at first`;
   if (/^[rbuf]*["'`].*["'`]$/.test(e)) return `"${stripQuotes(e)}" at first`;
   const en = e.match(/^[A-Z]\w*(?:\.|::)([A-Z][A-Z0-9_]+|[A-Z][a-z]\w*)$/) || e.match(/^(?:[A-Z]\w*)?\.([a-z]\w*)$/); // Swift: .onShelf
   if (en) return `${words(en[1])} at first`;
@@ -1115,7 +1117,8 @@ export function readLevel(model, level, focus, { full = false } = {}) {
     const resource = thing?.kind === 'resource' ? thing : null;
     const thingCard = (t) => ({ id: t.id, label: t.label, ...(t.doc ? { doc: t.doc } : {}), knows: t.knows.map((k) => ({ label: k.label, ...(k.start ? { start: k.start } : {}) })), can: model.members.filter((m) => m.owner === t.id && m.kind !== 'setup' && !m.callback).map(short) });
     return { ...base, ...about,
-      ...(thing?.doc ?? model.files[0]?.purpose ? { purpose: thing?.doc ?? model.files[0]?.purpose } : {}),
+      // (A file's own description describes that file: the whole app takes one only when it is one file.)
+      ...((() => { const p = thing ? (thing.doc ?? model.files.find((f) => f.path === thing.file)?.purpose) : model.files.length === 1 ? model.files[0]?.purpose : null; return p ? { purpose: p } : {}; })()),
       things: (resource ? [] : thing ? [thing] : model.things.filter((t) => t.kind === 'thing' && !t.screen)).map(thingCard),
       resources: (resource ? [resource] : thing ? [] : model.things.filter((t) => t.kind === 'resource')).map(resourceCard),
       ...(thing ? {} : { permissions: model.permissions ?? [], settings: model.settings ?? [], facts: model.facts ?? [] }),

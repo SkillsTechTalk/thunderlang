@@ -128,7 +128,10 @@ export function accountsFor(code, said, tree = null) {
   const bare = stripQuoted(String(said).replace(/`[^`]*`/g, 'Q'));
   if (/&&|\|\||[!=]==?|<=|>=|\s[<>]\s|^\s*[<>]|\bis is\b/.test(bare)) return false;
   const c = tree && tree.kind !== 'code' ? exprCounts(tree) : codeCounts(code), w = wordCounts(said);
-  return c.neg === w.neg && c.logic === w.logic && w.compare >= c.compare;
+  // C#'s String.IsNullOrEmpty / IsNullOrWhiteSpace asks two things in one call (null, or empty): its "or" is in the
+  // name, so "x is empty or missing" keeps the code's logic exactly.
+  const named = (String(code).match(/\bIsNullOr(?:Empty|WhiteSpace)\s*\(/g) || []).length;
+  return c.neg === w.neg && c.logic + named === w.logic && w.compare >= c.compare;
 }
 
 /** A piece of code shown as code: in backticks, shortened visibly when it is long. */
