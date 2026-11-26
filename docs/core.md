@@ -281,6 +281,34 @@ For each row in rows:
 Code reached through `Use` is Python. Thunder's rules (exact money, positions from 1) apply to Thunder values,
 not inside the library. A failure inside the library is reported against the Thunder line that called it (TC508).
 
+## Step through a run: the Time Machine
+
+Record a run, then step forward and back through it, one statement at a time, with the real values:
+
+```sh
+thunder run shop --record run.json     # runs it on the Thunder engine and saves every step
+thunder replay run.json                # Enter or n: next · b: back · j 7: jump · q: quit
+thunder replay run.json --step 3       # one step
+thunder replay run.json --json         # the whole recording, as data
+```
+
+```text
+⏱ Step 3 of 6 · src/main.thunder, line 10 · in the program
+  Set fee to delivery fee with total
+  Calls "delivery fee" (steps 4–5), then:
+  fee: → $0.00
+
+⏱ Step 4 of 6 · src/main.thunder, line 3 · inside "delivery fee"
+  When total is at least $20:
+  → yes
+```
+
+Each step shows the line, which values changed (before → after, as the program would print them), what it printed,
+what a function gave back, and for a choice which way it went ("yes", or "no, so the Otherwise steps"). A recording is
+made on the Thunder engine, so programs that use a Python module (`Use`) cannot be recorded. It replays what happened:
+going back shows an earlier moment and never undoes anything the program did. A recording stops growing after 20,000
+steps (and says so); the program still runs to the end. The format is `thunder-time-machine-v1`.
+
 ## Run without Python: the Thunder engine
 
 ```sh
