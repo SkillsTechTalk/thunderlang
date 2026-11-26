@@ -8,6 +8,11 @@
   name doesn't say whether it changes anything is listed as "could not judge". Errors are in plain words, with the
   original kept in the details. Values that look like secrets are hidden. `--step n` shows one step in full;
   `--json` gives the same as data. Nothing is run and no AI is used. Also available as `@skillstech/thunderlang/why`.
+- **Inputs with defaults.** `Receive price and rate (7% if not given)`: a call may leave the input out. A default
+  is a fixed value: a number, money, a percent, text, yes/no, `nothing`, or a kept value. It comes after the inputs
+  without one. A list or map default is an error (TC404), because Python would share it between calls. `--as-core`
+  reads Python's fixed defaults (`rate=0.07`, `label="x"`, `flag=None`, `rate=TAX`) this way, and still refuses list,
+  dict, and computed defaults. Real Python (150 files): 240 → 261 exact functions. Core text also accepts `\r`.
 - **Core's standard operations for text, lists, numbers, and JSON.** The new forms:
   - text: `names joined with ", "`, `line split at ","`, `the parts of text`, `date replacing "-" with "/"`,
     `name starts with "Dr"`, `file ends with ".csv"`;

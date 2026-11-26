@@ -135,7 +135,11 @@ class Gen {
   }
 
   func(f) {
-    this.emit(`def ${f.py}(${f.params.map((p) => p.py).join(', ')}):`, f.line);
+    // A default: a fixed value in the signature; a kept value is filled in when the function is called (it may be
+    // written further down the file, and a kept value never changes, so this means the same).
+    const late = f.params.filter((p) => p.dflt?.k === 'name');
+    this.emit(`def ${f.py}(${f.params.map((p) => (p.dflt ? `${p.py}=${p.dflt.k === 'name' ? `${this.R('NOT_GIVEN')}` : this.x(p.dflt).c}` : p.py)).join(', ')}):`, f.line);
+    for (const p of late) this.emit(`    if ${p.py} is ${this.R('NOT_GIVEN')}:\n        ${p.py} = ${this.x(p.dflt).c}`, p.line);
     this.ind++;
     for (const p of f.params) for (const rule of p.rules ?? []) this.emit(`${this.R('never')}(${this.x(rule.rule.cond, { subject: p.py }).c}, ${py(rule.text)}, rule=${rule.line}, value=${p.py})`, p.line);
     this.block(f.body);
