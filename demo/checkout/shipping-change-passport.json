@@ -1,0 +1,520 @@
+{
+  "schema": "thunder-passport-v1",
+  "subject": {
+    "kind": "change",
+    "parts": [
+      {
+        "name": "web",
+        "path": "web",
+        "sha": "e43409d286c337149c0d0f9269859a2f3623c177",
+        "dirty": true
+      },
+      {
+        "name": "orders",
+        "path": "orders",
+        "sha": "e43409d286c337149c0d0f9269859a2f3623c177",
+        "dirty": true
+      },
+      {
+        "name": "billing",
+        "path": "billing",
+        "sha": "e43409d286c337149c0d0f9269859a2f3623c177",
+        "dirty": true
+      }
+    ]
+  },
+  "purpose": {
+    "stated": true,
+    "text": "Free shipping from a new limit, the same in the cart page, the orders service, and billing's receipt.",
+    "source": "given with --purpose"
+  },
+  "behavior": [
+    {
+      "part": "billing",
+      "file": "receipt.py",
+      "lines": [
+        5,
+        9
+      ],
+      "name": "Shipping fee",
+      "kind": "rule",
+      "change": "changed",
+      "text": "Shipping fee: a rule\n  Author's note: Shipping on the receipt: free for larger orders.\n  You give it: subtotal\n  - Ask: Subtotal is at least 40?  (line 7)\n    Yes:\n      - Answer: 0  (line 7)\n    No:\n      - Answer: 5.99  (line 9)"
+    },
+    {
+      "part": "orders",
+      "file": "Shipping.cs",
+      "lines": [
+        7,
+        13
+      ],
+      "name": "Shipping fee",
+      "kind": "rule",
+      "change": "changed",
+      "text": "Shipping fee (Shipping): a rule\n  You give it: subtotal\n  - Ask: Subtotal is at least 40?  (line 9)\n    Yes:\n      - Answer: 0  (line 9)\n    No:\n      - Answer: 5.99  (line 13)"
+    },
+    {
+      "part": "web",
+      "file": "shipping.ts",
+      "lines": [
+        5,
+        9
+      ],
+      "name": "Shipping note",
+      "kind": "rule",
+      "change": "changed",
+      "text": "Shipping note: a rule\n  Author's note: The line under the cart total.\n  You give it: subtotal\n  - Ask: Subtotal is at least 40?  (line 6)\n    Yes:\n      - Answer: \"Free shipping\"  (line 6)\n    No:\n      - Answer: \"Shipping: $5.99\"  (line 9)"
+    }
+  ],
+  "dependencies": {
+    "files": [
+      {
+        "part": "web",
+        "file": "checkout.test.ts",
+        "sha256": "sha256:327e4ed09ba13e105f088f91b7552e50e2573699f6927e448ae3cd14409f58f7"
+      },
+      {
+        "part": "web",
+        "file": "checkout.ts",
+        "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+      },
+      {
+        "part": "web",
+        "file": "place-order.ts",
+        "sha256": "sha256:d90579cc938f9dd5d38c9a3bab7b685cbb449c0163ab5118e7fce441596f2ece"
+      },
+      {
+        "part": "web",
+        "file": "shipping.test.ts",
+        "sha256": "sha256:3205e4c7394aa527c179bf9c6f9005b1a15ccc42bfa05c543a7eaf6d79b56a18"
+      },
+      {
+        "part": "web",
+        "file": "shipping.ts",
+        "sha256": "sha256:eead950230e0a2087e3c7d80c6795f8873e9a20489744e022de276afef3b66f7"
+      },
+      {
+        "part": "orders",
+        "file": "BillingClient.cs",
+        "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+      },
+      {
+        "part": "orders",
+        "file": "Inventory.cs",
+        "sha256": "sha256:6bc08d2267a2b9094c1970196047139c3945ba051085e76f9bdffcd12e683464"
+      },
+      {
+        "part": "orders",
+        "file": "OrderService.cs",
+        "sha256": "sha256:ddb9c185ab529325b771b74e587ce3453910268e228f4861f1f63a61293f075f"
+      },
+      {
+        "part": "orders",
+        "file": "Pricing.cs",
+        "sha256": "sha256:918cc9e1a04946760deef870e04f63b790477a41d6c040248de1f68647c9d160"
+      },
+      {
+        "part": "orders",
+        "file": "Program.cs",
+        "sha256": "sha256:1b636a608c0a23f687812430df139c6266fc572394a195b90174bdbda25cb9cb"
+      },
+      {
+        "part": "orders",
+        "file": "SelfTests.cs",
+        "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
+      },
+      {
+        "part": "orders",
+        "file": "Shipping.cs",
+        "sha256": "sha256:ca574313c070d80af37fac9108d5e7495d526e33c17e61d74bb6538f909e1b58"
+      },
+      {
+        "part": "billing",
+        "file": "billing.py",
+        "sha256": "sha256:ad81f4479a5e7d4c1cd79397bf45ff50abde9b5a0b3646adc79eff894ebf864b"
+      },
+      {
+        "part": "billing",
+        "file": "receipt.py",
+        "sha256": "sha256:c13671136c00eccdc8249021540bd21f7fdaed1650f9cce6792ba49fd69c8162"
+      },
+      {
+        "part": "billing",
+        "file": "server.py",
+        "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+      },
+      {
+        "part": "billing",
+        "file": "test_billing.py",
+        "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+      },
+      {
+        "part": "billing",
+        "file": "test_receipt.py",
+        "sha256": "sha256:69bd8f529a1dbecaadac0b981fbbdd1142d6aaed49308bc998df47901650c762"
+      }
+    ],
+    "links": [
+      {
+        "kind": "http",
+        "says": "orders calls billing: POST /charges (handled by Do post)",
+        "from": "orders@e43409d+changes:BillingClient.cs:20",
+        "to": "billing@e43409d+changes:server.py:13"
+      },
+      {
+        "kind": "http",
+        "says": "web calls orders: POST /orders (handled by Post /orders)",
+        "from": "web@e43409d+changes:checkout.ts:24",
+        "to": "orders@e43409d+changes:Program.cs:18"
+      }
+    ],
+    "packages": [],
+    "services": [
+      {
+        "part": "web",
+        "calls": "POST computed/orders",
+        "at": "web:checkout.ts:24"
+      }
+    ]
+  },
+  "effects": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "kind": "test-run",
+      "status": "passed",
+      "claim": "`python3 -m unittest` in billing exited with 0.",
+      "basis": {
+        "command": "python3 -m unittest",
+        "cwd": "billing",
+        "exitCode": 0,
+        "outputDigest": "sha256:850daafee4e9d4516f7bd35f8d99a0810dff525f975e2bc3da54e88073297f11",
+        "outputTail": "........\n----------------------------------------------------------------------\nRan 8 tests in 0.211s\n\nOK"
+      },
+      "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
+      "inputs": [
+        {
+          "part": "billing",
+          "file": "billing.py",
+          "sha256": "sha256:ad81f4479a5e7d4c1cd79397bf45ff50abde9b5a0b3646adc79eff894ebf864b"
+        },
+        {
+          "part": "billing",
+          "file": "receipt.py",
+          "sha256": "sha256:c13671136c00eccdc8249021540bd21f7fdaed1650f9cce6792ba49fd69c8162"
+        },
+        {
+          "part": "billing",
+          "file": "server.py",
+          "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+        },
+        {
+          "part": "billing",
+          "file": "test_billing.py",
+          "sha256": "sha256:90fbe89ec4902e43f502d5a16ac409b908ad6041f86b8c4c8fb6a501c585a687"
+        },
+        {
+          "part": "billing",
+          "file": "test_receipt.py",
+          "sha256": "sha256:69bd8f529a1dbecaadac0b981fbbdd1142d6aaed49308bc998df47901650c762"
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "kind": "test-run",
+      "status": "passed",
+      "claim": "`dotnet run -- --test` in orders exited with 0.",
+      "basis": {
+        "command": "dotnet run -- --test",
+        "cwd": "orders",
+        "exitCode": 0,
+        "outputDigest": "sha256:0ccd1f913e96b3272833fb8f482a1dd97cf697d738fbd09af5408001f66052e4",
+        "outputTail": "ok      prices: $55.00 of items, SAVE10, 8% tax\nok      the coupon needs $50 of items\nok      an order is reserved, charged once, and recorded\nok      too few in stock: nothing is charged\nok      a retried order is charged once\nok      two presses with different keys are two orders\nok      an order without a key is refused, and nothing is charged\norders: all checks passed"
+      },
+      "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
+      "inputs": [
+        {
+          "part": "orders",
+          "file": "BillingClient.cs",
+          "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+        },
+        {
+          "part": "orders",
+          "file": "Inventory.cs",
+          "sha256": "sha256:6bc08d2267a2b9094c1970196047139c3945ba051085e76f9bdffcd12e683464"
+        },
+        {
+          "part": "orders",
+          "file": "OrderService.cs",
+          "sha256": "sha256:ddb9c185ab529325b771b74e587ce3453910268e228f4861f1f63a61293f075f"
+        },
+        {
+          "part": "orders",
+          "file": "Pricing.cs",
+          "sha256": "sha256:918cc9e1a04946760deef870e04f63b790477a41d6c040248de1f68647c9d160"
+        },
+        {
+          "part": "orders",
+          "file": "Program.cs",
+          "sha256": "sha256:1b636a608c0a23f687812430df139c6266fc572394a195b90174bdbda25cb9cb"
+        },
+        {
+          "part": "orders",
+          "file": "SelfTests.cs",
+          "sha256": "sha256:9f59984adec0c6a066e32e0150307c319222724b4bb013e649e41f326bdbe2ce"
+        },
+        {
+          "part": "orders",
+          "file": "Shipping.cs",
+          "sha256": "sha256:ca574313c070d80af37fac9108d5e7495d526e33c17e61d74bb6538f909e1b58"
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "kind": "test-run",
+      "status": "passed",
+      "claim": "`node --test checkout.test.ts shipping.test.ts` in web exited with 0.",
+      "basis": {
+        "command": "node --test checkout.test.ts shipping.test.ts",
+        "cwd": "web",
+        "exitCode": 0,
+        "outputDigest": "sha256:2435ac83cedb3fe50df5ad5de2680dbddd8ffd0bcea716066d10c951143ea4a1",
+        "outputTail": "  duration_ms: 0.052167\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 166.540125"
+      },
+      "scope": "Only what these tests exercise. Thunder did not measure which lines or paths they cover.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "checkout.test.ts",
+          "sha256": "sha256:327e4ed09ba13e105f088f91b7552e50e2573699f6927e448ae3cd14409f58f7"
+        },
+        {
+          "part": "web",
+          "file": "checkout.ts",
+          "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+        },
+        {
+          "part": "web",
+          "file": "place-order.ts",
+          "sha256": "sha256:d90579cc938f9dd5d38c9a3bab7b685cbb449c0163ab5118e7fce441596f2ece"
+        },
+        {
+          "part": "web",
+          "file": "shipping.test.ts",
+          "sha256": "sha256:3205e4c7394aa527c179bf9c6f9005b1a15ccc42bfa05c543a7eaf6d79b56a18"
+        },
+        {
+          "part": "web",
+          "file": "shipping.ts",
+          "sha256": "sha256:eead950230e0a2087e3c7d80c6795f8873e9a20489744e022de276afef3b66f7"
+        }
+      ]
+    },
+    {
+      "id": "e4",
+      "kind": "trace-link",
+      "status": "read",
+      "claim": "orders calls billing with POST /charges, and billing handles it.",
+      "basis": {
+        "from": "orders@e43409d+changes:BillingClient.cs:20",
+        "to": "billing@e43409d+changes:server.py:13",
+        "rules": "thunder-trace rules v1"
+      },
+      "scope": "Read from code; nothing was run. It does not show that the call succeeds or what it answers.",
+      "inputs": [
+        {
+          "part": "orders",
+          "file": "BillingClient.cs",
+          "sha256": "sha256:226524eb10ca1a433d796330165fe6420cef58c0f2b68dd50f5a7b8c7798b02a"
+        },
+        {
+          "part": "billing",
+          "file": "server.py",
+          "sha256": "sha256:df1bff0e467bf94f477635d91f732459cc7b72e0a9a2cce48090986ca893c213"
+        }
+      ]
+    },
+    {
+      "id": "e5",
+      "kind": "trace-link",
+      "status": "read",
+      "claim": "web calls orders with POST /orders, and orders handles it.",
+      "basis": {
+        "from": "web@e43409d+changes:checkout.ts:24",
+        "to": "orders@e43409d+changes:Program.cs:18",
+        "rules": "thunder-trace rules v1"
+      },
+      "scope": "Read from code; nothing was run. It does not show that the call succeeds or what it answers.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "checkout.ts",
+          "sha256": "sha256:44ee7deeb25044b3c6ed01d691e99d54a25ff738a43a1eeb3396eaced9874754"
+        },
+        {
+          "part": "orders",
+          "file": "Program.cs",
+          "sha256": "sha256:1b636a608c0a23f687812430df139c6266fc572394a195b90174bdbda25cb9cb"
+        }
+      ]
+    },
+    {
+      "id": "e6",
+      "kind": "review",
+      "status": "read",
+      "claim": "What the change does, read from both versions: 2 changes in meaning, 0 risks, 0 form-only.",
+      "basis": {
+        "base": "e43409d286c337149c0d0f9269859a2f3623c177",
+        "head": "e43409d286c337149c0d0f9269859a2f3623c177 (with uncommitted changes)",
+        "schema": "thunder-review-v1",
+        "meaning": 2,
+        "risk": 0,
+        "form": 0
+      },
+      "scope": "What the code says before and after; not whether it runs or is right.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "shipping.ts",
+          "sha256": "sha256:eead950230e0a2087e3c7d80c6795f8873e9a20489744e022de276afef3b66f7"
+        },
+        {
+          "part": "orders",
+          "file": "Shipping.cs",
+          "sha256": "sha256:ca574313c070d80af37fac9108d5e7495d526e33c17e61d74bb6538f909e1b58"
+        },
+        {
+          "part": "billing",
+          "file": "receipt.py",
+          "sha256": "sha256:c13671136c00eccdc8249021540bd21f7fdaed1650f9cce6792ba49fd69c8162"
+        }
+      ]
+    },
+    {
+      "id": "e7",
+      "status": "read",
+      "kind": "rule-write",
+      "claim": "billing/receipt.py: shipping_fee, rule 1 now reads \"If subtotal is at least 40, the answer is 0\" (was \"If subtotal is at least 50, the answer is 0\").",
+      "basis": {
+        "schema": "thunder-write-across-v1",
+        "line": 7,
+        "change": [
+          {
+            "line": 7,
+            "column": 20,
+            "before": "50",
+            "after": "40"
+          }
+        ],
+        "check": "read again after the change: this rule reads as intended, and every other rule and function in the file reads exactly as before"
+      },
+      "scope": "How the code reads, not whether it runs. Code that computes the same thing in a different shape is not found or changed.",
+      "inputs": [
+        {
+          "part": "billing",
+          "file": "receipt.py",
+          "sha256": "sha256:c13671136c00eccdc8249021540bd21f7fdaed1650f9cce6792ba49fd69c8162"
+        }
+      ]
+    },
+    {
+      "id": "e8",
+      "status": "read",
+      "kind": "rule-write",
+      "claim": "orders/Shipping.cs: ShippingFee, rule 1 now reads \"If subtotal is at least 40, the answer is 0\" (was \"If subtotal is at least 50, the answer is 0\").",
+      "basis": {
+        "schema": "thunder-write-across-v1",
+        "line": 9,
+        "change": [
+          {
+            "line": 9,
+            "column": 25,
+            "before": "50m",
+            "after": "40m"
+          }
+        ],
+        "check": "read again after the change: this rule reads as intended, and every other rule and function in the file reads exactly as before"
+      },
+      "scope": "How the code reads, not whether it runs. Code that computes the same thing in a different shape is not found or changed.",
+      "inputs": [
+        {
+          "part": "orders",
+          "file": "Shipping.cs",
+          "sha256": "sha256:ca574313c070d80af37fac9108d5e7495d526e33c17e61d74bb6538f909e1b58"
+        }
+      ]
+    },
+    {
+      "id": "e9",
+      "status": "read",
+      "kind": "rule-write",
+      "claim": "web/shipping.ts: shippingNote, rule 1 now reads \"If subtotal is at least 40, the answer is \"Free shipping\"\" (was \"If subtotal is at least 50, the answer is \"Free shipping\"\").",
+      "basis": {
+        "schema": "thunder-write-across-v1",
+        "line": 6,
+        "change": [
+          {
+            "line": 6,
+            "column": 19,
+            "before": "50",
+            "after": "40"
+          }
+        ],
+        "check": "read again after the change: this rule reads as intended, and every other rule and function in the file reads exactly as before"
+      },
+      "scope": "How the code reads, not whether it runs. Code that computes the same thing in a different shape is not found or changed.",
+      "inputs": [
+        {
+          "part": "web",
+          "file": "shipping.ts",
+          "sha256": "sha256:eead950230e0a2087e3c7d80c6795f8873e9a20489744e022de276afef3b66f7"
+        }
+      ]
+    }
+  ],
+  "unknowns": {
+    "notRead": [],
+    "notLinked": [],
+    "untested": [],
+    "notVerified": [
+      "Deployment: how it is configured and run in a real environment.",
+      "External services: real providers, their answers, and their outages (tests use what the code was given).",
+      "More than one process or machine: anything kept in memory is not shared between copies.",
+      "Load and timing: behavior under many requests at once, beyond what the tests ran."
+    ]
+  },
+  "history": {
+    "base": "e43409d286c337149c0d0f9269859a2f3623c177",
+    "head": "e43409d286c337149c0d0f9269859a2f3623c177 (with uncommitted changes)",
+    "changedFiles": [
+      {
+        "part": "web",
+        "file": "shipping.ts",
+        "status": "changed"
+      },
+      {
+        "part": "orders",
+        "file": "Shipping.cs",
+        "status": "changed"
+      },
+      {
+        "part": "billing",
+        "file": "receipt.py",
+        "status": "changed"
+      }
+    ],
+    "thunder": "1.3.0",
+    "builtAt": "2026-11-26T08:50:07.323Z"
+  },
+  "summary": {
+    "claims": 9,
+    "passed": 3,
+    "failed": 0,
+    "readFromCode": 6,
+    "unknowns": 0,
+    "notVerified": 4
+  },
+  "fingerprint": "sha256:fa26701d47b3b5adf1662ab5baae0f29fa925d73082b737a97ff22d3421363d3"
+}

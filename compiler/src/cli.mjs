@@ -53,6 +53,7 @@ import { thunderModel } from './model.mjs';
 import { LEVELS, readLevel, renderLevel, findFocus, nearestLevel } from './read-level.mjs';
 import { traceMain } from './trace-cli.mjs';
 import { passportMain } from './passport-cli.mjs';
+import { isWriteAcross, writeAcrossMain } from './write-across-cli.mjs';
 import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
 import { replayMain } from './replay-cli.mjs';
@@ -520,6 +521,9 @@ Change code
   write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
                             Thunder write: change a number, comparison, text value, or answer in a recovered rule;
                             previews the exact code change and the cases whose answer changes; --write saves it
+  write <folder…> --decision <name> --rule <n> --when "<condition>" [--write] [--run "part: cmd"] [--passport f.json]
+                            one rule change in every service that implements it (TypeScript, C#, Python…):
+                            the plan first; --write changes all of them or none; tests and a passport as proof
 
 ────────────────────────────────────────────────────────────────────────
 Advanced: rules and missions (ThunderLang™ intent files), proofs, and tools for editors and CI.
@@ -745,6 +749,8 @@ function main() {
     } catch (e) { console.error(`thunder read: ${e.message}`); process.exitCode = 2; }
     return;
   }
+  // One rule change written into every service that implements it (src/write-across-cli.mjs).
+  if (cmd === 'write' && isWriteAcross(restArgv)) { writeAcrossMain(restArgv).then((code) => { process.exitCode = code; }); return; }
   if (cmd === 'write' && args.edit) {
     try {
       if (!file) throw new Error('Use thunder write <file> --edit \'{"op":"setValue","member":"name","step":"line:12","to":10}\' [--apply] [--test "<cmd>"].');

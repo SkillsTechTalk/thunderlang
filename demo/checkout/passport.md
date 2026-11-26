@@ -1,6 +1,6 @@
 # Thunder passport: web, orders, billing
 
-A change from `b7993966e791`. **6 claims with evidence** (3 passed, 0 failed, 3 read from code), **5 unknowns**, **4 not verified**. This is an evidence record, not a certificate: each claim says what it rests on and what it does not cover.
+A change from `1202aaee4236`. **6 claims with evidence** (3 passed, 0 failed, 3 read from code), **5 unknowns**, **4 not verified**. This is an evidence record, not a certificate: each claim says what it rests on and what it does not cover.
 
 ## Purpose
 
@@ -11,30 +11,30 @@ Prevent duplicate charges when a payment request is retried: one press of Place 
 ## Verified by running (ran and passed)
 
 - ✓ `python3 -m unittest` in billing exited with 0.
-  - Basis: `python3 -m unittest` in `billing`, exit 0, output sha256:d90375e231be…
+  - Basis: `python3 -m unittest` in `billing`, exit 0, output sha256:850daafee4e9…
   - Does not cover: Only what these tests exercise. Thunder did not measure which lines or paths they cover.
-  - Depends on 3 files (by content hash)
+  - Depends on 5 files (by content hash)
 - ✓ `dotnet run -- --test` in orders exited with 0.
   - Basis: `dotnet run -- --test` in `orders`, exit 0, output sha256:0ccd1f913e96…
   - Does not cover: Only what these tests exercise. Thunder did not measure which lines or paths they cover.
-  - Depends on 6 files (by content hash)
-- ✓ `node --test checkout.test.ts` in web exited with 0.
-  - Basis: `node --test checkout.test.ts` in `web`, exit 0, output sha256:ce3a23df0b56…
+  - Depends on 7 files (by content hash)
+- ✓ `node --test checkout.test.ts shipping.test.ts` in web exited with 0.
+  - Basis: `node --test checkout.test.ts shipping.test.ts` in `web`, exit 0, output sha256:5e5ce013aaf2…
   - Does not cover: Only what these tests exercise. Thunder did not measure which lines or paths they cover.
-  - Depends on 3 files (by content hash)
+  - Depends on 5 files (by content hash)
 
 ## Read from code (not run)
 
 - ○ orders calls billing with POST /charges, and billing handles it.
-  - Basis: orders@b6d519c:BillingClient.cs:20 → billing@b6d519c:server.py:13
+  - Basis: orders@b081e6b:BillingClient.cs:20 → billing@b081e6b:server.py:13
   - Does not cover: Read from code; nothing was run. It does not show that the call succeeds or what it answers.
   - Depends on 2 files (by content hash)
 - ○ web calls orders with POST /orders, and orders handles it.
-  - Basis: web@b6d519c:checkout.ts:24 → orders@b6d519c:Program.cs:18
+  - Basis: web@b081e6b:checkout.ts:24 → orders@b081e6b:Program.cs:18
   - Does not cover: Read from code; nothing was run. It does not show that the call succeeds or what it answers.
   - Depends on 2 files (by content hash)
 - ○ What the change does, read from both versions: 23 changes in meaning, 1 risk, 0 form-only.
-  - Basis: review of b7993966e791 → b6d519c5e0de
+  - Basis: review of 1202aaee4236 → b081e6b72a89
   - Does not cover: What the code says before and after; not whether it runs or is right.
   - Depends on 8 files (by content hash)
 
@@ -190,10 +190,10 @@ Place order
 
 ## Dependencies
 
-- orders calls billing: POST /charges (handled by Do post) (orders@b6d519c:BillingClient.cs:20 → billing@b6d519c:server.py:13)
-- web calls orders: POST /orders (handled by Post /orders) (web@b6d519c:checkout.ts:24 → orders@b6d519c:Program.cs:18)
+- orders calls billing: POST /charges (handled by Do post) (orders@b081e6b:BillingClient.cs:20 → billing@b081e6b:server.py:13)
+- web calls orders: POST /orders (handled by Post /orders) (web@b081e6b:checkout.ts:24 → orders@b081e6b:Program.cs:18)
 - calls POST computed/orders (web:checkout.ts:24)
-- 12 files read, each recorded by content hash
+- 17 files read, each recorded by content hash
 
 ## Unknowns
 
@@ -205,8 +205,8 @@ Place order
 
 ## History
 
-- Base: b7993966e79175daf466fb13d040fe85f4577ba1
-- Head: b6d519c5e0dea246905508ea2e770e93a8c28163
+- Base: 1202aaee423610aa5c8a2d48ce11c64e76d8184b
+- Head: b081e6b72a89bdc5652f8e37b95c4cc5ab4faecc
 - changed: web/checkout.test.ts
 - changed: web/checkout.ts
 - changed: orders/BillingClient.cs
@@ -215,5 +215,5 @@ Place order
 - changed: billing/billing.py
 - changed: billing/server.py
 - changed: billing/test_billing.py
-- Built: 2026-11-26T07:52:51.267Z with Thunder 1.3.0
-- Fingerprint: sha256:b62448412290e74089d201354b262ed0ee925ce5334d5a0e06fa73a45542d8cc
+- Built: 2026-11-26T08:49:56.618Z with Thunder 1.3.0
+- Fingerprint: sha256:0e72fbfcc9cbb9c278a0482fbd2bf908ab0dcffcdef1fc5cf4044a2709c3c623

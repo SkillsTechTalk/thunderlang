@@ -1,5 +1,15 @@
 # Unreleased
 
+- **One rule change, every service, any language (`thunder write <folder…>`).** When the same rule is written in
+  several services (free shipping from $50 in the cart page in TypeScript, the orders service in C#, and billing's
+  receipt in Python), `thunder write web orders billing --decision shippingNote --rule 1 --when "subtotal >= 40"`
+  finds every copy (same condition, names compared as words), shows the plan, and with `--write` changes all of them
+  or none: only the rule's characters, each file read again. Lookalikes (same names with another limit, or the same
+  limit with other names) are listed as "check by hand", never changed; tests are never edited, and those that call
+  the rule and mention the old value are listed. `--run "part: cmd"` runs the tests on the change and reports every
+  failure; `--passport` records it as a Software Passport. API: `writeRuleAcross`, `findSameRule`,
+  `writeAcrossEvidence` in `./core` (`thunder-write-across-v1`). The checkout demo gains the shipping rule in all
+  three services and `run-demo.sh --change`.
 - **The Thunder Software Passport (`thunder passport`).** An evidence record for a feature or a change
   (`thunder-passport-v1`): purpose (only what you state, else "not stated"), behavior as Thunder Text with lines,
   dependencies (every file by content hash, Trace links, packages, services), effects detected in code, evidence, unknowns,
