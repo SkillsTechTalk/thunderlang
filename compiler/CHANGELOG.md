@@ -8,6 +8,14 @@
   most serious wins (`get_and_delete` now deletes; it was read as `get`). Guesses are labeled. `--allow read,send`
   names anything beyond those kinds and exits 1. JSON: new `effects` (and `allowed`/`notAllowed`); `changes` items now
   carry `kind`, and a step's `effect` is one of the six kinds (it was `change`).
+- **A friendlier first minute in the terminal.** `thunder` on its own now shows a short home screen (five things
+  to do, with examples) instead of 120 lines; `thunder help --all` is the full list, and `thunder help <command>`
+  shows one command. A mistyped command says "Did you mean thunder read?" instead of failing later (it used to crash
+  reading a file). `thunder new hello` says exactly how to run it (`thunder run hello`), and `--run` runs it too.
+  `thunder run` (or test, build, check) outside a project says where the nearby projects are and the exact command.
+  New: `thunder doctor` checks Thunder, Node.js, Python 3.10+, PATH, Node versions (nvm) missing Thunder, and
+  optional toolchains, offline, with the fix for each problem; `thunder completion zsh|bash|fish` completes commands
+  on Tab. Every existing command, flag, exit code, and JSON output is unchanged.
 
 # 1.1.0
 

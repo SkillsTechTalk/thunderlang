@@ -36,11 +36,11 @@ We advertise each compilation capability only once it works. Today:
 
 | Capability | Status |
 | --- | --- |
-| Read existing code in Thunder: seventeen languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available |
-| Change existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available |
-| Compile decisions and rules written in Thunder to TypeScript, Python, Go, Rust, C#, and Java, and run their examples against the generated code | Available |
-| Write whole programs in Thunder (Thunder Core), compiled to Python first | Coming |
-| Compile Thunder Core programs to Java, C#, TypeScript, Go, and Rust | Planned |
+| Read existing code in Thunder: seventeen languages (Python, TypeScript, JavaScript, Java, C#, Go, Rust, Kotlin, PHP, Ruby, SQL, C, C++, Swift, R, shell, PowerShell) plus infrastructure files | Available <!-- capability:thunderedRead --> |
+| Change existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available <!-- capability:thunderedEdit --> |
+| Compile decisions and rules written in Thunder to TypeScript, Python, Go, Rust, C#, and Java, and run their examples against the generated code | Available <!-- capability:decisionTargets --> |
+| Write whole programs in Thunder (Thunder Core) and run them as Python | Available <!-- capability:thunderCore --> |
+| Compile Thunder Core programs to Java, C#, TypeScript, Go, and Rust | Planned <!-- capability:coreTargets --> |
 
 The same labels appear on [thunderlang.dev](https://thunderlang.dev/#status) and come from the compiler's own data.
 For every language on every axis, see the [language support matrix](/docs/language-support-matrix).
