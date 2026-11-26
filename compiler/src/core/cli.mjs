@@ -13,13 +13,17 @@ import { resolve, relative, join } from 'node:path';
 import { findProjectRoot, buildProject, findPython, runPython, newProject } from './project.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
+import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
 
 const CORE_COMMANDS = new Set(['new', 'run', 'build', 'test', 'check', 'format', 'fmt']);
 
 function parse(argv) {
-  const a = { _: [], core: false, json: false, write: false, check: false, force: false, mission: false };
-  for (const x of argv) {
-    if (x === '--core') a.core = true;
+  const a = { _: [], core: false, json: false, write: false, check: false, force: false, mission: false, engine: null };
+  for (let i = 0; i < argv.length; i++) {
+    const x = argv[i];
+    if (x === '--engine') a.engine = argv[++i] ?? '';
+    else if (x.startsWith('--engine=')) a.engine = x.slice('--engine='.length);
+    else if (x === '--core') a.core = true;
     else if (x === '--json') a.json = true;
     else if (x === '--write' || x === '-w') a.write = true;
     else if (x === '--check') a.check = true;
@@ -77,6 +81,8 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       return coreMain('run', [root], cwd);
     }
     if (cmd === 'format' || cmd === 'fmt') return format(t, a, cwd);
+    if (a.engine !== null && !ENGINES.includes(a.engine)) { warn(`thunder ${cmd}: there is no engine "${a.engine}". Use --engine python (the default) or --engine thunder.`); return 2; }
+    if (a.engine !== null && cmd !== 'run' && cmd !== 'test') { warn(`thunder ${cmd}: --engine is for thunder run and thunder test.`); return 2; }
     const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check' });
     if (cmd === 'check') {
       if (a.json) { say(JSON.stringify({ ok: build.ok, files: build.results.map((r) => ({ file: relative(cwd, r.path), diagnostics: r.diagnostics })) }, null, 2)); return build.ok ? 0 : 1; }
@@ -94,8 +100,9 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       say(`  run it without Thunder: cd ${build.base === cwd ? '.' : relative(cwd, build.base)} && python3 ${relative(build.base, build.outDir)}/${build.entryModule}.py`);
       return 0;
     }
+    if (a.engine === 'thunder') return runOnEngine(cmd, build, warn, say);
     const python = findPython();
-    if (python.error) { warn(`thunder ${cmd}: ${python.error}`); return 2; }
+    if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
       if (!build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
       const r = runPython(python, build.outDir, `${build.entryModule}.py`, build.base);
@@ -112,6 +119,23 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     return 2;
   }
   return null;
+}
+
+/** thunder run / test --engine thunder: the program runs on the Thunder engine, with no Python. */
+function runOnEngine(cmd, build, warn, say) {
+  if (cmd === 'run') {
+    if (!build.entry) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+    const r = runWithEngine({ entry: build.entry, cwd: build.base });
+    if (r.stdout) process.stdout.write(r.stdout);
+    if (r.stderr) process.stderr.write(r.stderr.startsWith('This program uses') ? `thunder run: ${r.stderr}` : r.stderr);
+    return r.status;
+  }
+  const tests = build.results.reduce((n, r) => n + r.info.tests.length, 0);
+  if (!tests) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = testWithEngine({ results: build.results, cwd: build.base });
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(`thunder test: ${r.stderr}`);
+  return r.status;
 }
 
 function format(t, a, cwd) {

@@ -1,5 +1,15 @@
 # Unreleased
 
+- **Fix (Core → Python): a whole number written with leading zeros (`007`) compiled to Python that would not run**
+  (Python refuses `007`). It now compiles to `7`, as Thunder means it.
+- When Python is missing, `thunder run` and `thunder test` now also say how to run without it: `--engine thunder`.
+- **The Thunder engine: run Thunder Core without Python.** `thunder run --engine thunder` and
+  `thunder test --engine thunder` run a program on the Thunder engine, a second engine that runs the same checked
+  program the Python compiler uses. Python is not needed, and is still the default. Both engines must agree: every
+  Core test program now runs on both (output, errors with code, words, line and "reached from", and exit status),
+  and any difference fails the tests. A program that uses a Python module (`Use csv as csv`) is refused on the
+  Thunder engine before it runs; Thunder never imitates a library. Also available as `runWithEngine` /
+  `testWithEngine` in `src/core/engine.mjs`.
 - **`thunder try`: what if?** Try a rule from your code with your own values: `thunder try register.ts --with
   "age=15, parent approved=no"` prints the answer and why, check by check (✓/✗ with the value it saw). Without
   `--with`, it asks for each value, explains a mistyped one, and offers another case. Only rules can be tried (they
