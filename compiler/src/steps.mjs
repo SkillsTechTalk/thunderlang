@@ -582,6 +582,15 @@ function sayCommon(value) {
   if ((m = e.match(/^[\w.]+\.(?:get|get_or_404|find|Find|findById|find_by_id)\(\s*([A-Z]\w*)\s*,\s*([\w.]+)\s*\)$/))) return `the ${m[1]} with ${lastSeg(m[2])}`;
   // (A key that is another value's field keeps its owner: `touched.get(f.id)` is "the entry for f's id in touched".)
   if ((m = e.match(/^([\w.]+)\.get\(\s*([A-Za-z_][\w.]*)\s*[,)]/)) || (m = e.match(/^([\w.]+)\[\s*([A-Za-z_][\w.]*)\s*\]$/))) return /\./.test(m[2]) && !/^(?:self|this)\./.test(m[2]) ? `the entry for ${possessiveWords(m[2])} in ${possessiveWords(m[1])}` : `the ${lastSeg(m[2])} entry in ${possessiveWords(m[1])}`;
+  // Everyday Python calls, said by what they give back (only when what they are given is a name).
+  if (LANG === 'python') {
+    const plain = (x) => (/^[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*$/.test(String(x).trim()) ? possessiveWords(String(x).trim()) : null);
+    let mm;
+    // A class called like a function makes a new object: `FontDict()` is a new FontDict.
+    if ((mm = e.match(/^([A-Z][A-Za-z0-9]*[a-z][A-Za-z0-9]*)\(\s*\)$/))) return `a new ${mm[1]}`;
+    if ((mm = e.match(/^(list|tuple|set|frozenset|sorted|reversed)\(\s*([^(),]+?)\s*\)$/)) && plain(mm[2])) return { list: `${plain(mm[2])}, as a list`, tuple: `${plain(mm[2])}, as a tuple`, set: `the different values in ${plain(mm[2])}`, frozenset: `the different values in ${plain(mm[2])}`, sorted: `${plain(mm[2])}, sorted`, reversed: `${plain(mm[2])}, in reverse order` }[mm[1]];
+    if ((mm = e.match(/^([\w.]+)\.index\(\s*([^(),]+?)\s*\)$/)) && plain(mm[1]) && plain(mm[2])) return `the position of ${plain(mm[2])} in ${plain(mm[1])}`;
+  }
   // Everyday JavaScript and TypeScript calls, said by what they give back (only when what they are given is a name).
   if (LANG === 'typescript' || LANG === 'javascript') {
     const plain = (x) => (/^[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)*$/.test(String(x).trim()) ? possessiveWords(String(x).trim().replace(/\?\./g, '.')) : null);
@@ -1676,7 +1685,8 @@ function classifyWords(raw, { inner = 0 } = {}) {
   }
   if ((m = head.match(/^(?:if|elif|else\s+if|unless|when)\b\s*(.*?)\s*(?:\{|:|then)?\s*$/))) { const cond = sayCodeCondition(m[1]); return { kind: 'branch', says: `If ${/^unless\b/.test(head) ? 'not: ' : ''}${cond}${innerNote}`, cond: m[1].replace(/^\((.*)\)$/, '$1'), code, negate: /^unless\b/.test(head) }; }
   if (/^switch\s*(?:true\s*)?\{$/.test(head)) return { kind: 'branch', says: `Checks these cases in order${innerNote}`, code };
-  if ((m = head.match(/^(?:switch|match|case|select)\b\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
+  // (`match = re.match(x)` / `select.x` use the word as a name: a statement word is never followed by = . , or ).)
+  if ((m = head.match(/^(?:switch|match|case|select)\b(?!\s*(?:=(?!=)|\.|,|\)|\]|[-+*/%]=))\s*\(?(.*?)\)?\s*(?:\{|:)?\s*$/))) return { kind: 'branch', says: `Chooses by ${words(clip(m[1], 40)) || 'value'}${innerNote}`, code };
   if (/^(?:try|begin)\b/.test(head)) return { kind: 'try', says: `Tries the next steps and handles any error${innerNote}`, code };
   if ((m = head.match(/^assert\b\s*(.*?)\s*;?$/))) return { kind: 'check', says: `Checks that ${m[1] ? sayCodeCondition(m[1].replace(/,\s*["'].*$/, '')) : 'a condition holds'}`, code };
   if ((m = head.match(/^assert(?:_\w+|That|Equals|True|False|NotNull|Null)\b/))) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };

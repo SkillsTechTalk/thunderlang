@@ -454,6 +454,12 @@ function namesKept(tree, said) {
         if (name === 'exec' && / first match of /.test(sw)) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
         if (name === 'parse' && onType && /^[A-Z]/.test(onType) && / checked and read by /.test(sw) && has(onType)) return ok(n.args);
         if (name === 'from' && onType && / made from /.test(sw)) return ok(n.args);
+        // Everyday Python: a list/tuple/set made from a value, sorted, reversed, and a position found with .index().
+        if (c?.kind === 'name' && /^(?:list|tuple)$/.test(name) && / as a (?:list|tuple) /.test(sw)) return ok(n.args);
+        if (c?.kind === 'name' && /^(?:set|frozenset)$/.test(name) && / different values in /.test(sw)) return ok(n.args);
+        if (c?.kind === 'name' && name === 'sorted' && / sorted /.test(sw)) return ok(n.args);
+        if (c?.kind === 'name' && name === 'reversed' && / reverse order /.test(sw)) return ok(n.args);
+        if (name === 'index' && c?.kind === 'member' && / position of /.test(sw)) return ok(c.object) && ok(n.args);
         // Questions about a collection said in words: "any item in xs matches", "every …", "the first … that matches".
         if (name && /^(?:any|some|all|every|none|find|first|filter|where|select|detect|find_index|findIndex|includes|include\?|contains|Contains|any\?|all\?|none\?|exists|Any|All|Exists|in_array|has|hasOwnProperty|has_key|key\?|containsKey|ContainsKey|startswith|endswith|startsWith|endsWith|StartsWith|EndsWith|start_with\?|end_with\?)$/.test(name) && / (?:any|every|all|no|first|matches|match|in|has|contains|starts|ends|one of) /.test(sw)) return ok(own) && n.args.every((a) => a.kind === 'lambda' || ok(a));
         if (name && /^(?:len|length|size|count|nrow|NROW|Count|sizeof|strlen|wcslen|mb_strlen|nchar|str_length|lengths|Length)$/.test(name) && howMany) return ok(c.kind === 'member' ? c.object : null) && ok(n.args);
