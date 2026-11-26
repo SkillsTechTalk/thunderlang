@@ -52,8 +52,11 @@ export const CAPABILITY_ROWS: { what: string; detail: string; status: Capability
   },
   {
     what: "Write whole programs in Thunder (Thunder Core)",
-    detail: "Being built now, compiling to Python first. Not available yet.",
+    detail: capability("thunderCore").status === "available"
+      ? "Write a program in plain words, check it, and run it as Python: thunder new, run, build, and test. Calling Python libraries from Thunder comes next."
+      : "Being built now, compiling to Python first. Not available yet.",
     status: capability("thunderCore").status,
+    ...(capability("thunderCore").status === "available" ? { href: "/docs/core", cta: "Write a program" } : {}),
   },
   {
     what: "Compile Thunder Core to Java, C#, TypeScript, Go, and Rust",

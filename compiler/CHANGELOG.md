@@ -1,4 +1,4 @@
-# Unreleased
+# 1.1.0
 
 - **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry
   record and says what the agent was asked and answered, what went wrong, what happened just before, what would have

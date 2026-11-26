@@ -32,7 +32,7 @@ inputs:
   version:
     description: 'The @skillstech/thunderlang version that reads the code. Default: the compiler version released with this action.'
     required: false
-    default: '1.0.4'
+    default: '1.1.0'
   github-token:
     description: 'Token used for the comment. Default: the workflow''s own GITHUB_TOKEN (needs permissions: pull-requests: write).'
     required: false
