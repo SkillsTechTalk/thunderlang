@@ -14,13 +14,13 @@ import { compileCore } from '../src/core/index.mjs';
 import { buildProject } from '../src/core/project.mjs';
 import { runWithEngine } from '../src/core/engine.mjs';
 import { CASES, INPUTS } from '../scripts/core-read-write.mjs';
-import { runBoth, bothEngines, tally, PY } from './core-engines.mjs';
+import { runBoth, bothEngines, tally, PY, csharpAgrees } from './core-engines.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const CLI = join(HERE, '..', 'src', 'cli.mjs');
 const skip = PY.error ? `Python 3.10+ not found, so the engines cannot be compared here: ${PY.error}` : false;
-test.after(() => console.log(`# core-engine: ${tally.compared} programs gave the same result on Python and the Thunder engine; ${tally.refused} use Python modules and were refused by the engine.`));
+test.after(() => console.log(`# core-engine: ${tally.compared} programs gave the same result on Python and the Thunder engine (${tally.typescript} also as TypeScript, ${tally.go} as Go); ${tally.refused} use Python modules and were refused by the engine.`));
 
 /** A Python input like '150, True' or '[1, 2.5]' as Thunder call arguments ("150 and true"), or null. */
 function thunderArgs(input) {
@@ -116,6 +116,7 @@ const PROGRAMS = {
   'removing what is not there': L('Set xs to [1, 2]', 'Remove 5 from xs'),
   'removing a map entry that is not there': L('Set m to an empty map', 'Remove "k" from m'),
   'sums, averages and extremes of money': L('Set prices to [$1.10, $2.25, $3]', 'say the sum of prices', 'say the average of prices', 'say the smallest of prices', 'say the largest of prices', 'say the absolute value of -$4.50', 'say the absolute value of -3', 'say the absolute value of -2.50', 'say round 7 to 2 places', 'say round 2.4999 to 3 places'),
+  'JSON with true, false, and null reads as Python reads it': L(String.raw`Set data to the JSON data in "{{\"a\": false, \"b\": true, \"c\": null, \"d\": [false]}}"`, "say data", 'say the JSON text of data'),
   'sorting values of mixed kinds fails the way Python does': L(String.raw`Set data to the JSON data in "[3, \"a\", 1]"`, 'say data sorted'),
   'starts with on something that is not text': L('Set data to the JSON data in "[5]"', 'say (data at 1) starts with "5"'),
   'text contains text, a list contains a value': L('say "hello" contains "ell"', 'say [1, 2, 3] contains 2.0', 'say ["a"] contains "b"', 'Set m to an empty map', 'Set m at "k" to 1', 'say m contains "k"'),
@@ -208,3 +209,6 @@ test('a program that uses a Python module is refused by the Thunder engine, neve
   assert.equal(c.status, 2);
   assert.match(c.stderr, /^thunder run: This program uses the Python module "csv"/);
 });
+
+// Last: every program above, compiled to C# and built together, gives the same result (see core-engines.mjs).
+csharpAgrees(test);

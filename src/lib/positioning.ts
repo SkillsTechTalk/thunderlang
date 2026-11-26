@@ -67,9 +67,36 @@ export const CAPABILITY_ROWS: { what: string; detail: string; status: Capability
     ...(capability("coreTypeScript").status === "available" ? { href: "/docs/core", cta: "Compile to TypeScript" } : {}),
   },
   {
-    what: "Compile Thunder Core to Java, C#, Go, and Rust",
-    detail: "Designed, not built. Each target will be announced only when it passes the same conformance tests.",
-    status: capability("coreTargets").status,
+    what: "Compile Thunder Core to C#",
+    detail: capability("coreCsharp").status === "available"
+      ? "The same program, compiled to C# and run on .NET: thunder build --target csharp. Every Core test program gives the same output on Python, the Thunder engine, TypeScript, and C#. Python modules are refused for this target."
+      : "Being built: the same programs, compiled to C#. Not available yet.",
+    status: capability("coreCsharp").status,
+    ...(capability("coreCsharp").status === "available" ? { href: "/docs/core", cta: "Compile to C#" } : {}),
+  },
+  {
+    what: "Compile Thunder Core to Rust",
+    detail: capability("coreRust").status === "available"
+      ? "The same program, compiled to Rust with a runtime that needs only the standard library: thunder build --target rust. Every Core test program gives the same output on Python, the Thunder engine, TypeScript, and Rust. Python modules are refused for this target."
+      : "Being built: the same programs, compiled to Rust. Not available yet.",
+    status: capability("coreRust").status,
+    ...(capability("coreRust").status === "available" ? { href: "/docs/core", cta: "Compile to Rust" } : {}),
+  },
+  {
+    what: "Compile Thunder Core to Go",
+    detail: capability("coreGo").status === "available"
+      ? "The same program, compiled to Go and built with the go toolchain: thunder build --target go. Every Core test program gives the same output on Python, the Thunder engine, TypeScript, and Go. Python modules are refused for this target."
+      : "Being built: the same programs, compiled to Go. Not available yet.",
+    status: capability("coreGo").status,
+    ...(capability("coreGo").status === "available" ? { href: "/docs/core", cta: "Compile to Go" } : {}),
+  },
+  {
+    what: "Compile Thunder Core to Java",
+    detail: capability("coreJava").status === "available"
+      ? "The same program, compiled to Java 17+ and run on the JVM: thunder build --target java. Every Core test program gives the same output on Python, the Thunder engine, TypeScript, and Java. Python modules are refused for this target."
+      : "Being built: the same programs, compiled to Java. Not available yet.",
+    status: capability("coreJava").status,
+    ...(capability("coreJava").status === "available" ? { href: "/docs/core", cta: "Compile to Java" } : {}),
   },
 ];
 
@@ -101,7 +128,7 @@ export const TARGETS: Target[] = TARGET_ROLES.map(([key, role]) => ({
   edits: WRITE_STEPS_LANGUAGES.includes(key),
   rules: (RULE_TARGETS as readonly string[]).includes(key),
   // Thunder Core compiles to Python and TypeScript; the rest follow. Status comes from CAPABILITIES, never from copy.
-  program: key === "python" ? capability("thunderCore").status : key === "typescript" ? capability("coreTypeScript").status : capability("coreTargets").status,
+  program: key === "python" ? capability("thunderCore").status : key === "typescript" ? capability("coreTypeScript").status : key === "csharp" ? capability("coreCsharp").status : key === "rust" ? capability("coreRust").status : key === "go" ? capability("coreGo").status : key === "java" ? capability("coreJava").status : "planned",
 }));
 
 /** Thunder gives access to each ecosystem's libraries rather than recreating them. */
