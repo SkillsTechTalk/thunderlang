@@ -1,3 +1,14 @@
+# Unreleased
+
+- **A friendlier first minute in the terminal.** `thunder` on its own now shows a short home screen (five things
+  to do, with examples) instead of 120 lines; `thunder help --all` is the full list, and `thunder help <command>`
+  shows one command. A mistyped command says "Did you mean thunder read?" instead of failing later (it used to crash
+  reading a file). `thunder new hello` says exactly how to run it (`thunder run hello`), and `--run` runs it too.
+  `thunder run` (or test, build, check) outside a project says where the nearby projects are and the exact command.
+  New: `thunder doctor` checks Thunder, Node.js, Python 3.10+, PATH, Node versions (nvm) missing Thunder, and
+  optional toolchains, offline, with the fix for each problem; `thunder completion zsh|bash|fish` completes commands
+  on Tab. Every existing command, flag, exit code, and JSON output is unchanged.
+
 # 1.1.0
 
 - **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry
