@@ -350,7 +350,8 @@ class Gen {
     const A = (c) => ({ c, p: P.atom });
     const sub = (k) => this.x(k, ctx);
     switch (e.k) {
-      case 'num': if (e.whole) return A(e.text.replace(/^0+(?=\d)/, '')); // Python refuses 007; Thunder reads it as 7 this.needDecimal = true; return A(`Decimal(${py(e.text)})`);
+      // A whole number: Python refuses leading zeros (007), and Thunder means 7.
+      case 'num': if (e.whole) return A(e.text.replace(/^0+(?=\d)/, '')); this.needDecimal = true; return A(`Decimal(${py(e.text)})`);
       case 'money': return A(`${this.R('Money')}(${py(e.text)})`);
       case 'percent': this.needDecimal = true; return A(`Decimal(${py(percentDecimal(e.text))})`);
       case 'bool': return A(e.v ? 'True' : 'False');
