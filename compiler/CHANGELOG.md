@@ -1,3 +1,13 @@
+# Unreleased
+
+- **`thunder read --level`: read at one depth, in the terminal.** The five levels OpenThunder shows: `big-picture`
+  (the Things, what they know and can do), `flow` (one action or rule as a tree of questions, branches, error
+  handlers, and "always"), `details` (every way it ends, what it changes and when, and what the code cannot tell),
+  `text` (Thunder Text), and `original` (the exact lines, numbered). `--focus "<name>"` picks an action, rule, or
+  Thing; without it, `flow` and `details` list the choices as commands. Each level suggests the next. Steps Thunder
+  could not explain stay marked. `--json` prints the model level itself, the same data OpenThunder reads. Works on a
+  file or a folder. `thunder read` without `--level` is unchanged.
+
 # 1.1.0
 
 - **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry
