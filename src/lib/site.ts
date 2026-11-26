@@ -45,6 +45,7 @@ export type NavItem = { href: string; label: string };
 export const mainNav: NavItem[] = [
   { href: "/language", label: "The language" },
   { href: "/read", label: "Thunder Code" },
+  { href: "/live", label: "Live translator" },
   { href: "/try", label: "Try it" },
   { href: "/map", label: "Thunder Atlas" },
   { href: "/playground", label: "Playground" },
@@ -88,6 +89,7 @@ export const footerNav: { title: string; items: NavItem[] }[] = [
       { href: "/docs", label: "Documentation" },
       { href: "/docs/mcp", label: "For AI agents (MCP)" },
       { href: "/examples", label: "Examples" },
+      { href: "/live", label: "Live translator" },
       { href: "/playground", label: "Playground" },
     ],
   },

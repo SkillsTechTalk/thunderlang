@@ -1,5 +1,10 @@
 # Unreleased
 
+- **The live translator (thunderlang.dev/live).** Type code in Python, TypeScript, JavaScript, Java, C#, Go, or Rust
+  and see Thunder's reading update as you type (for Python, also the Thunder Core you can edit and run). Or write
+  Thunder and see it as Python, TypeScript, C#, Java, Go, and Rust, with what it prints, run by the Thunder engine in a
+  worker (a program that never ends is stopped and said so). Everything runs in the browser. The Go target's name table
+  (`goNamespaces`) moves into target-go.mjs so it can run there.
 - **Fewer steps shown as code when Thunder reads real code.** Text with values reads as its exact text with
   «placeholders» (JavaScript templates and Python f-strings; a worked-out value is «…»). Python counting loops say
   where they start and stop (`range(n)`, `range(a, n + 1)`, `range(len(xs))`, `enumerate(xs)`), imports inside a
