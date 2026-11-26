@@ -27,6 +27,7 @@ import { readCode, searchReading } from './read.mjs';
 import { readRepo, searchRepo, groupByFile } from './read-repo.mjs';
 import { promoteDecision } from './promote.mjs';
 import { collectReadableFiles } from './read-repo-fs.mjs';
+import { accessFlow, accessText } from './flow/access.mjs';
 import { translateDecisions } from './translate.mjs';
 import {
   buildContractGraph, buildArchitectureGraph, buildImplementationPlan,
@@ -370,6 +371,7 @@ function parseArgs(argv) {
     else if (a === '--mission') args.mission = true;
     else if (a === '--core') args.core = true;
     else if (a === '--as-core') args.asCore = true;
+    else if (a === '--access') args.access = true;
     else if (a === '--write' || a === '-w') args.write = true;
     else if (a === '--check') args.check = true;
     else if (a === '--schema') args.schema = true;
@@ -487,6 +489,7 @@ Read and understand code
   read <file|dir> --level big-picture|flow|details|text|original [--focus "<action or rule>"] [--json]
                              read at one depth, from the same model OpenThunder shows: the big picture, one action's flow,
                              its exact details, its Thunder Text, or the original lines
+  read <dir> --access           which web routes limit a record chosen by the request to the caller (TypeScript/JavaScript)
   read <file.py> --as-core      the same code as Thunder Core you can edit and run (Python for now); lines it cannot say exactly are marked
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
@@ -670,6 +673,16 @@ function main() {
         const r = readLevel(model, args.level, focus.id);
         if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
         console.log(paint(renderLevel(r, { sources: Object.fromEntries(files.map((f) => [f.path, f.source])), file })));
+        return;
+      }
+      if (args.access) {
+        // Ownership on web routes: the same accessFlow() the readings and OpenThunder use (docs/access-flow.md).
+        const isDir = statSync(file).isDirectory();
+        const files = isDir ? collectReadableFiles(file, { maxFiles: 20000 }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        const report = accessFlow(files);
+        if (args.json) { console.log(JSON.stringify(report, null, 2)); return; }
+        console.log(paint(accessText(report)));
+        if (report.summary.unguarded) process.exitCode = 1;
         return;
       }
       if (statSync(file).isDirectory()) { readFolder(file, args); return; }

@@ -14,6 +14,7 @@ import { psThings } from './powershell.mjs';
 import { splitLogic, closeOf, isCodeWords, balancedText } from './faithful.mjs';
 import { detailParts } from './meaning.mjs';
 import { linkSystem, callsSummary } from './system.mjs';
+import { accessFlow, ownershipWords } from './flow/access.mjs';
 
 export const MODEL_SCHEMA = 'thunder-model-v1';
 /**
@@ -830,6 +831,21 @@ export function thunderModel(files, { name = 'app' } = {}) {
       }
     }
   } catch (e) { unknowns.push({ file: fileInfo[0]?.path ?? null, line: 1, why: `Screens could not be read: ${e.message}` }); }
+  // Ownership on web routes (src/flow/access.mjs): does a record chosen by the request get limited to the caller?
+  // Only for TypeScript/JavaScript routes; each route's member says its verdict in words.
+  const routeMembers = members.filter((m) => m.route && /^(typescript|javascript)$/i.test(m.language ?? ''));
+  if (routeMembers.length) {
+    try {
+      const access = accessFlow(files.filter((f) => /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i.test(f.path)));
+      for (const r of access.routes) {
+        if (!r.verdict) continue;
+        const m = routeMembers.find((x) => x.file === r.file && x.route === `${r.method} ${r.path}`)
+          ?? routeMembers.find((x) => x.file === r.file && Math.abs((x.lines?.[0] ?? 0) - r.line) <= 2);
+        if (m) m.ownership = { verdict: r.verdict, says: ownershipWords(r), why: r.why, paths: r.paths };
+      }
+      model.access = { schema: access.schema, summary: access.summary };
+    } catch (e) { unknowns.push({ file: fileInfo[0]?.path ?? null, line: 1, why: `Ownership on routes could not be checked: ${e.message}` }); }
+  }
   return model;
 }
 
@@ -893,6 +909,7 @@ export function modelText(model, id, { note = null, full = false } = {}) {
   const lines = [`${m.label}${owner && m.kind !== 'setup' ? ` (${owner.label})` : ''}${m.kind === 'rule' ? ': a rule' : ''}`];
   if (m.when) lines.push(`  ${m.when}`);
   else if (m.route) lines.push(`  When someone calls ${m.route}`);
+  if (m.ownership) lines.push(`  ${m.ownership.says}`);
   if (m.doc) lines.push(`  Author's note: ${m.doc}`);
   if (m.youGive.length) lines.push(`  You give it: ${m.youGive.join(', ')}`);
   if (m.youGetBack) lines.push(`  You get back: ${m.youGetBack}`);
@@ -1138,6 +1155,7 @@ export function readLevel(model, level, focus, { full = false } = {}) {
       // Calls and requests worth linking that could not be, with the reason (never guessed).
       notLinked: (model.notLinked ?? []).filter((x) => x.from === member.id),
       notExplained: steps.filter((s) => s.notExplained).length, uses, usedBy, tryable: !!member.rule, ...(member.rule ? { rule: member.rule } : {}),
+      ...(member.ownership ? { ownership: member.ownership } : {}),
       source: 'Read from code by the Thunder compiler, with no AI.' };
   }
   if (lv.id === 'text') {

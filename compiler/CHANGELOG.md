@@ -1,3 +1,16 @@
+# Unreleased
+
+- **Access flow: does every path limit the record to the caller?** For TypeScript and JavaScript web routes (Express,
+  Fastify, Hono, Next.js), Thunder follows the request's values through the handler, the project's helpers,
+  repositories, classes, and middleware, and into the database (Prisma, Drizzle, Knex, raw SQL, postgres.js, Mongoose).
+  Each path that hands back or changes a record chosen by the request gets one verdict: guarded (a where clause on
+  the caller's tenant or owner, a comparison that stops first, or the caller's own record), unguarded (every step was
+  followed and none limits it), or cannot tell (exactly what stopped it, with its line). "Unguarded" is never said
+  when anything on the path was left unresolved. `thunder read <dir> --access` (`--json`: thunder-access-v1),
+  `accessFlow()` in `@skillstech/thunderlang/core`, and one line on each route in readings. A dependency-free
+  TypeScript parser comes with it (`src/flow/ts-parse.mjs`). Measured on a 55-route labeled benchmark (every label
+  met; no false "unguarded") and on about 14,500 real files (0 called unguarded). See docs/access-flow.md.
+
 # 1.3.0
 
 **Upgrade note.** Every existing command, flag, exit code, and JSON output is unchanged. New: Thunder Core compiles to

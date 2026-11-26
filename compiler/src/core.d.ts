@@ -33,6 +33,19 @@ export interface Screen {
   role?: 'page' | 'top' | 'part'; roleWhy?: string;
 }
 export interface ScreenLine { says: string; line?: number; kids?: ScreenLine[]; otherwise?: { says: string; line?: number; kids: ScreenLine[] }; notRead?: boolean; /** for a not-read line: the code, without the "not read:" words */ code?: string }
+/** A step on an access path, linked to its source line. */
+export interface AccessStep { kind: 'input' | 'identity' | 'lookup' | 'change' | 'guard' | 'response' | 'stopped'; says: string; file: string; line: number | null }
+export type AccessVerdict = 'guarded' | 'unguarded' | 'cannot tell';
+/** One path from the request to a response or a change, about one record (src/flow/access.mjs). */
+export interface AccessPath { verdict: AccessVerdict; why: string; steps: AccessStep[]; record: string | null; lines: number[] }
+/** One web route's ownership verdict; null when it reads or changes no stored record chosen by the request. */
+export interface AccessRoute { method: string; path: string; framework: string; file: string; line: number; verdict: AccessVerdict | null; why: string; identity: { says: string; file: string; line: number } | null; paths: AccessPath[] }
+export interface AccessReport { schema: 'thunder-access-v1'; routes: AccessRoute[]; summary: { routes: number; guarded: number; unguarded: number; cannotTell: number; noLookup: number }; unread: Array<{ file: string; line: number | null; why: string }> }
+export const ACCESS_SCHEMA: 'thunder-access-v1';
+/** Does every path that hands back or changes a record chosen by the request limit it to the caller? TypeScript/JavaScript. */
+export function accessFlow(files: Array<{ path: string; source: string }>, options?: { maxRoutes?: number }): AccessReport;
+export function accessText(report: AccessReport): string;
+export function ownershipWords(route: AccessRoute): string | null;
 export function readScreens(files: Array<{ path: string; source: string }>, options?: { members?: unknown[] }): Screen[];
 export function screenText(screen: Screen): string;
 export { RUNNING_SCHEMA, runtimeOverlay, runtimeText, explainError, parseStack, parseStacks, fromTrace, fromStack, fromLogs, fromOtlp, nodeNote } from './running.mjs';
