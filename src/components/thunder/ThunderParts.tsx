@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import type { ThunderModel, Member, Thing, Flow, FlowNode, FlowBlock, Permission, Setting } from "../../../compiler/src/model.d.mts";
 import { THUNDER_VISUAL } from "../../../compiler/src/visual.mjs";
 import type { NodeRun } from "../../../compiler/src/running.d.mts";
+import { ThingCard as KitThingCard, DataCard as KitDataCard } from "../../../compiler/src/react/reading.mjs";
 
 export type SymbolId = keyof typeof THUNDER_VISUAL.symbols;
 
@@ -122,51 +123,15 @@ export function FlowBlocks({ blocks, flow, runs, calls, ...p }: { blocks: Block[
 
 // ── Try a rule (runs the rule the compiler read; nothing simulated) ───────────────────────────────────
 
-/** A Thing (a class): what it knows and what it can do. `onOpen` makes each ability a button. */
+/** A Thing (a class): what it knows and what it can do. Drawn by the shared kit (@skillstech/thunderlang/react), so
+ *  it matches OpenThunder and the Skills Tech Talk course word for word. `onOpen` makes each ability a button. */
 export function ThingCard({ t, model, onOpen, selected = false }: { t: Thing; model: ThunderModel; onOpen?: (id: string) => void; selected?: boolean }) {
-  const can = t.can.map((id) => model.members.find((m) => m.id === id)!).filter(Boolean);
-  const setup = can.find((m) => m.kind === "setup");
-  const cls = "flex w-full items-center gap-3 rounded-xl border border-white/10 bg-ink-850/60 px-3 py-2.5 text-left";
-  const ability = (m: Member) => (
-    <>
-      <Symbol id={memberSymbol(m)} size={24} />
-      <span className="text-[15px] font-medium text-white">{m.label}{m.yesNo ? "?" : ""}</span>
-      {onOpen && <span aria-hidden="true" className="ml-auto text-haze-400">→</span>}
-    </>
-  );
-  return (
-    <section aria-labelledby={`t-${t.id}`} className={`rounded-3xl border-2 bg-[#67E8F9]/[0.04] p-6 ${selected ? "border-[#67E8F9]" : "border-[#67E8F9]/50"}`}>
-      <div className="flex items-center gap-4"><Symbol id="thing" size={44} label="Thing" /><div><p className="text-xs font-semibold uppercase tracking-wider text-[#67E8F9]">A Thing</p><h2 id={`t-${t.id}`} className="text-2xl font-bold text-white">{t.label}</h2></div></div>
-      {t.doc && <p className="mt-3 text-[17px] text-haze-100">{t.doc}</p>}
-      {t.knows.length > 0 && (
-        <>
-          <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-haze-400">It knows</h3>
-          <ul className="mt-2 space-y-1">{t.knows.map((k) => <li key={k.name} className="text-[16px]"><span className="text-[#FCD34D]">{k.label}</span><span className="text-haze-300">{[k.kind, k.start].filter(Boolean).length ? `: ${[k.kind, k.start].filter(Boolean).join(", ")}` : ""}</span></li>)}</ul>
-        </>
-      )}
-      <h3 className="mt-5 text-xs font-semibold uppercase tracking-wider text-haze-400">It can</h3>
-      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-        {can.filter((m) => m.kind !== "setup").map((m) => (
-          <li key={m.id}>{onOpen ? <button type="button" onClick={() => onOpen(m.id)} className={`${cls} hover:border-white/30 ${focus}`}>{ability(m)}</button> : <div className={cls}>{ability(m)}</div>}</li>
-        ))}
-      </ul>
-      {setup && (onOpen
-        ? <button type="button" onClick={() => onOpen(setup.id)} className={`mt-3 flex items-center gap-2 rounded text-sm text-haze-300 hover:text-white ${focus}`}><Symbol id="setup" size={18} />How a new {t.label} starts</button>
-        : <p className="mt-3 flex items-center gap-2 text-sm text-haze-300"><Symbol id="setup" size={18} />A new {t.label} starts with what it knows above</p>)}
-    </section>
-  );
+  return <KitThingCard model={model} thing={t} onOpen={onOpen} selected={selected} />;
 }
 
-/** Data: a record (facts, like an ID card) or choices (one allowed value). */
+/** Data: a record (facts, like an ID card) or choices (one allowed value). Drawn by the shared kit. */
 export function DataCard({ t }: { t: Thing }) {
-  return (
-    <section className="rounded-2xl border border-white/12 bg-ink-850/40 p-5">
-      <div className="flex items-center gap-3"><Symbol id={thingSymbol(t)} size={30} label={t.kind === "record" ? "Record" : "Choices"} /><div><p className="text-xs text-haze-400">{t.kind === "record" ? "Data: a record" : "Data: choices"}</p><h3 className="text-lg font-semibold text-white">{t.label}</h3></div></div>
-      {t.doc && <p className="mt-2 text-sm text-haze-300">{t.doc}</p>}
-      {t.choices.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{t.choices.map((c) => <span key={c} className="rounded-full border border-[#67E8F9]/50 px-3 py-1 text-sm text-[#67E8F9]">{c}</span>)}</div>}
-      {t.knows.length > 0 && <ul className="mt-3 space-y-1 text-sm">{t.knows.map((k) => <li key={k.name}><span className="text-[#FCD34D]">{k.label}</span><span className="text-haze-300">{[k.kind, k.start].filter(Boolean).length ? `: ${[k.kind, k.start].filter(Boolean).join(", ")}` : ""}</span></li>)}</ul>}
-    </section>
-  );
+  return <KitDataCard thing={t} />;
 }
 
 const Chip = ({ children, dashed = false }: { children: ReactNode; dashed?: boolean }) => (

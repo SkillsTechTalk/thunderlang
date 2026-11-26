@@ -1,0 +1,122 @@
+// The drawing kit: one layout (words and order) that OpenThunder, thunderlang.dev, and the Skills Tech Talk course
+// all draw from, the React components that draw it, and the stylesheet's color variables.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { thunderModel } from '../src/model.mjs';
+import { THUNDER_VISUAL } from '../src/visual.mjs';
+import { readingLayout, READING_LABELS, READING_LAYOUT_SCHEMA } from '../src/core.mjs';
+
+const SHOP = `from dataclasses import dataclass
+from enum import Enum
+
+
+class Size(Enum):
+    SMALL = "small"
+    LARGE = "large"
+
+
+@dataclass
+class Address:
+    street: str
+    city: str
+
+
+class Cart:
+    """What a customer is about to buy."""
+
+    def __init__(self, owner: str):
+        self.owner = owner
+        self.items = []
+
+    def add(self, item):
+        self.items.append(item)
+
+    def is_empty(self) -> bool:
+        return len(self.items) == 0
+`;
+const model = thunderModel([{ path: 'shop.py', source: SHOP }]);
+
+test('the Big Picture: Things first, then records, then choices, with the shared labels', () => {
+  const l = readingLayout(model);
+  assert.equal(l.schema, READING_LAYOUT_SCHEMA);
+  assert.deepEqual(l.sections.map((s) => s.id), ['things', 'data']);
+  const [cart] = l.sections[0].cards;
+  assert.equal(cart.heading, 'A Thing');
+  assert.equal(cart.label, 'Cart');
+  assert.equal(cart.doc, 'What a customer is about to buy.');
+  assert.equal(cart.knows.heading, 'It knows');
+  assert.deepEqual(cart.knows.items.map((k) => k.label), ['owner', 'items']);
+  assert.equal(cart.can.heading, 'It can');
+  assert.deepEqual(cart.can.items.map((m) => m.label), ['Add', 'Is empty']);
+  assert.equal(cart.starts.text, 'How a new Cart starts');
+  assert.ok(cart.starts.id, 'the setup is a door to open');
+  assert.deepEqual(l.sections[1].cards.map((c) => [c.label, c.heading]), [['Address', 'Data: a record'], ['Size', 'Data: choices']]);
+  assert.deepEqual(l.sections[1].cards[1].choices, ['small', 'large']);
+});
+
+test('the labels are the ones the products already show (a change here changes every app)', () => {
+  assert.deepEqual([READING_LABELS.thing, READING_LABELS.knows, READING_LABELS.can, READING_LABELS.starts('Cart'), READING_LABELS.record, READING_LABELS.choices],
+    ['A Thing', 'It knows', 'It can', 'How a new Cart starts', 'Data: a record', 'Data: choices']);
+});
+
+test('the stylesheet has a variable and a class for every grammar color, in the dark and the light set', () => {
+  const css = readFileSync(new URL('../src/react/reading.css', import.meta.url), 'utf8');
+  for (const name of Object.keys(THUNDER_VISUAL.colors)) {
+    assert.equal(css.match(new RegExp(`--tl-c-${name}:`, 'g'))?.length, 2, `--tl-c-${name} in both sets`);
+    assert.match(css, new RegExp(`\\.tl-c-${name} \\{ color: var\\(--tl-c-${name}\\); \\}`));
+  }
+  assert.match(css, /--tl-accent: var\(--language-accent/, 'a course accent is honored');
+});
+
+test('the layout and the kit load no Node-only module', () => {
+  const seen = new Set(), bad = [];
+  const walk = (url) => {
+    if (seen.has(url.href)) return; seen.add(url.href);
+    for (const m of readFileSync(url, 'utf8').matchAll(/^\s*(?:import|export)\s[^;]*?from\s+["']([^"']+)["']/gm)) {
+      if (m[1].startsWith('node:')) bad.push(`${url.pathname} -> ${m[1]}`);
+      else if (m[1].startsWith('.') && m[1].endsWith('.mjs')) walk(new URL(m[1], url));
+    }
+  };
+  walk(new URL('../src/react/reading.mjs', import.meta.url));
+  assert.deepEqual(bad, []);
+});
+
+// Drawn with React when React is installed (it is the app's own: a peer dependency).
+let react = null;
+try { const req = createRequire(import.meta.url); req.resolve('react'); req.resolve('react-dom/server'); react = true; } catch { /* not installed here */ }
+
+test('the components draw the layout: headings, "It knows" in order, buttons only with onOpen', { skip: !react && 'React is not installed next to the compiler' }, async () => {
+  const { createElement: h } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { BigPicture, ThingCard } = await import('../src/react/reading.mjs');
+  const html = renderToStaticMarkup(h(BigPicture, { model, onOpen: () => {} }));
+  const order = ['A Thing', '>Cart<', 'It knows', '>owner<', '>items<', 'It can', '>Add<', '>Is empty<', 'How a new Cart starts', 'Data: a record', '>Address<', 'Data: choices', '>Size<', '>small<'];
+  let at = -1;
+  for (const w of order) { const i = html.indexOf(w, at + 1); assert.ok(i > at, `"${w}" comes after the one before`); at = i; }
+  assert.equal(html.match(/<button/g)?.length, 3, 'two abilities and how it starts');
+  const still = renderToStaticMarkup(h(ThingCard, { model, thing: model.things.find((t) => t.label === 'Cart') }));
+  assert.ok(!still.includes('<button'), 'no buttons without onOpen');
+  assert.match(still, /<h2 id="tl-thing-[^"]+" class="tl-card-title">Cart<\/h2>/);
+});
+
+test('the Big Picture zooms with focus: a Thing, a file, an action (its IO boxes), or nothing for an unknown id', () => {
+  const src = 'class Shop:\n    def order(self, total: float, distance: float) -> str:\n        """Place an order."""\n        if distance > 15:\n            raise ValueError("TooFar")\n        return "ok"\n';
+  const m = thunderModel([{ path: 'shop.py', source: SHOP }, { path: 'orders.py', source: src }]);
+  assert.deepEqual(readingLayout(m).sections[0].cards.map((c) => c.label), ['Cart', 'Shop']);
+  assert.deepEqual(readingLayout(m, { focus: 'orders.py' }).sections.map((s) => s.cards.map((c) => c.label)), [['Shop']]);
+  const cartFocus = readingLayout(m, { focus: 'shop.py#Cart' });
+  assert.equal(cartFocus.focus.kind, 'thing');
+  assert.deepEqual(cartFocus.sections.map((s) => s.cards.map((c) => c.label)), [['Cart'], ['Address', 'Size']]);
+  const order = m.members.find((x) => x.name === 'order');
+  const io = readingLayout(m, { focus: order.id });
+  assert.equal(io.focus.kind, 'member');
+  const [box] = io.sections[0].cards;
+  assert.deepEqual([box.give.heading, box.getBack.heading, box.stops.heading], ['You give it', 'You get back', 'It can stop with']);
+  assert.deepEqual(box.give.items, [{ label: 'total', kind: 'a number' }, { label: 'distance', kind: 'a number' }]);
+  assert.equal(box.getBack.text, 'words');
+  assert.deepEqual(box.stops.items, [{ text: 'ValueError: "TooFar"', line: 5 }]);
+  assert.deepEqual(box.partOf, { id: 'orders.py#Shop', text: 'Part of Shop' });
+  assert.deepEqual(readingLayout(m, { focus: 'nope' }), { schema: READING_LAYOUT_SCHEMA, focus: { kind: 'unknown', id: 'nope' }, sections: [] });
+});
