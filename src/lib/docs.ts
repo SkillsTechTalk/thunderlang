@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { marked } from "marked";
 import { thunderCodeRenderer } from "./thunder-tokens";
+import { terminalCodeRenderer } from "./terminal-tokens";
 
 /**
  * Reads the language docs (docs/*.md) and examples (examples/*.thunder) from the
@@ -220,7 +221,7 @@ const DOC_BLURBS: Record<string, string> = {
 };
 
 marked.setOptions({ gfm: true });
-marked.use({ renderer: { code: thunderCodeRenderer } });
+marked.use({ renderer: { code: (block) => thunderCodeRenderer(block) || terminalCodeRenderer(block) } });
 
 export type DocMeta = { slug: string; label: string; blurb: string };
 
