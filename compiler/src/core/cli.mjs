@@ -9,7 +9,7 @@
 // Everything else falls through to the mission commands, unchanged.
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
-import { resolve, relative, join } from 'node:path';
+import { resolve, relative, join, basename } from 'node:path';
 import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGETS, TARGET_NAMES } from './project.mjs';
 import { runTypeScript } from './typescript-run.mjs';
 import { runCSharp } from './csharp-run.mjs';
@@ -60,6 +60,11 @@ export function coreTarget(cmd, argv, cwd = process.cwd()) {
   const file = a._[0];
   if (!file) { const root = findProjectRoot(cwd); return root && !a.other ? { root, file: null } : null; }
   const p = resolve(cwd, file);
+  // Inside a project, its own name means the project: in hello/, `thunder run hello` runs hello.
+  if (!existsSync(p)) {
+    const here = findProjectRoot(cwd);
+    if (here && !a.other && (file === basename(here) || file === '.')) return { root: here, file: null };
+  }
   if (existsSync(p) && statSync(p).isDirectory()) { const root = existsSync(join(p, 'thunder.toml')) ? p : null; return root ? { root, file: null } : null; }
   if (!file.endsWith('.thunder')) return null;
   const root = findProjectRoot(p);
