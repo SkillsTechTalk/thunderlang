@@ -1,5 +1,13 @@
 # Unreleased
 
+- **TypeScript web routes read as actions, even when the handler is wrapped.** `fastify.post('/x', handle(async
+  (request) => { … }))` and one-expression handlers (`fastify.get('/x', handle(async (request) => view(…)))`) are now
+  actions ("When someone calls POST /x"), like unwrapped ones. The function that registers them lists each once
+  ("Handles POST /x (its steps are in that action)") instead of repeating its steps as "Calls post with these steps".
+  TypeScript types are set aside when a statement is read: `(request.body ?? {}) as { … }` reads "Sets b to the
+  request's body, or an empty lookup table when that has no value", `ctx.repo!` reads "Sets repo to the ctx's repo",
+  and `const reviews: Record<…> = {}` reads "Sets reviews to an empty lookup table". Two loops on one line are no
+  longer read as one loop mixing their names.
 - **Reading fixes (reported from OpenThunder).** (1) A helper assigned below a typed variable (`let a: { … } | undefined;`
   then `const approve = (x) => {`) was named after the variable; the type annotation now stops at its statement's end.
   (2) A call named after a preposition no longer leaves a sentence hanging: `changeApprovalFor(x, …)` reads "change

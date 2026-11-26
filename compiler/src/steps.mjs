@@ -1239,7 +1239,77 @@ const stripQuotedText = (s) => String(s).replace(/(["'])(?:\\.|(?!\1)[^\\])*\1/g
 // Words that start a block or a statement: "Calls unsafe" / "Calls using" / "Calls foreach" would name a function
 // that does not exist, so such a step is shown as its code instead.
 const NOT_CALLED = /^Calls (unsafe|using|foreach|for|while|if|else|return|lock|fixed|checked|unchecked|try|do|switch|match|loop|static|const|let|var|val|mut|typeof|sizeof)$/;
+/**
+ * TypeScript's types say nothing about what a statement does, so they are set aside before it is read (the step
+ * still shows the original code): `(request.body ?? {}) as { a?: string }` is `request.body ?? {}`, `ctx.repo!` is
+ * `ctx.repo`, and `const reviews: Record<string, 'a' | 'b'> = {}` is `const reviews = {}`.
+ */
+export function stripTsTypes(text) {
+  let s = String(text);
+  // A type after "as" or a declaration's ":" runs to the first , ; ) ] } = at depth 0 (or the end).
+  const typeEnd = (from, stops) => {
+    let depth = 0, q = null;
+    for (let i = from; i < s.length; i++) {
+      const c = s[i];
+      if (q) { if (c === q && s[i - 1] !== '\\') q = null; continue; }
+      if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+      if (c === '<' || c === '{' || c === '(' || c === '[') depth++;
+      else if ((c === '>' && s[i - 1] !== '=') || c === '}' || c === ')' || c === ']') { if (depth === 0) return i; depth--; }
+      else if (depth === 0 && stops.includes(c)) return i;
+    }
+    return s.length;
+  };
+  // `x as Type` (not inside text).
+  for (let guard = 0; guard < 20; guard++) {
+    const re = /\s+as\s+(?=[A-Za-z_${(\['"])/g;
+    let m;
+    // (Not inside text: an even number of each quote mark before it.)
+    while ((m = re.exec(s)) && ['"', "'", '`'].some((q) => (s.slice(0, m.index).split(q).length - 1) % 2 === 1));
+    if (!m || /\bimport\b|\bexport\b/.test(s.slice(0, m.index))) break;
+    const end = typeEnd(m.index + m[0].length, ',;=');
+    s = s.slice(0, m.index) + s.slice(end);
+  }
+  // `const name: Type = value` -> `const name = value`.
+  const decl = /^(\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*)\s*:\s*/.exec(s);
+  if (decl) { const end = typeEnd(decl[0].length, '=;'); if (s[end] === '=') s = `${decl[1]} ${s.slice(end)}`; }
+  // A non-null assertion `x!` (never `!=` or `!x`), and parentheses left around a plain name or member.
+  s = s.replace(/([\w$\])])!(?![=\w(])/g, '$1').replace(/\(([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\)(?=\.)/g, '$1');
+  // Parentheses that only held the value for its type (`= (request.body ?? {});`) are not needed once it is gone.
+  const wrapped = /^(\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*|\s*return\s+)\(([\s\S]*)\)(\s*;?\s*)$/.exec(s);
+  if (wrapped) {
+    let depth = 0, whole = true;
+    for (let i = 0; i < wrapped[2].length; i++) { const c = wrapped[2][i]; if (c === '(') depth++; else if (c === ')') { if (depth === 0) { whole = false; break; } depth--; } }
+    if (whole && depth === 0) s = `${wrapped[1]}${wrapped[2]}${wrapped[3]}`;
+  }
+  return s;
+}
+
 export function classifyStatement(raw, opts) {
+  // Two loops on one line (`for (const r of rows) for (const f of r.files) {`): each, in order, never one mixed loop.
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    const t = String(raw).trim();
+    const m = /^for\s*\(/.exec(t);
+    if (m) {
+      let depth = 0, close = -1;
+      for (let i = t.indexOf('('); i < t.length; i++) { if (t[i] === '(') depth++; else if (t[i] === ')' && --depth === 0) { close = i; break; } }
+      const rest = close > 0 ? t.slice(close + 1).trim() : '';
+      if (/^for\s*\(/.test(rest)) {
+        const outer = classifyStatement(`${t.slice(0, close + 1)} {`, opts);
+        const inner = classifyStatement(rest.replace(/\{?\s*$/, ' {'), opts);
+        if (outer.kind === 'loop' && inner.kind === 'loop') {
+          return { ...outer, says: `${outer.says.replace(/:$/, '')}, and in each, ${inner.says.charAt(0).toLowerCase()}${inner.says.slice(1)}`, code: clip(t.replace(/\s+/g, ' '), 90), nestedLoop: true };
+        }
+      }
+    }
+  }
+  // TypeScript: read the statement without its types; show the code as written.
+  if (LANG === 'typescript' && /\sas\s|[\w$\])]!(?![=\w(])|^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*:/.test(String(raw))) {
+    const plain = stripTsTypes(raw);
+    if (plain !== String(raw)) {
+      const r = classifyStatement(plain, opts);
+      if (r.kind !== 'other') return { ...r, code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90) };
+    }
+  }
   // Rust `unsafe { f(x) }` (and `return unsafe { … }`) with one expression inside is that expression.
   const un = LANG === 'rust' ? String(raw).trim().match(/^(return\s+)?unsafe\s*\{\s*([^{};]+?)\s*;?\s*\}\s*;?$/s) : null;
   if (un) { const r = classifyStatement(`${un[1] ?? ''}${un[2]}`, opts); return { ...r, code: clip(String(raw).replace(/\s+/g, ' ').trim(), 90) }; }
@@ -2211,6 +2281,18 @@ export function stepsFrom(statements) {
   for (let i = 0; i < steps.length - 1; i++) asCall(steps, i);
   // A value chosen by if / match / when: each side's last value is what the name is set to (or what is returned).
   for (const st of steps) if (Object.hasOwn(st, 'valueOf')) { const t = st.valueOf; delete st.valueOf; giveValue(st.children, t); giveValue(st.otherwise, t); }
+  // A web route registered in place (`fastify.post('/orders', handle(async (request) => { … }))`) is its own action,
+  // read separately ("When someone calls POST /orders"); here it is one line, not its steps a second time.
+  if (LANG === 'typescript' || LANG === 'javascript') {
+    for (const st of steps) {
+      const r = /^\s*[A-Za-z_$][\w$]*\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,/.exec(String(st.code ?? ''));
+      if (!r || !/^\//.test(r[2])) continue;
+      st.kind = 'call';
+      st.says = `Handles ${r[1] === 'all' ? 'every request to' : r[1].toUpperCase()} ${r[2]} (its steps are in that action)`;
+      delete st.children; delete st.nested; delete st.restates; delete st.value;
+      st.route = { method: r[1].toUpperCase(), path: r[2] };
+    }
+  }
   // Every step is kept (anchoring needs all of them); `more` tells a view how many to fold away.
   const more = Math.max(0, steps.length - MAX_STEPS);
   for (const st of steps) if (restates(st)) st.restates = true;

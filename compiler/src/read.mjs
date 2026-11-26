@@ -419,7 +419,8 @@ function findFunctions(src, language) {
     : language === 'go'
     ? [/\.(Get|Post|Put|Patch|Delete|GET|POST|PUT|PATCH|DELETE|HandleFunc|Handle)\(\s*"([^"]+)"\s*,\s*func\s*\(/g]
     : (language === 'typescript' || language === 'javascript')
-      ? [/\b\w+\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,(?:[^,()]*,)*?\s*(?:async\s*)?(?:function\s*\w*\s*)?\(/g]
+      // (The handler may be wrapped: `fastify.get('/x', handle(async (request) => …))`, `asyncHandler(…)`.)
+      ? [/\b\w+\.(get|post|put|patch|delete|all)\(\s*['"`]([^'"`]+)['"`]\s*,(?:[^,()]*,)*?\s*(?:[A-Za-z_$][\w$.]*(?:<[^<>()]*>)?\(\s*)*(?:async\s*)?(?:function\s*\w*\s*)?\(/g]
       : [];
   for (const re of routeRes) {
     let m;
@@ -427,11 +428,31 @@ function findFunctions(src, language) {
       const open = src.indexOf('(', m.index + m[0].length - 1);
       const close = matchClose(src, open);
       if (close < 0) continue;
+      const method = /^handle/i.test(m[1]) ? 'ANY' : m[1].toUpperCase();
       const brace = src.indexOf('{', close);
-      if (brace < 0 || !/^\s*(=>\s*)?(\w[\w.*\s]*)?\s*$/.test(src.slice(close + 1, brace))) continue;
+      if (brace < 0 || !/^\s*(=>\s*)?(\w[\w.*\s]*)?\s*$/.test(src.slice(close + 1, brace))) {
+        // An arrow whose body is one expression: `async (request) => practiceView(…)`. It gives back that value;
+        // the expression runs to the first ")" or "," that closes the call around it.
+        const arrow = /^\s*(?::\s*[^=()]+)?=>\s*/.exec(src.slice(close + 1));
+        if (!(language === 'typescript' || language === 'javascript') || !arrow || src[close + 1 + arrow[0].length] === '{') continue;
+        const from = close + 1 + arrow[0].length;
+        let depth = 0, end = from, q = null;
+        for (; end < src.length; end++) {
+          const c = src[end];
+          if (q) { if (c === q && src[end - 1] !== '\\') q = null; continue; }
+          if (c === "'" || c === '"' || c === '`') { q = c; continue; }
+          if ('([{'.includes(c)) depth++;
+          else if (')]}'.includes(c)) { if (depth === 0) break; depth--; }
+          else if ((c === ',' || c === ';') && depth === 0) break;
+        }
+        const expr = src.slice(from, end).trim();
+        if (!expr) continue;
+        // (Read as `return <expr>`: the body starts 7 characters early so every line number stays right.)
+        fns.push({ name: `${method} ${m[2]}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: from - 7, body: `return ${expr};`, route: { method, path: m[2] }, expressionBody: true });
+        continue;
+      }
       const bc = matchClose(src, brace);
       if (bc < 0) continue;
-      const method = /^handle/i.test(m[1]) ? 'ANY' : m[1].toUpperCase();
       fns.push({ name: `${method} ${m[2]}`, line: lineAt(src, m.index), params: [], returns: null, bodyStart: brace + 1, body: src.slice(brace + 1, bc), route: { method, path: m[2] } });
     }
   }
