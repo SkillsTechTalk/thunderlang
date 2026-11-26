@@ -52,6 +52,7 @@ import { thunderModel } from './model.mjs';
 import { LEVELS, readLevel, renderLevel, findFocus, nearestLevel } from './read-level.mjs';
 import { traceMain } from './trace-cli.mjs';
 import { whyMain } from './why-cli.mjs';
+import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
 import { coreMain } from './core/cli.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
@@ -465,6 +466,10 @@ The flow: author intent, inspect it, run and prove it, then keep real code align
 usage: thunder <command> <file> [options]
        thunder mission <Name> <command>     run any command on a mission by name
 
+Start
+  doctor [--json]            is this computer ready? Thunder, Node.js, Python, PATH, and optional toolchains (offline)
+  completion <zsh|bash|fish> a script that completes thunder commands when you press Tab
+
 Write and run programs (Thunder Core, docs/core.md)
   new <dir>                  create a Thunder Core project: thunder.toml, src/main.thunder, tests/
   run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file in one;
@@ -594,12 +599,27 @@ function main() {
     console.log(`thunder ${COMPILER_VERSION} (the Thunder compiler, also called ThunderLang)`);
     return;
   }
+  const known = [...new Set([...knownCommands(HELP), ...Object.keys(VIEWS)])].sort();
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
-    console.log(HELP);
-    // exitCode, not exit(): the help is longer than a pipe's buffer, and exit() would cut it off when piped.
+    // `thunder help <command>`: just that command's lines from the full list.
+    const topic = cmd === 'help' ? restArgv.find((x) => !x.startsWith('-')) : null;
+    if (topic) {
+      const h = helpFor(topic, HELP);
+      if (h) { console.log(`${h}\n\nAll commands: thunder help --all`); process.exitCode = 0; }
+      else { console.error(unknownCommandText(topic, known)); process.exitCode = 2; }
+      return;
+    }
+    // The short home screen first; every command with --all. Exit codes are unchanged (2 with no command at all).
+    // exitCode, not exit(): the full help is longer than a pipe's buffer, and exit() would cut it off when piped.
+    console.log(restArgv.includes('--all') ? HELP : homeText(COMPILER_VERSION, known.length));
     process.exitCode = cmd ? 0 : 2;
     return;
   }
+  // thunder doctor: is this computer ready? Offline; changes nothing (src/cli-home.mjs).
+  if (cmd === 'completion') { process.exitCode = completionMain(restArgv, known); return; }
+  if (cmd === 'doctor') { process.exitCode = doctorMain(restArgv, { version: COMPILER_VERSION, cliPath: process.argv[1] }); return; }
+  // A command Thunder doesn't have (and not a file): say so, and suggest the closest ones, instead of failing later.
+  if (!known.includes(cmd) && !cmd.startsWith('-') && !existsSync(cmd)) { console.error(unknownCommandText(cmd, known)); process.exitCode = 2; return; }
   // Thunder Trace: links between repositories and what a change can affect (src/trace-cli.mjs).
   if (cmd === 'trace') { process.exitCode = traceMain(restArgv); return; }
   // Thunder Why: an AI agent's run explained in plain words, from its OpenTelemetry record (src/why-cli.mjs).
@@ -1269,7 +1289,8 @@ test Example
   }
 
   if (!file && cmd !== 'draft' && cmd !== 'mission' && !(cmd === 'test' && args.changed)) {
-    console.error(`thunder ${cmd}: missing a file argument. Run "intent help" for usage.`);
+    if (['run', 'test', 'build', 'check'].includes(cmd)) console.error(noProjectText(cmd, process.cwd()));
+    else console.error(`thunder ${cmd}: missing a file argument. See: thunder help ${cmd}`);
     process.exit(2);
   }
 

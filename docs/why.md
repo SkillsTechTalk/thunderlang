@@ -13,36 +13,27 @@ Nothing is run and no AI is used. Every sentence comes from the record, and you 
 
 ```text
 $ thunder why run.json
-What happened
-  The agent "support-bot" stopped with a problem after 12 seconds.
-  It was asked: "Please refund order 1042, it arrived broken."
+✗ The agent "support-bot" stopped after 12 seconds.
+  Asked: "Please refund order 1042, it arrived broken."
 
-What went wrong
-  Step 6, part of step 5 "refund_payment". Called POST pay.example.com/v1/refunds: it couldn't reach the service. It tried 3 times, then stopped.
-  Just before, step 4: Asked the AI (claude-sonnet-5-5), which decided to use "refund_payment".
-  If any of the 3 tries had worked, the run would have gone past this step. Thunder can't say what the agent would have done next.
-  What to do next: Check that the service is running and its address is right.
-  Details: POST https://pay.example.com/v1/refunds · requests.exceptions.ConnectionError · HTTPSConnectionPool(...) · span b2d4f6b8
+  Why:      It couldn't reach the service (pay.example.com), while using "refund_payment". It tried 3 times.
+  Did:      Tried to move money with "refund_payment" (guessed from its name). It did not go through, but may have partly happened.
+  Next:     Check that the service is running and its address is right.
 
-What it changed
-  Step 5. Tried to change, but it did not work: Used "refund_payment" with order_id 1042, amount 40.00, api_key (hidden) (judged from the tool's name). The record can't show whether anything was partly done.
-
-Step by step
-  ✓ 1. Asked the AI (claude-sonnet-5-5), which decided to use "lookup_order".  +0.0s
-  ✓ 2. Used "lookup_order" with order_id 1042: it worked.  +1.2s
-     ✓ 3. Called GET orders.internal/api/orders/1042: the service answered 200.  +1.2s
-  ✓ 4. Asked the AI (claude-sonnet-5-5), which decided to use "refund_payment".  +1.7s
-  ✗ 5. Used "refund_payment" with order_id 1042, amount 40.00, api_key (hidden): it stopped because step 6 did not work.  +3.2s
-     ✗ 6. Called POST pay.example.com/v1/refunds: it couldn't reach the service (3 tries).  +3.2s
-
-How sure: everything above is read from the agent's record (9 recorded steps, run a1b2c3d4). Thunder ran nothing and used no AI. Values that look like secrets are hidden. See one step in full with --step <n>.
+  Every step: thunder why run.json --steps
 ```
+
+`--steps` gives the whole story: every step in order with how long into the run it happened, what happened just
+before the problem, what would have changed the outcome, and the original error.
 
 ## Commands
 
 ```sh
-thunder why run.json              # the story
+thunder why run.json              # the short story
+thunder why run.json --steps      # every step, and what happened just before the problem
 thunder why run.json --step 5     # everything the record says about step 5 (arguments, result, error)
+thunder why run.json --tools tools.json   # the agent's MCP tool list: what each tool declares it does
+thunder why run.json --allow read,send    # flag anything else; exits 1 if the run went beyond it
 thunder why run.json --json       # the same, as data, for tools and editors
 thunder why run.json --run 1111   # a file with several runs: pick one by the start of its id (default: the latest)
 cat run.json | thunder why -      # read standard input
@@ -74,11 +65,19 @@ it explains why.
   the service (3 tries)", or "it worked on the second try (before that, it asked too often…)".
 - **What would have changed the outcome** is said only as far as the record supports it: "if this step had worked,
   the run would not have stopped here". Thunder never guesses what the agent would have done next.
-- **Changes.** A step changes something when the record says so by its kind: `POST`/`PUT`/`PATCH`/`DELETE` requests,
-  database `INSERT`/`UPDATE`/`DELETE` and similar, or a tool whose name starts with a changing verb (`send_email`,
-  `refund_payment`, `cancelSubscription`). Each change says how it was judged. A tool whose name says neither
-  (`run_python`) is listed as "could not judge", never as safe. A change that failed is never reported as done, and
-  the record can't show whether it was partly done, so Thunder says that too.
+- **What it did to the world.** Each step that does something gets one kind, most serious first: **moves money**,
+  **deletes**, **sends**, **creates**, **changes**, **reads**. The kind comes from the strongest evidence the record
+  has, and the short story says which when it is not plain fact:
+  1. what the tool **declares**: its MCP annotations (`--tools`, with `readOnlyHint` / `destructiveHint`), or a
+     `thunder.effect` attribute on the span ("the tool says so": it is the tool's own claim);
+  2. the HTTP **request method** (`GET` reads, `DELETE` deletes, `POST`/`PUT`/`PATCH` change) or the **database
+     operation** (`SELECT`, `INSERT`, `UPDATE`, `DELETE`, and similar);
+  3. the tool's **name**: every word counts and the most serious wins, so `get_and_delete` deletes and
+     `lookupThenRefund` moves money ("guessed from its name").
+  A tool whose name says nothing (`run_python`) is listed as "can't tell what it does", never as safe. A step that
+  failed is never reported as done; it may have partly happened, so Thunder says that too.
+- **Allowed kinds.** `--allow read,send` names every step that went beyond them ("\"refund_payment\" tried to move
+  money. Only read and send are allowed.") and exits 1, so a pipeline can stop on it.
 - **Errors in plain words.** "It couldn't reach the service", "It wasn't allowed to do that", "A value it needed was
   empty". The original error stays on the `Details` line and in `--step`.
 - **Secrets are hidden**: values under names like `password`, `token`, `api_key`, `authorization`, and values
@@ -87,6 +86,6 @@ it explains why.
 ## Limits
 
 - Only what was recorded counts. A step the agent took without recording it is invisible to Thunder.
-- "Changes" are judged from names and methods when the record doesn't say. A tool named `get_and_delete` is read as
-  `get` (the first verb). Use `--step` to see what the tool actually received.
+- Without `--tools` or `thunder.effect`, a tool's kind is a guess from its name, and the short story says so. Use
+  `--step` to see what the tool actually received.
 - The agent's own words ("which answered …") are quoted, not checked.
