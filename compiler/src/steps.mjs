@@ -327,6 +327,30 @@ function matchingClose(str, open) {
   return -1;
 }
 const lastWords = (path) => words(String(path).split('.').pop());
+/**
+ * A call's name in words, never ending on a dangling preposition: a function named after what it is for
+ * (`changeApprovalFor(x, …)`) gets its first argument when that is a plain name ("change approval for x"), and
+ * otherwise loses the preposition ("change approval"), instead of "change approval for ".
+ */
+const ENDS_ON_PREPOSITION = /\s(?:for|from|to|of|with|by|in|on|at|about|into|as|via)$/;
+function callWords(c, text) {
+  const w = lastWords(c);
+  if (!ENDS_ON_PREPOSITION.test(w)) return w;
+  const args = String(text ?? '');
+  const open = args.indexOf('(');
+  if (open >= 0) {
+    let depth = 0, end = open + 1;
+    for (; end < args.length; end++) {
+      const ch = args[end];
+      if ('([{'.includes(ch)) depth++;
+      else if (')]}'.includes(ch)) { if (depth === 0) break; depth--; }
+      else if (ch === ',' && depth === 0) break;
+    }
+    const first = args.slice(open + 1, end).trim();
+    if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(first)) return `${w} ${words(first.split('.').pop())}`;
+  }
+  return w.replace(ENDS_ON_PREPOSITION, '');
+}
 /** "cmd.commandCalledAs.called" -> "called on command called as"; "this.count" -> "count". */
 function targetWords(path) {
   // (C, C++, Swift: an index keeps its place, `events[i].mask` is "the mask of events[i]", never just "events".)
@@ -405,7 +429,7 @@ function sayValue(expr) {
     if (/^new\s/.test(e)) return `a new ${c.split('.').pop()}`;
     // Swift makes a value by calling its type: Loan(title: t) is a new Loan (so does C++: std::string(s)).
     if ((LANG === 'swift' || LANG === 'cpp') && /^[A-Z]\w*$/.test(c) && !/^[A-Z][A-Z0-9_]+$/.test(c) && !C_STYLE_FUNCTION.test(c)) return `a new ${c}`;
-    return `the result of ${lastWords(c)}`;
+    return `the result of ${callWords(c, e)}`;
   }
   if (LANG === 'swift' && /^[A-Za-z_][\w.]*\.count$/.test(e)) return `how many ${possessiveWords(e.replace(/\.count$/, ''))}`;
   // A path keeps its owner: `callback.call` is "the callback's call", not "call"; `Boolean.TYPE` stays as written.
@@ -1558,7 +1582,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
   if ((m = head.match(/^(?:const|let|var|val)\s+([{[])\s*(.*?)\s*[}\]]\s*(?::\s*[^=]+)?=\s*(.+)$/))) {
     const names = m[2].split(',').map((x) => x.trim().split(/\s*[:=]\s*/)[0].replace(/^\.\.\./, '')).filter(Boolean).map(words);
     const value = stripTail(m[3]); const c = callee(value);
-    const from = c ? lastWords(c) : (sayValue(value) || words(value.split('.').pop()));
+    const from = c ? callWords(c, value) : (sayValue(value) || words(value.split('.').pop()));
     return { kind: 'set', says: `Takes ${names.slice(0, 4).join(', ')}${names.length > 4 ? ', …' : ''} from ${from}`, code };
   }
   if ((m = head.match(/^(?:var|const)\s*\($/))) return { kind: 'set', says: 'Declares some values', code };
@@ -1575,7 +1599,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
       // (C++: `Status s = FindTable(…)` calls FindTable; only `Foo f = Foo(…)` makes a new Foo.)
       if (/^new\s/.test(value) || (makesType(c) && (LANG !== 'cpp' || sameType(c, m[1])))) return { kind: 'set', says: `Creates a new ${c.split('.').pop()} as ${target}`, code };
-      return { kind: 'set', says: `Works out ${target} from ${lastWords(c)}`, code, callee: c };
+      return { kind: 'set', says: `Works out ${target} from ${callWords(c, value)}`, code, callee: c };
     }
     const v = value ? sayValue(value) : null;
     return { kind: 'set', says: v ? `Sets ${target} to ${v}` : `Works out ${target}`, code };
@@ -1636,7 +1660,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
       const known = sayCall(c, firstArgs(value));
       if (known) return { kind: 'call', says: `${known}, keeping the result as ${target}`, code, callee: c };
       if (/^new\s/.test(value) || (makesType(c) && (LANG !== 'cpp' || sameType(c, declType)))) return { kind: 'set', says: `Creates a new ${c.split('.').pop()} as ${target}`, code };
-      return { kind: 'set', says: `Works out ${target} from ${lastWords(c)}`, code, callee: c };
+      return { kind: 'set', says: `Works out ${target} from ${callWords(c, value)}`, code, callee: c };
     }
     if (!value) return { kind: 'set', says: `Works out ${target}`, code };
     if (m[2] === '+=' || m[2] === '-=') { const what = /^[\w.]+$/.test(value) ? `${value.split('.').filter((p) => !/^(self|this)$/.test(p)).slice(-2).map(words).join(' ')} ` : /^-?\d+(\.\d+)?$/.test(value) ? `${value} ` : ''; return { kind: 'set', says: what ? `${m[2] === '+=' ? 'Adds' : 'Subtracts'} ${what}${m[2] === '+=' ? 'to' : 'from'} ${target}` : `${m[2] === '+=' ? 'Adds to' : 'Subtracts from'} ${target}`, code }; }
@@ -1663,7 +1687,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
   const c = callee(head);
   if (c) {
     const known = sayCall(c, firstArgs(head));
-    return { kind: 'call', says: known || `Calls ${lastWords(c)}`, code, callee: c };
+    return { kind: 'call', says: known || `Calls ${callWords(c, head)}`, code, callee: c };
   }
   if ((m = head.match(/^([a-z_][\w.]*[?!]?)\s+(?![=<>!+\-*/%]|and\b|or\b|if\b|unless\b)(.+)$/)) && !/^(?:if|for|while|return|else|elsif|when|case|def|class|module|end|not|const|let|var|val|new|await|typeof|delete|void|in|of|throw|import|export|from|as|is)$/.test(m[1])) {
     if (/^assert/.test(m[1])) return { kind: 'check', says: `Checks: ${clip(head, 60)}`, code };

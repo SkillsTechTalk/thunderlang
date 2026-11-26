@@ -324,7 +324,8 @@ function findFunctions(src, language) {
   const patterns = {
     typescript: [
       /(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*(?:<[^>]*>)?\s*\(/g,
-      /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*(?:async\s*)?(?:<[^>]*>)?\(/g,
+      // The type annotation stops at the end of its statement (";"), or `let a: T;` would name the next line's function.
+      /(?:export\s+)?(?:const|let|var)\s+(\w+)\s*(?::[^=;]+)?=\s*(?:async\s*)?(?:<[^>]*>)?\(/g,
       /^\s*(?:public\s+|private\s+|protected\s+|static\s+|async\s+|readonly\s+)*(\w+)\s*(?:<[^>]*>)?\s*\(/gm,
     ],
     go: [/func\s+(?:\([^)]*\)\s*)?(\w+)\s*(?:\[[^\]]*\])?\s*\(/g],

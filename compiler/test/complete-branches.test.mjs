@@ -94,7 +94,7 @@ test('Go: if with a setup statement keeps its condition; the err idiom reads as 
   assert.ok(branch.otherwise.length);
   assert.equal(loop.kind, 'loop');
   assert.match(loop.says, /^Counts i from 0 while/);
-  assert.equal(classifyStatement('_, err := buf.WriteTo(w)').says, 'Works out err from write to');
+  assert.equal(classifyStatement('_, err := buf.WriteTo(w)').says, 'Works out err from write to w'); // (it once ended on "to")
 });
 
 test('Java and C#: switch cases, casts, typed declarations, factory-made errors', () => {

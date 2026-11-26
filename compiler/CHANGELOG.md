@@ -1,3 +1,11 @@
+# Unreleased
+
+- **Reading fixes (reported from OpenThunder).** (1) A helper assigned below a typed variable (`let a: { … } | undefined;`
+  then `const approve = (x) => {`) was named after the variable; the type annotation now stops at its statement's end.
+  (2) A call named after a preposition no longer leaves a sentence hanging: `changeApprovalFor(x, …)` reads "change
+  approval for x" (its first argument, when that is a plain name), or "change approval" otherwise, never "change
+  approval for ". (3) "an AgentCheckResult", "an Order", "a User", "a URL": the article follows the sound.
+
 # 1.2.0
 
 **Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why

@@ -499,6 +499,22 @@ function chainCallees(e) {
   return out;
 }
 const sameWords = (a, b) => splitWords(a).join('') === splitWords(b).join('');
+/**
+ * The name a step gives a call: its own name, or (for a name that ends on a preposition, `changeApprovalFor`) its name
+ * followed by its first argument, which must be a name in the code ("change approval for x"), or its name without
+ * the preposition ("change approval"). See callWords in steps.mjs.
+ */
+const PREPOSITION_END = /(?:for|from|to|of|with|by|in|on|at|about|into|as|via)$/i;
+function callNamed(callee, said, code) {
+  if (sameWords(callee, said)) return true;
+  const cw = splitWords(callee);
+  if (!cw.length || !PREPOSITION_END.test(cw[cw.length - 1])) return false;
+  const sw = splitWords(said);
+  if (sw.join('') === cw.slice(0, -1).join('')) return true;
+  if (sw.length <= cw.length || sw.slice(0, cw.length).join('') !== cw.join('')) return false;
+  const rest = sw.slice(cw.length).join('');
+  return splitWords(String(code)).some((w, i, all) => all.slice(i, i + sw.length - cw.length).join('') === rest);
+}
 
 /** Language keywords that begin the statement (the step's code). */
 const leadingWord = (code) => (String(code).trim().match(/^[A-Za-z_]+/) || [''])[0];
@@ -708,7 +724,7 @@ function checkStep(step, ctx) {
     if (/^Works out (.+?) from (.+)$/.test(says) && tree.kind === 'assign') {
       const m = /^Works out (.+?) from ([\w ]+)$/.exec(says);
       const callees = chainCallees(tree.value);
-      if (m && callees.length && !callees.some((c) => sameWords(c, m[2]))) return M('L335');
+      if (m && callees.length && !callees.some((c) => callNamed(c, m[2], code))) return M('L335');
     }
     if (/\bif\b.*\botherwise\b/.test(said) && ![...nodesOf(tree)].some((n) => n.kind === 'conditional' || n.kind === 'if')) return WHY.form;
   }
@@ -1037,7 +1053,7 @@ function safeForm(step, says, code, lang = '') {
     if (!w || KEYWORD_CALLEE.test(lastName(m[2]))) return WHY.unparsed;
     const tw = w[1].replace(/^the (?:[\w ]+?'s )?/, '');
     if (!sameWords(target, tw) && !sameWords(m[1].replace(/->/g, '.'), w[1])) return WHY.unparsed;
-    if (w[2] && !sameWords(lastName(m[2]), w[2])) return WHY.unparsed;
+    if (w[2] && !callNamed(lastName(m[2]), w[2], c)) return WHY.unparsed;
     return null;
   }
   if (step.kind === 'return' && (m = /^return\s+(?:\([A-Za-z_][\w\s*]*\)\s*)?(?:await\s+)?([A-Za-z_][\w]*(?:\s*(?:\.|->|::)\s*[A-Za-z_][\w]*)*)\s*(\()?/.exec(c))) {
