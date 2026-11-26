@@ -1538,6 +1538,12 @@ export function statementExpr(raw) {
 }
 const codeExpr = (text) => ({ kind: 'code', text: String(text ?? '').replace(/\s+/g, ' ').trim() });
 
+/**
+ * A first line that opens an object as a call's argument, `fetch(url, {` / `post({`: the statement goes on to the
+ * line that closes the call, so it is read whole. (A callback, `items.forEach((x) => {`, is a block: not this.)
+ */
+const callWithObject = (first) => /[(,]\s*\{\s*$/.test(first) && !/=>\s*\{\s*$/.test(first) && !bracketsClosed(first.replace(/\{\s*$/, ''));
+
 function classifyWords(raw, { inner = 0 } = {}) {
   const text = String(raw).trim();
   // A condition written over several lines (`if (\n  a &&\n  b\n) {`) is read whole.
@@ -1563,7 +1569,7 @@ function classifyWords(raw, { inner = 0 } = {}) {
   if (/^return\s*\(\s*$/.test(first) && /^\s*</.test(text.split('\n')[1] || '')) first = `return (${text.split('\n')[1].trim()}`;
   // A statement written over several lines (`return a\n  && b`, `x =\n  cond ? y : z`, `return (\n  <div>…`) is read
   // whole, so a value is never cut to its first line.
-  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && (!/[{:]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^(?:const|let|var|val)\s*[{[]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first)) && !/=>\s*\{?\s*$/.test(first) && text.length < 2000 && balancedText(text) && (!/\{\s*$/.test(text.split('\n')[0]) || /^(?:const|let|var|val)\s*[{[]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first))) {
+  else if (text.includes('\n') && !/^(?:if|else|elif|elsif|for|foreach|while|until|switch|try|catch|finally|do|match|loop|when|case|default|unless|with|def|fn|fun|func|function|class|struct|interface|enum|impl|object|begin|select|using|lock)\b/.test(first) && (!/[{:]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^(?:const|let|var|val)\s*[{[]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first) || callWithObject(first)) && !/=>\s*\{?\s*$/.test(first) && text.length < 2000 && balancedText(text) && (!/\{\s*$/.test(text.split('\n')[0]) || /^(?:const|let|var|val)\s*[{[]\s*$/.test(first) || /^(?:return|throw|yield)\s*[{[(]\s*$|^[^=(]*[^=!<>]=\s*[{[]\s*$/.test(first) || callWithObject(first))) {
     const lines = text.split('\n');
     const joined = lines.map((l) => l.trim()).join(' ');
     if (!bracketsClosed(first) || /(?:[-+*/%&|^=<>?:.,(\[]|\b(?:and|or|not|in))\s*$/.test(first) || /^\s*(?:[-+*/%&|^=<>?:.)\]]|&&|\|\||\b(?:and|or)\b)/.test(lines[1] || '')) first = joined;

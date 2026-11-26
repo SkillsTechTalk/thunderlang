@@ -66,8 +66,18 @@ function cDocAbove(src, idx) {
 
 /** The body of a brace block with nested blocks removed: the type's own declarations, not its methods' bodies. */
 function ownLevel(body) {
-  let depth = 0, own = '';
-  for (const c of body) { if (c === '{') depth++; if (depth === 0) own += c; if (c === '}') depth--; }
+  let depth = 0, own = '', start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === '{') { if (depth === 0) start = i; depth++; }
+    if (depth === 0) own += c;
+    if (c === '}') {
+      depth--;
+      // A value's initializer (`= new() { ["a"] = 1 }`, `= new List<int> { 1, 2 }`, `= { 1, 2 }`) is kept as a
+      // mark, so a filled-in value never reads as empty; a method's body is dropped.
+      if (depth === 0 && /(?:=|\bnew\b[\w.<>,[\] ?]*(?:\([^()]*\))?)\s*$/.test(own) && body.slice(start + 1, i).trim()) own = `${own.replace(/\s+$/, '')} {…}`;
+    }
+  }
   return own;
 }
 
@@ -95,7 +105,12 @@ function goDoc(src, at, name) {
 const MODIFIERS = /^(?:(?:public|private|protected|internal|static|final|readonly|const|volatile|transient|override|open|abstract|sealed|lateinit|required|unsafe|mut|pub(?:\([^)]*\))?|var|val|let)\s+)*/;
 
 export function makeThingReaders({ words, kindWords, startValue }) {
-  const know = (name, type, start, params, line = null) => ({ name, label: words(name.replace(/^[_$]+|_$/g, '')), kind: type ? kindWords(type) : null, start: start != null && start !== '' ? startValue(start, params) : null, line });
+  // (C#'s `new()` names no type: it is empty only when the declared type is a list or lookup table.)
+  const know = (name, type, start, params, line = null) => {
+    const kind = type ? kindWords(type) : null;
+    const said = start != null && start !== '' ? (/^new\(\)$/.test(String(start).trim()) && !/^(a list|a lookup table|a set)/.test(kind ?? '') ? 'worked out when it starts' : startValue(start, params)) : null;
+    return { name, label: words(name.replace(/^[_$]+|_$/g, '')), kind, start: said, line };
+  };
 
   /** Java, C#, Kotlin, PHP: brace-bodied classes. */
   function curlyThings(src, file, language) {
@@ -164,6 +179,8 @@ export function makeThingReaders({ words, kindWords, startValue }) {
           thing.knows.push(know(f[2], f[1], f[3], params));
         }
       }
+      // A property that shows a field (`_orders` and `Orders`) is the same thing known twice: keep it once.
+      thing.knows = thing.knows.filter((k, i, all) => all.findIndex((x) => x.label === k.label) === i);
       // Starting values set in the constructor: this.x = …; / $this->x = …; / x = … (Kotlin init blocks).
       const ctorRe = language === 'php' ? /function\s+__construct\s*\(([^)]*)\)\s*\{/ : language === 'kotlin' ? /\binit\s*\{/ : new RegExp(`(?:public|private|protected|internal)?\\s*${name}\\s*\\(([^)]*)\\)\\s*(?::\\s*(?:this|base)\\([^)]*\\)\\s*)?\\{`);
       const ctor = body.match(ctorRe);
