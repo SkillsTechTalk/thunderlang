@@ -1,3 +1,11 @@
+# Unreleased
+
+- **`thunder try`: what if?** Try a rule from your code with your own values: `thunder try register.ts --with
+  "age=15, parent approved=no"` prints the answer and why, check by check (✓/✗ with the value it saw). Without
+  `--with`, it asks for each value, explains a mistyped one, and offers another case. Only rules can be tried (they
+  change nothing); an action is refused with the command to read it, and a rule too complex for the engine is refused
+  with the reason. `--focus` picks a rule; `--json` gives data. Same engine as the web rule editor.
+
 # 1.1.0
 
 - **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry
