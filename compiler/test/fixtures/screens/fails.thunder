@@ -1,0 +1,6 @@
+# A screen that can't be shown: an item that is not there. It says why, with the line, as thunder run does.
+
+Screen Broken:
+  Remember items starting at ["a"]
+  Show a heading "Items"
+  Show items at 3

@@ -1,5 +1,18 @@
 # Unreleased
 
+- **Thunder screens, built as React apps.** A `Screen` says what a person sees: `Receive` its inputs, `Remember` the
+  values it keeps (`Remember coupon as text, starting at ""`), then `Show` a heading, text, a list (`Show a list with
+  each item in items:`), a row, a text box or number box bound to a remembered value, a button (`(off when …)`,
+  `that opens Home`, or `When pressed:` with ordinary Thunder steps and `Open Home`), another screen with named inputs,
+  and `When` / `Otherwise` choices. A press runs on copies and changes everything or nothing; a failure (or `Stop with
+  "…"`) keeps nothing and the screen says why. `thunder run` prints the first screen as an outline;
+  `thunder build --target react` writes a Vite app (`<program>.tsx` with one component per screen, `useState` for each
+  Remember, `// thunder:N` marks, and a runtime that is the Thunder engine's own value and screen code). The engine and
+  React are checked against each other: react-dom/server HTML must equal the engine's screen for every screen program
+  in the tests, and 46 scripted presses and typings must give the same screen after each one; the TSX passes
+  `tsc --strict` and builds with Vite. New codes: TC118, TC119, TC212–TC214, TC406, TC407. Screens build only for React
+  (other targets refuse them with TC406). Design note: docs/screens.md.
+
 - **The live translator (thunderlang.dev/live).** Type code in Python, TypeScript, JavaScript, Java, C#, Go, or Rust
   and see Thunder's reading update as you type (for Python, also the Thunder Core you can edit and run). Or write
   Thunder and see it as Python, TypeScript, C#, Java, Go, and Rust, with what it prints, run by the Thunder engine in a

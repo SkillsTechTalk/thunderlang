@@ -1,0 +1,6 @@
+# A kept value that can't be worked out: the app says why instead of showing its screen.
+
+Keep rate at 10 / 0
+
+Screen Prices:
+  Show "The rate is {rate}"

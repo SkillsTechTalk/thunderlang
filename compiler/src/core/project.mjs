@@ -13,11 +13,14 @@ import { writeCSharp, csharpDiagnostics } from './csharp-run.mjs';
 import { writeRust, rustDiagnostics } from './rust-run.mjs';
 import { writeGo, goDiagnostics } from './go-run.mjs';
 import { writeJava, javaDiagnostics } from './java-run.mjs';
+import { writeReact, reactDiagnostics } from './react-run.mjs';
+import { hasScreens } from './target-react.mjs';
+import { diag } from './diagnostics.mjs';
 
 /** The languages a Thunder Core project can be compiled to. */
-export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go', 'java'];
+export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go', 'java', 'react'];
 /** How a target is named to people. */
-export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust', go: 'Go', java: 'Java' };
+export const TARGET_NAMES = { python: 'Python', typescript: 'TypeScript', csharp: 'C#', rust: 'Rust', go: 'Go', java: 'Java', react: 'React' };
 
 export const PROJECT_FILE = 'thunder.toml';
 
@@ -82,7 +85,7 @@ export function moduleNameFor(file) {
  * Compile a project (or a single file when `single` is given). Writes generated/python/<module>.py for every
  * file plus thunder_runtime.py. Returns { ok, results: [{ file, module, ok, diagnostics }], outDir, entryModule }.
  */
-export function buildProject({ root, single = null, includeTests = false, write = true, config = null, target = null }) {
+export function buildProject({ root, single = null, includeTests = false, write = true, config = null, target = null, refuseScreens = false }) {
   const cfg = config ?? (single && !findProjectRoot(single) ? null : loadProject(root));
   const base = cfg ? cfg.root : dirname(resolve(single));
   // --target overrides thunder.toml; a different target than the project's builds into generated/<target>.
@@ -113,8 +116,17 @@ export function buildProject({ root, single = null, includeTests = false, write 
   if (tgt === 'go') for (const r of results.filter((x) => x.ok)) { const d = goDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   // The same for Java: Python modules exist only for the Python target.
   if (tgt === 'java') for (const r of results.filter((x) => x.ok)) { const d = javaDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  const entryPath = single ? resolve(single) : cfg?.entry ? join(cfg.root, cfg.entry) : join(base, cfg?.src ?? '.', 'main.thunder');
+  const entry = results.find((r) => r.path === entryPath) ?? results.find((r) => r.kind === 'src');
+  // Screens are built for React; building one for another target would leave them out, so it is refused (TC406).
+  if (tgt === 'react') for (const r of results.filter((x) => x.ok && x.kind !== 'test')) { const d = reactDiagnostics(r, { entry: r === entry }); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  else if (refuseScreens) for (const r of results.filter((x) => x.ok && hasScreens(x.info))) {
+    r.diagnostics = [...r.diagnostics, diag('TC406', r.info.screens[0].line, `"${r.info.screens[0].text}" is a screen, and screens are built as a React app, not for ${TARGET_NAMES[tgt]}.`, 'Build it with: thunder build --target react. thunder run shows the screen as an outline.')];
+    r.ok = false;
+  }
   const ok = results.every((r) => r.ok);
   if (ok && write && tgt === 'typescript') writeTypeScript(results, outDir);
+  if (ok && write && tgt === 'react') writeReact(results, outDir, { entry });
   if (ok && write && tgt === 'java') writeJava(results, outDir);
   if (ok && write && tgt === 'python') {
     mkdirSync(outDir, { recursive: true });
@@ -129,8 +141,6 @@ export function buildProject({ root, single = null, includeTests = false, write 
       '',
     ].join('\n'));
   }
-  const entryPath = single ? resolve(single) : cfg?.entry ? join(cfg.root, cfg.entry) : join(base, cfg?.src ?? '.', 'main.thunder');
-  const entry = results.find((r) => r.path === entryPath) ?? results.find((r) => r.kind === 'src');
   if (ok && write && tgt === 'csharp') writeCSharp(results, outDir, { entry });
   if (ok && write && tgt === 'rust') writeRust(results, outDir, { entryModule: entry?.module ?? null });
   if (ok && write && tgt === 'go') writeGo(results, outDir, { entry: entry?.module ?? null });

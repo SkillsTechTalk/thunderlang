@@ -1,0 +1,32 @@
+# Moving between screens: "that opens", "Open" after steps, a failed press that does not move, and remembered
+# values that start again when a screen is opened again.
+# do: press "Settings"
+# do: type "Your name" "Ada"
+# do: press "Save"
+# do: type "Your name" ""
+# do: press "Save and go home"
+# do: type "Your name" "Grace"
+# do: press "Save and go home"
+# do: press "Settings"
+
+Screen Home:
+  Receive greeting as text ("Welcome" if not given)
+  Show a heading: greeting
+  Show a button "Settings" that opens Settings
+
+Screen Settings:
+  Remember name as text, starting at ""
+  Remember saved starting at 0
+  Show a heading "Settings"
+  Show a text box "Your name" for name
+  Show "Saved {saved} times."
+  Show a button "Save":
+    When pressed:
+      Increase saved by 1
+  Show a button "Save and go home":
+    When pressed:
+      When name is empty:
+        Stop with "Type a name first."
+      Increase saved by 1
+      Open Home
+  Show a button "Back" that opens Home

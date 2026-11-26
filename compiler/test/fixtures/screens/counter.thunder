@@ -1,0 +1,36 @@
+# A counter: a remembered number, buttons that are off at the ends, a number box, and text with holes.
+# do: press "Less"
+# do: press "More"
+# do: press "More"
+# do: press "More"
+# do: press "More"
+# do: type "Step" "2"
+# do: press "Less"
+# do: type "Step" ""
+# do: press "Reset"
+
+Keep most at 3
+
+Screen Counter:
+  Remember count starting at 0
+  Remember step starting at 1
+  Show a heading "Counter"
+  Show "The count is {count} (at most {most})."
+  When count is most:
+    Show "That's the most."
+  Otherwise when count is 0:
+    Show "Nothing yet."
+  Show a number box "Step" for step
+  Show a row:
+    Show a button "Less" (off when count is 0):
+      When pressed:
+        Decrease count by step
+        When count is less than 0:
+          Set count to 0
+    Show a button "More" (off when count is at least most):
+      When pressed:
+        Increase count by step
+  Show a button "Reset":
+    When pressed:
+      Set count to 0
+      Set step to 1

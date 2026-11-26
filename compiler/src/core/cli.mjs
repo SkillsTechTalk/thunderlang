@@ -21,7 +21,8 @@ import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
 import { paint, paintThunder, useColor } from '../term.mjs';
 import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
-import { recordedRun } from './engine-core.mjs';
+import { recordedRun, screenApp, screenOutline, runInProcess } from './engine-core.mjs';
+import { hasScreens } from './target-react.mjs';
 import { COMPILER_VERSION } from '../emit.mjs';
 
 /** The format of a Time Machine recording (thunder run --record, thunder replay). */
@@ -111,7 +112,8 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       if ((a.engine && a.engine !== 'thunder') || (a.target && a.target !== 'python')) { warn('thunder run: a recording is made on the Thunder engine; leave out --engine and --target.'); return 2; }
     }
     if (a.target !== null && a.target !== 'python' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target ${a.target} runs compiled ${TARGET_NAMES[a.target] ?? a.target}, --engine thunder runs Thunder directly.`); return 2; }
-    const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check', target: a.target });
+    if (a.target === 'react' && cmd === 'test') { warn('thunder test: tests run on Python (the default) or on the Thunder engine (--engine thunder). --target react builds the app: thunder build --target react.'); return 2; }
+    const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check' && !(cmd === 'run' && a.target === 'react'), target: a.target, refuseScreens: cmd === 'build' });
     if (cmd === 'check') {
       if (a.json) { say(JSON.stringify({ ok: build.ok, files: build.results.map((r) => ({ file: relative(cwd, r.path), diagnostics: r.diagnostics })) }, null, 2)); return build.ok ? 0 : 1; }
       const n = report(build, cwd);
@@ -121,6 +123,15 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     }
     if (!build.ok) { const n = report(build, cwd); warn(`thunder ${cmd}: ${n} problem${n === 1 ? '' : 's'}; nothing was ${cmd === 'build' ? 'built' : 'run'}.`); return 1; }
     const out = relative(cwd, build.outDir) || '.';
+    if (cmd === 'run' && a.record == null && build.entry && hasScreens(build.entry.info)) return showScreens(build, warn);
+    if (cmd === 'build' && build.target === 'react') {
+      const shown = build.results.filter((r) => r.kind !== 'test' && hasScreens(r.info));
+      say(`thunder build: ${shown.length} file${shown.length === 1 ? '' : 's'} with screens -> ${out}/ (React)`);
+      for (const r of shown) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.tsx`);
+      say(`  ${out}/main.tsx and index.html (the app starts on "${build.entry.info.screens[0].text}"), thunder_runtime.mjs (the small runtime it uses), thunder.css, package.json`);
+      say(`  run it: cd ${out} && npm install && npm run dev   (Node 18 or newer; check the types with: npm run typecheck)`);
+      return 0;
+    }
     if (cmd === 'build' && build.target === 'rust') {
       say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Rust)`);
       for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${rustModule(r.module)}.rs`);
@@ -188,6 +199,26 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     return 2;
   }
   return null;
+}
+
+/**
+ * thunder run on a program with screens: its steps (if any) run on the Thunder engine, then its first screen is shown
+ * as an outline. A screen needs someone to press its buttons, so the outline is the screen as it first appears.
+ */
+function showScreens(build, warn) {
+  const main = build.entry.program.main ?? [];
+  if (main.length) {
+    const r = runInProcess({ entry: build.entry, cwd: build.base, readText: (p, dir) => readFileSync(resolve(dir, p), 'utf8') });
+    if (r.refused) { warn(`thunder run: ${r.stderr.trim()}`); return 2; }
+    if (r.stdout) process.stdout.write(r.stdout);
+    if (r.stderr) { process.stderr.write(r.stderr); return r.status; }
+  }
+  const app = screenApp({ entry: build.entry, cwd: build.base, readText: (p, dir) => readFileSync(resolve(dir, p), 'utf8') });
+  const tree = app.render();
+  process.stdout.write(`${screenOutline(tree)}\n`);
+  if (tree.k === 'failed') return 1;
+  warn(paint(`(The app starts on this screen. Build it as a React app: thunder build --target react)`, useColor(process.stderr)));
+  return 0;
 }
 
 /** thunder run / test with the TypeScript target: the compiled TypeScript runs on Node. */

@@ -1,0 +1,38 @@
+# A to-do list: a button inside each item (it uses the item), two buttons with the same words, a press that
+# fails part way and changes nothing, and a list that learns what it holds.
+# do: press "Add"
+# do: type "New task" "Write the docs"
+# do: press "Add"
+# do: type "New task" "Ship it"
+# do: press "Add"
+# do: type "New task" "Write the docs"
+# do: press "Add"
+# do: press "Done" 1
+# do: press "Done" 1
+# do: press "Add all"
+
+Screen Tasks:
+  Remember tasks as a list of text, starting at []
+  Remember done starting at 0
+  Remember new task as text, starting at ""
+  Show a heading: "Tasks ({the count of tasks})"
+  Show a text box "New task" for new task
+  Show a button "Add" (off when new task is empty):
+    When pressed:
+      When tasks contains new task:
+        Stop with "\"{new task}\" is on the list already."
+      Add new task to tasks
+      Set new task to ""
+  Show a list with each task in tasks:
+    Show a row:
+      Show task
+      Show a button "Done":
+        When pressed:
+          Remove task from tasks
+          Increase done by 1
+  Show "Done so far: {done}"
+  Show a button "Add all":
+    When pressed:
+      Increase done by 100
+      Add "one" to tasks
+      Stop with "Nothing was added: this press stops after changing things."
