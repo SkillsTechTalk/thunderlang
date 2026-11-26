@@ -123,3 +123,10 @@ test('a TypeScript function whose return type is an object type is read from its
   assert.ok(!said.some((x) => /ok: boolean|out: string/.test(x)), said.join(' | '));
   assert.equal(said.at(-1), 'Returns r');
 });
+
+test('a JavaScript template with a worked-out value keeps its exact text, the value shown as «…»', () => {
+  const src = 'export function f(err: any) {\n  const msg = `Check could not run: ${String(err)}`;\n  return msg;\n}\n';
+  assert.equal(steps(src)[0], 'Sets msg to "Check could not run: «…»"');
+  assert.equal(accepted(src, 'typescript', 'Sets msg to "Check could not run: «…»"'), true);
+  assert.equal(accepted(src, 'typescript', 'Sets msg to "Check ran: «…»"'), false);
+});

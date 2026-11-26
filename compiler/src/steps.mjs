@@ -660,6 +660,8 @@ function sayCommon(value) {
   // A JavaScript template or a Python f-string whose values are plain names: the text kept exactly, each value a
   // «placeholder» (as for Swift); anything worked out inside a placeholder stays a summary.
   if (/^`/.test(e) || /^f["']/.test(e)) { const tv = templateTextWithValues(e); if (tv) return tv.length > 90 ? `${tv.slice(0, 88)}…"` : tv; }
+  // (A value worked out inside a JavaScript template is shown as «…», as in messages: the text around it is exact.)
+  if (/^`/.test(e) && /\$\{/.test(e)) { const q = templateWithValues(e, 80); if (q != null && !/"/.test(q)) return `"${q}"`; }
   if (/^(?:f|rf|fr)["']/.test(e) || /^`[^`]*\$\{/.test(e) || /^\$"/.test(e) || /^(?:fmt\.Sprintf|String\.format|format!)\(/.test(e)) return 'text built from its parts';
   // (`d.get("k", fallback)`: the fallback is said too, never dropped.)
   if ((m = e.match(/^([\w.]+)\.get\(\s*["'`]([\w.\-: ]{1,40})["'`]\s*\)$/))) return `the "${m[2]}" value from ${lastSeg(m[1])}`;

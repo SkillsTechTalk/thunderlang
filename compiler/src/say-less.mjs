@@ -762,6 +762,9 @@ function checkStep(step, ctx) {
         // A slice said by its ends ("the first 3 of xs"): the exact phrase for this slice, with the list's own name.
         const sl = sliceOf(v);
         if (sl) { if (!sliceSaid(sl, says)) return M('L327s'); }
+        // A template said as its text with «…» for a value worked out inside it: the text is checked as exact (values
+        // and quoted text above); what is inside a «…» is one level down, as in any summary.
+        else if (v.kind === 'template' && /^Sets [^"]+ to "[^"]*«…»[^"]*"$/.test(says)) { /* summary */ }
         else if (!newThing(v, says) && !namesKept(v, says)) return M('L327');
         if (castCount(v) && !/\bas\b|\bcopy\b|\bconverted\b|\bturned\b/.test(said)) return M('L328');
         if (!orderingKept(v, says)) return M('L329');
