@@ -15,6 +15,11 @@
   `thunder review` says when a function's steps moved into a new function it now runs, instead of listing each one as "no longer".
 - **Truer C# values:** a filled-in initializer (`= new() { ["a"] = 1 }`) is no longer "empty at first"; `0.08m` reads 0.08; `new()` of an object is not "empty"; a field and the property that shows it are listed once. Words inside text (`$"… bug (…) {x}"`) and a lambda passed as an argument are no longer read as methods. A folder's big picture no longer takes one file's description as the whole app's.
 - **Demo: `demo/checkout/`.** A three-language shop (TypeScript, C#, Python) where a retried checkout charged twice, the fix (one idempotency key end to end), and `run-demo.sh` to reproduce both and what Thunder reads.
+- **`@skillstech/thunderlang/program`: Thunder Core as a library, browser-safe.** One public entry for apps (OpenThunder,
+  the site, your own tools) to compile a program (`compileCore`), run it on the Thunder engine (`runInProcess`,
+  `recordedRun`, `testInProcess`), show and drive its screens (`screenApp`, `screenOutline`), and write it as Python,
+  TypeScript, C#, Java, Go, Rust, or React (`toPython` … `toReact`), plus `pythonToCore`, with types. A test checks
+  that nothing it imports needs Node, so it runs in a browser; until now this needed paths into the package's files.
 
 # 1.3.0
 
