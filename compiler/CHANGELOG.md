@@ -1,3 +1,12 @@
+# Unreleased
+
+- **Thunder Core compiles to Go.** `thunder build|run|test --target go` (or `target = "go"` in `thunder.toml`) compiles
+  a program to readable Go: one standard-library-only module (`go.mod`, one `.go` per Thunder file, and the runtime in
+  `thunder/thunder_runtime.go`, a port of the Thunder engine's value code: exact decimals with `math/big`, money rounded
+  half up, positions from 1). `go run .` runs it without Thunder. Every Core test program (136) gives the same output,
+  errors included, on Python, the Thunder engine, TypeScript, and Go; the conformance tests now run all four. `Use` (a
+  Python module) is refused for Go (TC405). Running needs Go 1.21+; without it, Thunder says so and `build` still works.
+
 # 1.2.0
 
 **Upgrade note.** Every existing command, flag, and exit code is unchanged, with one JSON change: in `thunder why

@@ -1,6 +1,7 @@
-// Run a Thunder Core program three ways: compiled to Python, on the Thunder engine (src/core/engine.mjs), and
-// compiled to TypeScript (src/core/target-typescript.mjs), and require the same output, the same error, and the same
-// exit status from all three. Used by every test
+// Run a Thunder Core program four ways: compiled to Python, on the Thunder engine (src/core/engine.mjs), compiled to
+// TypeScript (src/core/target-typescript.mjs), and compiled to Go (src/core/target-go.mjs), and require the same
+// output, the same error, and the same exit status from all of them. (The TypeScript and Go legs are skipped only
+// when Node can't run TypeScript or the go toolchain is missing.) Used by every test
 // that runs Core programs (core-run, core-stdlib, core-engine), so each program they run is also a conformance
 // check. A program that uses a Python module ("Use") is refused by the Thunder engine: that is the one intended
 // difference, and it is checked here too.
@@ -15,6 +16,10 @@ import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { runWithEngine, testWithEngine, pythonModulesUsed } from '../src/core/engine.mjs';
 import { writeTypeScript, runTypeScript, typescriptRunner, typecheckTypeScript, typescriptDiagnostics } from '../src/core/typescript-run.mjs';
+import { writeGo, runGo, goToolchain, goDiagnostics } from '../src/core/go-run.mjs';
+
+/** The go toolchain here, or why compiled Go can't run (then the Go leg is skipped). */
+export const GO = goToolchain();
 
 /** How compiled TypeScript runs here (Node's own type stripping, or the typescript package), or why it can't. */
 export const TS = typescriptRunner();
@@ -27,7 +32,7 @@ process.on('exit', () => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
 
 /** Programs compared on both engines in this test file, and programs the Thunder engine refused (Use). */
-export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0 };
+export const tally = { compared: 0, refused: 0, typescript: 0, typechecked: 0, go: 0 };
 
 const newDir = () => { const d = join(tmp, `p${n++}`); mkdirSync(d, { recursive: true }); return d; };
 const trim = (r) => ({ out: r.stdout.trim(), err: r.stderr.trim(), status: r.status });
@@ -55,11 +60,14 @@ export function bothEngines(results, { tests = false, entry = results[0], cwd = 
     assert.match(eng.stderr, new RegExp(`uses the Python module "${uses[0].module.replace(/\./g, '\\.')}"`));
     // Compiled TypeScript refuses it too, when it is built (TC405): Python modules exist only for the Python target.
     for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(typescriptDiagnostics(r)[0]?.code, 'TC405', `${label}: TypeScript must refuse Use`);
+    for (const r of tests ? results : [entry]) if (pythonModulesUsed([r]).length) assert.equal(goDiagnostics(r)[0]?.code, 'TC405', `${label}: Go must refuse Use`);
     tally.refused++;
     return PY.error ? trim(eng) : trim(runPython(results, { tests, entry, cwd: where, dir }));
   }
   const ts = runCompiledTypeScript(results, { tests, entry, cwd: where, dir, label });
   if (ts) assert.deepEqual(ts, trim(eng), `${label}\nCompiled TypeScript and the Thunder engine disagree on this program.`);
+  const go = runCompiledGo(results, { tests, entry, cwd: where, dir, label });
+  if (go) assert.deepEqual(go, trim(eng), `${label}\nCompiled Go and the Thunder engine disagree on this program.`);
   if (PY.error) return trim(eng);
   const py = trim(runPython(results, { tests, entry, cwd: where, dir }));
   assert.deepEqual(trim(eng), py, `${label}\nThe Thunder engine and Python disagree on this program.`);
@@ -81,6 +89,20 @@ export function runCompiledTypeScript(results, { tests = false, entry = results[
   const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
   const r = runTypeScript(out, tests ? 'run_tests.ts' : `${main.module}.ts`, { cwd: cwd ?? dir });
   tally.typescript++;
+  return trim(r);
+}
+
+/** Compile results to Go and run them (or their tests); null when Go can't run here. */
+export function runCompiledGo(results, { tests = false, entry = results[0], cwd = null, dir = newDir(), label = '' } = {}) {
+  if (GO.error) return null;
+  const withKind = results.map((r) => ({ ...r, module: r.module ?? 'main', kind: r.kind ?? 'src' }));
+  for (const r of withKind) assert.deepEqual(goDiagnostics(r), [], `${label}: a program for Go must not use Python modules`);
+  const out = join(dir, 'go');
+  const main = withKind.find((r) => r.file === entry.file && r.module === (entry.module ?? 'main')) ?? withKind[0];
+  writeGo(withKind, out, { entry: main.module });
+  const r = runGo(out, { tests, cwd: cwd ?? dir });
+  assert.ok(!r.buildFailed, `${label}\n${r.stderr}`);
+  tally.go++;
   return trim(r);
 }
 

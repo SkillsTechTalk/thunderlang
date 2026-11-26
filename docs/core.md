@@ -11,9 +11,9 @@ them, compiles them to Python, and runs them. The generated Python is ordinary c
                                        a failure names the Thunder line ◀┘ (TC5xx)
 ```
 
-**Status (v0).** There are two compilation targets: **Python 3.10+** (the default) and **TypeScript** (see
-"Compile to TypeScript"). Java, C#, Go, and Rust are planned. They will not be listed as available until they pass
-the same tests.
+**Status (v0).** There are three compilation targets: **Python 3.10+** (the default), **TypeScript** (see
+"Compile to TypeScript"), and **Go** (see "Compile to Go"). Java, C#, and Rust are planned. They will not be listed as
+available until they pass the same tests.
 The rules below in "What a value means" are the rules every future target must keep.
 
 ## Start
@@ -52,7 +52,7 @@ name = "my-program"
 version = "0.1.0"
 
 [build]
-target = "python"          # the only target in v0
+target = "python"          # or "typescript", or "go"
 source = "src"
 tests = "tests"
 output = "generated/python"
@@ -328,7 +328,34 @@ Or set it for the project in `thunder.toml`: `target = "typescript"` under `[bui
   (TC405): Python modules exist only for Python, and Thunder never swaps in a different library. npm libraries are not
   available from Thunder yet.
 
-Java, C#, Go, and Rust are planned. Each will be listed as available only once it passes the same tests.
+## Compile to Go
+
+The same program, compiled to Go and built with the go toolchain:
+
+```sh
+thunder build --target go     # generated/go/: one .go per file, go.mod, and the runtime in thunder/
+thunder run --target go       # build and run the compiled Go
+thunder test --target go      # run every Test block as Go
+```
+
+Or set it for the project in `thunder.toml`: `target = "go"` under `[build]` (output goes to `generated/go` unless
+`output` says otherwise). The output is an ordinary Go module: `cd generated/go && go run .` runs the program without
+Thunder, and `go run -tags thundertests .` runs its tests.
+
+- **The same meaning.** Every Core test program runs four ways: compiled to Python, on the Thunder engine, compiled to
+  TypeScript, and compiled to Go. The output, every error (its code, its words, its line, and "reached from"), and the
+  exit status must be the same, or the tests fail. The runtime (`thunder/thunder_runtime.go`) is a port of the Thunder
+  engine's value code: exact decimals (`math/big`), money rounded half up, positions from 1, strict yes/no, and the
+  same messages.
+- **Readable Go, standard library only.** Plain functions in one `main` package, records, and kept values; every
+  statement ends with `// thunder:N`. Values whose kind Thunder checks while running have the type `T.V`. A Thunder
+  error is a Go panic that each function's frame annotates on the way out, so the error names the Thunder line and
+  the calls that reached it. Nothing is downloaded: the module has no dependencies.
+- **How it runs.** Go 1.21 or newer (`go` on the PATH, or `THUNDER_GO`). `thunder build --target go` works without it.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405). Go packages are not available from Thunder yet.
+
+Java, C#, and Rust are planned. Each will be listed as available only once it passes the same tests.
 
 ## What the generated Python looks like
 
