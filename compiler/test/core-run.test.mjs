@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { CASES } from '../scripts/core-read-write.mjs';
+import { runBoth, tally } from './core-engines.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, '..', 'src', 'cli.mjs');
@@ -22,18 +23,12 @@ const tmp = mkdtempSync(join(tmpdir(), 'thunder-core-'));
 test.after(() => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
 
-/** Compile Thunder Core, run the Python, give back { out, err, status }. */
-function run(source, { tests = false } = {}) {
-  const r = compileCore(source, { file: 'main.thunder' });
-  assert.deepEqual(r.diagnostics, [], JSON.stringify(r.diagnostics));
-  const dir = join(tmp, `p${n++}`);
-  spawnSync('mkdir', ['-p', dir]);
-  writeFileSync(join(dir, 'thunder_runtime.py'), PYTHON_RUNTIME);
-  writeFileSync(join(dir, 'main.py'), r.python);
-  writeFileSync(join(dir, 'run_tests.py'), 'import thunder_runtime, main\nthunder_runtime.run_tests([main])\n');
-  const p = spawnSync(PY.cmd, [tests ? 'run_tests.py' : 'main.py'], { cwd: dir, encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
-  return { out: p.stdout.trim(), err: p.stderr.trim(), status: p.status };
-}
+/**
+ * Compile Thunder Core and run it on both engines (Python and the Thunder engine), which must agree; give back
+ * { out, err, status }. See core-engines.mjs.
+ */
+const run = (source, { tests = false } = {}) => runBoth(source, { tests });
+test.after(() => console.log(`# core-run: ${tally.compared} programs gave the same result on Python and the Thunder engine; ${tally.refused} use Python modules and were refused by the engine.`));
 const says = (source, expected) => { const r = run(source); assert.equal(r.err, ''); assert.equal(r.status, 0); assert.equal(r.out, expected); };
 
 test('hello world', { skip }, () => says('say "Hello, world!"', 'Hello, world!'));

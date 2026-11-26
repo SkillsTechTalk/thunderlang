@@ -1,3 +1,13 @@
+# Unreleased
+
+- **The Thunder engine: run Thunder Core without Python.** `thunder run --engine thunder` and
+  `thunder test --engine thunder` run a program on the Thunder engine, a second engine that runs the same checked
+  program the Python compiler uses. Python is not needed, and is still the default. Both engines must agree: every
+  Core test program now runs on both (output, errors with code, words, line and "reached from", and exit status),
+  and any difference fails the tests. A program that uses a Python module (`Use csv as csv`) is refused on the
+  Thunder engine before it runs; Thunder never imitates a library. Also available as `runWithEngine` /
+  `testWithEngine` in `src/core/engine.mjs`.
+
 # 1.1.0
 
 - **Thunder Why: what an AI agent did, in plain words.** `thunder why run.json` reads an agent run's OpenTelemetry

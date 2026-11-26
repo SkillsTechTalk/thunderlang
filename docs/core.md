@@ -272,6 +272,25 @@ For each row in rows:
 Code reached through `Use` is Python. Thunder's rules (exact money, positions from 1) apply to Thunder values,
 not inside the library. A failure inside the library is reported against the Thunder line that called it (TC508).
 
+## Run without Python: the Thunder engine
+
+```sh
+thunder run --engine thunder          # run the program on the Thunder engine: no Python needed
+thunder test --engine thunder         # run every Test block the same way
+```
+
+The Thunder engine runs the same checked program the Python compiler uses, so a program means the same thing on
+both: the same output, the same errors (code, words, line, and "reached from"), and the same exit status. Every
+program in Thunder's Core tests runs on both engines, and the results must match, or the tests fail.
+
+- **Python stays the default** and the production backend: `thunder run` and `thunder build` still compile to
+  Python, and the generated Python runs without Thunder.
+- **A program that uses a Python module is refused** on the Thunder engine, with the module and the line, before
+  anything runs. Thunder never imitates a library: `Use csv as csv` means Python's `csv`, so that program runs with
+  Python.
+- Calls can go as deep as on Python (about a thousand), and a program that goes deeper stops at the same call with
+  the same message.
+
 ## What the generated Python looks like
 
 Every generated line ends with `# thunder:N`, the Thunder line it came from. `thunder_runtime.py` is written next

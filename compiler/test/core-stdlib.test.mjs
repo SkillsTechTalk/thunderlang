@@ -10,22 +10,16 @@ import { compileCore, PYTHON_RUNTIME } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
 import { pythonToCore } from '../src/core/from-python.mjs';
 import { verifyRoundTrip } from '../src/core/round-trip.mjs';
+import { runBoth, tally } from './core-engines.mjs';
 
 const PY = findPython();
 const skip = PY.error ? `Python 3.10+ not found: ${PY.error}` : false;
 const tmp = mkdtempSync(join(tmpdir(), 'thunder-stdlib-'));
 test.after(() => rmSync(tmp, { recursive: true, force: true }));
 let n = 0;
-function run(source) {
-  const r = compileCore(source, { file: 'main.thunder' });
-  assert.deepEqual(r.diagnostics, [], JSON.stringify(r.diagnostics));
-  const dir = join(tmp, `p${n++}`);
-  spawnSync('mkdir', ['-p', dir]);
-  writeFileSync(join(dir, 'thunder_runtime.py'), PYTHON_RUNTIME);
-  writeFileSync(join(dir, 'main.py'), r.python);
-  const p = spawnSync(PY.cmd, ['main.py'], { cwd: dir, encoding: 'utf8' });
-  return { out: p.stdout.trim(), err: p.stderr.trim(), status: p.status };
-}
+// Every program runs on both engines (Python and the Thunder engine), which must agree (core-engines.mjs).
+const run = (source) => runBoth(source);
+test.after(() => console.log(`# core-stdlib: ${tally.compared} programs gave the same result on Python and the Thunder engine.`));
 const codes = (src) => compileCore(src, { file: 'main.thunder' }).diagnostics.map((d) => [d.code, d.message]);
 
 test('text: joined with, split at, the parts of, replacing, starts with, ends with', { skip }, () => {

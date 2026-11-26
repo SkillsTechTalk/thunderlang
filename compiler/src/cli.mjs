@@ -465,7 +465,9 @@ usage: thunder <command> <file> [options]
 Write and run programs (Thunder Core, docs/core.md)
   new <dir>                  create a Thunder Core project: thunder.toml, src/main.thunder, tests/
   run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file in one;
-                             add --core for a single file with no project. run/test need Python 3.10+
+                             add --core for a single file with no project. run/test need Python 3.10+, or add
+                             --engine thunder to run them on the Thunder engine (no Python; programs that Use a
+                             Python module are refused there)
 
 Author
   init [Name]                scaffold a runnable starter mission (Name.thunder)   [alias: new --mission Name]
