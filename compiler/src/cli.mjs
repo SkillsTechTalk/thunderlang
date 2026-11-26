@@ -49,8 +49,11 @@ import { verifyDiff } from './verify-diff.mjs';
 import { verifyRun, executedText, mergeTraces } from './executed.mjs';
 import { runtimeOverlay, runtimeText, fromTrace, fromStack, fromLogs, fromOtlp, parseStacks, explainError, countWords } from './running.mjs';
 import { thunderModel } from './model.mjs';
+import { LEVELS, readLevel, renderLevel, findFocus, nearestLevel } from './read-level.mjs';
 import { traceMain } from './trace-cli.mjs';
 import { whyMain } from './why-cli.mjs';
+import { tryMain } from './try-cli.mjs';
+import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
 import { coreMain } from './core/cli.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
@@ -333,6 +336,8 @@ function parseArgs(argv) {
     else if (a === '--role') args.role = argv[++i];
     else if (a === '--note') args.note = argv[++i];
     else if (a === '--search') args.search = argv[++i];
+    else if (a === '--level') args.level = argv[++i] ?? '';
+    else if (a === '--focus') args.focus = argv[++i];
     else if (a === '--kind') args.kind = (argv[++i] || '').split(',').map((k) => k.trim()).filter(Boolean);
     else if (a === '--in') args.inLang = argv[++i];
     else if (a === '--answer') args.answer = argv[++i];
@@ -462,6 +467,10 @@ The flow: author intent, inspect it, run and prove it, then keep real code align
 usage: thunder <command> <file> [options]
        thunder mission <Name> <command>     run any command on a mission by name
 
+Start
+  doctor [--json]            is this computer ready? Thunder, Node.js, Python, PATH, and optional toolchains (offline)
+  completion <zsh|bash|fish> a script that completes thunder commands when you press Tab
+
 Write and run programs (Thunder Core, docs/core.md)
   new <dir>                  create a Thunder Core project: thunder.toml, src/main.thunder, tests/
   run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file in one;
@@ -548,6 +557,7 @@ Graph & IR
                             previews the exact code change and the cases whose answer changes; --write saves it
   repo <owner/repo | github url | folder> [--json] [--max-files n]   Thunder a whole repository (read-only; nothing is executed)
   trace <folder…> [--json] [--out f]   Thunder Trace: routes, requests, and events linked across repositories, cited repo@sha:file:line
+  try <file> [--focus "<rule>"] [--with "name=value, …"] [--json]   try a rule from your code with your own values: the answer and why (rules only; nothing changes)
   why <run.json> [--step n] [--json]   what an AI agent did and why it stopped, in plain words, from its OpenTelemetry record
   trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
   thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
@@ -557,6 +567,9 @@ Graph & IR
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   text <file> [--json | --format source]    experimental Thunder Text rule (.thunder-plain): run its examples   [alias: plain]
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
+  read <file|dir> --level big-picture|flow|details|text|original [--focus "<action or rule>"] [--json]
+                             read at one depth, from the same model OpenThunder shows: the big picture, one action's flow,
+                             its exact details, its Thunder Text, or the original lines
   read <file.py> --as-core      the same code as Thunder Core you can edit and run (Python for now); lines it cannot say exactly are marked
        for a folder also: [--answer <Outcome>] [--input <name>] [--lang go,rust] [--path <prefix>] [--limit n]
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
@@ -590,16 +603,33 @@ function main() {
     console.log(`thunder ${COMPILER_VERSION} (the Thunder compiler, also called ThunderLang)`);
     return;
   }
+  const known = [...new Set([...knownCommands(HELP), ...Object.keys(VIEWS)])].sort();
   if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
-    console.log(HELP);
-    // exitCode, not exit(): the help is longer than a pipe's buffer, and exit() would cut it off when piped.
+    // `thunder help <command>`: just that command's lines from the full list.
+    const topic = cmd === 'help' ? restArgv.find((x) => !x.startsWith('-')) : null;
+    if (topic) {
+      const h = helpFor(topic, HELP);
+      if (h) { console.log(`${h}\n\nAll commands: thunder help --all`); process.exitCode = 0; }
+      else { console.error(unknownCommandText(topic, known)); process.exitCode = 2; }
+      return;
+    }
+    // The short home screen first; every command with --all. Exit codes are unchanged (2 with no command at all).
+    // exitCode, not exit(): the full help is longer than a pipe's buffer, and exit() would cut it off when piped.
+    console.log(restArgv.includes('--all') ? HELP : homeText(COMPILER_VERSION, known.length));
     process.exitCode = cmd ? 0 : 2;
     return;
   }
+  // thunder doctor: is this computer ready? Offline; changes nothing (src/cli-home.mjs).
+  if (cmd === 'completion') { process.exitCode = completionMain(restArgv, known); return; }
+  if (cmd === 'doctor') { process.exitCode = doctorMain(restArgv, { version: COMPILER_VERSION, cliPath: process.argv[1] }); return; }
+  // A command Thunder doesn't have (and not a file): say so, and suggest the closest ones, instead of failing later.
+  if (!known.includes(cmd) && !cmd.startsWith('-') && !existsSync(cmd)) { console.error(unknownCommandText(cmd, known)); process.exitCode = 2; return; }
   // Thunder Trace: links between repositories and what a change can affect (src/trace-cli.mjs).
   if (cmd === 'trace') { process.exitCode = traceMain(restArgv); return; }
   // Thunder Why: an AI agent's run explained in plain words, from its OpenTelemetry record (src/why-cli.mjs).
   if (cmd === 'why') { process.exitCode = whyMain(restArgv); return; }
+  // Thunder Try: try a rule from your code with your own values, and see the answer and why (src/try-cli.mjs).
+  if (cmd === 'try') { tryMain(restArgv).then((code) => { process.exitCode = code; }); return; }
   // Thunder Core (programs you write and run): thunder new <dir>, and run/build/test/check/format inside a
   // project with thunder.toml (or with --core). Mission files fall through unchanged. See src/core/cli.mjs.
   const coreCode = coreMain(cmd, restArgv);
@@ -607,6 +637,23 @@ function main() {
   if (cmd === 'read') {
     try {
       if (!file) throw new Error('Use thunder read <file> [--search q] [--kind decision,function,error,test] [--in <lang>] [--json].');
+      if (args.level != null) {
+        // The five reading levels, from the same model OpenThunder shows (src/read-level.mjs).
+        const ids = LEVELS.map((l) => l.id);
+        if (!ids.includes(args.level)) {
+          const near = nearestLevel(args.level);
+          throw new Error(`there is no level "${args.level}". The levels are: ${ids.join(', ')}.${near ? ` Did you mean --level ${near}?` : ''}`);
+        }
+        const isDir = statSync(file).isDirectory();
+        const files = isDir ? collectReadableFiles(file, { maxFiles: 5000 }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        const model = thunderModel(files, { name: basename(resolve(file)) });
+        const focus = findFocus(model, args.focus);
+        if (focus.error) throw new Error(focus.error);
+        const r = readLevel(model, args.level, focus.id);
+        if (args.json) { console.log(JSON.stringify(r, null, 2)); return; }
+        console.log(renderLevel(r, { sources: Object.fromEntries(files.map((f) => [f.path, f.source])), file }));
+        return;
+      }
       if (statSync(file).isDirectory()) { readFolder(file, args); return; }
       if (args.asCore) {
         // Reading and writing are one language: the reader's meaning tree printed as Thunder Core (docs/core.md).
@@ -1248,7 +1295,8 @@ test Example
   }
 
   if (!file && cmd !== 'draft' && cmd !== 'mission' && !(cmd === 'test' && args.changed)) {
-    console.error(`thunder ${cmd}: missing a file argument. Run "intent help" for usage.`);
+    if (['run', 'test', 'build', 'check'].includes(cmd)) console.error(noProjectText(cmd, process.cwd()));
+    else console.error(`thunder ${cmd}: missing a file argument. See: thunder help ${cmd}`);
     process.exit(2);
   }
 

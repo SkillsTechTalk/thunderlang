@@ -29,6 +29,7 @@ function parse(argv) {
     else if (x === '--check') a.check = true;
     else if (x === '--force') a.force = true;
     else if (x === '--mission') a.mission = true;
+    else if (x === '--run') a.run = true;
     else if (x.startsWith('--')) a.other = true;
     else a._.push(x);
   }
@@ -68,13 +69,16 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (cmd === 'new') {
       const root = newProject(resolve(cwd, t.new), { force: a.force });
       const rel = relative(cwd, root) || '.';
-      say(`thunder new: created a Thunder project in ${rel}`);
-      say(`  ${rel}/thunder.toml        the project: name, and build target = "python"`);
-      say(`  ${rel}/src/main.thunder    your program`);
-      say(`  ${rel}/tests/greet.thunder a test`);
-      say(`  next: cd ${rel}  then  thunder run   (and thunder test)`);
-      say(`  (wanted a mission file instead? thunder init ${t.new})`);
-      return 0;
+      say(`Created ${rel}, a new Thunder program.`);
+      say('');
+      say('Run it:');
+      say(`  thunder run ${rel}`);
+      say('');
+      say(`Then change ${join(rel, 'src', 'main.thunder')} and run it again. Check it works with: thunder test ${rel}`);
+      say(`(Wanted a mission file instead? thunder init ${t.new})`);
+      if (!a.run) return 0;
+      say('');
+      return coreMain('run', [root], cwd);
     }
     if (cmd === 'format' || cmd === 'fmt') return format(t, a, cwd);
     if (a.engine !== null && !ENGINES.includes(a.engine)) { warn(`thunder ${cmd}: there is no engine "${a.engine}". Use --engine python (the default) or --engine thunder.`); return 2; }

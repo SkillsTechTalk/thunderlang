@@ -3,8 +3,8 @@
 // It runs the SAME checked program the Python target compiles (compileCore -> program + info), so there is one
 // meaning of Thunder, not two. The language itself lives in engine-core.mjs (no Node APIs, so it also runs in a
 // browser); this file adds what a command line needs: reading files from disk, and a worker thread with a deep stack
-// so calls nest as deep as they do in Python. compiler/test/core-engine.test.mjs runs every Core test program on both
-// engines and compares the output, errors included. A difference is a bug in one of them.
+// for programs that nest calls deeper than the calling thread allows. compiler/test/core-engine.test.mjs runs every
+// Core test program on both engines and compares the output, errors included. A difference is a bug in one of them.
 //
 // A program that uses a Python module ("Use csv as csv") is not run here: Thunder never imitates a library.
 
@@ -19,28 +19,31 @@ export { ENGINES, pythonModulesUsed, refusalText, ThunderErr, PyErr };
 const readText = (path, cwd) => readFileSync(resolvePath(cwd, path), 'utf8');
 
 /**
- * Run a program with the Thunder engine. `results` are compileCore results (each with .file, and in a project
- * .kind 'src' | 'test'); `entry` is the one to run. Returns { status, stdout, stderr }, the way `python main.py`
- * would end: status 0, or 1 after an error reported in Thunder words.
+ * Run a program with the Thunder engine. `entry` is a compileCore result. Returns { status, stdout, stderr }, the way
+ * `python main.py` would end: status 0, or 1 after an error reported in Thunder words. On this thread first (fast, no
+ * worker); only a program that nests calls deeper than this thread's stack allows is run again on a worker with a
+ * deep stack. Running again is safe: the engine only collects output and reads.
  */
 export function runWithEngine({ entry, cwd = process.cwd() } = {}) {
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  return runSync({ entry, cwd });
+  const r = runCore({ entry, cwd, deeper: true, readText });
+  return r.needsDeeperStack ? runSync({ entry, cwd }) : r;
 }
 
-/** The same, on the calling thread (its stack allows only a few hundred nested calls). */
-export function runInProcess({ entry, cwd = process.cwd() } = {}) { return runCore({ entry, cwd, readText }); }
+/** The same, on the calling thread only. */
+export function runInProcess({ entry, cwd = process.cwd(), deeper = false } = {}) { return runCore({ entry, cwd, deeper, readText }); }
 
 /** Run every Test block, the way run_tests.py does: one line per test, then the totals. */
 export function testWithEngine({ results, cwd = process.cwd() } = {}) {
   const uses = pythonModulesUsed(results);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  return runSync({ results, cwd, tests: true });
+  const r = testCore({ results, cwd, deeper: true, readText });
+  return r.needsDeeperStack ? runSync({ results, cwd, tests: true }) : r;
 }
 
-/** The same, on the calling thread. */
-export function testInProcess({ results, cwd = process.cwd() } = {}) { return testCore({ results, cwd, readText }); }
+/** The same, on the calling thread only. */
+export function testInProcess({ results, cwd = process.cwd(), deeper = false } = {}) { return testCore({ results, cwd, deeper, readText }); }
 
 function runSync(job) {
   const shared = new Int32Array(new SharedArrayBuffer(4));

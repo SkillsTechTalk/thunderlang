@@ -24,6 +24,12 @@ export const ENGINES = ['python', 'thunder'];
 /** Thrown by Give: carries the value back to the call. */
 class Return { constructor(v) { this.v = v; } }
 
+/** JavaScript ran out of stack before Thunder's own limit: the run is retried on a thread with a deeper stack. */
+// Kept cheap on purpose: near the limit even a regular expression can run out of stack. A false alarm only means the
+// run is repeated on the deep-stack thread, so any RangeError (or a regular expression's "Stack overflow") counts.
+const nativeOverflow = (e) => { try { return e instanceof RangeError || (e instanceof SyntaxError && e.message.endsWith('Stack overflow')); } catch { return true; } };
+class NeedsDeeperStack extends Error {}
+
 const MAX_FRAMES = 997; // as deep as the generated Python goes (recursion limit 1000, less its own frames)
 
 /** The Python modules a program uses (Use), which this engine does not run. */
@@ -47,9 +53,12 @@ class Module {
 class Engine {
   // readText(path, cwd): the text of a file the program reads, or throws with .code 'ENOENT' / 'EISDIR'. Without it
   // (a browser), reading a file is reported as a missing file.
-  constructor({ cwd = '.', readText = null } = {}) {
+  constructor({ cwd = '.', deeper = false, readText = null } = {}) {
     this.cwd = cwd;
     this.readText = readText;
+    // deeper: if JavaScript's own stack runs out, stop and say so (NeedsDeeperStack) instead of reporting it as the
+    // program's error, so the caller can run it again where the stack is deep enough.
+    this.deeper = deeper;
     this.frames = [];
     this.out = [];
   }
@@ -85,7 +94,8 @@ class Engine {
     this.frames.push(frame);
     try { return fn(); }
     catch (e) {
-      if (e instanceof Return) throw e;
+      if (e instanceof Return || e instanceof NeedsDeeperStack) throw e;
+      if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
       const err = asPyErr(e);
       if (!err.where) err.where = this.frames.map((f) => ({ file: f.file, line: f.line }));
       throw err;
@@ -299,7 +309,8 @@ class Engine {
       case 'tryFail':
         try { this.stmt(s.stmt, env); }
         catch (e) {
-          if (e instanceof Return) throw e;
+          if (e instanceof Return || e instanceof NeedsDeeperStack) throw e;
+          if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
           const err = asPyErr(e);
           fr.line = L;
           env.locals.set(s.errPy, explain(err));
@@ -337,7 +348,8 @@ class Engine {
       const msg = s.msg ? this.x(s.msg, env) : null;
       try { this.x(s.e, env); }
       catch (e) {
-        if (e instanceof Return) throw e;
+        if (e instanceof Return || e instanceof NeedsDeeperStack) throw e;
+        if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
         const err = asPyErr(e);
         if (err.thunder && msg !== null) {
           if (typeof msg !== 'string') throw TypeErr(`'in <string>' requires string as left operand, not ${typeof msg === 'bigint' ? 'int' : 'object'}`);
@@ -756,26 +768,27 @@ function stripPunct(w) {
 // ── public API ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** The same, on the calling thread (its stack allows only a few hundred nested calls). */
-export function runInProcess({ entry, cwd, readText } = {}) {
+export function runInProcess({ entry, cwd, deeper = false, readText = null } = {}) {
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  const eng = new Engine({ cwd, readText });
+  const eng = new Engine({ cwd, deeper, readText });
   let stderr = '', status = 0;
   try {
     const mod = eng.load(entry);
     eng.runMain(mod);
   } catch (e) {
     if (e instanceof Return) { /* a Give outside a function ends the program */ }
+    else if (e instanceof NeedsDeeperStack || (deeper && nativeOverflow(e))) return { needsDeeperStack: true };
     else { stderr = `${eng.describeError(asPyErr(e))}\n`; status = 1; }
   }
   return { status, stdout: eng.out.join(''), stderr };
 }
 
 /** The same, on the calling thread. */
-export function testInProcess({ results, cwd, readText } = {}) {
+export function testInProcess({ results, cwd, deeper = false, readText = null } = {}) {
   const uses = pythonModulesUsed(results);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  const eng = new Engine({ cwd, readText });
+  const eng = new Engine({ cwd, deeper, readText });
   const mods = [];
   const srcMods = [];
   for (const r of results) {
@@ -791,6 +804,7 @@ export function testInProcess({ results, cwd, readText } = {}) {
         passed++;
         eng.out.push(`PASS  ${t.title} (${mod.file}, line ${t.line})\n`);
       } catch (e) {
+        if (e instanceof NeedsDeeperStack || (deeper && nativeOverflow(e))) return { needsDeeperStack: true };
         failed++;
         eng.out.push(`FAIL  ${t.title} (${mod.file}, line ${t.line})\n`, `      ${eng.describeError(asPyErr(e))}\n`);
       }
