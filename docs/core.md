@@ -11,9 +11,9 @@ them, compiles them to Python, and runs them. The generated Python is ordinary c
                                        a failure names the Thunder line ◀┘ (TC5xx)
 ```
 
-**Status (v0).** There are two compilation targets: **Python 3.10+** (the default) and **TypeScript** (see
-"Compile to TypeScript"). Java, C#, Go, and Rust are planned. They will not be listed as available until they pass
-the same tests.
+**Status (v0).** There are six compilation targets: **Python 3.10+** (the default), **TypeScript**, **C#**, **Java**,
+**Go**, and **Rust** (see "Compile to …" below for each), plus the **Thunder engine**, which runs a program directly.
+Every Core test program gives the same output, errors included, on all of them; a target is listed only once it does.
 The rules below in "What a value means" are the rules every future target must keep.
 
 ## Start
@@ -52,7 +52,7 @@ name = "my-program"
 version = "0.1.0"
 
 [build]
-target = "python"          # the only target in v0
+target = "python"          # or "typescript", or "go"
 source = "src"
 tests = "tests"
 output = "generated/python"
@@ -332,7 +332,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC2xx | names: unknown names, fields, records |
 | TC3xx | kinds of values that cannot do what the line asks |
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
-| TC405 | a Python module (`Use`) in a program compiled to TypeScript |
+| TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
 | TC501 | divided by zero |
 | TC502 | nothing used where a value was needed |
 | TC503 | a missing map entry or list position |
@@ -354,6 +354,34 @@ For each row in rows:
 
 Code reached through `Use` is Python. Thunder's rules (exact money, positions from 1) apply to Thunder values,
 not inside the library. A failure inside the library is reported against the Thunder line that called it (TC508).
+
+## Step through a run: the Time Machine
+
+Record a run, then step forward and back through it, one statement at a time, with the real values:
+
+```sh
+thunder run shop --record run.json     # runs it on the Thunder engine and saves every step
+thunder replay run.json                # Enter or n: next · b: back · j 7: jump · q: quit
+thunder replay run.json --step 3       # one step
+thunder replay run.json --json         # the whole recording, as data
+```
+
+```text
+⏱ Step 3 of 6 · src/main.thunder, line 10 · in the program
+  Set fee to delivery fee with total
+  Calls "delivery fee" (steps 4–5), then:
+  fee: → $0.00
+
+⏱ Step 4 of 6 · src/main.thunder, line 3 · inside "delivery fee"
+  When total is at least $20:
+  → yes
+```
+
+Each step shows the line, which values changed (before → after, as the program would print them), what it printed,
+what a function gave back, and for a choice which way it went ("yes", or "no, so the Otherwise steps"). A recording is
+made on the Thunder engine, so programs that use a Python module (`Use`) cannot be recorded. It replays what happened:
+going back shows an earlier moment and never undoes anything the program did. A recording stops growing after 20,000
+steps (and says so); the program still runs to the end. The format is `thunder-time-machine-v1`.
 
 ## Run without Python: the Thunder engine
 
@@ -402,7 +430,118 @@ Or set it for the project in `thunder.toml`: `target = "typescript"` under `[bui
   (TC405): Python modules exist only for Python, and Thunder never swaps in a different library. npm libraries are not
   available from Thunder yet.
 
-Java, C#, Go, and Rust are planned. Each will be listed as available only once it passes the same tests.
+## Compile to C#
+
+The same program, compiled to C# and run on .NET (8 or newer):
+
+```sh
+thunder build --target csharp     # generated/csharp/: one .cs per file, ThunderRuntime.cs, Program.cs, ThunderProgram.csproj
+thunder run --target csharp       # build it with dotnet and run it
+thunder test --target csharp      # run every Test block as C#
+```
+
+Or set it for the project in `thunder.toml`: `target = "csharp"` under `[build]`. The output is an ordinary console
+project: `dotnet run --project generated/csharp` runs it without Thunder (`-- test` runs the tests).
+
+- **The same meaning.** Every Core test program also runs compiled to C#, and the output, every error (its code, its
+  words, its line, and "reached from"), and the exit status must be the same as on Python, the Thunder engine, and
+  TypeScript, or the tests fail. `ThunderRuntime.cs` (base class library only) is a line-by-line port of the engine's
+  value code: exact decimals on `BigInteger` (not .NET's 28-digit `decimal`), money rounded half up, positions from 1,
+  strict yes/no, and the same words for every error.
+- **Readable.** One static class per Thunder file, a static method per function (an input with a default gets an
+  overload), records with their Never rules, and every line ends with `// thunder:N`. Values whose kind Thunder checks
+  while running are `object`.
+- **How it runs.** `thunder run` and `thunder test` build with the .NET SDK (`dotnet build`) and run the result. Without
+  the SDK, Thunder says what to install (exit 2); `thunder build` still writes the C#. Programs run on a thread with a
+  deep stack, so calls nest as deep as they can in Python.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405). NuGet libraries are not available from Thunder yet.
+
+
+## Compile to Rust
+
+The same program, compiled to Rust:
+
+```sh
+thunder build --target rust     # generated/rust/: one .rs per file, main.rs, thunder_runtime.rs, Cargo.toml
+thunder run --target rust       # build it with cargo (offline) and run it
+thunder test --target rust      # run every Test block as Rust
+```
+
+Or set it for the project in `thunder.toml`: `target = "rust"` under `[build]` (output goes to `generated/rust`
+unless `output` says otherwise). The output is an ordinary Cargo project: `cargo run --offline --manifest-path
+generated/rust/Cargo.toml` runs it without Thunder (`-- --tests` runs the tests).
+
+- **The same meaning.** Every Core test program runs on Python, the Thunder engine, compiled TypeScript, and compiled
+  Rust; the output, every error (its code, its words, its line, and "reached from"), and the exit status must be the
+  same, or the tests fail. `thunder_runtime.rs` is a line-by-line port of the Thunder engine's value code: exact
+  decimals of any size, money rounded half up, positions from 1, strict yes/no, the same text for every value and
+  every error.
+- **No dependencies.** The runtime uses only Rust's standard library (its exact numbers are written in it), so the
+  program builds offline. Calls can go as deep as on Python (about a thousand): the program runs on a thread with a
+  deep stack and stops at the same call, with the same message, when it goes deeper.
+- **Readable.** Plain functions that take and give `Value`s, records with their Never rules, kept values, and tests;
+  every line ends with `// thunder:N`. An error is carried up to the nearest Thunder call, which notes the line.
+- **How it runs.** `thunder run` and `thunder test` need the Rust toolchain (`rustc` and `cargo`, from
+  https://rustup.rs); without it Thunder says what to install. `thunder build` needs neither.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405). Crates are not available from Thunder yet.
+
+
+## Compile to Go
+
+The same program, compiled to Go and built with the go toolchain:
+
+```sh
+thunder build --target go     # generated/go/: one .go per file, go.mod, and the runtime in thunder/
+thunder run --target go       # build and run the compiled Go
+thunder test --target go      # run every Test block as Go
+```
+
+Or set it for the project in `thunder.toml`: `target = "go"` under `[build]` (output goes to `generated/go` unless
+`output` says otherwise). The output is an ordinary Go module: `cd generated/go && go run .` runs the program without
+Thunder, and `go run -tags thundertests .` runs its tests.
+
+- **The same meaning.** Every Core test program runs four ways: compiled to Python, on the Thunder engine, compiled to
+  TypeScript, and compiled to Go. The output, every error (its code, its words, its line, and "reached from"), and the
+  exit status must be the same, or the tests fail. The runtime (`thunder/thunder_runtime.go`) is a port of the Thunder
+  engine's value code: exact decimals (`math/big`), money rounded half up, positions from 1, strict yes/no, and the
+  same messages.
+- **Readable Go, standard library only.** Plain functions in one `main` package, records, and kept values; every
+  statement ends with `// thunder:N`. Values whose kind Thunder checks while running have the type `T.V`. A Thunder
+  error is a Go panic that each function's frame annotates on the way out, so the error names the Thunder line and
+  the calls that reached it. Nothing is downloaded: the module has no dependencies.
+- **How it runs.** Go 1.21 or newer (`go` on the PATH, or `THUNDER_GO`). `thunder build --target go` works without it.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
+  (TC405). Go packages are not available from Thunder yet.
+
+
+## Compile to Java
+
+The same program, compiled to Java (17 or newer) and run on the JVM:
+
+```sh
+thunder build --target java     # generated/java/: app/<Class>.java per file, app/RunTests.java, the runtime in thunder/
+thunder run --target java       # compile with javac and run
+thunder test --target java      # run every Test block as Java
+```
+
+Or set it for the project in `thunder.toml`: `target = "java"` under `[build]`.
+
+- **The same meaning.** Every Core test program runs four ways: compiled to Python, on the Thunder engine, compiled to
+  TypeScript, and compiled to Java. The output, every error (its code, its words, its line, and "reached from"), and
+  the exit status must be the same, or the tests fail. The Java runtime (`thunder/ThunderRuntime.java`, JDK only)
+  follows the Thunder engine's value code line for line: exact decimals as Python's `Decimal`, money rounded half up,
+  positions from 1, strict yes/no, and the same messages.
+- **Readable.** One class per Thunder file (`main.thunder` is `app.Main`), with a static method per function, records,
+  and kept values; every line ends with `// thunder:N`. Calls go as deep as on Python: the program runs on a thread
+  with a deep stack, and a program that goes deeper stops at the same call with the same message.
+- **How it runs.** Thunder finds the JDK through `THUNDER_JAVA_HOME`, `JAVA_HOME`, or the PATH; without one it says what
+  to install. `thunder build` needs no JDK. The built program runs without Thunder: `javac` the files in `app/` and
+  `thunder/`, then `java -cp classes app.Main`.
+- **No Python modules.** A program that uses `Use csv as csv` is refused for this target too (TC405). Maven libraries
+  are not available from Thunder yet; Thunder never swaps in a different library.
+
 
 ## What the generated Python looks like
 

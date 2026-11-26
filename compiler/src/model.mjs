@@ -59,10 +59,17 @@ function kindWords(type) {
   const list = t.match(/^(?:list|List|Array|Sequence|Iterable)\[(.+)\]$|^(?:Array|List|ArrayList|LinkedList|Vec|VecDeque|IList|IEnumerable|ICollection|IReadOnlyList|Collection|Set|HashSet|MutableList|MutableSet|Sequence|Iterable)<(.+)>$|^(.+)\[\]$|^\[\](.+)$/);
   if (list) { const inner = (list[1] || list[2] || list[3] || list[4]).trim(); return `a list of ${kindWords(inner)?.replace(/^an? /, '') ?? inner}s`.replace(/wordss$/, 'words').replace(/ys$/, 'ies').replace(/(yes or no)s$/, '$1 answers'); }
   const opt = t.match(/^Optional\[(.+)\]$|^(.+?)\s*\|\s*None$|^(.+?)\s*\|\s*(null|undefined)$|^(?:Option|Optional|Nullable)<(.+)>$|^(.+)\?$|^\*(\w+)$/);
-  if (opt) { const inner = opt[1] || opt[2] || opt[3] || opt[5] || opt[6] || opt[7]; return `${kindWords(inner) ?? `a ${inner}`}, or nothing`; }
+  if (opt) { const inner = opt[1] || opt[2] || opt[3] || opt[5] || opt[6] || opt[7]; return `${kindWords(inner) ?? withArticle(inner)}, or nothing`; }
   const map = t.match(/^(?:Map|HashMap|Dictionary|IDictionary|MutableMap|BTreeMap|dict|Dict|Record)[<\[]/) || /^map\[/.test(t);
   if (map) return 'a lookup table';
-  return /^[A-Z]/.test(t) ? `a ${t}` : null;
+  return /^[A-Z]/.test(t) ? withArticle(t) : null;
+}
+
+/** "a" or "an" by the sound of the word: an AgentCheckResult, an Order, a User, an Unknown, a Euro. */
+export function withArticle(w) {
+  const t = String(w);
+  const an = /^(?:[AEIOaeio]|U(?:n|m|nd|tt|pp)|u(?:n|m)|[FHLMNRSX][A-Z0-9]|[fhlmnrsx](?=[A-Z0-9]))/.test(t) && !/^(?:Eu|eu|Uni|uni|Use|use|Usu|One|one|Ur)/.test(t);
+  return `${an ? 'an' : 'a'} ${t}`;
 }
 
 /** C: a function belongs to a struct it takes first (`library_late_fee(const Library *lib, …)`) or is named after. */

@@ -1,0 +1,484 @@
+// Thunder Core -> C# (.NET): readable static classes, one per Thunder file, and ThunderRuntime.cs next to them.
+//
+// The same checked program the other targets use (compileCore -> program + info), and the same meaning: every
+// statement does what the Thunder engine does for it, and every operation calls ThunderRuntime.cs, a line-by-line port
+// of the engine's own value code (engine-values.mjs). compiler/test/core-engines.mjs runs every Core test program on
+// Python, the Thunder engine, compiled TypeScript, and compiled C#, and requires the same output from all of them.
+//
+// Every generated statement sets the frame's line (F.line = N) and ends with `// thunder:N`, the Thunder line it came
+// from, so an error says which Thunder line failed, exactly as the other targets do.
+
+import { percentDecimal } from './target-python.mjs';
+import { firstLine } from './target-typescript.mjs';
+
+/** A C# string literal for any text (JSON's escapes are C#'s, except the line breaks C# does not allow raw). */
+export const cs = (s) => JSON.stringify(s).replace(/[\u0085\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
+const KEYWORDS = new Set(('abstract as base bool break byte case catch char checked class const continue decimal default delegate do double else enum event explicit extern false finally fixed float for foreach goto if implicit in int interface internal is lock long namespace new null object operator out override params private protected public readonly ref return sbyte sealed short sizeof stackalloc static string struct switch this throw true try typeof uint ulong unchecked unsafe ushort using virtual void volatile while').split(' '));
+const OWNED = new Set(['T', 'F', 'FILE', 'main', 'Init', 'THUNDER_TESTS', 'Thunder', 'System', 'Program']);
+/** A C# name for a Thunder (Python) name: the same, unless C# or the generated code owns it. */
+export const id = (py) => (OWNED.has(py) ? `${py}_` : KEYWORDS.has(py) ? `@${py}` : py);
+/** The static class a Thunder module becomes. */
+export const classOf = (module) => `M_${module}`;
+
+const KNOWN_BOOL = new Set(['cmp', 'contains', 'between', 'adj', 'isNothing', 'not', 'bool']);
+
+/** Thunder modules a program uses that only Python has (Use): compiled C# cannot call them. */
+export function pythonOnlyUses(info) {
+  return (info.modules ?? []).filter((m) => !info.imported?.has(m)).map((m) => ({ module: m.module, line: m.line }));
+}
+
+/**
+ * Compile one checked file to C#: a static class M_<module> in `namespace`. `imports`: the src modules a test file
+ * sees (their classes are brought in with `using static`).
+ */
+export function toCSharp(program, info, { source = 'main.thunder', module = 'main', namespace = 'ThunderProgram', imports = [] } = {}) {
+  return new Gen(program, info, source).module(module, namespace, imports);
+}
+
+class Gen {
+  constructor(program, info, source) {
+    this.p = program; this.info = info; this.source = source;
+    this.out = []; this.ind = 2; this.tmp = 0;
+  }
+  emit(text, line) { this.out.push(`${'    '.repeat(this.ind)}${text}${line ? `  // thunder:${line}` : ''}`); }
+  blank() { if (this.out.length && this.out[this.out.length - 1] !== '') this.out.push(''); }
+  fresh(base) { return `__t_${base}${++this.tmp}`; }
+
+  module(module, namespace, imports) {
+    const own = (s) => !this.info.imported?.has(s);
+    for (const r of this.info.records.filter(own)) { this.blank(); this.record(r); }
+    for (const f of this.info.funcs.filter(own)) { this.blank(); this.func(f); }
+    const consts = this.info.consts.filter(own);
+    this.blank();
+    for (const k of consts) this.emit(`public static object ${id(k.py)};`, k.line);
+    this.emit('public static void Init()');
+    this.emit('{');
+    this.ind++;
+    if (consts.length) {
+      this.emit('T.init(FILE, F =>');
+      this.emit('{');
+      this.ind++;
+      for (const k of consts) this.emit(`F.line = ${k.line}; ${id(k.py)} = ${this.x(k.e)};`, k.line);
+      this.ind--;
+      this.emit('});');
+    }
+    this.ind--;
+    this.emit('}');
+    const tests = this.info.tests;
+    for (const t of tests) {
+      this.blank();
+      this.emit(`static void ${id(t.py)}()`, t.line);
+      this.emit('{');
+      this.ind++;
+      this.frameBody(`T.enterFrame(FILE, ${t.line})`, t.body, [], true);
+      this.ind--;
+      this.emit('}');
+    }
+    this.blank();
+    this.emit('public static readonly (string, System.Action, int)[] THUNDER_TESTS = new (string, System.Action, int)[]');
+    this.emit('{');
+    for (const t of tests) this.emit(`    (${cs(t.title)}, new System.Action(${id(t.py)}), ${t.line}),`);
+    this.emit('};');
+    const main = this.p.main ?? [];
+    this.blank();
+    this.emit('public static void main()');
+    this.emit('{');
+    if (main.length) {
+      this.ind++;
+      this.frameBody('T.enterFrame(FILE, 0)', main, [], true);
+      this.ind--;
+    }
+    this.emit('}');
+    const head = [
+      `// Generated by the Thunder compiler from ${this.source}.`,
+      `// A build artifact: change ${this.source.split('/').pop()} and build again, or keep this file and edit it as C#.`,
+      '// It needs only .NET and ThunderRuntime.cs (written next to it). "// thunder:N" marks the Thunder line.',
+      '#nullable disable',
+      '#pragma warning disable CS0162, CS0168, CS0219, CS0472, CS1717, CS8321',
+      `namespace ${namespace}`,
+      '{',
+      '    using Thunder;',
+      ...imports.map((m) => `    using static ${namespace}.${classOf(m)};`),
+      '',
+      `    public static class ${classOf(module)}`,
+      '    {',
+      `        const string FILE = ${cs(this.source)};`,
+      '',
+    ];
+    return `${head.join('\n')}\n${this.out.join('\n').replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '')}\n    }\n}\n`;
+  }
+
+  record(r) {
+    const fields = r.fields.map((f) => `T.field(${cs(f.py)}, ${cs(f.type?.k ?? 'any')})`).join(', ');
+    const rules = r.rulesToCheck ?? [];
+    if (!rules.length) { this.emit(`public static readonly RecordKind ${id(r.py)} = T.recordKind(${cs(r.py)}, new FieldDef[] { ${fields} });`, r.line); return; }
+    this.emit(`public static readonly RecordKind ${id(r.py)} = T.recordKind(${cs(r.py)}, new FieldDef[] { ${fields} }, new System.Collections.Generic.Dictionary<string, Rule[]>`, r.line);
+    this.emit('{');
+    this.ind++;
+    const bySubject = new Map();
+    for (const rule of rules) { const f = r.fieldMap.get(rule.subject); (bySubject.get(f.py) ?? bySubject.set(f.py, []).get(f.py)).push(rule); }
+    for (const [field, rs] of bySubject) {
+      this.emit(`[${cs(field)}] = new Rule[]`);
+      this.emit('{');
+      this.ind++;
+      for (const rule of rs) {
+        const v = this.fresh('value');
+        this.emit(`new Rule(${v} => { var F = T.topFrame(); return ${this.x(rule.rule.cond, { subject: v })}; }, ${cs(rule.text)}, ${rule.line}),`, rule.line);
+      }
+      this.ind--;
+      this.emit('},');
+    }
+    this.ind--;
+    this.emit('});');
+  }
+
+  func(f) {
+    const params = f.params.map((p) => `object ${id(p.py)}`);
+    // Inputs with a default: a call may leave them out (one overload per number of inputs given); a left-out input
+    // arrives as T.NOT_GIVEN and is filled in here: a fixed value at once, a kept value inside the call's frame.
+    const required = f.params.filter((p) => !p.dflt).length;
+    for (let k = required; k < f.params.length; k++) {
+      const given = f.params.slice(0, k).map((p) => id(p.py));
+      const rest = f.params.slice(k).map(() => 'T.NOT_GIVEN');
+      this.emit(`public static object ${id(f.py)}(${params.slice(0, k).join(', ')}) => ${id(f.py)}(${[...given, ...rest].join(', ')});`, f.line);
+    }
+    this.emit(`public static object ${id(f.py)}(${params.join(', ')})`, f.line);
+    this.emit('{');
+    this.ind++;
+    for (const p of f.params) if (p.dflt && p.dflt.k !== 'name') this.emit(`if (ReferenceEquals(${id(p.py)}, T.NOT_GIVEN)) ${id(p.py)} = ${this.x(p.dflt)};`);
+    const pre = [];
+    for (const p of f.params) if (p.dflt?.k === 'name') pre.push([`if (ReferenceEquals(${id(p.py)}, T.NOT_GIVEN)) { F.line = ${p.line}; ${id(p.py)} = ${this.x(p.dflt)}; }`, p.line]);
+    for (const p of f.params) for (const rule of p.rules ?? []) pre.push([`F.line = ${p.line}; T.never(${this.x(rule.rule.cond, { subject: id(p.py) })}, ${cs(rule.text)}, ${rule.line}, ${id(p.py)});`, p.line]);
+    const first = firstLine(f);
+    this.frameBody(`T.enterCall(FILE, ${f.line}, ${first ?? -1})`, f.body, pre, false, f.params.map((p) => p.py));
+    this.ind--;
+    this.emit('}');
+  }
+
+  /** A body that runs in its own frame: errors leave with the Thunder line they happened on. */
+  frameBody(enter, body, pre, isVoid, params = []) {
+    this.emit(`var F = ${enter};`);
+    this.emit('try');
+    this.emit('{');
+    this.ind++;
+    const locals = [...this.localsOf(body)].filter((n) => !params.includes(n));
+    if (locals.length) this.emit(`object ${locals.map((n) => `${id(n)} = null`).join(', ')};`);
+    for (const [code, line] of pre) this.emit(code, line);
+    this.block(body, isVoid);
+    if (!isVoid) this.emit('return null;');
+    this.ind--;
+    this.emit('}');
+    const e = this.fresh('e');
+    this.emit(`catch (System.Exception ${e}) { throw T.fail(${e}); }`);
+    this.emit('finally { T.leave(); }');
+  }
+
+  /** The names a body assigns (Python's locals): declared once at the top, as a Python function's are. */
+  localsOf(body) {
+    const names = new Set();
+    const visit = (ss) => {
+      for (const s of ss ?? []) {
+        if (s.k === 'set' && s.target.k === 'name' && s.target.ref?.py) names.add(s.target.ref.py);
+        for (const v of s.vars ?? []) if (v?.py) names.add(v.py);
+        if (s.k === 'range' && s.v?.py) names.add(s.v.py);
+        if (s.errPy) names.add(s.errPy);
+        visit(s.body); visit(s.handler); visit(s.otherwise);
+        for (const b of s.branches ?? []) visit(b.body);
+        if (s.stmt) visit([s.stmt]);
+      }
+    };
+    visit(body);
+    const globals = new Set([...this.info.consts, ...this.info.funcs, ...this.info.records].map((x) => x.py));
+    return [...names].filter((n) => !globals.has(n));
+  }
+
+  block(body, isVoid) { for (const s of body) this.stmt(s, isVoid); }
+
+  /** F.line = N; <code>  // thunder:N */
+  line(L, code) { this.emit(`F.line = ${L}; ${code}`, L); }
+
+  /** Check a watched name's Never rules on its new value, then store it. */
+  assign(s, name, valueCode) {
+    if (!s.rules?.length) { this.line(s.line, `${id(name)} = ${valueCode};`); return; }
+    const v = this.fresh('new');
+    this.line(s.line, `{ object ${v} = ${valueCode};`);
+    this.ind++;
+    for (const rule of s.rules) this.emit(`T.never(${this.x(rule.rule.cond, { subject: v })}, ${cs(rule.text)}, ${rule.line}, ${v});`, s.line);
+    this.emit(`${id(name)} = ${v}; }`, s.line);
+    this.ind--;
+  }
+  rulesAfter(s, name) {
+    for (const rule of s.rules ?? []) this.emit(`T.never(${this.x(rule.rule.cond, { subject: id(name) })}, ${cs(rule.text)}, ${rule.line}, ${id(name)});`, s.line);
+  }
+
+  /** Code that stores `v` (a name of generated code) into a name, a field, or an entry. */
+  storeCode(t, v) {
+    if (t.k === 'name') return `${id(t.ref?.py ?? 'unknown')} = ${v};`;
+    if (t.k === 'field') return t.static ? `T.setAttr(${this.x(t.obj)}, ${cs(t.py)}, ${v});` : `T.setField(${this.x(t.obj)}, ${cs(t.text)}, ${v});`;
+    if (t.k === 'at') {
+      const fn = t.objKind === 'list' ? 'T.setItem' : t.objKind === 'map' ? 'T.mapSet' : 'T.setEntry';
+      return `${fn}(${this.x(t.obj)}, ${this.x(t.key)}, ${v});`;
+    }
+    return '';
+  }
+
+  stmt(s, isVoid) {
+    const L = s.line;
+    switch (s.k) {
+      case 'say': this.line(L, `T.say(${s.e.type?.k === 'text' ? `T.pyStr(${this.x(s.e)})` : `T.show(${this.x(s.e)})`});`); return;
+      case 'set': {
+        const t = s.target;
+        if (t.k === 'name') { this.assign(s, t.ref.py, this.x(s.e)); return; }
+        const v = this.fresh('v');
+        this.line(L, `{ object ${v} = ${this.x(s.e)}; ${this.storeCode(t, v)} }`);
+        return;
+      }
+      case 'give': this.line(L, isVoid ? 'return;' : `return ${s.e.k === 'nothing' ? 'null' : this.x(s.e)};`); return;
+      case 'stop': { const v = this.x(s.e); this.line(L, `throw T.Stop(${s.e.type?.k === 'text' ? `T.pyStr(${v})` : `T.show(${v})`});`); return; }
+      case 'if': {
+        this.emit(`F.line = ${L};`, L);
+        s.branches.forEach((b, k) => {
+          this.emit(`${k === 0 ? 'if' : '} else if'} (T.at(F, ${b.line}) && ${this.yn(b.cond)}) {`, b.line);
+          this.ind++; this.block(b.body, isVoid); this.ind--;
+        });
+        if (s.otherwise) { this.emit('} else {'); this.ind++; this.block(s.otherwise, isVoid); this.ind--; }
+        this.emit('}');
+        return;
+      }
+      case 'each': {
+        const [a, b] = s.vars;
+        const it = this.x(s.iter);
+        const seq = b ? (s.iterKind === 'map' ? `T.mapItems(${it})` : s.iterKind === 'pairs' ? `T.pyIter(${it})` : `T.pairsOf(${it})`) : `T.pyIter(${it})`;
+        const el = this.fresh('el');
+        this.line(L, `foreach (var ${el} in ${seq}) {`);
+        this.ind++;
+        if (b) { const pr = this.fresh('pair'); this.emit(`F.line = ${L}; { var ${pr} = T.unpack2(${el}); ${id(a.py)} = ${pr}[0]; ${id(b.py)} = ${pr}[1]; }`, L); }
+        else this.emit(`F.line = ${L}; ${id(a.py)} = ${el};`, L);
+        this.block(s.body, isVoid);
+        this.ind--;
+        this.emit('}');
+        return;
+      }
+      case 'range': {
+        const lo = this.fresh('from'), hi = this.fresh('to'), n = this.fresh('n');
+        const to = s.to.k === 'num' && s.to.whole ? `T.I(${cs(String(BigInt(s.to.text.replace(/_/g, '')) + 1n))})` : `T.add(${this.x(s.to)}, T.I("1"))`;
+        const a = this.fresh('a'), b = this.fresh('b');
+        this.line(L, `{ object ${a} = ${this.x(s.from)}, ${b} = ${to}; System.Numerics.BigInteger ${lo} = T.rangeInt(${a}), ${hi} = T.rangeInt(${b});`);
+        this.ind++;
+        this.emit(`for (System.Numerics.BigInteger ${n} = ${lo}; ${n} < ${hi}; ${n}++) {`);
+        this.ind++;
+        this.emit(`F.line = ${L}; ${id(s.v.py)} = ${n};`, L);
+        this.block(s.body, isVoid);
+        this.ind--;
+        this.emit('}');
+        this.ind--;
+        this.emit('}');
+        return;
+      }
+      case 'while':
+        this.emit(`while (T.at(F, ${L}) && ${s.until ? `!(${this.yn(s.cond)})` : this.yn(s.cond)}) {`, L);
+        this.ind++; this.block(s.body, isVoid); this.ind--;
+        this.emit('}');
+        return;
+      case 'times': {
+        const count = this.fresh('count'), k = this.fresh('k');
+        this.line(L, `{ System.Numerics.BigInteger ${count} = T.rangeInt(${this.x(s.count)});`);
+        this.ind++;
+        this.emit(`for (System.Numerics.BigInteger ${k} = 0; ${k} < ${count}; ${k}++) {`);
+        this.ind++;
+        this.emit(`F.line = ${L};`, L);
+        this.block(s.body, isVoid);
+        this.ind--;
+        this.emit('}');
+        this.ind--;
+        this.emit('}');
+        return;
+      }
+      case 'expect': this.expect(s); return;
+      case 'add': case 'remove': this.addRemove(s); return;
+      case 'increase': case 'decrease': {
+        const op = s.k === 'increase' ? 'T.add' : 'T.sub';
+        if (s.target.k === 'name') { const py = s.target.ref?.py ?? 'unknown'; this.assign(s, py, `${op}(${id(py)}, ${this.x(s.e)})`); return; }
+        const v = this.fresh('v');
+        this.line(L, `{ object ${v} = ${op}(${this.x(s.target)}, ${this.x(s.e)}); ${this.storeCode(s.target, v)} }`);
+        return;
+      }
+      case 'sort': {
+        const it = this.fresh('item');
+        const key = s.field ? `T.keyAt(F, ${it} => ${this.fieldGet(it, s.field)})` : 'null';
+        this.line(L, `T.sortInPlace(${this.x(s.target)}, ${key}, ${s.desc ? 'true' : 'false'});`);
+        return;
+      }
+      case 'reverse': this.line(L, `T.reverseInPlace(${this.x(s.target)});`); return;
+      case 'do': this.line(L, `T.discard(${this.x(s.e)});`); return;
+      case 'tryFail': {
+        this.emit('try {', L);
+        this.ind++; this.stmt(s.stmt, isVoid); this.ind--;
+        const e = this.fresh('failure');
+        this.emit(`} catch (System.Exception ${e}) {`, L);
+        this.ind++;
+        this.line(L, `${id(s.errPy)} = T.explain(T.asPyErr(${e}));`);
+        this.block(s.handler, isVoid);
+        this.ind--;
+        this.emit('}');
+        return;
+      }
+      default: this.emit(`// not generated: ${s.k}`, L);
+    }
+  }
+
+  addRemove(s) {
+    const L = s.line;
+    const isName = s.target.k === 'name';
+    const py = isName ? s.target.ref?.py ?? 'unknown' : null;
+    const v = this.fresh('v'), t = this.fresh('t');
+    const head = `object ${v} = ${this.x(s.e)}, ${t} = ${this.x(s.target)};`;
+    let body;
+    if (s.targetKind === 'list') body = s.k === 'add' ? `T.appendTo(${t}, ${v});` : `T.removeFrom(${t}, ${v});`;
+    else if (s.targetKind === 'map') body = `T.removeFrom(${t}, ${v});`;
+    else if (s.targetKind === 'number') {
+      const nv = `${s.k === 'add' ? 'T.add' : 'T.sub'}(${t}, ${v})`;
+      if (isName && s.rules?.length) {
+        const n = this.fresh('new');
+        this.line(L, `{ ${head} object ${n} = ${nv};`);
+        this.ind++;
+        for (const rule of s.rules) this.emit(`T.never(${this.x(rule.rule.cond, { subject: n })}, ${cs(rule.text)}, ${rule.line}, ${n});`, L);
+        this.emit(`${id(py)} = ${n}; }`, L);
+        this.ind--;
+        this.rulesAfter(s, py);
+        return;
+      }
+      body = isName ? `${id(py)} = ${nv};` : this.storeCode(s.target, nv);
+    } else if (s.k === 'add') body = isName ? `${id(py)} = T.addTo(${t}, ${v});` : this.storeCode(s.target, `T.addTo(${t}, ${v})`);
+    else body = `T.removeFrom(${t}, ${v});`;
+    this.line(L, `{ ${head} ${body} }`);
+    if (isName) this.rulesAfter(s, py);
+  }
+
+  expect(s) {
+    const L = s.line;
+    const text = cs((s.raw ?? 'Expect').trim());
+    if (s.mode === 'true') { this.line(L, `T.expectTrue(${this.x(s.e)}, ${text});`); return; }
+    if (s.mode === 'fail') {
+      const m = this.fresh('msg');
+      this.line(L, `{ object ${m} = ${s.msg ? this.x(s.msg) : 'null'}; T.expectFailure(() => { T.discard(${this.x(s.e)}); }, ${text}, ${m}); }`);
+      return;
+    }
+    if (s.mode === 'cmp') { this.line(L, `T.expectValue(${this.x(s.e)}, "contains", "contains", ${this.x(s.want)}, ${text});`); return; }
+    let c = s.check, negate = false;
+    if (c.k === 'not') { negate = true; c = c.e; }
+    const OPS = { '==': 'is', '!=': 'is not', '>=': 'at least', '<=': 'at most', '>': 'more than', '<': 'less than' };
+    let op, want = 'null';
+    if (c.k === 'cmp') { op = OPS[c.op]; want = this.x(c.r); }
+    else if (c.k === 'adj') op = c.adj;
+    else if (c.k === 'isNothing') op = c.neg ? 'not nothing' : 'nothing';
+    else if (c.k === 'between') { op = 'between'; want = `T.list(${this.x(c.lo)}, ${this.x(c.hi)})`; }
+    else if (c.k === 'contains') { op = 'in'; want = this.x(c.l); }
+    else op = 'is';
+    this.line(L, `T.expectValue(${this.x(s.e)}, ${cs(negate ? `not ${op}` : op)}, ${cs(op)}, ${want}, ${text});`);
+  }
+
+  fieldGet(v, field) { return field.dynamic ? `T.getField(${v}, ${cs(field.key)})` : `T.getAttr(${v}, ${cs(field.py)})`; }
+
+  /** A value used as yes/no: checked when the program runs unless it is known to be yes/no. */
+  yn(e, ctx = {}) {
+    const c = this.x(e, ctx);
+    if (KNOWN_BOOL.has(e.k) || (e.k === 'bin' && (e.op === 'and' || e.op === 'or'))) return c;
+    if (e.type?.k === 'bool') return `T.B(${c})`;
+    return `T.yesNo(${c})`;
+  }
+
+  x(e, ctx = {}) {
+    const sub = (k) => this.x(k, ctx);
+    switch (e.k) {
+      case 'num': return e.whole ? `T.I(${cs(String(BigInt(e.text.replace(/_/g, ''))))})` : `T.dec(${cs(e.text)})`;
+      case 'money': return `T.money(${cs(e.text)})`;
+      case 'percent': return `T.dec(${cs(percentDecimal(e.text))})`;
+      case 'bool': return e.v ? 'true' : 'false';
+      case 'nothing': case 'hole': return 'null';
+      case 'paren': return sub(e.e);
+      case 'today': return 'T.today()';
+      case 'date': return `T.date(${cs(e.text)})`;
+      case 'str': return this.str(e, ctx);
+      case 'list': return e.items ? `T.list(${e.items.map(sub).join(', ')})` : 'T.newMap()';
+      case 'map': return 'T.newMap()';
+      case 'name': {
+        const r = e.ref ?? {};
+        if (r.kind === 'subject') return ctx.subject ?? 'null';
+        if (r.kind === 'elemField') return `T.getAttr(${ctx.item}, ${cs(r.py)})`;
+        if (r.kind === 'elemKey') return `T.getField(${ctx.item}, ${cs(r.key)})`;
+        if (r.kind === 'elem') return ctx.item;
+        return id(r.py ?? e.name.replace(/ /g, '_'));
+      }
+      case 'call': return `${id(e.py)}(${e.args.map(sub).join(', ')})`;
+      case 'new': return `T.newRecord(${id(e.py)}${e.fields.map((f) => `, ${cs(f.py)}, ${sub(f.e)}`).join('')})`;
+      case 'field': return e.static ? `T.getAttr(${sub(e.obj)}, ${cs(e.py)})` : `T.getField(${sub(e.obj)}, ${cs(e.text)})`;
+      case 'at': {
+        const fn = e.objKind === 'map' ? 'T.mapGet' : e.objKind === 'list' ? 'T.itemAt' : 'T.entry';
+        return `${fn}(${sub(e.obj)}, ${sub(e.key)}${e.dflt ? `, ${sub(e.dflt)}` : ''})`;
+      }
+      case 'conv': {
+        const fn = { list: 'T.pyList', number: 'T.toNumber', whole: 'T.toWhole', money: 'T.toMoney', text: 'T.show', bool: 'T.toYesNo', date: 'T.toDate' }[e.to];
+        return fn ? `${fn}(${sub(e.e)})` : sub(e.e);
+      }
+      case 'where': {
+        const v = this.fresh('item');
+        return `T.filter(T.pyIter(${sub(e.list)}), ${v} => T.truthy(${this.x(e.cond, { ...ctx, item: v })}))`;
+      }
+      case 'from': {
+        const inner = e.list.k === 'where' ? e.list : null;
+        const v = this.fresh('item');
+        const list = `T.pyIter(${sub(inner ? inner.list : e.list)})`;
+        const filtered = inner ? `T.filter(${list}, ${v} => T.truthy(${this.x(inner.cond, { ...ctx, item: v })}))` : list;
+        const w = this.fresh('item');
+        return `T.map(${filtered}, ${w} => ${this.fieldGet(w, e.field)})`;
+      }
+      case 'sorted': {
+        const v = this.fresh(e.mapSort ? 'entry' : 'item');
+        if (e.mapSort) return `T.pySort(T.mapItems(${sub(e.list)}), T.keyAt(F, ${v} => T.tupleAt(${v}, ${e.by === 'key' ? 0 : 1})), ${e.desc ? 'true' : 'false'})`;
+        return `T.pySort(T.pyList(${sub(e.list)}), T.keyAt(F, ${v} => ${this.fieldGet(v, e.field)}), ${e.desc ? 'true' : 'false'})`;
+      }
+      case 'op': return `T.applyOp(${cs(e.op)}, ${sub(e.arg)})`;
+      case 'round': return `T.roundTo(${sub(e.e)}${e.places ? `, ${sub(e.places)}` : ''})`;
+      case 'readFile': return `T.readText(${sub(e.path)})`;
+      case 'neg': return `T.neg(${sub(e.e)})`;
+      case 'not': return `!${this.yn(e.e, ctx)}`;
+      case 'bin': {
+        if (e.op === 'and') return `(${this.yn(e.l, ctx)} && ${this.yn(e.r, ctx)})`;
+        if (e.op === 'or') return `(${this.yn(e.l, ctx)} || ${this.yn(e.r, ctx)})`;
+        const fn = { '+': 'T.add', '-': 'T.sub', '*': 'T.mul', '/': 'T.divide' }[e.op]
+          ?? (e.op === 'mod' ? (e.l.type?.k === 'whole' && e.r.type?.k === 'whole' ? 'T.intMod' : 'T.modulo') : null);
+        return fn ? `${fn}(${sub(e.l)}, ${sub(e.r)})` : 'null';
+      }
+      case 'cmp': {
+        if (e.r.k === 'bool' && (e.op === '==' || e.op === '!=')) return `(${this.yn(e.l, ctx)} ${e.op === '==' ? '==' : '!='} ${sub(e.r)})`;
+        return `T.compare(${cs(e.op)}, ${sub(e.l)}, ${sub(e.r)})`;
+      }
+      case 'between': return `T.between(${sub(e.lo)}, ${sub(e.e)}, () => ${sub(e.hi)})`;
+      case 'contains': return `T.isIn(${sub(e.r)}, ${sub(e.l)})`;
+      case 'affix': return `T.affix(${sub(e.l)}, ${sub(e.r)}, ${e.end ? 'true' : 'false'})`;
+      case 'sortedValues': return `T.pySort(T.pyList(${sub(e.list)}), null, ${e.desc ? 'true' : 'false'})`;
+      case 'joined': return `T.joined(${sub(e.list)}, ${sub(e.sep)})`;
+      case 'splitAt': return `T.splitAt(${sub(e.text)}, ${sub(e.sep)})`;
+      case 'replacing': return `T.replacing(${sub(e.text)}, ${sub(e.from)}, ${sub(e.to)})`;
+      case 'adj': {
+        if (e.adj === 'empty') return `T.eq(T.pyLen(${sub(e.e)}), T.I("0"))`;
+        return `T.compare(${cs({ positive: '>', negative: '<', zero: '==' }[e.adj])}, ${sub(e.e)}, T.I("0"))`;
+      }
+      case 'isNothing': return `(${sub(e.e)} ${e.neg ? '!=' : '=='} null)`;
+      default: return `null /* not generated: ${e.k} */`;
+    }
+  }
+
+  /** Text with {holes}: text and whole numbers as they are, anything else shown the Thunder way. */
+  str(e, ctx) {
+    const parts = e.parts.filter((p) => p !== '').map((p) => {
+      if (typeof p === 'string') return cs(p);
+      const t = p.e.type?.k;
+      return t === 'text' || t === 'whole' ? `T.pyStr(${this.x(p.e, ctx)})` : `T.show(${this.x(p.e, ctx)})`;
+    });
+    if (!parts.length) return '""';
+    return parts.length === 1 ? parts[0] : `(${parts.join(' + ')})`;
+  }
+}

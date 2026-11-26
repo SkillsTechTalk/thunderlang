@@ -187,7 +187,7 @@ The remaining sentence shapes are listed below by how often each appears.
 | Ask: | 16 | `Ask: Member and total is at least 100?` | `When <condition>:` … `Otherwise:` | Print a question as `When …:` with the Yes branch indented under it and the No branch as `Otherwise:`; keep "Ask" only in the picture. |
 | Gives back | 15 | `Gives back 0` | `Give <value>` | Print "Give"; Core also accepts "Give back". |
 | Answer: | 9 | `Answer: Yes` | `Give <value>` | In a rule card, an answer is what the function gives back: print `Give "A"`, `Give 15`, `Give yes`. |
-| Writes a log or message | 6 | `Writes a log or message — calls: print("Hello, {name}!")` | `say <value>` | A print/log call becomes `say "…"` with `{name}` holes (already the reader's text style). |
+| Writes a log or message | 6 | `Writes a log or message: "Hello, {name}!" — calls: print("Hello, {name` | `say <value>` | A print/log call becomes `say "…"` with `{name}` holes (already the reader's text style). |
 | code shown as code (`…` (code, not explained)) | 5 | `return total * 0.2 (code, not explained) — means: return total * 0.2` | the expression itself | Expressions the reader shows as code (`return total * 0.2`) need the No-loss meaning model to print as Core expressions (`Give total * 0.2`). |
 | Repeats | 4 | `Repeats: for i in range(1, n + 1): (code, not explained)` | `Repeat while <condition>:` | Imperative verb ("Repeat", not "Repeats") and a closing ":". |
 | Sets | 3 | `Sets total to 0` | `Set <name> to <value>` | Imperative verb ("Set", not "Sets"). Same words otherwise. |
@@ -284,7 +284,7 @@ What the reader prints today (Thunder Text):
 ```text
 Greet
   You give it: name
-  - Writes a log or message — calls: print("Hello, {name}!")  (line 2)
+  - Writes a log or message: "Hello, {name}!" — calls: print("Hello, {name}!")  (line 2)
 ```
 
 Thunder Core a person would write (compiles):
@@ -498,17 +498,17 @@ Fizzbuzz
     For each:
       - Ask: Is i % 15 0?  (line 3)
         Yes:
-          - Writes a log or message: FizzBuzz — calls: print("FizzBuzz")  (line 4)
+          - Writes a log or message: "FizzBuzz" — calls: print("FizzBuzz")  (line 4)
         No:
           - Ask: Is i % 3 0?  (line 5)
             Yes:
-              - Writes a log or message: Fizz — calls: print("Fizz")  (line 6)
+              - Writes a log or message: "Fizz" — calls: print("Fizz")  (line 6)
             No:
               - Ask: Is i % 5 0?  (line 7)
                 Yes:
-                  - Writes a log or message: Buzz — calls: print("Buzz")  (line 8)
+                  - Writes a log or message: "Buzz" — calls: print("Buzz")  (line 8)
                 No:
-                  - Writes a log or message — calls: print(i)  (line 10)
+                  - Writes a log or message: i — calls: print(i)  (line 10)
 ```
 
 Thunder Core a person would write (compiles):
@@ -858,7 +858,7 @@ Countdown
   You give it: n
   - Repeats while n is more than 0  (line 2)
     For each:
-      - Writes a log or message — calls: print(n)  (line 3)
+      - Writes a log or message: n — calls: print(n)  (line 3)
       - Subtracts 1 from n  (line 4)
 ```
 

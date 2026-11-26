@@ -53,6 +53,7 @@ import { LEVELS, readLevel, renderLevel, findFocus, nearestLevel } from './read-
 import { traceMain } from './trace-cli.mjs';
 import { whyMain } from './why-cli.mjs';
 import { tryMain } from './try-cli.mjs';
+import { replayMain } from './replay-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
 import { paint, paintHelp, useColor } from './term.mjs';
 import { coreMain } from './core/cli.mjs';
@@ -475,7 +476,10 @@ Write and run programs (Thunder Core, docs/core.md)
                              add --core for a single file with no project. run/test need Python 3.10+, or add
                              --engine thunder to run them on the Thunder engine (no Python; programs that Use a
                              Python module are refused there). --target typescript compiles to TypeScript instead
-                             (generated/typescript/; runs on Node 22.6+, or with the typescript package)
+                             (generated/typescript/; runs on Node 22.6+, or with the typescript package);
+                             --target csharp compiles to C# (generated/csharp/; builds and runs with the .NET 8+ SDK)
+                             --target go compiles to Go (generated/go/; needs the go toolchain to run)
+                             --target java compiles to Java (generated/java/; runs with a JDK 17+)
 
 Read and understand code
   read <file|dir> [--search q] [--kind decision,function,error,test] [--in <lang>] [--from <lang>] [--json]
@@ -487,6 +491,7 @@ Read and understand code
        --promote <decision> [--out <file>]   turn a recovered decision into a contract with starter examples
                              read code you don't know: its decision rules as ThunderLang + plain English,
                              optionally rewritten in a language you know (--in typescript|python|go|rust|csharp|java)
+  replay <recording.json> [--step n] [--json]   the Time Machine: step through a run recorded with thunder run --record
   try <file> [--focus "<rule>"] [--with "name=value, …"] [--json]   try a rule from your code with your own values: the answer and why (rules only; nothing changes)
   why <run.json> [--step n] [--json]   what an AI agent did and why it stopped, in plain words, from its OpenTelemetry record
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
@@ -638,6 +643,8 @@ function main() {
   if (cmd === 'why') { process.exitCode = whyMain(restArgv); return; }
   // Thunder Try: try a rule from your code with your own values, and see the answer and why (src/try-cli.mjs).
   if (cmd === 'try') { tryMain(restArgv).then((code) => { process.exitCode = code; }); return; }
+  // The Thunder Time Machine: step through a recording made with thunder run --record (src/replay-cli.mjs).
+  if (cmd === 'replay') { replayMain(restArgv).then((code) => { process.exitCode = code; }); return; }
   // Thunder Core (programs you write and run): thunder new <dir>, and run/build/test/check/format inside a
   // project with thunder.toml (or with --core). Mission files fall through unchanged. See src/core/cli.mjs.
   const coreCode = coreMain(cmd, restArgv);

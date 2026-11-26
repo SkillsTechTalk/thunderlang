@@ -33,6 +33,8 @@ const nativeOverflow = (e) => { try { return e instanceof RangeError || (e insta
 class NeedsDeeperStack extends Error {}
 
 const MAX_FRAMES = V.MAX_FRAMES;
+const CONTAINER_KINDS = new Set(['if', 'each', 'range', 'times', 'while', 'tryFail']); // statements with steps inside
+const MAX_RECORDED = 20000; // a recording stops growing here (and says so); the program still runs to the end
 
 /** The Python modules a program uses (Use), which this engine does not run. */
 export function pythonModulesUsed(results) {
@@ -55,8 +57,10 @@ class Module {
 class Engine {
   // readText(path, cwd): the text of a file the program reads, or throws with .code 'ENOENT' / 'EISDIR'. Without it
   // (a browser), reading a file is reported as a missing file.
-  constructor({ cwd = '.', deeper = false, readText = null } = {}) {
+  // record: keep a step-by-step recording of the run (the Thunder Time Machine; see recordedRun below).
+  constructor({ cwd = '.', deeper = false, readText = null, record = false } = {}) {
     this.cwd = cwd;
+    this.rec = record ? { steps: [], truncated: false } : null;
     this.readText = readText;
     // deeper: if JavaScript's own stack runs out, stop and say so (NeedsDeeperStack) instead of reporting it as the
     // program's error, so the caller can run it again where the stack is deep enough.
@@ -110,7 +114,7 @@ class Engine {
   call(fn, args) {
     if (!fn?.isFunc) throw TypeErr(`'${fn === null ? 'NoneType' : typeof fn}' object is not callable`);
     const { f, mod } = fn;
-    const frame = { file: mod.file, line: f.line };
+    const frame = { file: mod.file, line: f.line, fn: f.name ?? f.py };
     if (this.frames.length >= MAX_FRAMES) {
       // Python makes the new call's frame, then stops at its first line (a line with no Thunder mark, like the
       // check for a default, leaves the error at the caller's line).
@@ -183,6 +187,43 @@ class Engine {
   }
 
   stmt(s, env) {
+    if (this.rec) return this.recordStep(s, env);
+    return this.runStmt(s, env);
+  }
+
+  /**
+   * The Time Machine: one step per statement, in the order they run. A step keeps the line, how deep in calls it
+   * is, the values it changed (before -> after, as the program would show them), and what it printed. A statement
+   * with steps inside (a choice, a loop) keeps only where it went next; the steps inside are recorded on their own.
+   */
+  recordStep(s, env) {
+    const rec = this.rec;
+    if (rec.steps.length >= MAX_RECORDED) { rec.truncated = true; return this.runStmt(s, env); }
+    const names = () => { const m = new Map(); for (const [k, v] of env.locals) if (!v?.isFunc) m.set(k, v); return m; };
+    const view = (v) => { try { return typeof v === 'string' ? pyStr(v) : show(v); } catch { return '…'; } };
+    const before = new Map([...names()].map(([k, v]) => [k, view(v)]));
+    const step = { n: rec.steps.length + 1, file: env.frame.file, line: s.line, depth: this.frames.length, fn: env.frame.fn ?? null, kind: s.k };
+    const outFrom = this.out.length;
+    rec.steps.push(step);
+    const inner = rec.steps.length;
+    const container = CONTAINER_KINDS.has(s.k);
+    const finish = (failed, gave) => {
+      const nested = rec.steps.length > inner;
+      if (container && nested) { step.next = rec.steps[inner].line; if (failed) step.failed = true; return; }
+      if (container) step.next = null; // a choice or loop whose steps did not run (a condition that was false)
+      const said = nested ? '' : this.out.slice(outFrom).join(''); // (output from a call is on the call's own steps)
+      if (gave !== undefined) step.gives = view(gave);
+      const changes = [];
+      for (const [k, v] of names()) { const after = view(v); if (before.get(k) !== after) changes.push({ name: k.replace(/_/g, ' '), ...(before.has(k) ? { before: before.get(k) } : {}), after }); }
+      if (changes.length) step.changes = changes;
+      if (said) step.said = said;
+      if (failed) step.failed = true;
+    };
+    try { const r = this.runStmt(s, env); finish(false); return r; }
+    catch (e) { if (e instanceof Return) finish(false, e.v); else finish(true); throw e; }
+  }
+
+  runStmt(s, env) {
     const L = s.line;
     const fr = env.frame;
     fr.line = L;
@@ -532,6 +573,24 @@ export function runInProcess({ entry, cwd, deeper = false, readText = null } = {
     else { stderr = `${eng.describeError(asPyErr(e))}\n`; status = 1; }
   }
   return { status, stdout: eng.out.join(''), stderr };
+}
+
+/**
+ * Run a program and keep a step-by-step recording of it (the Thunder Time Machine, `thunder run --record`).
+ * Gives back { status, stdout, stderr, steps, truncated }. Like runInProcess, on the calling thread.
+ */
+export function recordedRun({ entry, cwd, readText = null } = {}) {
+  const uses = pythonModulesUsed([entry]);
+  if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses, steps: [] };
+  const eng = new Engine({ cwd, readText, record: true });
+  let stderr = '', status = 0;
+  try {
+    const mod = eng.load(entry);
+    eng.runMain(mod);
+  } catch (e) {
+    if (!(e instanceof Return)) { stderr = `${eng.describeError(asPyErr(e))}\n`; status = 1; }
+  }
+  return { status, stdout: eng.out.join(''), stderr, steps: eng.rec.steps, truncated: eng.rec.truncated };
 }
 
 /** The same, on the calling thread. */

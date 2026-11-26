@@ -8,14 +8,24 @@
 //   - --core is given (a single file with no project)
 // Everything else falls through to the mission commands, unchanged.
 
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { resolve, relative, join } from 'node:path';
-import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGETS } from './project.mjs';
+import { findProjectRoot, buildProject, findPython, runPython, newProject, TARGETS, TARGET_NAMES } from './project.mjs';
 import { runTypeScript } from './typescript-run.mjs';
+import { runCSharp } from './csharp-run.mjs';
+import { runRust, rustModule } from './rust-run.mjs';
+import { runGo } from './go-run.mjs';
+import { runJava } from './java-run.mjs';
+import { javaClassName } from './target-java.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
-import { paint } from '../term.mjs';
+import { paint, useColor } from '../term.mjs';
 import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
+import { recordedRun } from './engine-core.mjs';
+import { COMPILER_VERSION } from '../emit.mjs';
+
+/** The format of a Time Machine recording (thunder run --record, thunder replay). */
+export const TIME_MACHINE_SCHEMA = 'thunder-time-machine-v1';
 
 const CORE_COMMANDS = new Set(['new', 'run', 'build', 'test', 'check', 'format', 'fmt']);
 
@@ -26,6 +36,8 @@ function parse(argv) {
     if (x === '--target') a.target = argv[++i] ?? '';
     else if (x.startsWith('--target=')) a.target = x.slice('--target='.length);
     else if (x === '--engine') a.engine = argv[++i] ?? '';
+    else if (x === '--record') a.record = argv[++i] ?? '';
+    else if (x.startsWith('--record=')) a.record = x.slice('--record='.length);
     else if (x.startsWith('--engine=')) a.engine = x.slice('--engine='.length);
     else if (x === '--core') a.core = true;
     else if (x === '--json') a.json = true;
@@ -87,8 +99,13 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (cmd === 'format' || cmd === 'fmt') return format(t, a, cwd);
     if (a.engine !== null && !ENGINES.includes(a.engine)) { warn(`thunder ${cmd}: there is no engine "${a.engine}". Use --engine python (the default) or --engine thunder.`); return 2; }
     if (a.engine !== null && cmd !== 'run' && cmd !== 'test') { warn(`thunder ${cmd}: --engine is for thunder run and thunder test.`); return 2; }
-    if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default) or --target typescript.`); return 2; }
-    if (a.target === 'typescript' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target typescript runs compiled TypeScript, --engine thunder runs Thunder directly.`); return 2; }
+    if (a.target !== null && !TARGETS.includes(a.target)) { warn(`thunder ${cmd}: there is no target "${a.target}". Use --target python (the default)${TARGETS.filter((x) => x !== 'python').map((x) => `, --target ${x}`).join('')}.`); return 2; }
+    if (a.record != null) {
+      if (cmd !== 'run') { warn(`thunder ${cmd}: --record is for thunder run.`); return 2; }
+      if (!a.record) { warn('thunder run: --record needs a file to save the recording in, like --record run.trace.json'); return 2; }
+      if ((a.engine && a.engine !== 'thunder') || (a.target && a.target !== 'python')) { warn('thunder run: a recording is made on the Thunder engine; leave out --engine and --target.'); return 2; }
+    }
+    if (a.target !== null && a.target !== 'python' && a.engine === 'thunder') { warn(`thunder ${cmd}: choose one: --target ${a.target} runs compiled ${TARGET_NAMES[a.target] ?? a.target}, --engine thunder runs Thunder directly.`); return 2; }
     const build = buildProject({ root: t.root, single: t.file, includeTests: cmd === 'test' || cmd === 'check', write: cmd !== 'check', target: a.target });
     if (cmd === 'check') {
       if (a.json) { say(JSON.stringify({ ok: build.ok, files: build.results.map((r) => ({ file: relative(cwd, r.path), diagnostics: r.diagnostics })) }, null, 2)); return build.ok ? 0 : 1; }
@@ -99,11 +116,39 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     }
     if (!build.ok) { const n = report(build, cwd); warn(`thunder ${cmd}: ${n} problem${n === 1 ? '' : 's'}; nothing was ${cmd === 'build' ? 'built' : 'run'}.`); return 1; }
     const out = relative(cwd, build.outDir) || '.';
+    if (cmd === 'build' && build.target === 'rust') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Rust)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${rustModule(r.module)}.rs`);
+      say(`  ${out}/thunder_runtime.rs (the small runtime the generated code uses, standard library only), main.rs, and Cargo.toml`);
+      say(`  run it without Thunder: cd ${build.base === cwd ? '.' : relative(cwd, build.base)} && cargo run --offline --manifest-path ${relative(build.base, build.outDir) || '.'}/Cargo.toml   (add -- --tests for the tests)`);
+      return 0;
+    }
     if (cmd === 'build' && build.target === 'typescript') {
       say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (TypeScript)`);
       for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.ts`);
       say(`  ${out}/thunder_runtime.mjs (the small runtime the generated code uses), with its types and a tsconfig.json`);
       say(`  run it without Thunder: node ${out}/${build.entryModule}.ts   (Node 22.6 or newer; check the types with: tsc -p ${out})`);
+      return 0;
+    }
+    if (cmd === 'build' && build.target === 'csharp') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (C#)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.cs`);
+      say(`  ${out}/ThunderRuntime.cs (the small runtime the generated code uses), Program.cs, and ThunderProgram.csproj`);
+      say(`  run it without Thunder: dotnet run --project ${out}   (.NET 8 or newer; add -- test to run the tests)`);
+      return 0;
+    }
+    if (cmd === 'build' && build.target === 'go') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Go)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/${r.module}.go`);
+      say(`  ${out}/thunder/thunder_runtime.go (the small runtime the generated code uses), with go.mod`);
+      say(`  run it without Thunder: cd ${out} && go run .   (Go 1.21 or newer; its tests: go run -tags thundertests .)`);
+      return 0;
+    }
+    if (cmd === 'build' && build.target === 'java') {
+      say(`thunder build: ${build.results.length} file${build.results.length === 1 ? '' : 's'} -> ${out}/ (Java 17+)`);
+      for (const r of build.results) say(`  ${relative(cwd, r.path)}  ->  ${out}/app/${javaClassName(r.module)}.java`);
+      say(`  ${out}/thunder/ThunderRuntime.java and T.java (the small runtime the generated code uses)`);
+      say(`  run it without Thunder: javac -d ${out}/classes $(find ${out}/app ${out}/thunder -name '*.java') && java -cp ${out}/classes app.${javaClassName(build.entryModule ?? 'main')}`);
       return 0;
     }
     if (cmd === 'build') {
@@ -113,8 +158,13 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
       say(`  run it without Thunder: cd ${build.base === cwd ? '.' : relative(cwd, build.base)} && python3 ${relative(build.base, build.outDir)}/${build.entryModule}.py`);
       return 0;
     }
+    if (a.record != null) return recordRun(build, a.record, cwd, warn);
     if (a.engine === 'thunder') return runOnEngine(cmd, build, warn, say);
     if (build.target === 'typescript') return runCompiledTypeScript(cmd, build, warn, say);
+    if (build.target === 'csharp') return runCompiledCSharp(cmd, build, warn, say);
+    if (build.target === 'rust') return runCompiledRust(cmd, build, warn, say);
+    if (build.target === 'go') return runCompiledGo(cmd, build, warn, say);
+    if (build.target === 'java') return runCompiledJava(cmd, build, warn, say);
     const python = findPython();
     if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
@@ -143,6 +193,60 @@ function runCompiledTypeScript(cmd, build, warn, say) {
   if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
   return r.status ?? 1;
 }
+
+/** thunder run --record <file>: run on the Thunder engine and save a step-by-step recording (the Time Machine). */
+function recordRun(build, file, cwd, warn) {
+  if (!build.entry) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  const r = recordedRun({ entry: build.entry, cwd: build.base, readText: (p, dir) => readFileSync(resolve(dir, p), 'utf8') });
+  if (r.refused) { warn(`thunder run: ${r.stderr.trim()}`); return 2; }
+  if (r.stdout) process.stdout.write(r.stdout);
+  if (r.stderr) process.stderr.write(r.stderr);
+  const files = {};
+  for (const x of build.results) { try { files[x.rel ?? relative(build.base, x.path)] = readFileSync(x.path, 'utf8'); } catch { /* not readable */ } }
+  const trace = { schema: TIME_MACHINE_SCHEMA, thunder: COMPILER_VERSION, engine: 'thunder', program: build.entry.file, status: r.status, stdout: r.stdout, stderr: r.stderr, truncated: r.truncated, files, steps: r.steps };
+  writeFileSync(resolve(cwd, file), `${JSON.stringify(trace, null, 1)}\n`);
+  warn(paint(`Recorded ${r.steps.length} step${r.steps.length === 1 ? '' : 's'}${r.truncated ? ' (the recording stopped at its limit; the program ran to the end)' : ''} in ${file}.\nStep through it: thunder replay ${file}`, useColor(process.stderr)));
+  return r.status;
+}
+
+/** thunder run / test with the C# target: the compiled C# is built with the .NET SDK and run. */
+function runCompiledCSharp(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = runCSharp(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
+  return r.status ?? 1;
+}
+
+/** thunder run / test with the Rust target: cargo builds the compiled Rust (offline), then it runs. */
+function runCompiledRust(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = runRust(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.stderr.trimEnd()}`); return 2; }
+  return r.status ?? 1;
+}
+
+/** thunder run / test with the Go target: the compiled Go is built and run with the go toolchain. */
+function runCompiledGo(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const r = runGo(build.outDir, { tests: cmd === 'test', cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
+  if (r.buildFailed) { warn(`thunder ${cmd}: ${r.stderr}`); return 2; }
+  return r.status ?? 1;
+}
+
+/** thunder run / test with the Java target: javac compiles the generated Java, and java runs it. */
+function runCompiledJava(cmd, build, warn, say) {
+  if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+  if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
+  const files = [...readdirDeep(build.outDir, 'app'), ...readdirDeep(build.outDir, 'thunder')];
+  const r = runJava(build.outDir, files, cmd === 'run' ? build.entryModule : 'RunTests', { cwd: build.base, stdio: 'inherit' });
+  if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.stderr.trimEnd()}`); return 2; }
+  return r.status ?? 1;
+}
+const readdirDeep = (root, dir) => { try { return readdirSync(join(root, dir)).filter((f) => f.endsWith('.java')).map((f) => `${dir}/${f}`); } catch { return []; } };
 
 /** thunder run / test --engine thunder: the program runs on the Thunder engine, with no Python. */
 function runOnEngine(cmd, build, warn, say) {

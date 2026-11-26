@@ -9,6 +9,64 @@
   columns become blocks, long conditions wrap before `and`/`or`, and one blank line goes around every function,
   record, and test. It never changes meaning: 66 Core programs from the examples, docs, and Core tests are formatted
   in the tests and give the same program, output, and test results. The trading-journal example is in the new style.
+- **The Thunder Time Machine: step through a run.** `thunder run <program> --record run.json` runs it on the Thunder
+  engine and saves every step; `thunder replay run.json` steps forward and back (Enter or n, b, j 7, q). Each step shows
+  the Thunder line, the values it changed (before → after), what it printed, what a function gave back, which steps a
+  call covered, and for a choice whether it went "yes" or "no, so the Otherwise steps". `--step n` and `--json` give one
+  step or the whole recording as data (`thunder-time-machine-v1`). It replays a recording: going back never undoes
+  anything. Programs that `Use` a Python module cannot be recorded (the Thunder engine does not run them).
+- **Thunder Core compiles to C#.** `thunder build|run|test --target csharp` (or `target = "csharp"` in `thunder.toml`)
+  writes an ordinary .NET console project: one static class per Thunder file, `ThunderRuntime.cs` (base class library
+  only; a line-by-line port of the engine's value code, with exact decimals on `BigInteger`), `Program.cs`, and
+  `ThunderProgram.csproj`, and builds and runs it with the .NET SDK (8 or newer). Every Core test program (136) gives
+  the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and C#; the conformance tests
+  build them all in one project per test file. `Use` is refused for C# (TC405). Without the SDK, Thunder says what to
+  install (exit 2). The site lists C# as Available; Java, Go, and Rust stay Planned.
+- **Thunder Core compiles to Rust.** `thunder build|run|test --target rust` (or `target = "rust"` in `thunder.toml`)
+  writes a small Cargo project: one `.rs` per Thunder file, `main.rs`, and `thunder_runtime.rs`, a line-by-line port
+  of the Thunder engine's value code that uses only the standard library (exact decimals of any size, money rounded
+  half up, positions from 1, the same words for every value and error), so it builds offline. 136 Core test programs
+  give the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Rust; programs that use
+  a Python module are refused (TC405). Running needs `rustc` and `cargo`; without them Thunder says what to install.
+- **Fix: JSON `false`.** "the JSON data in" read `false` one character short, so `{"a": false}` failed with
+  "Expecting ',' delimiter". It now reads it as Python does (the Thunder engine and every compiled target).
+- **Thunder Core compiles to Go.** `thunder build|run|test --target go` (or `target = "go"` in `thunder.toml`) compiles
+  a program to readable Go: one standard-library-only module (`go.mod`, one `.go` per Thunder file, and the runtime in
+  `thunder/thunder_runtime.go`, a port of the Thunder engine's value code: exact decimals with `math/big`, money rounded
+  half up, positions from 1). `go run .` runs it without Thunder. Every Core test program (136) gives the same output,
+  errors included, on Python, the Thunder engine, TypeScript, and Go; the conformance tests now run all four. `Use` (a
+  Python module) is refused for Go (TC405). Running needs Go 1.21+; without it, Thunder says so and `build` still works.
+- **Thunder Core compiles to Java.** `thunder build|run|test --target java` (or `target = "java"` in thunder.toml)
+  compiles a program to readable Java 17+ (one class per Thunder file, a static method per function, every line marked
+  `// thunder:N`) with a JDK-only runtime that follows the Thunder engine's values line for line. Every Core test
+  program (136) gives the same output, errors, and exit status on Python, the Thunder engine, TypeScript, and Java.
+  Thunder finds the JDK through THUNDER_JAVA_HOME, JAVA_HOME, or the PATH, and says what to install when there is
+  none; building needs no JDK. A program that uses a Python module is refused for Java (TC405).
+- **Readings say more, more precisely (a reading-quality sweep on real code).** A message says what it writes
+  (`Writes a log or message: "Wrote «opts.out»."`, values in text as «placeholders»); an add says what it adds ("Adds an
+  entry (title, rows, source) to out", "Adds the c's id to items"); a call's single argument is named ("Calls add
+  command (with the result of rules command)"); everyday calls are said by what they give back (`Object.keys(x)` "the
+  keys of x", `Date.parse(t)`, `Buffer.from(b)`, `re.exec(s)` "the first match of re in s", `Schema.parse(body)`,
+  `Math.max(a, b)` "the largest of a and b", Python `Settings()` "a new Settings", `list(x)`, `sorted(x)`,
+  `xs.index(v)` "the position of v in xs"); callbacks are said by purpose (`program.command('check')` "Defines the
+  command "check"", a database transaction, progress shown); a one-expression event handler says when it runs; type
+  checks take "a" or "an" by sound ("an Error"); a map key keeps its owner ("the entry for the row's id in seen"); a
+  file path reads "at <name>". Fix: a Python variable named `match` was read as a `match` statement. The faithfulness
+  checks were taught each new form, so a sentence they cannot verify still falls back to code.
+  `compiler/scripts/reading-quality.mjs` measures these patterns on any folders.
+- **TypeScript web routes read as actions, even when the handler is wrapped.** `fastify.post('/x', handle(async
+  (request) => { … }))` and one-expression handlers (`fastify.get('/x', handle(async (request) => view(…)))`) are now
+  actions ("When someone calls POST /x"), like unwrapped ones. The function that registers them lists each once
+  ("Handles POST /x (its steps are in that action)") instead of repeating its steps as "Calls post with these steps".
+  TypeScript types are set aside when a statement is read: `(request.body ?? {}) as { … }` reads "Sets b to the
+  request's body, or an empty lookup table when that has no value", `ctx.repo!` reads "Sets repo to the ctx's repo",
+  and `const reviews: Record<…> = {}` reads "Sets reviews to an empty lookup table". Two loops on one line are no
+  longer read as one loop mixing their names.
+- **Reading fixes (reported from OpenThunder).** (1) A helper assigned below a typed variable (`let a: { … } | undefined;`
+  then `const approve = (x) => {`) was named after the variable; the type annotation now stops at its statement's end.
+  (2) A call named after a preposition no longer leaves a sentence hanging: `changeApprovalFor(x, …)` reads "change
+  approval for x" (its first argument, when that is a plain name), or "change approval" otherwise, never "change
+  approval for ". (3) "an AgentCheckResult", "an Order", "a User", "a URL": the article follows the sound.
 
 # 1.2.0
 

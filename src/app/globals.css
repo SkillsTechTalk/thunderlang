@@ -102,6 +102,17 @@
   .tok-punc {
     @apply text-haze-400;
   }
+
+  /* Terminal blocks in the docs (src/lib/terminal-tokens.ts): the thunder CLI's own colors, each >= 7:1 on ink-900. */
+  .term-cmd { @apply font-semibold text-[#67E8F9]; }
+  .term-sub { @apply text-[#A5F3FC]; }
+  .term-prog { @apply text-[#C4B5FD]; }
+  .term-flag { @apply text-[#FDBA74]; }
+  .term-ok { @apply font-semibold text-[#6EE7B7]; }
+  .term-bad { @apply font-semibold text-[#FCA5A5]; }
+  .term-warn { @apply font-semibold text-[#FCD34D]; }
+  .term-label { @apply font-semibold text-haze-100; }
+  .term-dim { @apply text-haze-400; }
 }
 
 /* Editor colors for code in a real programming language (src/lib/source-tokens.mjs). In the spirit of
@@ -200,6 +211,13 @@ pre.thunder-code {
   @apply my-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-900/80 p-4 font-mono text-[13px] leading-relaxed;
 }
 pre.thunder-code code {
+  @apply rounded-none bg-transparent p-0 text-[1em] text-haze-200;
+}
+/* Terminal blocks (commands and their output): a touch darker than Thunder code, so the two never look alike. */
+pre.terminal-code {
+  @apply my-5 overflow-x-auto rounded-xl border border-white/10 bg-ink-950 p-4 font-mono text-[13px] leading-relaxed;
+}
+pre.terminal-code code {
   @apply rounded-none bg-transparent p-0 text-[1em] text-haze-200;
 }
 .doc-prose hr {
