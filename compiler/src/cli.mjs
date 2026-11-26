@@ -660,7 +660,9 @@ function main() {
           throw new Error(`there is no level "${args.level}". The levels are: ${ids.join(', ')}.${near ? ` Did you mean --level ${near}?` : ''}`);
         }
         const isDir = statSync(file).isDirectory();
-        const files = isDir ? collectReadableFiles(file, { maxFiles: 5000 }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        const files = isDir ? collectReadableFiles(file, { maxFiles: 5000, templates: true }).filter((f) => f.source) : [{ path: basename(file), source: readFileSync(file, 'utf8') }];
+        // One Angular component file: its templateUrl file is read with it, so the screen shows its template.
+        if (!isDir) for (const tu of files[0].source.matchAll(/templateUrl\s*:\s*['"`]([^'"`]+)['"`]/g)) { try { files.push({ path: tu[1].replace(/^\.\//, ''), source: readFileSync(join(dirname(file), tu[1]), 'utf8') }); } catch { /* not there: the screen says so */ } }
         const model = thunderModel(files, { name: basename(resolve(file)) });
         const focus = findFocus(model, args.focus);
         if (focus.error) throw new Error(focus.error);
@@ -954,7 +956,7 @@ function main() {
       if (opt('--otlp')) evidence.push(...fromOtlp(readFileSync(opt('--otlp'), 'utf8')));
     } catch (e) { console.error(`thunder runtime: ${e.message}`); process.exit(2); return; }
     if (!evidence.length) { console.error(`thunder runtime: no evidence given.\n${usage}`); process.exit(2); return; }
-    const model = thunderModel(collectReadableFiles(folder, { maxFiles: 5000 }).filter((f) => f.source), { name: basename(resolve(folder)) });
+    const model = thunderModel(collectReadableFiles(folder, { maxFiles: 5000, templates: true }).filter((f) => f.source), { name: basename(resolve(folder)) });
     const overlay = runtimeOverlay(model, evidence);
     const explained = stacks.map((s) => explainError(model, s));
     if (restArgv.includes('--json')) { console.log(JSON.stringify({ ...overlay, errors: explained }, null, 2)); return; }

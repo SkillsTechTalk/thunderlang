@@ -2,6 +2,7 @@
 // choices), and members (actions, rules, steps, setup) with their flow as a graph, links between them, source lines,
 // and everything Thunder could not read. Thunder pictures and Thunder Text are projections of this model; nothing in
 // them may say more than the model does. Browser-safe: takes [{ path, source }].
+import { readScreens, screenText } from './screens.mjs';
 import { readCode, INFRA_LANGUAGES } from './read.mjs';
 import { readableLanguage, readingOf } from './read-repo.mjs';
 import { plainFromReading, explainPlain } from './plain-contract.mjs';
@@ -815,6 +816,20 @@ export function thunderModel(files, { name = 'app' } = {}) {
   const model = { schema: MODEL_SCHEMA, name, files: fileInfo, things, members, links, unknowns, permissions, settings, facts, explainedSteps, totalSteps };
   // The whole system: calls that go to another file, HTTP requests to this repo's routes, events to listeners.
   try { linkSystem(model, files); } catch (e) { model.notLinked = [{ file: fileInfo[0]?.path ?? null, line: 1, why: `Calls across files could not be linked: ${e.message}` }]; }
+  // Screens: React and Angular components read as what a person sees and does (src/screens.mjs). Listed only when
+  // there are some; the function or class behind each one points to it.
+  try {
+    const screens = readScreens(files, { members });
+    if (screens.length) {
+      model.screens = screens;
+      for (const sc of screens) {
+        const m = members.find((x) => x.file === sc.file && x.name === sc.name);
+        if (m) { m.screen = sc.id; sc.member = m.id; }
+        const t = things.find((x) => x.file === sc.file && x.name === sc.name);
+        if (t) { t.screen = sc.id; sc.thing = t.id; }
+      }
+    }
+  } catch (e) { unknowns.push({ file: fileInfo[0]?.path ?? null, line: 1, why: `Screens could not be read: ${e.message}` }); }
   return model;
 }
 
@@ -860,6 +875,8 @@ function flowLines(flow, depth = 1, note = null, full = false) {
  * cannot disagree. Pass the model and an id.
  */
 export function modelText(model, id, { note = null, full = false } = {}) {
+  const sc = (model.screens ?? []).find((x) => x.id === id);
+  if (sc) return screenText(sc);
   const t = model.things.find((x) => x.id === id);
   if (t) {
     const lines = [t.kind === 'resource' ? `Resource ${t.label} (${t.resourceType})` : `${t.kind === 'thing' ? 'Thing' : t.kind === 'record' ? 'Record' : 'Choices'} ${t.label}`];
@@ -885,7 +902,7 @@ export function modelText(model, id, { note = null, full = false } = {}) {
 
 // ── The five reading levels: what each one shows, decided here so every product shows the same thing ─────────
 
-const SYMBOL_OF = { action: 'action', rule: 'rule', steps: 'steps', setup: 'setup', 'not-read': 'not-read', thing: 'thing', record: 'record', choices: 'choices', pipeline: 'action', 'image-build': 'steps', resource: 'resource' };
+const SYMBOL_OF = { screen: 'screen', action: 'action', rule: 'rule', steps: 'steps', setup: 'setup', 'not-read': 'not-read', thing: 'thing', record: 'record', choices: 'choices', pipeline: 'action', 'image-build': 'steps', resource: 'resource' };
 
 const SETTING_WORDS = { parameter: 'given when it starts or is built', variable: 'a variable kept outside the file', secret: 'a secret (only its name is shown)', literal: 'written in the file', computed: 'worked out when it runs' };
 const APPLIED_WORDS = { parameter: 'given when it is applied', computed: 'worked out when it is applied' };
@@ -1043,6 +1060,17 @@ function detailsFacts(model, member) {
   return { inputs, changes, stops, givesBack, reliesOn, ...(answers ? { answers } : {}), ...(limits ? { limits } : {}), openQuestions };
 }
 
+/** One reading level of a screen (a React or Angular component): the same five levels as any member. */
+function screenLevel(lv, sc, model) {
+  const base = { level: lv.id, name: lv.name, question: lv.question };
+  const about = { scope: 'screen', id: sc.id, title: sc.label, symbol: 'screen', file: sc.file, lines: sc.lines, framework: sc.framework, ...(sc.selector ? { selector: sc.selector } : {}) };
+  if (lv.id === 'big-picture') return { ...base, ...about, inputs: sc.inputs, state: sc.state, outputs: sc.outputs, ...(sc.services ? { services: sc.services } : {}), uses: sc.uses, usedBy: sc.usedBy ?? [], events: sc.events.length, notRead: sc.notRead.length };
+  if (lv.id === 'flow') return { ...base, ...about, shows: sc.shows, ...(sc.early ? { early: sc.early } : {}) };
+  if (lv.id === 'details') return { ...base, ...about, inputs: sc.inputs, state: sc.state, events: sc.events, effects: sc.effects, outputs: sc.outputs, notRead: sc.notRead, source: 'Read from code by the Thunder compiler, with no AI.' };
+  if (lv.id === 'text') return { ...base, ...about, text: screenText(sc) };
+  return { ...base, ...about, language: model.files.find((f) => f.path === sc.file)?.language ?? null, ...(sc.template ? { template: sc.template } : {}) };
+}
+
 /**
  * What one reading level shows: `level` is a LEVELS id (big-picture, flow, details, text, original); `focus` is a
  * Thing or member id, or nothing for the whole model. Flow and Details need an action or rule; without one they
@@ -1051,6 +1079,8 @@ function detailsFacts(model, member) {
 export function readLevel(model, level, focus, { full = false } = {}) {
   const lv = LEVELS.find((l) => l.id === level);
   if (!lv) throw new Error(`Unknown reading level "${level}". Use one of: ${LEVELS.map((l) => l.id).join(', ')}.`);
+  const screen = focus ? (model.screens ?? []).find((x) => x.id === focus) : undefined;
+  if (screen) return screenLevel(lv, screen, model);
   const member = focus ? model.members.find((m) => m.id === focus) : undefined;
   const thing = focus && !member ? model.things.find((t) => t.id === focus) : undefined;
   if (focus && !member && !thing) throw new Error(`Nothing in this model has the id "${focus}".`);
@@ -1069,14 +1099,16 @@ export function readLevel(model, level, focus, { full = false } = {}) {
 
   if (!member && (lv.id === 'flow' || lv.id === 'details')) {
     const inScope = model.members.filter((m) => m.kind !== 'setup' && (!thing || m.owner === thing.id));
-    return { ...base, ...about, needsFocus: true, says: `${lv.name} shows one action or rule. Choose one.`, choose: inScope.map(short) };
+    const screens = thing ? [] : (model.screens ?? []).map((x) => ({ id: x.id, label: x.label, symbol: 'screen' }));
+    return { ...base, ...about, needsFocus: true, says: `${lv.name} shows one ${screens.length ? 'screen, action, or rule' : 'action or rule'}. Choose one.`, choose: [...screens, ...inScope.filter((m) => !m.screen).map(short)] };
   }
   if (lv.id === 'big-picture') {
     if (member) {
       return { ...base, ...about, ...(member.route ? { route: member.route } : {}), ...(member.doc ? { doc: member.doc } : {}),
         ...(owner ? { owner: { id: owner.id, label: owner.label } } : {}), youGive: member.youGive, ...(member.youGetBack ? { youGetBack: member.youGetBack } : {}), uses, usedBy };
     }
-    const inScope = (m) => m.kind !== 'setup' && (thing ? m.owner === thing.id : true);
+    // (A screen's function or class is listed once, as the screen.)
+    const inScope = (m) => m.kind !== 'setup' && (thing ? m.owner === thing.id : !m.screen);
     const resourceCard = (t) => ({ id: t.id, label: t.label, symbol: 'resource', resourceType: t.resourceType, address: t.address, file: t.file,
       knows: t.knows.map((k) => ({ label: k.label, value: k.kind, ...(k.computed ? { computed: true } : {}), ...(k.secret ? { secret: true } : {}), line: k.line })),
       links: (model.links || []).filter((l) => l.from === t.id || l.to === t.id).map((l) => ({ from: l.from, to: l.to, kind: l.kind, ...(l.line ? { line: l.line } : {}) })) });
@@ -1084,15 +1116,17 @@ export function readLevel(model, level, focus, { full = false } = {}) {
     const thingCard = (t) => ({ id: t.id, label: t.label, ...(t.doc ? { doc: t.doc } : {}), knows: t.knows.map((k) => ({ label: k.label, ...(k.start ? { start: k.start } : {}) })), can: model.members.filter((m) => m.owner === t.id && m.kind !== 'setup' && !m.callback).map(short) });
     return { ...base, ...about,
       ...(thing?.doc ?? model.files[0]?.purpose ? { purpose: thing?.doc ?? model.files[0]?.purpose } : {}),
-      things: (resource ? [] : thing ? [thing] : model.things.filter((t) => t.kind === 'thing')).map(thingCard),
+      things: (resource ? [] : thing ? [thing] : model.things.filter((t) => t.kind === 'thing' && !t.screen)).map(thingCard),
       resources: (resource ? [resource] : thing ? [] : model.things.filter((t) => t.kind === 'resource')).map(resourceCard),
       ...(thing ? {} : { permissions: model.permissions ?? [], settings: model.settings ?? [], facts: model.facts ?? [] }),
       data: thing ? [] : model.things.filter((t) => t.kind !== 'thing' && t.kind !== 'resource').map((t) => ({ id: t.id, label: t.label, symbol: SYMBOL_OF[t.kind], ...(t.choices.length ? { choices: t.choices } : {}), knows: t.knows.map((k) => k.label) })),
       actions: model.members.filter((m) => inScope(m) && m.kind === 'action').map(short),
       rules: model.members.filter((m) => inScope(m) && m.kind === 'rule').map(short),
       // (A callback is reached from the step that passes it, not listed on its own.)
-      loose: thing ? [] : model.members.filter((m) => !m.owner && !m.callback && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
+      loose: thing ? [] : model.members.filter((m) => !m.owner && !m.callback && !m.screen && m.kind !== 'setup' && m.kind !== 'action' && m.kind !== 'rule').map(short),
       unknowns: thing ? [] : model.unknowns,
+      // The app's screens (React and Angular components), and the screens and components each one shows.
+      ...(!thing && model.screens?.length ? { screens: model.screens.map((x) => ({ id: x.id, label: x.label, framework: x.framework, file: x.file, ...(x.selector ? { selector: x.selector } : {}), uses: x.uses.map((u) => u.label) })) } : {}),
       // The app's map: which areas (folders) call which, and send requests or events to which.
       ...(thing ? {} : { calls: callsSummary(model), notLinked: model.notLinked ?? [] }) };
   }

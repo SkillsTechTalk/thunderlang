@@ -1,5 +1,16 @@
 # Unreleased
 
+- **React and Angular screens are read as what a person sees and does.** A React component (function or arrow
+  returning JSX, `memo`/`forwardRef` too) and an Angular `@Component` are now **screens** in the model
+  (`model.screens`; the function or class behind each points to it). A screen says what it receives (props with
+  their types; `@Input`/`input()`), what it remembers (`useState`/`useReducer`/hooks; fields, `signal`, `computed`),
+  what it shows (JSX or the template, inline or `templateUrl`, in words: headings, lists "one of these per item in
+  items", choices "when … / otherwise", text boxes, buttons, links), what happens when someone acts (`onClick`,
+  `(click)`, … : sets coupon, runs checkout, sends the checkout event, tells the parent), what runs by itself
+  (`useEffect` with its dependencies, `ngOnInit` and the other hooks), what it sends (`@Output`/`output()`), and the
+  screens it shows (linked by name or selector). Anything not understood (spread props, other expressions, unknown
+  directives) is listed as not read. `thunder read --level` shows screens at every level; the big picture lists the
+  app's screens once. `collectReadableFiles` takes `templates: true` to bring `*.component.html` files.
 - **Thunder Beautiful Code: records and calls as blocks, and a formatter that knows the program.** A record can be
   written as a block (`Set first trade to a Trade:` then one `field: value` per line), for Set, Give, Add … to,
   Expect … to, and as a call's last value; a function can be called with its inputs by name, in any order, leaving out
