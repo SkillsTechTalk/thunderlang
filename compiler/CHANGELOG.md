@@ -1,4 +1,8 @@
-# Unreleased
+# 1.4.2
+
+**Upgrade note.** No command, flag, exit code, or JSON shape changed. New in `@skillstech/thunderlang/react`:
+`IOBoxes`, `Flow`, and `Details` (`BigPicture` now draws the IO boxes when an action or rule is in focus). New in
+`./core`: `flowEdgeLabel()` and `detailsLayout()`. `ioBoxes()` gains `getBack.items`; `getBack.text` is unchanged.
 
 - **The drawing kit, second part: the IO boxes, Flow, and Details.** `@skillstech/thunderlang/react` now draws the
   whole reading of one action or rule, so the three products show it the same way. `IOBoxes` ("You give it", "You get
