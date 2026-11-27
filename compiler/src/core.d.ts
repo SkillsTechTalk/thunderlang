@@ -202,5 +202,5 @@ export function writeRuleAcross(files: WriteAcrossFile[], options: { decision: s
 export function writeAcrossEvidence(result: WriteAcrossResult | { ok: false }): Array<{ kind: 'rule-write'; status: 'read'; claim: string; basis: unknown; scope: string; inputs: Array<{ part?: string; file: string }> }>;
 
 // What a reading shows and in what order (src/reading-layout.mjs).
-export { READING_LAYOUT_SCHEMA, READING_LABELS, readingLayout, thingCard, dataCard, ioBoxes, memberSymbolId } from './reading-layout.mjs';
-export type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, KnowsLine, ThunderSymbolId } from './reading-layout.d.mts';
+export { READING_LAYOUT_SCHEMA, READING_LABELS, readingLayout, thingCard, dataCard, ioBoxes, detailsLayout, flowEdgeLabel, memberSymbolId } from './reading-layout.mjs';
+export type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, DetailsLayout, When, KnowsLine, ThunderSymbolId } from './reading-layout.d.mts';

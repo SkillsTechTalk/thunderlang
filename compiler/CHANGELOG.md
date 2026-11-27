@@ -1,3 +1,18 @@
+# Unreleased
+
+- **The drawing kit, second part: the IO boxes, Flow, and Details.** `@skillstech/thunderlang/react` now draws the
+  whole reading of one action or rule, so the three products show it the same way. `IOBoxes` ("You give it", "You get
+  back", "It can stop with" with each stop's line, and "Part of …" back to its Thing), which `BigPicture` now draws when
+  an action or rule is in focus. `Flow` (every step at the compiler's lane and row, its Yes / No / For each / Done / If
+  it fails edges, marks and colors from DOES, steps not read yet dashed, optional New / Gone marks for Thunder Diff).
+  `Details` (the counts at a glance, then You give it / You get back, When it stops, What it changes, Its answers,
+  Exact limits, Every step, It relies on, Used by, Questions the code cannot answer). The words come from
+  `./core`: `flowEdgeLabel(edge)` and `detailsLayout(readLevel(model, 'details', id))`, which keeps a section only when
+  the compiler gave it. Callbacks only (`onLine`, `onUse`, `onThing`); no buttons without them. The stylesheet gains
+  the matching `tl-` classes, all on the same color variables. `ioBoxes` gains `getBack.items`: the declared result,
+  else the Flow's end steps, so the Big Picture no longer says "Nothing it hands back" for a function whose returns
+  have no type (`getBack.text` is unchanged).
+
 # 1.4.1
 
 **Upgrade note.** No command, flag, exit code, or JSON shape changed. New: the drawing kit entry

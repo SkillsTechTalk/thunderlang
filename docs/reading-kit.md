@@ -4,10 +4,12 @@
 all use it, so a reading says the same words in the same order everywhere.
 
 ```ts
-import { BigPicture, ThingCard, DataCard } from "@skillstech/thunderlang/react";
+import { BigPicture, Flow, Details } from "@skillstech/thunderlang/react";
 import "@skillstech/thunderlang/react/reading.css";
 
-<BigPicture model={model} focus={selectedId} onOpen={(memberId) => openFlow(memberId)} />
+<BigPicture model={model} focus={selectedId} onOpen={(memberId) => select(memberId)} onThing={select} onLine={openCode} />
+<Flow flow={member.flow} onLine={openCode} onUse={select} />
+<Details view={readLevel(model, "details", member.id)} onLine={openCode} />
 ```
 
 **What it shows comes from `readingLayout`.** `readingLayout(model, { focus })` in `@skillstech/thunderlang/core`
@@ -33,4 +35,16 @@ Without it they are plain text.
 
 React is a peer dependency (18 or newer): the app's own copy is used. There is no Tailwind and no build step.
 
-Coming next: the drawn IO boxes, and the Flow and Details views.
+**The three views of one action or rule.**
+
+| Component | Draws | Words from |
+|---|---|---|
+| `IOBoxes` (inside `BigPicture` for an action or rule) | You give it, You get back, It can stop with (each stop's line), Part of … | `ioBoxes(model, member)` |
+| `Flow` | every step at the compiler's lane and row, its edges (Yes, No, For each, Done, If it fails), steps not read yet dashed | `member.flow`, `flowEdgeLabel(edge)` |
+| `Details` | counts at a glance, You give it / You get back, When it stops, What it changes, Its answers, Exact limits, Every step, It relies on, Used by, Questions the code cannot answer | `detailsLayout(readLevel(model, "details", id))` |
+
+A Details section appears only when the compiler gives it; nothing is filled in. `Flow` measures its drawn steps to
+place the edges, so in server rendering the steps are drawn and the edges join on the first paint. Pass
+`marks` and `markAs` ("added" or "removed") to mark steps New or Gone in a diff. `Details` takes `rules` to draw the
+app's own rule cards in place of the plain "It relies on" list; `BigPicture` and `IOBoxes` take children to add the
+app's own notes under the boxes.

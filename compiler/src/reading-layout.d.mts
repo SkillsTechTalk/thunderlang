@@ -5,6 +5,13 @@ export const READING_LABELS: Readonly<{
   thing: string; knows: string; can: string; starts: (label: string) => string; startsWithKnows: (label: string) => string;
   record: string; choices: string; recordSymbol: string; choicesSymbol: string; things: string; data: string;
   give: string; getBack: string; stops: string; givesNothing: string; getsNothing: string; partOf: (label: string) => string; io: string;
+  edges: Readonly<Record<'yes' | 'no' | 'each' | 'done' | 'error' | 'nested' | 'case', string>>;
+  openLine: (line: number) => string; openRule: string;
+  details: Readonly<{
+    stops: string; noStops: string; noInputs: string; nothingBack: string; changes: string; answers: string; limits: (fact: string) => string;
+    limitsHow: string; steps: string; reliesOn: string; usedBy: string; openQuestions: string; always: string; otherwise: string;
+    when: (w: string) => string; usedOn: string; atAGlance: string;
+  }>;
 }>;
 export type ThunderSymbolId = 'app' | 'area' | 'file' | 'thing' | 'data' | 'record' | 'choices' | 'action' | 'rule' | 'steps' | 'setup' | 'stop' | 'not-read' | 'resource' | 'permission';
 export interface KnowsLine { name: string; label: string; detail: string | null; secret?: true; line: number | null }
@@ -22,7 +29,8 @@ export interface DataCardLayout {
 export interface IOBoxesLayout {
   kind: 'io'; id: string; label: string; doc: string | null; symbol: ThunderSymbolId;
   give: { heading: string; items: { label: string; kind: string | null }[]; empty: string };
-  getBack: { heading: string; text: string | null; empty: string };
+  /** text: what the code declares; items: that, else the Flow's end steps (what to draw). */
+  getBack: { heading: string; text: string | null; items: string[]; empty: string };
   stops: { heading: string; items: { text: string; line: number | null }[] };
   /** The Thing it belongs to, to link back to its card. */
   partOf: { id: string; text: string } | null;
@@ -32,6 +40,26 @@ export interface ReadingLayout {
   focus: { kind: 'app' | 'file' | 'thing' | 'member' | 'unknown'; id: string | null };
   sections: Array<{ id: 'things'; heading: string; cards: ThingCardLayout[] } | { id: 'data'; heading: string; cards: DataCardLayout[] } | { id: 'io'; heading: string; cards: IOBoxesLayout[] }>;
 }
+export interface When { question: string; answer: string }
+export interface DetailsLayout {
+  id: string | null; title: string | null; heading: string;
+  stats: { id: 'inputs' | 'steps' | 'stops' | 'changes' | 'reliesOn' | 'notExplained'; count: number; text: string }[];
+  give: { heading: string; items: { label: string; lines: number[] }[]; empty: string } | null;
+  getBack: { heading: string; items: { text: string; line: number | null; when: When[] | null }[]; empty: string } | null;
+  stops: { heading: string; items: { error: string; message: string | null; line: number | null; when: When[] }[]; empty: string } | null;
+  changes: { heading: string; items: { text: string; does: string | null; line: number | null; when: When[] }[] } | null;
+  answers: { heading: string; items: { answer: string; when: string }[] } | null;
+  limits: { heading: string; note: string; items: { range: string; answer: string }[] } | null;
+  steps: { heading: string; items: { id: string; text: string; does: string | null; mark: string | null; depth: number; line: number | null; notExplained: boolean; via: string | null }[] } | null;
+  reliesOn: { heading: string; items: { id: string; label: string; symbol: ThunderSymbolId; says: string }[] } | null;
+  usedBy: { heading: string; items: { id: string; label: string }[] } | null;
+  openQuestions: { heading: string; items: string[] } | null;
+  source: string | null;
+}
+/** What a Flow edge says, or null for a plain next step. */
+export function flowEdgeLabel(edge: { label?: string | null; text?: string }): string | null;
+/** Details sorted for drawing; `view` is readLevel(model, 'details', memberId). */
+export function detailsLayout(view: Record<string, any>): DetailsLayout;
 export function memberSymbolId(member: { kind: string }): ThunderSymbolId;
 export function thingCard(model: ThunderModel, thing: Thing): ThingCardLayout;
 export function dataCard(thing: Thing): DataCardLayout;
