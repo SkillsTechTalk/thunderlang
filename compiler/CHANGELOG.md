@@ -1,8 +1,20 @@
 # 1.4.1
 
-**Upgrade note.** No command, flag, exit code, or JSON shape changed. One behavior fix: `thunder write <folder…>` now
+**Upgrade note.** No command, flag, exit code, or JSON shape changed. New: the drawing kit entry
+`@skillstech/thunderlang/react` (with `react/reading.css`; React >=18 is an optional peer dependency) and
+`readingLayout()` in `./core` (schema `thunder-reading-layout-v1`). One behavior fix: `thunder write <folder…>` now
 lists, instead of changing, a rule with the same condition in a decision whose name shares no word with the chosen one.
 
+- **The Thunder drawing kit, `@skillstech/thunderlang/react` (first part).** One set of components so OpenThunder,
+  thunderlang.dev, and the Skills Tech Talk course draw a reading the same way: `ThingCard` ("A Thing", "It knows",
+  the "It can" buttons, "How a new … starts"), `DataCard` (a record or choices), `BigPicture`, and `ThunderSymbol`.
+  Every word and its order come from `readingLayout(model, { focus })` in `./core` (`thunder-reading-layout-v1`),
+  which zooms with focus: the whole app or a file (Things, then records, then choices), a Thing (its card and its
+  file's Data), or an action or rule (`ioBoxes`: "You give it", "You get back", "It can stop with", "Part of …").
+  Styling is one stylesheet, `@skillstech/thunderlang/react/reading.css`: plain `tl-` classes, every color a CSS
+  variable (a dark and a light set; `--language-accent` is honored), one column under 560px, 44px touch targets.
+  React is an optional peer dependency; no Tailwind, no build step. thunderlang.dev now draws its Thing and Data
+  cards with it. The Flow and Details views and the drawn IO boxes join next.
 - **Three lessons on changing real code, in `@skillstech/thunderlang/learn`.** "Does every route keep each
   customer's records to them?" (`thunder read --access`), "Change one rule in every service at once"
   (`thunder write <folder…>`), and "Keep the evidence for a change" (`thunder passport`, `passport check`). They are

@@ -384,7 +384,7 @@ export function LearnThunder({ lessons }: { lessons: BuiltLesson[] }) {
           const thing = model.things.find((t) => t.id === lesson.focusId);
           return (
             <>
-              <div className="grid gap-6 xl:grid-cols-2">
+              <div className="grid gap-6 xl:grid-cols-2 [&>*]:min-w-0">
                 <Code code={lesson.code ?? ""} label={lesson.codeLabel ?? ""} />
                 <div className="space-y-4">
                   <div className="mb-1 flex flex-wrap items-center gap-2 text-sm font-medium text-haze-300">Thunder <Chip>From code</Chip></div>
