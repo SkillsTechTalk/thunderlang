@@ -5,7 +5,8 @@
   and lists the inputs whose answer changed: `amount 100, days 29, refunded False: before 'approve', after
   'review'`. Printed output and errors count. It runs your code, so it is opt-in; a changed file that no longer
   loads is reported and not saved. Also `behaviour: true` on the MCP tool `intent_write`. Tested evidence on those
-  inputs, never called a proof.
+  inputs, never called a proof. Across services too: `thunder write web orders billing --decision … --when …
+  --behaviour` runs each Python implementation (the checkout demo shows `subtotal 40: before 5.99, after 0`).
 - **The read ↔ write round trip runs on made inputs too.** `docs/core-read-write.md` now also compares the original
   Python with Core compiled back to Python on inputs made from each function's code: 11 of 11 functions, 134 of 134
   inputs give the same results (alongside the 53 hand-picked inputs).

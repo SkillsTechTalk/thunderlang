@@ -78,8 +78,8 @@ if $change; then
   thunder() { node "$repo/compiler/src/cli.mjs" "$@"; }
   cd "$s"
   to="${CHANGE_TO:-subtotal >= 40}"
-  echo "== The plan: thunder write web orders billing --decision shippingNote --rule 1 --when \"$to\""
-  thunder write web orders billing --decision shippingNote --rule 1 --when "$to"
+  echo "== The plan: thunder write web orders billing --decision shippingNote --rule 1 --when \"$to\" --behaviour"
+  thunder write web orders billing --decision shippingNote --rule 1 --when "$to" --behaviour
   echo; echo "== The change, the tests, and a passport (--write: every implementation changes, or none does)"
   status=0
   thunder write web orders billing --decision shippingNote --rule 1 --when "$to" --write \

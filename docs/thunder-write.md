@@ -244,6 +244,19 @@ both `subtotal >= 50`): it is probably a different rule that happens to use the 
 words, leaving out words like get, is, and calculate, so `shippingNote`, `ShippingFee`, and `get_shipping_fee` match. Thunder does not
 guess that they are the same rule. Code that computes the same thing in a different shape is not found at all.
 
+**What it does, not only what it says.** Add `--behaviour` and Thunder runs each Python implementation before and
+after the change, on inputs made from its own numbers, and lists the answers that change:
+
+```text
+What the change does, run before and after on inputs made from the code (tested on these inputs only; not a proof):
+  billing/receipt.py  3 of 17 inputs give a different answer
+    subtotal 49: before 5.99, after 0
+    subtotal 40: before 5.99, after 0
+  orders/Shipping.cs  not run (the behaviour check runs Python functions only for now)
+```
+
+It runs that code, so it is opt-in, and it covers Python today; for the other languages, `--run` their tests.
+
 **All or nothing.** Every copy is changed with Thunder write's own checks (only the rule's characters, each file
 read again). If any one cannot be written exactly, no file changes, and Thunder says which one and why.
 

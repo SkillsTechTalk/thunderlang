@@ -85,3 +85,16 @@ test('thunder write --behaviour prints the changed answers and is a dry run', { 
     assert.equal(out.proof.behaviour[0].schema, 'thunder-behaviour-v1');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('thunder write across services --behaviour runs the Python implementation before and after', { skip }, () => {
+  const demo = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'demo', 'checkout');
+  const r = spawnSync(process.execPath, [CLI, 'write', 'web', 'orders', 'billing', '--decision', 'shippingNote', '--rule', '1', '--when', 'subtotal >= 40', '--behaviour', '--json'], { cwd: demo, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.written, false);
+  const billing = out.behaviour.find((b) => b.part === 'billing');
+  assert.equal(billing.status, 'changed');
+  assert.ok(billing.examples.includes('subtotal 40: before 5.99, after 0'), JSON.stringify(billing.examples));
+  assert.ok(billing.changes.every((c) => c.inputs.subtotal >= 40 && c.inputs.subtotal < 50));
+  assert.equal(out.behaviour.find((b) => b.part === 'orders').status, 'not-run');
+});

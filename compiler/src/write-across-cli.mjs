@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { behaviourCheck } from './behaviour.mjs';
 import { collectReadableFiles } from './read-repo-fs.mjs';
 import { writeRuleAcross, writeAcrossEvidence } from './write-across.mjs';
 import { buildPassport } from './passport-fs.mjs';
@@ -13,17 +14,18 @@ import { renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
 import { paint, useColor } from './term.mjs';
 
 const USAGE = `usage: thunder write <folder…> --decision <name> --rule <n> --when "<condition>" [--write]
-                     [--run "part: cmd" …] [--passport passport.json] [--purpose "…"] [--json]
+                     [--run "part: cmd" …] [--passport passport.json] [--purpose "…"] [--behaviour] [--json]
 Finds every implementation of the rule across the folders (each one part, in any language Thunder reads) and
 changes its number, comparison, or text value in each of them. Without --write: the plan only. With --write: every
 implementation changes, or none does. Test files are never edited; those that mention the old value are listed.
-Exit codes: 0 done (or planned), 1 refused or a --run command failed, 2 usage.`;
+--behaviour runs each Python implementation before and after on inputs made from its code and lists the answers
+that change (it runs that code). Exit codes: 0 done (or planned), 1 refused or a --run command failed, 2 usage.`;
 
 /** Is this `thunder write` call about several folders (rather than one file)? */
 export function isWriteAcross(argv) {
   const paths = [];
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i].startsWith('--')) { if (!['--write', '--json', '-w'].includes(argv[i])) i++; continue; }
+    if (argv[i].startsWith('--')) { if (!['--write', '--json', '-w', '--behaviour', '--behavior'].includes(argv[i])) i++; continue; }
     paths.push(argv[i]);
   }
   if (argv.includes('--edit')) return false;
@@ -45,6 +47,7 @@ export async function writeAcrossMain(argv) {
       else if (x === '--md-out') a.mdOut = need();
       else if (x === '--purpose') a.purpose = need();
       else if (x === '--json') a.json = true;
+      else if (x === '--behaviour' || x === '--behavior') a.behaviour = true;
       else if (x === '--help' || x === '-h') { console.log(USAGE); return 0; }
       else if (x === '--answer') { console.error('thunder write: across folders, only a rule\'s condition can change (--when). Each service may answer in its own way (a label on the page, an amount in billing), so one new answer would not fit them all.'); return 2; }
       else if (x.startsWith('--')) { console.error(`thunder write: there is no option ${x} for a change across folders.\n${USAGE}`); return 2; }
@@ -100,9 +103,17 @@ export async function writeAcrossMain(argv) {
   }
   const failed = runs.filter((x) => x.exitCode !== 0);
 
+  // --behaviour: run each Python implementation before and after the change, on inputs made from its code.
+  const behaviour = r.ok && a.behaviour ? r.plan.map((p) => {
+    const key = `${p.part}/${p.file}`;
+    const before = files.find((f) => f.part === p.part && f.path === p.file)?.source ?? '';
+    const after = r.files[key] ?? before;
+    return { part: p.part, file: p.file, ...behaviourCheck({ path: dirOf(key), name: p.decision, before, after }) };
+  }) : [];
+
   if (a.json) {
     const { files: _f, ...rest } = r;
-    console.log(JSON.stringify({ ...rest, written, runs, ...(a.passport ? { passport: a.passport } : {}) }, null, 2));
+    console.log(JSON.stringify({ ...rest, written, runs, ...(a.behaviour ? { behaviour } : {}), ...(a.passport ? { passport: a.passport } : {}) }, null, 2));
     return !r.ok || failed.length ? 1 : 0;
   }
   const say = (s = '') => console.log(paint(s, useColor()));
@@ -122,6 +133,13 @@ export async function writeAcrossMain(argv) {
     for (const c of p.change) say(`  line ${c.line}, column ${c.column}: ${c.before}  ->  ${c.after}`);
   }
   say('\nChecked by reading each file again: the rule reads as intended, and every other rule and function in each file reads exactly as before.');
+  if (behaviour.length) {
+    say('\nWhat the change does, run before and after on inputs made from the code (tested on these inputs only; not a proof):');
+    for (const b of behaviour) {
+      say(`  ${b.part}/${b.file}  ${b.status === 'changed' ? `${b.changes.length} of ${b.inputs} inputs give a different answer` : b.status === 'same' ? `all ${b.inputs} inputs give the same answer` : b.status === 'broken' ? `the changed file does not load (${b.reason})` : `not run (${b.reason})`}`);
+      for (const ex of (b.examples ?? []).slice(0, 3)) say(`    ${ex}`);
+    }
+  }
   if (r.notIncluded.length) {
     say('\nNot included (similar, but Thunder cannot tell it is the same rule; check by hand):');
     for (const n of r.notIncluded) say(`  ${n.part}/${n.file}:${n.line}  ${n.why}`);
