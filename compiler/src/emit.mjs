@@ -116,7 +116,7 @@ export function semanticDiagnostics(ast) {
     || (ast.patterns && ast.patterns.length > 0);
   if (!hasSubject) {
     err('missing-subject', 'No mission, service, event, api, database, or experience declared.',
-      'Every file must declare one subject so the compiler knows what it is reasoning about.',
+      'Every mission file must declare one subject so the compiler knows what it is reasoning about. If this file is a Thunder program (code that runs), add --core, or put it in a project (thunder new).',
       [{ label: 'Add a mission declaration', insert: 'mission MyMission', block: 'top' }]);
   }
   // Only missions warrant a goal; experience/pattern-only files do not.

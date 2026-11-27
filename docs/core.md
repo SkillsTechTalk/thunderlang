@@ -38,11 +38,14 @@ thunder build               # write the Python to generated/python/
 thunder format --write      # tidy indentation and spacing
 ```
 
-Outside a project, add `--core` to work with a single file: `thunder run --core hello.thunder`.
+Outside a project, a single file works too: `thunder run hello.thunder`.
 
 `thunder init <Name>` (also written `thunder new --mission <Name>`) still creates an intent **mission** file.
-Missions describe what a feature must do. Core programs are code that runs. A `.thunder` file counts as Core
-only when it is inside a folder with `thunder.toml`, or when you pass `--core`. Thunder never guesses.
+Missions describe what a feature must do. Core programs are code that runs. Thunder tells them apart by a fixed
+rule, never by guessing: a file inside a folder with `thunder.toml` (or run with `--core`) is Core; otherwise a file
+whose first line starts a mission (`mission Checkout`, `service Billing`, …) is a mission, and any other file is
+Core. A file that could be either, like `use csv` alone, stays a mission; add `--core` for it. `--mission` always
+reads a file as a mission. See [The Thunder language](/docs/language).
 
 `thunder.toml`:
 
