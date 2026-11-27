@@ -1,4 +1,4 @@
-# Unreleased
+# 1.6.0
 
 - **Thunder write in Thunder's words.** `thunder write <file> --edit` (step edits: inputs, questions, Stops, steps,
   answers, renames, in TypeScript, JavaScript, Python, and Go) now takes conditions, values, and steps the way Thunder
