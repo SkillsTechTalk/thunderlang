@@ -40,7 +40,7 @@ const KNOWN_BOOL = new Set(['cmp', 'contains', 'between', 'adj', 'isNothing', 'n
 
 /** Thunder modules a program uses that only Python has (Use): compiled Rust cannot call them. */
 export function pythonOnlyUses(info) {
-  return (info.modules ?? []).filter((m) => !info.imported?.has(m)).map((m) => ({ module: m.module, line: m.line }));
+  return (info.modules ?? []).filter((m) => !info.imported?.has(m) && m.ecosystem !== 'npm').map((m) => ({ module: m.module, line: m.line }));
 }
 
 /**

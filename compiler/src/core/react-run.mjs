@@ -5,15 +5,15 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { toReact, hasScreens } from './target-react.mjs';
-import { pythonOnlyUses } from './target-typescript.mjs';
+import { pythonOnlyUses, npmRefusals } from './target-typescript.mjs';
 import { REACT_RUNTIME, REACT_RUNTIME_DTS } from './runtime-react.mjs';
 import { diag } from './diagnostics.mjs';
 
 /** What stops a file from becoming a React app: a Python module (TC405), or steps outside a screen (TC406). */
 export function reactDiagnostics(result, { entry = false } = {}) {
-  const out = pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
+  const out = [...npmRefusals(result.info, 'a React app', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
     `"${u.module}" is a Python module, and this program is built as a React app, which cannot use it.`,
-    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'));
+    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'))];
   const main = result.program.main ?? [];
   if (main.length && hasScreens(result.info)) {
     out.push(diag('TC406', main[0].line, 'A React app shows its screens; the steps outside a screen have nowhere to run.',

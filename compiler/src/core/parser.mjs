@@ -770,12 +770,30 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
   if (w0 === 'never') return parseNever(ts, line, ep);
   if (w0 === 'use') {
     if (!ctx.top) fail('TC402', '"Use" must be written at the left edge of the file.');
+    // Use <python module> [from Python] [as <name>]   or   Use "<npm package>" from npm as <name>
     const asAt = rest.findIndex((t) => isWord(t, 'as'));
-    const modTs = asAt < 0 ? rest : rest.slice(0, asAt);
+    let modTs = asAt < 0 ? rest : rest.slice(0, asAt);
+    const fromAt = modTs.findIndex((t) => isWord(t, 'from'));
+    let ecosystem = 'python';
+    if (fromAt >= 0) {
+      const eco = modTs.slice(fromAt + 1);
+      const said = eco.length === 1 && eco[0].t === 'word' ? eco[0].text.toLowerCase() : '';
+      if (said !== 'python' && said !== 'npm') fail('TC108', `A library comes from Python or from npm, for example: Use csv from Python as csv, or Use "date-fns" from npm as dates.`);
+      ecosystem = said;
+      modTs = modTs.slice(0, fromAt);
+    }
+    if (ecosystem === 'npm' || modTs[0]?.t === 'str') {
+      const t = modTs[0];
+      const pkg = modTs.length === 1 && t.t === 'str' && t.parts.every((x) => typeof x === 'string') ? t.parts.join('') : null;
+      if (pkg == null || !/^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*(\/[\w.-]+)*$|^node:[a-z_/]+$/i.test(pkg)) fail('TC108', 'Write an npm package in quotes, for example: Use "date-fns" from npm as dates.');
+      if (ecosystem !== 'npm') fail('TC108', `Say where "${pkg}" comes from: Use "${pkg}" from npm as <name>.`);
+      if (asAt < 0) fail('TC108', `Give the package a name to use in Thunder: Use "${pkg}" from npm as <name>.`);
+      return { k: 'use', module: pkg, ecosystem, ...nameWords(rest.slice(asAt + 1), line, '"Use"'), line };
+    }
     const module = modTs.map((t) => (t.t === 'word' ? t.text : t.t === 'sym' && t.text === '.' ? '.' : '\u0000')).join('');
-    if (!module || module.includes('\u0000') || !/^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)*$/.test(module)) fail('TC108', 'Write "Use <python module> as <name>", for example: Use csv as csv.');
+    if (!module || module.includes('\u0000') || !/^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)*$/.test(module)) fail('TC108', 'Write "Use <python module> as <name>", for example: Use csv as csv. For npm: Use "date-fns" from npm as dates.');
     const alias = asAt < 0 ? { name: module.split('.')[0].toLowerCase(), text: module.split('.')[0] } : nameWords(rest.slice(asAt + 1), line, '"Use"');
-    return { k: 'use', module, ...alias, line };
+    return { k: 'use', module, ecosystem, ...alias, line };
   }
   if (w0 === 'test') {
     if (!ctx.top) fail('TC402', 'A "Test" block must be written at the left edge of the file.');

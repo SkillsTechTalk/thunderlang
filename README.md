@@ -35,17 +35,18 @@ Each compilation capability is advertised only once it works.
 | **Change** existing code from Thunder: the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go; other languages are handed to an AI agent and labeled AI-written | Available <!-- capability:thunderedEdit --> |
 | **Compile rules**: decisions written in Thunder compile to TypeScript, Python, Go, Rust, C#, and Java, and their examples run against the generated code | Available <!-- capability:decisionTargets --> |
 | **Write whole programs** in Thunder (Thunder Core) and run them as Python: `thunder new`, `run`, `build`, `test` | Available <!-- capability:thunderCore --> |
-| **Compile Thunder Core to TypeScript**: `thunder build --target typescript`; the same output as Python and the Thunder engine on every Core test program | Available <!-- capability:coreTypeScript --> |
+| **Compile Thunder Core to TypeScript**: `thunder build --target typescript`; the same output as Python and the Thunder engine on every Core test program, and npm packages through `Use "<package>" from npm as <name>` | Available <!-- capability:coreTypeScript --> |
 | **Compile Thunder Core to C#**: `thunder build --target csharp`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreCsharp --> |
 | **Compile Thunder Core to Rust**: `thunder build --target rust`; a standard-library-only runtime, and the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreRust --> |
 | **Compile Thunder Core to Go**: `thunder build --target go`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreGo --> |
 | **Compile Thunder Core to Java**: `thunder build --target java`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreJava --> |
 
-Thunder Core is young: programs compile to Python, TypeScript, C#, Java, Go, and Rust (the table above). Only on
-Python can they use libraries: Python modules (`Use csv as csv`), written the Python way; Thunder's rules, like exact
-money, apply to Thunder values, not inside the library. The other targets refuse a program that uses a Python module
-(TC405), and their own libraries (npm, NuGet, Maven, Go modules, crates) are not available from Thunder yet. For
-everything else, read and change your existing code in Thunder.
+Thunder Core is young: programs compile to Python, TypeScript, C#, Java, Go, and Rust (the table above). Two of
+them can use libraries: Python modules on Python (`Use csv as csv`), and npm packages on TypeScript
+(`Use "date-fns" from npm as dates`), each written that language's way; Thunder's rules, like exact money, apply to
+Thunder values, not inside the library. A program that uses a library is built only for that library's language
+(TC405, TC408); Thunder never swaps in a different one. NuGet, Maven, Go modules, and crates are not available from
+Thunder yet. For everything else, read and change your existing code in Thunder.
 
 **Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
 AI-written code.** Like Python and PyCharm: Thunder stands on its own, and OpenThunder is the IDE built for it.
