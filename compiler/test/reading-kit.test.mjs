@@ -198,3 +198,27 @@ test('the IO boxes say what it gives back from the Flow when the code declares n
   assert.equal(box.getBack.items.length, 3);
   assert.ok(box.getBack.items.every((t) => !/^Gives back/i.test(t)));
 });
+
+test('plain functions: the Big Picture lists the actions and rules that belong to no Thing, after the Data', () => {
+  const FUNCS = 'def total(prices):\n    """Add them up."""\n    return sum(prices)\n\n\ndef is_big(n) -> bool:\n    return n > 10\n';
+  const only = thunderModel([{ path: 'calc.py', source: FUNCS }]);
+  const l = readingLayout(only);
+  assert.deepEqual(l.sections.map((s) => s.id), ['actions'], 'a file of functions is not an empty picture');
+  assert.equal(l.sections[0].heading, READING_LABELS.actions);
+  assert.deepEqual(l.sections[0].cards.map((c) => [c.label, c.doc]), [['Total', 'Add them up.'], ['Is big?', null]]);
+  assert.deepEqual(readingLayout(only, { focus: 'calc.py' }).sections.map((s) => s.id), ['actions']);
+  // With a Thing, its own abilities stay on its card; only the loose ones are listed.
+  const both = thunderModel([{ path: 'shop.py', source: SHOP + '\n\ndef tax(amount):\n    return amount * 0.2\n' }]);
+  const b = readingLayout(both);
+  assert.deepEqual(b.sections.map((s) => s.id), ['things', 'data', 'actions']);
+  assert.deepEqual(b.sections[2].cards.map((c) => c.label), ['Tax']);
+  assert.deepEqual(readingLayout(both, { focus: both.things.find((t) => t.label === 'Cart').id }).sections.map((s) => s.id), ['things', 'data'], 'a Thing in focus does not list loose functions');
+});
+
+test('phone and panel fixes: answer tags never break inside a word, Data columns follow their container', () => {
+  const css = readFileSync(new URL('../src/react/reading.css', import.meta.url), 'utf8');
+  assert.match(css, /\.tl-ans \{[^}]*white-space: nowrap/);
+  assert.match(css, /\.tl-ans \{[^}]*flex: none/);
+  assert.match(css, /\.tl-bp-data \{[^}]*repeat\(auto-fill, minmax\(min\(100%, 240px\), 1fr\)\)/);
+  assert.doesNotMatch(css, /760px/);
+});

@@ -1,3 +1,13 @@
+# Unreleased
+
+- **The drawing kit: a file of plain functions is no longer an empty Big Picture.** With no focus, or a file in focus,
+  `readingLayout` now ends with an "Actions and rules" section (`id: 'actions'`, `READING_LABELS.actions`): every
+  action or rule that belongs to no Thing, with its symbol and doc, and `BigPicture` draws each as a door to open
+  (`onOpen`). A Thing's own abilities stay on its card. Before, a file with only functions drew nothing.
+- **Fix: the kit on phones and in panels.** The Yes / No / Otherwise tags in Flow and Details no longer break inside
+  a word on a narrow screen, and the Data cards size their columns from the space they are given instead of the
+  window's width, so they are no longer cramped inside a side panel.
+
 # 1.4.2
 
 **Upgrade note.** No command, flag, exit code, or JSON shape changed. New in `@skillstech/thunderlang/react`:

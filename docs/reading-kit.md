@@ -18,7 +18,7 @@ also draw it yourself, or test it without React. The Big Picture zooms with focu
 
 | Focus | Shows |
 |---|---|
-| none, or a file's path | every Thing, then every record, then every set of choices |
+| none, or a file's path | every Thing, then every record, then every set of choices, then "Actions and rules": the plain functions that belong to no Thing, each a door to open (`onOpen`) |
 | a Thing's id | its card, then the Data in its file |
 | an action or rule | "You give it", "You get back", "It can stop with", and "Part of …" back to its Thing |
 | an id not in the model | nothing (`focus.kind` is `unknown`) |
