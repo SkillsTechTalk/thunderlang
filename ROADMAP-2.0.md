@@ -16,9 +16,9 @@ Status: **done** · **in review** (PR open) · **next** · **planned**
 
 | # | Item | Done when | Status |
 |---|---|---|---|
-| 1.1 | Unify the syntax, specification, and documentation | One language reference covers missions and Core and how they coexist; a file's kind can be told from the file itself; editor docs use Thunder names (compatibility aliases kept) | in review: first fixes in #185; **next** |
-| 1.2 | Better semantic round-trip and behavioral testing | Read → Core → write round-trips checked by behaviour (same outputs), not just parsing; Thunder write's proof is backed by compiling and running the result | planned |
-| 1.3 | ThunderBench, a public benchmark | Benchmark tasks, hidden tests, and a runner published with honest results, including where Python does better. Creating the public repo needs founder approval | planned |
+| 1.1 | Unify the syntax, specification, and documentation | One language reference covers missions and Core and how they coexist; a file's kind can be told from the file itself; editor docs use Thunder names (compatibility aliases kept) | **in review: #185, #188** |
+| 1.2 | Better semantic round-trip and behavioral testing | Read → Core → write round-trips checked by behaviour (same outputs), not just parsing; Thunder write's proof is backed by compiling and running the result | **in review: #189** |
+| 1.3 | ThunderBench, a public benchmark | Benchmark tasks, hidden tests, and a runner published with honest results, including where Python does better. Creating the public repo needs founder approval | **next** |
 | 1.4 | A polished browser playground | thunderlang.dev runs Core in the browser on the Thunder engine: edit, run, see the result and the steps, with nothing to install | planned |
 | 1.5 | One compelling end-to-end demonstration | One recorded flow: read an unfamiliar repo in Thunder → change a rule → verified patch → behaviour-level review | planned |
 
@@ -57,5 +57,21 @@ Status: **done** · **in review** (PR open) · **next** · **planned**
 - All twenty items done.
 - Full compiler suite, cross-target conformance, and docs checks green on every supported toolchain.
 - A performance pass: compile and run times measured on the benchmark programs, with regressions fixed and the
-  numbers published.
+  numbers published. Measured with `compiler/scripts/speed.mjs` (everyday commands, CPU time) and
+  `compiler/scripts/perf.mjs` (reading a whole repository).
+
+## Speed
+
+Thunder has to feel instant. Baseline on 2026-11-27 (Node 22, CPU time; Node itself is 20 ms):
+
+| command | 1.6.1 | after #190 | target for 2.0 |
+|---|---|---|---|
+| `thunder check` (a mission) | 180 ms | 140 ms | under 80 ms |
+| `thunder run` / `test` (Thunder engine) | 180 ms | 140 ms | under 80 ms |
+| `thunder read` (a small file) | 200 ms | 170 ms | under 100 ms |
+| `thunder read` (4,300 lines of Go) | 600 ms | 570 ms | under 250 ms |
+
+Done: the Unicode collation data no longer loads at start, and Node's compile cache is on (#190). Next: load only
+the modules a command needs (today every command loads all ~95), and the reader's hot spots (statement
+classification, comments stripped again for each nested block, garbage collection on large files).
 - Release notes, the README, the site, OpenThunder, and Skills Tech Talk updated together.
