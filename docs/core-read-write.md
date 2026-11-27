@@ -19,6 +19,7 @@ next to the ORIGINAL function on the sample inputs, comparing the value given ba
 | Printed exactly: no line marked not translated | **19 of 20** |
 <!-- round trip: run by the script when Python 3.10+ is installed -->
 | Exactly printed functions that give the same results as the original Python on every sample input | **19 of 19** (53 of 53 inputs) |
+| The same, on inputs made from each function's own code (its numbers and one either side, yes/no, its text) | **11 of 11** (134 of 134 inputs; 8 functions take inputs whose kind the code does not show, so none are made) |
 <!-- /round trip -->
 
 Not translated, and why (each is a meaning Core cannot say yet, so Thunder refuses rather than guesses):

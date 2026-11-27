@@ -60,6 +60,7 @@ import { replayMain } from './replay-cli.mjs';
 import { homeText, helpFor, knownCommands, unknownCommandText, noProjectText, doctorMain, completionMain } from './cli-home.mjs';
 import { paint, paintHelp, paintThunder, useColor } from './term.mjs';
 import { coreMain } from './core/cli.mjs';
+import { behaviourCheck } from './behaviour.mjs';
 import { findProjectRoot } from './core/project.mjs';
 import { pythonToCore } from './core/from-python.mjs';
 import { guardSummary } from './guard.mjs';
@@ -364,6 +365,7 @@ function parseArgs(argv) {
     else if (a === '--edit') (args.edit ??= []).push(argv[++i]);
     else if (a === '--apply') args.apply = true;
     else if (a === '--test') args.test = argv[++i];
+    else if (a === '--behaviour' || a === '--behavior') args.behaviour = true;
     else if (a === '--candidate') args.candidate = argv[++i];
     else if (a === '--also') (args.also ??= []).push(argv[++i]);
     else if (a === '--rule') args.rule = argv[++i];
@@ -773,7 +775,16 @@ function main() {
         r.proof.run = { command: args.test, passed: run.status === 0, exit: run.status, seconds: Math.round((Date.now() - t0) / 100) / 10, output: `${run.stdout ?? ''}${run.stderr ?? ''}`.split('\n').slice(-20).join('\n') };
         if (!args.apply) for (const [p] of Object.entries(r.files)) writeFileSync(p, originals.get(p));
       }
-      const applied = r.status === 'written' && args.apply && (!r.proof?.run || r.proof.run.passed);
+      // --behaviour: run each edited Python function before and after on inputs made from its code (it runs the code).
+      if (r.status === 'written' && args.behaviour) {
+        const originals = new Map(files.map((f) => [f.path, f.source]));
+        const edited = (r.proof.edited.checks ?? []).filter((c) => c.file && r.files[c.file] != null);
+        r.proof.behaviour = edited.map((c) => behaviourCheck({ path: c.file, name: c.member, before: originals.get(c.file) ?? '', after: r.files[c.file] }));
+        if (!edited.length) r.proof.behaviour = [{ status: 'not-run', says: 'Behaviour not checked: this edit names no function to run.' }];
+      }
+      const broken = (r.proof?.behaviour ?? []).some((b) => b.status === 'broken');
+      if (broken && args.apply) for (const f of files) writeFileSync(f.path, f.source);
+      const applied = r.status === 'written' && args.apply && !broken && (!r.proof?.run || r.proof.run.passed);
       if (applied && !args.test) for (const [p, src] of Object.entries(r.files)) writeFileSync(p, src);
       if (r.status === 'written' && args.apply && r.proof?.run && !r.proof.run.passed) for (const f of files) writeFileSync(f.path, f.source);
       if (args.json) { const { files: _f, ...rest } = r; console.log(JSON.stringify({ ...rest, applied }, null, 2)); if (r.status !== 'written') process.exitCode = 1; return; }
@@ -795,9 +806,14 @@ function main() {
       console.log(`  unchanged  ${u.checked} other function${u.checked === 1 ? '' : 's'} in the changed file${Object.keys(r.files).length === 1 ? '' : 's'}: ${u.status === 'same' ? 'all mean the same' : u.status}`);
       if (r.proof.run) console.log(`  run        ${r.proof.run.command}: ${r.proof.run.passed ? 'passed' : `failed (exit ${r.proof.run.exit})`}`);
       if (r.proof.run && !r.proof.run.passed) console.log(r.proof.run.output);
+      for (const b of r.proof.behaviour ?? []) {
+        console.log(`  behaviour  ${b.function ?? ''}${b.function ? ': ' : ''}${b.status === 'changed' ? `${b.changes.length} of ${b.inputs} inputs give a different answer` : b.status === 'same' ? `all ${b.inputs} inputs give the same answer` : b.status === 'broken' ? `the changed file does not load (${b.reason})` : `not checked (${b.reason ?? b.says})`}`);
+        for (const ex of b.examples ?? []) console.log(`             ${ex}`);
+        if (b.status === 'same' || b.status === 'changed') console.log('             (tested on these inputs only; not a proof)');
+      }
       console.log(`\n${r.says}`);
-      console.log(applied ? `\nSaved ${Object.keys(r.files).join(', ')}.` : r.proof?.run && !r.proof.run.passed ? '\nNot saved: the test command failed.' : '\nDry run; nothing was saved. Add --apply to save the change.');
-      if (r.proof?.run && !r.proof.run.passed) process.exitCode = 1;
+      console.log(applied ? `\nSaved ${Object.keys(r.files).join(', ')}.` : broken ? '\nNot saved: the changed file does not load.' : r.proof?.run && !r.proof.run.passed ? '\nNot saved: the test command failed.' : '\nDry run; nothing was saved. Add --apply to save the change.');
+      if ((r.proof?.run && !r.proof.run.passed) || broken) process.exitCode = 1;
     } catch (e) { console.error(`thunder write: ${e.message}`); process.exitCode = 2; }
     return;
   }

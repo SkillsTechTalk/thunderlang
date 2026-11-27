@@ -138,11 +138,31 @@ it. A line an earlier edit rewrote cannot be found again, and the edit is refuse
    exactly as the edits say, tree for tree, and every other function in the file must mean exactly the same.
 2. **`--test "<cmd>"`** runs your command on the changed code, and the change is saved with `--apply` only if it
    passes.
-3. When the writers cannot write a change exactly, the answer is `needs-ai`, with an instruction ready for a coding
+3. **`--behaviour`** (Python) runs each edited function before and after the change on inputs made from its own code,
+   and lists the inputs whose answer changed. You see what the change *does*, not only what it says:
+
+   ```text
+   behaviour  refund.py#can_refund: 10 of 328 inputs give a different answer
+              amount 100, days 29, refunded False: before 'approve', after 'review'
+              amount 100, days 30, refunded False: before 'approve', after 'review'
+              (tested on these inputs only; not a proof)
+   ```
+
+   The inputs: every number in the function and one either side (`100` gives 99, 100, 101), its text, yes and no
+   for an input used as a yes/no, and the usual edges (0, -1, nothing, empty), in every combination when there are
+   few and a fixed sample otherwise; then each input once with an odd value. The same code always gets the same
+   inputs. What is printed and every error count as part of the answer; each call has one second.
+
+   **It runs your code**: the file's top level (its imports included) and the function, in your own Python. That is
+   why it is opt-in. A changed file that no longer loads is reported, and is not saved with `--apply`. It is
+   evidence of the kind *tested*, on those inputs, never a proof: a function whose inputs are objects, or that
+   reads files or the network, needs your own tests (`--test`).
+4. When the writers cannot write a change exactly, the answer is `needs-ai`, with an instruction ready for a coding
    agent; its code is checked by the same proof (`--candidate`) and labeled AI-written. Nothing is written silently.
 
 For coding agents, the MCP server (`thunder mcp`) offers the same as `intent_write`: give the files and the edits, get
-the patch, the new files, and the proof. It never writes to disk.
+the patch, the new files, and the proof. It never writes to disk. `behaviour: true` adds the behaviour check above
+(it runs the code on the machine the MCP server runs on).
 
 ### Measured on real code
 
