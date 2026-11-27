@@ -16,6 +16,7 @@ import { thunderModel, readLevel } from '../src/model.mjs';
 import { compileCore, parseCore } from '../src/core/index.mjs';
 import { pythonToCore } from '../src/core/from-python.mjs';
 import { verifyRoundTrip } from '../src/core/round-trip.mjs';
+import { generatedArgs } from '../src/behaviour.mjs';
 import { findPython } from '../src/core/project.mjs';
 
 export const CASES = [
@@ -349,8 +350,12 @@ export function measure({ runRoundTrip = !findPython().error } = {}) {
     const printedCompiles = compileCore(printed.core).ok;
     const exact = printedCompiles && !!fn?.exact && !printed.module.notTranslated.length;
     const roundTrip = exact && runRoundTrip ? verifyRoundTrip({ python, core: printed.core, name, inputs: INPUTS[name] ?? [] }) : null;
+    // The same check on inputs made from the function's own code (its numbers and one either side, yes/no, its text),
+    // so the round trip is not limited to inputs someone thought of.
+    const generated = exact && runRoundTrip ? generatedArgs(python, name) : [];
+    const roundTripGenerated = generated.length ? verifyRoundTrip({ python, core: printed.core, name, inputs: generated }) : null;
     rows.push({ name, python, text, core, whole, steps: steps.length, parsed, coreOk: coreResult.ok, coreDiagnostics: coreResult.diagnostics,
-      printed: printed.core.trimEnd(), printedCompiles, exact, notTranslated: [...printed.module.notTranslated, ...(fn?.notTranslated ?? [])], assumptions: fn?.assumptions ?? [], roundTrip });
+      printed: printed.core.trimEnd(), printedCompiles, exact, notTranslated: [...printed.module.notTranslated, ...(fn?.notTranslated ?? [])], assumptions: fn?.assumptions ?? [], roundTrip, roundTripGenerated });
   }
   const classes = METHOD_CASES.map((c) => {
     const printed = pythonToCore(c.python);
@@ -378,6 +383,11 @@ export function renderDoc({ rows, lineStats, gaps, ranRoundTrip, classes = [] })
   const rtCases = rtRows.reduce((n, r) => n + r.roundTrip.cases.length, 0);
   const rtCasesSame = rtRows.reduce((n, r) => n + r.roundTrip.cases.filter((c) => c.same).length, 0);
   const rtTol = rtRows.reduce((n, r) => n + r.roundTrip.cases.filter((c) => c.same && c.tolerance).length, 0);
+  const genRows = rows.filter((r) => r.roundTripGenerated?.ran);
+  const genSame = genRows.filter((r) => r.roundTripGenerated.cases.every((c) => c.same)).length;
+  const genCases = genRows.reduce((n, r) => n + r.roundTripGenerated.cases.length, 0);
+  const genCasesSame = genRows.reduce((n, r) => n + r.roundTripGenerated.cases.filter((c) => c.same).length, 0);
+  const genDiff = genRows.flatMap((r) => r.roundTripGenerated.cases.filter((c) => !c.same).map((c) => ({ name: r.name, ...c })));
   const whole = rows.filter((r) => r.whole).length;
   const coreOk = rows.filter((r) => r.coreOk).length;
   const pct = lineStats.total ? Math.round((100 * lineStats.parse) / lineStats.total) : 0;
@@ -405,6 +415,8 @@ export function renderDoc({ rows, lineStats, gaps, ranRoundTrip, classes = [] })
     ranRoundTrip
       ? `| Exactly printed functions that give the same results as the original Python on every sample input | **${rtSame} of ${rtRows.length}** (${rtCasesSame} of ${rtCases} inputs${rtTol ? `; ${rtTol} matched within 1e-9 because the Python used binary floats and Core is exact` : ''}) |`
       : '| Same results as the original Python | not run (Python 3.10+ was not found) |',
+    ...(ranRoundTrip ? [`| The same, on inputs made from each function's own code (its numbers and one either side, yes/no, its text) | **${genSame} of ${genRows.length}** (${genCasesSame} of ${genCases} inputs; ${rows.filter((r) => r.exact).length - genRows.length} functions take inputs whose kind the code does not show, so none are made) |`] : []),
+    ...(ranRoundTrip && genDiff.length ? ['', 'Different on made inputs:', '', ...genDiff.slice(0, 12).map((d) => `- \`${d.name}(${d.input})\`: ${d.why}`)] : []),
     RT_END,
     '',
     'Not translated, and why (each is a meaning Core cannot say yet, so Thunder refuses rather than guesses):',

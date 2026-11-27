@@ -6,6 +6,23 @@
   back exact (`decimal` as written, `double` as it prints). The NuGet package and its version go into the generated
   project. Programs that use .NET libraries run with real culture data, pinned to en-US. A failure is TC508 with its
   real cause; every other target and the Thunder engine refuse a .NET library (new TC409).
+- **See what a change does: `thunder write --behaviour`.** For Python, Thunder runs each edited function before and
+  after the change on inputs made from its own code (its numbers and one either side, its text, yes/no, the edges)
+  and lists the inputs whose answer changed: `amount 100, days 29, refunded False: before 'approve', after
+  'review'`. Printed output and errors count. It runs your code, so it is opt-in; a changed file that no longer
+  loads is reported and not saved. Also `behaviour: true` on the MCP tool `intent_write`. Tested evidence on those
+  inputs, never called a proof.
+- **The read ↔ write round trip runs on made inputs too.** `docs/core-read-write.md` now also compares the original
+  Python with Core compiled back to Python on inputs made from each function's code: 11 of 11 functions, 134 of 134
+  inputs give the same results (alongside the 53 hand-picked inputs).
+- **A `.thunder` file says what it is.** Outside a project, a file whose first line cannot start a mission
+  (`say "Hello"`, `Set total to 0`, `To greet:`, `A Trade has:`) is now run, tested, and checked as Thunder Core
+  without `--core`: `thunder run hello.thunder` just works. Files that start with a mission keyword stay missions,
+  so no existing mission changes meaning; a file that could be either (`use csv` alone) stays a mission, and
+  `--mission` / `--core` still decide when given. A mission check that finds no mission now says how to read the
+  file as a program.
+- **One map of the language.** New docs page, *The Thunder language*: Thunder Text, Thunder Core, and missions side
+  by side with the same rule in each, which to use when, and how a file's kind is decided.
 - **npm packages from Thunder Core.** `Use "date-fns" from npm as dates` gives a program compiled to TypeScript the npm
   ecosystem, the way `Use csv as csv` gives Python programs Python's. Values cross the boundary in plain rules (lists
   become arrays, records become objects, dates become a local-midnight `Date`), and numbers come back as the exact
