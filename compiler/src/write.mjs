@@ -53,6 +53,14 @@ function scanSource(source, from, to, language) {
       continue;
     }
     if (/[0-9]/.test(c)) {
+      // 0xFF, 0o17, 0b101: one number, written back in the same base.
+      const based = source.slice(i, to).match(/^0([xXoObB])([0-9A-Fa-f_]+)/);
+      if (based) {
+        const radix = { x: 16, o: 8, b: 2 }[based[1].toLowerCase()];
+        out.push({ t: 'num', v: parseInt(based[2].replace(/_/g, ''), radix), start: i, end: i + based[0].length, raw: based[0], suffix: '', decimal: false, base: based[1], upper: /[A-F]/.test(based[2]) });
+        i += based[0].length;
+        continue;
+      }
       const m = source.slice(i, to).match(/^[0-9][0-9_]*(\.[0-9][0-9_]*)?([eE][+-]?[0-9]+)?(f64|f32|i32|i64|u32|u64|[fFdDmMlLuU]{0,2})/);
       const raw = m[0];
       const suffix = m[3] || '';
@@ -89,6 +97,10 @@ function spell(srcTok, next) {
     return next.v;
   }
   if (next.t === 'num') {
+    if (srcTok.base && Number.isInteger(next.v) && next.v >= 0) {
+      const d = next.v.toString({ x: 16, o: 8, b: 2 }[srcTok.base.toLowerCase()]);
+      return `0${srcTok.base}${srcTok.upper ? d.toUpperCase() : d}`;
+    }
     let s = String(next.v);
     if (srcTok.decimal && Number.isInteger(next.v)) s += '.0';
     return s + srcTok.suffix;

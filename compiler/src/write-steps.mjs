@@ -30,6 +30,7 @@
 // A patch that fails its proof is never returned as written.
 //
 // Deterministic and browser-safe (no Node APIs): it edits text and reads it; it never runs the code it edits.
+import { thunderTree, thunderStep, looksThunder } from './write-words.mjs';
 import { readCode } from './read.mjs';
 import { readableLanguage } from './read-repo.mjs';
 import { parseExpr, parseStatement, parseStatementSpans, renderExpr, renderStatement, sameExpr, normalizeExpr, nodesOf, sayFull, blockEnd } from './meaning.mjs';
@@ -153,6 +154,8 @@ function locateStep(steps, sel, { flowSteps } = {}) {
     all.push({ step: s, list, index: i, path: [...path, i], parent });
     if (s.children) walk(s.children, [...path, i], s);
     if (s.otherwise) walk(s.otherwise, [...path, i, 'else'], s);
+    (s.handlers || []).forEach((h, k) => walk(h.steps || [], [...path, i, `h:${k}`], s));
+    if (s.always?.steps) walk(s.always.steps, [...path, i, 'always'], s);
   });
   walk(steps || [], [], null);
   if (Array.isArray(sel)) return all.find((x) => x.path.join('.') === sel.join('.')) ?? null;
@@ -166,13 +169,17 @@ function locateStep(steps, sel, { flowSteps } = {}) {
   if (/^\d+$/.test(String(sel))) return all.find((x) => x.path.join('.') === String(sel)) ?? null;
   return null;
 }
+// Path words that enter another list of a step than its own block: 'else' (the other side of a question), 'h:N'
+// (the Nth error handler of a try: except / catch), 'always' (finally).
+const isSide = (p) => p === 'else' || p === 'always' || (typeof p === 'string' && p.startsWith('h:'));
+const sideOf = (node, p) => (p === 'else' ? (node.o ?? (node.o = [])) : p === 'always' ? (node.a ?? (node.a = [])) : node.h[Number(p.slice(2))].c);
 const pathIn = (shape, path) => {
   let list = shape, node = null;
   for (let i = 0; i < path.length; i++) {
     const p = path[i];
-    if (p === 'else') { list = node.o ?? (node.o = []); continue; }
+    if (isSide(p)) { list = sideOf(node, p); continue; }
     node = list[p];
-    if (i < path.length - 1 && path[i + 1] !== 'else') list = node.c;
+    if (i < path.length - 1 && !isSide(path[i + 1])) list = node.c;
   }
   return { list, node, index: path[path.length - 1] };
 };
@@ -180,7 +187,7 @@ const listAt = (shape, path) => {
   // The list holding the step at `path`.
   if (path.length === 1) return shape;
   const parentPath = path.slice(0, -1);
-  if (parentPath[parentPath.length - 1] === 'else') return pathIn(shape, parentPath.slice(0, -1)).node.o;
+  if (isSide(parentPath[parentPath.length - 1])) return sideOf(pathIn(shape, parentPath.slice(0, -1)).node, parentPath[parentPath.length - 1]);
   return pathIn(shape, parentPath).node.c;
 };
 
@@ -230,9 +237,19 @@ function literalOf(value, language, like = null) {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) refuse(`${value} is not a number that can be written.`);
     let raw = String(value);
-    if (like?.type === 'number' && /\.\d/.test(like.raw) && Number.isInteger(value)) raw += '.0';
-    const suffix = like?.type === 'number' ? String(like.raw).match(/[A-Za-z]+$/)?.[0] ?? '' : '';
-    if (suffix && !/^[eE]/.test(suffix)) raw += suffix;
+    const was = like?.type === 'number' ? String(like.raw) : '';
+    // The file's own way of writing the number: 0xFF stays hex, 0o17 octal, 0b101 binary, 1_000 keeps its groups.
+    const base = was.match(/^0([xXoObB])/);
+    if (base) {
+      if (!Number.isInteger(value) || value < 0) refuse(`${value} cannot be written as a ${{ x: 'hex', o: 'octal', b: 'binary' }[base[1].toLowerCase()]} number like ${was}.`);
+      const digits = value.toString({ x: 16, o: 8, b: 2 }[base[1].toLowerCase()]);
+      return { kind: 'literal', type: 'number', value, raw: `0${base[1]}${/[A-F]/.test(was.slice(2)) ? digits.toUpperCase() : digits}` };
+    }
+    if (was.includes('_') && Number.isInteger(value)) raw = String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '_');
+    if (/\.\d/.test(was) && Number.isInteger(value)) raw += '.0';
+    // A type suffix written after the digits (100m, 2.5f, 10L, 7n, 3u): kept. Other letters are not a suffix.
+    const suffix = was.match(/\d([mMfFdDlLnuU]|ul|UL|lu|LU)$/)?.[1] ?? '';
+    if (suffix) raw += suffix;
     return { kind: 'literal', type: 'number', value, raw };
   }
   if (typeof value === 'string') {
@@ -245,15 +262,23 @@ function literalOf(value, language, like = null) {
 }
 
 const PARSE_ORDER = (lang) => [lang, ...WRITE_STEPS_LANGUAGES.filter((l) => l !== lang)];
-/** An expression a person wrote (in Thunder's neutral form or the file's language), as a tree for this file. */
+// The file the current edit is in: Thunder's words are matched against the names written there (write-words.mjs).
+let wordsSource = '', wordsScope = '';
+// Python's `is` compares identity; `x is 5` or `x is true` is Thunder's "is" (equals), not code.
+const misreadIs = (t) => t?.kind === 'compare' && (t.op === 'is' || t.op === 'is not') && !(t.right?.kind === 'literal' && t.right.type === 'null');
+/** An expression a person wrote (in Thunder's words or as code in the file's language), as a tree for this file. */
 function exprFrom(input, language, what = 'expression') {
   if (input && typeof input === 'object' && input.kind) return input;
   if (typeof input !== 'string') return literalOf(input, language);
+  let said = null;
+  const words = () => (said ??= thunderTree(input, language, wordsSource, wordsScope));
+  if (looksThunder(input) && words().tree) return words().tree;
   for (const l of PARSE_ORDER(language)) {
     const t = parseExpr(input, l);
-    if (t && t.kind !== 'code') return adapt(t, language);
+    if (t && t.kind !== 'code' && !misreadIs(t)) return adapt(t, language);
   }
-  refuse(`The ${what} "${input}" could not be read. Write it as code, for example days > 10 and not member.vip.`);
+  if (words().tree) return words().tree;
+  refuse(`The ${what} "${input}" could not be read${said?.error ? ` (${said.error})` : ''}. Write it in Thunder's words, for example "days is more than 10 and not member's vip", or as code.`);
 }
 /** Adapt a tree read in another language to this file's spelling (== in JavaScript is ===, quotes, true/True). */
 function adapt(tree, language) {
@@ -271,6 +296,9 @@ function adapt(tree, language) {
 function statementFrom(input, language) {
   if (input && typeof input === 'object' && input.kind) return input;
   if (typeof input !== 'string' || !input.trim()) refuse('Say the new step as code, for example notify(order.customer).');
+  const said = thunderStep(input, language, wordsSource, wordsScope);
+  if (said?.tree) return said.tree;
+  if (said?.error) refuse(`The step "${input}" could not be read: ${said.error}`);
   for (const l of PARSE_ORDER(language)) {
     const t = parseStatement(input, l);
     if (t && t.kind !== 'code') {
@@ -366,6 +394,9 @@ function rewriteCode(code, oldTree, newTree, language) {
     const trimmed = code.trim();
     if (trimmed.endsWith('{') && !head.endsWith('{')) head = `${head} {`;
     if (!trimmed.endsWith(';') && head.endsWith(';') && !/[{:]$/.test(trimmed)) head = head.replace(/;$/, '');
+    // The code being replaced may stop before the block's colon (an elif's condition is kept as "if …"): the colon
+    // that opens the block stays in the file, so the new head must not bring a second one.
+    if (language === 'python' && head.endsWith(':') && !trimmed.endsWith(':')) head = head.slice(0, -1);
     attempts.push(head);
   } catch { /* the writer cannot say it */ }
   for (const a of attempts) {
@@ -386,7 +417,11 @@ function headLines(step) {
 
 /** Replace a step's head in the file with code for `newTree`. Returns the new source. */
 function writeStepTree(source, step, newTree, language) {
-  const [a, b] = headLines(step);
+  let [a, b] = headLines(step);
+  // A comment or blank line between a question and its first step belongs to neither: the head stops before it.
+  const SL = linesOf(source);
+  const comment = language === 'python' ? /^\s*(#.*)?$/ : /^\s*(\/\/.*)?$/;
+  while (b > a && comment.test(SL[b - 1] ?? '')) b--;
   const starts = lineStarts(source);
   const from = starts[a - 1], to = b < starts.length ? starts[b] - 1 : source.length;
   const region = source.slice(from, to);
@@ -445,6 +480,7 @@ function renderBlock(steps, language, indent, unit) {
 /** A step a person described, as a shape node: a statement, or { if, then, else }, or { stop, error }. */
 function stepSpec(spec, ctx) {
   const { language } = ctx;
+  if (typeof spec === 'string') { const said = thunderStep(spec, language, wordsSource, wordsScope); if (said?.stop != null) return { e: stopTree(ctx, null, said.stop), c: [] }; }
   if (typeof spec === 'string' || spec?.kind) return { e: statementFrom(spec, language), c: [] };
   if (spec && typeof spec === 'object' && 'if' in spec) {
     const test = exprFrom(spec.if, language, 'condition');
@@ -751,9 +787,16 @@ function opSetValue(ctx, edit) {
     lit = lits[edit.at];
     if (!lit) refuse(`There is no value number ${edit.at} like that in this step.`);
   } else lit = findLiteral(tree, edit.from);
-  const next = literalOf(edit.to, ctx.language, lit);
-  if (next.type === lit.type && next.value === lit.value) refuse(`The value is already ${lit.raw}.`);
+  // `to` is a plain value (10, "platinum", true); `toValue` is Thunder's words or code (placeholder, the length of words).
+  const next = edit.toValue != null ? exprFrom(edit.toValue, ctx.language, 'value') : literalOf(edit.to, ctx.language, lit);
+  if (next.kind === 'literal' && next.type === lit.type && next.value === lit.value) refuse(`The value is already ${lit.raw}.`);
   const old = lit.raw;
+  if (next.kind !== 'literal') {
+    Object.keys(lit).forEach((k) => delete lit[k]);
+    Object.assign(lit, cloneShape(next));
+    ctx.setTree(step, tree);
+    return `Changed ${old} to ${sayFull(next)} in ${q(sayStep(step))}`;
+  }
   Object.keys(lit).forEach((k) => delete lit[k]);
   Object.assign(lit, next);
   ctx.setTree(step, tree);
@@ -867,6 +910,15 @@ function opSetGivesBack(ctx, edit) {
 }
 
 /** Where a new step goes: { lineIndex (insert before this 1-based line), indent, shapeList, shapeIndex }. */
+/** The first line of a step, counting the decorators written above it (@wraps(method) above a def). */
+function withDecorators(source, a) {
+  const L = linesOf(source);
+  const ind = indentOf(L[a - 1] ?? '');
+  let first = a;
+  while (first > 1 && /^\s*@/.test(L[first - 2]) && indentOf(L[first - 2]) === ind) first--;
+  return first;
+}
+
 function placeFor(ctx, edit) {
   const pos = ['before', 'after', 'into'].find((k) => edit[k] != null);
   if (!pos) refuse('Say where the new step goes: before, after, or into ({ step, side: "yes" | "no", at: "start" | "end" }).');
@@ -890,12 +942,12 @@ function placeFor(ctx, edit) {
   if (!ownsLines(ctx.source, loc.step)) needsAi(`The step at line ${loc.step.line} shares its lines with other code, so the writer cannot place a step ${pos} it.`);
   const path = [...loc.path];
   if (pos === 'after') path[path.length - 1] += 1;
-  return { pos, line: pos === 'after' ? b + 1 : a, indent: indentOf(linesOf(ctx.source)[a - 1]), shapePath: path, loc };
+  return { pos, line: pos === 'after' ? b + 1 : withDecorators(ctx.source, a), indent: indentOf(linesOf(ctx.source)[a - 1]), shapePath: path, loc };
 }
 function insertShape(shape, path, nodes) {
   const list = path.length === 1 ? shape : (() => {
     const parentPath = path.slice(0, -1);
-    if (parentPath[parentPath.length - 1] === 'else') { const n = pathIn(shape, parentPath.slice(0, -1)).node; return n.o ?? (n.o = []); }
+    if (isSide(parentPath[parentPath.length - 1])) return sideOf(pathIn(shape, parentPath.slice(0, -1)).node, parentPath[parentPath.length - 1]);
     return pathIn(shape, parentPath).node.c;
   })();
   list.splice(path[path.length - 1], 0, ...nodes);
@@ -924,13 +976,25 @@ function insertSteps(ctx, edit, nodes) {
   insertShape(ctx.shape, place.shapePath, nodes);
 }
 
+/** Is the code just above line `a` (1-based) the end of a Python docstring (a line ending in a quote, not a colon)? */
+function docstringBefore(L, a) {
+  for (let i = a - 2; i >= 0; i--) {
+    const t = L[i].trim();
+    if (!t || t.startsWith('#')) continue;
+    return /['"]$/.test(t);
+  }
+  return false;
+}
+
 function removeAt(ctx, loc, { replaceWithPass = true } = {}) {
-  const [a, b] = stepLines(loc.step);
+  const [a0, b] = stepLines(loc.step);
+  const a = withDecorators(ctx.source, a0);
   if (!ownsLines(ctx.source, loc.step)) needsAi(`The step at line ${loc.step.line} shares its lines with other code, so the writer cannot remove it alone.`);
   const L = linesOf(ctx.source);
-  // A Python block that would be left empty keeps a `pass`.
+  // A Python block that would be left empty keeps a `pass`: a question's side, a loop, or the function's own body
+  // (unless a docstring is still there to fill it).
   const siblings = loc.list.filter((s) => s.expr?.kind !== 'pass');
-  if (ctx.language === 'python' && siblings.length === 1 && loc.parent && replaceWithPass) ctx.lines(a, b - a + 1, [`${indentOf(L[a - 1])}pass`]);
+  if (ctx.language === 'python' && siblings.length === 1 && replaceWithPass && (loc.parent || !docstringBefore(L, a))) ctx.lines(a, b - a + 1, [`${indentOf(L[a - 1])}pass`]);
   else ctx.lines(a, b - a + 1, []);
   listAt(ctx.shape, loc.path).splice(loc.path[loc.path.length - 1], 1);
 }
@@ -955,8 +1019,10 @@ function opMoveStep(ctx, edit) {
   if (dest.step === loc.step) refuse('A step cannot move next to itself.');
   if (dest.path.join('.').startsWith(`${loc.path.join('.')}.`)) refuse('A step cannot move inside itself.');
   if (!ownsLines(ctx.source, loc.step) || !ownsLines(ctx.source, dest.step)) needsAi('One of the steps shares its lines with other code, so the writer cannot move it alone.');
-  const [a, b] = stepLines(loc.step);
-  const [da, db] = stepLines(dest.step);
+  const [a0, b] = stepLines(loc.step);
+  const a = withDecorators(ctx.source, a0);
+  const [da0, db] = stepLines(dest.step);
+  const da = withDecorators(ctx.source, da0);
   const L = linesOf(ctx.source);
   const moved = L.slice(a - 1, b);
   const fromIndent = indentOf(moved[0]), toIndent = indentOf(L[da - 1]);
@@ -1211,6 +1277,8 @@ function applyEdit(state, edit) {
     return { files: new Map([...state.files, [r.path, r.source]]), plan: { added: { path: r.path, name: r.name, shape: r.nodes, inputs: r.inputs } }, says: r.says };
   }
   const m = findMember(state, edit.member);
+  wordsSource = m.source;
+  wordsScope = m.source.split('\n').slice(Math.max(0, m.item.line - 1), memberEnd(m.item)).join('\n');
   if (!m.item.steps) needsAi(`Thunder has no steps for ${m.item.name} (line ${m.item.line}), so the edit cannot be placed exactly.`);
   let source = m.source;
   const ctx = {
@@ -1279,7 +1347,7 @@ function reworded(says, treeEdits, f, member) {
 }
 function stepPathOf(steps, step) {
   let found = null;
-  const walk = (list, path) => list.forEach((s, i) => { if (found) return; if (s === step) { found = [...path, i]; return; } if (s.children) walk(s.children, [...path, i]); if (s.otherwise) walk(s.otherwise, [...path, i, 'else']); });
+  const walk = (list, path) => list.forEach((s, i) => { if (found) return; if (s === step) { found = [...path, i]; return; } if (s.children) walk(s.children, [...path, i]); if (s.otherwise) walk(s.otherwise, [...path, i, 'else']); (s.handlers || []).forEach((h, k) => walk(h.steps || [], [...path, i, `h:${k}`])); if (s.always?.steps) walk(s.always.steps, [...path, i, 'always']); });
   walk(steps, []);
   return found;
 }
@@ -1332,6 +1400,17 @@ export function proveChange(before, after, plans) {
   const editedKeys = new Set(); // path|key in the after files
   const ranges = new Map(); // path -> [{ before: [first, last], after: [first, last] }] of the edited functions
   const renamed = plans.find((p) => p.renameFunction)?.renameFunction;
+  // Several edits to one function: each edit's plan was made on the code after the edits before it, so only the last
+  // plan says what the function's steps must finally be. What the earlier edits said about its inputs or answer
+  // (an added input) still holds, unless a later edit says it again.
+  const last = new Map();
+  for (const p of plans) {
+    if (p.added) continue;
+    const k = `${p.member.path}|${p.member.key}`;
+    const prev = last.get(k)?.member;
+    last.set(k, { ...p, member: { ...p.member, inputs: p.member.inputs ?? prev?.inputs, returns: p.member.returns ?? prev?.returns } });
+  }
+  plans = [...plans.filter((p) => p.added), ...last.values()];
   for (const p of plans) {
     if (p.added) {
       const r = readOf(after, p.added.path);
@@ -1495,7 +1574,7 @@ export function describeEdit(e) {
   const at = (s) => (s == null ? '' : ` (step ${Array.isArray(s) ? s.join('.') : s})`);
   const who = e.member ? ` in ${parseMemberRef(e.member).name}` : '';
   switch (e.op) {
-    case 'setValue': return `Change the value ${e.from !== undefined ? JSON.stringify(e.from) : ''} to ${JSON.stringify(e.to)}${at(e.step)}${who}.`.replace('value  to', 'value to');
+    case 'setValue': return `Change the value ${e.from !== undefined ? JSON.stringify(e.from) : ''} to ${e.toValue != null ? e.toValue : JSON.stringify(e.to)}${at(e.step)}${who}.`.replace('value  to', 'value to');
     case 'setCondition': return `Change the question${at(e.step)}${who}: ${[e.when != null && `ask "${e.when}"`, e.compare != null && `compare with ${e.compare}`, e.operand && `make the ${e.operand.side || 'right'} side ${JSON.stringify(e.operand.to)}`, e.negate && 'turn it around (not)', e.addClause && `add "${e.addClause.join || 'and'} ${e.addClause.when}"`, e.removeClause != null && `remove part ${e.removeClause}`].filter(Boolean).join(', ')}.`;
     case 'addStep': return `Add the step ${JSON.stringify(e.step ?? e.steps)} ${e.before != null ? `before step ${e.before}` : e.after != null ? `after step ${e.after}` : `on the ${e.into?.side || 'yes'} side of step ${e.into?.step ?? e.into}`}${who}.`;
     case 'removeStep': return `Remove step ${e.step}${who} and everything inside it.`;
@@ -1584,8 +1663,11 @@ export function thunderWrite(files, edits, options = {}) {
 
   let state = makeState(original);
   const plans = [], said = [];
-  for (const e of list) {
+  for (const raw of list) {
     try {
+      // Lines in an edit list are the original file's lines (as thunder read showed them): an earlier edit that adds
+      // or removes lines (an input on its own line, a new Stop) moves the lines below it, so they are followed.
+      const e = followLines(raw, original, state.files);
       const r = applyEdit(state, e);
       state = makeState(r.files, original);
       plans.push(r.plan);
@@ -1620,6 +1702,53 @@ export function thunderWrite(files, edits, options = {}) {
 function planOnly(original, list) {
   let state = makeState(original);
   const plans = [];
-  for (const e of list) { const r = applyEdit(state, e); state = makeState(r.files, original); plans.push(r.plan); }
+  for (const raw of list) { const r = applyEdit(state, followLines(raw, original, state.files)); state = makeState(r.files, original); plans.push(r.plan); }
   return plans;
+}
+
+/**
+ * Where line `n` of `before` is in `after` (1-based), or null when an edit rewrote it. Lines above and below the
+ * changed region keep their place (shifted by the lines added or removed); a line inside it is found again only by
+ * its exact text, when that text is there once on each side.
+ */
+export function followLine(before, after, n, { start = false } = {}) {
+  if (before === after) return n;
+  const a = before.split('\n'), b = after.split('\n');
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let q = 0;
+  while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  if (n <= p) return n;
+  // Where something starts (a function's first line) stays put when everything above it is unchanged, even if the
+  // line itself was rewritten (an input added to its signature).
+  if (start && n === p + 1) return n;
+  if (n > a.length - q) return n + (b.length - a.length);
+  const text = a[n - 1];
+  if (!text.trim()) return null;
+  const inA = a.slice(p, a.length - q).filter((l) => l === text).length;
+  const hits = [];
+  for (let i = p; i < b.length - q; i++) if (b[i] === text) hits.push(i + 1);
+  return inA === 1 && hits.length === 1 ? hits[0] : null;
+}
+
+function followLines(edit, original, current) {
+  if (!edit || typeof edit !== 'object' || original === current) return edit;
+  // The file the edit is for: named in the member ({ file } or "path#name"), or the only file given.
+  let path = typeof edit.member === 'object' ? edit.member?.file : typeof edit.member === 'string' && edit.member.includes('#') ? edit.member.split('#')[0] : null;
+  if (!path || !original.has(path)) {
+    const changed = [...original.keys()].filter((p) => original.get(p) !== current.get(p));
+    if (original.size === 1) path = [...original.keys()][0];
+    else if (changed.length === 1) path = changed[0];
+    else if (changed.length > 1 && ['step', 'before', 'after'].some((k) => /^line:\d+$/.test(String(edit[k] ?? '')))) refuse('Several files changed in this list and this edit does not name its file; give its member as { file, name } so its lines can be followed.');
+  }
+  if (!path || !original.has(path) || !current.has(path) || original.get(path) === current.get(path)) return edit;
+  const move = (n, opts) => {
+    const to = followLine(original.get(path), current.get(path), n, opts);
+    if (to == null) refuse(`Line ${n} was rewritten by an earlier edit in this list, so it cannot be found again; give that edit after this one, or address the step by its new line.`);
+    return to;
+  };
+  const out = { ...edit };
+  for (const k of ['step', 'before', 'after']) { const m = typeof out[k] === 'string' && out[k].match(/^line:(\d+)$/); if (m) out[k] = `line:${move(Number(m[1]))}`; }
+  if (typeof out.member === 'object' && out.member?.line) out.member = { ...out.member, line: move(out.member.line, { start: true }) };
+  return out;
 }

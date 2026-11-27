@@ -19,6 +19,7 @@ import { resolveObligations } from './obligations.mjs';
 import { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from './review-atlas.mjs';
 import { evaluateDecision } from './runtime.mjs';
 import { buildTrace, traceImpact, traceImpactOf, renderImpact } from './trace.mjs';
+import { thunderWrite } from './write-steps.mjs';
 import { readRepoDir, gitChanges } from './trace-fs.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
 import { buildConformance } from './conformance.mjs';
@@ -285,6 +286,22 @@ const TOOLS = [
     },
   },
   {
+    name: 'intent_write',
+    description: 'CHANGE CODE THROUGH THUNDER, WITH PROOF (TypeScript, JavaScript, Python, Go). Give the files ({ path, source }) and one or more Thunder edits; get back a minimal patch, the new file contents, and a proof: the edited function now reads exactly as the edit says, and every other function means the same. Edits: setValue (to, or toValue in Thunder words), setCondition (when: "amount is at least 100 and not member"), addStep / removeStep / moveStep (step: code, "Give …", "Set … to …", "Stop with \"…\"", or { if, then, else }), addStop (when, message), removeStop, addInput (name, default), removeInput, setGivesBack (value), rename. Each edit names its function (member: "name" or { file, name, line }) and its step by the line thunder read shows ("line:12"); lines are the original file\'s lines for every edit in the list. Status is written, refused (with why), or needs-ai (with an instruction for a coding agent). Nothing is written to disk: apply the returned files, then run the project\'s tests.',
+    inputSchema: {
+      type: 'object', required: ['files', 'edits'],
+      properties: {
+        files: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', required: ['path', 'source'], properties: { path: str, source: str } } },
+        edits: { description: 'one Thunder edit object, or a list applied in order', anyOf: [{ type: 'object' }, { type: 'array', items: { type: 'object' } }] },
+      },
+    },
+    run: ({ files, edits }) => {
+      if (!Array.isArray(files) || !files.length) throw new Error('Give the files as [{ path, source }].');
+      const r = thunderWrite(files.map((f) => ({ path: String(f.path), source: String(f.source) })), edits);
+      return { status: r.status, says: r.says, reason: r.reason ?? null, patch: r.patch ?? null, files: r.files ?? null, before: r.before ?? null, after: r.after ?? null, proof: r.proof ?? null, ...(r.prompt ? { prompt: r.prompt } : {}) };
+    },
+  },
+  {
     name: 'intent_promote',
     description: 'Turn a decision recovered from code into a readable ThunderLang contract with starter examples chosen at every rule and threshold. The examples record what the code does TODAY (computed from the recovered rule), so a person must confirm each answer; after that, intent_verify_diff can hold every change to it. Give the source code and the decision (function) name.',
     inputSchema: {
@@ -322,7 +339,7 @@ const TOOLS = [
 
 // Tools that are pure functions of their arguments (no filesystem, git, or process state), so they
 // are safe to serve to remote clients such as ChatGPT. intent_prove reads the local repository.
-export const REMOTE_SAFE_TOOLS = ['intent_check', 'intent_verify_diff', 'intent_conform', 'intent_drift', 'intent_draft', 'intent_lift', 'intent_run', 'intent_test', 'intent_graph', 'intent_explain', 'intent_read', 'intent_promote', 'intent_translate', 'intent_human'];
+export const REMOTE_SAFE_TOOLS = ['intent_check', 'intent_verify_diff', 'intent_conform', 'intent_drift', 'intent_draft', 'intent_lift', 'intent_run', 'intent_test', 'intent_graph', 'intent_explain', 'intent_read', 'intent_promote', 'intent_translate', 'intent_human', 'intent_write'];
 
 export const MCP_TOOLS = TOOLS.map((t) => t.name);
 
