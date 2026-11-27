@@ -250,6 +250,9 @@ three lines with the published GitHub Action:
     paths: ./intent   # a file or directory; default is the whole repo
 ```
 
+`@main` follows the latest code; for production CI, pin a commit SHA instead
+(`SkillsTechTalk/thunderlang/check@<full commit SHA>`).
+
 This repo gates itself on push and pull request with
 `.github/workflows/intent-check.yml`, which also runs the test suite, docs-consistency,
 and schema-sync checks. Warnings do not fail the build; errors do.

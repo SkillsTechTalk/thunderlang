@@ -8,8 +8,8 @@ them. See [thunderlang.dev](https://thunderlang.dev).
 New to Thunder? Take the [10-minute tutorial](https://thunderlang.dev/learn), then the
 [full ThunderLang course on Skills Tech Talk](https://app.skillstechtalk.com/learn/technology/t/thunderlang).
 
-This extension lets you read and edit those rules in VS Code (`.thunder`, `.tl`,
-`.intent` files). Everything runs on your machine:
+This extension lets you read and edit those rules in VS Code (`.thunder` and `.tl`
+files; files with the older `.intent` extension open too). Everything runs on your machine:
 
 - **Syntax highlighting** via a TextMate grammar (`source.thunder`).
 - **Diagnostics, completion, and hover** via the ThunderLang Language Server, the same
