@@ -1,3 +1,15 @@
+# Unreleased
+
+- **See what a change does: `thunder write --behaviour`.** For Python, Thunder runs each edited function before and
+  after the change on inputs made from its own code (its numbers and one either side, its text, yes/no, the edges)
+  and lists the inputs whose answer changed: `amount 100, days 29, refunded False: before 'approve', after
+  'review'`. Printed output and errors count. It runs your code, so it is opt-in; a changed file that no longer
+  loads is reported and not saved. Also `behaviour: true` on the MCP tool `intent_write`. Tested evidence on those
+  inputs, never called a proof.
+- **The read ↔ write round trip runs on made inputs too.** `docs/core-read-write.md` now also compares the original
+  Python with Core compiled back to Python on inputs made from each function's code: 11 of 11 functions, 134 of 134
+  inputs give the same results (alongside the 53 hand-picked inputs).
+
 # 1.6.1
 
 - **Fix: Thunder write wrote names the code does not have.** A word that is no name in the function or file
