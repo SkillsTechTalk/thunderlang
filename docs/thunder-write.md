@@ -55,8 +55,8 @@ If any check fails, nothing is written and Thunder says why. The exit code is 1.
 
 ## What it will not do
 
-- **Change a rule's shape.** Adding or removing a condition, an `and`/`or`, or a name is refused. Use
-  **Propose rule change** for that.
+- **Change a rule's shape** with `--decision`. Adding or removing a condition, an `and`/`or`, or a name is refused
+  there; use a step edit (`--edit`, below) or **Propose rule change** for that.
 - **Invent a code name.** If the answers are enum members such as `Decision.APPROVE` and the new answer is not
   returned anywhere yet, Thunder write refuses rather than write a name that may not exist.
 - **Prove the application is right.** The check covers how the code reads, and the listed cases cover the
@@ -73,6 +73,112 @@ if (r.ok) save(r.source); else console.log(r.problems);
 
 `r.change` lists each edited position (`line`, `column`, `before`, `after`). `r.cases` holds the inputs whose
 answer changes. When `ok` is false, `r.source` is the original and `r.problems` explains why.
+
+## Change any step: inputs, questions, Stops, and steps
+
+Rules are one kind of change. `thunder write <file> --edit` changes any step of a function in TypeScript,
+JavaScript, Python, or Go: add an input and use it, add a check that stops with an error, change a question, add,
+remove, or move a step, change what a step gives back, or rename. Write conditions and values in Thunder's words, the
+way `thunder read` shows them, or as code.
+
+```sh
+thunder read refunds.py                      # the steps, each with its line
+thunder write refunds.py --edits change.json  # preview: the patch, Thunder before and after, the proof
+thunder write refunds.py --edits change.json --test "pytest -q" --apply
+```
+
+```json
+[
+  { "op": "addStop", "member": "refund", "before": "line:2", "when": "amount is below 0", "message": "Amount cannot be negative" },
+  { "op": "setCondition", "member": "refund", "step": "line:2", "when": "amount is at least 75 and not member" }
+]
+```
+
+```diff
+ def refund(amount, member):
++    if amount < 0:
++        raise ValueError("Amount cannot be negative")
+-    if amount > 100:
++    if amount >= 75 and not member:
+         return "review"
+```
+
+| Edit | What it does | Example |
+| --- | --- | --- |
+| `setValue` | Change a value in a step: `to` a plain value, or `toValue` a name or expression in Thunder's words | `{ "from": "...", "toValue": "placeholder" }` |
+| `setCondition` | Change a question: the whole condition (`when`), one comparison (`compare`), `negate`, or add a part (`addClause`) | `{ "when": "the length of value is below 2" }` |
+| `addStop` | A new question that stops with an error, or a Stop on a question's side | `{ "when": "n is below 0", "message": "n must not be negative" }` |
+| `addStep`, `removeStep`, `moveStep` | Add a step (`Give …`, `Set … to …`, `Stop with "…"`, code, or `{ "if", "then", "else" }`), remove one, or move one | `{ "before": "line:5", "step": { "if": "item is nothing", "then": ["continue"] } }` |
+| `addInput`, `removeInput` | Add an input with a default (callers keep working), or remove one the function no longer uses | `{ "name": "fill", "default": "\"\"" }` |
+| `setGivesBack` | Change what a step gives back | `{ "step": "line:9", "value": "[]" }` |
+| `rename` | Rename an input, a name inside the function, or the function and its calls | `{ "from": "opt", "to": "option" }` |
+
+**Thunder's words.** `is at least`, `is at most`, `is more than`, `is below`, `is` and `is not`, `is nothing`,
+`is between … and …`, `contains`, `starts with`, `ends with`, `and`, `or`, `not`, `'s` (`order's total`),
+`the length of`, `the first of`, `the last of`, `plus`, `minus`, `times`, and text in quotes. Names are the code's own
+names said as words: "max length" is `max_length` in Python and `maxLength` in TypeScript, matched against the names in
+the function first and then the file, never a word in a comment or docstring. Each language gets its own form:
+"name is nothing" is `name is None` in Python, `name == null` in TypeScript, and `name == nil` in Go. "member is
+true" means equal to true (`member is True`, `member === true`): in Python 1 and "x" are truthy but not true, so a
+person who means truthy writes "member". A word with no fixed meaning in the language ("contains" in Go, where it
+depends on the value) is refused rather than guessed. Calls are written as code (`str(default)`).
+
+**Lines.** Steps are named by the line `thunder read` shows (`"line:12"`). In a list of edits, every line is a line of
+the original file: when an earlier edit adds lines (a Stop, an input on its own line), the later edits' lines follow
+it. A line an earlier edit rewrote cannot be found again, and the edit is refused with that reason.
+
+**Steps inside error handling.** Steps in `except` / `catch` and `finally` blocks can be changed like any other.
+
+### How a step change is checked
+
+1. **The proof**, before anything is returned: the changed file is read again. The edited function must read
+   exactly as the edits say, tree for tree, and every other function in the file must mean exactly the same.
+2. **`--test "<cmd>"`** runs your command on the changed code, and the change is saved with `--apply` only if it
+   passes.
+3. When the writers cannot write a change exactly, the answer is `needs-ai`, with an instruction ready for a coding
+   agent; its code is checked by the same proof (`--candidate`) and labeled AI-written. Nothing is written silently.
+
+For coding agents, the MCP server (`thunder mcp`) offers the same as `intent_write`: give the files and the edits, get
+the patch, the new files, and the proof. It never writes to disk.
+
+### Measured on real code
+
+Two measurements, both repeatable from the repository (`scripts/write-bench.mjs`, `scripts/write-sweep.mjs`):
+
+**Change requests with hidden tests.** Realistic requests ("refuse a negative max_length", "let callers choose the
+placeholder", "do not count None") on code Thunder was not built for. Each has a hidden test that must **fail** on the
+original code and **pass** on the written code, and the changed module must still import. Only the Python standard
+library is used, so nothing is installed.
+
+| Set | Done | Written but wrong | Not written |
+| --- | --- | --- | --- |
+| Click, 12 requests (used while fixing the writer) | 12 | 0 | 0 |
+| humanize and toolz, 12 held-out requests (written before the writer ran on them; first run) | 11 | 0 | 1 refused: a step inside `except` (now supported) |
+
+The first set is not a fair score: four writer bugs were found and fixed on it (an `elif` given a second colon, an empty
+function body left without `pass`, a name taken from a docstring, lines not followed after an earlier edit), and two of
+its tasks were corrected. The held-out set was scored once, as written.
+
+**Every function, every kind of edit.** For every function in five open-source Python projects, one edit of each kind
+that fits it, then an independent check that each written file still parses (Python's own parser), beside Thunder's
+proof:
+
+| Project | Edits tried | Written and proven | needs-ai | Refused | Written files that do not parse |
+| --- | --- | --- | --- | --- | --- |
+| Flask | 1,480 | 1,404 | 76 | 0 | 0 |
+| Requests | 890 | 886 | 1 | 3 | 0 |
+| Click | 2,103 | 2,016 | 86 | 1 | 0 |
+| httpx | 1,451 | 1,418 | 33 | 0 | 0 |
+| rich | 3,402 | 3,218 | 169 | 15 | 0 |
+| **All** | **9,326** | **8,942 (95.9%)** | **365** | **19** | **0** |
+
+Before this round of fixes the same check found 11 written files that did not parse (an `elif` with two colons, empty
+function bodies, a hex number, a comment between a question and its first step, a Stop placed between a decorator and
+its function). Each is fixed and has a test. These edits are generated (one of each kind per function), so they show
+whether the writer writes correct code, not whether a change is useful.
+
+What this does not show: that a change is the change a person wanted, or that the project's own test suite passes
+afterwards (those suites need pytest and their dependencies installed; run them with `--test`).
 
 ## One rule, every service: across languages
 

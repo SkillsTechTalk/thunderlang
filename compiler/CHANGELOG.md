@@ -1,3 +1,31 @@
+# Unreleased
+
+- **Thunder write in Thunder's words.** `thunder write <file> --edit` (step edits: inputs, questions, Stops, steps,
+  answers, renames, in TypeScript, JavaScript, Python, and Go) now takes conditions, values, and steps the way Thunder
+  reads them: `"amount is at least 75 and not member"`, `"the length of value is below 2"`, `"name is nothing"`,
+  `Give …`, `Set … to …`, `Stop with "…"`. Each language gets its own form (`name is None`, `name == null`,
+  `name == nil`), and names are the code's own names said as words, matched in the function first, never from a
+  comment or docstring. Code is still accepted. A word with no fixed meaning in the language is refused, not guessed.
+- **New in step edits:** `setValue` takes `toValue` (a name or expression, e.g. route a new input into a step);
+  steps inside `except` / `catch` and `finally` can be edited; `--edits <list.json|->` reads a list of edits; and the
+  MCP server offers `intent_write` (files and edits in, patch, new files, and proof out; nothing written to disk).
+- **Fixes found by measuring on real code** (Flask, Click, Requests, httpx, rich, humanize, toolz): an `elif` whose
+  comparison changed got a second colon; removing a function's only step left an empty Python body (now `pass`); a
+  hex number (`0xFFFFFFFF`) was written as `4294967296xFFFFFFFF` (hex, octal, binary, and `1_000` now keep their
+  form, in step edits and rule edits); a word was matched to a name in a docstring; in a list of edits, a later
+  edit's line could land on a step an earlier edit inserted (lines now always mean the original file's lines); and
+  several edits to one function were checked against stale steps; a comment between a question and its first step
+  was taken as part of the question (it was dropped and the colon lost); and a step added before a decorated function
+  went between the decorator and the function. Each has a test. On 9,326 generated edits across Flask, Requests,
+  Click, httpx, and rich, every one of the 8,942 written files now parses (11 did not before).
+- **Measured:** `scripts/write-bench.mjs` runs change requests with hidden tests (the test must fail on the original
+  code and pass on the written code); `scripts/write-sweep.mjs --verify` checks every written file with the
+  language's own parser. Results in docs/thunder-write.md.
+
+**Upgrade note.** No command, flag, exit code, or JSON shape was removed. A Python condition such as `x is 5` (or
+`member is true`) given to `--edit` is now read as Thunder's "is" (equals), not Python's identity test; `x is None`
+is unchanged. `thunder write --edit` accepts `--edits <file>`.
+
 # 1.5.0
 
 - **Thunder Trace reads tables, settings, and packages.** `thunder trace` now links SQL to the repository that

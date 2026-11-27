@@ -512,12 +512,13 @@ Read and understand code
   thunderize <folder | owner/repo> [--out <dir>] [--json]   the whole app in Thunder Text: one .thunder-text per file + APP.thunder-text
 
 Change code
-  write <file> --edit '<json>' [--edit …] [--also <file>] [--apply] [--test "<cmd>"] [--candidate <file>] [--json]
+  write <file> --edit '<json>' [--edit …] | --edits <list.json|->  [--also <file>] [--apply] [--test "<cmd>"] [--candidate <file>] [--json]
                             Writing in Thunder: change a step, question, Stop, input, or function in Thunder; the code is
                             written as a minimal patch (TS/JS, Python, Go) and proven (the edited steps mean exactly
-                            the edit; everything else means the same). Dry run by default; --apply saves; --test runs a
-                            command on the changed code. Other cases print an instruction for an AI coding agent;
-                            --candidate checks code it wrote (labeled AI-written).
+                            the edit; everything else means the same). Conditions and values in Thunder's words
+                            ("amount is at least 100", "name is nothing") or as code; steps by their line in thunder read.
+                            Dry run by default; --apply saves; --test runs a command on the changed code. Other cases
+                            print an instruction for an AI coding agent; --candidate checks code it wrote (AI-written).
   write <file> --decision <name> --rule <n|otherwise> [--when "<condition>"] [--answer <Outcome>] [--write] [--json]
                             Thunder write: change a number, comparison, text value, or answer in a recovered rule;
                             previews the exact code change and the cases whose answer changes; --write saves it
@@ -751,6 +752,8 @@ function main() {
   }
   // One rule change written into every service that implements it (src/write-across-cli.mjs).
   if (cmd === 'write' && isWriteAcross(restArgv)) { writeAcrossMain(restArgv).then((code) => { process.exitCode = code; }); return; }
+  // thunder write <file> --edits <list.json | ->: the edits from a file (or stdin), the same JSON as --edit.
+  if (cmd === 'write' && args.edits && !args.edit) args.edit = [args.edits === '-' ? readFileSync(0, 'utf8') : readFileSync(args.edits, 'utf8')];
   if (cmd === 'write' && args.edit) {
     try {
       if (!file) throw new Error('Use thunder write <file> --edit \'{"op":"setValue","member":"name","step":"line:12","to":10}\' [--apply] [--test "<cmd>"].');
