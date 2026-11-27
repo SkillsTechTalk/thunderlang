@@ -41,9 +41,10 @@ Each compilation capability is advertised only once it works.
 | **Compile Thunder Core to Go**: `thunder build --target go`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreGo --> |
 | **Compile Thunder Core to Java**: `thunder build --target java`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreJava --> |
 
-Thunder Core is young: programs compile to Python and TypeScript. On Python they can use Python libraries
-(`Use csv as csv`), written the Python way; Thunder's rules, like exact money, apply to Thunder values, not inside the
-library. TypeScript programs cannot use Python modules, and npm libraries are not available from Thunder yet. For
+Thunder Core is young: programs compile to Python, TypeScript, C#, Java, Go, and Rust (the table above). Only on
+Python can they use libraries: Python modules (`Use csv as csv`), written the Python way; Thunder's rules, like exact
+money, apply to Thunder values, not inside the library. The other targets refuse a program that uses a Python module
+(TC405), and their own libraries (npm, NuGet, Maven, Go modules, crates) are not available from Thunder yet. For
 everything else, read and change your existing code in Thunder.
 
 **Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
