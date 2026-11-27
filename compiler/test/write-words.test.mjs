@@ -147,3 +147,23 @@ test('a step added before a decorated function goes above its decorators', () =>
   const lines = r.files['b.py'].split('\n');
   assert.ok(lines.indexOf('        if method is None:') < lines.indexOf('        @wraps(method)'), r.patch);
 });
+
+test('a word or name the code does not have is refused, naming the function’s inputs, never written as a new name', () => {
+  const src = 'def shipping_fee(amount, coupon):\n    if amount >= 50:\n        return 0\n    return 5.99\n';
+  const M = 'shipping_fee';
+  for (const when of ['amount is big', 'total is at least 75', 'amount >= total']) {
+    const r = write('s.py', src, { op: 'setCondition', member: M, step: 'line:2', when });
+    assert.equal(r.status, 'refused', `${when}: ${r.patch}`);
+    assert.match(r.reason, /is not a name in this function or file; its inputs are "amount", "coupon"/, when);
+  }
+  // The function's names, built-ins, and a new local the step itself sets are all fine.
+  assert.equal(write('s.py', src, { op: 'setCondition', member: M, step: 'line:2', when: 'amount is at least 75 and not coupon' }).status, 'written');
+  assert.equal(write('s.py', src, { op: 'setCondition', member: M, step: 'line:2', when: 'len(str(amount)) > 2' }).status, 'written');
+  assert.equal(write('s.py', src, { op: 'addStep', member: M, before: 'line:2', step: 'total = amount * 2' }).status, 'written');
+  assert.equal(write('s.py', src, { op: 'addStep', member: M, before: 'line:2', step: 'audit(amount)' }).status, 'refused');
+  // A name added by an earlier edit in the same list is the code's own by then.
+  assert.equal(write('s.py', src, [{ op: 'addInput', member: M, name: 'total', default: 0 }, { op: 'setCondition', member: M, step: 'line:2', when: 'total is at least 75' }]).status, 'written');
+  const ts = 'function fee(amount: number) {\n  if (amount >= 50) {\n    return 0;\n  }\n  return Math.round(5.99);\n}\n';
+  assert.equal(write('f.ts', ts, { op: 'setCondition', member: 'fee', step: 'line:2', when: 'amount is big' }).status, 'refused');
+  assert.equal(write('f.ts', ts, { op: 'setCondition', member: 'fee', step: 'line:2', when: 'Math.abs(amount) > 50' }).status, 'written');
+});

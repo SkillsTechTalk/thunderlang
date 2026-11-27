@@ -1,3 +1,12 @@
+# Unreleased
+
+- **Fix: Thunder write wrote names the code does not have.** A word that is no name in the function or file
+  (`"amount is big"`, `"total is at least 75"` when the input is `amount`) was written as a new name
+  (`if amount == big:`) and passed the proof; code with such a name (`amount >= total`) was written too. Both are now
+  refused, naming the function's inputs (`its inputs are "amount", "coupon"`). The function's own names, the file's
+  names, the language's built-ins (`len`, `Math`, …), names an earlier edit in the list added, and a new local the
+  step itself sets (`total = amount * 2`) are all still accepted. Reported by Skills Tech Talk.
+
 # 1.6.0
 
 - **Thunder write in Thunder's words.** `thunder write <file> --edit` (step edits: inputs, questions, Stops, steps,

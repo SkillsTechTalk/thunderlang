@@ -71,7 +71,7 @@ for (const root of roots) {
       const ret = steps.find((s) => s.expr?.kind === 'return' && s.expr.value?.kind === 'literal' && s.expr.value.type === 'bool');
       if (ret) edits.push({ op: 'setGivesBack', member, step: `line:${ret.line}`, value: !ret.expr.value.value });
       const after = it.steps.find((s) => s.kind === 'call' && !s.children?.length);
-      if (after) edits.push({ op: 'addStep', member, after: `line:${after.line}`, step: 'thunderAudit()' });
+      if (after) edits.push({ op: 'addStep', member, after: `line:${after.line}`, step: { python: 'print()', go: 'println()' }[language] ?? 'console.log()' });
       for (const e of edits) {
         let r;
         try { r = thunderWrite(files, e); } catch (err) { r = { status: 'needs-ai', reason: `crash: ${err.message}` }; }

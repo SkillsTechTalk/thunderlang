@@ -30,7 +30,7 @@
 // A patch that fails its proof is never returned as written.
 //
 // Deterministic and browser-safe (no Node APIs): it edits text and reads it; it never runs the code it edits.
-import { thunderTree, thunderStep, looksThunder } from './write-words.mjs';
+import { thunderTree, thunderStep, looksThunder, unknownName, unknownNameReason } from './write-words.mjs';
 import { readCode } from './read.mjs';
 import { readableLanguage } from './read-repo.mjs';
 import { parseExpr, parseStatement, parseStatementSpans, renderExpr, renderStatement, sameExpr, normalizeExpr, nodesOf, sayFull, blockEnd } from './meaning.mjs';
@@ -275,10 +275,17 @@ function exprFrom(input, language, what = 'expression') {
   if (looksThunder(input) && words().tree) return words().tree;
   for (const l of PARSE_ORDER(language)) {
     const t = parseExpr(input, l);
-    if (t && t.kind !== 'code' && !misreadIs(t)) return adapt(t, language);
+    if (t && t.kind !== 'code' && !misreadIs(t)) return known(adapt(t, language), language);
   }
   if (words().tree) return words().tree;
+  if (said?.unknown) refuse(`The ${what} "${input}" could not be read: ${said.error}`);
   refuse(`The ${what} "${input}" could not be read${said?.error ? ` (${said.error})` : ''}. Write it in Thunder's words, for example "days is more than 10 and not member's vip", or as code.`);
+}
+/** A tree written as code, refused when it uses a name the code does not have (it would fail when run). */
+function known(tree, language) {
+  const word = unknownName(tree, language, wordsSource, wordsScope);
+  if (word) refuse(`It cannot be written: ${unknownNameReason(word, wordsScope)}`);
+  return tree;
 }
 /** Adapt a tree read in another language to this file's spelling (== in JavaScript is ===, quotes, true/True). */
 function adapt(tree, language) {
@@ -303,7 +310,8 @@ function statementFrom(input, language) {
     const t = parseStatement(input, l);
     if (t && t.kind !== 'code') {
       const a = adapt(t, language);
-      try { renderStatement(a, language); return a; } catch { /* try the next reading */ }
+      try { renderStatement(a, language); } catch { continue; /* try the next reading */ }
+      return known(a, language);
     }
   }
   refuse(`The step "${input}" could not be read as one statement.`);
@@ -1240,6 +1248,9 @@ function opAddFunction(state, edit) {
   if (language === 'go' && inputs.some((p) => !p.type)) refuse('Go needs a type for every input.');
   const ctx = { language, source, item: { name, line: 1 } };
   if (language === 'go' && edit.returns) ctx.goResults = edit.returns;
+  // The new function's names are its inputs and the file's names.
+  wordsScope = `${name}(${inputs.map((p) => p.name).join(', ')})`;
+  wordsSource = `${wordsScope}\n${source}`;
   const nodes = (edit.steps || []).map((s) => stepSpec(s, { ...ctx, source: `${source}\nfunc ${name}() (${edit.returns || ''}) {}` }));
   if (!nodes.length) refuse('A new function needs at least one step.');
   const unit = indentUnit(source, language);

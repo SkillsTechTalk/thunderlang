@@ -58,7 +58,10 @@ If any check fails, nothing is written and Thunder says why. The exit code is 1.
 - **Change a rule's shape** with `--decision`. Adding or removing a condition, an `and`/`or`, or a name is refused
   there; use a step edit (`--edit`, below) or **Propose rule change** for that.
 - **Invent a code name.** If the answers are enum members such as `Decision.APPROVE` and the new answer is not
-  returned anywhere yet, Thunder write refuses rather than write a name that may not exist.
+  returned anywhere yet, Thunder write refuses rather than write a name that may not exist. Step edits do the
+  same: a word or name that is not in the function, the file, or the language's built-ins (`"amount is big"`,
+  `total` when the input is `amount`) is refused, and the refusal lists the function's inputs. A new local the
+  step itself sets (`total = amount * 2`) and an input an earlier edit added are fine.
 - **Prove the application is right.** The check covers how the code reads, and the listed cases cover the
   boundary values. It does not compile or run your code. Run your own tests before you commit.
 
