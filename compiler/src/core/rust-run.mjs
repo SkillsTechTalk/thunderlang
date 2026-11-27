@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { toRust, pythonOnlyUses, exportedRustNames, rs } from './target-rust.mjs';
+import { npmRefusals } from './target-typescript.mjs';
 import { diag } from './diagnostics.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -21,9 +22,9 @@ export const rustModule = (m) => `m_${m}`;
 
 /** TC405 for every Use in a file: Python modules exist only for the Python target. */
 export function rustDiagnostics(result) {
-  return pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
+  return [...npmRefusals(result.info, 'Rust', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
     `"${u.module}" is a Python module, and this program is compiled to Rust, which cannot use it.`,
-    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'));
+    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'))];
 }
 
 /** Compile checked results to Rust: { [rustModule]: text }. Test modules see every src module's names. */

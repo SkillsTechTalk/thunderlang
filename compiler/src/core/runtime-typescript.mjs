@@ -8,6 +8,9 @@ import { readFileSync } from 'node:fs';
 import * as VALUES from './engine-values.mjs';
 
 const VALUES_SOURCE = readFileSync(new URL('./engine-values.mjs', import.meta.url), 'utf8');
+// npm packages (Use "<package>" from npm): the boundary between Thunder values and JavaScript values. Its import
+// line is dropped: in thunder_runtime.mjs the names it uses are the runtime's own.
+const NPM_SOURCE = readFileSync(new URL('./runtime-npm.mjs', import.meta.url), 'utf8').replace(/^import [^\n]*\n/m, '');
 
 /** The Node part: everything here is about running, not about what a value means. */
 const NODE_PART = `
@@ -93,14 +96,14 @@ export function runTests(modules) {
 }
 `;
 
-const NODE_EXPORTS = { functions: ['enterFrame', 'enterCall', 'leave', 'topFrame', 'fail', 'keyAt', 'say', 'readText', 'recordKind', 'setAttr', 'setField', 'newRecord', 'init', 'isEntry', 'run', 'runTests'] };
+const NODE_EXPORTS = { functions: ['enterFrame', 'enterCall', 'leave', 'topFrame', 'fail', 'keyAt', 'say', 'readText', 'recordKind', 'setAttr', 'setField', 'newRecord', 'init', 'isEntry', 'run', 'runTests', 'toJs', 'fromJs', 'library', 'callLibrary', 'getLibrary'] };
 
 const HEADER = `// thunder_runtime.mjs: written by the Thunder compiler next to compiled TypeScript. Standard library only.
 // The values and rules here are the Thunder engine's own (engine-values.mjs), so compiled TypeScript, the Thunder
 // engine, and compiled Python say the same thing for the same program.
 `;
 
-export const TS_RUNTIME = `${HEADER}\n${VALUES_SOURCE.trimEnd()}\n${NODE_PART}`;
+export const TS_RUNTIME = `${HEADER}\n${VALUES_SOURCE.trimEnd()}\n${NODE_PART}\n${NPM_SOURCE}`;
 
 const isClass = (v) => typeof v === 'function' && /^class\b/.test(Function.prototype.toString.call(v));
 
