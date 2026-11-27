@@ -560,8 +560,21 @@ class Engine {
 
 // ── public API ─────────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * A program with problems is never run: running what did not compile could print a wrong answer, or pass a test
+ * that should fail. The CLI stops before this; this keeps every other caller (the site, OpenThunder) just as safe.
+ */
+function notCompiled(results) {
+  const bad = results.filter((r) => r && r.ok === false);
+  if (!bad.length) return null;
+  const lines = bad.flatMap((r) => (r.diagnostics ?? []).filter((d) => d.severity !== 'warning').map((d) => `${r.file ?? 'main.thunder'}, line ${d.line ?? '?'}: ${d.message}  [${d.code}]`));
+  return { status: 2, stdout: '', stderr: `${lines.join('\n') || 'The program has problems'}\nNothing was run: fix the problems first.\n`, notCompiled: true, steps: [] };
+}
+
 /** The same, on the calling thread (its stack allows only a few hundred nested calls). */
 export function runInProcess({ entry, cwd, deeper = false, readText = null } = {}) {
+  const broken = notCompiled([entry]);
+  if (broken) return broken;
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
   const eng = new Engine({ cwd, deeper, readText });
@@ -582,6 +595,8 @@ export function runInProcess({ entry, cwd, deeper = false, readText = null } = {
  * Gives back { status, stdout, stderr, steps, truncated }. Like runInProcess, on the calling thread.
  */
 export function recordedRun({ entry, cwd, readText = null } = {}) {
+  const broken = notCompiled([entry]);
+  if (broken) return broken;
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses, steps: [] };
   const eng = new Engine({ cwd, readText, record: true });
@@ -597,6 +612,8 @@ export function recordedRun({ entry, cwd, readText = null } = {}) {
 
 /** The same, on the calling thread. */
 export function testInProcess({ results, cwd, deeper = false, readText = null } = {}) {
+  const broken = notCompiled(results);
+  if (broken) return broken;
   const uses = pythonModulesUsed(results);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
   const eng = new Engine({ cwd, deeper, readText });

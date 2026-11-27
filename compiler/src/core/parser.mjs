@@ -201,7 +201,8 @@ function paramGroups(ts) {
       if (n > 3 && isWord(inner[n - 3], 'if') && isWord(inner[n - 2], 'not') && isWord(inner[n - 1], 'given')) { defaultTokens = inner.slice(0, -3); g = g.slice(0, open); }
     }
     const k = g.findIndex((t) => isWord(t, 'as'));
-    return { words: stripArticle(k < 0 ? g : g.slice(0, k)), typeTokens: k < 0 ? null : g.slice(k + 1), defaultTokens };
+    const raw = k < 0 ? g : g.slice(0, k);
+    return { words: stripArticle(raw), raw, typeTokens: k < 0 ? null : g.slice(k + 1), defaultTokens };
   });
 }
 
@@ -638,7 +639,12 @@ function fillBlock(open, lines, n, ep, names) {
 
 function nameWords(ts, line, what) {
   const words = stripArticle(ts);
-  if (!words.length) throw new CoreError(diag('TC108', line, `${what} is missing a name.`));
+  if (!words.length) {
+    // The name was only "a", "an", or "the": Thunder skips those words in a name ("the total" is "total").
+    const only = ts.length === 1 && ts[0].t === 'word' ? ts[0].text : null;
+    if (only) throw new CoreError(diag('TC108', line, `"${only}" can't be a name on its own: Thunder skips "a", "an", and "the" in names ("the total" is "total").`, `Use a word that says what it holds, like "first number" or "amount".`));
+    throw new CoreError(diag('TC108', line, `${what} is missing a name.`));
+  }
   for (const t of words) {
     if (t.t !== 'word') throw new CoreError(diag('TC105', line, `A name can only use words, but "${show(t)}" is not a word.`));
     if (RESERVED.has(t.lower)) throw new CoreError(diag('TC202', line, `A name can't contain the word "${t.text}", because it belongs to Thunder.`, `Try a name without "${t.text}".`));
@@ -735,7 +741,7 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     let r = 0;
     while (kids[r] && isWord(kids[r].tokens[0], 'receive')) {
       const kid = kids[r];
-      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.words, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
+      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.raw, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
       r++;
     }
     bodyNodes = kids.slice(r);
@@ -901,7 +907,7 @@ function parseScreen(n, ep, names, diagnostics) {
   while (kids[k] && isWord(kids[k].tokens[0], 'receive')) {
     const kid = kids[k];
     try {
-      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.words, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
+      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.raw, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
     } catch (e) { if (e instanceof CoreError) diagnostics.push(e.diagnostic); else throw e; }
     k++;
   }
