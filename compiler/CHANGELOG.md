@@ -5,6 +5,16 @@
 `readingLayout()` in `./core` (schema `thunder-reading-layout-v1`). One behavior fix: `thunder write <folder…>` now
 lists, instead of changing, a rule with the same condition in a decision whose name shares no word with the chosen one.
 
+- **The drawing kit, second part: the IO boxes, Flow, and Details.** `@skillstech/thunderlang/react` now draws the
+  whole reading of one action or rule, so the three products show it the same way. `IOBoxes` ("You give it", "You get
+  back", "It can stop with" with each stop's line, and "Part of …" back to its Thing), which `BigPicture` now draws when
+  an action or rule is in focus. `Flow` (every step at the compiler's lane and row, its Yes / No / For each / Done / If
+  it fails edges, marks and colors from DOES, steps not read yet dashed, optional New / Gone marks for Thunder Diff).
+  `Details` (the counts at a glance, then You give it / You get back, When it stops, What it changes, Its answers,
+  Exact limits, Every step, It relies on, Used by, Questions the code cannot answer). The words come from
+  `./core`: `flowEdgeLabel(edge)` and `detailsLayout(readLevel(model, 'details', id))`, which keeps a section only when
+  the compiler gave it. Callbacks only (`onLine`, `onUse`, `onThing`); no buttons without them. The stylesheet gains
+  the matching `tl-` classes, all on the same color variables.
 - **The Thunder drawing kit, `@skillstech/thunderlang/react` (first part).** One set of components so OpenThunder,
   thunderlang.dev, and the Skills Tech Talk course draw a reading the same way: `ThingCard` ("A Thing", "It knows",
   the "It can" buttons, "How a new … starts"), `DataCard` (a record or choices), `BigPicture`, and `ThunderSymbol`.
@@ -14,7 +24,7 @@ lists, instead of changing, a rule with the same condition in a decision whose n
   Styling is one stylesheet, `@skillstech/thunderlang/react/reading.css`: plain `tl-` classes, every color a CSS
   variable (a dark and a light set; `--language-accent` is honored), one column under 560px, 44px touch targets.
   React is an optional peer dependency; no Tailwind, no build step. thunderlang.dev now draws its Thing and Data
-  cards with it. The Flow and Details views and the drawn IO boxes join next.
+  cards with it.
 - **Three lessons on changing real code, in `@skillstech/thunderlang/learn`.** "Does every route keep each
   customer's records to them?" (`thunder read --access`), "Change one rule in every service at once"
   (`thunder write <folder…>`), and "Keep the evidence for a change" (`thunder passport`, `passport check`). They are
