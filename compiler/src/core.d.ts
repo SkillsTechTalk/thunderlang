@@ -203,4 +203,4 @@ export function writeAcrossEvidence(result: WriteAcrossResult | { ok: false }): 
 
 // What a reading shows and in what order (src/reading-layout.mjs).
 export { READING_LAYOUT_SCHEMA, READING_LABELS, readingLayout, thingCard, dataCard, ioBoxes, detailsLayout, flowEdgeLabel, memberSymbolId } from './reading-layout.mjs';
-export type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, DetailsLayout, When, KnowsLine, ThunderSymbolId } from './reading-layout.d.mts';
+export type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, MemberEntryLayout, DetailsLayout, When, KnowsLine, ThunderSymbolId } from './reading-layout.d.mts';

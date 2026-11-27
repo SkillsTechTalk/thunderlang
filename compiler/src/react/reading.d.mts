@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import type { ThunderModel, Thing, Member } from '../model.d.mts';
-import type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, DetailsLayout, ThunderSymbolId } from '../reading-layout.d.mts';
+import type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, MemberEntryLayout, DetailsLayout, ThunderSymbolId } from '../reading-layout.d.mts';
 
 export { readingLayout, thingCard, dataCard, ioBoxes, detailsLayout, flowEdgeLabel, READING_LABELS } from '../reading-layout.mjs';
 export type { ReadingLayout, ThingCardLayout, DataCardLayout, IOBoxesLayout, DetailsLayout, When, ThunderSymbolId } from '../reading-layout.d.mts';
