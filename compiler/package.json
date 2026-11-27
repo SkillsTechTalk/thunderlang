@@ -1,7 +1,7 @@
 {
   "name": "@skillstech/thunderlang",
   "version": "1.4.0",
-  "description": "Thunder\u2122, the human programming language: the deterministic ThunderLang\u2122 compiler, CLI, and Language Server. No AI required. Reads code in seventeen languages into Thunder, changes TypeScript, JavaScript, Python, and Go code from Thunder with a proof, compiles rules to six languages, and executes them: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
+  "description": "Thunder™, the human programming language: the deterministic ThunderLang™ compiler, CLI, and Language Server. No AI required. Reads code in seventeen languages into Thunder, changes TypeScript, JavaScript, Python, and Go code from Thunder with a proof, compiles rules to six languages, and executes them: run decisions, simulate lifecycles, and check outcome contracts. Interops with DMN, BPMN, JSON Schema, and OpenAPI.",
   "type": "module",
   "main": "./src/index.mjs",
   "types": "./src/index.d.ts",
@@ -37,6 +37,11 @@
       "types": "./src/program.d.mts",
       "import": "./src/program.mjs"
     },
+    "./react": {
+      "types": "./src/react/reading.d.mts",
+      "import": "./src/react/reading.mjs"
+    },
+    "./react/reading.css": "./src/react/reading.css",
     "./package.json": "./package.json"
   },
   "bin": {
@@ -67,6 +72,14 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.1"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "keywords": [
     "thunder",

@@ -1,0 +1,119 @@
+/* @skillstech/thunderlang/react/reading.css: the Thunder drawing kit's one stylesheet.
+   Every color is a CSS variable: set them on any ancestor (or :root) to fit your app. The defaults are the dark
+   Thunder look; add class "tl-light" to an ancestor for the light set. --tl-accent (a Thing's color) follows
+   --language-accent when the page sets it. Works from 320px wide up; the "It can" grid is one column below 560px. */
+
+.tl-reading, .tl-card {
+  --tl-surface: rgba(14, 18, 30, 0.6);
+  --tl-surface-raised: rgba(20, 26, 42, 0.7);
+  --tl-border: rgba(255, 255, 255, 0.12);
+  --tl-border-strong: rgba(255, 255, 255, 0.3);
+  --tl-text: #ffffff;
+  --tl-text-body: #e7eaf2;
+  --tl-text-muted: #aab2c5;
+  --tl-text-quiet: #8a93a8;
+  --tl-focus: #fcd34d;
+  --tl-radius: 24px;
+  --tl-radius-small: 12px;
+  /* The grammar's colors (thunder-visual-v1). */
+  --tl-c-structure: #c4b5fd;
+  --tl-c-question: #7fb2ff;
+  --tl-c-fact: #fcd34d;
+  --tl-c-comparison: #f472b6;
+  --tl-c-amount: #fdba74;
+  --tl-c-outcome: #67e8f9;
+  --tl-c-name: #bef264;
+  --tl-c-failure: #fdba74;
+  --tl-c-pass: #34d399;
+  --tl-c-fail: #f87171;
+  --tl-c-unread: #9ca3af;
+  --tl-accent: var(--language-accent, var(--tl-c-outcome));
+  --tl-knows: var(--tl-c-fact);
+}
+
+.tl-light .tl-reading, .tl-light .tl-card, .tl-reading.tl-light, .tl-card.tl-light {
+  --tl-surface: #ffffff;
+  --tl-surface-raised: #f6f7fb;
+  --tl-border: #dde1ea;
+  --tl-border-strong: #9aa3b5;
+  --tl-text: #111827;
+  --tl-text-body: #1f2937;
+  --tl-text-muted: #4b5563;
+  --tl-text-quiet: #6b7280;
+  --tl-focus: #b45309;
+  --tl-c-structure: #6d28d9;
+  --tl-c-question: #1d4ed8;
+  --tl-c-fact: #92400e;
+  --tl-c-comparison: #be185d;
+  --tl-c-amount: #c2410c;
+  --tl-c-outcome: #0e7490;
+  --tl-c-name: #4d7c0f;
+  --tl-c-failure: #c2410c;
+  --tl-c-pass: #047857;
+  --tl-c-fail: #b91c1c;
+  --tl-c-unread: #6b7280;
+}
+
+.tl-reading, .tl-card { box-sizing: border-box; color: var(--tl-text-body); font: inherit; min-width: 0; }
+.tl-reading *, .tl-card * { box-sizing: border-box; }
+.tl-reading :is(h2, h3, h4, h5, p, ul), .tl-card :is(h2, h3, h4, h5, p, ul) { margin: 0; }
+.tl-reading ul, .tl-card ul { list-style: none; padding: 0; }
+
+.tl-symbol { flex-shrink: 0; }
+.tl-c-structure { color: var(--tl-c-structure); }
+.tl-c-question { color: var(--tl-c-question); }
+.tl-c-fact { color: var(--tl-c-fact); }
+.tl-c-comparison { color: var(--tl-c-comparison); }
+.tl-c-amount { color: var(--tl-c-amount); }
+.tl-c-outcome { color: var(--tl-c-outcome); }
+.tl-c-name { color: var(--tl-c-name); }
+.tl-c-failure { color: var(--tl-c-failure); }
+.tl-c-pass { color: var(--tl-c-pass); }
+.tl-c-fail { color: var(--tl-c-fail); }
+.tl-c-unread { color: var(--tl-c-unread); }
+
+/* Cards */
+.tl-card { border: 1px solid var(--tl-border); border-radius: calc(var(--tl-radius) - 4px); background: var(--tl-surface); padding: 20px; overflow-wrap: anywhere; }
+.tl-card-head { display: flex; align-items: center; gap: 14px; }
+.tl-kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tl-accent); }
+.tl-kicker-quiet { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--tl-text-quiet); }
+.tl-card-title { font-size: 24px; line-height: 1.25; font-weight: 700; color: var(--tl-text); }
+.tl-card-title-small { font-size: 18px; font-weight: 600; }
+.tl-doc { margin-top: 12px !important; font-size: 17px; line-height: 1.55; color: var(--tl-text-body); }
+.tl-doc-small { margin-top: 8px !important; font-size: 14px; color: var(--tl-text-muted); }
+.tl-section-label { margin-top: 20px !important; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--tl-text-quiet); }
+
+/* A Thing */
+.tl-thing { border: 2px solid color-mix(in srgb, var(--tl-accent) 50%, transparent); border-radius: var(--tl-radius); background: color-mix(in srgb, var(--tl-accent) 4%, transparent); padding: 24px; }
+.tl-thing.tl-selected { border-color: var(--tl-accent); }
+.tl-knows { margin-top: 8px !important; display: grid; gap: 4px; font-size: 16px; }
+.tl-knows-small { margin-top: 12px !important; font-size: 14px; }
+.tl-knows-name { color: var(--tl-knows); }
+.tl-knows-detail { color: var(--tl-text-muted); }
+.tl-abilities { margin-top: 8px !important; display: grid; gap: 8px; grid-template-columns: 1fr; }
+@media (min-width: 560px) { .tl-abilities { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tl-ability { display: flex; width: 100%; min-height: 44px; align-items: center; gap: 12px; border: 1px solid var(--tl-border); border-radius: var(--tl-radius-small); background: var(--tl-surface-raised); padding: 10px 12px; text-align: left; font: inherit; color: inherit; }
+.tl-ability-button { cursor: pointer; }
+.tl-ability-button:hover { border-color: var(--tl-border-strong); }
+.tl-ability-label { font-size: 15px; font-weight: 500; color: var(--tl-text); }
+.tl-ability-go { margin-left: auto; color: var(--tl-text-quiet); }
+.tl-starts { margin-top: 12px !important; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--tl-text-muted); }
+.tl-starts-button { min-height: 44px; border: 0; background: none; padding: 0; font: inherit; font-size: 14px; color: var(--tl-text-muted); cursor: pointer; text-align: left; }
+.tl-starts-button:hover { color: var(--tl-text); }
+.tl-ability-button:focus-visible, .tl-starts-button:focus-visible { outline: 2px solid var(--tl-focus); outline-offset: 2px; }
+
+/* Data */
+.tl-choices { margin-top: 12px !important; display: flex; flex-wrap: wrap; gap: 8px; }
+.tl-choice { border: 1px solid color-mix(in srgb, var(--tl-c-outcome) 50%, transparent); border-radius: 999px; padding: 4px 12px; font-size: 14px; color: var(--tl-c-outcome); }
+
+/* The Big Picture */
+.tl-big-picture { display: grid; gap: 24px; }
+.tl-bp-things { display: grid; gap: 20px; }
+.tl-bp-data { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 760px) { .tl-bp-data { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) {
+  .tl-thing { padding: 18px; }
+  .tl-card { padding: 16px; }
+  .tl-card-title { font-size: 21px; }
+}
+@media (prefers-reduced-motion: no-preference) { .tl-ability-button, .tl-starts-button { transition: border-color 120ms, color 120ms; } }

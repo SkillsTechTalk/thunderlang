@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Google Analytics 4 measurement ID for thunderlang.dev (public by design; sent in client HTML).
 const GA_ID = "G-PMN2LMFM8X";
+import "../../compiler/src/react/reading.css";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
