@@ -41,7 +41,7 @@ export default function PlaygroundPage() {
         <CorePlayground examples={playgroundExamples()} />
       </Section>
       <Section>
-        <p className="mb-8 rounded-xl border border-gold-300/20 p-5 text-haze-200">Below: <strong className="text-white">missions</strong>, the other kind of Thunder file. A mission says what software must do (its rules, decisions, and examples), and the compiler checks it. <Link href="/docs/syntax-overview" className="font-semibold text-gold-300 underline">How programs and missions differ</Link>, or <Link href="/try" className="font-semibold text-gold-300 underline">try the refund rule</Link>.</p>
+        <p className="mb-8 rounded-xl border border-gold-300/20 p-5 text-haze-200">Below: <strong className="text-white">missions</strong>, the other kind of Thunder file. A mission says what software must do (its rules, decisions, and examples), and the compiler checks it. <Link href="/docs/language" className="font-semibold text-gold-300 underline">How programs and missions fit together</Link>, or <Link href="/try" className="font-semibold text-gold-300 underline">try the refund rule</Link>.</p>
         <SectionHeading
           eyebrow="Run it"
           title="Executable intent"
