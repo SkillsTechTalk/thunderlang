@@ -1,5 +1,11 @@
 # Unreleased
 
+- **.NET and NuGet from Thunder Core.** `Use "System.IO.Path" from .NET as paths` and `Use "Humanizer.NumberToWordsExtension"
+  from NuGet "Humanizer.Core" version "2.14.1" as words` give a program compiled to C# the .NET ecosystem. Static
+  methods and properties are called by name; the overload is chosen by which parameters every value fits; numbers come
+  back exact (`decimal` as written, `double` as it prints). The NuGet package and its version go into the generated
+  project. Programs that use .NET libraries run with real culture data, pinned to en-US. A failure is TC508 with its
+  real cause; every other target and the Thunder engine refuse a .NET library (new TC409).
 - **See what a change does: `thunder write --behaviour`.** For Python, Thunder runs each edited function before and
   after the change on inputs made from its own code (its numbers and one either side, its text, yes/no, the edges)
   and lists the inputs whose answer changed: `amount 100, days 29, refunded False: before 'approve', after

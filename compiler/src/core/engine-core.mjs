@@ -48,6 +48,7 @@ export function pythonModulesUsed(results) {
 export function refusalText(uses) {
   const u = uses[0];
   const more = uses.length > 1 ? ` (and ${uses.length - 1} more)` : '';
+  if (u.ecosystem === 'dotnet' || u.ecosystem === 'nuget') return `This program uses the .NET type "${u.module}" (${u.file}, line ${u.line})${more}. The Thunder engine runs Thunder only and never imitates a library, so run it as C#: --target csharp.`;
   if (u.ecosystem === 'npm') return `This program uses the npm package "${u.module}" (${u.file}, line ${u.line})${more}. The Thunder engine runs Thunder only and never imitates a library, so run it as TypeScript: --target typescript.`;
   return `This program uses the Python module "${u.module}" (${u.file}, line ${u.line})${more}. The Thunder engine runs Thunder only and never imitates a library, so run it with Python: leave out --engine thunder.`;
 }

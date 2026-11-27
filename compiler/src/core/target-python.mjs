@@ -93,7 +93,7 @@ class Gen {
     if (this.needDataclass) head.push('from dataclasses import dataclass, field');
     if (this.needDate) head.push('from datetime import date');
     if (this.needDecimal) head.push('from decimal import Decimal');
-    for (const m of this.info.modules.filter((x) => own(x) && x.ecosystem !== 'npm')) head.push(m.module === m.py || (m.module.split('.')[0] === m.py && !m.module.includes('.')) ? `import ${m.module}` : `import ${m.module} as ${m.py}`);
+    for (const m of this.info.modules.filter((x) => own(x) && (x.ecosystem ?? 'python') === 'python')) head.push(m.module === m.py || (m.module.split('.')[0] === m.py && !m.module.includes('.')) ? `import ${m.module}` : `import ${m.module} as ${m.py}`);
     head.push(`from thunder_runtime import ${[...this.rt].sort().join(', ')}`);
     for (const m of srcModules) head.push(`from ${m} import *`);
     head.push('', `THUNDER_SOURCE = ${py(this.source)}`, '', '');

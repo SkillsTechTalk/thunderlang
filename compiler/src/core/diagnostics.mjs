@@ -52,6 +52,7 @@ export const CODES = {
   TC406: 'A Screen is built only for React (--target react)',
   TC407: 'A step that cannot run when a button is pressed',
   TC408: 'An npm package ("Use … from npm") can be used only when compiling to TypeScript',
+  TC409: 'A .NET library ("Use … from .NET" or "from NuGet") can be used only when compiling to C#',
   TC501: 'Divided by zero (runtime)',
   TC502: 'Nothing used where a value was needed (runtime)',
   TC503: 'A field or entry is missing (runtime)',

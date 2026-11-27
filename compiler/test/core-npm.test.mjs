@@ -53,7 +53,7 @@ test('Use "<package>" from npm parses, and the mistakes say how to write it', ()
     ['Use "date-fns" as dates\n', /Say where "date-fns" comes from/],
     ['Use "date-fns" from npm\n', /Give the package a name/],
     ['Use dates from npm as dates\n', /Write an npm package in quotes/],
-    ['Use "date-fns" from maven as dates\n', /comes from Python or from npm/],
+    ['Use "date-fns" from maven as dates\n', /comes from Python, npm, \.NET, or NuGet/],
   ]) {
     const r = compileCore(src, { file: 'm.thunder' });
     assert.equal(r.ok, false, src);
