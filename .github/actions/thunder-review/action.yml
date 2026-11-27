@@ -17,7 +17,7 @@ inputs:
     default: ${{ github.event.pull_request.head.sha }}
   version:
     required: false
-    default: '1.4.2'
+    default: '1.4.3'
   thunder:
     required: false
     default: ''
