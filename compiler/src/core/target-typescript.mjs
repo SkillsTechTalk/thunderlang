@@ -48,7 +48,7 @@ export function toTypeScript(program, info, { source = 'main.thunder', imports =
 
 /** Thunder modules a program uses that only Python has (Use): compiled TypeScript cannot call them. */
 export function pythonOnlyUses(info) {
-  return (info.modules ?? []).filter((m) => !info.imported?.has(m) && m.ecosystem !== 'npm').map((m) => ({ module: m.module, line: m.line }));
+  return (info.modules ?? []).filter((m) => !info.imported?.has(m) && (m.ecosystem ?? 'python') === 'python').map((m) => ({ module: m.module, line: m.line }));
 }
 
 /** npm packages a program uses (Use "<package>" from npm): only compiled TypeScript can call them. */
@@ -61,6 +61,18 @@ export function npmRefusals(info, targetName, diag) {
   return npmUses(info).map((u) => diag('TC408', u.line,
     `"${u.module}" is an npm package, and this program is compiled to ${targetName}, which cannot use it.`,
     'Build for TypeScript to use npm packages: --target typescript, or target = "typescript" under [build] in thunder.toml. Thunder never swaps in a different library.'));
+}
+
+/** .NET types a program uses (Use "<type>" from .NET or NuGet): only compiled C# can call them. */
+export function dotnetUses(info) {
+  return (info.modules ?? []).filter((m) => !info.imported?.has(m) && (m.ecosystem === 'dotnet' || m.ecosystem === 'nuget')).map((m) => ({ module: m.module, line: m.line, ecosystem: m.ecosystem }));
+}
+
+/** TC409 for every .NET type a file uses, when it is compiled for `target` (anything but C#). */
+export function dotnetRefusals(info, targetName, diag) {
+  return dotnetUses(info).map((u) => diag('TC409', u.line,
+    `"${u.module}" is ${u.ecosystem === 'nuget' ? 'from a NuGet package' : 'a .NET type'}, and this program is compiled to ${targetName}, which cannot use it.`,
+    'Build for C# to use .NET libraries: --target csharp, or target = "csharp" under [build] in thunder.toml. Thunder never swaps in a different library.'));
 }
 
 /** The name of an npm package's namespace import (import * as <it> from "<package>"). */

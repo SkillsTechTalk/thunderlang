@@ -443,6 +443,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
 | TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
 | TC408 | an npm package (`Use "…" from npm`) in a program compiled to a language other than TypeScript |
+| TC409 | a .NET library (`Use "…" from .NET` or `from NuGet`) in a program compiled to a language other than C# |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
 | TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
 | TC406, TC407 | screens built for a target other than React (or React with no screen), and a step that can't run on a press |
@@ -462,8 +463,10 @@ for another: a program that uses a library is built only for the language that l
 | --- | --- | --- |
 | Python module | `Use csv as csv` (or `Use csv from Python as csv`) | Python, the default target (TC405 elsewhere) |
 | npm package | `Use "date-fns" from npm as dates` | TypeScript, `--target typescript` (TC408 elsewhere) |
+| .NET type | `Use "System.IO.Path" from .NET as paths` | C#, `--target csharp` (TC409 elsewhere) |
+| NuGet package | `Use "<type>" from NuGet "<package>" version "<v>" as <name>` | C#, `--target csharp` (TC409 elsewhere) |
 
-NuGet, Maven, Go modules, and crates are not available from Thunder yet.
+Maven, Go modules, and crates are not available from Thunder yet.
 
 ### Python libraries
 
@@ -511,6 +514,38 @@ the same way.
   this line failed: RangeError: …` (TC508). A name the package does not have is TC508 too.
 - **Types.** Package values are typed `any` in the generated TypeScript, and `npm_packages.d.ts` declares each
   package, so `tsc --strict` passes even for a package that ships no types.
+
+
+### .NET types and NuGet packages
+
+A type from .NET itself needs nothing installed; a type from a NuGet package names the package and its exact version,
+so every build gets the same code:
+
+```thunder
+Use "System.IO.Path" from .NET as paths
+Use "Humanizer.NumberToWordsExtension" from NuGet "Humanizer.Core" version "2.14.1" as words
+
+Say paths.Combine("reports", "trades.csv")    # reports/trades.csv
+Say words.ToWords(1234)                       # one thousand two hundred and thirty-four
+```
+
+Run it with `thunder run --target csharp`, or set `target = "csharp"` under `[build]` in `thunder.toml`. The package is
+added to the generated project, and `dotnet` downloads it on the first build.
+
+- **What you call.** A public static method or property of the type, by its .NET name: `paths.Combine(…)`,
+  `math.PI`. Extension methods are static methods of their class (`Humanizer.NumberToWordsExtension`).
+- **Which overload.** The one whose parameters every value fits, preferring the closest fit: a whole number fits
+  `int` before `long` before `decimal` before `double`; a decimal number fits `decimal` before `double`. No fit is
+  TC508, listing what the method takes.
+- **What crosses the boundary.** Going in: numbers as above, money as its amount, text as `string`, yes/no as `bool`,
+  `nothing` as `null`, lists as arrays or lists of the parameter's type, dates as `DateTime` at midnight. Coming
+  back: whole numbers from any integer type, the exact decimal from `decimal`, and from `double` the decimal it prints
+  as (`Math.Sqrt(2)` is `1.4142135623730951`); arrays and lists become lists. Anything else stays a library value you
+  can hand back.
+- **Culture.** A program that uses .NET libraries runs with the `en-US` culture on every machine, so words and dates
+  a library writes are the same everywhere.
+- **Failures** inside .NET are reported against the Thunder line that called it, with the real cause:
+  `.NET code used by this line failed: …` (TC508). Every other target refuses a .NET library (TC409).
 
 ## Step through a run: the Time Machine
 
@@ -612,7 +647,8 @@ project: `dotnet run --project generated/csharp` runs it without Thunder (`-- te
   the SDK, Thunder says what to install (exit 2); `thunder build` still writes the C#. Programs run on a thread with a
   deep stack, so calls nest as deep as they can in Python.
 - **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
-  (TC405). NuGet libraries are not available from Thunder yet.
+  (TC405).
+- **.NET types and NuGet packages.** `Use "System.IO.Path" from .NET as paths` works on this target only; see "Libraries".
 
 
 ## Compile to Rust

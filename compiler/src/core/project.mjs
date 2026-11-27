@@ -16,7 +16,7 @@ import { writeJava, javaDiagnostics } from './java-run.mjs';
 import { writeReact, reactDiagnostics } from './react-run.mjs';
 import { hasScreens } from './target-react.mjs';
 import { diag } from './diagnostics.mjs';
-import { npmRefusals } from './target-typescript.mjs';
+import { npmRefusals, dotnetRefusals } from './target-typescript.mjs';
 
 /** The languages a Thunder Core project can be compiled to. */
 export const TARGETS = ['python', 'typescript', 'csharp', 'rust', 'go', 'java', 'react'];
@@ -116,7 +116,7 @@ export function buildProject({ root, single = null, includeTests = false, write 
   if (tgt === 'rust') for (const r of results.filter((x) => x.ok)) { const d = rustDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   if (tgt === 'go') for (const r of results.filter((x) => x.ok)) { const d = goDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   // An npm package (Use "<package>" from npm) exists only for the TypeScript target (TC408).
-  if (tgt === 'python') for (const r of results.filter((x) => x.ok)) { const d = npmRefusals(r.info, 'Python', diag); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
+  if (tgt === 'python') for (const r of results.filter((x) => x.ok)) { const d = [...npmRefusals(r.info, 'Python', diag), ...dotnetRefusals(r.info, 'Python', diag)]; if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   // The same for Java: Python modules exist only for the Python target.
   if (tgt === 'java') for (const r of results.filter((x) => x.ok)) { const d = javaDiagnostics(r); if (d.length) { r.diagnostics = [...r.diagnostics, ...d]; r.ok = false; } }
   const entryPath = single ? resolve(single) : cfg?.entry ? join(cfg.root, cfg.entry) : join(base, cfg?.src ?? '.', 'main.thunder');

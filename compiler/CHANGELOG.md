@@ -1,5 +1,11 @@
 # Unreleased
 
+- **.NET and NuGet from Thunder Core.** `Use "System.IO.Path" from .NET as paths` and `Use "Humanizer.NumberToWordsExtension"
+  from NuGet "Humanizer.Core" version "2.14.1" as words` give a program compiled to C# the .NET ecosystem. Static
+  methods and properties are called by name; the overload is chosen by which parameters every value fits; numbers come
+  back exact (`decimal` as written, `double` as it prints). The NuGet package and its version go into the generated
+  project. Programs that use .NET libraries run with real culture data, pinned to en-US. A failure is TC508 with its
+  real cause; every other target and the Thunder engine refuse a .NET library (new TC409).
 - **npm packages from Thunder Core.** `Use "date-fns" from npm as dates` gives a program compiled to TypeScript the npm
   ecosystem, the way `Use csv as csv` gives Python programs Python's. Values cross the boundary in plain rules (lists
   become arrays, records become objects, dates become a local-midnight `Date`), and numbers come back as the exact

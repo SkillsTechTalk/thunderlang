@@ -41,12 +41,12 @@ Each compilation capability is advertised only once it works.
 | **Compile Thunder Core to Go**: `thunder build --target go`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreGo --> |
 | **Compile Thunder Core to Java**: `thunder build --target java`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreJava --> |
 
-Thunder Core is young: programs compile to Python, TypeScript, C#, Java, Go, and Rust (the table above). Two of
-them can use libraries: Python modules on Python (`Use csv as csv`), and npm packages on TypeScript
-(`Use "date-fns" from npm as dates`), each written that language's way; Thunder's rules, like exact money, apply to
-Thunder values, not inside the library. A program that uses a library is built only for that library's language
-(TC405, TC408); Thunder never swaps in a different one. NuGet, Maven, Go modules, and crates are not available from
-Thunder yet. For everything else, read and change your existing code in Thunder.
+Thunder Core is young: programs compile to Python, TypeScript, C#, Java, Go, and Rust (the table above). Three of
+them can use libraries: Python modules on Python (`Use csv as csv`), npm packages on TypeScript
+(`Use "date-fns" from npm as dates`), and .NET types and NuGet packages on C# (`Use "System.IO.Path" from .NET as
+paths`), each written that language's way; Thunder's rules, like exact money, apply to Thunder values, not inside the
+library. A program that uses a library is built only for that library's language (TC405, TC408, TC409); Thunder never
+swaps in a different one. Maven, Go modules, and crates are not available from Thunder yet. For everything else, read and change your existing code in Thunder.
 
 **Thunder is the language** (open source, Apache 2.0). **[OpenThunder™](https://openthunder.dev) is the IDE for
 AI-written code.** Like Python and PyCharm: Thunder stands on its own, and OpenThunder is the IDE built for it.

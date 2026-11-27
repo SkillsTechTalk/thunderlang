@@ -771,16 +771,39 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
   if (w0 === 'use') {
     if (!ctx.top) fail('TC402', '"Use" must be written at the left edge of the file.');
     // Use <python module> [from Python] [as <name>]   or   Use "<npm package>" from npm as <name>
+    //   or   Use "<.NET type>" from .NET as <name>   or   Use "<.NET type>" from NuGet "<package>" version "<v>" as <name>
     const asAt = rest.findIndex((t) => isWord(t, 'as'));
     let modTs = asAt < 0 ? rest : rest.slice(0, asAt);
     const fromAt = modTs.findIndex((t) => isWord(t, 'from'));
     let ecosystem = 'python';
     if (fromAt >= 0) {
       const eco = modTs.slice(fromAt + 1);
-      const said = eco.length === 1 && eco[0].t === 'word' ? eco[0].text.toLowerCase() : '';
-      if (said !== 'python' && said !== 'npm') fail('TC108', `A library comes from Python or from npm, for example: Use csv from Python as csv, or Use "date-fns" from npm as dates.`);
-      ecosystem = said;
-      modTs = modTs.slice(0, fromAt);
+      const plain = (t) => t && typeof t.parts === 'undefined' ? null : t && t.parts.every((x) => typeof x === 'string') ? t.parts.join('') : null;
+      const word0 = eco[0]?.t === 'word' ? eco[0].text.toLowerCase() : '';
+      let said = eco.length === 1 && eco[0].t === 'word' ? word0 : '';
+      // ".NET" is read as a dot and the word NET.
+      if (eco.length === 2 && eco[0].t === 'sym' && eco[0].text === '.' && eco[1].t === 'word' && eco[1].text.toLowerCase() === 'net') said = 'dotnet';
+      if (word0 === 'nuget') {
+        // NuGet "<package>" version "<version>": the package and its exact version, so every build gets the same code.
+        const pkg = eco[1]?.t === 'str' ? plain(eco[1]) : null;
+        const ver = isWord(eco[2], 'version') && eco[3]?.t === 'str' ? plain(eco[3]) : null;
+        if (!pkg || !ver || eco.length !== 4 || !/^[A-Za-z0-9_.-]+$/.test(pkg) || !/^\d+(\.\d+){1,3}([-+][\w.-]+)?$/.test(ver)) fail('TC108', 'Name the NuGet package and its version: Use "Humanizer.NumberToWordsExtension" from NuGet "Humanizer.Core" version "2.14.1" as words.');
+        said = 'nuget';
+        modTs = modTs.slice(0, fromAt);
+        ecosystem = said;
+        var nuget = { package: pkg, version: ver };
+      } else {
+        if (!['python', 'npm', 'dotnet'].includes(said)) fail('TC108', `A library comes from Python, npm, .NET, or NuGet, for example: Use csv from Python as csv, Use "date-fns" from npm as dates, or Use "System.IO.Path" from .NET as paths.`);
+        ecosystem = said;
+        modTs = modTs.slice(0, fromAt);
+      }
+    }
+    if (ecosystem === 'dotnet' || ecosystem === 'nuget') {
+      const t = modTs[0];
+      const type = modTs.length === 1 && t.t === 'str' && t.parts.every((x) => typeof x === 'string') ? t.parts.join('') : null;
+      if (type == null || !/^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$/.test(type)) fail('TC108', 'Write a .NET type with its namespace, in quotes, for example: Use "System.IO.Path" from .NET as paths.');
+      if (asAt < 0) fail('TC108', `Give the type a name to use in Thunder: Use "${type}" from ${ecosystem === 'nuget' ? 'NuGet' : '.NET'} … as <name>.`);
+      return { k: 'use', module: type, ecosystem, ...(ecosystem === 'nuget' ? nuget : {}), ...nameWords(rest.slice(asAt + 1), line, '"Use"'), line };
     }
     if (ecosystem === 'npm' || modTs[0]?.t === 'str') {
       const t = modTs[0];

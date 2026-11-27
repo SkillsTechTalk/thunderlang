@@ -25,7 +25,7 @@ const KNOWN_BOOL = new Set(['cmp', 'contains', 'between', 'adj', 'isNothing', 'n
 
 /** Thunder modules a program uses that only Python has (Use): compiled C# cannot call them. */
 export function pythonOnlyUses(info) {
-  return (info.modules ?? []).filter((m) => !info.imported?.has(m) && m.ecosystem !== 'npm').map((m) => ({ module: m.module, line: m.line }));
+  return (info.modules ?? []).filter((m) => !info.imported?.has(m) && (m.ecosystem ?? 'python') === 'python').map((m) => ({ module: m.module, line: m.line }));
 }
 
 /**
@@ -47,6 +47,8 @@ class Gen {
 
   module(module, namespace, imports) {
     const own = (s) => !this.info.imported?.has(s);
+    // .NET types (Use "<type>" from .NET or NuGet): one field each, found by name when the class is first used.
+    for (const m of (this.info.modules ?? []).filter((x) => own(x) && (x.ecosystem === 'dotnet' || x.ecosystem === 'nuget'))) this.emit(`public static readonly object ${id(m.py)} = Dotnet.library(${cs(m.module)});`, m.line);
     for (const r of this.info.records.filter(own)) { this.blank(); this.record(r); }
     for (const f of this.info.funcs.filter(own)) { this.blank(); this.func(f); }
     const consts = this.info.consts.filter(own);
@@ -412,6 +414,8 @@ class Gen {
         return id(r.py ?? e.name.replace(/ /g, '_'));
       }
       case 'call': return `${id(e.py)}(${e.args.map(sub).join(', ')})`;
+      // <library>.<name>(…): a call into a .NET type, through the boundary (ThunderDotnet.cs).
+      case 'dot': return e.args ? `Dotnet.call(${sub(e.obj)}, ${cs(e.attr)}, new object[] { ${e.args.map(sub).join(', ')} })` : `Dotnet.get(${sub(e.obj)}, ${cs(e.attr)})`;
       case 'new': return `T.newRecord(${id(e.py)}${e.fields.map((f) => `, ${cs(f.py)}, ${sub(f.e)}`).join('')})`;
       case 'field': return e.static ? `T.getAttr(${sub(e.obj)}, ${cs(e.py)})` : `T.getField(${sub(e.obj)}, ${cs(e.text)})`;
       case 'at': {
