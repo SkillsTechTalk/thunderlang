@@ -141,12 +141,12 @@ test('across languages: a TypeScript client is linked to a C# controller route, 
   assert.deepEqual(t.links.map((l) => `${l.from.repo} ${l.method} ${l.path} -> ${l.to.repo} ${l.route}`), ['web POST /api/orders/:value/cancel -> orders-api POST /api/Orders/{id}/cancel']);
 });
 
-test('routes and requests in test files are never links, and are counted as left out', () => {
+test('routes, requests, and settings in test files are never links, and are counted as left out', () => {
   const t = buildTrace([
     mem('a', { 'test/api.test.ts': "export async function pay() {\n  return fetch(`${process.env.B}/api/pay`, { method: 'POST' });\n}\n" }),
     mem('b', { 'src/app.ts': "import express from 'express';\nconst app = express();\napp.post('/api/pay', async (req, res) => {\n  res.json({ ok: true });\n});\n" }),
   ]);
   assert.equal(t.links.length, 0);
-  assert.equal(t.repos[0].testItems, 1);
-  assert.match(renderTrace(t), /Left out: 1 route, request, or event in test and fixture files\./);
+  assert.equal(t.repos[0].testItems, 2); // the request, and the setting B it reads
+  assert.match(renderTrace(t), /Left out: 2 items \(routes, requests, events, tables, settings, packages\) in test and fixture files\./);
 });

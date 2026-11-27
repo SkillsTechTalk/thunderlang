@@ -265,12 +265,12 @@ const TOOLS = [
   },
   {
     name: 'intent_trace',
-    description: 'ASK THUNDER TRACE BEFORE CHANGING CODE THAT OTHER REPOSITORIES USE (local only). Give the repository folders. With "thing" (a route like "POST /api/orders", an event name, or "repo:file[:line]") or "diff": true (the branch and uncommitted changes), it answers what the change can affect in the OTHER repositories: callers of a changed or removed route, listeners of a published event, ranked high/medium/low, one hop out, every item cited repo@sha:file:line. With neither, it gives the links between the repositories. Read from code; nothing is run; a call whose address is worked out when it runs is listed as not linked, never guessed.',
+    description: 'ASK THUNDER TRACE BEFORE CHANGING CODE THAT OTHER REPOSITORIES USE (local only). Give the repository folders. With "thing" (a route like "POST /api/orders", an event name, "table:orders", "setting:ORDERS_URL", "package:@acme/client", or "repo:file[:line]") or "diff": true (the branch and uncommitted changes), it answers what the change can affect in the OTHER repositories: callers of a changed or removed route, listeners of a published event, code that uses a changed, dropped, or removed table, other readers of a setting, dependents of a published package, ranked high/medium/low, one hop out, every item cited repo@sha:file:line. With neither, it gives the links between the repositories (HTTP, events, tables, packages) and what they share (settings, tables, package versions that differ). Read from code; nothing is run; a call whose address is worked out when it runs is listed as not linked, never guessed.',
     inputSchema: {
       type: 'object', required: ['paths'],
       properties: {
         paths: { type: 'array', minItems: 1, maxItems: 50, items: { ...str, description: 'a repository folder' } },
-        thing: { ...str, description: 'what changes: "POST /api/orders", "order.placed", or "repo:src/file.ts:12"' },
+        thing: { ...str, description: 'what changes: "POST /api/orders", "order.placed", "table:orders", "setting:ORDERS_URL", "package:@acme/client", or "repo:src/file.ts:12"' },
         diff: { type: 'boolean', description: 'use the current changes (since the branch left main, plus uncommitted)' },
         base: { ...str, description: 'with diff: the commit or branch to compare against' },
       },

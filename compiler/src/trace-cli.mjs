@@ -1,13 +1,13 @@
 // thunder trace: the command line for Thunder Trace (src/trace.mjs, docs/trace.md).
 //   thunder trace <folder…> [--json] [--out graph.json]       the links between repositories
-//   thunder trace impact <thing> <folder…> [--json]           what changing a route, event, or file can affect
+//   thunder trace impact <thing> <folder…> [--json]           what changing a route, event, table, setting, package, or file can affect
 //   thunder trace impact --diff [--base <ref>] <folder…>      what the current changes (branch + uncommitted) can affect
 import { writeFileSync } from 'node:fs';
 import { buildTrace, renderTrace, traceImpact, traceImpactOf, renderImpact } from './trace.mjs';
 import { readRepoDir, gitChanges } from './trace-fs.mjs';
 
 const USAGE = `usage: thunder trace <folder> <folder> … [--json] [--out graph.json]
-       thunder trace impact "<POST /api/orders | event name | repo:file[:line]>" <folder> … [--json]
+       thunder trace impact "<POST /api/orders | event name | table:orders | setting:KEY | package:name | repo:file[:line]>" <folder> … [--json]
        thunder trace impact --diff [--base <ref>] <folder> … [--json]
 Each folder is one repository. Nothing is run; links are read from code.`;
 
@@ -27,7 +27,7 @@ export function traceMain(argv) {
   const impact = a._[0] === 'impact';
   if (impact) a._.shift();
   const term = impact && !a.diff ? a._.shift() : null;
-  if (impact && !a.diff && !term) { console.error(`thunder trace impact: name what changes (a route, an event, or repo:file), or use --diff.\n${USAGE}`); return 2; }
+  if (impact && !a.diff && !term) { console.error(`thunder trace impact: name what changes (a route, an event, table:name, setting:KEY, package:name, or repo:file), or use --diff.\n${USAGE}`); return 2; }
   if (!a._.length) { console.error(`thunder trace: give at least one repository folder.\n${USAGE}`); return 2; }
   let repos;
   try { repos = a._.map((d) => readRepoDir(d, { maxFiles: a.maxFiles })); } catch (e) { console.error(`thunder trace: ${e.message}`); return 2; }

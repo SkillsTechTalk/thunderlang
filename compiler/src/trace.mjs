@@ -19,10 +19,11 @@
 import { thunderModel } from './model.mjs';
 import { serviceFacts, segsMatch, GENERIC_PATHS } from './system.mjs';
 import { sha256 } from './hash.mjs';
+import { packagesIn, settingsIn, tablesIn, isManifest, LOCAL_VERSION, isGenericSetting, DEFINES } from './trace-data.mjs';
 
 export const TRACE_SCHEMA = 'thunder-trace-v1';
 export const TRACE_IMPACT_SCHEMA = 'thunder-trace-impact-v1';
-export const TRACE_RULES_VERSION = '1';
+export const TRACE_RULES_VERSION = '2';
 
 /** Test and fixture files: what they declare or call is pretend, so it is left out of the links. */
 export function isTestFile(file) {
@@ -56,14 +57,45 @@ export function buildTrace(repos) {
     const facts = serviceFacts(model, r.files);
     // Test code is not how services talk to each other: a test's fake route or request is never a link.
     const real = (x) => !isTestFile(x.file);
-    const testItems = ['routes', 'listeners', 'requests', 'publishes'].reduce((n, k) => n + facts[k].filter((x) => !real(x)).length, 0);
+    const data = dataFacts(r.files, model);
+    const testItems = ['routes', 'listeners', 'requests', 'publishes'].reduce((n, k) => n + facts[k].filter((x) => !real(x)).length, 0) + data.testItems;
     return { name: r.name, sha: r.sha ?? null, dirty: !!r.dirty, files: model.files.length, languages: [...new Set(model.files.map((f) => f.language))].sort(),
-      routes: facts.routes.filter(real), listeners: facts.listeners.filter(real), requests: facts.requests.filter(real), publishes: facts.publishes.filter(real), unknown: facts.unknown.filter(real), testItems };
+      routes: facts.routes.filter(real), listeners: facts.listeners.filter(real), requests: facts.requests.filter(real), publishes: facts.publishes.filter(real), unknown: facts.unknown.filter(real),
+      packages: data.packages, settings: data.settings, tables: data.tables, testItems };
   });
   return linkRepos(read);
 }
 
-/** Link already-read repositories (each with routes, listeners, requests, publishes). Pure and deterministic. */
+/** The member (function, method) whose lines hold `line` in `file`: the innermost one, or none. */
+function memberAt(model, file, line) {
+  let best = null;
+  for (const m of model.members) {
+    if (m.file !== file || !m.lines || line < m.lines[0] || line > m.lines[1]) continue;
+    if (!best || m.lines[1] - m.lines[0] < best.lines[1] - best.lines[0]) best = m;
+  }
+  return best ? { member: best.id, label: best.label } : { member: null, label: file.split('/').pop() };
+}
+
+/**
+ * Packages, settings, and tables of one repository (trace-data.mjs), each placed in the member it is written in.
+ * Test and fixture files are left out and counted, as for routes.
+ */
+export function dataFacts(files, model) {
+  const real = (x) => !isTestFile(x.file);
+  const pk = packagesIn(files), settings = settingsIn(files), tables = tablesIn(files);
+  const place = (x) => ({ ...x, ...memberAt(model, x.file, x.line) });
+  const manifest = (x) => ({ ...x, member: null, label: x.file });
+  const testItems = [...pk.publishes, ...pk.depends, ...settings, ...tables].filter((x) => !real(x)).length;
+  return {
+    packages: { publishes: pk.publishes.filter(real).map(manifest), depends: pk.depends.filter(real).map(manifest) },
+    settings: settings.filter(real).map(place),
+    tables: tables.filter(real).map((t) => (/\.sql$/i.test(t.file) ? { ...t, member: null, label: t.file } : place(t))),
+    testItems,
+  };
+}
+export { isManifest };
+
+/** Link already-read repositories (each with routes, listeners, requests, publishes; packages, settings, tables). Pure and deterministic. */
 export function linkRepos(read) {
   const links = [], notLinked = [];
   for (const repo of read) {
@@ -103,14 +135,73 @@ export function linkRepos(read) {
       if (!found) notLinked.push({ kind: 'event', call: `event ${p.event}`, from, why: `no listener Thunder read in the traced repositories waits for ${p.event}` });
     }
   }
-  const sortKey = (l) => `${l.from.cite}|${l.to?.cite ?? ''}|${l.kind}|${l.call ?? l.event ?? l.path ?? ''}`;
+  // Packages: a dependency on a package exactly one other traced repository publishes (package.json name, go.mod
+  // module, .csproj PackageId). A package the repository publishes itself is its own, not a link.
+  const pk = (r) => r.packages ?? { publishes: [], depends: [] };
+  const publishers = new Map();
+  for (const repo of read) for (const p of pk(repo).publishes) (publishers.get(p.package) ?? publishers.set(p.package, []).get(p.package)).push({ repo, p });
+  for (const repo of read) {
+    const own = new Set(pk(repo).publishes.map((p) => p.package));
+    for (const d of pk(repo).depends) {
+      if (own.has(d.package)) continue;
+      const pubs = (publishers.get(d.package) ?? []).filter((x) => x.repo !== repo);
+      const byRepo = [...new Map(pubs.map((x) => [x.repo.name, x])).values()];
+      if (byRepo.length === 1) links.push({ kind: 'package', package: d.package, version: d.version ?? null, ...(d.dev ? { dev: true } : {}), from: end(repo, d), to: end(byRepo[0].repo, byRepo[0].p) });
+      else if (byRepo.length > 1) notLinked.push({ kind: 'package', call: `package ${d.package}`, from: end(repo, d), why: `${byRepo.length} repositories publish ${d.package} (${byRepo.map((x) => x.repo.name).join(', ')}), so none is chosen` });
+    }
+  }
+  // Tables: code or SQL that reads or writes a table exactly one other traced repository creates (CREATE TABLE in its
+  // SQL). A repository that creates the table itself is using its own.
+  const tb = (r) => r.tables ?? [];
+  const creators = new Map();
+  for (const repo of read) for (const t of tb(repo)) if (t.access === 'creates') (creators.get(t.table) ?? creators.set(t.table, []).get(t.table)).push({ repo, t });
+  for (const repo of read) {
+    const own = new Set(tb(repo).filter((t) => t.access === 'creates').map((t) => t.table));
+    for (const t of tb(repo)) {
+      if (DEFINES.has(t.access) || own.has(t.table)) continue;
+      const owners = [...new Map((creators.get(t.table) ?? []).filter((x) => x.repo !== repo).map((x) => [x.repo.name, x])).values()];
+      if (owners.length === 1) links.push({ kind: 'data', table: t.table, access: t.access, from: end(repo, t), to: end(owners[0].repo, owners[0].t) });
+      else if (owners.length > 1) notLinked.push({ kind: 'data', call: `table ${t.name}`, from: end(repo, t), why: `${owners.length} repositories create a table named ${t.table} (${owners.map((x) => x.repo.name).join(', ')}), so none is chosen` });
+    }
+  }
+  const shared = sharedFacts(read);
+
+  const sortKey = (l) => `${l.from.cite}|${l.to?.cite ?? ''}|${l.kind}|${l.call ?? l.event ?? l.path ?? l.package ?? l.table ?? ''}`;
   // (A step inside a callback is read for the callback and for the function around it: the same call, once.)
   const once = (xs) => { const seen = new Set(); return xs.filter((x) => { const k = sortKey(x); if (seen.has(k)) return false; seen.add(k); return true; }); };
   links.splice(0, links.length, ...once(links).sort((a, b) => sortKey(a).localeCompare(sortKey(b))));
   notLinked.splice(0, notLinked.length, ...once(notLinked).sort((a, b) => sortKey(a).localeCompare(sortKey(b))));
-  const repos = read.map(({ unknown, ...r }) => ({ ...r, unknown: unknown ?? [] }));
-  const body = { schema: TRACE_SCHEMA, rulesVersion: TRACE_RULES_VERSION, repos, links, notLinked };
+  const repos = read.map(({ unknown, ...r }) => ({ ...r, unknown: unknown ?? [], packages: pk(r), settings: r.settings ?? [], tables: tb(r) }));
+  const body = { schema: TRACE_SCHEMA, rulesVersion: TRACE_RULES_VERSION, repos, links, notLinked, shared };
   return { ...body, fingerprint: sha256(JSON.stringify(body)) };
+}
+
+/**
+ * What more than one repository has in common without one depending on the other: the same setting key read, the
+ * same table used, the same package at different versions. Facts worth knowing, not links.
+ *   settings: [{ key, readers: [End] }]   keys every service reads for itself or the platform sets (PORT, NODE_ENV, VERCEL_ENV, …) are left out
+ *   tables:   [{ table, users: [End + access] }]
+ *   drift:    [{ package, versions: [{ version, at: [End] }] }]   versions that name a place (workspace:, file:) and peer ranges are left out
+ */
+function sharedFacts(read) {
+  const group = (items) => { const m = new Map(); for (const [k, repo, x] of items) (m.get(k) ?? m.set(k, []).get(k)).push({ repo, x }); return m; };
+  const manyRepos = (xs) => new Set(xs.map((y) => y.repo.name)).size > 1;
+  const byKey = (a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  const settings = [...group(read.flatMap((r) => (r.settings ?? []).filter((x) => !isGenericSetting(x.key)).map((x) => [x.key, r, x]))).entries()]
+    .filter(([, xs]) => manyRepos(xs)).sort(byKey).map(([key, xs]) => ({ key, readers: xs.map(({ repo, x }) => end(repo, x)) }));
+  const tables = [...group(read.flatMap((r) => (r.tables ?? []).map((x) => [x.table, r, x]))).entries()]
+    .filter(([, xs]) => manyRepos(xs)).sort(byKey).map(([table, xs]) => ({ table, users: xs.map(({ repo, x }) => ({ ...end(repo, x), access: x.access })) }));
+  // Drift is between repositories: each repository's set of versions for the package differs from another's. Two
+  // manifests in one repository asking ^9 and ^9.39.5, as every other repository does too, is not drift. Peer
+  // dependency ranges (>=19) say what a package accepts, not what is used, so they are left out.
+  const drift = [];
+  for (const [name, xs] of [...group(read.flatMap((r) => (r.packages?.depends ?? []).filter((d) => d.version && !d.peer && !LOCAL_VERSION.test(d.version)).map((d) => [d.package, r, d]))).entries()].sort(byKey)) {
+    const versions = group(xs.map(({ repo, x }) => [x.version, repo, x]));
+    const perRepo = new Set([...group(xs.map(({ repo, x }) => [repo.name, repo, x])).values()].map((ys) => [...new Set(ys.map((y) => y.x.version))].sort().join('|')));
+    if (!manyRepos(xs) || versions.size < 2 || perRepo.size < 2) continue;
+    drift.push({ package: name, versions: [...versions.entries()].sort(byKey).map(([version, ys]) => ({ version, at: ys.map(({ repo, x }) => end(repo, x)) })) });
+  }
+  return { settings, tables, drift };
 }
 
 const methodOk = (route, req) => route === req || route === 'ANY' || route === 'ALL';
@@ -129,14 +220,17 @@ export function traceImpact(trace, changes) {
   const byName = new Map(trace.repos.map((r) => [r.name, r]));
   const findings = [];
   const touched = [];
+  const packagesDone = new Set();
+  // Every place outside `repo` that reads or writes `table` (for a dropped or removed table, linked or not).
+  const usesElsewhere = (repo, table) => trace.repos.filter((o) => o.name !== repo.name).flatMap((o) => (o.tables ?? []).filter((t) => t.table === table && !DEFINES.has(t.access)).map((t) => ({ ...end(o, t), how: `${t.access} ${t.name}` })));
   for (const c of changes) {
     const repo = byName.get(c.repo);
     if (!repo) continue;
+    const found = findings.length;
     const hit = (x) => x.file === c.file && (c.status === 'added' || overlaps(x.lines, c.ranges) || within(x.line, c.ranges));
     const routes = repo.routes.filter(hit), listeners = repo.listeners.filter(hit);
     const requests = repo.requests.filter((x) => x.file === c.file && (c.status === 'added' || within(x.line, c.ranges) || overlaps(x.lines, c.ranges)));
     const publishes = repo.publishes.filter((x) => x.file === c.file && (c.status === 'added' || within(x.line, c.ranges) || overlaps(x.lines, c.ranges)));
-    if (routes.length || listeners.length || requests.length || publishes.length || c.before) touched.push({ repo: c.repo, file: c.file, status: c.status });
 
     for (const r of routes) {
       const callers = trace.links.filter((l) => l.kind === 'http' && l.to.repo === repo.name && l.to.member === r.member);
@@ -153,6 +247,40 @@ export function traceImpact(trace, changes) {
     for (const x of listeners) {
       const senders = trace.links.filter((l) => l.kind === 'event' && l.to.repo === repo.name && l.to.member === x.member);
       findings.push({ risk: 'low', kind: 'listener-changed', says: `the handler for ${x.event} changed${senders.length ? `; ${count(senders.length, 'publisher')} in other repositories ${senders.length === 1 ? 'sends' : 'send'} it` : ''}`, at: end(repo, x), dependents: senders.map((l) => ({ ...l.from, how: `publishes ${x.event}` })) });
+    }
+    // Tables: a changed definition reaches every repository that uses the table; a changed query depends on the
+    // repository that creates the table.
+    const lineHit = (x) => x.file === c.file && (c.status === 'added' || overlaps(x.lines, c.ranges) || within(x.line, c.ranges));
+    const tablesHere = (repo.tables ?? []).filter(lineHit);
+    for (const t of tablesHere.filter((x) => x.access === 'creates' || x.access === 'alters')) {
+      const users = trace.links.filter((l) => l.kind === 'data' && l.to.repo === repo.name && l.table === t.table);
+      findings.push({ risk: users.length ? 'high' : 'low', kind: 'table-changed', says: users.length ? `the ${t.name} table's ${t.access === 'creates' ? 'definition' : 'ALTER TABLE'} changed, and ${count(users.length, 'place')} in other repositories ${users.length === 1 ? 'uses' : 'use'} the table` : `the ${t.name} table's ${t.access === 'creates' ? 'definition' : 'ALTER TABLE'} changed; no traced repository uses the table`, at: end(repo, t), dependents: users.map((l) => ({ ...l.from, how: `${l.access} ${t.table}` })) });
+    }
+    for (const t of tablesHere.filter((x) => x.access === 'drops')) {
+      const users = usesElsewhere(repo, t.table);
+      findings.push({ risk: users.length ? 'high' : 'low', kind: 'table-dropped', says: users.length ? `DROP TABLE ${t.name}, but ${count(users.length, 'place')} in other repositories still ${users.length === 1 ? 'uses' : 'use'} it` : `DROP TABLE ${t.name}; no traced repository uses it`, at: end(repo, t), dependents: users });
+    }
+    for (const t of tablesHere.filter((x) => !DEFINES.has(x.access))) {
+      const l = trace.links.find((x) => x.kind === 'data' && x.from.repo === repo.name && x.from.file === t.file && x.from.line === t.line && x.table === t.table);
+      if (l) findings.push({ risk: 'medium', kind: 'query-changed', says: `SQL that ${t.access} ${t.name} changed; the table is created in ${l.to.repo}`, at: end(repo, t), dependents: [{ ...l.to, how: `creates ${t.table}` }] });
+    }
+    // Settings: a key other repositories read too, so a new name or value has to reach them as well.
+    for (const k of (repo.settings ?? []).filter(lineHit)) {
+      const others = (trace.shared?.settings?.find((x) => x.key === k.key)?.readers ?? []).filter((r) => r.repo !== repo.name);
+      if (others.length) findings.push({ risk: 'low', kind: 'setting-changed', says: `code that reads the setting ${k.key} changed; ${count(new Set(others.map((o) => o.repo)).size, 'other repository')} ${new Set(others.map((o) => o.repo)).size === 1 ? 'reads' : 'read'} it too`, at: end(repo, k), dependents: others.map((o) => ({ ...o, how: `reads ${k.key}` })) });
+    }
+    // A package this repository publishes: code inside its folder changed, so the repositories that depend on it get
+    // the change when they take the new version. Once per package.
+    if (!isTestFile(c.file)) {
+      for (const p of repo.packages?.publishes ?? []) {
+        if (p.root && c.file !== p.root && !c.file.startsWith(`${p.root}/`)) continue;
+        const key = `${repo.name}|${p.package}`;
+        if (packagesDone.has(key)) continue;
+        const deps = trace.links.filter((l) => l.kind === 'package' && l.to.repo === repo.name && l.package === p.package);
+        if (!deps.length) continue;
+        packagesDone.add(key);
+        findings.push({ risk: 'medium', kind: 'package-changed', says: `${p.package} is published from here, and ${count(new Set(deps.map((d) => d.from.repo)).size, 'other repository')} ${new Set(deps.map((d) => d.from.repo)).size === 1 ? 'depends' : 'depend'} on it; the change reaches them when they take the new version`, at: end(repo, p), dependents: deps.map((l) => ({ ...l.from, how: `depends on ${p.package}${l.version ? ` ${l.version}` : ''}` })) });
+      }
     }
     // Removed: what the file offered before and no longer offers.
     if (c.before) {
@@ -173,7 +301,14 @@ export function traceImpact(trace, changes) {
         for (const other of trace.repos) if (other.name !== repo.name) for (const l of other.listeners) if (l.event === p.event) ls.push({ ...end(other, l), how: `waits for ${p.event}` });
         findings.push({ risk: ls.length ? 'high' : 'low', kind: 'event-removed', says: ls.length ? `${p.event} is no longer published here, but ${count(ls.length, 'listener')} in other repositories ${ls.length === 1 ? 'waits' : 'wait'} for it` : `${p.event} is no longer published here; nothing else listens for it`, at: { repo: repo.name, file: c.file, line: p.line, label: p.label, cite: `${cite(repo, p)} (before the change)` }, dependents: ls });
       }
+      const createsNow = new Set((repo.tables ?? []).filter((t) => t.access === 'creates').map((t) => t.table));
+      for (const t of (c.before.tables || []).filter((x) => x.access === 'creates')) {
+        if (createsNow.has(t.table)) continue;
+        const users = usesElsewhere(repo, t.table);
+        findings.push({ risk: users.length ? 'high' : 'low', kind: 'table-removed', says: users.length ? `the ${t.name} table is no longer created here, but ${count(users.length, 'place')} in other repositories still ${users.length === 1 ? 'uses' : 'use'} it` : `the ${t.name} table is no longer created here; no traced repository uses it`, at: { repo: repo.name, file: c.file, line: t.line, label: t.file, cite: `${cite(repo, t)} (before the change)` }, dependents: users });
+      }
     }
+    if (findings.length > found || routes.length || listeners.length || requests.length || publishes.length || c.before) touched.push({ repo: c.repo, file: c.file, status: c.status });
   }
   const rank = { high: 0, medium: 1, low: 2 };
   findings.sort((a, b) => rank[a.risk] - rank[b.risk] || a.at.cite.localeCompare(b.at.cite));
@@ -191,10 +326,14 @@ export function traceImpactOf(trace, term) {
   const t = String(term).trim();
   const changes = [];
   const matched = [];
-  const http = t.match(/^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|ANY)\s+)?(\/\S*)$/i);
-  const place = t.match(/^([^:\s]+):([^:\s]+?)(?::(\d+))?$/);
+  const pre = t.match(/^(table|setting|package):\s*(.+)$/i);
+  const data = pre && !byNameOf(trace, pre[1]) ? { kind: pre[1].toLowerCase(), name: pre[2].trim() } : null;
+  const http = !data && t.match(/^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|ANY)\s+)?(\/\S*)$/i);
+  const place = !data && t.match(/^([^:\s]+):([^:\s]+?)(?::(\d+))?$/);
   for (const repo of trace.repos) {
-    if (http) {
+    if (data) {
+      dataChanges(repo, data, changes, matched);
+    } else if (http) {
       const segs = http[2].split('/').filter(Boolean).map((s) => (/^(:\w+|\{[^}]+\}|\*)$/.test(s) ? '*' : s));
       for (const r of repo.routes) if ((!http[1] || methodOk(r.method, http[1].toUpperCase())) && pathMatch(r.segs, segs) >= 0 && r.segs.length === segs.length) { changes.push({ repo: repo.name, file: r.file, ranges: [r.lines ?? [r.line, r.line]], status: 'changed' }); matched.push(`${repo.name}: route ${r.method} ${r.path}`); }
     } else if (place && byNameOf(trace, place[1])) {
@@ -207,10 +346,36 @@ export function traceImpactOf(trace, term) {
       for (const l of repo.listeners) if (l.event === t) { changes.push({ repo: repo.name, file: l.file, ranges: [l.lines ?? [l.line, l.line]], status: 'changed' }); matched.push(`${repo.name}: listens for ${l.event}`); }
     }
   }
+  // A plain name that is no route, event, or file: a table, setting, or package by that name.
+  let asked = data;
+  if (!data && !http && !(place && byNameOf(trace, place[1])) && !changes.length) {
+    for (const kind of ['table', 'setting', 'package']) {
+      for (const repo of trace.repos) dataChanges(repo, { kind, name: t }, changes, matched);
+      if (changes.length) { asked = { kind, name: t }; break; }
+    }
+  }
   const r = traceImpact(trace, changes);
-  // An event name asks about that event only, not the route whose handler happens to publish it.
-  if (!http && !(place && byNameOf(trace, place[1]))) r.findings = r.findings.filter((f) => /^(event-|listener-)/.test(f.kind) && f.says.includes(t));
+  if (asked) {
+    // A table, setting, or package asks about that one thing, not whatever else sits on the same lines.
+    const kinds = { table: /^(table-|query-)/, setting: /^setting-/, package: /^package-/ }[asked.kind];
+    r.findings = r.findings.filter((f) => kinds.test(f.kind));
+  } else if (!http && !(place && byNameOf(trace, place[1]))) {
+    // An event name asks about that event only, not the route whose handler happens to publish it.
+    r.findings = r.findings.filter((f) => /^(event-|listener-)/.test(f.kind) && f.says.includes(t));
+  }
   return { ...r, term: t, matched };
+}
+
+/** The places in `repo` that define a table, read a setting, or publish a package named `ask.name`, as changes. */
+function dataChanges(repo, ask, changes, matched) {
+  if (ask.kind === 'table') {
+    const want = ask.name.replace(/[`"[\]]/g, '').split('.').pop().toLowerCase();
+    for (const x of (repo.tables ?? []).filter((y) => y.table === want && (y.access === 'creates' || y.access === 'alters'))) { changes.push({ repo: repo.name, file: x.file, ranges: [[x.line, x.line]], status: 'changed' }); matched.push(`${repo.name}: ${x.access} table ${x.name}`); }
+  } else if (ask.kind === 'setting') {
+    for (const x of (repo.settings ?? []).filter((y) => y.key === ask.name)) { changes.push({ repo: repo.name, file: x.file, ranges: [[x.line, x.line]], status: 'changed' }); matched.push(`${repo.name}: reads setting ${x.key}`); }
+  } else {
+    for (const x of (repo.packages?.publishes ?? []).filter((y) => y.package === ask.name)) { changes.push({ repo: repo.name, file: x.file, ranges: [[x.line, x.line]], status: 'changed' }); matched.push(`${repo.name}: publishes package ${x.package}`); }
+  }
 }
 const byNameOf = (trace, name) => trace.repos.some((r) => r.name === name);
 
@@ -222,15 +387,41 @@ export function renderTrace(trace, { limit = 15 } = {}) {
   for (const r of trace.repos) {
     out.push(`${r.name} @ ${short(r.sha)}${r.dirty ? ' (with uncommitted changes)' : ''}: ${r.files} files${r.languages.length ? ` (${r.languages.join(', ')})` : ''}`);
     out.push(`  offers ${count(r.routes.length, 'route')} and listens for ${count(new Set(r.listeners.map((l) => l.event)).size, 'event')}; sends ${count(r.requests.length, 'request')} and publishes ${count(new Set(r.publishes.map((p) => p.event)).size, 'event')}`);
+    const tables = r.tables ?? [], pk = r.packages ?? { publishes: [], depends: [] };
+    const made = new Set(tables.filter((t) => t.access === 'creates').map((t) => t.table)), used = new Set(tables.filter((t) => !DEFINES.has(t.access)).map((t) => t.table));
+    out.push(`  creates ${count(made.size, 'table')} and uses ${count(used.size, 'table')}; reads ${count(new Set((r.settings ?? []).map((k) => k.key)).size, 'setting')}; publishes ${count(new Set(pk.publishes.map((p) => p.package)).size, 'package')} and depends on ${count(new Set(pk.depends.map((d) => d.package)).size, 'package')}`);
   }
   if (trace.links.length) {
     out.push('', 'Links between repositories');
     for (const l of trace.links) {
       out.push(l.kind === 'http'
         ? `  ${l.from.repo} → ${l.to.repo}: ${l.from.label} sends ${l.method} ${l.path}, handled by ${l.to.label}${l.base === 'computed' ? ' (matched by path; the base address is set when it runs)' : ''}`
-        : `  ${l.from.repo} → ${l.to.repo}: ${l.from.label} publishes ${l.event}, handled by ${l.to.label}`);
+        : l.kind === 'event' ? `  ${l.from.repo} → ${l.to.repo}: ${l.from.label} publishes ${l.event}, handled by ${l.to.label}`
+          : l.kind === 'package' ? `  ${l.from.repo} → ${l.to.repo}: depends on the package ${l.package}${l.version ? ` ${l.version}` : ''}${l.dev ? ' (for development)' : ''}, published by ${l.to.repo}`
+            : `  ${l.from.repo} → ${l.to.repo}: ${l.from.label} ${l.access} the ${l.table} table, created by ${l.to.repo}`);
       out.push(`      ${l.from.cite}  →  ${l.to.cite}`);
     }
+  }
+  const sh = trace.shared ?? { settings: [], tables: [], drift: [] };
+  const repoList = (ends) => [...new Set(ends.map((e) => e.repo))].join(', ');
+  if (sh.tables.length) {
+    out.push('', `Tables used by more than one repository: ${sh.tables.length}`);
+    for (const x of sh.tables.slice(0, limit)) {
+      out.push(`  ${x.table}: ${repoList(x.users)}`);
+      for (const u of x.users.slice(0, 4)) out.push(`      ${u.access.padEnd(7)} ${u.cite}`);
+      if (x.users.length > 4) out.push(`      … and ${x.users.length - 4} more`);
+    }
+    if (sh.tables.length > limit) out.push(`  … and ${sh.tables.length - limit} more (all of them with --json)`);
+  }
+  if (sh.settings.length) {
+    out.push('', `Settings read by more than one repository: ${sh.settings.length} (a new name or value has to reach each one)`);
+    for (const x of sh.settings.slice(0, limit)) out.push(`  ${x.key}: ${repoList(x.readers)}  (${x.readers.slice(0, 3).map((e) => e.cite).join(', ')}${x.readers.length > 3 ? ', …' : ''})`);
+    if (sh.settings.length > limit) out.push(`  … and ${sh.settings.length - limit} more (all of them with --json)`);
+  }
+  if (sh.drift.length) {
+    out.push('', `Packages at different versions: ${sh.drift.length}`);
+    for (const x of sh.drift.slice(0, limit)) out.push(`  ${x.package}: ${x.versions.map((v) => `${v.version} in ${repoList(v.at)}`).join('; ')}`);
+    if (sh.drift.length > limit) out.push(`  … and ${sh.drift.length - limit} more (all of them with --json)`);
   }
   if (trace.notLinked.length) {
     const shown = trace.notLinked.slice(0, limit);
@@ -239,7 +430,7 @@ export function renderTrace(trace, { limit = 15 } = {}) {
     if (trace.notLinked.length > shown.length) out.push(`  … and ${trace.notLinked.length - shown.length} more (all of them with --json)`);
   }
   const tests = trace.repos.reduce((n, r) => n + (r.testItems || 0), 0);
-  if (tests) out.push('', `Left out: ${count(tests, 'route, request, or event')} in test and fixture files.`.replace('route, request, or events', 'routes, requests, and events'));
+  if (tests) out.push('', `Left out: ${tests} ${tests === 1 ? 'item' : 'items'} (routes, requests, events, tables, settings, packages) in test and fixture files.`);
   out.push('', `Fingerprint ${trace.fingerprint.slice(0, 19)}… (rules v${trace.rulesVersion}). Read from code; nothing was run.`);
   return out.join('\n');
 }
@@ -247,7 +438,7 @@ export function renderTrace(trace, { limit = 15 } = {}) {
 /** An impact result as text: high risk first, each finding with its citation and who depends on it. */
 export function renderImpact(r) {
   const out = [];
-  if (r.matched && !r.matched.length) return `"${r.term}" matched nothing: no route, event, or file by that name in the traced repositories.`;
+  if (r.matched && !r.matched.length) return `"${r.term}" matched nothing: no route, event, file, table, setting, or package by that name in the traced repositories.`;
   const high = r.findings.filter((f) => f.risk === 'high').length;
   out.push(r.findings.length
     ? `Thunder Trace impact: ${count(r.findings.length, 'finding')}, ${high} high risk. Stops at the first hop.`
