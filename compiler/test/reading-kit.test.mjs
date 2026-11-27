@@ -116,7 +116,85 @@ test('the Big Picture zooms with focus: a Thing, a file, an action (its IO boxes
   assert.deepEqual([box.give.heading, box.getBack.heading, box.stops.heading], ['You give it', 'You get back', 'It can stop with']);
   assert.deepEqual(box.give.items, [{ label: 'total', kind: 'a number' }, { label: 'distance', kind: 'a number' }]);
   assert.equal(box.getBack.text, 'words');
+  assert.deepEqual(box.getBack.items, ['words']);
   assert.deepEqual(box.stops.items, [{ text: 'ValueError: "TooFar"', line: 5 }]);
   assert.deepEqual(box.partOf, { id: 'orders.py#Shop', text: 'Part of Shop' });
   assert.deepEqual(readingLayout(m, { focus: 'nope' }), { schema: READING_LAYOUT_SCHEMA, focus: { kind: 'unknown', id: 'nope' }, sections: [] });
+});
+
+// Step 2: the IO boxes, Flow, and Details join the kit, so all three products draw them the same way.
+const ORDERS = 'class Shop:\n    def order(self, total: float, distance: float) -> str:\n        """Place an order."""\n        if distance > 15:\n            raise ValueError("TooFar")\n        return "ok"\n';
+const shop = thunderModel([{ path: 'orders.py', source: ORDERS }]);
+const order = shop.members.find((x) => x.name === 'order');
+
+test('Flow edges say the shared words, a case its own words, and a plain step nothing', async () => {
+  const { flowEdgeLabel } = await import('../src/core.mjs');
+  assert.deepEqual(['yes', 'no', 'each', 'done', 'error', 'nested'].map((label) => flowEdgeLabel({ label })), ['Yes', 'No', 'For each', 'Done', 'If it fails', 'Runs on its own']);
+  assert.equal(flowEdgeLabel({ label: 'case', text: 'When it is gold' }), 'When it is gold');
+  assert.equal(flowEdgeLabel({ label: 'case' }), 'When');
+  assert.equal(flowEdgeLabel({ label: 'next' }), null);
+  assert.equal(flowEdgeLabel({}), null);
+  assert.equal(flowEdgeLabel({ label: 'brand-new' }), 'brand-new', 'an edge the kit does not know yet is shown, never dropped');
+});
+
+test('Details: counts at a glance, then give and get back, stops, steps, each with its line, and only what the compiler gave', async () => {
+  const { readLevel, detailsLayout } = await import('../src/core.mjs');
+  const view = readLevel(shop, 'details', order.id);
+  const d = detailsLayout(view);
+  assert.deepEqual(d.stats.find((s) => s.id === 'inputs'), { id: 'inputs', count: 2, text: 'things you give it' });
+  assert.equal(d.give.heading, 'You give it');
+  assert.deepEqual(d.give.items.map((i) => i.label), ['total', 'distance']);
+  assert.equal(d.getBack.heading, 'You get back');
+  assert.ok(d.getBack.items.length > 0, 'what it gives back');
+  assert.equal(d.stops.heading, 'When it stops');
+  assert.equal(d.stops.items.length, 1);
+  assert.equal(d.stops.items[0].line, 5);
+  assert.equal(d.steps.heading, 'Every step, with its line');
+  assert.ok(d.steps.items.every((s) => 'line' in s && 'depth' in s));
+  // A section the compiler did not give is null, never an empty guess.
+  const bare = detailsLayout({ steps: [] });
+  assert.deepEqual([bare.give, bare.stops, bare.changes, bare.limits, bare.reliesOn], [null, null, null, null, null]);
+  assert.deepEqual(bare.stats, [{ id: 'steps', count: 0, text: 'steps' }]);
+  // What it gives back falls back the way the Big Picture does: youGetBack, then the Flow's end steps.
+  assert.deepEqual(detailsLayout({ youGive: ['a'], youGetBack: 'words' }).getBack.items, [{ text: 'words', line: null, when: null }]);
+});
+
+test('the kit draws the IO boxes in the Big Picture, then Flow and Details, with buttons only when the app gives callbacks', { skip: !react && 'React is not installed next to the compiler' }, async () => {
+  const { createElement: h } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { readLevel } = await import('../src/core.mjs');
+  const { BigPicture, IOBoxes, Flow, Details } = await import('../src/react/reading.mjs');
+  const bp = renderToStaticMarkup(h(BigPicture, { model: shop, focus: order.id, onLine: () => {}, onThing: () => {} }, h('p', null, 'extra from the app')));
+  let at = -1;
+  for (const w of ['Place an order.', 'You give it', '>total<', ': a number', '>distance<', 'You get back', '>words<', 'It can stop with', 'ValueError: &quot;TooFar&quot;', 'line 5', 'extra from the app', 'Part of Shop']) {
+    const i = bp.indexOf(w, at + 1); assert.ok(i > at, `"${w}" comes after the one before`); at = i;
+  }
+  assert.equal(bp.match(/<button/g)?.length, 2, 'the stop line and Part of Shop');
+  const still = renderToStaticMarkup(h(IOBoxes, { model: shop, member: order }));
+  assert.ok(!still.includes('<button'), 'no buttons without callbacks');
+
+  const flow = renderToStaticMarkup(h(Flow, { flow: order.flow, onLine: () => {} }));
+  assert.equal(flow.match(/class="tl-node /g)?.length, order.flow.nodes.length, 'every node drawn');
+  assert.match(flow, /tl-node-stop tl-tone-failure/);
+  assert.match(flow, /tl-node-decision tl-tone-question/);
+  assert.match(flow, />line 5</);
+  assert.ok(!renderToStaticMarkup(h(Flow, { flow: order.flow })).includes('<button'), 'no line buttons without onLine');
+
+  const det = renderToStaticMarkup(h(Details, { view: readLevel(shop, 'details', order.id), onLine: () => {} }));
+  at = -1;
+  for (const w of ['things you give it', 'You give it', 'You get back', 'When it stops', 'Every step, with its line']) {
+    const i = det.indexOf(w, at + 1); assert.ok(i > at, `"${w}" comes after the one before`); at = i;
+  }
+  const withRules = renderToStaticMarkup(h(Details, { view: readLevel(shop, 'details', order.id), rules: h('div', { id: 'app-rules' }) }));
+  assert.match(withRules, /id="app-rules"/);
+});
+
+test('the IO boxes say what it gives back from the Flow when the code declares no result, so they agree with Flow and Details', async () => {
+  const { ioBoxes } = await import('../src/core.mjs');
+  const fees = thunderModel([{ path: 'fees.py', source: 'def late_fee(days_late):\n    """Small fines for late books."""\n    if days_late <= 0:\n        return "No fee"\n    if days_late <= 7:\n        return "Small fee"\n    return "Big fee"\n' }]);
+  const fee = fees.members.find((x) => x.name === 'late_fee');
+  const box = ioBoxes(fees, fee);
+  assert.equal(box.getBack.text, null, 'nothing declared');
+  assert.equal(box.getBack.items.length, 3);
+  assert.ok(box.getBack.items.every((t) => !/^Gives back/i.test(t)));
 });

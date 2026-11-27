@@ -139,4 +139,4 @@ export { stepShape } from './write-steps.mjs';
 export { PASSPORT_SCHEMA, ALWAYS_NOT_VERIFIED, assemblePassport, summarize, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
 export { formatValue } from './plain-contract.mjs';
 // What a reading shows and in what order (the drawing kit, @skillstech/thunderlang/react, draws from it).
-export { READING_LAYOUT_SCHEMA, READING_LABELS, readingLayout, thingCard, dataCard, ioBoxes, memberSymbolId } from './reading-layout.mjs';
+export { READING_LAYOUT_SCHEMA, READING_LABELS, readingLayout, thingCard, dataCard, ioBoxes, detailsLayout, flowEdgeLabel, memberSymbolId } from './reading-layout.mjs';
