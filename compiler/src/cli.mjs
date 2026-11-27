@@ -477,8 +477,9 @@ Start
 
 Write and run programs (Thunder Core, docs/core.md)
   new <dir>                  create a Thunder Core project: thunder.toml, src/main.thunder, tests/
-  run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file in one;
-                             add --core for a single file with no project. run/test need Python 3.10+, or add
+  run | build | test | check | format   in a project (a folder with thunder.toml), or on a .thunder file: a file
+                             whose first line starts a mission is a mission, any other is a program (--core or
+                             --mission says which). run/test need Python 3.10+, or add
                              --engine thunder to run them on the Thunder engine (no Python; programs that Use a
                              Python module are refused there). --target typescript compiles to TypeScript instead
                              (generated/typescript/; runs on Node 22.6+, or with the typescript package);

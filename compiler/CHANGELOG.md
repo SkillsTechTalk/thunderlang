@@ -1,3 +1,14 @@
+# Unreleased
+
+- **A `.thunder` file says what it is.** Outside a project, a file whose first line cannot start a mission
+  (`say "Hello"`, `Set total to 0`, `To greet:`, `A Trade has:`) is now run, tested, and checked as Thunder Core
+  without `--core`: `thunder run hello.thunder` just works. Files that start with a mission keyword stay missions,
+  so no existing mission changes meaning; a file that could be either (`use csv` alone) stays a mission, and
+  `--mission` / `--core` still decide when given. A mission check that finds no mission now says how to read the
+  file as a program.
+- **One map of the language.** New docs page, *The Thunder language*: Thunder Text, Thunder Core, and missions side
+  by side with the same rule in each, which to use when, and how a file's kind is decided.
+
 # 1.6.1
 
 - **Fix: Thunder write wrote names the code does not have.** A word that is no name in the function or file

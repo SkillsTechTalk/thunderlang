@@ -1,11 +1,12 @@
 // The Thunder Core commands: thunder new | run | build | test | check | format.
 //
-// When does a command mean Thunder Core (and not a mission .thunder file)? Deterministically, never by guessing
-// from the file's contents:
+// When does a command mean Thunder Core (and not a mission .thunder file)? Deterministically, never by guessing:
 //   - thunder new <dir>                       always creates a Thunder Core project (missions: thunder init <Name>)
 //   - no file given, and a thunder.toml is in this folder or above it
 //   - the file is a folder that holds a thunder.toml, or a .thunder file under one
 //   - --core is given (a single file with no project)
+//   - --mission is given: never Core
+//   - otherwise, a .thunder file whose first line cannot start a mission (fileKind in kind.mjs)
 // Everything else falls through to the mission commands, unchanged.
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from 'node:fs';
@@ -24,6 +25,7 @@ import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
 import { recordedRun, screenApp, screenOutline, runInProcess } from './engine-core.mjs';
 import { hasScreens } from './target-react.mjs';
 import { COMPILER_VERSION } from '../emit.mjs';
+import { fileKind } from './kind.mjs';
 
 /** The format of a Time Machine recording (thunder run --record, thunder replay). */
 export const TIME_MACHINE_SCHEMA = 'thunder-time-machine-v1';
@@ -70,6 +72,9 @@ export function coreTarget(cmd, argv, cwd = process.cwd()) {
   if (!file.endsWith('.thunder')) return null;
   const root = findProjectRoot(p);
   if (root || a.core) return { root, file: p };
+  if (a.mission) return null;
+  // No project and no flag: the file itself says. A mission always starts with a mission keyword.
+  try { if (fileKind(readFileSync(p, 'utf8')).kind === 'program') return { root: null, file: p }; } catch { /* unreadable: the mission commands say so */ }
   return null;
 }
 
