@@ -6,6 +6,7 @@
 //
 // Start it with `thunder mcp`. Point an MCP client at that command.
 
+import { behaviourCheck } from './behaviour.mjs';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -287,17 +288,23 @@ const TOOLS = [
   },
   {
     name: 'intent_write',
-    description: 'CHANGE CODE THROUGH THUNDER, WITH PROOF (TypeScript, JavaScript, Python, Go). Give the files ({ path, source }) and one or more Thunder edits; get back a minimal patch, the new file contents, and a proof: the edited function now reads exactly as the edit says, and every other function means the same. Edits: setValue (to, or toValue in Thunder words), setCondition (when: "amount is at least 100 and not member"), addStep / removeStep / moveStep (step: code, "Give …", "Set … to …", "Stop with \"…\"", or { if, then, else }), addStop (when, message), removeStop, addInput (name, default), removeInput, setGivesBack (value), rename. Each edit names its function (member: "name" or { file, name, line }) and its step by the line thunder read shows ("line:12"); lines are the original file\'s lines for every edit in the list. Status is written, refused (with why), or needs-ai (with an instruction for a coding agent). Nothing is written to disk: apply the returned files, then run the project\'s tests.',
+    description: 'CHANGE CODE THROUGH THUNDER, WITH PROOF (TypeScript, JavaScript, Python, Go). Give the files ({ path, source }) and one or more Thunder edits; get back a minimal patch, the new file contents, and a proof: the edited function now reads exactly as the edit says, and every other function means the same. Edits: setValue (to, or toValue in Thunder words), setCondition (when: "amount is at least 100 and not member"), addStep / removeStep / moveStep (step: code, "Give …", "Set … to …", "Stop with \"…\"", or { if, then, else }), addStop (when, message), removeStop, addInput (name, default), removeInput, setGivesBack (value), rename. Each edit names its function (member: "name" or { file, name, line }) and its step by the line thunder read shows ("line:12"); lines are the original file\'s lines for every edit in the list. Status is written, refused (with why), or needs-ai (with an instruction for a coding agent). Nothing is written to disk: apply the returned files, then run the project\'s tests. behaviour: true (Python only) also RUNS each edited function before and after on inputs made from its code and lists the inputs whose answer changed: tested evidence on those inputs, not a proof.',
     inputSchema: {
       type: 'object', required: ['files', 'edits'],
       properties: {
         files: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', required: ['path', 'source'], properties: { path: str, source: str } } },
         edits: { description: 'one Thunder edit object, or a list applied in order', anyOf: [{ type: 'object' }, { type: 'array', items: { type: 'object' } }] },
+        behaviour: { type: 'boolean', description: 'Python only: run each edited function before and after on inputs made from its code (this runs the code) and report changed answers' },
       },
     },
-    run: ({ files, edits }) => {
+    run: ({ files, edits, behaviour }) => {
       if (!Array.isArray(files) || !files.length) throw new Error('Give the files as [{ path, source }].');
-      const r = thunderWrite(files.map((f) => ({ path: String(f.path), source: String(f.source) })), edits);
+      const given = files.map((f) => ({ path: String(f.path), source: String(f.source) }));
+      const r = thunderWrite(given, edits);
+      if (behaviour && r.status === 'written') {
+        const originals = new Map(given.map((f) => [f.path, f.source]));
+        r.proof.behaviour = (r.proof.edited.checks ?? []).filter((c) => r.files[c.file] != null).map((c) => behaviourCheck({ path: c.file, name: c.member, before: originals.get(c.file) ?? '', after: r.files[c.file] }));
+      }
       return { status: r.status, says: r.says, reason: r.reason ?? null, patch: r.patch ?? null, files: r.files ?? null, before: r.before ?? null, after: r.after ?? null, proof: r.proof ?? null, ...(r.prompt ? { prompt: r.prompt } : {}) };
     },
   },

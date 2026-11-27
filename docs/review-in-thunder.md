@@ -42,6 +42,9 @@ finds its own comment by the line `<!-- thunder-review -->`), and writes the rev
       - uses: SkillsTechTalk/thunderlang@main
 ```
 
+`@main` follows the latest code; for production CI, pin a commit SHA instead (see
+[pinning](/docs/github-action)).
+
 The whole workflow file, its options, what the comment looks like, pull requests from forks, and privacy:
 [Thunder review on every pull request](/docs/github-action). Workflows that use the earlier
 `SkillsTechTalk/thunderlang/.github/actions/thunder-review@main` keep working; it now runs the same action.

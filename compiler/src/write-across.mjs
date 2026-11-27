@@ -20,6 +20,7 @@ import { readCode, sayCondition } from './read.mjs';
 import { tokenize } from './expr.mjs';
 import { writeRule } from './write.mjs';
 import { isTestFile } from './trace.mjs';
+import { byText } from './text-order.mjs';
 
 export const WRITE_ACROSS_SCHEMA = 'thunder-write-across-v1';
 
@@ -150,7 +151,7 @@ export function writeRuleAcross(files, { decision, rule, when }) {
     }
     result.files[k] = source;
   }
-  result.plan.sort((a, b) => where(a).localeCompare(where(b)) || a.line - b.line);
+  result.plan.sort((a, b) => byText(where(a), where(b)) || a.line - b.line);
   if (problems.length) return { ...base, files: {}, plan: [], rule: result.rule, notIncluded: result.notIncluded, tests: result.tests, problems: ['Nothing was changed: every implementation must be written exactly, or none is.', ...problems] };
   return { ...result, ok: true };
 }

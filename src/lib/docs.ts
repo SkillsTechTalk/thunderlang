@@ -17,6 +17,7 @@ const EXAMPLES_DIR = path.join(process.cwd(), "examples");
 // Curated reading order + friendly labels for the docs index.
 const DOC_ORDER = [
   "manifesto",
+  "language",
   "intent-oriented-programming",
   "language-principles",
   "getting-started",
@@ -121,6 +122,7 @@ const DOC_LABELS: Record<string, string> = {
   "trace": "Thunder Trace: how your repositories depend on each other",
   "why": "Thunder Why: what an AI agent did, in plain words",
   "core": "Thunder Core: write a program and run it",
+  "language": "The Thunder language: one map",
   "screens": "Design note: Thunder screens",
   "core-read-write": "Reading and writing: how close the reader is to Core",
   "review-in-thunder": "Review in Thunder",
@@ -182,6 +184,7 @@ const DOC_BLURBS: Record<string, string> = {
   "trace": "Which repositories call which, and what a change can affect in the others, each answer cited to a file and line.",
   "why": "Read an AI agent's run record and see what it was asked, what it changed, and why it stopped, in plain words.",
   "core": "Write a program in plain words, check it, compile it to Python, and run it. The language reference.",
+  "language": "Thunder Text, Thunder Core, and missions: how the three fit together and how a .thunder file's kind is decided.",
   "screens": "Why screens have their shape, how React and the Thunder engine stay the same, and what is not built yet.",
   "core-read-write": "How much of what the reader prints already compiles as Thunder Core, and the list of what is left.",
   "reading-kit": "@skillstech/thunderlang/react: Thing and Data cards and the Big Picture, from one layout, styled with CSS variables.",
@@ -273,7 +276,7 @@ const DOC_CATEGORIES: { title: string; blurb: string; slugs: string[] }[] = [
   {
     title: "Understand the language",
     blurb: "The syntax and the constructs you write.",
-    slugs: ["syntax-overview", "language-principles", "intent-runtime", "intent-tests", "outcome-contracts", "data-privacy", "style-intent", "governance"],
+    slugs: ["language", "syntax-overview", "language-principles", "intent-runtime", "intent-tests", "outcome-contracts", "data-privacy", "style-intent", "governance"],
   },
   {
     title: "Understand software",

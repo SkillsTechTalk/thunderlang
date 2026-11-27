@@ -12,7 +12,7 @@ import { COMPILER_VERSION } from '../src/emit.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, '..', 'src', 'cli.mjs');
-const SRC = readFileSync(CLI, 'utf8');
+const SRC = readFileSync(join(HERE, '..', 'src', 'cli-main.mjs'), 'utf8'); // the CLI's code (cli.mjs only starts it)
 const FULL_HELP = SRC.slice(SRC.indexOf('const HELP = `') + 14, SRC.indexOf('`;', SRC.indexOf('const HELP = `')));
 const run = (args, cwd) => spawnSync(process.execPath, [CLI, ...args], { encoding: 'utf8', cwd });
 const tmp = () => mkdtempSync(join(tmpdir(), 'thunder-home-'));

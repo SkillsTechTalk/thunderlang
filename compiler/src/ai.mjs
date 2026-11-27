@@ -14,6 +14,7 @@ import { slug } from './parse.mjs';
 // Pure, browser-safe helpers live in ai-core.mjs (no Node deps). Re-exported here so
 // the main API is unchanged; browser consumers can import '@skillstech/thunderlang/core'.
 import { COMMENT_PREFIX, HIGH_RISK, blocksProduction } from './ai-core.mjs';
+import { byText } from './text-order.mjs';
 export {
   IMPLEMENTATION_STATES, RISK_LEVELS, HIGH_RISK, blocksProduction,
   COMMENT_PREFIX, INTENT_AI_EVENTS, makeEvent, PROOF_CHECK_KEYS,
@@ -309,7 +310,7 @@ export function buildManifest(files, opts = {}) {
       mustNotModify: impl.mustNotModify || [`${f.ast.mission}.contract`],
     });
   }
-  implementations.sort((a, b) => a.id.localeCompare(b.id));
+  implementations.sort((a, b) => byText(a.id, b.id));
   return {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
     projectId: opts.projectId || null,

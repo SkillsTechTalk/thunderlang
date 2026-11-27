@@ -4,13 +4,16 @@ import assert from 'node:assert/strict';
 import { readCode } from '../src/read.mjs';
 
 test('a large body of statements reads in linear time (was quadratic: Gitea routers/web/web.go took 6 s)', () => {
-  const groups = Array.from({ length: 300 }, (_, g) => `\tm.Group("/g${g}", func() {\n${Array.from({ length: 6 }, (_, k) => `\t\tm.Get("/r${k}",  reqSignIn,   repo.H${k})  ;  `).join('\n')}\n\t})`).join('\n');
-  const src = `package web\n\nfunc registerRoutes(m *web.Router) {\n${groups}\n}\n`;
-  const t0 = performance.now();
-  const r = readCode(src, { language: 'go' });
-  const ms = performance.now() - t0;
+  const source = (n) => `package web\n\nfunc registerRoutes(m *web.Router) {\n${Array.from({ length: n }, (_, g) => `\tm.Group("/g${g}", func() {\n${Array.from({ length: 6 }, (_, k) => `\t\tm.Get("/r${k}",  reqSignIn,   repo.H${k})  ;  `).join('\n')}\n\t})`).join('\n')}\n}\n`;
+  // The best of three runs at each size, so a busy machine (the whole suite runs in parallel) cannot fail it: what is
+  // checked is how the time grows. Linear doubles when the input doubles; the old quadratic code quadrupled.
+  const time = (src) => Math.min(...[0, 1, 2].map(() => { const t0 = performance.now(); readCode(src, { language: 'go' }); return performance.now() - t0; }));
+  const small = source(300), big = source(600);
+  readCode(small, { language: 'go' }); // warm up
+  const r = readCode(big, { language: 'go' });
   assert.ok(r.items.some((i) => i.name === 'registerRoutes'));
-  assert.ok(ms < 1500, `took ${Math.round(ms)} ms`);
+  const a = time(small), b = time(big);
+  assert.ok(b < a * 3 + 50, `300 groups took ${Math.round(a)} ms and 600 took ${Math.round(b)} ms: more than linear`);
 });
 
 test('TypeScript return types with braces are read whole, and the body starts after them', () => {

@@ -27,7 +27,7 @@ export const typeWords = (t) => {
     case 'map': return 'a map';
     case 'record': return `a ${t.text ?? t.name}`;
     case 'optional': return `${typeWords(t.of)} or nothing`;
-    case 'module': return 'a Python module';
+    case 'module': return 'a library';
     default: return 'a value';
   }
 };
@@ -87,13 +87,13 @@ class Checker {
       for (const r of inf.records) { this.records.set(r.name, r); this.info.imported.add(r); }
       for (const f of inf.funcs) { this.global.vars.set(f.name, { kind: 'func', line: f.line, name: f.name, text: f.text, py: f.py, stmt: f, ret: f.ret ?? UNKNOWN }); this.funcs.set(f.name, f); this.info.imported.add(f); }
       for (const k of inf.consts) { this.global.vars.set(k.name, { kind: 'const', line: k.line, name: k.name, text: k.text, py: k.py, type: k.e.type ?? UNKNOWN }); this.info.imported.add(k); }
-      for (const m of inf.modules) { this.global.vars.set(m.name, { kind: 'module', line: m.line, name: m.name, text: m.text, py: m.py, type: T('module') }); this.info.imported.add(m); }
+      for (const m of inf.modules) { this.global.vars.set(m.name, { kind: 'module', line: m.line, name: m.name, text: m.text, py: m.py, ecosystem: m.ecosystem, type: T('module') }); this.info.imported.add(m); }
     }
     // 1. Global declarations, hoisted: records, functions, modules, kept values.
     for (const s of top) {
       if (s.k === 'record') this.declare(s, 'record', s.line, { py: pyName(s.name, 'pascal'), stmt: s });
       else if (s.k === 'func') this.declare(s, 'func', s.line, { py: pyName(s.name), stmt: s, ret: UNKNOWN });
-      else if (s.k === 'use') this.declare(s, 'module', s.line, { py: pyName(s.name), module: s.module, type: T('module') });
+      else if (s.k === 'use') this.declare(s, 'module', s.line, { py: pyName(s.name), module: s.module, ecosystem: s.ecosystem, type: T('module') });
       else if (s.k === 'screen') {
         const prev = this.screens.get(s.name);
         if (prev) this.err('TC203', s.line, `There is already a screen called "${s.text}" (line ${prev.line}).`, 'Give one of them a different name.');
@@ -621,7 +621,7 @@ class Checker {
       }
       case 'dot': {
         const ot = this.ex(e.obj, sc, o);
-        if (ot.k !== 'module') this.err('TC402', line, `"${e.attr}" with a dot reaches into a Python module brought in with "Use". ${e.obj.k === 'name' ? `"${e.obj.text}"` : 'This'} is not one.`, 'Write "Use <module> as <name>" at the top of the file first.');
+        if (ot.k !== 'module') this.err('TC402', line, `"${e.attr}" with a dot reaches into a library brought in with "Use". ${e.obj.k === 'name' ? `"${e.obj.text}"` : 'This'} is not one.`, 'Write "Use <module> as <name>" (Python) or Use "<package>" from npm as <name> at the top of the file first.');
         for (const a of e.args ?? []) this.ex(a, sc, o);
         return UNKNOWN;
       }

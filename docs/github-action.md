@@ -29,8 +29,9 @@ That is all. On the next pull request, the comment appears; each push updates th
 one. The review is also written to the job summary (the run's **Summary** page), which has room for everything.
 
 GitHub-hosted runners have Node.js 20, which the action needs. On a self-hosted runner without it, add
-`actions/setup-node@v4` with `node-version: 20` before the action. Pin a release tag or commit instead of `@main` when
-your team prefers fixed versions.
+`actions/setup-node@v4` with `node-version: 20` before the action. `@main` follows the latest code. For production CI,
+pin a commit instead (`SkillsTechTalk/thunderlang@<full commit SHA>`), and set `version:` to the
+`@skillstech/thunderlang` release you have tested.
 
 ## Options
 

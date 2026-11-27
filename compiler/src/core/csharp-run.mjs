@@ -8,6 +8,7 @@ import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { toCSharp, pythonOnlyUses, classOf, cs } from './target-csharp.mjs';
+import { npmRefusals } from './target-typescript.mjs';
 import { diag } from './diagnostics.mjs';
 
 export const CS_RUNTIME = readFileSync(new URL('./ThunderRuntime.cs', import.meta.url), 'utf8');
@@ -15,9 +16,9 @@ export const ASSEMBLY = 'ThunderProgram';
 
 /** TC405 for every Use in a file: Python modules exist only for the Python target. */
 export function csharpDiagnostics(result) {
-  return pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
+  return [...npmRefusals(result.info, 'C#', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
     `"${u.module}" is a Python module, and this program is compiled to C#, which cannot use it.`,
-    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'));
+    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'))];
 }
 
 /** The .NET SDK here: { cmd, version, major } or { error }. */

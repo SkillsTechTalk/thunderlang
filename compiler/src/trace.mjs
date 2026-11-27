@@ -20,6 +20,7 @@ import { thunderModel } from './model.mjs';
 import { serviceFacts, segsMatch, GENERIC_PATHS } from './system.mjs';
 import { sha256 } from './hash.mjs';
 import { packagesIn, settingsIn, tablesIn, isManifest, LOCAL_VERSION, isGenericSetting, DEFINES } from './trace-data.mjs';
+import { byText } from './text-order.mjs';
 
 export const TRACE_SCHEMA = 'thunder-trace-v1';
 export const TRACE_IMPACT_SCHEMA = 'thunder-trace-impact-v1';
@@ -169,8 +170,8 @@ export function linkRepos(read) {
   const sortKey = (l) => `${l.from.cite}|${l.to?.cite ?? ''}|${l.kind}|${l.call ?? l.event ?? l.path ?? l.package ?? l.table ?? ''}`;
   // (A step inside a callback is read for the callback and for the function around it: the same call, once.)
   const once = (xs) => { const seen = new Set(); return xs.filter((x) => { const k = sortKey(x); if (seen.has(k)) return false; seen.add(k); return true; }); };
-  links.splice(0, links.length, ...once(links).sort((a, b) => sortKey(a).localeCompare(sortKey(b))));
-  notLinked.splice(0, notLinked.length, ...once(notLinked).sort((a, b) => sortKey(a).localeCompare(sortKey(b))));
+  links.splice(0, links.length, ...once(links).sort((a, b) => byText(sortKey(a), sortKey(b))));
+  notLinked.splice(0, notLinked.length, ...once(notLinked).sort((a, b) => byText(sortKey(a), sortKey(b))));
   const repos = read.map(({ unknown, ...r }) => ({ ...r, unknown: unknown ?? [], packages: pk(r), settings: r.settings ?? [], tables: tb(r) }));
   const body = { schema: TRACE_SCHEMA, rulesVersion: TRACE_RULES_VERSION, repos, links, notLinked, shared };
   return { ...body, fingerprint: sha256(JSON.stringify(body)) };
@@ -311,7 +312,7 @@ export function traceImpact(trace, changes) {
     if (findings.length > found || routes.length || listeners.length || requests.length || publishes.length || c.before) touched.push({ repo: c.repo, file: c.file, status: c.status });
   }
   const rank = { high: 0, medium: 1, low: 2 };
-  findings.sort((a, b) => rank[a.risk] - rank[b.risk] || a.at.cite.localeCompare(b.at.cite));
+  findings.sort((a, b) => rank[a.risk] - rank[b.risk] || byText(a.at.cite, b.at.cite));
   return { schema: TRACE_IMPACT_SCHEMA, traceFingerprint: trace.fingerprint, findings, changed: touched, stopsAt: 1, note: 'Stops at the first hop: callers of the callers are not listed. Links are facts read from code (no code was run); a call whose address is worked out when it runs is not linked.' };
 }
 

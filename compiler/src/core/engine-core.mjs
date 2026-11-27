@@ -40,7 +40,7 @@ const MAX_RECORDED = 20000; // a recording stops growing here (and says so); the
 /** The Python modules a program uses (Use), which this engine does not run. */
 export function pythonModulesUsed(results) {
   const out = [];
-  for (const r of results) for (const m of r.info.modules) if (!r.info.imported?.has(m)) out.push({ file: r.file, module: m.module, name: m.text ?? m.name, line: m.line });
+  for (const r of results) for (const m of r.info.modules) if (!r.info.imported?.has(m)) out.push({ file: r.file, module: m.module, name: m.text ?? m.name, line: m.line, ecosystem: m.ecosystem ?? 'python' });
   return out;
 }
 
@@ -48,6 +48,7 @@ export function pythonModulesUsed(results) {
 export function refusalText(uses) {
   const u = uses[0];
   const more = uses.length > 1 ? ` (and ${uses.length - 1} more)` : '';
+  if (u.ecosystem === 'npm') return `This program uses the npm package "${u.module}" (${u.file}, line ${u.line})${more}. The Thunder engine runs Thunder only and never imitates a library, so run it as TypeScript: --target typescript.`;
   return `This program uses the Python module "${u.module}" (${u.file}, line ${u.line})${more}. The Thunder engine runs Thunder only and never imitates a library, so run it with Python: leave out --engine thunder.`;
 }
 

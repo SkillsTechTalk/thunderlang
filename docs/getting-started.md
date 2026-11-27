@@ -124,6 +124,9 @@ Gate a whole repo in CI with the GitHub Action:
     paths: ./intent
 ```
 
+`@main` follows the latest code; for production CI, pin a commit SHA instead
+(`SkillsTechTalk/thunderlang/check@<full commit SHA>`).
+
 To see what each pull request does in plain sentences, as one comment, add the Thunder review action:
 [Thunder review on every pull request](/docs/github-action).
 

@@ -4,6 +4,7 @@
 import { readCode } from './read.mjs';
 import { readableLanguage, readingOf } from './read-repo.mjs';
 import { thunderText, visualFor } from './visual.mjs';
+import { byText } from './text-order.mjs';
 
 export const THUNDERIZE_SCHEMA = 'thunderize-v1';
 export const THUNDER_TEXT_EXT = '.thunder-text';
@@ -49,7 +50,7 @@ export function thunderizeFiles(files, { name = 'app' } = {}) {
     try { out.push(thunderizeFile(f.path, f.source, language, readingOf(f, language))); }
     catch (e) { skipped.push({ path: f.path, reason: `could not be read: ${e.message}` }); }
   }
-  out.sort((a, b) => a.path.localeCompare(b.path));
+  out.sort((a, b) => byText(a.path, b.path));
   const total = { files: out.length, actions: 0, rules: 0, functions: 0, notReadYet: 0 };
   for (const f of out) for (const k of ['actions', 'rules', 'functions', 'notReadYet']) total[k] += f.counts[k];
   const langs = [...new Set(out.map((f) => LANGUAGE_NAMES[f.language] || f.language))].sort();

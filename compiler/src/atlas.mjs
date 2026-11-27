@@ -10,6 +10,7 @@
 
 import { parseIntent, slug } from './parse.mjs';
 import { sha256 } from './emit.mjs';
+import { byText } from './text-order.mjs';
 
 // Feature area convention: an explicit `# area: X` comment wins; otherwise the
 // header comment `# <Name>.intent , <Product> / <Area>` is used; else uncategorized.
@@ -92,7 +93,7 @@ export function buildMissionIndex(files, opts = {}) {
     };
   }).filter((m) => m.mission);
 
-  missions.sort((a, b) => a.mission.localeCompare(b.mission));
+  missions.sort((a, b) => byText(a.mission, b.mission));
 
   const byArea = {};
   for (const m of missions) {

@@ -7,7 +7,7 @@ import { writeFileSync, mkdirSync, readFileSync, rmSync, existsSync } from 'node
 import { join, delimiter } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { toJava, javaTestRunner, javaClassName } from './target-java.mjs';
-import { pythonOnlyUses } from './target-typescript.mjs';
+import { pythonOnlyUses, npmRefusals } from './target-typescript.mjs';
 import { diag } from './diagnostics.mjs';
 
 const RUNTIME_DIR = new URL('./java/thunder/', import.meta.url);
@@ -19,9 +19,9 @@ const exportedNames = (r) => [...r.info.records, ...r.info.funcs, ...r.info.cons
 
 /** TC405 for every Use in a file: Python modules exist only for the Python target. */
 export function javaDiagnostics(result) {
-  return pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
+  return [...npmRefusals(result.info, 'Java', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
     `"${u.module}" is a Python module, and this program is compiled to Java, which cannot use it.`,
-    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'));
+    'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'))];
 }
 
 /** Compile checked results to Java: { 'app/<Class>.java': text, 'app/RunTests.java': text }. */
