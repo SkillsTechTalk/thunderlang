@@ -1,4 +1,4 @@
-# Unreleased
+# 1.7.0
 
 - **.NET and NuGet from Thunder Core.** `Use "System.IO.Path" from .NET as paths` and `Use "Humanizer.NumberToWordsExtension"
   from NuGet "Humanizer.Core" version "2.14.1" as words` give a program compiled to C# the .NET ecosystem. Static
@@ -32,6 +32,17 @@
   name, or a promise is TC508 in words, against the Thunder line that called it. Every other target, and the Thunder
   engine, refuses an npm package (new TC408) instead of guessing. `npm_packages.d.ts` keeps `tsc --strict` passing for
   packages without types. `Use csv from Python as csv` is accepted too.
+- **Faster start.** Every command starts about a quarter faster in CPU time: the Unicode collation data no longer loads
+  at start (sorting is by character order now, the same on every machine, where it used to depend on the machine's
+  locale), and on Node 22.1+ Thunder turns on Node's compile cache, so the compiler is not parsed again on every
+  command. `compiler/scripts/speed.mjs` measures everyday commands.
+- **The engine never runs a program that did not compile.** `runInProcess`, `recordedRun`, and `testInProcess` (used by
+  the site and OpenThunder) now refuse with the program's problems; before, a test could pass on a broken program.
+- **Clearer: a name that is only "a", "an", or "the".** `Receive a and b` now says `"a" can't be a name on its own:
+  Thunder skips "a", "an", and "the" in names`, with a suggestion, instead of `"Receive" is missing a name`.
+- **On thunderlang.dev:** a Thunder playground (write a program; see what it prints, try its functions with your own
+  values, run its tests, step through it; share it by link), and ThunderBench, an open benchmark with every result
+  published (`thunderbench/`).
 
 # 1.6.1
 
