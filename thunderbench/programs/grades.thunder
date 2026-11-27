@@ -1,0 +1,18 @@
+# The average of the scores that count, and the letter it earns.
+
+To grade:
+  Receive scores
+  Set counted to an empty list
+  For each score in scores:
+    When score is at least 0:
+      Add score to counted
+  When counted is empty:
+    Give "no scores"
+  Set average to the average of counted
+  When average is at least 90:
+    Give "A"
+  When average is at least 80:
+    Give "B"
+  When average is at least 70:
+    Give "C"
+  Give "F"

@@ -1,0 +1,9 @@
+# When does a refund go through on its own, and when does a person look at it?
+
+To decide refund:
+  Receive amount, days since purchase and already refunded
+  When already refunded is true:
+    Give "review"
+  When amount is at most 100 and days since purchase is at most 30:
+    Give "approve"
+  Give "review"

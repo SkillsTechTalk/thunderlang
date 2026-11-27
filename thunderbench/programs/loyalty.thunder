@@ -1,0 +1,10 @@
+# How many loyalty points does an order earn?
+
+To count points:
+  Receive dollars spent and member years
+  Set points to dollars spent
+  When member years is at least 5:
+    Set points to points * 2
+  Otherwise when member years is at least 2:
+    Set points to points + 10
+  Give points
