@@ -6,6 +6,9 @@ import { statSync } from 'node:fs';
 import { collectReadableFiles } from './read-repo-fs.mjs';
 import { thunderModel } from './model.mjs';
 import { serviceFacts } from './system.mjs';
+import { tablesIn } from './trace-data.mjs';
+
+const TRACE_MANIFESTS = /^(go\.mod|package\.json|tsconfig\.json|jsconfig\.json|requirements\.txt|.+\.csproj)$/i;
 
 const git = (dir, args) => {
   try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }); } catch { return null; }
@@ -20,7 +23,9 @@ export function readRepoDir(dir, { maxFiles = 5000 } = {}) {
   const top = git(root, ['rev-parse', '--show-toplevel'])?.trim();
   const sha = top ? git(root, ['rev-parse', 'HEAD'])?.trim() || null : null;
   const dirty = top ? !!git(root, ['status', '--porcelain'])?.trim() : false;
-  return { name: basename(root), root, sha, dirty, files: collectReadableFiles(root, { maxFiles }) };
+  // Manifests come too: package.json, go.mod, requirements.txt, and *.csproj say which packages a repository
+  // publishes and depends on (they are not read as code).
+  return { name: basename(root), root, sha, dirty, files: collectReadableFiles(root, { maxFiles, manifests: true, manifestNames: TRACE_MANIFESTS }) };
 }
 
 /** The commit a branch started from: --base if given, else where HEAD left main/master (origin first), else HEAD. */
@@ -52,7 +57,9 @@ export function gitChanges(repo, base) {
     else if (cur && line.startsWith('deleted file mode')) cur.status = 'removed';
     else if (cur && (m = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/))) {
       const start = Number(m[1]), n = m[2] === undefined ? 1 : Number(m[2]);
-      cur.ranges.push(n === 0 ? [Math.max(1, start), Math.max(1, start)] : [start, start + n - 1]);
+      // A pure deletion (+start,0) sits between line `start` and the next one: it touches what spans that gap (a
+      // statement or a function it was inside), not the line before it.
+      cur.ranges.push(n === 0 ? [start + 0.5, start + 0.5] : [start, start + n - 1]);
     }
   }
   for (const f of (git(dir, ['ls-files', '--others', '--exclude-standard', '--', '.']) ?? '').split('\n').filter(Boolean)) {
@@ -67,7 +74,7 @@ export function gitChanges(repo, base) {
     if (c.status !== 'added') {
       const old = git(dir, ['show', `${b}:${c.file}`]);
       if (old != null) {
-        try { const files = [{ path: file, source: old }]; const f = serviceFacts(thunderModel(files), files); before = { routes: f.routes, listeners: f.listeners, publishes: f.publishes }; } catch { before = null; }
+        try { const files = [{ path: file, source: old }]; const f = serviceFacts(thunderModel(files), files); before = { routes: f.routes, listeners: f.listeners, publishes: f.publishes, tables: tablesIn(files) }; } catch { before = null; }
       }
     }
     changes.push({ repo: repo.name, file, ranges: c.ranges, status: c.status, ...(before ? { before } : {}) });

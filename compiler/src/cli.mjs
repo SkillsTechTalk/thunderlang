@@ -504,7 +504,7 @@ Read and understand code
   review <base-ref> [head-ref] [--format markdown|json] [--paths <glob,...>] [--out <file>]
                             review in Thunder: what changed in meaning between two git commits (head: the working tree
                             when omitted), as Markdown for a pull request comment; read from git, no network
-  trace <folder…> [--json] [--out f]   Thunder Trace: routes, requests, and events linked across repositories, cited repo@sha:file:line
+  trace <folder…> [--json] [--out f]   Thunder Trace: routes, events, tables, and packages linked across repositories, cited repo@sha:file:line
   trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
   passport <folder…> [--base ref] [--run "part: cmd"…] [--purpose …]   an evidence record: behavior, links, effects, evidence with its limits, what is not verified
   passport check <passport.json>   which of its claims are still about the code as it is now (current or stale)

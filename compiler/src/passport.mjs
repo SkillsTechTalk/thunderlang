@@ -84,7 +84,11 @@ export function assemblePassport({ parts, change = null, runs = [], purpose = nu
 
   // Dependencies: every file read (with its hash), the links between the parts, packages, and services called.
   const trace = buildTrace(parts.map((p) => ({ name: p.name, sha: p.sha ?? null, dirty: !!p.dirty, files: p.files.filter((f) => !f.manifest) })));
-  const links = trace.links.map((l) => ({ kind: l.kind, says: l.kind === 'http' ? `${l.from.repo} calls ${l.to.repo}: ${l.method} ${l.path} (handled by ${l.to.label ?? l.route})` : `${l.from.repo} publishes ${l.event}, and ${l.to.repo} listens`, from: l.from.cite, to: l.to.cite }));
+  const linkSays = (l) => (l.kind === 'http' ? `${l.from.repo} calls ${l.to.repo}: ${l.method} ${l.path} (handled by ${l.to.label ?? l.route})`
+    : l.kind === 'event' ? `${l.from.repo} publishes ${l.event}, and ${l.to.repo} listens`
+      : l.kind === 'data' ? `${l.from.repo} ${l.access} the ${l.table} table, which ${l.to.repo} creates`
+        : `${l.from.repo} depends on the package ${l.package}, which ${l.to.repo} publishes`);
+  const links = trace.links.map((l) => ({ kind: l.kind, says: linkSays(l), from: l.from.cite, to: l.to.cite }));
   const services = [];
   for (const r of trace.repos) for (const q of r.requests ?? []) if (q.base && q.base !== 'this app') services.push({ part: r.name, calls: `${q.method} ${q.base}${q.path}`, at: `${r.name}:${q.file}:${q.line}` });
 
@@ -105,7 +109,10 @@ export function assemblePassport({ parts, change = null, runs = [], purpose = nu
   for (const l of trace.links) {
     add({
       kind: 'trace-link', status: 'read',
-      claim: l.kind === 'http' ? `${l.from.repo} calls ${l.to.repo} with ${l.method} ${l.path}, and ${l.to.repo} handles it.` : `${l.from.repo} publishes "${l.event}", and ${l.to.repo} listens for it.`,
+      claim: l.kind === 'http' ? `${l.from.repo} calls ${l.to.repo} with ${l.method} ${l.path}, and ${l.to.repo} handles it.`
+        : l.kind === 'event' ? `${l.from.repo} publishes "${l.event}", and ${l.to.repo} listens for it.`
+          : l.kind === 'data' ? `${l.from.repo} ${l.access} the ${l.table} table, and ${l.to.repo} creates it.`
+            : `${l.from.repo} depends on the package ${l.package}, and ${l.to.repo} publishes it.`,
       basis: { from: l.from.cite, to: l.to.cite, rules: `thunder-trace rules v${trace.rulesVersion}` },
       scope: 'Read from code; nothing was run. It does not show that the call succeeds or what it answers.',
       inputs: [inputOf(l.from.repo, l.from.file), inputOf(l.to.repo, l.to.file)],

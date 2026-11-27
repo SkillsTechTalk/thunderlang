@@ -1,3 +1,26 @@
+# Unreleased
+
+- **Thunder Trace reads tables, settings, and packages.** `thunder trace` now links SQL to the repository that
+  creates the table (`CREATE TABLE` in its SQL files), and a dependency to the repository that publishes the package
+  (`package.json` name, `go.mod` module, `.csproj` `PackageId`). It also lists what repositories share: setting keys
+  more than one reads (`process.env.ORDERS_URL`, `os.getenv("ORDERS_URL")`, and the other languages' ways), tables
+  more than one uses, and packages asked for at different versions in different repositories. `thunder trace impact`
+  takes `table:orders`, `setting:ORDERS_URL`, and `package:@acme/client` (or the plain name), and `--diff` reports a
+  changed, dropped (`DROP TABLE`), or no-longer-created table with every place in another repository that still uses
+  it, SQL on another repository's table, a changed setting other repositories read, and a change inside a package
+  other repositories depend on. The same rules as routes: facts only, one hop, test and fixture files left out, every
+  item cited `repo@sha:file:line`. SQL in code counts only in strings shaped like a statement, so a sentence such as
+  "Delete your data from Profile" is never read as SQL. The MCP `intent_trace` tool takes the same names.
+- **Fix: a pure deletion in `--diff`** (lines removed, none added) no longer marks the line before it as changed. It
+  touches only what spans the gap, such as the function or statement it was inside.
+- **Passport** words the new table links ("billing reads the orders table, which orders creates").
+
+**Upgrade note.** No command, flag, or exit code changed. The `thunder-trace-v1` graph gains fields: each repository
+has `packages`, `settings`, and `tables`; links can have `kind: "data"` or `kind: "package"`; and there is a new
+`shared` object. `rulesVersion` is now `"2"`, so fingerprints differ from rules v1 for the same commits. Readers that
+switch on `link.kind` should handle (or skip) the two new kinds. `thunder trace` now reads `package.json`, `go.mod`,
+`requirements.txt`, and `*.csproj` files from each folder.
+
 # 1.4.3
 
 **Upgrade note.** No command, flag, exit code, or JSON shape changed. `readingLayout` can now end with a new
