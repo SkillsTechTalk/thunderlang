@@ -1,4 +1,4 @@
-# Unreleased
+# 1.5.0
 
 - **Thunder Trace reads tables, settings, and packages.** `thunder trace` now links SQL to the repository that
   creates the table (`CREATE TABLE` in its SQL files), and a dependency to the repository that publishes the package
