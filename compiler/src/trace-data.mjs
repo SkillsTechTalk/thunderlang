@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Thunder Trace, the data side: packages, settings, and tables each repository declares or uses. Browser-safe, no
 // Node APIs. trace.mjs links them across repositories; this file only reads them, with the line each one is on.
 //
@@ -126,7 +127,7 @@ export function settingsIn(files) {
       }
     }
   }
-  return out.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.key.localeCompare(b.key));
+  return out.sort((a, b) => byText(a.file, b.file) || a.line - b.line || byText(a.key, b.key));
 }
 
 // ── Tables ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ export function tablesIn(files) {
   // The same table, file, line, and access once (a statement like UPDATE t … FROM t names it twice).
   const seen = new Set();
   return out.filter((t) => { const k = `${t.file}|${t.line}|${t.table}|${t.access}`; if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.table.localeCompare(b.table));
+    .sort((a, b) => byText(a.file, b.file) || a.line - b.line || byText(a.table, b.table));
 }
 
 /** Does this access define the table (rather than use it)? */

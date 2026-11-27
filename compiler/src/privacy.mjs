@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Data purpose + privacy (founder Gap 6). A `data` element declares what a piece of
 // data IS (classification), WHY it is held (purpose), HOW LONG (retention), and on WHAT
 // LAWFUL BASIS. The privacy analysis enforces purpose limitation: sensitive data may not
@@ -56,6 +57,6 @@ export function analyzePrivacy(ast) {
         message: `Sensitive data "${d.path}" is returned as an output with no "never expose" guard.` });
     }
   }
-  out.sort((a, b) => (a.code + a.path).localeCompare(b.code + b.path));
+  out.sort((a, b) => byText((a.code + a.path), b.code + b.path));
   return out;
 }

@@ -11,6 +11,7 @@
 import { thunderModel, readLevel, modelText } from './model.mjs';
 import { comparePlainRules, nameKey } from './same.mjs';
 import { readableLanguage } from './read-repo.mjs';
+import { byText } from './text-order.mjs';
 
 export const REVIEW_SCHEMA = 'thunder-review-v1';
 export const REVIEW_MARKER = '<!-- thunder-review -->';
@@ -649,7 +650,7 @@ export function thunderReview(oldFiles, newFiles) {
   for (const x of items) if (x.also) x.subject = `${x.subject} and ${x.also.length} more`;
 
   items.sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity) || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)
-    || String(a.where.file).localeCompare(String(b.where.file)) || (a.where.line ?? 0) - (b.where.line ?? 0));
+    || byText(String(a.where.file), String(b.where.file)) || (a.where.line ?? 0) - (b.where.line ?? 0));
   const count = (s) => items.filter((x) => x.severity === s).length;
   const summary = { meaning: count('meaning'), risk: count('risk'), form: count('form'), unchanged, files: paths.filter((p) => A.sources.get(p) !== B.sources.get(p)).length };
   const onlyNotRead = !items.length && summary.files && notRead.length === summary.files;

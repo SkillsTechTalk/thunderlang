@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Distributed + failure semantics (Gap 3). IL owns the failure-policy types and the
 // STATIC declaration checks (a retry needs idempotency, at-least-once needs dedup, a
 // permanent-failure handler needs compensation). OpenThunder verifies these hold in the
@@ -44,5 +45,5 @@ export function analyzeDistributed(ast) {
     }
   }
 
-  return findings.sort((a, b) => `${a.code} ${a.target}`.localeCompare(`${b.code} ${b.target}`));
+  return findings.sort((a, b) => byText(`${a.code} ${a.target}`, `${b.code} ${b.target}`));
 }

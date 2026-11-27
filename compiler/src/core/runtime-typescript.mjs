@@ -6,6 +6,7 @@
 // Thunder engine, and compiled TypeScript, and requires the same output from all three.
 import { readFileSync } from 'node:fs';
 import * as VALUES from './engine-values.mjs';
+import { byText } from '../text-order.mjs';
 
 const VALUES_SOURCE = readFileSync(new URL('./engine-values.mjs', import.meta.url), 'utf8');
 // npm packages (Use "<package>" from npm): the boundary between Thunder values and JavaScript values. Its import
@@ -110,7 +111,7 @@ const isClass = (v) => typeof v === 'function' && /^class\b/.test(Function.proto
 /** Declarations for the runtime, made from its exports: every function takes and gives values of any kind. */
 function declarations() {
   const L = ['// thunder_runtime.d.mts: types for thunder_runtime.mjs (written by the Thunder compiler).', '// Thunder values are checked when the program runs; to TypeScript they are of any kind.', ''];
-  for (const [name, v] of Object.entries(VALUES).sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [name, v] of Object.entries(VALUES).sort(([a], [b]) => byText(a, b))) {
     if (isClass(v)) L.push(`export declare class ${name} { constructor(...args: any[]); [key: string]: any; static [key: string]: any; }`);
     else if (typeof v === 'function') L.push(`export declare function ${name}(...args: any[]): any;`);
     else L.push(`export declare const ${name}: any;`);
