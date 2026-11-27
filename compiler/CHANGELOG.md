@@ -1,4 +1,9 @@
-# Unreleased
+# 1.4.1
+
+**Upgrade note.** No command, flag, exit code, or JSON shape changed. New: the drawing kit entry
+`@skillstech/thunderlang/react` (with `react/reading.css`; React >=18 is an optional peer dependency) and
+`readingLayout()` in `./core` (schema `thunder-reading-layout-v1`). One behavior fix: `thunder write <folder…>` now
+lists, instead of changing, a rule with the same condition in a decision whose name shares no word with the chosen one.
 
 - **The Thunder drawing kit, `@skillstech/thunderlang/react` (first part).** One set of components so OpenThunder,
   thunderlang.dev, and the Skills Tech Talk course draw a reading the same way: `ThingCard` ("A Thing", "It knows",
