@@ -9,7 +9,21 @@
 // when there are few, otherwise a fixed sample, so the same code always gets the same inputs.
 
 import { spawnSync } from 'node:child_process';
-import { findPython } from './core/project.mjs';
+
+/**
+ * Python 3.10 or newer: THUNDER_PYTHON, python3, or python. Its own small finder (not core/project.mjs), so the
+ * site's MCP route can use this file without bundling the Core project builder and its runtime files.
+ */
+function findPython() {
+  for (const cmd of [process.env.THUNDER_PYTHON, 'python3', 'python'].filter(Boolean)) {
+    const r = spawnSync(cmd, ['-c', 'import sys; print("%d.%d" % sys.version_info[:2])'], { encoding: 'utf8' });
+    if (r.status !== 0 || !r.stdout) continue;
+    const [maj, min] = r.stdout.trim().split('.').map(Number);
+    if (maj > 3 || (maj === 3 && min >= 10)) return { cmd, version: r.stdout.trim() };
+    return { error: `the behaviour check needs Python 3.10 or newer, but "${cmd}" is Python ${r.stdout.trim()}` };
+  }
+  return { error: 'the behaviour check needs Python 3.10 or newer, and none was found (tried THUNDER_PYTHON, python3, python)' };
+}
 
 export const BEHAVIOUR_SCHEMA = 'thunder-behaviour-v1';
 const MAX_INPUTS = 400;
