@@ -1,4 +1,4 @@
-# Unreleased
+# 1.6.1
 
 - **Fix: Thunder write wrote names the code does not have.** A word that is no name in the function or file
   (`"amount is big"`, `"total is at least 75"` when the input is `amount`) was written as a new name
