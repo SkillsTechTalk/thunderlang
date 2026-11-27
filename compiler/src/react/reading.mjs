@@ -108,6 +108,16 @@ export function IOBoxes({ card, model, member, onLine, onThing, headingLevel = 3
       : h('p', { className: 'tl-part-of' }, h(ThunderSymbol, { id: 'thing', size: 18 }), c.partOf.text)) : null);
 }
 
+/** One action or rule on its own: its symbol, name, and doc; a button when the app can open it. */
+function MemberDoor({ m, onOpen, selected }) {
+  const inner = h(Fragment, null,
+    h(ThunderSymbol, { id: m.symbol, size: 24 }),
+    h('span', { className: 'tl-door-text' }, h('span', { className: 'tl-ability-label' }, m.label), m.doc ? h('span', { className: 'tl-door-doc' }, m.doc) : null),
+    onOpen ? h('span', { className: 'tl-ability-go', 'aria-hidden': true }, '→') : null);
+  const cls = `tl-ability${selected ? ' tl-selected' : ''}`;
+  return onOpen ? h('button', { type: 'button', className: `${cls} tl-ability-button`, onClick: () => onOpen(m.id) }, inner) : h('div', { className: cls }, inner);
+}
+
 /**
  * The Big Picture, zoomed by `focus` (see readingLayout): Things and Data, or, for an action or rule, its IO boxes.
  */
@@ -116,7 +126,9 @@ export function BigPicture({ model, layout, focus = null, onOpen, onLine, onThin
   return h('div', { className: 'tl-reading tl-big-picture' }, l.sections.map((s) => h('section', { key: s.id, className: `tl-bp-section tl-bp-${s.id}`, 'aria-label': s.heading },
     s.id === 'io'
       ? s.cards.map((c) => h(IOBoxes, { key: c.id, card: c, onLine, onThing, headingLevel: headingLevel + 1 }, children))
-      : h('div', { className: s.id === 'things' ? 'tl-bp-things' : 'tl-bp-data' }, s.cards.map((c) => (c.kind === 'thing'
+      : s.id === 'actions'
+        ? h(Fragment, null, h(`h${headingLevel}`, { className: 'tl-section-label tl-bp-heading' }, s.heading), h('ul', { className: 'tl-abilities tl-bp-actions-list' }, s.cards.map((m) => h('li', { key: m.id }, h(MemberDoor, { m, onOpen, selected: m.id === selectedId })))))
+        : h('div', { className: s.id === 'things' ? 'tl-bp-things' : 'tl-bp-data' }, s.cards.map((c) => (c.kind === 'thing'
         ? h(ThingCard, { key: c.id, card: c, onOpen, selected: c.id === selectedId, headingLevel })
         : h(DataCard, { key: c.id, card: c, headingLevel: headingLevel + 1 })))))));
 }

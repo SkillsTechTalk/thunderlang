@@ -25,6 +25,7 @@ export const READING_LABELS = Object.freeze({
   getsNothing: 'Nothing it hands back',
   partOf: (label) => `Part of ${label}`,
   io: 'What goes in and out',
+  actions: 'Actions and rules',
   // Flow: the words on each kind of edge. An edge label not listed here is shown as the compiler wrote it.
   edges: Object.freeze({ yes: 'Yes', no: 'No', each: 'For each', done: 'Done', error: 'If it fails', nested: 'Runs on its own', case: 'When' }),
   openLine: (line) => `line ${line}`,
@@ -149,18 +150,25 @@ export function detailsLayout(view) {
   };
 }
 
-const sectionsFor = (model, things) => {
+/** An action or rule that belongs to no Thing (a plain function): a door to open, with its symbol and doc. */
+const memberEntry = (m) => ({ kind: 'member', id: m.id, label: `${m.label}${m.yesNo ? '?' : ''}`, symbol: memberSymbolId(m), doc: m.doc ?? null });
+
+const sectionsFor = (model, things, loose = []) => {
   const cards = things.filter((t) => t.kind === 'thing').map((t) => thingCard(model, t));
   const data = [...things.filter((t) => t.kind === 'record'), ...things.filter((t) => t.kind === 'choices')].map(dataCard);
+  const actions = loose.map(memberEntry);
   return [
     ...(cards.length ? [{ id: 'things', heading: READING_LABELS.things, cards }] : []),
     ...(data.length ? [{ id: 'data', heading: READING_LABELS.data, cards: data }] : []),
+    ...(actions.length ? [{ id: 'actions', heading: READING_LABELS.actions, cards: actions }] : []),
   ];
 };
+const ownerless = (model, file) => model.members.filter((m) => !m.owner && (file == null || m.file === file));
 
 /**
  * The Big Picture, which zooms with what is in focus (the tabs stay Big Picture / Flow / Details / Text / Original):
- *   no focus:            every Thing, then every record, then every set of choices
+ *   no focus:            every Thing, then every record, then every set of choices, then the actions and rules that
+ *                        belong to no Thing (plain functions), each a door to open
  *   a file's path:       the same, for that file
  *   a Thing's id:        its card, then the Data in its file
  *   an action or rule:   its "You give it / You get back / It can stop with" boxes, with "Part of <Thing>"
@@ -169,7 +177,7 @@ const sectionsFor = (model, things) => {
  */
 export function readingLayout(model, { focus = null } = {}) {
   const base = { schema: READING_LAYOUT_SCHEMA };
-  if (focus == null) return { ...base, focus: { kind: 'app', id: null }, sections: sectionsFor(model, model.things) };
+  if (focus == null) return { ...base, focus: { kind: 'app', id: null }, sections: sectionsFor(model, model.things, ownerless(model)) };
   const member = model.members.find((m) => m.id === focus);
   if (member) return { ...base, focus: { kind: 'member', id: focus }, sections: [{ id: 'io', heading: READING_LABELS.io, cards: [ioBoxes(model, member)] }] };
   const thing = model.things.find((t) => t.id === focus);
@@ -177,6 +185,6 @@ export function readingLayout(model, { focus = null } = {}) {
     const rest = model.things.filter((t) => t !== thing && t.file === thing.file && t.kind !== 'thing');
     return { ...base, focus: { kind: 'thing', id: focus }, sections: sectionsFor(model, [thing, ...rest]) };
   }
-  if (model.files.some((f) => f.path === focus)) return { ...base, focus: { kind: 'file', id: focus }, sections: sectionsFor(model, model.things.filter((t) => t.file === focus)) };
+  if (model.files.some((f) => f.path === focus)) return { ...base, focus: { kind: 'file', id: focus }, sections: sectionsFor(model, model.things.filter((t) => t.file === focus), ownerless(model, focus)) };
   return { ...base, focus: { kind: 'unknown', id: focus }, sections: [] };
 }

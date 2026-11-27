@@ -4,7 +4,7 @@ export const READING_LAYOUT_SCHEMA: 'thunder-reading-layout-v1';
 export const READING_LABELS: Readonly<{
   thing: string; knows: string; can: string; starts: (label: string) => string; startsWithKnows: (label: string) => string;
   record: string; choices: string; recordSymbol: string; choicesSymbol: string; things: string; data: string;
-  give: string; getBack: string; stops: string; givesNothing: string; getsNothing: string; partOf: (label: string) => string; io: string;
+  give: string; getBack: string; stops: string; givesNothing: string; getsNothing: string; partOf: (label: string) => string; io: string; actions: string;
   edges: Readonly<Record<'yes' | 'no' | 'each' | 'done' | 'error' | 'nested' | 'case', string>>;
   openLine: (line: number) => string; openRule: string;
   details: Readonly<{
@@ -35,10 +35,12 @@ export interface IOBoxesLayout {
   /** The Thing it belongs to, to link back to its card. */
   partOf: { id: string; text: string } | null;
 }
+/** An action or rule that belongs to no Thing (a plain function), listed in the Big Picture as a door to open. */
+export interface MemberEntryLayout { kind: 'member'; id: string; label: string; symbol: ThunderSymbolId; doc: string | null }
 export interface ReadingLayout {
   schema: 'thunder-reading-layout-v1';
   focus: { kind: 'app' | 'file' | 'thing' | 'member' | 'unknown'; id: string | null };
-  sections: Array<{ id: 'things'; heading: string; cards: ThingCardLayout[] } | { id: 'data'; heading: string; cards: DataCardLayout[] } | { id: 'io'; heading: string; cards: IOBoxesLayout[] }>;
+  sections: Array<{ id: 'things'; heading: string; cards: ThingCardLayout[] } | { id: 'data'; heading: string; cards: DataCardLayout[] } | { id: 'io'; heading: string; cards: IOBoxesLayout[] } | { id: 'actions'; heading: string; cards: MemberEntryLayout[] }>;
 }
 export interface When { question: string; answer: string }
 export interface DetailsLayout {
