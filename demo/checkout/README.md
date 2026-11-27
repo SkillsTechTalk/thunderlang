@@ -153,7 +153,7 @@ that orders then charges for.
 (nothing is saved):
 
 ```text
-== The plan: thunder write web orders billing --decision shippingNote --rule 1 --when "subtotal >= 40"
+== The plan: thunder write web orders billing --decision shippingNote --rule 1 --when "subtotal >= 40" --behaviour
 One rule, 3 implementations: subtotal is at least 50  →  subtotal is at least 40
 
 billing/receipt.py  (python, shipping_fee, rule 1)
@@ -174,8 +174,21 @@ web/shipping.ts  (typescript, shippingNote, rule 1)
 
 Checked by reading each file again: the rule reads as intended, and every other rule and function in each file reads exactly as before.
 
+What the change does, run before and after on inputs made from the code (tested on these inputs only; not a proof):
+  billing/receipt.py  3 of 17 inputs give a different answer
+    subtotal 49: before 5.99, after 0
+    subtotal 40: before 5.99, after 0
+    subtotal 41: before 5.99, after 0
+  orders/Shipping.cs  not run (the behaviour check runs Python functions only for now)
+  web/shipping.ts  not run (the behaviour check runs Python functions only for now)
+
 Plan only; nothing was saved. Add --write to change every implementation (all or none).
 ```
+
+The "What the change does" part is the change in behaviour, not in text: carts from $40 to just under $50 stop
+paying $5.99, and nothing else changes. Thunder ran billing's real `shipping_fee` before and after, on inputs made from
+its own numbers (`--behaviour`). That check runs Python today; for C# and TypeScript, the services' own tests below
+are the check.
 
 Then the same command with `--write`, each part's tests, and a passport
 ([shipping-change-passport.json](shipping-change-passport.json), [shipping-change-passport.md](shipping-change-passport.md)):
