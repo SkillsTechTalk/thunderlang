@@ -1,7 +1,13 @@
 # Language support matrix
 
 ThunderLang meets other languages on three distinct axes, and each axis has its own
-surface area. This page is the single reference for which language is supported where.
+surface area. This page covers **missions** (rules, decisions, and their examples).
+
+> **Not the same counts as the README.** Reading existing code *in Thunder* (17 languages), changing it from Thunder
+> (the compiler writes and proves the patch in TypeScript, JavaScript, Python, and Go), and compiling **Thunder Core**
+> programs (Python, TypeScript, C#, Java, Go, Rust) are separate features. Their status lives in the README's
+> "What works today" table, whose status labels CI checks against the capability manifest the site reads. `thunder lift`
+> below turns code into a draft *mission* and covers fourteen languages.
 
 - **Lift (code to intent).** `thunder lift` reads existing source code and infers a
   draft mission from it, the entry point for [adopting ThunderLang on an existing

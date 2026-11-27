@@ -9,6 +9,14 @@
 - **The read ↔ write round trip runs on made inputs too.** `docs/core-read-write.md` now also compares the original
   Python with Core compiled back to Python on inputs made from each function's code: 11 of 11 functions, 134 of 134
   inputs give the same results (alongside the 53 hand-picked inputs).
+- **npm packages from Thunder Core.** `Use "date-fns" from npm as dates` gives a program compiled to TypeScript the npm
+  ecosystem, the way `Use csv as csv` gives Python programs Python's. Values cross the boundary in plain rules (lists
+  become arrays, records become objects, dates become a local-midnight `Date`), and numbers come back as the exact
+  decimal they are written as, so `0.07 + 0.01` is still exactly `0.08`. Scoped packages, paths inside a package,
+  `node:` built-ins, and one-function CommonJS packages (`.default`) work. A failure inside the package, a missing
+  name, or a promise is TC508 in words, against the Thunder line that called it. Every other target, and the Thunder
+  engine, refuses an npm package (new TC408) instead of guessing. `npm_packages.d.ts` keeps `tsc --strict` passing for
+  packages without types. `Use csv from Python as csv` is accepted too.
 
 # 1.6.1
 

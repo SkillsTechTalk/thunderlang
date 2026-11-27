@@ -46,3 +46,11 @@ test('the block-keyword list covers the parser keywords (no obvious gap)', () =>
     assert.ok(new RegExp(`\\b${kw}\\b`).test(re), `grammar missing keyword ${kw}`);
   }
 });
+
+test('the Thunder grammar in the npm package is the one the VS Code extension uses', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const shipped = readFileSync(join(here, '..', 'syntaxes', 'thunder.tmLanguage.json'), 'utf8');
+  const extension = readFileSync(join(here, '..', '..', 'editors', 'vscode', 'syntaxes', 'thunder.tmLanguage.json'), 'utf8');
+  assert.equal(shipped, extension, 'copy editors/vscode/syntaxes/thunder.tmLanguage.json to compiler/syntaxes/');
+  assert.equal(JSON.parse(shipped).scopeName, 'source.thunder');
+});
