@@ -1,0 +1,12 @@
+# What does shipping cost?
+
+To calculate shipping:
+  Receive weight and express
+  Set cost to 5
+  When weight is more than 10:
+    Set cost to 15
+  Otherwise when weight is more than 5:
+    Set cost to 10
+  When express is true:
+    Set cost to cost * 2
+  Give cost

@@ -1,0 +1,591 @@
+{
+  "date": "2026-11-27",
+  "node": "18.18.2",
+  "python": "3.14",
+  "compiler": "1.6.1",
+  "pairs": {
+    "ran": true,
+    "programs": [
+      {
+        "id": "refund",
+        "questions": [
+          {
+            "kind": "predict",
+            "ask": "A $100 refund, 12 days after purchase, never refunded before. What happens?",
+            "thunder": "100, 12 and false",
+            "python": "100, 12, False",
+            "ok": true,
+            "answer": "approve",
+            "thunderSaid": "approve",
+            "pythonSaid": "'approve'"
+          },
+          {
+            "kind": "predict",
+            "ask": "A $100.01 refund, 12 days after purchase, never refunded before. What happens?",
+            "thunder": "100.01, 12 and false",
+            "python": "100.01, 12, False",
+            "ok": true,
+            "answer": "review",
+            "thunderSaid": "review",
+            "pythonSaid": "'review'"
+          },
+          {
+            "kind": "predict",
+            "ask": "A $20 refund, 31 days after purchase, never refunded before. What happens?",
+            "thunder": "20, 31 and false",
+            "python": "20, 31, False",
+            "ok": true,
+            "answer": "review",
+            "thunderSaid": "review",
+            "pythonSaid": "'review'"
+          },
+          {
+            "kind": "predict",
+            "ask": "A $5 refund, 1 day after purchase, but the order was already refunded. What happens?",
+            "thunder": "5, 1 and true",
+            "python": "5, 1, True",
+            "ok": true,
+            "answer": "review",
+            "thunderSaid": "review",
+            "pythonSaid": "'review'"
+          },
+          {
+            "kind": "change",
+            "ask": "The company now approves refunds up to $150 on their own. Which line changes?",
+            "find": "100",
+            "ok": true,
+            "answer": {
+              "thunder": {
+                "line": 7,
+                "text": "When amount is at most 100 and days since purchase is at most 30:"
+              },
+              "python": {
+                "line": 6,
+                "text": "if amount <= 100 and days_since_purchase <= 30:"
+              }
+            }
+          }
+        ],
+        "size": {
+          "thunder": {
+            "lines": 7,
+            "characters": 214,
+            "tokens": 40
+          },
+          "python": {
+            "lines": 6,
+            "characters": 183,
+            "tokens": 30
+          }
+        }
+      },
+      {
+        "id": "shipping",
+        "questions": [
+          {
+            "kind": "predict",
+            "ask": "A 4 kg parcel, standard delivery. What does shipping cost?",
+            "thunder": "4 and false",
+            "python": "4, False",
+            "ok": true,
+            "answer": "5",
+            "thunderSaid": "5",
+            "pythonSaid": "5"
+          },
+          {
+            "kind": "predict",
+            "ask": "A 10 kg parcel, express delivery. What does shipping cost?",
+            "thunder": "10 and true",
+            "python": "10, True",
+            "ok": true,
+            "answer": "20",
+            "thunderSaid": "20",
+            "pythonSaid": "20"
+          },
+          {
+            "kind": "predict",
+            "ask": "An 11 kg parcel, express delivery. What does shipping cost?",
+            "thunder": "11 and true",
+            "python": "11, True",
+            "ok": true,
+            "answer": "30",
+            "thunderSaid": "30",
+            "pythonSaid": "30"
+          },
+          {
+            "kind": "change",
+            "ask": "Express delivery should cost three times as much, not twice. Which line changes?",
+            "find": "* 2",
+            "ok": true,
+            "answer": {
+              "thunder": {
+                "line": 11,
+                "text": "Set cost to cost * 2"
+              },
+              "python": {
+                "line": 10,
+                "text": "cost = cost * 2"
+              }
+            }
+          }
+        ],
+        "size": {
+          "thunder": {
+            "lines": 10,
+            "characters": 213,
+            "tokens": 48
+          },
+          "python": {
+            "lines": 9,
+            "characters": 142,
+            "tokens": 37
+          }
+        }
+      },
+      {
+        "id": "loyalty",
+        "questions": [
+          {
+            "kind": "predict",
+            "ask": "A customer of 1 year spends $40. How many points?",
+            "thunder": "40 and 1",
+            "python": "40, 1",
+            "ok": true,
+            "answer": "40",
+            "thunderSaid": "40",
+            "pythonSaid": "40"
+          },
+          {
+            "kind": "predict",
+            "ask": "A customer of 2 years spends $40. How many points?",
+            "thunder": "40 and 2",
+            "python": "40, 2",
+            "ok": true,
+            "answer": "50",
+            "thunderSaid": "50",
+            "pythonSaid": "50"
+          },
+          {
+            "kind": "predict",
+            "ask": "A customer of 5 years spends $40. How many points?",
+            "thunder": "40 and 5",
+            "python": "40, 5",
+            "ok": true,
+            "answer": "80",
+            "thunderSaid": "80",
+            "pythonSaid": "80"
+          },
+          {
+            "kind": "change",
+            "ask": "Long-time members should start at 3 years, not 5. Which line changes?",
+            "find": "5",
+            "ok": true,
+            "answer": {
+              "thunder": {
+                "line": 6,
+                "text": "When member years is at least 5:"
+              },
+              "python": {
+                "line": 5,
+                "text": "if member_years >= 5:"
+              }
+            }
+          }
+        ],
+        "size": {
+          "thunder": {
+            "lines": 8,
+            "characters": 222,
+            "tokens": 46
+          },
+          "python": {
+            "lines": 7,
+            "characters": 170,
+            "tokens": 35
+          }
+        }
+      },
+      {
+        "id": "password",
+        "questions": [
+          {
+            "kind": "predict",
+            "ask": "What does it say about \"sunshine12\"?",
+            "thunder": "\"sunshine12\"",
+            "python": "\"sunshine12\"",
+            "ok": true,
+            "answer": "add a capital letter",
+            "thunderSaid": "add a capital letter",
+            "pythonSaid": "'add a capital letter'"
+          },
+          {
+            "kind": "predict",
+            "ask": "What does it say about \"Sun shine\"?",
+            "thunder": "\"Sun shine\"",
+            "python": "\"Sun shine\"",
+            "ok": true,
+            "answer": "no spaces allowed",
+            "thunderSaid": "no spaces allowed",
+            "pythonSaid": "'no spaces allowed'"
+          },
+          {
+            "kind": "predict",
+            "ask": "What does it say about \"Short1\"?",
+            "thunder": "\"Short1\"",
+            "python": "\"Short1\"",
+            "ok": true,
+            "answer": "too short",
+            "thunderSaid": "too short",
+            "pythonSaid": "'too short'"
+          },
+          {
+            "kind": "predict",
+            "ask": "What does it say about \"Sunshine1\"?",
+            "thunder": "\"Sunshine1\"",
+            "python": "\"Sunshine1\"",
+            "ok": true,
+            "answer": "strong",
+            "thunderSaid": "strong",
+            "pythonSaid": "'strong'"
+          },
+          {
+            "kind": "change",
+            "ask": "Passwords must now be at least 12 characters. Which line changes?",
+            "find": "8",
+            "ok": true,
+            "answer": {
+              "thunder": {
+                "line": 5,
+                "text": "When the length of password is less than 8:"
+              },
+              "python": {
+                "line": 4,
+                "text": "if len(password) < 8:"
+              }
+            }
+          }
+        ],
+        "size": {
+          "thunder": {
+            "lines": 9,
+            "characters": 235,
+            "tokens": 37
+          },
+          "python": {
+            "lines": 8,
+            "characters": 196,
+            "tokens": 37
+          }
+        }
+      },
+      {
+        "id": "grades",
+        "questions": [
+          {
+            "kind": "predict",
+            "ask": "Scores 95, 85, and -1 (a missed test). What grade?",
+            "thunder": "[95, 85, -1]",
+            "python": "[95, 85, -1]",
+            "ok": true,
+            "answer": "A",
+            "thunderSaid": "A",
+            "pythonSaid": "'A'"
+          },
+          {
+            "kind": "predict",
+            "ask": "Scores 79 and 80. What grade?",
+            "thunder": "[79, 80]",
+            "python": "[79, 80]",
+            "ok": true,
+            "answer": "C",
+            "thunderSaid": "C",
+            "pythonSaid": "'C'"
+          },
+          {
+            "kind": "predict",
+            "ask": "Only a missed test (-1). What grade?",
+            "thunder": "[-1]",
+            "python": "[-1]",
+            "ok": true,
+            "answer": "no scores",
+            "thunderSaid": "no scores",
+            "pythonSaid": "'no scores'"
+          },
+          {
+            "kind": "change",
+            "ask": "A \"B\" should need 85, not 80. Which line changes?",
+            "find": "80",
+            "ok": true,
+            "answer": {
+              "thunder": {
+                "line": 14,
+                "text": "When average is at least 80:"
+              },
+              "python": {
+                "line": 10,
+                "text": "if average >= 80:"
+              }
+            }
+          }
+        ],
+        "size": {
+          "thunder": {
+            "lines": 16,
+            "characters": 327,
+            "tokens": 71
+          },
+          "python": {
+            "lines": 12,
+            "characters": 229,
+            "tokens": 63
+          }
+        }
+      },
+      {
+        "id": "invoice",
+        "questions": [
+          {
+            "kind": "predict",
+            "ask": "Items of $120.50 and $99.50, tax 7%. What does the customer pay?",
+            "thunder": "[120.50, 99.50] and 0.07",
+            "python": "[Decimal(\"120.50\"), Decimal(\"99.50\")], Decimal(\"0.07\")",
+            "ok": true,
+            "answer": "211.86",
+            "thunderSaid": "211.86",
+            "pythonSaid": "Decimal('211.8600')"
+          },
+          {
+            "kind": "predict",
+            "ask": "One item of $19.99, tax 7%. What does the customer pay?",
+            "thunder": "[19.99] and 0.07",
+            "python": "[Decimal(\"19.99\")], Decimal(\"0.07\")",
+            "ok": true,
+            "answer": "21.39",
+            "thunderSaid": "21.39",
+            "pythonSaid": "Decimal('21.39')"
+          },
+          {
+            "kind": "predict",
+            "ask": "Items of $100 and $99.99, tax 10%. What does the customer pay?",
+            "thunder": "[100, 99.99] and 0.10",
+            "python": "[Decimal(\"100\"), Decimal(\"99.99\")], Decimal(\"0.10\")",
+            "ok": true,
+            "answer": "219.99",
+            "thunderSaid": "219.99",
+            "pythonSaid": "Decimal('219.99')"
+          },
+          {
+            "kind": "change",
+            "ask": "The big-order discount should start at $250. Which line changes?",
+            "find": "200",
+            "ok": true,
+            "answer": {
+              "thunder": {
+                "line": 6,
+                "text": "When subtotal is at least 200:"
+              },
+              "python": {
+                "line": 6,
+                "text": "if subtotal >= 200:"
+              }
+            }
+          }
+        ],
+        "size": {
+          "thunder": {
+            "lines": 7,
+            "characters": 224,
+            "tokens": 49
+          },
+          "python": {
+            "lines": 7,
+            "characters": 285,
+            "tokens": 64
+          }
+        }
+      }
+    ]
+  },
+  "honesty": {
+    "ran": true,
+    "cases": [
+      {
+        "name": "banker",
+        "why": "Python round() rounds halves to even; Thunder rounds half up",
+        "marked": true,
+        "core": "To banker:\n  Receive x\n  # Not translated (line 2): Python round() rounds halves to even; Thunder rounds half up\n  Stop with \"Line 2 of the Python was not translated: return round(x)\""
+      },
+      {
+        "name": "floor_div",
+        "why": "floor division",
+        "marked": true,
+        "core": "To floor div:\n  Receive a_ and b\n  # Not translated (line 2): Python // rounds down to a whole number, which Core cannot say yet\n  Stop with \"Line 2 of the Python was not translated: return a // b\""
+      },
+      {
+        "name": "safe",
+        "why": "an error handler that names its error kinds",
+        "marked": true,
+        "core": "To safe:\n  Receive a_ and b\n  # Not translated (line 2): Core has no step for a Python try (an error handler that names its error kinds) yet\n  Stop with \"Line 2 of the Python was not translated: try:\""
+      },
+      {
+        "name": "first_word",
+        "why": "split with a maximum number of parts",
+        "marked": true,
+        "core": "To first word:\n  Receive s\n  # Not translated (line 2): split() with a maximum number of parts has no Core form yet\n  Stop with \"Line 2 of the Python was not translated: return s.split(\\\" \\\", 1)[0]\""
+      },
+      {
+        "name": "longest",
+        "why": "max with a key function",
+        "marked": true,
+        "core": "To longest:\n  Receive words\n  # Not translated (line 2): max() with key= or default= has no Core form yet\n  Stop with \"Line 2 of the Python was not translated: return max(words, key=len)\""
+      },
+      {
+        "name": "starts",
+        "why": "startswith with a tuple of choices",
+        "marked": true,
+        "core": "To starts_:\n  Receive s\n  # Not translated (line 2): startswith() with a tuple of choices has no Core form yet\n  Stop with \"Line 2 of the Python was not translated: return s.startswith((\\\"a\\\", \\\"b\\\"))\""
+      },
+      {
+        "name": "replace_once",
+        "why": "replace with a count",
+        "marked": true,
+        "core": "To replace once:\n  Receive s\n  # Not translated (line 2): replace() with a count has no Core form yet\n  Stop with \"Line 2 of the Python was not translated: return s.replace(\\\"a\\\", \\\"b\\\", 1)\""
+      }
+    ]
+  },
+  "roundTrip": {
+    "ran": true,
+    "total": 20,
+    "exact": 19,
+    "picked": {
+      "functions": 19,
+      "same": 19,
+      "inputs": 53,
+      "inputsSame": 53
+    },
+    "made": null
+  },
+  "targets": {
+    "ran": true,
+    "engines": [
+      "Thunder engine",
+      "Python",
+      "TypeScript"
+    ],
+    "results": [
+      {
+        "file": "discount.thunder",
+        "same": true,
+        "outs": [
+          {
+            "name": "Thunder engine",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "Python",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "TypeScript",
+            "ok": true,
+            "err": null
+          }
+        ]
+      },
+      {
+        "file": "hello.thunder",
+        "same": true,
+        "outs": [
+          {
+            "name": "Thunder engine",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "Python",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "TypeScript",
+            "ok": true,
+            "err": null
+          }
+        ]
+      },
+      {
+        "file": "savings.thunder",
+        "same": true,
+        "outs": [
+          {
+            "name": "Thunder engine",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "Python",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "TypeScript",
+            "ok": true,
+            "err": null
+          }
+        ]
+      },
+      {
+        "file": "trading-journal.thunder",
+        "same": true,
+        "outs": [
+          {
+            "name": "Thunder engine",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "Python",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "TypeScript",
+            "ok": true,
+            "err": null
+          }
+        ]
+      },
+      {
+        "file": "word-count.thunder",
+        "same": true,
+        "outs": [
+          {
+            "name": "Thunder engine",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "Python",
+            "ok": true,
+            "err": null
+          },
+          {
+            "name": "TypeScript",
+            "ok": true,
+            "err": null
+          }
+        ]
+      }
+    ]
+  },
+  "write": {
+    "ran": false,
+    "reason": "needs --corpus <dir> (it clones a pinned public repository there)"
+  },
+  "speed": {
+    "ran": false,
+    "reason": "compiler/scripts/speed.mjs is not in this checkout"
+  }
+}

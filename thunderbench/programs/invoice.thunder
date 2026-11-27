@@ -1,0 +1,9 @@
+# What a customer pays: the items, a discount for big orders, then tax.
+
+To total invoice:
+  Receive prices and tax rate
+  Set subtotal to the sum of prices
+  When subtotal is at least 200:
+    Set subtotal to subtotal - 10% of subtotal
+  Set tax to round (subtotal * tax rate) to 2 places
+  Give subtotal + tax

@@ -1,0 +1,8 @@
+# The ThunderBench programs (Thunder Core). Each .thunder file here is its own program, with a Python twin next to it.
+[project]
+name = "thunderbench-programs"
+version = "0.1.0"
+
+[build]
+target = "python"
+source = "."
