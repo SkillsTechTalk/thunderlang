@@ -51,6 +51,25 @@ const lit = (type, value, raw) => ({ kind: 'literal', type, value, raw });
 const NULL_RAW = { python: 'None', go: 'nil', typescript: 'null', javascript: 'null' };
 
 class Unsaid extends Error {}
+class Unknown extends Error { constructor(word) { super(word); this.word = word; } }
+
+/** The function's inputs, from its signature (the first parentheses in `scope`). */
+export function inputsOf(scope) {
+  const code = codeOnly(scope || ''), open = code.indexOf('(');
+  if (open < 0) return [];
+  let depth = 0, end = open;
+  for (; end < code.length; end++) { if (code[end] === '(') depth++; else if (code[end] === ')' && --depth === 0) break; }
+  const out = [];
+  for (const part of code.slice(open + 1, end).split(',')) {
+    const id = part.replace(/^\s*[*&.]*\s*/, '').match(/^[A-Za-z_]\w*/)?.[0];
+    if (id && !KEYWORDS.has(id) && id !== 'self' && id !== 'cls' && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+const unknownWord = (word, scope) => {
+  const inputs = inputsOf(scope);
+  return `"${word}" is not a name in this function or file${inputs.length ? `; its inputs are ${inputs.map((i) => `"${nameWords(i) || i}"`).join(', ')}` : ''}. Use one of its names, or add an input first (addInput).`;
+};
 const no = (why) => { throw new Unsaid(why); };
 
 /** A Core expression (core/parser.mjs) as a meaning tree for `language`. */
@@ -69,8 +88,10 @@ function toTree(n, language, names) {
     case 'bool': return lit('bool', n.v, py ? (n.v ? 'True' : 'False') : String(n.v));
     case 'nothing': return lit('null', null, NULL_RAW[language]);
     case 'name': {
-      const id = names.get(n.name) ?? (/^[A-Za-z_]\w*$/.test(n.name) ? n.name : null);
-      if (!id) no(`"${n.name}" (no name in the file is said that way)`);
+      // Only a name the code already has: a word that is no name in the function or the file is refused, never
+      // written as a new name the code would fail on.
+      const id = names.get(n.name);
+      if (!id) throw new Unknown(n.name);
       return nm(id);
     }
     case 'field': case 'dot': {
@@ -152,6 +173,7 @@ export function thunderTree(text, language, source, scope = '') {
   try { parsed = parseThunder(text, source, scope); } catch (e) { return { error: String(e.message).replace(/^Line 1: /, '').split('\n')[0] }; }
   try { return { tree: toTree(parsed.node, language, parsed.names) }; } catch (e) {
     if (e instanceof Unsaid) return { error: `Thunder write cannot say ${e.message} in ${language} yet.` };
+    if (e instanceof Unknown) return { error: unknownWord(e.word, scope), unknown: e.word };
     throw e;
   }
 }
@@ -180,3 +202,38 @@ export function thunderStep(text, language, source, scope = '') {
   }
   return null;
 }
+
+// Names every program in the language has without writing them: built-in functions, types, and globals.
+const BUILTINS = {
+  python: 'abs all any ascii bin bool bytearray bytes callable chr dict dir divmod enumerate filter float format frozenset getattr globals hasattr hash hex id int isinstance issubclass iter len list locals map max min next object oct open ord pow print range repr reversed round set setattr slice sorted str sum super tuple type vars zip Exception ValueError TypeError KeyError IndexError RuntimeError AttributeError NotImplementedError StopIteration LookupError ArithmeticError ZeroDivisionError OSError NotImplemented Ellipsis __name__ __file__',
+  typescript: 'Math JSON Object Array String Number Boolean Date Error TypeError RangeError Promise Map Set WeakMap Symbol BigInt RegExp console parseInt parseFloat isNaN isFinite undefined NaN Infinity globalThis window document process require module exports',
+  go: 'len cap append make new copy delete panic recover print println close complex real imag min max clear error string int int8 int16 int32 int64 uint uint8 uint16 uint32 uint64 float32 float64 bool byte rune any iota fmt errors strings strconv',
+};
+BUILTINS.javascript = BUILTINS.typescript;
+
+/**
+ * The first name in `tree` that the code does not have (not in the file, not built in), or null. Names the step
+ * itself introduces are allowed: assignment and declaration targets, loop variables, and a function's own inputs.
+ */
+export function unknownName(tree, language, source, scope = '') {
+  const known = new Set(BUILTINS[language]?.split(' ') ?? []);
+  // The function's own code counts as code even where the file is read as text around it (a docstring example).
+  for (const text of [codeOnly(source), codeOnly(scope)]) for (const m of text.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\b/g)) known.add(m[0]);
+  for (const k of KEYWORDS) known.add(k);
+  const bound = new Set();
+  const all = [];
+  const walk = (n) => {
+    if (Array.isArray(n)) { n.forEach(walk); return; }
+    if (!n || typeof n !== 'object') return;
+    if (n.kind === 'lambda' || n.kind === 'code') { bound.add('*'); return; }
+    if (n.kind === 'name') all.push(n.name);
+    if ((n.kind === 'assign' || n.kind === 'declare') && n.target?.kind === 'name') bound.add(n.target.name);
+    if (n.kind === 'declare' && typeof n.name === 'string') bound.add(n.name);
+    if (n.kind === 'loop') for (const v of [n.variable, n.var, n.name, n.target]) { if (typeof v === 'string') bound.add(v); else if (v?.kind === 'name') bound.add(v.name); }
+    for (const [k, v] of Object.entries(n)) if (k !== 'raw' && v && typeof v === 'object') walk(v);
+  };
+  walk(tree);
+  if (bound.has('*')) return null;
+  return all.find((id) => !known.has(id) && !bound.has(id)) ?? null;
+}
+export const unknownNameReason = (word, scope) => unknownWord(word, scope);
