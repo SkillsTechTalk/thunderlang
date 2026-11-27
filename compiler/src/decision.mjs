@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Decisions, rules, process semantics (Gap 4). IL owns rule semantics + DETERMINISTIC
 // conflict/coverage detection on the DECLARED decision. OpenThunder verifies the
 // decision's IMPLEMENTATION (rule coverage, decision impl verification, explanation
@@ -34,5 +35,5 @@ export function analyzeDecision(dec) {
       }
     }
   }
-  return findings.sort((a, b) => `${a.code} ${a.message}`.localeCompare(`${b.code} ${b.message}`));
+  return findings.sort((a, b) => byText(`${a.code} ${a.message}`, `${b.code} ${b.message}`));
 }

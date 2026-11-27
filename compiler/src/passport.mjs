@@ -10,6 +10,7 @@ import { sha256 } from './hash.mjs';
 import { thunderModel, modelText } from './model.mjs';
 import { buildTrace, isTestFile } from './trace.mjs';
 import { thunderReview } from './review.mjs';
+import { byText } from './text-order.mjs';
 
 export const PASSPORT_SCHEMA = 'thunder-passport-v1';
 
@@ -77,7 +78,7 @@ export function assemblePassport({ parts, change = null, runs = [], purpose = nu
       notRead.push({ part: p.name, file: u.file, line: u.line, what: owner ? `${owner.label}: ${u.why}` : u.why });
     }
   }
-  const order = (a, b) => `${a.part}/${a.file}`.localeCompare(`${b.part}/${b.file}`) || ((a.lines?.[0] ?? a.line ?? 0) - (b.lines?.[0] ?? b.line ?? 0));
+  const order = (a, b) => byText(`${a.part}/${a.file}`, `${b.part}/${b.file}`) || ((a.lines?.[0] ?? a.line ?? 0) - (b.lines?.[0] ?? b.line ?? 0));
   behavior.sort(order); effects.sort(order); notRead.sort(order);
   { const seen = new Set(); notRead.splice(0, notRead.length, ...notRead.filter((x) => { const k = `${x.part}/${x.file}:${x.line}`; if (seen.has(k)) return false; seen.add(k); return true; })); }
   const shownBehavior = behavior.slice(0, MAX_BEHAVIOR);

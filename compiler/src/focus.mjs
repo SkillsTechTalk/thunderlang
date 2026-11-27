@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Intent Lens , Intent Scope + Focus Graph (intent-focus-v1). A Focus Graph is a versioned
 // subgraph of the Intent Atlas around a selected scope (a mission, a set of nodes, a change),
 // with each included node tagged by WHY it is in focus. This is the shared foundation the
@@ -101,7 +102,7 @@ export function buildFocusGraph(atlas, { seeds = [], depth = 2, scope = null } =
 
   const focusNodes = [...included.values()]
     .map(({ node, reason, depth: dd }) => ({ id: node.id, type: node.type, title: node.title || node.id, focusReason: reason, depth: dd, confidence: node.confidence || null, provenance: node.provenance || null }))
-    .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
+    .sort((a, b) => a.depth - b.depth || byText(a.id, b.id));
   const idSet = new Set(focusNodes.map((n) => n.id));
   const focusRels = rels.filter((r) => idSet.has(r.from) && idSet.has(r.to));
 

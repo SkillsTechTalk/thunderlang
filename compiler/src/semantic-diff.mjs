@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Semantic diff over the Intent Graph (founder directive #4, IL owns diff/merge). Diff
 // two versions of a graph/atlas BY MEANING: nodes added/removed/changed, relationships
 // added/removed, and , the load-bearing feature , which approvals a change invalidates.
@@ -30,9 +31,9 @@ export function diffGraphs(before, after) {
     const bn = bNodes.get(id);
     if (bn && contentKey(bn) !== contentKey(an)) changedNodes.push({ id, type: an.type, before: bn, after: an });
   }
-  addedNodes.sort((a, b) => a.id.localeCompare(b.id));
-  removedNodes.sort((a, b) => a.id.localeCompare(b.id));
-  changedNodes.sort((a, b) => a.id.localeCompare(b.id));
+  addedNodes.sort((a, b) => byText(a.id, b.id));
+  removedNodes.sort((a, b) => byText(a.id, b.id));
+  changedNodes.sort((a, b) => byText(a.id, b.id));
 
   const bRel = new Set((before.relationships || []).map(relKey));
   const aRel = new Set((after.relationships || []).map(relKey));
@@ -113,12 +114,12 @@ export function mergeGraphs(base, ours, theirs) {
     const present = inO !== inB ? inO : inT; // ours changed presence -> ours; else theirs
     if (present) mergedRels.push(r);
   }
-  mergedRels.sort((a, b2) => relKey(a).localeCompare(relKey(b2)));
+  mergedRels.sort((a, b2) => byText(relKey(a), relKey(b2)));
 
   return {
     schema: 'intent-merge-v1',
-    merged: { nodes: [...merged.values()].sort((a, b2) => a.id.localeCompare(b2.id)), relationships: mergedRels },
-    conflicts: conflicts.sort((a, b2) => a.id.localeCompare(b2.id)),
+    merged: { nodes: [...merged.values()].sort((a, b2) => byText(a.id, b2.id)), relationships: mergedRels },
+    conflicts: conflicts.sort((a, b2) => byText(a.id, b2.id)),
     clean: conflicts.length === 0,
     summary: { nodes: merged.size, relationships: mergedRels.length, conflicts: conflicts.length },
   };

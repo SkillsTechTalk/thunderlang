@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Intent Atlas (founder directive #4). The navigable, expandable, searchable map of a
 // whole software system, built OVER the canonical Intent Graph (intent-graph-v1) , NOT a
 // fork. Missions are the entry points (progressive disclosure: you never start from
@@ -23,10 +24,10 @@ export function buildAtlas(graphs, opts = {}) {
     for (const n of g.nodes) if (!nodes.has(n.id)) nodes.set(n.id, n);
     for (const r of g.relationships) relationships.push(r);
   }
-  const nodeList = [...nodes.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const nodeList = [...nodes.values()].sort((a, b) => byText(a.id, b.id));
   const byType = {};
   for (const n of nodeList) byType[n.type] = (byType[n.type] || 0) + 1;
-  missions.sort((a, b) => a.id.localeCompare(b.id));
+  missions.sort((a, b) => byText(a.id, b.id));
   return {
     schema: ATLAS_SCHEMA,
     product: opts.product || null,
@@ -72,6 +73,6 @@ export function searchAtlas(atlas, query, opts = {}) {
   };
   let hits = atlas.nodes.filter((n) => `${n.id} ${n.title || ''} ${n.description || ''}`.toLowerCase().includes(q));
   if (opts.type) hits = hits.filter((n) => n.type === opts.type);
-  hits.sort((a, b) => score(a) - score(b) || a.type.localeCompare(b.type) || a.id.localeCompare(b.id));
+  hits.sort((a, b) => score(a) - score(b) || byText(a.type, b.type) || byText(a.id, b.id));
   return hits.slice(0, opts.limit || 25);
 }

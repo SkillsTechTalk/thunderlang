@@ -7,6 +7,7 @@ import { basename, join, resolve, relative } from 'node:path';
 import { collectReadableFiles } from './read-repo-fs.mjs';
 import { assemblePassport, checkPassport } from './passport.mjs';
 import { COMPILER_VERSION } from './emit.mjs';
+import { byText } from './text-order.mjs';
 
 const git = (dir, args) => {
   try { return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024 }); } catch { return null; }
@@ -73,7 +74,7 @@ function changesSince(root, base) {
     const old = c.status === 'added' ? null : git(root, ['show', `${base}:${c.file}`]);
     out.push({ file: c.file.slice(prefix.length), status: c.status, ranges: c.ranges, old: old == null || old.includes('\0') ? null : old });
   }
-  return out.sort((a, b) => a.file.localeCompare(b.file));
+  return out.sort((a, b) => byText(a.file, b.file));
 }
 
 /**

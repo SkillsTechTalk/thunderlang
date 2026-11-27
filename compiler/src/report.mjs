@@ -7,6 +7,7 @@
 import { parseIntent } from './parse.mjs';
 import { semanticDiagnostics } from './emit.mjs';
 import { ALL_DIAGNOSTICS } from './intent-schema.mjs';
+import { byText } from './text-order.mjs';
 
 export const REPORT_SCHEMA = 'intent-report-v1';
 
@@ -55,7 +56,7 @@ export function buildReport(files) {
     perFile.push({ file, mission: ast.mission || null, ...counts, ok: counts.error === 0 });
   }
 
-  const topCodes = Object.entries(byCode).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  const topCodes = Object.entries(byCode).sort((a, b) => b[1] - a[1] || byText(a[0], b[0]))
     .slice(0, 10).map(([code, count]) => ({ code, count, area: AREA_OF.get(code) || 'other' }));
 
   const totalDiagnostics = Object.values(bySeverity).reduce((a, b) => a + b, 0);
@@ -79,6 +80,6 @@ export function buildReport(files) {
       outcomeContracts,
       outcomeContractRate: pct(outcomeContracts, outcomes),
     },
-    files: perFile.sort((a, b) => (b.error - a.error) || (b.warning - a.warning) || a.file.localeCompare(b.file)),
+    files: perFile.sort((a, b) => (b.error - a.error) || (b.warning - a.warning) || byText(a.file, b.file)),
   };
 }

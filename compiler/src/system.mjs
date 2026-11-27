@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // The whole system: calls across files and services. Browser-safe, zero dependencies.
 //
 // After every file is read into the model, each step's call (from its meaning tree, `expr`) is followed through the
@@ -950,5 +951,5 @@ export function callsSummary(model) {
     if (l.kind === 'sends-to') p.sends++; else p.calls++;
     if (p.examples.length < 3) p.examples.push({ from: a.id, to: b.id, says: l.kind === 'sends-to' ? `${a.label} sends ${l.method ? `${l.method} ${l.path}` : l.event ? `the event ${l.event}` : `a task`} to ${b.label}` : `${a.label} calls ${b.label}` });
   }
-  return [...pairs.values()].sort((x, y) => (y.calls + y.sends) - (x.calls + x.sends) || x.from.localeCompare(y.from) || x.to.localeCompare(y.to));
+  return [...pairs.values()].sort((x, y) => (y.calls + y.sends) - (x.calls + x.sends) || byText(x.from, y.from) || byText(x.to, y.to));
 }

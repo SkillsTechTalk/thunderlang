@@ -6,6 +6,7 @@
 // browser from a folder the person picks; nothing is uploaded). Deterministic, no AI.
 import { readCode, looksCpp } from './read.mjs';
 import { readableFormat } from './file-formats.mjs';
+import { byText } from './text-order.mjs';
 
 export const READ_REPO_SCHEMA = 'thunder-repo-reading-v1';
 
@@ -131,7 +132,7 @@ function summarize(items, files) {
       inputs.get(p.name).push(it.id);
     }
   }
-  const byUse = (m) => [...m].map(([name, ids]) => ({ name, decisions: ids })).sort((a, b) => b.decisions.length - a.decisions.length || a.name.localeCompare(b.name));
+  const byUse = (m) => [...m].map(([name, ids]) => ({ name, decisions: ids })).sort((a, b) => b.decisions.length - a.decisions.length || byText(a.name, b.name));
   return { files, items, counts, languages, folders, answers: byUse(answers), inputs: byUse(inputs) };
 }
 
@@ -163,7 +164,7 @@ export function groupByFile(items) {
     if (!groups.has(it.file)) groups.set(it.file, []);
     groups.get(it.file).push(it);
   }
-  return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([file, list]) => ({ file, language: list[0].language, items: list }));
+  return [...groups].sort(([a], [b]) => byText(a, b)).map(([file, list]) => ({ file, language: list[0].language, items: list }));
 }
 
 /**

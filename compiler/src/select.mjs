@@ -1,3 +1,4 @@
+import { byText } from './text-order.mjs';
 // Deterministic candidate selection , the AI generates N candidates; ThunderLang and
 // OpenThunder pick the winner by MEASURABLE rules. An LLM never decides which
 // candidate is best. Pure (no Node deps): browser-safe.
@@ -74,7 +75,7 @@ export function selectCandidate(candidates, policy = {}) {
       if (bv == null) return -1;
       if (av !== bv) return p.direction === 'max' ? bv - av : av - bv;
     }
-    return String(a.id).localeCompare(String(b.id)); // stable tiebreak
+    return byText(String(a.id), String(b.id)); // stable tiebreak
   });
   return { winner: ranked[0] || null, ranking: ranked, eligibleCount: eligible.length, rejected: (candidates || []).length - eligible.length, prefer };
 }
