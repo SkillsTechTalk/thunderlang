@@ -1,4 +1,7 @@
-# Unreleased
+# 1.4.3
+
+**Upgrade note.** No command, flag, exit code, or JSON shape changed. `readingLayout` can now end with a new
+`actions` section (`id: 'actions'`); apps that switch on section ids should draw it or skip it.
 
 - **The drawing kit: a file of plain functions is no longer an empty Big Picture.** With no focus, or a file in focus,
   `readingLayout` now ends with an "Actions and rules" section (`id: 'actions'`, `READING_LABELS.actions`): every
