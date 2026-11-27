@@ -97,7 +97,7 @@ export function IOBoxes({ card, model, member, onLine, onThing, headingLevel = 3
           : h('p', { className: 'tl-quiet' }, c.give.empty)),
       h('section', { className: 'tl-io-box tl-io-back' },
         h(H, { className: 'tl-io-label' }, h('span', { 'aria-hidden': true }, '⇥ '), c.getBack.heading),
-        c.getBack.text ? h('p', { className: 'tl-pill tl-pill-outcome' }, c.getBack.text) : h('p', { className: 'tl-quiet' }, c.getBack.empty))),
+        c.getBack.items.length ? h('ul', { className: 'tl-pills' }, c.getBack.items.map((t) => h('li', { key: t, className: 'tl-pill tl-pill-outcome' }, t))) : h('p', { className: 'tl-quiet' }, c.getBack.empty))),
     c.stops.items.length ? h('section', { className: 'tl-io-box tl-io-stops' },
       h(H, { className: 'tl-io-label' }, h(ThunderSymbol, { id: 'stop', size: 14 }), ' ', c.stops.heading),
       h('ul', { className: 'tl-stop-list' }, c.stops.items.map((x, i) => h('li', { key: i, className: 'tl-stop-row' },

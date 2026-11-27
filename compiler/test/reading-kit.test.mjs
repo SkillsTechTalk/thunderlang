@@ -116,6 +116,7 @@ test('the Big Picture zooms with focus: a Thing, a file, an action (its IO boxes
   assert.deepEqual([box.give.heading, box.getBack.heading, box.stops.heading], ['You give it', 'You get back', 'It can stop with']);
   assert.deepEqual(box.give.items, [{ label: 'total', kind: 'a number' }, { label: 'distance', kind: 'a number' }]);
   assert.equal(box.getBack.text, 'words');
+  assert.deepEqual(box.getBack.items, ['words']);
   assert.deepEqual(box.stops.items, [{ text: 'ValueError: "TooFar"', line: 5 }]);
   assert.deepEqual(box.partOf, { id: 'orders.py#Shop', text: 'Part of Shop' });
   assert.deepEqual(readingLayout(m, { focus: 'nope' }), { schema: READING_LAYOUT_SCHEMA, focus: { kind: 'unknown', id: 'nope' }, sections: [] });
@@ -186,4 +187,14 @@ test('the kit draws the IO boxes in the Big Picture, then Flow and Details, with
   }
   const withRules = renderToStaticMarkup(h(Details, { view: readLevel(shop, 'details', order.id), rules: h('div', { id: 'app-rules' }) }));
   assert.match(withRules, /id="app-rules"/);
+});
+
+test('the IO boxes say what it gives back from the Flow when the code declares no result, so they agree with Flow and Details', async () => {
+  const { ioBoxes } = await import('../src/core.mjs');
+  const fees = thunderModel([{ path: 'fees.py', source: 'def late_fee(days_late):\n    """Small fines for late books."""\n    if days_late <= 0:\n        return "No fee"\n    if days_late <= 7:\n        return "Small fee"\n    return "Big fee"\n' }]);
+  const fee = fees.members.find((x) => x.name === 'late_fee');
+  const box = ioBoxes(fees, fee);
+  assert.equal(box.getBack.text, null, 'nothing declared');
+  assert.equal(box.getBack.items.length, 3);
+  assert.ok(box.getBack.items.every((t) => !/^Gives back/i.test(t)));
 });

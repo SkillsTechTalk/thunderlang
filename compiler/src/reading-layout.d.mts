@@ -29,7 +29,8 @@ export interface DataCardLayout {
 export interface IOBoxesLayout {
   kind: 'io'; id: string; label: string; doc: string | null; symbol: ThunderSymbolId;
   give: { heading: string; items: { label: string; kind: string | null }[]; empty: string };
-  getBack: { heading: string; text: string | null; empty: string };
+  /** text: what the code declares; items: that, else the Flow's end steps (what to draw). */
+  getBack: { heading: string; text: string | null; items: string[]; empty: string };
   stops: { heading: string; items: { text: string; line: number | null }[] };
   /** The Thing it belongs to, to link back to its card. */
   partOf: { id: string; text: string } | null;

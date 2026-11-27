@@ -75,6 +75,12 @@ export function dataCard(thing) {
   };
 }
 
+/** What an action gives back: its declared result, else the end steps of its Flow, each once. */
+const givesBackOf = (member) => {
+  const list = member.youGetBack ? [member.youGetBack] : (member.flow?.nodes ?? []).filter((n) => n.kind === 'end').map((n) => n.text.replace(/^Gives back\s+/i, ''));
+  return [...new Set(list.filter(Boolean))];
+};
+
 /**
  * What goes in and out of one action or rule: "You give it" (each input, with its kind when the code says it), "You
  * get back", "It can stop with" (every Stop in its flow, with its line), and "Part of <Thing>" back to its card.
@@ -86,7 +92,8 @@ export function ioBoxes(model, member) {
   return {
     kind: 'io', id: member.id, label: `${member.label}${member.yesNo ? '?' : ''}`, doc: member.doc ?? null, symbol: memberSymbolId(member),
     give: { heading: READING_LABELS.give, items: member.youGive.map((label) => ({ label, kind: kinds[label] ?? null })), empty: READING_LABELS.givesNothing },
-    getBack: { heading: READING_LABELS.getBack, text: member.youGetBack ?? null, empty: READING_LABELS.getsNothing },
+    // What it gives back: what the code declares, else the Flow's end steps (the same facts Flow and Details show).
+    getBack: { heading: READING_LABELS.getBack, text: member.youGetBack ?? null, items: givesBackOf(member), empty: READING_LABELS.getsNothing },
     stops: { heading: READING_LABELS.stops, items: stops },
     partOf: owner ? { id: owner.id, text: READING_LABELS.partOf(owner.label) } : null,
   };
