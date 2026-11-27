@@ -7,6 +7,11 @@
 
 ThunderLang files use the `.thunder` extension and are UTF-8 text.
 
+> **Two kinds of `.thunder` file.** This page covers **missions**: specifications of what software must do (rules,
+> decisions, entities, examples) that the compiler checks and compiles. To write a **program** that runs (functions,
+> records, loops, screens, `thunder run`, `thunder test`), see [Thunder Core](/docs/core). A file is read as Core
+> inside a project with a `thunder.toml`, or with `--core`; otherwise it is read as a mission.
+
 ## Style
 
 Keywords are **lowercase** and introduce a block on their own line; the block's contents

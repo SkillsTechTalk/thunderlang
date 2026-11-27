@@ -75,10 +75,12 @@ explain, compile, and verify, and it stays readable after the conversation is go
 
 - Not a prompt format.
 - Not magic AI code generation.
-- Not a new runtime. Thunder compiles to the ecosystems people already use and gives access to their libraries
-  rather than recreating them.
-- Not finished. The compiler is real, deterministic, and tested, and the language is still growing. Writing whole
-  programs in Thunder is not available yet. Honest work, in the open.
+- Not a new runtime. Thunder compiles to the ecosystems people already use and is built to use their libraries
+  rather than recreate them. Today only the Python target can use libraries; the other five targets refuse a
+  library with TC405 instead of guessing.
+- Not finished. The compiler is real, deterministic, and tested, and the language is still growing. Whole programs
+  (Thunder Core) compile and run today; complete applications with a database, sign-in, and deployment are not there
+  yet. Honest work, in the open.
 
 ## Drift
 

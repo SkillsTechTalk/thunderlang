@@ -67,8 +67,8 @@ extension. The server advertises its capabilities in the `initialize` response.
 ## Syntax highlighting
 
 The Language Server provides semantics (diagnostics, completion, hover). For coloring,
-the package ships a **TextMate grammar** at `syntaxes/intent.tmLanguage.json` (scope
-`source.thunder`), the format VS Code, GitHub Linguist, and most editors use. It colors
+the package ships a **TextMate grammar** at `syntaxes/thunder.tmLanguage.json` (scope
+`source.thunder`, the same grammar the VS Code extension uses, covering missions and Thunder Core), the format VS Code, GitHub Linguist, and most editors use. It colors
 comments, strings, block keywords, typed fields (`name: Type`), semantic/entity types,
 expression operators, and numbers.
 
@@ -77,14 +77,17 @@ extension, reference it in `package.json`:
 
 ```json
 "contributes": {
-  "languages": [{ "id": "intent", "extensions": [".thunder"] }],
+  "languages": [{ "id": "thunder", "extensions": [".thunder", ".tl"] }],
   "grammars": [{
-    "language": "intent",
+    "language": "thunder",
     "scopeName": "source.thunder",
-    "path": "./syntaxes/intent.tmLanguage.json"
+    "path": "./syntaxes/thunder.tmLanguage.json"
   }]
 }
 ```
+
+The older `syntaxes/intent.tmLanguage.json` (scope `source.intent`, missions only) still ships so existing setups
+keep working; new setups should use `thunder.tmLanguage.json`.
 
 ## The library
 

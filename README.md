@@ -122,6 +122,8 @@ sentences, with anything that needs a careful look first. It runs in your own CI
       - uses: SkillsTechTalk/thunderlang@main   # needs permissions: pull-requests: write
 ```
 
+`@main` follows the latest code; pin a commit SHA instead for production CI ([how](./docs/github-action.md)).
+
 [The whole workflow file and what it posts →](./docs/github-action.md)
 
 ## OpenThunder: the IDE for AI-written code
