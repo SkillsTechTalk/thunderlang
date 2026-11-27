@@ -51,6 +51,7 @@ export const CODES = {
   TC405: 'A Python module ("Use") can be used only when compiling to Python',
   TC406: 'A Screen is built only for React (--target react)',
   TC407: 'A step that cannot run when a button is pressed',
+  TC408: 'An npm package ("Use … from npm") can be used only when compiling to TypeScript',
   TC501: 'Divided by zero (runtime)',
   TC502: 'Nothing used where a value was needed (runtime)',
   TC503: 'A field or entry is missing (runtime)',
@@ -58,7 +59,7 @@ export const CODES = {
   TC505: 'An Expect check failed (runtime)',
   TC506: 'Values of different kinds were mixed (runtime)',
   TC507: 'The program stopped with a message (runtime)',
-  TC508: 'Python code used through "Use" failed (runtime)',
+  TC508: 'Library code used through "Use" failed (runtime)',
   TC509: 'A value could not be converted (runtime)',
 };
 

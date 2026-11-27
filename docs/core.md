@@ -92,7 +92,8 @@ indented by two spaces.
 | `Repeat while <condition>:` · `Repeat until <condition>:` · `Repeat 3 times:` | repeat |
 | `Stop with "message"` | stop the program with a message (TC507) |
 | `<statement>` then `If this fails:` | handle a failure of the statement just above; `{error}` is the message in words |
-| `Use csv as csv` | use a Python module (see "Python libraries") |
+| `Use csv as csv` | use a Python module (see "Libraries") |
+| `Use "date-fns" from npm as dates` | use an npm package, when compiling to TypeScript (see "Libraries") |
 
 ### Functions
 
@@ -441,6 +442,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC3xx | kinds of values that cannot do what the line asks |
 | TC4xx | where a statement is allowed (functions, records, `Use`, and tests at the left edge) |
 | TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
+| TC408 | an npm package (`Use "…" from npm`) in a program compiled to a language other than TypeScript |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
 | TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
 | TC406, TC407 | screens built for a target other than React (or React with no screen), and a step that can't run on a press |
@@ -449,9 +451,21 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC503 | a missing map entry or list position |
 | TC506 | values of different kinds mixed while running |
 | TC507 | `Stop with` |
-| TC508 | Python code used through `Use` failed (`Python code used by this line failed: …`) |
+| TC508 | library code used through `Use` failed (`Python code used by this line failed: …`, or `JavaScript code …`) |
 
-## Python libraries
+## Libraries
+
+Thunder uses the libraries of the language it compiles to. It does not rebuild them, and it never swaps one library
+for another: a program that uses a library is built only for the language that library belongs to.
+
+| Library | Written | Built for |
+| --- | --- | --- |
+| Python module | `Use csv as csv` (or `Use csv from Python as csv`) | Python, the default target (TC405 elsewhere) |
+| npm package | `Use "date-fns" from npm as dates` | TypeScript, `--target typescript` (TC408 elsewhere) |
+
+NuGet, Maven, Go modules, and crates are not available from Thunder yet.
+
+### Python libraries
 
 `Use <module> as <name>` gives a program the Python ecosystem. Thunder uses those libraries. It does not
 rebuild them.
@@ -465,6 +479,38 @@ For each row in rows:
 
 Code reached through `Use` is Python. Thunder's rules (exact money, positions from 1) apply to Thunder values,
 not inside the library. A failure inside the library is reported against the Thunder line that called it (TC508).
+
+### npm packages
+
+Install the package in the project the usual way (`npm install date-fns`), then name it in quotes and give it a name
+to use in Thunder:
+
+```thunder
+Use "date-fns" from npm as dates
+
+Set start to date "2026-11-27"
+Say dates.format(dates.addDays(start, 3), "yyyy-MM-dd")    # 2026-11-30
+Say dates.isWeekend(start)                                 # no
+```
+
+Run it with `thunder run --target typescript`, or set `target = "typescript"` under `[build]` in `thunder.toml`.
+Scoped packages (`"@scope/name"`), paths inside a package (`"lodash/fp"`), and Node's built-ins (`"node:path"`) work
+the same way.
+
+- **What crosses the boundary.** Going in: whole numbers and decimals become JavaScript numbers, money becomes its
+  amount, text, yes/no, and `nothing` (null) stay as they are, lists become arrays, records and maps with text keys
+  become plain objects, and dates become a `Date` at local midnight. Coming back: a JavaScript number becomes the
+  exact decimal it is written as (`0.07` stays `0.07`, so `0.07 + 0.01` is exactly `0.08`), arrays become lists, and
+  plain objects become maps. Anything else (a `Date`, a class instance) stays a library value you can hand back to
+  the package.
+- **A package that is one function** (`module.exports = function …`) is called as `.default`:
+  `Use "is-odd" from npm as odd`, then `odd.default(3)`.
+- **One step after another.** Thunder Core does not wait for promises. A function that gives back a promise is
+  refused in words (TC508); use the package's function that answers straight away.
+- **Failures** inside the package are reported against the Thunder line that called it: `JavaScript code used by
+  this line failed: RangeError: …` (TC508). A name the package does not have is TC508 too.
+- **Types.** Package values are typed `any` in the generated TypeScript, and `npm_packages.d.ts` declares each
+  package, so `tsc --strict` passes even for a package that ships no types.
 
 ## Step through a run: the Time Machine
 
@@ -538,8 +584,8 @@ Or set it for the project in `thunder.toml`: `target = "typescript"` under `[bui
   Thunder adds. On an older Node, Thunder removes the types with the `typescript` package if it can find it (in the
   project or next to Thunder); otherwise it says what to install. `thunder build` needs neither.
 - **No Python modules.** A program that uses `Use csv as csv` is refused for this target before anything is written
-  (TC405): Python modules exist only for Python, and Thunder never swaps in a different library. npm libraries are not
-  available from Thunder yet.
+  (TC405): Python modules exist only for Python, and Thunder never swaps in a different library.
+- **npm packages.** `Use "date-fns" from npm as dates` works on this target only; see "Libraries".
 
 ## Compile to C#
 
