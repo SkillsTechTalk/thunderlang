@@ -32,7 +32,10 @@ export function compileCore(source, { file = 'main.thunder', imported = [], srcM
   const { diagnostics, info } = checkCore(program, { imported: imported.map((r) => r.info) });
   const ok = diagnostics.length === 0;
   const python = ok ? toPython(program, info, { source: file, imports: srcModules }) : null;
-  return { ok, diagnostics, python, program, info, file };
+  // A draft: holes (TC120) are its only problems. It never runs or builds, but nothing in it is wrong yet.
+  const holes = diagnostics.filter((d) => d.code === 'TC120');
+  const draft = holes.length > 0 && holes.length === diagnostics.length;
+  return { ok, diagnostics, python, program, info, file, holes, draft };
 }
 
 export function diagnosticsText(result) {

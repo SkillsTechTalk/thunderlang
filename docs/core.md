@@ -459,6 +459,35 @@ say "walk streak {walk's streak}"     # 1, then 2, then 3 on the next runs
 - **What can be stored.** Records whose fields are whole numbers, numbers, money, text, yes/no, dates, or `optional`
   ones of those.
 
+## Drafts with holes
+
+Not sure yet what goes somewhere? Leave a hole: `?`, or `?number`, `?money`, `?Habit` with the kind written right
+after it. A program with holes is a draft. Thunder checks everything around the holes, then says what each one
+needs and what you already have that fits. It never chooses for you.
+
+```thunder
+To line total:
+  Receive price as money and quantity as whole number
+  Give ?money
+```
+
+```
+main.thunder, line 3: This is a hole: it needs money, and Thunder won't choose it for you. Fill it in before the program can run.
+  Here, money could come from: price (input).  [TC120]
+thunder check: a draft with 1 hole to fill in, and nothing else to fix.
+```
+
+- **What it needs.** The kind you write after `?`; without one, the kind expected where the hole stands (a
+  function's input, a record's field); otherwise any value.
+- **What fits.** Inputs, values set earlier, kept values, stored lists, and functions that give that kind, by name.
+  Only what really is that kind: a whole number can stand for a number, not the other way round, and money is not
+  a number.
+- **Nothing else breaks.** A hole has its kind, so the rest of the line is checked as if it were filled in.
+- **A draft never runs.** `thunder run`, `thunder test`, and `thunder build` stop and say how many holes are left.
+  A problem next to a hole is still a problem, and the summary counts the two apart.
+- **For tools.** `compileCore` gives `holes` (each TC120 diagnostic, with `hole: { col, needs, written, available }`)
+  and `draft` (true when holes are the only problems); `thunder check --json` includes the same `hole` data.
+
 ## Problems and failures
 
 The checker reports problems before anything runs, each with a line and a stable code:
@@ -485,6 +514,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC408 | an npm package (`Use "…" from npm`) in a program compiled to a language other than TypeScript |
 | TC409 | a .NET library (`Use "…" from .NET` or `from NuGet`) in a program compiled to a language other than C# |
 | TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python, TypeScript, or Go (the Thunder engine runs it too) |
+| TC120 | a hole (`?`, `?number`) in a draft: the program does not run until it is filled in (see *Drafts with holes*) |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
 | TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
 | TC406, TC407 | screens built for a target other than React (or React with no screen), and a step that can't run on a press |

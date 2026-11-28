@@ -562,6 +562,7 @@ class Checker {
       case 'bool': return T('bool');
       case 'nothing': return T('nothing');
       case 'hole': return e.type ?? UNKNOWN;
+      case 'draftHole': return this.draftHole(e, sc);
       case 'today': case 'date': return T('date');
       case 'paren': return this.ex(e.e, sc, o);
       case 'list': {
@@ -743,6 +744,7 @@ class Checker {
     const entry = this.global.vars.get(e.name);
     if (!f) { this.err('TC201', e.line, `I don't know a function called "${e.text}".`); return UNKNOWN; }
     e.py = f.py;
+    e.args.forEach((a, k) => { if (a.k === 'draftHole' && !a.want && f.params[k]?.type) a.expected = f.params[k].type; });
     const ts = e.args.map((a) => this.ex(a, sc, o));
     const required = f.params.filter((p) => !p.dflt).length;
     if (ts.length < required || ts.length > f.params.length) {
@@ -753,6 +755,56 @@ class Checker {
     return entry?.ret ?? UNKNOWN;
   }
 
+  /**
+   * A hole in a draft (TC120): what kind of value it needs (written, or expected where it stands) and what is
+   * available here with that kind. Thunder asks; it never chooses a value. The hole has its kind, so nothing else on
+   * the line is reported because of it.
+   */
+  draftHole(e, sc) {
+    // A record's kind as written in its "A … has:" line (a Line, not a line).
+    const named = (t) => (!t ? t : t.k === 'record' ? { ...t, text: this.records.get(t.name)?.text ?? t.text } : t.of ? { ...t, of: named(t.of) } : t);
+    const want = named(e.want ?? e.expected ?? null);
+    // Stricter than compatible(): only what really is that kind (a whole number can stand for a number, not the
+    // other way round, and money is not a number).
+    const same = (w, t) => {
+      if (!known(w) || !known(t)) return false;
+      if (w.k === 'optional') return t.k === 'optional' ? same(w.of, t.of) : same(w.of, t);
+      if (w.k === 'number') return t.k === 'number' || t.k === 'whole';
+      if (w.k !== t.k) return false;
+      if (w.k === 'record') return w.name === t.name;
+      if (w.k === 'list') return !known(w.of) || same(w.of, t.of);
+      return true;
+    };
+    const fits = (t) => !want || !known(want) || same(want, t);
+    const what = { param: 'input', input: 'input', var: 'value', state: 'remembered value', item: 'item', const: 'kept value', store: 'stored list' };
+    const seen = new Set();
+    const available = [];
+    for (let at = sc; at; at = at.parent) {
+      for (const [name, v] of at.vars) {
+        if (seen.has(name) || !what[v.kind]) continue;
+        seen.add(name);
+        if (fits(v.type)) available.push({ name: v.text ?? name, what: what[v.kind], kind: known(v.type) ? typeWords(v.type) : null });
+      }
+    }
+    if (want && known(want)) {
+      for (const f of this.funcs.values()) {
+        const ret = this.global.vars.get(f.name)?.ret;
+        if (same(want, ret)) available.push({ name: f.text, what: 'function', kind: typeWords(ret), call: f.params.length ? `${f.text} with ${f.params.map((p) => p.text).join(' and ')}` : f.text });
+      }
+    }
+    const needs = want ? typeWords(want) : 'a value';
+    const typed = want && known(want);
+    const shown = available.slice(0, 8).map((a) => (a.what === 'function' ? `${a.call} (a function)` : `${a.name} (${a.what}${!typed && a.kind ? `, ${a.kind}` : ''})`));
+    const more = available.length > 8 ? `, and ${available.length - 8} more` : '';
+    const hint = !available.length ? `Nothing here is ${needs} yet. Write the value, or receive it as an input.`
+      : typed ? `Here, ${needs} could come from: ${shown.join(', ')}${more}.`
+        : `Values here: ${shown.join(', ')}${more}. Write the kind after the ? (?number) to see only what fits.`;
+    const d = diag('TC120', e.line, `This is a hole: it needs ${needs}, and Thunder won't choose it for you. Fill it in before the program can run.`, hint);
+    d.hole = { col: e.col ?? null, needs: want ? needs : null, written: !!e.want, available };
+    this.d.push(d);
+    return want ?? UNKNOWN;
+  }
+
   newRecord(e, sc, o) {
     const r = this.records.get(e.record);
     if (!r) { this.err('TC209', e.line, `I don't know a record called "${e.record}".`); return UNKNOWN; }
@@ -760,6 +812,7 @@ class Checker {
     const given = new Set();
     for (const f of e.fields) {
       const def = r.fieldMap.get(f.name);
+      if (f.e.k === 'draftHole' && !f.e.want && def?.type) f.e.expected = def.type;
       const t = this.ex(f.e, sc, o);
       if (!def) { const g = closest(f.name, [...r.fieldMap.keys()]); this.err('TC206', e.line, `A ${r.text} has no field "${f.text}".`, g ? `Did you mean "${g}"?` : `Fields: ${[...r.fieldMap.keys()].join(', ')}.`); continue; }
       f.py = def.py;

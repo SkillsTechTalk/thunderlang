@@ -434,6 +434,16 @@ export class ExprParser {
       s.next();
       return { k: 'str', parts: t.parts.map((p) => (typeof p === 'string' ? p : { e: this.parse(p.tokens, line), source: p.source })), line };
     }
+    // A hole in a draft: ? alone, or ?number / ?money / ?Habit with the kind written right after it. It never runs;
+    // the checker says what could go here and asks (TC120).
+    if (isSym(t, '?')) {
+      s.next();
+      const next = s.peek();
+      let want = null;
+      // A word right against the ? is its kind, so a misspelt kind is reported as one.
+      if (next && next.t === 'word' && t.col != null && next.col === t.col + 1) want = this.typeRef(s);
+      return { k: 'draftHole', want, line, col: t.col };
+    }
     if (isSym(t, '(')) { s.next(); const e = this.expr(s, {}); s.expectSym(')', 'to close the parenthesis'); return { k: 'paren', e, line }; }
     if (isSym(t, '[')) {
       s.next();

@@ -24,6 +24,7 @@ export const CODES = {
   TC117: 'Lines like "name: value" with no record or function call to give them to',
   TC118: 'A line inside a Screen is not something a screen can show',
   TC119: '"Receive" or "Remember" is not at the top of a Screen',
+  TC120: 'A hole (?, ?number) in a draft: the program does not run until it is filled in',
   TC201: 'Unknown name',
   TC202: 'A name uses a word that belongs to Thunder',
   TC203: 'A name is defined twice',

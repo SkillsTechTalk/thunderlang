@@ -1,5 +1,9 @@
 # Unreleased
 
+- **Drafts with holes.** Write `?` or `?number` (`?money`, `?Habit`, …) where you don't know the value yet. Thunder
+  checks the rest, says what each hole needs (written, or expected where it stands) and what in scope already fits,
+  and never chooses a value (TC120). A draft never runs or builds; `thunder check` calls it a draft and counts holes
+  apart from problems. `compileCore` gives `holes` and `draft` for editors and OpenThunder.
 - **Saved data: stored lists.** `Store habits as a list of Habit` keeps a list of records between runs, in
   `data/habits.json` (plain JSON, each field written by its kind; money and numbers exact). It is filled when the
   program starts and saved only when it finishes well; tests start empty and never save. Python, compiled TypeScript,
