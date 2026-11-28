@@ -84,6 +84,8 @@ import { evaluateDecision, simulateLifecycle } from './runtime.mjs';
 import { runProperties } from './property.mjs';
 import { runMutations } from './mutate.mjs';
 import { thunderReview, renderReview } from './review.mjs';
+import { coreChanges, affectedBy, renderAffected } from './core-changes.mjs';
+import { coreFilesIn } from './core-changes-fs.mjs';
 import { buildConformance } from './conformance.mjs';
 import { semanticCoverage } from './coverage.mjs';
 import { runTypescriptTarget } from './target-ts.mjs';
@@ -254,7 +256,8 @@ function collectIntents(root, acc = []) {
 // compiler, environment) tuple. These helpers capture that tuple so `verify` can mark a proof STALE.
 /**
  * Read the files that changed between two commits (or a commit and the working tree, when head is null) and review
- * them in Thunder. Only git is run (show, diff, ls-files): nothing is fetched and nothing is executed.
+ * them in Thunder. Only git is run (show, diff, ls-files, ls-tree) and nothing is fetched. Thunder Core programs are run
+ * on the Thunder engine inside the review (no files, network, or saved data; step and time limits) to compare answers.
  */
 function reviewGit(base, head, paths = []) {
   const git = (...a) => execFileSync('git', a, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -283,7 +286,23 @@ function reviewGit(base, head, paths = []) {
     if (c.old) { const s = at(base, c.old); if (s != null) oldFiles.push({ path: c.old, source: s }); }
     if (c.new) { const s = head ? at(head, c.new) : disk(c.new); if (s != null) newFiles.push({ path: c.new, source: s }); }
   }
-  return { ...thunderReview(oldFiles, newFiles), base, head: head ?? 'working tree' };
+  // A changed Thunder Core program is compared with the rest of its project (the folder above src/ or tests/, or its
+  // own folder): its tests are run before and after, and what uses a change is listed.
+  const context = { old: [], new: [] };
+  const changed = new Set(changes.flatMap((c) => [c.old, c.new]).filter(Boolean));
+  const roots = new Set(changes.flatMap((c) => [c.old, c.new]).filter((p) => p && p.endsWith('.thunder')).map((p) => {
+    const m = /(^|\/)(src|tests)\//.exec(p);
+    return m ? p.slice(0, m.index + m[1].length) : p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '';
+  }));
+  const list = (args) => { try { return git(...args).split('\0').filter((p) => p.endsWith('.thunder')); } catch { return []; } };
+  for (const root of roots) {
+    const where = root ? [root] : ['.'];
+    const before = list(['ls-tree', '-r', '-z', '--name-only', base, '--', ...where]);
+    const after = head ? list(['ls-tree', '-r', '-z', '--name-only', head, '--', ...where]) : list(['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...where]);
+    for (const p of before.filter((x) => !changed.has(x)).slice(0, 300)) { const s = at(base, p); if (s != null) context.old.push({ path: p, source: s }); }
+    for (const p of after.filter((x) => !changed.has(x)).slice(0, 300)) { const s = head ? at(head, p) : disk(p); if (s != null) context.new.push({ path: p, source: s }); }
+  }
+  return { ...thunderReview(oldFiles, newFiles, { core: coreChanges, context }), base, head: head ?? 'working tree' };
 }
 
 const gitCmd = (c) => { try { return execSync(`git ${c}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null; } catch { return null; } };
@@ -506,7 +525,12 @@ Read and understand code
   same <old> <new> [--json]   does the new code mean the same as the old? (files or folders, any languages; rules are run on every edge case)
   review <base-ref> [head-ref] [--format markdown|json] [--paths <glob,...>] [--out <file>]
                             review in Thunder: what changed in meaning between two git commits (head: the working tree
-                            when omitted), as Markdown for a pull request comment; read from git, no network
+                            when omitted), as Markdown for a pull request comment; read from git, no network.
+                            Thunder Core programs are compared rule by rule, and run before and after
+  affected <rule…> [--in <folder|file>] [--json]
+                            what to look at again when a Thunder Core rule changes ("decide refund", "review limit",
+                            "POST /orders"): the functions and endpoints that use it, the tests and examples that reach
+                            it, the Never rules and stored lists they rely on; read only, nothing is run
   trace <folder…> [--json] [--out f]   Thunder Trace: routes, events, tables, and packages linked across repositories, cited repo@sha:file:line
   trace impact <thing | --diff [--base ref]> <folder…>   what a change can affect in other repositories (one hop, ranked by risk)
   passport <folder…> [--base ref] [--run "part: cmd"…] [--purpose …]   an evidence record: behavior, links, effects, evidence with its limits, what is not verified
@@ -901,6 +925,18 @@ function main() {
       if (args.outExplicit) { mkdirSync(dirname(resolve(args.out)), { recursive: true }); writeFileSync(args.out, `${text}\n`); console.log(`thunder review: ${r.says} Wrote ${args.out}.`); }
       else console.log(text);
     } catch (e) { console.error(`thunder review: ${e.message}`); process.exitCode = 2; }
+    return;
+  }
+  if (cmd === 'affected') {
+    try {
+      if (!args._.length) throw new Error('Use thunder affected <rule…> [--in <folder|file>] [--json], for example: thunder affected "review limit" --in examples/apps/refund-desk');
+      const target = resolve(args.inLang ?? ".");
+      if (!existsSync(target)) throw new Error(`${args.inLang} does not exist.`);
+      const r = affectedBy(coreFilesIn(target), args._);
+      if (args.json) console.log(JSON.stringify(r, null, 2));
+      else console.log(renderAffected(r));
+      process.exitCode = r.of.length ? 0 : 2;
+    } catch (e) { console.error(`thunder affected: ${e.message}`); process.exitCode = 2; }
     return;
   }
   if (cmd === 'same') {

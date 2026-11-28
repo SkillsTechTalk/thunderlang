@@ -109,8 +109,11 @@ If a same-repository pull request cannot be commented on either (for example, th
 - It runs entirely in your own CI job, on your runner. No code leaves GitHub.
 - No AI is called, and no Skills Tech Talk server is contacted. The only downloads are the action itself and the
   compiler from npm.
-- Nothing from the pull request is run: Thunder reads the two versions of the changed files with `git show` and compares
-  them.
+- Code in other languages is never run: Thunder reads the two versions of the changed files with `git show` and
+  compares them. Thunder Core programs (`.thunder`) are run on the Thunder engine inside the review, to compare their
+  answers: the engine runs Thunder only (a program that uses a Python, npm, or .NET module is not run), and it cannot
+  read files, call other services, or keep data. Each call has a step limit and the comparison a time limit; a
+  program in a pull request can still use the job's own time and memory up to those limits.
 - The only write is the one comment, through GitHub's REST API with the workflow's own token.
 
 ## On your computer

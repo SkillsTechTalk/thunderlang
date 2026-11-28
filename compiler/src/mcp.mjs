@@ -20,6 +20,8 @@ import { resolveObligations } from './obligations.mjs';
 import { buildReviewAtlas, renderReviewBrief, reviewAtlasExitCode } from './review-atlas.mjs';
 import { evaluateDecision } from './runtime.mjs';
 import { buildTrace, traceImpact, traceImpactOf, renderImpact } from './trace.mjs';
+import { coreChanges, affectedBy } from './core-changes.mjs';
+import { coreFilesIn } from './core-changes-fs.mjs';
 import { thunderWrite } from './write-steps.mjs';
 import { readRepoDir, gitChanges } from './trace-fs.mjs';
 import { buildIntentGraph } from './intent-graph.mjs';
@@ -284,6 +286,34 @@ const TOOLS = [
       if (!thing && !diff) return { trace };
       const r = thing ? traceImpactOf(trace, String(thing)) : traceImpact(trace, repos.flatMap((repo) => gitChanges(repo, base).changes));
       return { ...r, text: renderImpact(r) };
+    },
+  },
+  {
+    name: 'intent_core_changes',
+    description: 'WHAT A CHANGE TO A THUNDER CORE PROGRAM DOES, RULE BY RULE (runs the program). Give both versions of the .thunder files ({ path, source }; include the project\'s tests). Each rule is paired with its other version by a stable name from what it is ("function:decide refund", "keep:review limit", "endpoint:POST /orders", "never:Product: Never allow a negative stock", "test:…"), never by line. A function whose steps changed, or that uses something that changed, is run before and after on the same inputs (made from the numbers and text in both versions, each number with one step either side) and the answers that differ are grouped, with the input that decides them as the range tried: "now a review Refund instead of an approved Refund when amount is from $50.00 to $99.99". Tests that reach a change are run before and after. Each change lists what to look at again (affects). Tested evidence on the inputs tried, not a proof; functions that read saved data or call another service are not run, and say so.',
+    inputSchema: {
+      type: 'object', required: ['before', 'after'],
+      properties: {
+        before: { type: 'array', maxItems: 500, items: { type: 'object', required: ['path', 'source'], properties: { path: str, source: str } } },
+        after: { type: 'array', maxItems: 500, items: { type: 'object', required: ['path', 'source'], properties: { path: str, source: str } } },
+      },
+    },
+    run: ({ before, after }) => coreChanges(before ?? [], after ?? []),
+  },
+  {
+    name: 'intent_affected',
+    description: 'WHAT TO LOOK AT AGAIN WHEN A THUNDER CORE RULE CHANGES (read only, nothing is run). Give a Thunder project folder or file (path) or the files themselves, and what changes: a rule\'s name or id ("decide refund", "review limit", "POST /orders", "keep:review limit"), or a list. Answers the functions and endpoints that use it (all the way up, each with the rules in between), the tests and the Expect examples that reach it, and the Never rules and stored lists they rely on, each cited file:line.',
+    inputSchema: {
+      type: 'object', required: ['change'],
+      properties: {
+        path: { ...str, description: 'a Thunder project folder or .thunder file' },
+        files: { type: 'array', maxItems: 500, items: { type: 'object', required: ['path', 'source'], properties: { path: str, source: str } } },
+        change: { description: 'a rule name or id, or a list of them', anyOf: [str, { type: 'array', items: str }] },
+      },
+    },
+    run: ({ path, files, change }) => {
+      if (!path && !files) throw new Error('Give a Thunder project folder or file in "path", or the files in "files".');
+      return affectedBy(files ?? coreFilesIn(resolve(String(path))), change);
     },
   },
   {

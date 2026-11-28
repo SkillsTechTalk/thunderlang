@@ -763,6 +763,7 @@ export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPAR
 export type { ChangedCase, ChangedCases, WriteChange, RulePart } from './write.mjs';
 export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from './write-steps.mjs';
 export { examplesOf, EXAMPLES_SCHEMA } from './examples.mjs';
+export { coreChanges, affectedBy, CORE_CHANGES_SCHEMA, AFFECTED_SCHEMA } from './core-changes.mjs';
 export type { ThunderEdit, ThunderWriteResult, WriteProof } from './write-steps.mjs';
 export { buildPassport, checkPassportOnDisk, accessEvidence } from './passport-fs.mjs';
 export { PASSPORT_SCHEMA, assemblePassport, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';

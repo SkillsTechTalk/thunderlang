@@ -30,3 +30,4 @@ export function toReact(program: unknown, info: unknown, options?: { source?: st
 export function hasScreens(info: unknown): boolean;
 export function pythonToCore(source: string): { core: string; functions: Array<{ name: string; exact: boolean }>; [k: string]: unknown };
 export { examplesOf, EXAMPLES_SCHEMA, type ThunderExample, type ThunderExamples } from './examples.mjs';
+export { coreChanges, affectedBy, CORE_CHANGES_SCHEMA, AFFECTED_SCHEMA, type CoreChanges, type CoreChange, type Affected } from './core-changes.mjs';
