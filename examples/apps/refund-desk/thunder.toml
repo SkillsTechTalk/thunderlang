@@ -1,0 +1,14 @@
+# Refund Desk: a small shop's back office, written in Thunder. The reference application for ThunderLang.
+#   thunder run examples/apps/refund-desk                 answer requests on http://127.0.0.1:8080
+#   thunder test examples/apps/refund-desk                run every test
+#   thunder run examples/apps/refund-desk --target typescript   (or --engine thunder): the same answers
+[project]
+name = "refund-desk"
+version = "1.0.0"
+
+[build]
+target = "python"
+source = "src"
+tests = "tests"
+output = "generated/python"
+entry = "desk.thunder"

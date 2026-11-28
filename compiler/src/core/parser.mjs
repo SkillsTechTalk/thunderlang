@@ -803,10 +803,12 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     return { k: 'keep', ...nameWords(rest.slice(0, at), line, '"Keep"'), e: E(rest.slice(at + 1)), line };
   }
   // "… with status 201" (Give) and "… and status 404" (Stop): the HTTP status an endpoint answers with.
+  // A Stop's status may be set in any function (a helper like "find order" says 404; it matters only when an
+  // endpoint answers with it). Give's status only in the endpoint itself, where the answer is made.
   const statusAt = (r, joiner) => {
     const n = r.length;
     if (n >= 3 && isWord(r[n - 3], joiner) && isWord(r[n - 2], 'status') && r[n - 1].t === 'num') {
-      if (!ctx.inEndpoint) fail('TC218', `"${joiner} status" sets the HTTP status an endpoint answers with, so it goes inside "When someone calls …".`, 'Outside an endpoint, Give a value or Stop with a message.');
+      if (joiner === 'with' && !ctx.inEndpoint) fail('TC218', `"with status" sets the HTTP status of an endpoint's answer, so it goes inside "When someone calls …".`, 'Outside an endpoint, Give the value; the endpoint that gives it sets the status.');
       return { status: Number(r[n - 1].text), r: r.slice(0, -3) };
     }
     return { status: null, r };

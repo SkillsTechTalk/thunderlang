@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { compileCore } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
+import { stopChild } from './servers.mjs';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli.mjs');
 const PY = findPython();
@@ -67,12 +68,13 @@ async function serve(dir, file, way) {
   let log = '';
   child.stdout.on('data', (d) => { log += d; });
   child.stderr.on('data', (d) => { log += d; });
-  for (let i = 0; i < 200 && !log.includes('Thunder is answering'); i++) await new Promise((r) => setTimeout(r, 100));
-  assert.match(log, /Thunder is answering on http:\/\/127\.0\.0\.1:\d+/, `${way.join(' ')} did not start:\n${log}`);
-  return { port, log: () => log, stop: () => new Promise((r) => { child.on('exit', r); child.kill('SIGINT'); }) };
+  for (let i = 0; i < 600 && !log.includes('Thunder is answering') && child.exitCode === null; i++) await new Promise((r) => setTimeout(r, 100));
+  const stop = () => stopChild(child);
+  if (!log.includes('Thunder is answering')) { await stop(); assert.fail(`${way.join(' ')} did not start:\n${log}`); }
+  return { port, log: () => log, stop };
 }
 const ask = async (port, method, path, body) => {
-  const r = await fetch(`http://127.0.0.1:${port}${path}`, { method, body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+  const r = await fetch(`http://127.0.0.1:${port}${path}`, { method, body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body), signal: AbortSignal.timeout(15000) });
   return `${r.status} ${await r.text()}`;
 };
 

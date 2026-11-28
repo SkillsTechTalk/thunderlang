@@ -105,7 +105,8 @@ class Engine {
   recordClass(r, mod) {
     const rules = new Map();
     for (const rule of r.rulesToCheck ?? []) { const f = r.fieldMap.get(rule.subject); (rules.get(f.py) ?? rules.set(f.py, []).get(f.py)).push(rule); }
-    return { isRecord: true, py: r.py, fields: r.fields.map((f) => ({ py: f.py, type: f.type })), rules, mod };
+    const alts = r.alts ? Object.fromEntries(r.alts.map((a) => [a.name, a.fields.map((f) => f.py)])) : null;
+    return { isRecord: true, py: r.py, fields: r.fields.map((f) => ({ py: f.py, type: f.type })), rules, mod, alts };
   }
 
   // ── frames, lines, errors ───────────────────────────────────────────────────────────────────────────────────

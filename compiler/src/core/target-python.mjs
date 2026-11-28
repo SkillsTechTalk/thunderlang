@@ -135,6 +135,8 @@ class Gen {
       this.emit(`${f.py}: ${t}${dflt}`, f.line);
     }
     if (!r.fields.length) this.emit('pass');
+    // A data type with alternatives: each alternative's own fields, so JSON carries only the fields it has.
+    if (r.alts) this.emit(`__thunder_alts__ = {${r.alts.map((a) => `${py(a.name)}: (${a.fields.map((f) => `${py(f.py)}, `).join('')})`).join(', ')}}`, r.line);
     const rules = r.rulesToCheck ?? [];
     if (rules.length) {
       this.out.push('');

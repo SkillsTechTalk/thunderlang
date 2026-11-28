@@ -194,8 +194,8 @@ function serve(routes) {
           const key = inp.text.toLowerCase();
           const where = \`"\${inp.text}"\`;
           if (inp.path) args.push(inputValue(found[key], inp.type, where, true));
-          else if (key in query) args.push(inputValue(query[key], inp.type, where, true));
-          else if (inp.text in body || key in body) args.push(inputValue(inp.text in body ? body[inp.text] : body[key], inp.type, where, false));
+          else if (key in query || (inp.py && inp.py in query)) args.push(inputValue(key in query ? query[key] : query[inp.py], inp.type, where, true));
+          else if (inp.text in body || key in body || (inp.py && inp.py in body)) args.push(inputValue(inp.text in body ? body[inp.text] : key in body ? body[key] : body[inp.py], inp.type, where, false));
           else if (inp.dflt) args.push(undefined); // its default applies
           else if (inp.type.k === 'optional') args.push(null);
           else return send(400, { problem: \`\${r.method} \${r.path} needs \${inp.text} (\${kindName[inp.type.k] ?? inp.type.k}).\` });

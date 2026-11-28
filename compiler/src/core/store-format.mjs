@@ -89,7 +89,11 @@ export function dataReady(v) {
     for (const [k, x] of v.m.values()) { if (typeof k !== 'string') throw KindMismatch(`A JSON object's keys are text, but one is ${show(k)}.`); out[k] = dataReady(x); }
     return out;
   }
-  if (v instanceof RecordVal) return Object.fromEntries(v.cls.fields.map((f) => [f.py, dataReady(v.f.get(f.py))]));
+  if (v instanceof RecordVal) {
+    // An alternative of a data type: "which" and the fields it has, not the other alternatives' fields.
+    const keep = v.cls.alts ? ['which', ...(v.cls.alts[v.f.get('which')] ?? [])] : v.cls.fields.map((f) => f.py);
+    return Object.fromEntries(keep.map((py) => [py, dataReady(v.f.get(py))]));
+  }
   throw KindMismatch(`${show(v)} can't be sent as JSON.`);
 }
 export const dataJson = (v) => JSON.stringify(dataReady(v));

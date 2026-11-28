@@ -105,7 +105,7 @@ export function serveWithEngine({ entry, cwd = process.cwd() } = {}) {
   const own = (s) => !entry.info.imported?.has(s);
   const routes = (entry.info.endpoints ?? []).filter(own).map((f) => {
     const fromPath = new Set(f.endpoint.segments.filter((g) => g.param).map((g) => g.param));
-    return { f, method: f.endpoint.method, path: f.endpoint.path, parts: f.endpoint.path.split('/').filter(Boolean), inputs: f.params.map((p) => ({ text: p.text, type: p.type, path: fromPath.has(p.name), dflt: !!p.dflt })) };
+    return { f, method: f.endpoint.method, path: f.endpoint.path, parts: f.endpoint.path.split('/').filter(Boolean), inputs: f.params.map((p) => ({ text: p.text, py: p.py, type: p.type, path: fromPath.has(p.name), dflt: !!p.dflt })) };
   });
   const host = process.env.THUNDER_HOST || '127.0.0.1';
   const port = Number(process.env.THUNDER_PORT || 8080);
@@ -159,8 +159,8 @@ export function serveWithEngine({ entry, cwd = process.cwd() } = {}) {
           const key = inp.text.toLowerCase();
           const where = `"${inp.text}"`;
           if (inp.path) args.push(inputValue(found[key], inp.type, where, true));
-          else if (key in query) args.push(inputValue(query[key], inp.type, where, true));
-          else if (inp.text in body || key in body) args.push(inputValue(inp.text in body ? body[inp.text] : body[key], inp.type, where, false));
+          else if (key in query || (inp.py && inp.py in query)) args.push(inputValue(key in query ? query[key] : query[inp.py], inp.type, where, true));
+          else if (inp.text in body || key in body || (inp.py && inp.py in body)) args.push(inputValue(inp.text in body ? body[inp.text] : key in body ? body[key] : body[inp.py], inp.type, where, false));
           else if (inp.dflt) args.push(NOT_GIVEN);
           else if (inp.type.k === 'optional') args.push(null);
           else return problem(400, `${r.method} ${r.path} needs ${inp.text} (${kindName[inp.type.k] ?? inp.type.k}).`);
