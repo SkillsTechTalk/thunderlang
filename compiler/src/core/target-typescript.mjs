@@ -75,11 +75,11 @@ export function dotnetRefusals(info, targetName, diag) {
     'Build for C# to use .NET libraries: --target csharp, or target = "csharp" under [build] in thunder.toml. Thunder never swaps in a different library.'));
 }
 
-/** TC410 for every stored list (Store … as a list of …) when compiling for `target`: saved data runs on Python and the Thunder engine for now. */
+/** TC410 for every stored list (Store … as a list of …) when compiling for `target`: saved data runs on Python, TypeScript, and the Thunder engine for now. */
 export function storeRefusals(info, targetName, diag) {
   return (info.stores ?? []).filter((s) => !info.imported?.has(s)).map((s) => diag('TC410', s.line,
-    `"${s.text}" is a stored list, and saved data works only on Python and the Thunder engine for now, not on ${targetName}.`,
-    'Run it with Python (the default target) or with --engine thunder. Thunder never swaps in a different way of saving.'));
+    `"${s.text}" is a stored list, and saved data works only on Python, TypeScript, and the Thunder engine for now, not on ${targetName}.`,
+    'Run it with Python (the default target), --target typescript, or --engine thunder. Thunder never swaps in a different way of saving.'));
 }
 
 /** The name of an npm package's namespace import (import * as <it> from "<package>"). */
@@ -120,6 +120,13 @@ export class Gen {
       for (const k of consts) this.emit(`F.line = ${k.line}; ${id(k.py)} = ${this.x(k.e)};`, k.line);
       this.ind--;
       this.emit('});');
+    }
+    // Stored lists: filled from data/<name>.json when the program runs, saved when it finishes well (runtime run()).
+    const stores = (this.info.stores ?? []).filter(own);
+    if (stores.length) {
+      this.blank();
+      const kind = (t) => (t.k === 'optional' ? `{ k: 'optional', of: ${kind(t.of)} }` : `{ k: ${js(t.k)} }`);
+      for (const s of stores) this.emit(`export const ${id(s.py)}: any = T.newStore(FILE, ${s.line}, ${js(s.py.toLowerCase())}, ${id(s.record.py)}, [${s.record.fields.map((f) => `{ py: ${js(f.py)}, type: ${kind(f.type)} }`).join(', ')}]);`, s.line);
     }
     const tests = this.info.tests;
     for (const t of tests) {
@@ -213,7 +220,7 @@ export class Gen {
       }
     };
     visit(body);
-    const globals = new Set([...this.info.consts, ...this.info.funcs, ...this.info.records].map((x) => x.py));
+    const globals = new Set([...this.info.consts, ...(this.info.stores ?? []), ...this.info.funcs, ...this.info.records].map((x) => x.py));
     return [...names].filter((n) => !globals.has(n));
   }
 

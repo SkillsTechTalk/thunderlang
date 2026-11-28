@@ -8,16 +8,16 @@ import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { toTypeScript, pythonOnlyUses, npmUses, dotnetRefusals, storeRefusals } from './target-typescript.mjs';
+import { toTypeScript, pythonOnlyUses, npmUses, dotnetRefusals } from './target-typescript.mjs';
 import { TS_RUNTIME, TS_RUNTIME_DTS } from './runtime-typescript.mjs';
 import { diag } from './diagnostics.mjs';
 
 /** The names a src file gives a test file (its records, functions, and kept values). */
-const exportedNames = (r) => [...r.info.records, ...r.info.funcs, ...r.info.consts, ...(r.info.modules ?? []).filter((m) => m.ecosystem === 'npm')].filter((s) => !r.info.imported?.has(s)).map((s) => s.py);
+const exportedNames = (r) => [...r.info.records, ...r.info.funcs, ...r.info.consts, ...(r.info.stores ?? []), ...(r.info.modules ?? []).filter((m) => m.ecosystem === 'npm')].filter((s) => !r.info.imported?.has(s)).map((s) => s.py);
 
 /** TC405 for every Use in a file: Python modules exist only for the Python target. */
 export function typescriptDiagnostics(result) {
-  return [...dotnetRefusals(result.info, 'TypeScript', diag), ...storeRefusals(result.info, 'TypeScript', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
+  return [...dotnetRefusals(result.info, 'TypeScript', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
     `"${u.module}" is a Python module, and this program is compiled to TypeScript, which cannot use it.`,
     'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'))];
 }

@@ -754,7 +754,8 @@ def _callers(tb):
 
 
 def describe_error(error):
-    src, line, from_python = thunder_place(error.__traceback__)
+    placed = getattr(error, "thunder_where", None)  # a stored list's file: its Store line
+    src, line, from_python = (*placed, False) if placed else thunder_place(error.__traceback__)
     message = explain(error)
     code = _code(error)
     # Any error Thunder has no words for came from Python code reached through "Use" (TC508), even when that
@@ -774,10 +775,11 @@ _STORES = []
 _STORE_KINDS = {"whole": "a whole number", "number": "a number", "money": "money", "text": "text", "bool": "yes or no", "date": "a date"}
 
 
-def new_store(name, cls, kinds):
-    """A stored list: empty until the program starts (run fills it), saved when the program finishes well."""
+def new_store(source, line, name, cls, kinds):
+    """A stored list: empty until the program starts (run fills it), saved when the program finishes well.
+    A file it can't read is reported at its Store line (source, line), as on the Thunder engine and TypeScript."""
     items = []
-    _STORES.append((name, cls, kinds, items))
+    _STORES.append((source, line, name, cls, kinds, items))
     return items
 
 
@@ -846,37 +848,46 @@ def _store_file(name):
 
 def _fill_stores():
     import os
-    for name, cls, kinds, items in _STORES:
+    for source, line, name, cls, kinds, items in _STORES:
         path = _store_file(name)
         if not os.path.exists(path):
             continue
-        with open(path, encoding="utf-8") as fh:
-            text = fh.read()
         try:
-            rows = json.loads(text)
-        except ValueError as error:
-            raise ConversionFailed("%s is not a list Thunder can read (%s)." % (path, error))
-        if not isinstance(rows, list):
-            raise ConversionFailed("%s should hold a list, written [ … ]." % path)
-        loaded = []
-        for i, row in enumerate(rows):
-            if not isinstance(row, dict):
-                raise ConversionFailed("%s, item %d, should be a record, written { … }." % (path, i + 1))
-            given = {}
-            for field_name, kind in kinds.items():
-                if field_name not in row:
-                    if kind.startswith("?"):
-                        given[field_name] = None
-                        continue
-                    raise ConversionFailed('%s, item %d, has no "%s".' % (path, i + 1, field_name))
-                given[field_name] = _store_decode(row[field_name], kind, '%s, item %d, "%s"' % (path, i + 1, field_name))
-            loaded.append(cls(**given))
-        items[:] = loaded
+            items[:] = _read_store(path, cls, kinds)
+        except Exception as error:  # noqa: BLE001 - reported at the Store line
+            error.thunder_where = (source, line)
+            raise
+
+
+def _read_store(path, cls, kinds):
+    """The records in a store's file; a problem names the item and field."""
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
+    try:
+        rows = json.loads(text)
+    except ValueError as error:
+        raise ConversionFailed("%s is not a list Thunder can read (%s)." % (path, error))
+    if not isinstance(rows, list):
+        raise ConversionFailed("%s should hold a list, written [ … ]." % path)
+    loaded = []
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise ConversionFailed("%s, item %d, should be a record, written { … }." % (path, i + 1))
+        given = {}
+        for field_name, kind in kinds.items():
+            if field_name not in row:
+                if kind.startswith("?"):
+                    given[field_name] = None
+                    continue
+                raise ConversionFailed('%s, item %d, has no "%s".' % (path, i + 1, field_name))
+            given[field_name] = _store_decode(row[field_name], kind, '%s, item %d, "%s"' % (path, i + 1, field_name))
+        loaded.append(cls(**given))
+    return loaded
 
 
 def _save_stores():
     import os
-    for name, cls, kinds, items in _STORES:
+    for source, line, name, cls, kinds, items in _STORES:
         path = _store_file(name)
         rows = [{f: _store_encode(getattr(item, f), kind) for f, kind in kinds.items()} for item in items]
         os.makedirs(os.path.dirname(path), exist_ok=True)

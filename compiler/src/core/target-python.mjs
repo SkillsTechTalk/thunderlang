@@ -66,7 +66,7 @@ class Gen {
     if (stores.length) {
       this.blank();
       const kind = (t) => (t.k === 'optional' ? `?${kind(t.of)}` : t.k);
-      for (const s of stores) this.emit(`${s.py} = ${this.R('new_store')}(${py(s.py.toLowerCase())}, ${s.record.py}, {${s.record.fields.map((f) => `${py(f.py)}: ${py(kind(f.type))}`).join(', ')}})`, s.line);
+      for (const s of stores) this.emit(`${s.py} = ${this.R('new_store')}(THUNDER_SOURCE, ${s.line}, ${py(s.py.toLowerCase())}, ${s.record.py}, {${s.record.fields.map((f) => `${py(f.py)}: ${py(kind(f.type))}`).join(', ')}})`, s.line);
     }
     const tests = this.info.tests;
     for (const t of tests) {

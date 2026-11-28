@@ -450,12 +450,12 @@ say "walk streak {walk's streak}"     # 1, then 2, then 3 on the next runs
   program that stops with a problem saves nothing, so the file is never left half changed.
 - **Where.** `data/habits.json`, next to the program (the project's folder). It is plain JSON, one object per
   record, each field written by its kind: whole numbers as numbers, numbers and money as exact text (`"1.50"`),
-  dates as `"2026-11-27"`, yes/no as `true`/`false`, nothing as `null`. A file Thunder cannot read is reported with
-  the item and field (TC509), and nothing runs.
+  dates as `"2026-11-27"`, yes/no as `true`/`false`, nothing as `null`. A file Thunder cannot read is reported at the
+  `Store` line with the item and field (TC509), nothing runs, and the file is left as it was.
 - **Tests** start with an empty store and never save, so `thunder test` never touches your data.
-- **Targets.** Python and the Thunder engine read and write the same file, so a program can move between them.
-  Other targets refuse a stored list for now (TC410). In the browser playground a stored list lives only while the
-  page is open.
+- **Targets.** Python, compiled TypeScript, and the Thunder engine read and write the same file, byte for byte, so
+  a program can move between them. Other targets refuse a stored list for now (TC410). In the browser playground a
+  stored list lives only while the page is open.
 - **What can be stored.** Records whose fields are whole numbers, numbers, money, text, yes/no, dates, or `optional`
   ones of those.
 
@@ -484,7 +484,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
 | TC408 | an npm package (`Use "…" from npm`) in a program compiled to a language other than TypeScript |
 | TC409 | a .NET library (`Use "…" from .NET` or `from NuGet`) in a program compiled to a language other than C# |
-| TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python (the Thunder engine runs it too) |
+| TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python or TypeScript (the Thunder engine runs it too) |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
 | TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
 | TC406, TC407 | screens built for a target other than React (or React with no screen), and a step that can't run on a press |

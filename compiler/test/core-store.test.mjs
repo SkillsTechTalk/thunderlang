@@ -1,5 +1,6 @@
 // Stored lists (Store habits as a list of Habit): saved in data/<name>.json between runs, on the Thunder engine and
-// Python, in one format (src/core/store-format.mjs, runtime-python's _fill_stores/_save_stores). Loaded when the
+// Python, and compiled TypeScript, in one format (src/core/store-format.mjs, which thunder_runtime.mjs carries;
+// runtime-python's _fill_stores/_save_stores). Loaded when the
 // program starts, saved only when it finishes well; tests start empty and never save.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -73,31 +74,53 @@ test('tests start with an empty store and never save', () => {
   });
 });
 
-test('a damaged file says where and what is wrong', () => {
+test('a damaged file says where and what is wrong, the same on every engine, and is left as it was', () => {
   project(HABITS, (dir) => {
     mkdirSync(join(dir, 'data'));
-    writeFileSync(join(dir, 'data', 'habits.json'), '[{"name":"walk","streak":"many","pledge":"1.50","started":"2026-11-27"}]\n');
-    const r = thunder(['run', '--engine', 'thunder', 'habits.thunder'], dir);
-    assert.notEqual(r.status, 0);
-    assert.match(r.stderr, /data\/habits\.json, item 1, "streak" should be a whole number, but the file has "many"\..*\[TC509\]/s);
+    const damaged = '[{"name":"walk","streak":"many","pledge":"1.50","started":"2026-11-27"}]\n';
+    writeFileSync(join(dir, 'data', 'habits.json'), damaged);
+    const ways = [['--engine', 'thunder'], ['--core', '--target', 'typescript'], ...(PY.error ? [] : [['--core']])];
+    for (const way of ways) {
+      const r = thunder(['run', 'habits.thunder', ...way], dir);
+      assert.notEqual(r.status, 0, way.join(' '));
+      assert.equal(r.stderr.trim(), 'habits.thunder, line 8: data/habits.json, item 1, "streak" should be a whole number, but the file has "many".  [TC509]', way.join(' '));
+      assert.equal(readFileSync(join(dir, 'data', 'habits.json'), 'utf8'), damaged);
+    }
   });
 });
 
-test('Python and the Thunder engine read and write the same file', { skip: PY.error ? `no Python: ${PY.error}` : false }, () => {
+test('Python, compiled TypeScript, and the Thunder engine read and write the same file', { skip: PY.error ? `no Python: ${PY.error}` : false }, () => {
   project(HABITS, (dir) => {
     assert.equal(thunder(['run', 'habits.thunder', '--core'], dir).stdout, '2 habits; walk streak 1\n');
     assert.equal(thunder(['run', '--engine', 'thunder', 'habits.thunder'], dir).stdout, '2 habits; walk streak 2\n');
-    assert.equal(thunder(['run', 'habits.thunder', '--core'], dir).stdout, '2 habits; walk streak 3\n');
-    assert.deepEqual(saved(dir)[0], { name: 'walk', streak: 3, pledge: '1.50', started: '2026-11-27', note: null });
-    const t = thunder(['test', 'habits.thunder', '--core'], dir);
-    assert.match(t.stdout, /1 passed/);
-    assert.equal(saved(dir)[0].streak, 3);
+    assert.equal(thunder(['run', 'habits.thunder', '--core', '--target', 'typescript'], dir).stdout, '2 habits; walk streak 3\n');
+    const afterTypeScript = readFileSync(join(dir, 'data', 'habits.json'), 'utf8');
+    assert.equal(thunder(['run', 'habits.thunder', '--core'], dir).stdout, '2 habits; walk streak 4\n');
+    assert.deepEqual(saved(dir)[0], { name: 'walk', streak: 4, pledge: '1.50', started: '2026-11-27', note: null });
+    // The same bytes, whichever wrote them (apart from the streak).
+    assert.equal(readFileSync(join(dir, 'data', 'habits.json'), 'utf8'), afterTypeScript.replace('"streak": 3', '"streak": 4'));
+    for (const way of [['--core'], ['--core', '--target', 'typescript']]) {
+      const t = thunder(['test', 'habits.thunder', ...way], dir);
+      assert.match(t.stdout, /1 passed/, way.join(' '));
+      assert.equal(saved(dir)[0].streak, 4);
+    }
+  });
+});
+
+test('compiled TypeScript keeps a stored list, and a program that stops saves nothing', () => {
+  project(HABITS, (dir) => {
+    assert.equal(thunder(['run', 'habits.thunder', '--core', '--target', 'typescript'], dir).stdout, '2 habits; walk streak 1\n');
+    assert.equal(thunder(['run', 'habits.thunder', '--core', '--target', 'typescript'], dir).stdout, '2 habits; walk streak 2\n');
+  });
+  project(`${HABITS}\nStop with "boom"\n`, (dir) => {
+    assert.notEqual(thunder(['run', 'habits.thunder', '--core', '--target', 'typescript'], dir).status, 0);
+    assert.equal(existsSync(join(dir, 'data', 'habits.json')), false);
   });
 });
 
 test('every other target refuses a stored list (TC410)', () => {
   project(HABITS, (dir) => {
-    for (const target of ['typescript', 'csharp', 'go', 'java', 'rust']) {
+    for (const target of ['csharp', 'go', 'java', 'rust']) {
       const r = thunder(['build', '--core', 'habits.thunder', '--target', target], dir);
       assert.notEqual(r.status, 0, target);
       assert.match(r.stdout + r.stderr, /"habits" is a stored list.*\[TC410\]/s, target);
