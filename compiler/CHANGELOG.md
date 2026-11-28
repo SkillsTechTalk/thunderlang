@@ -3,8 +3,8 @@
 - **Saved data: stored lists.** `Store habits as a list of Habit` keeps a list of records between runs, in
   `data/habits.json` (plain JSON, each field written by its kind; money and numbers exact). It is filled when the
   program starts and saved only when it finishes well; tests start empty and never save. Python, compiled TypeScript,
-  and the Thunder engine read and write the same file, byte for byte; other targets refuse it for now (new TC410). A
-  damaged file is reported at the `Store` line with the item and field (TC509), the same on every engine.
+  compiled Go, and the Thunder engine read and write the same file, byte for byte; other targets refuse it for now
+  (new TC410). A damaged file is reported at the `Store` line with the item and field (TC509), the same on every engine.
 - **`examplesOf(source)`: every example in a file, as data.** From `@skillstech/thunderlang/program` (and the main
   entry): each Core `Expect` and each mission `case` or `scenario`, with its line, the function or decision it checks,
   its inputs as written, and the expected answer (`thunder-examples-v1`). Examples are read even while another part of

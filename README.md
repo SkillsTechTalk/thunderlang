@@ -40,7 +40,7 @@ Each compilation capability is advertised only once it works.
 | **Compile Thunder Core to Rust**: `thunder build --target rust`; a standard-library-only runtime, and the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreRust --> |
 | **Compile Thunder Core to Go**: `thunder build --target go`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreGo --> |
 | **Compile Thunder Core to Java**: `thunder build --target java`; the same output as Python, the Thunder engine, and TypeScript on every Core test program | Available <!-- capability:coreJava --> |
-| **Save data between runs** in Thunder Core: `Store habits as a list of Habit` keeps records in `data/habits.json`, saved only when the program finishes well; Python, TypeScript, and the Thunder engine share the file | Available <!-- capability:coreStore --> |
+| **Save data between runs** in Thunder Core: `Store habits as a list of Habit` keeps records in `data/habits.json`, saved only when the program finishes well; Python, TypeScript, Go, and the Thunder engine share the file | Available <!-- capability:coreStore --> |
 
 Thunder Core is young: programs compile to Python, TypeScript, C#, Java, Go, and Rust (the table above). Three of
 them can use libraries: Python modules on Python (`Use csv as csv`), npm packages on TypeScript

@@ -12,6 +12,8 @@ package thunder
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -2978,7 +2980,271 @@ func Init(file string, fn func(F *Frame)) {
 	}()
 }
 
-// Run runs a program's main part, then ends the process with Python's exit status.
+// ── Stored lists (Store habits as a list of Habit): data/<name>.json, the format of store-format.mjs ─────────────
+// Each field is written by its kind: whole number -> a JSON integer (text when too large for one), number and money
+// -> exact text, date -> "2026-11-27", yes/no -> true/false, nothing -> null. The bytes are JavaScript's
+// JSON.stringify(rows, null, 2), so Go, Python, TypeScript, and the Thunder engine take turns on one file.
+
+// StoreField is a stored record's field and its kind ("money", or "?money" for an optional one).
+type StoreField struct {
+	Py   string
+	Kind string
+}
+
+type store struct {
+	file   string
+	line   int
+	name   string
+	cls    *RecordKind
+	fields []StoreField
+	items  *List
+}
+
+var stores []*store
+
+// NewStore is a stored list: empty until the program runs (Run fills it), saved when the program finishes well.
+func NewStore(file string, line int, name string, cls *RecordKind, fields []StoreField) V {
+	items := &List{[]V{}}
+	stores = append(stores, &store{file, line, name, cls, fields, items})
+	return items
+}
+
+var storeKinds = map[string]string{"whole": "a whole number", "number": "a number", "money": "money", "text": "text", "bool": "yes or no", "date": "a date"}
+var wholeText = regexp.MustCompile(`^-?\d+$`)
+var maxSafe = big.NewInt(9007199254740991)
+
+// storeJSONText is a JSON string the way JavaScript writes one: only ", \, and control characters escaped.
+func storeJSONText(b *strings.Builder, t string) {
+	b.WriteByte('"')
+	for _, r := range t {
+		switch r {
+		case '"':
+			b.WriteString(`\"`)
+		case '\\':
+			b.WriteString(`\\`)
+		case '\b':
+			b.WriteString(`\b`)
+		case '\f':
+			b.WriteString(`\f`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			if r < 0x20 {
+				fmt.Fprintf(b, `\u%04x`, r)
+			} else {
+				b.WriteRune(r)
+			}
+		}
+	}
+	b.WriteByte('"')
+}
+
+func storeEncode(b *strings.Builder, v V, kind string) {
+	if strings.HasPrefix(kind, "?") {
+		kind = kind[1:]
+	}
+	if v == nil {
+		b.WriteString("null")
+		return
+	}
+	switch kind {
+	case "whole":
+		n, ok := v.(*big.Int)
+		if ok && new(big.Int).Abs(n).Cmp(maxSafe) <= 0 {
+			b.WriteString(n.String())
+		} else {
+			storeJSONText(b, PyStr(v))
+		}
+	case "number":
+		storeJSONText(b, PyStr(v))
+	case "money":
+		storeJSONText(b, strings.Replace(PyStr(v), "$", "", 1))
+	case "date":
+		if d, ok := v.(*Date); ok {
+			storeJSONText(b, d.iso())
+		} else {
+			storeJSONText(b, PyStr(v))
+		}
+	case "bool":
+		if v == true {
+			b.WriteString("true")
+		} else {
+			b.WriteString("false")
+		}
+	default:
+		storeJSONText(b, PyStr(v))
+	}
+}
+
+func storeText(st *store) string {
+	if len(st.items.Items) == 0 {
+		return "[]\n"
+	}
+	var b strings.Builder
+	b.WriteString("[\n")
+	for i, item := range st.items.Items {
+		rec := item.(*Record)
+		b.WriteString("  {\n")
+		for j, f := range st.fields {
+			b.WriteString("    ")
+			storeJSONText(&b, f.Py)
+			b.WriteString(": ")
+			storeEncode(&b, rec.F[f.Py], f.Kind)
+			if j < len(st.fields)-1 {
+				b.WriteByte(',')
+			}
+			b.WriteByte('\n')
+		}
+		b.WriteString("  }")
+		if i < len(st.items.Items)-1 {
+			b.WriteByte(',')
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteString("]\n")
+	return b.String()
+}
+
+func storeDecode(x any, kind, where string) V {
+	if strings.HasPrefix(kind, "?") {
+		if x == nil {
+			return nil
+		}
+		kind = kind[1:]
+	}
+	bad := func() V {
+		shown, _ := json.Marshal(x)
+		panic(ConversionFailed(fmt.Sprintf("%s should be %s, but the file has %s.", where, storeKinds[kind], shown)))
+	}
+	num, isNum := x.(json.Number)
+	str, isStr := x.(string)
+	switch kind {
+	case "whole":
+		if isNum && wholeText.MatchString(string(num)) {
+			n, _ := new(big.Int).SetString(string(num), 10)
+			return n
+		}
+		if isStr && wholeText.MatchString(str) {
+			n, _ := new(big.Int).SetString(str, 10)
+			return n
+		}
+	case "number":
+		if isNum && wholeText.MatchString(string(num)) {
+			n, _ := new(big.Int).SetString(string(num), 10)
+			return n
+		}
+		if isStr {
+			if wholeText.MatchString(str) {
+				n, _ := new(big.Int).SetString(str, 10)
+				return n
+			}
+			if d := ParseDec(str); d != nil {
+				return d
+			}
+		}
+	case "money":
+		text := str
+		if isNum {
+			text = string(num)
+		}
+		if isNum || isStr {
+			if d := ParseDec(text); d != nil {
+				return &Money{d}
+			}
+		}
+	case "text":
+		if isStr {
+			return str
+		}
+	case "bool":
+		if v, ok := x.(bool); ok {
+			return v
+		}
+	case "date":
+		if isStr {
+			if d := parseDate(str); d != nil {
+				return d
+			}
+		}
+	default:
+		return x
+	}
+	return bad()
+}
+
+func storeRead(st *store, path, text string) []V {
+	dec := json.NewDecoder(bytes.NewReader([]byte(text)))
+	dec.UseNumber()
+	var raw any
+	if err := dec.Decode(&raw); err != nil {
+		panic(ConversionFailed(fmt.Sprintf("%s is not a list Thunder can read (%s).", path, err.Error())))
+	}
+	rows, ok := raw.([]any)
+	if !ok {
+		panic(ConversionFailed(path + " should hold a list, written [ … ]."))
+	}
+	out := []V{}
+	for i, r := range rows {
+		row, ok := r.(map[string]any)
+		if !ok {
+			panic(ConversionFailed(fmt.Sprintf("%s, item %d, should be a record, written { … }.", path, i+1)))
+		}
+		given := []Pair{}
+		for _, f := range st.fields {
+			x, has := row[f.Py]
+			if !has {
+				if strings.HasPrefix(f.Kind, "?") {
+					given = append(given, Pair{f.Py, nil})
+					continue
+				}
+				panic(ConversionFailed(fmt.Sprintf("%s, item %d, has no \"%s\".", path, i+1, f.Py)))
+			}
+			given = append(given, Pair{f.Py, storeDecode(x, f.Kind, fmt.Sprintf("%s, item %d, \"%s\"", path, i+1, f.Py))})
+		}
+		out = append(out, NewRecord(st.cls, given...))
+	}
+	return out
+}
+
+// fillStores fills each stored list from its file (a missing file is an empty list); a problem is reported at the
+// Store line.
+func fillStores() {
+	for _, st := range stores {
+		path := "data/" + st.name + ".json"
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			panic(PyErr("OSError", err.Error()))
+		}
+		withFrame(&Frame{st.file, st.line}, func() V { st.items.Items = storeRead(st, path, string(data)); return nil })
+	}
+}
+
+// saveStores writes each stored list to a new file next to the old one, then renames it, so a file is never left
+// half written.
+func saveStores() {
+	for _, st := range stores {
+		path := filepath.Join("data", st.name+".json")
+		if err := os.MkdirAll("data", 0o755); err != nil {
+			panic(PyErr("OSError", err.Error()))
+		}
+		if err := os.WriteFile(path+".saving", []byte(storeText(st)), 0o644); err != nil {
+			panic(PyErr("OSError", err.Error()))
+		}
+		if err := os.Rename(path+".saving", path); err != nil {
+			panic(PyErr("OSError", err.Error()))
+		}
+	}
+}
+
+// Run runs a program's main part, then ends the process with Python's exit status. Stored lists are filled first
+// and saved only when it finishes well.
 func Run(main func()) {
 	if !aborted {
 		func() {
@@ -2987,7 +3253,9 @@ func Run(main func()) {
 					report(r)
 				}
 			}()
+			fillStores()
 			main()
+			saveStores()
 		}()
 	}
 	out.Flush()
