@@ -76,6 +76,7 @@ class Checker {
     this.elem = []; // stack of { type } for where / from / sorted
     this.info = { records: [], funcs: [], consts: [], stores: [], modules: [], tests: [], rules: [], screens: [], usesDecimal: false };
     this.screens = new Map(); // key -> screen stmt
+    this.narrow = []; // { name, alt } while checking a case of "Depending on" or "If x is <alternative>"
   }
   err(code, line, msg, hint) { this.d.push(diag(code, line, msg, hint)); }
 
@@ -172,6 +173,78 @@ class Checker {
       this.resolveType(f.type, f.line);
       r.fieldMap.set(f.name, f);
     }
+    if (r.alts) this.checkAlternatives(r);
+  }
+  /** A data type with alternatives: each alternative's fields, one kind per field name, and no field called "which". */
+  /**
+   * Depending on payment: one case per alternative (or Otherwise). A missing alternative is reported at this line.
+   * Then it runs as If payment is successful … Otherwise if payment is declined …, with the value read once per test.
+   */
+  depending(s, sc, ctx) {
+    const line = s.line;
+    const t = this.ex(s.subject, sc);
+    const r = t.k === 'record' ? this.records.get(t.name) : null;
+    const name = s.subject.k === 'name' ? s.subject.name : null;
+    const bodies = () => { for (const c of s.cases) this.block(c.body, sc, ctx); if (s.otherwise) this.block(s.otherwise, sc, ctx); };
+    if (!r?.altMap) {
+      if (known(t)) this.err('TC305', line, `"Depending on" chooses by the alternative a value is, but this is ${typeWords(t)}, not a data type with alternatives.`, 'For other values, use When … / Otherwise when ….');
+      bodies(); s.k = 'if'; s.branches = []; return;
+    }
+    if (!['name', 'field'].includes(s.subject.k)) this.err('TC305', line, `"Depending on" reads its value once for each case, so give it a name first.`, `Set result to …, then write: Depending on result:`);
+    const seen = new Set();
+    for (const c of s.cases) {
+      if (!r.altMap.has(c.alt)) { this.err('TC217', c.line, `A ${r.text} is ${this.altList(r)}; "${c.text}" isn't one of them.`); this.block(c.body, sc, ctx); continue; }
+      if (seen.has(c.alt)) this.err('TC203', c.line, `"${c.text}" already has a case above.`);
+      seen.add(c.alt);
+      if (name) this.narrow.push({ name, alt: c.alt });
+      try { this.block(c.body, sc, ctx); } finally { if (name) this.narrow.pop(); }
+    }
+    if (s.otherwise) this.block(s.otherwise, sc, ctx);
+    const missing = [...r.altMap.values()].filter((a) => !seen.has(a.name));
+    if (missing.length && !s.otherwise) {
+      const ws = missing.map((a) => a.text.toLowerCase());
+      this.err('TC215', line, `"Depending on ${s.subject.text ?? 'this'}" doesn't say what to do when it is ${ws.length <= 2 ? ws.join(' or ') : `${ws.slice(0, -1).join(', ')}, or ${ws[ws.length - 1]}`}.`,
+        `Add ${missing.map((a) => `"${a.text}:"`).join(' and ')} with what to do, or "Otherwise:" for every case not listed.`);
+    }
+    const cases = s.cases.filter((c) => r.altMap.has(c.alt));
+    Object.assign(s, { k: 'if', branches: cases.map((c) => ({ cond: this.altTest(s.subject, r, c.alt, false, c.line), body: c.body, line: c.line })), otherwise: s.otherwise });
+  }
+
+  checkAlternatives(r) {
+    r.altMap = new Map();
+    for (const a of r.alts) {
+      if (r.altMap.has(a.name)) this.err('TC203', a.line, `${r.text} already has an alternative "${a.text}".`);
+      a.fieldMap = new Map();
+      for (const f of a.fields) {
+        if (f.name === 'which') { this.err('TC203', f.line, `"which" is the name Thunder gives to the alternative a ${r.text} is, so a field can't be called that.`, 'Give the field another name.'); continue; }
+        if (a.fieldMap.has(f.name)) this.err('TC203', f.line, `${a.text} already has a field "${f.text}".`);
+        f.py = pyName(f.name);
+        this.resolveType(f.type, f.line);
+        const shared = r.fieldMap.get(f.name);
+        const plain = (t) => (t.k === 'optional' ? t.of : t);
+        if (shared && known(f.type) && known(shared.type) && !sameKind(plain(shared.type), plain(f.type))) {
+          this.err('TC303', f.line, `"${f.text}" is ${typeWords(plain(shared.type))} in another alternative of ${r.text}, so here it can't be ${typeWords(plain(f.type))}.`, 'Use one kind for a field name in every alternative, or give the fields different names.');
+        }
+        a.fieldMap.set(f.name, f);
+      }
+      r.altMap.set(a.name, a);
+    }
+  }
+  /** The alternatives of a data type, as a person reads them: successful, declined, or pending. */
+  altList(r, joiner = 'or') {
+    const ws = [...r.altMap.values()].map((a) => a.text.toLowerCase());
+    return ws.length <= 2 ? ws.join(` ${joiner} `) : `${ws.slice(0, -1).join(', ')}, ${joiner} ${ws[ws.length - 1]}`;
+  }
+  /** The alternative a name is known to be here (inside its case, or after "If x is …"), or null. */
+  narrowed(e) {
+    if (e.k !== 'name') return null;
+    for (let i = this.narrow.length - 1; i >= 0; i--) if (this.narrow[i].name === e.name) return this.narrow[i].alt;
+    return null;
+  }
+  /** "x is successful", as the program runs it: x's which equals "successful". */
+  altTest(subject, r, alt, neg, line) {
+    const which = { k: 'field', obj: subject, name: 'which', text: 'which', py: 'which', static: true, line, type: { k: 'text' } };
+    return { k: 'cmp', op: neg ? '!=' : '==', l: which, r: { k: 'str', parts: [alt], line, type: { k: 'text' } }, line, type: { k: 'bool' } };
   }
   resolveType(t, line) {
     if (!t) return;
@@ -272,8 +345,15 @@ class Checker {
         return;
       }
       case 'stop': this.ex(s.e, sc); return;
+      case 'depending': return this.depending(s, sc, ctx);
       case 'if':
-        for (const b of s.branches) { this.cond(b.cond, sc); this.block(b.body, sc, ctx); }
+        for (const b of s.branches) {
+          // If payment is successful: inside, payment is known to be successful.
+          const c = b.cond.k === 'isAlt' && b.cond.e.k === 'name' ? { name: b.cond.e.name, alt: b.cond.alt } : null;
+          this.cond(b.cond, sc);
+          if (c && b.cond.k === 'cmp') this.narrow.push(c);
+          try { this.block(b.body, sc, ctx); } finally { if (c && b.cond.k === 'cmp') this.narrow.pop(); }
+        }
         if (s.otherwise) this.block(s.otherwise, sc, ctx);
         return;
       case 'each': {
@@ -499,6 +579,7 @@ class Checker {
       }
     } else {
       const tt = this.ex(tgt, sc);
+      if (tgt.k === 'field' && tgt.name === 'which' && tgt.obj.type?.k === 'record' && this.records.get(tgt.obj.type.name)?.altMap) this.err('TC205', line, `Which alternative a ${tgt.obj.type.text ?? 'value'} is can't be changed.`, 'Build a new one instead: Set payment to a declined Payment with ….');
       this.lvalue(tgt, sc, line);
       if (known(tt) && known(tv) && !compatible(tt, tv)) this.err('TC303', line, `${tgt.k === 'field' ? `The field "${tgt.text}"` : 'This entry'} holds ${typeWords(tt)}, so it can't be set to ${typeWords(tv)}.`);
     }
@@ -563,6 +644,15 @@ class Checker {
       case 'nothing': return T('nothing');
       case 'hole': return e.type ?? UNKNOWN;
       case 'draftHole': return this.draftHole(e, sc);
+      case 'isAlt': {
+        const t = this.ex(e.e, sc, o);
+        const r = t.k === 'record' ? this.records.get(t.name) : null;
+        if (!r?.altMap) { if (known(t)) this.err('TC305', line, `"is ${e.text}" asks which alternative a value is, but this is ${typeWords(t)}, not a data type with alternatives.`); return T('bool'); }
+        if (!r.altMap.has(e.alt)) { this.err('TC217', line, `A ${r.text} is ${this.altList(r)}; "${e.text}" isn't one of them.`); return T('bool'); }
+        const neg = e.neg;
+        Object.assign(e, this.altTest(e.e, r, e.alt, false, line));
+        return T('bool');
+      }
       case 'today': case 'date': return T('date');
       case 'paren': return this.ex(e.e, sc, o);
       case 'list': {
@@ -580,6 +670,21 @@ class Checker {
       case 'field': {
         const ot = this.ex(e.obj, sc, o);
         const r = ot.k === 'record' ? this.records.get(ot.name) : null;
+        if (r?.altMap && e.name !== 'which' && r.fieldMap.has(e.name)) {
+          // A field one alternative has: only where that alternative is known.
+          const alt = this.narrowed(e.obj);
+          const a = alt ? r.altMap.get(alt) : null;
+          const owners = [...r.altMap.values()].filter((x) => x.fieldMap.has(e.name));
+          const f = a?.fieldMap.get(e.name);
+          e.py = r.fieldMap.get(e.name).py; e.static = true;
+          if (f) return f.type;
+          const who = owners.map((x) => x.text.toLowerCase()).join(' or ');
+          if (a) this.err('TC216', line, `A ${a.text.toLowerCase()} ${r.text} has no ${e.text}; only a ${who} one does.`, `Fields of a ${a.text.toLowerCase()} ${r.text}: ${[...a.fieldMap.keys()].join(', ') || 'none'}.`);
+          else this.err('TC216', line, `Only a ${who} ${r.text} has ${/^[aeiou]/i.test(e.text) ? 'an' : 'a'} ${e.text}, and here it could be any of them.`, e.obj.k === 'name'
+            ? `Check which it is first: put this under "Depending on ${e.obj.text}:" in the ${owners[0]?.text ?? ''} case, or under "If ${e.obj.text} is ${owners[0]?.text.toLowerCase() ?? ''}:".`
+            : `Set it to a name first, then check which it is with "Depending on …:".`);
+          return UNKNOWN;
+        }
         if (r) {
           const f = r.fieldMap.get(e.name);
           if (!f) { const g = closest(e.name, [...r.fieldMap.keys()]); this.err('TC206', line, `A ${r.text} has no field "${e.text}".`, g ? `Did you mean "${g}"? Fields: ${[...r.fieldMap.keys()].join(', ')}.` : `Fields: ${[...r.fieldMap.keys()].join(', ')}.`); return UNKNOWN; }
@@ -682,7 +787,11 @@ class Checker {
         return this.arith(e.op, l, r, line);
       }
       case 'cmp': {
-        const l = this.ex(e.l, sc, o), r = this.ex(e.r, sc, o);
+        const l = this.ex(e.l, sc, o);
+        // paid is refunded: a word that is neither a value here nor an alternative of the data type.
+        const lr = l.k === 'record' ? this.records.get(l.name) : null;
+        if (lr?.altMap && e.r.k === 'name' && !sc.get(e.r.name) && !this.global.vars.get(e.r.name)) { this.err('TC217', line, `A ${lr.text} is ${this.altList(lr)}; "${e.r.text}" isn't one of them.`); return T('bool'); }
+        const r = this.ex(e.r, sc, o);
         this.comparable(l, r, line, e.op);
         return T('bool');
       }
@@ -760,6 +869,34 @@ class Checker {
    * available here with that kind. Thunder asks; it never chooses a value. The hole has its kind, so nothing else on
    * the line is reported because of it.
    */
+  /** a successful Payment with amount $5: the alternative's own fields, all it needs, and "which" set for it. */
+  newAlternative(e, r, sc, o) {
+    const ty = T('record', { name: r.name, text: r.text });
+    const a = e.alt ? r.altMap.get(e.alt) : null;
+    if (!a) {
+      for (const f of e.fields) this.ex(f.e, sc, o);
+      const kinds = [...r.altMap.values()].map((x) => `a ${x.text.toLowerCase()} ${r.text}`);
+      if (e.alt) this.err('TC217', e.line, `A ${r.text} is ${this.altList(r)}; "${e.altText}" isn't one of them.`);
+      else this.err('TC217', e.line, `Say which ${r.text} it is: ${kinds.length <= 2 ? kinds.join(' or ') : `${kinds.slice(0, -1).join(', ')}, or ${kinds[kinds.length - 1]}`}.`, `For example: ${kinds[0]}${r.alts[0]?.fields.length ? ' with …' : ''}.`);
+      return ty;
+    }
+    const given = new Set();
+    for (const f of e.fields) {
+      const def = a.fieldMap.get(f.name);
+      if (def && f.e.k === 'draftHole' && !f.e.want) f.e.expected = def.type;
+      const t = this.ex(f.e, sc, o);
+      if (!def) { const others = [...r.altMap.values()].filter((x) => x.fieldMap.has(f.name)).map((x) => x.text.toLowerCase()); this.err('TC206', e.line, `A ${a.text.toLowerCase()} ${r.text} has no field "${f.text}"${others.length ? ` (a ${others.join(' or ')} one does)` : ''}.`, `Fields of a ${a.text.toLowerCase()} ${r.text}: ${[...a.fieldMap.keys()].join(', ') || 'none'}.`); continue; }
+      f.py = def.py;
+      if (given.has(f.name)) this.err('TC203', e.line, `The field "${f.text}" is given twice.`);
+      given.add(f.name);
+      if (known(def.type) && known(t) && !compatible(def.type, t)) this.err('TC303', e.line, `A ${a.text.toLowerCase()} ${r.text}'s ${def.text} is ${typeWords(def.type)}, but ${typeWords(t)} was given.`);
+    }
+    const missing = a.fields.filter((f) => !given.has(f.name) && f.type.k !== 'optional' && f.type.k !== 'list' && f.type.k !== 'map');
+    if (missing.length) this.err('TC210', e.line, `A ${a.text.toLowerCase()} ${r.text} needs ${missing.map((f) => f.text).join(', ')}.`, `Write: a ${a.text.toLowerCase()} ${r.text} with ${a.fields.map((f) => `${f.text} …`).join(' and ')}.`);
+    e.fields.unshift({ name: 'which', text: 'which', py: 'which', e: { k: 'str', parts: [a.name], line: e.line, type: T('text') }, line: e.line });
+    return ty;
+  }
+
   draftHole(e, sc) {
     // A record's kind as written in its "A … has:" line (a Line, not a line).
     const named = (t) => (!t ? t : t.k === 'record' ? { ...t, text: this.records.get(t.name)?.text ?? t.text } : t.of ? { ...t, of: named(t.of) } : t);
@@ -809,6 +946,7 @@ class Checker {
     const r = this.records.get(e.record);
     if (!r) { this.err('TC209', e.line, `I don't know a record called "${e.record}".`); return UNKNOWN; }
     e.py = r.py;
+    if (r.altMap) return this.newAlternative(e, r, sc, o);
     const given = new Set();
     for (const f of e.fields) {
       const def = r.fieldMap.get(f.name);

@@ -422,6 +422,60 @@ equals contains between joined split replacing starts ends`. A yes/no function t
 8. **Nothing is silently changed.** If code cannot do what it says, it fails with a message in words. Thunder
    never substitutes a different behavior.
 
+## Either/or data: one of several alternatives
+
+Some values are one of a few things: a payment is successful, declined, or pending, and each has its own details.
+Write the alternatives once, one per line, each with its fields:
+
+```thunder
+A Payment is one of:
+  Successful with amount as money
+  Declined with reason as text
+  Pending
+
+To describe:
+  Receive payment as Payment
+  Depending on payment:
+    Successful:
+      Give "paid {payment's amount}"
+    Declined:
+      Give "declined: {payment's reason}"
+    Pending:
+      Give "waiting"
+
+say describe with a successful Payment with amount $5     # paid $5.00
+say describe with a pending Payment                       # waiting
+```
+
+- **Build one** by naming the alternative: `a successful Payment with amount $5`, `a pending Payment`. Each
+  alternative needs its own fields and no others.
+- **Depending on** has one case per alternative. One left out is a problem at the `Depending on` line, naming what is
+  missing (TC215), so adding an alternative later shows every place that must handle it. `Otherwise:` covers the
+  alternatives not listed, when that is what you mean.
+- **A field only some alternatives have** is read where Thunder knows which one it is: inside its case, or under
+  `If payment is successful:`. Anywhere else it is a problem that says how to check first (TC216).
+- **Ask which it is** with `payment is successful` or `payment is not successful`. `payment's which` is its
+  alternative as text (`"successful"`); it can be read, never changed.
+- **Recursive data.** An alternative can hold the same data type, so lists and trees are written directly:
+
+  ```thunder
+  A Tree is one of:
+    Leaf
+    Branch with left as Tree and value as number and right as Tree
+
+  To total:
+    Receive tree as Tree
+    Depending on tree:
+      Leaf:
+        Give 0
+      Branch:
+        Give (total with tree's left) + tree's value + (total with tree's right)
+  ```
+
+- **Every target.** Underneath, a data type is a record with `which` and each alternative's fields, so Python, the
+  Thunder engine, TypeScript, C#, Java, Go, and Rust run it the same way. `say payment` shows that record:
+  `Payment(which: successful, amount: $5.00, reason: nothing)`.
+
 ## Saved data: stored lists
 
 A stored list keeps its items between runs. Declare it once, at the left edge, with the record it holds:
@@ -516,6 +570,9 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python or TypeScript (the Thunder engine runs it too) |
 | TC120 | a hole (`?`, `?number`) in a draft: the program does not run until it is filled in (see *Drafts with holes*) |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
+| TC215 | `Depending on` leaves out an alternative of the data type, and has no `Otherwise` |
+| TC216 | a field only some alternatives have, read where the alternative is not known |
+| TC217 | an alternative the data type does not have, or a value built without saying which alternative it is |
 | TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
 | TC406, TC407 | screens built for a target other than React (or React with no screen), and a step that can't run on a press |
 | TC501 | divided by zero |

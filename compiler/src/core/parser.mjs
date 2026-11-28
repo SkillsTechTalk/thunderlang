@@ -142,6 +142,22 @@ function collectNames(nodes, names) {
         for (const p of paramGroups(c.tokens.slice(1))) inputs.push({ key: keyOf(p.words), text: p.words.map((x) => x.text).join(' '), defaultTokens: p.defaultTokens });
       }
       names.funcInputs.set(keyOf(ts.slice(1, -1)), inputs);
+    } else if ((w0 === 'a' || w0 === 'an') && isOneOf(ts)) {
+      // A Payment is one of: its alternatives (Successful with amount as money) and their fields, and "which".
+      const words = ts.slice(1, -4);
+      add('record', words);
+      const own = ['which'];
+      const alts = [];
+      for (const c of n.children) {
+        const at = c.tokens.findIndex((t) => isWord(t, 'with'));
+        const altWords = stripArticle(at < 0 ? c.tokens : c.tokens.slice(0, at));
+        if (altWords.length) { alts.push(keyOf(altWords)); names.alts.set(keyOf(altWords), [...(names.alts.get(keyOf(altWords)) ?? []), keyOf(words)]); }
+        if (at >= 0) for (const g of paramGroups(c.tokens.slice(at + 1))) if (g.words.length) { names.fields.add(keyOf(g.words)); own.push(keyOf(g.words)); }
+      }
+      names.fields.add('which');
+      names.recordFields.set(keyOf(words), [...new Set(own)]);
+      names.recordText.set(keyOf(words), words.map((x) => x.text).join(' '));
+      names.altsOf.set(keyOf(words), alts);
     } else if ((w0 === 'a' || w0 === 'an') && isWord(ts[ts.length - 2], 'has')) {
       const words = ts.slice(1, -2);
       add('record', words);
@@ -183,6 +199,12 @@ function rememberName(ts) {
 }
 
 // "total and member", "total as money, member as yes/no", "price and rate (7% if not given)"
+/** "A Payment is one of:": a data type with alternatives. */
+function isOneOf(ts) {
+  const n = ts.length;
+  return n >= 6 && isSym(ts[n - 1], ':') && isWord(ts[n - 2], 'of') && isWord(ts[n - 3], 'one') && isWord(ts[n - 4], 'is');
+}
+
 function paramGroups(ts) {
   const groups = [];
   let cur = [];
@@ -283,6 +305,15 @@ export class ExprParser {
       }
       if (s.word('in')) return wrap({ k: 'contains', l: this.add(s, o), r: l, line });
       if (s.done()) s.fail('Something is missing after "is".', 'For example: is 10, is at least 18, is nothing, is empty.', 'TC108');
+      // payment is successful: which alternative of a data type it is (a name of a value comes first).
+      if (this.names.alts?.size && s.peek()?.t === 'word') {
+        const run = []; for (let j = s.i; s.ts[j]?.t === 'word' && !RESERVED.has(s.ts[j].lower); j++) run.push(s.ts[j]);
+        const ak = this.longest(run, (key) => this.names.alts.has(key));
+        if (ak && !this.longest(run, (key) => this.names.known.has(key))) {
+          s.i += ak;
+          return wrap({ k: 'isAlt', e: l, alt: keyOf(run.slice(0, ak)), text: run.slice(0, ak).map((x) => x.text).join(' '), line });
+        }
+      }
       return { k: 'cmp', op: neg ? '!=' : '==', l, r: this.add(s, o), line };
     }
     return l;
@@ -418,6 +449,21 @@ export class ExprParser {
     return { k: 'record', name: this.names.records.has(key) ? key : key.replace(/s$/, '') };
   }
 
+  /** The fields a record is built with: with name "Ann" and balance $10 (none without "with"). */
+  recordFields(s, line) {
+    const fields = [];
+    if (s.word('with')) {
+      do {
+        const fr = this.wordRun(s);
+        if (!fr.length) s.fail(`I expected a field name after "with" (for example: with name "Ann").`, null, 'TC108');
+        const fk = this.longest(fr, (key) => this.names.fields.has(key)) || fr.length;
+        s.i -= fr.length - fk;
+        fields.push({ name: keyOf(fr.slice(0, fk)), text: fr.slice(0, fk).map((x) => x.text).join(' '), e: this.expr(s, { noAnd: true }), line });
+      } while ((isSym(s.peek(), ',') || isWord(s.peek(), 'and')) && this.fieldAhead(s, 1) && s.next());
+    }
+    return fields;
+  }
+
   primary(s, o) {
     const t = s.peek();
     const line = s.line;
@@ -489,6 +535,26 @@ export class ExprParser {
     if (RESERVED.has(w)) s.fail(`"${t.text}" is a Thunder word and can't start a value here.`, null, 'TC105');
 
     const run = this.wordRun(s);
+    // an alternative of a data type: "a successful Payment with amount $5", "a pending Payment"
+    if (o.article && this.names.alts?.size) {
+      for (let i = 1; i < run.length; i++) {
+        const alt = keyOf(run.slice(0, i));
+        const recs = this.names.alts.get(alt);
+        if (!recs) continue;
+        const rk = this.longest(run.slice(i), (key) => recs.includes(key));
+        if (!rk || i + rk !== run.length) continue;
+        s.i -= run.length - i - rk;
+        const node = { k: 'new', record: keyOf(run.slice(i, i + rk)), alt, altText: run.slice(0, i).map((x) => x.text).join(' '), fields: this.recordFields(s, line), line };
+        return node;
+      }
+      // "a refunded Payment": words before a data type that has alternatives, but not one of them (the checker says so).
+      for (let i = 1; i < run.length; i++) {
+        const rk = this.longest(run.slice(i), (key) => this.names.altsOf.has(key));
+        if (!rk || i + rk !== run.length) continue;
+        s.i -= run.length - i - rk;
+        return { k: 'new', record: keyOf(run.slice(i, i + rk)), alt: keyOf(run.slice(0, i)), altText: run.slice(0, i).map((x) => x.text).join(' '), fields: this.recordFields(s, line), line };
+      }
+    }
     // a record: "a Customer with name "Ann" and balance $10", "a new Customer"
     let off = run[0]?.lower === 'new' && run.length > 1 ? 1 : 0;
     const recK = this.longest(run.slice(off), (key) => this.names.records.has(key));
@@ -496,16 +562,7 @@ export class ExprParser {
     if (recK && wantsRecord && (recK + off === run.length)) {
       s.i -= run.length - off - recK;
       const name = keyOf(run.slice(off, off + recK));
-      const fields = [];
-      if (s.word('with')) {
-        do {
-          const fr = this.wordRun(s);
-          if (!fr.length) s.fail(`I expected a field name after "with" (for example: with name "Ann").`, null, 'TC108');
-          const fk = this.longest(fr, (key) => this.names.fields.has(key)) || fr.length;
-          s.i -= fr.length - fk;
-          fields.push({ name: keyOf(fr.slice(0, fk)), text: fr.slice(0, fk).map((x) => x.text).join(' '), e: this.expr(s, { noAnd: true }), line });
-        } while ((isSym(s.peek(), ',') || isWord(s.peek(), 'and')) && this.fieldAhead(s, 1) && s.next());
-      }
+      const fields = this.recordFields(s, line);
       const node = { k: 'new', record: name, fields, line };
       if (!fields.length && this.open) this.open.push(node); // a block of "field: value" lines may fill it
       return node;
@@ -542,7 +599,7 @@ export class ExprParser {
 export function parseCore(source, { seed = null } = {}) {
   const { lines, diagnostics } = lex(source);
   const tree = buildBlocks(lines, diagnostics);
-  const names = { known: new Map(seed?.known ?? []), fields: new Set(seed?.fields ?? []), records: new Set(seed?.records ?? []), recordFields: new Map(seed?.recordFields ?? []), funcInputs: new Map(seed?.funcInputs ?? []), recordText: new Map(), screens: new Map() };
+  const names = { known: new Map(seed?.known ?? []), fields: new Set(seed?.fields ?? []), records: new Set(seed?.records ?? []), recordFields: new Map(seed?.recordFields ?? []), funcInputs: new Map(seed?.funcInputs ?? []), recordText: new Map(), screens: new Map(), alts: new Map(seed?.alts ?? []), altsOf: new Map(seed?.altsOf ?? []) };
   collectNames(tree, names);
   const ep = new ExprParser(names);
   const body = parseBlock(tree, ep, names, diagnostics, { top: true });
@@ -575,14 +632,14 @@ function parseBlock(nodes, ep, names, diagnostics, ctx) {
 }
 
 // Statements whose ":" opens a block of statements (never a block of "name: value" lines).
-const BLOCK_STATEMENTS = new Set(['when', 'if', 'otherwise', 'for', 'repeat', 'to', 'test', 'receive', 'never', 'use', 'screen']);
+const BLOCK_STATEMENTS = new Set(['when', 'if', 'otherwise', 'for', 'repeat', 'to', 'test', 'receive', 'never', 'use', 'screen', 'depending']);
 
 /** The "name: value" lines under a statement that is not itself a block statement, or null. */
 function fieldBlock(n, diagnostics = []) {
   const ts = n.tokens;
   if (!n.children.length || !isSym(ts[ts.length - 1], ':')) return null;
   const w0 = ts[0]?.t === 'word' ? ts[0].lower : '';
-  if (BLOCK_STATEMENTS.has(w0) || ((w0 === 'a' || w0 === 'an') && isWord(ts[ts.length - 2], 'has'))) return null;
+  if (BLOCK_STATEMENTS.has(w0) || ((w0 === 'a' || w0 === 'an') && (isWord(ts[ts.length - 2], 'has') || isOneOf(ts)))) return null;
   return n.children.map((c) => {
     const colon = c.tokens.findIndex((t) => isSym(t, ':'));
     const nameTs = colon > 0 ? c.tokens.slice(0, colon) : [];
@@ -715,6 +772,23 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     siblings.pop();
     return { k: 'tryFail', stmt: prev, handler: children(), line };
   }
+  // Depending on payment:  /  Successful: …  /  Declined: …  /  Otherwise: …
+  if (w0 === 'depending' && isWord(ts[1], 'on')) {
+    const subject = E(header().slice(2));
+    const cases = [];
+    let otherwise = null;
+    for (const c of n.children) {
+      try {
+        const ct = c.tokens;
+        if (!isSym(ct[ct.length - 1], ':') || ct.length < 2) throw new CoreError(diag('TC108', c.line, 'Under "Depending on", each case is an alternative and a colon, for example: Successful:'));
+        const sub = parseBlock(c.children, ep, names, diagnostics, ctx);
+        if (ct.length === 2 && isWord(ct[0], 'otherwise')) { otherwise = sub; continue; }
+        const { name, text } = nameWords(ct.slice(0, -1), c.line, 'A case');
+        cases.push({ alt: name, text, body: sub, line: c.line });
+      } catch (e) { if (e instanceof CoreError) diagnostics.push(e.diagnostic); else throw e; }
+    }
+    return { k: 'depending', subject, cases, otherwise, line };
+  }
   if (w0 === 'when' || w0 === 'if') {
     const cond = E(header().slice(1));
     return { k: 'if', branches: [{ cond, body: children(), line }], otherwise: null, line };
@@ -779,6 +853,36 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
   }
   if (w0 === 'remember') fail('TC119', '"Remember" goes at the top of a "Screen", after its "Receive" lines.', 'A function keeps nothing between calls; a screen remembers values while it is shown.');
   if (w0 === 'show') fail('TC118', '"Show" is used inside a "Screen" (a screen shows things). In a program, write: Say …');
+  // A Payment is one of:
+  //   Successful with amount as money
+  //   Declined with reason as text
+  //   Pending
+  // A record underneath: "which" (the alternative's name) and every alternative's fields, each optional. The checker
+  // makes sure a field is only read where the alternative is known, and that "Depending on" covers every one.
+  if ((w0 === 'a' || w0 === 'an') && isOneOf(ts)) {
+    if (!ctx.top) fail('TC402', 'A data type ("A … is one of:") must be written at the left edge, not inside another block.');
+    const { name, text } = nameWords(ts.slice(1, -4), line, 'A data type');
+    const alts = [];
+    for (const c of n.children) {
+      try {
+        const at = c.tokens.findIndex((t) => isWord(t, 'with'));
+        const alt = nameWords(at < 0 ? c.tokens : c.tokens.slice(0, at), c.line, 'An alternative');
+        const fields = [];
+        if (at >= 0) {
+          for (const g of paramGroups(c.tokens.slice(at + 1))) {
+            if (!g.typeTokens) throw new CoreError(diag('TC108', c.line, `Write each field with its kind: ${alt.text} with ${g.words.map((x) => x.text).join(' ') || 'amount'} as money.`));
+            fields.push({ ...nameWords(g.raw, c.line, 'A field'), type: typeOf(ep, g.typeTokens, c.line), line: c.line });
+          }
+        }
+        alts.push({ ...alt, fields, line: c.line });
+      } catch (e) { if (e instanceof CoreError) diagnostics.push(e.diagnostic); else throw e; }
+    }
+    if (!alts.length) fail('TC108', `Write the alternatives under it, one per line, for example: Successful with amount as money.`);
+    const opt = (t) => (t.k === 'optional' ? t : { k: 'optional', of: t });
+    const fields = [{ name: 'which', text: 'which', type: { k: 'text' }, line, hidden: true }];
+    for (const a of alts) for (const f of a.fields) if (!fields.some((x) => x.name === f.name)) fields.push({ ...f, type: opt(f.type) });
+    return { k: 'record', name, text, fields, rules: [], alts, line };
+  }
   if ((w0 === 'a' || w0 === 'an') && isWord(ts[ts.length - 2], 'has') && isSym(ts[ts.length - 1], ':')) {
     if (!ctx.top) fail('TC402', 'A record ("A … has:") must be written at the left edge, not inside another block.');
     const { name, text } = nameWords(ts.slice(1, -2), line, 'A record');
