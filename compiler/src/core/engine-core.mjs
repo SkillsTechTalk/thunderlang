@@ -18,6 +18,7 @@ import {
   attrErr, strMethod, splitLines, pySplit, pyStrip, jsonParse, jsonText, isInt, isNumber,
 } from './engine-values.mjs';
 import * as V from './engine-values.mjs';
+import { storeFromText, storeToText, storeFile } from './store-format.mjs';
 import { shownText, copyValue, typedNumber, problemText } from './screen-values.mjs';
 import { percentDecimal } from './target-python.mjs';
 import { firstLine } from './target-typescript.mjs';
@@ -61,7 +62,10 @@ class Engine {
   // readText(path, cwd): the text of a file the program reads, or throws with .code 'ENOENT' / 'EISDIR'. Without it
   // (a browser), reading a file is reported as a missing file.
   // record: keep a step-by-step recording of the run (the Thunder Time Machine; see recordedRun below).
-  constructor({ cwd = '.', deeper = false, readText = null, record = false } = {}) {
+  constructor({ cwd = '.', deeper = false, readText = null, record = false, store = null } = {}) {
+    // store: { load(file) -> text | null, save(file, text) } for stored lists (Store … as a list of …). Without it,
+    // stored lists start empty and are not saved (the browser, and every test).
+    this.dataFiles = store;
     this.cwd = cwd;
     this.rec = record ? { steps: [], truncated: false } : null;
     this.readText = readText;
@@ -80,6 +84,9 @@ class Engine {
     for (const m of imports) for (const [k, v] of m.globals) mod.globals.set(k, v);
     for (const r of result.info.records.filter(own)) mod.globals.set(r.py, this.recordClass(r, mod));
     for (const f of result.info.funcs.filter(own)) mod.globals.set(f.py, { isFunc: true, f, mod });
+    // Stored lists: empty until the program starts (fillStores), saved when it finishes well (saveStores).
+    mod.stores = (result.info.stores ?? []).filter(own).map((s) => { const list = []; mod.globals.set(s.py, list); return { s, list, cls: mod.globals.get(s.record.py) }; });
+    for (const m of imports) for (const st of m.stores ?? []) mod.stores.push(st);
     const consts = result.info.consts.filter(own);
     if (consts.length) {
       const frame = { file: mod.file, line: 0 };
@@ -542,12 +549,33 @@ class Engine {
   // ── running a program or its tests ──────────────────────────────────────────────────────────────────────────
   runMain(mod) {
     const main = mod.r.program.main ?? [];
-    if (!main.length) return;
-    const frame = { file: mod.file, line: 0 };
-    this.withFrame(frame, () => {
-      const env = { mod, locals: new Map(), frame };
-      try { this.block(main, env); } catch (e) { if (e instanceof Return) return; throw e; }
-    });
+    this.fillStores(mod);
+    if (main.length) {
+      const frame = { file: mod.file, line: 0 };
+      this.withFrame(frame, () => {
+        const env = { mod, locals: new Map(), frame };
+        try { this.block(main, env); } catch (e) { if (e instanceof Return) return; throw e; }
+      });
+    }
+    // Only a program that finished well is saved: one that stopped with a problem changes nothing.
+    this.saveStores(mod);
+  }
+
+  /** Each stored list, filled from its file (data/<name>.json); a missing file is an empty list. */
+  fillStores(mod) {
+    if (!this.dataFiles) return;
+    for (const st of mod.stores ?? []) {
+      const file = storeFile(st.s);
+      const text = this.dataFiles.load(file);
+      if (text == null) continue;
+      const frame = { file: mod.file, line: st.s.line };
+      this.withFrame(frame, () => { st.list.splice(0, st.list.length, ...storeFromText(text, st.cls, file, (given) => this.newRecord(st.cls, given))); });
+    }
+  }
+
+  saveStores(mod) {
+    if (!this.dataFiles) return;
+    for (const st of mod.stores ?? []) this.dataFiles.save(storeFile(st.s), storeToText(st.list, st.cls));
   }
 
   runTest(mod, t) {
@@ -574,12 +602,12 @@ function notCompiled(results) {
 }
 
 /** The same, on the calling thread (its stack allows only a few hundred nested calls). */
-export function runInProcess({ entry, cwd, deeper = false, readText = null } = {}) {
+export function runInProcess({ entry, cwd, deeper = false, readText = null, store = null } = {}) {
   const broken = notCompiled([entry]);
   if (broken) return broken;
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  const eng = new Engine({ cwd, deeper, readText });
+  const eng = new Engine({ cwd, deeper, readText, store });
   let stderr = '', status = 0;
   try {
     const mod = eng.load(entry);
@@ -596,12 +624,12 @@ export function runInProcess({ entry, cwd, deeper = false, readText = null } = {
  * Run a program and keep a step-by-step recording of it (the Thunder Time Machine, `thunder run --record`).
  * Gives back { status, stdout, stderr, steps, truncated }. Like runInProcess, on the calling thread.
  */
-export function recordedRun({ entry, cwd, readText = null } = {}) {
+export function recordedRun({ entry, cwd, readText = null, store = null } = {}) {
   const broken = notCompiled([entry]);
   if (broken) return broken;
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses, steps: [] };
-  const eng = new Engine({ cwd, readText, record: true });
+  const eng = new Engine({ cwd, readText, record: true, store });
   let stderr = '', status = 0;
   try {
     const mod = eng.load(entry);

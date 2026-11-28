@@ -21,7 +21,7 @@ import { javaClassName } from './target-java.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
 import { paint, paintThunder, useColor } from '../term.mjs';
-import { runWithEngine, testWithEngine, ENGINES } from './engine.mjs';
+import { runWithEngine, testWithEngine, ENGINES, nodeStore } from './engine.mjs';
 import { recordedRun, screenApp, screenOutline, runInProcess } from './engine-core.mjs';
 import { hasScreens } from './target-react.mjs';
 import { COMPILER_VERSION } from '../emit.mjs';
@@ -238,7 +238,7 @@ function runCompiledTypeScript(cmd, build, warn, say) {
 /** thunder run --record <file>: run on the Thunder engine and save a step-by-step recording (the Time Machine). */
 function recordRun(build, file, cwd, warn) {
   if (!build.entry) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
-  const r = recordedRun({ entry: build.entry, cwd: build.base, readText: (p, dir) => readFileSync(resolve(dir, p), 'utf8') });
+  const r = recordedRun({ entry: build.entry, cwd: build.base, readText: (p, dir) => readFileSync(resolve(dir, p), 'utf8'), store: nodeStore(build.base) });
   if (r.refused) { warn(`thunder run: ${r.stderr.trim()}`); return 2; }
   if (r.stdout) process.stdout.write(r.stdout);
   if (r.stderr) process.stderr.write(r.stderr);

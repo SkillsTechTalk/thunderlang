@@ -8,15 +8,31 @@
 //
 // A program that uses a Python module ("Use csv as csv") is not run here: Thunder never imitates a library.
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { Worker, MessageChannel, receiveMessageOnPort } from 'node:worker_threads';
-import { resolve as resolvePath } from 'node:path';
+import { resolve as resolvePath, dirname } from 'node:path';
 import { ENGINES, pythonModulesUsed, refusalText, runInProcess as runCore, testInProcess as testCore, ThunderErr, PyErr } from './engine-core.mjs';
 
 export { ENGINES, pythonModulesUsed, refusalText, ThunderErr, PyErr };
 
 /** Files a program reads come from disk, relative to the folder it runs in. */
 const readText = (path, cwd) => readFileSync(resolvePath(cwd, path), 'utf8');
+
+/**
+ * Stored lists (Store … as a list of …) live in files under the folder the program runs in (data/<name>.json).
+ * A save writes a new file next to the old one and then renames it, so a file is never left half written.
+ */
+export function nodeStore(cwd) {
+  return {
+    load(file) { try { return readFileSync(resolvePath(cwd, file), 'utf8'); } catch (e) { if (e.code === 'ENOENT') return null; throw e; } },
+    save(file, text) {
+      const path = resolvePath(cwd, file);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(`${path}.saving`, text);
+      renameSync(`${path}.saving`, path);
+    },
+  };
+}
 
 /**
  * Run a program with the Thunder engine. `entry` is a compileCore result. Returns { status, stdout, stderr }, the way
@@ -27,12 +43,12 @@ const readText = (path, cwd) => readFileSync(resolvePath(cwd, path), 'utf8');
 export function runWithEngine({ entry, cwd = process.cwd() } = {}) {
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  const r = runCore({ entry, cwd, deeper: true, readText });
+  const r = runCore({ entry, cwd, deeper: true, readText, store: nodeStore(cwd) });
   return r.needsDeeperStack ? runSync({ entry, cwd }) : r;
 }
 
 /** The same, on the calling thread only. */
-export function runInProcess({ entry, cwd = process.cwd(), deeper = false } = {}) { return runCore({ entry, cwd, deeper, readText }); }
+export function runInProcess({ entry, cwd = process.cwd(), deeper = false } = {}) { return runCore({ entry, cwd, deeper, readText, store: nodeStore(cwd) }); }
 
 /** Run every Test block, the way run_tests.py does: one line per test, then the totals. */
 export function testWithEngine({ results, cwd = process.cwd() } = {}) {

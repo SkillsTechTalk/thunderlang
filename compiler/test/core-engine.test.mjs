@@ -72,7 +72,7 @@ test('every runnable snippet in docs/core.md agrees on both engines', { skip }, 
   for (const m of doc.matchAll(/```thunder\n([\s\S]*?)```/g)) {
     const r = compileCore(m[1]);
     // An npm package runs only as TypeScript (core-npm.test.mjs covers it), not on Python or the engine.
-    if (!r.ok || /read file/.test(m[1]) || r.info.modules.some((x) => (x.ecosystem ?? 'python') !== 'python')) continue;
+    if (!r.ok || /read file/.test(m[1]) || r.info.modules.some((x) => (x.ecosystem ?? 'python') !== 'python') || r.info.stores?.length) continue;
     runBoth(m[1]);
     if (r.info.tests.length) runBoth(m[1], { tests: true });
     ran++;

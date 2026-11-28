@@ -123,6 +123,9 @@ function collectNames(nodes, names) {
     } else if (w0 === 'keep') {
       const k = splitTop(ts, (t) => isWord(t, 'at'));
       add('const', stripArticle(ts.slice(1, k < 0 ? ts.length : k)));
+    } else if (w0 === 'store' && ts.some((t) => isWord(t, 'as'))) {
+      const k = splitTop(ts, (t) => isWord(t, 'as'));
+      add('const', stripArticle(ts.slice(1, k)));
     } else if (w0 === 'receive') {
       for (const p of paramGroups(ts.slice(1))) add('var', p.words);
     } else if (w0 === 'for' && isWord(ts[1], 'each')) {
@@ -671,6 +674,14 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     const target = allWords(targetTs) && !targetTs.some((t) => RESERVED.has(t.lower)) ? { k: 'name', ...nameWords(targetTs, line, '"Set"'), line } : E(targetTs);
     if (!['name', 'field', 'at'].includes(target.k)) fail('TC305', 'Only a name, a field (customer\'s balance), or an entry (counts at word) can be set.');
     return { k: 'set', target, e: E(rest.slice(at + 1)), line };
+  }
+  // Store <name> as a list of <Record>: a list that is saved between runs (data/<name>.json).
+  if (w0 === 'store' && rest.some((t) => isWord(t, 'as'))) {
+    if (!ctx.top) fail('TC402', 'A "Store" line must be written at the left edge of the file.');
+    const as = splitTop(rest, (t) => isWord(t, 'as'));
+    const typeTokens = stripArticle(rest.slice(as + 1));
+    if (!typeTokens.length) fail('TC108', 'Write what the store holds: Store habits as a list of Habit.');
+    return { k: 'store', ...nameWords(rest.slice(0, as), line, '"Store"'), type: typeOf(ep, typeTokens, line), line };
   }
   if (w0 === 'keep') {
     const at = splitTop(rest, (t) => isWord(t, 'at'));

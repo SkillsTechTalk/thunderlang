@@ -769,10 +769,129 @@ def describe_error(error):
     return "%s: %s  [%s]" % (where, message, code)
 
 
+# ── Stored lists (Store habits as a list of Habit): data/<name>.json, the format of store-format.mjs ─────────────
+_STORES = []
+_STORE_KINDS = {"whole": "a whole number", "number": "a number", "money": "money", "text": "text", "bool": "yes or no", "date": "a date"}
+
+
+def new_store(name, cls, kinds):
+    """A stored list: empty until the program starts (run fills it), saved when the program finishes well."""
+    items = []
+    _STORES.append((name, cls, kinds, items))
+    return items
+
+
+def _store_encode(v, kind):
+    if kind.startswith("?"):
+        return None if v is None else _store_encode(v, kind[1:])
+    if v is None:
+        return None
+    if kind == "whole":
+        return v if -(2 ** 53 - 1) <= v <= 2 ** 53 - 1 else str(v)
+    if kind == "number":
+        return str(v)
+    if kind == "money":
+        return str(v).replace("$", "")
+    if kind == "date":
+        return v.isoformat()
+    return v
+
+
+def _store_decode(x, kind, where):
+    if kind.startswith("?"):
+        return None if x is None else _store_decode(x, kind[1:], where)
+    def bad():
+        return ConversionFailed("%s should be %s, but the file has %s." % (where, _STORE_KINDS.get(kind, "a value"), json.dumps(x)))
+    if kind == "whole":
+        if isinstance(x, int) and not isinstance(x, bool):
+            return x
+        if isinstance(x, str) and re.fullmatch(r"-?\d+", x):
+            return int(x)
+        raise bad()
+    if kind == "number":
+        if isinstance(x, int) and not isinstance(x, bool):
+            return x
+        if isinstance(x, str):
+            if re.fullmatch(r"-?\d+", x):
+                return int(x)
+            try:
+                return Decimal(x)
+            except InvalidOperation:
+                raise bad()
+        raise bad()
+    if kind == "money":
+        try:
+            return Money(Decimal(str(x)))
+        except (InvalidOperation, ValueError):
+            raise bad()
+    if kind == "text":
+        if isinstance(x, str):
+            return x
+        raise bad()
+    if kind == "bool":
+        if isinstance(x, bool):
+            return x
+        raise bad()
+    if kind == "date":
+        try:
+            return date.fromisoformat(x)
+        except (TypeError, ValueError):
+            raise bad()
+    return x
+
+
+def _store_file(name):
+    return "data/%s.json" % name
+
+
+def _fill_stores():
+    import os
+    for name, cls, kinds, items in _STORES:
+        path = _store_file(name)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+        try:
+            rows = json.loads(text)
+        except ValueError as error:
+            raise ConversionFailed("%s is not a list Thunder can read (%s)." % (path, error))
+        if not isinstance(rows, list):
+            raise ConversionFailed("%s should hold a list, written [ … ]." % path)
+        loaded = []
+        for i, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise ConversionFailed("%s, item %d, should be a record, written { … }." % (path, i + 1))
+            given = {}
+            for field_name, kind in kinds.items():
+                if field_name not in row:
+                    if kind.startswith("?"):
+                        given[field_name] = None
+                        continue
+                    raise ConversionFailed('%s, item %d, has no "%s".' % (path, i + 1, field_name))
+                given[field_name] = _store_decode(row[field_name], kind, '%s, item %d, "%s"' % (path, i + 1, field_name))
+            loaded.append(cls(**given))
+        items[:] = loaded
+
+
+def _save_stores():
+    import os
+    for name, cls, kinds, items in _STORES:
+        path = _store_file(name)
+        rows = [{f: _store_encode(getattr(item, f), kind) for f, kind in kinds.items()} for item in items]
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".saving", "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(rows, indent=2, ensure_ascii=False) + "\n")
+        os.replace(path + ".saving", path)
+
+
 def run(main, file=None):
-    """Runs a generated program; an error is reported against the Thunder line, then the program exits with 1."""
+    """Runs a generated program; an error is reported against the Thunder line, then the program exits with 1.
+    Stored lists are filled first and saved only when the program finishes well."""
     try:
+        _fill_stores()
         main()
+        _save_stores()
     except KeyboardInterrupt:
         raise
     except Exception as error:  # noqa: BLE001 - every error is reported in Thunder words

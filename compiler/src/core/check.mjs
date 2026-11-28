@@ -74,7 +74,7 @@ class Checker {
     this.rules = []; // top-level and record Never rules
     this.mainNames = new Map(); // key -> first line it is set in the main program
     this.elem = []; // stack of { type } for where / from / sorted
-    this.info = { records: [], funcs: [], consts: [], modules: [], tests: [], rules: [], screens: [], usesDecimal: false };
+    this.info = { records: [], funcs: [], consts: [], stores: [], modules: [], tests: [], rules: [], screens: [], usesDecimal: false };
     this.screens = new Map(); // key -> screen stmt
   }
   err(code, line, msg, hint) { this.d.push(diag(code, line, msg, hint)); }
@@ -109,6 +109,20 @@ class Checker {
       this.declare(s, 'const', s.line, { py: pyName(s.name, 'upper'), type: t });
       this.info.consts.push(s);
     }
+    // 2b. Stored lists (Store habits as a list of Habit): names every function can see, whose items change and are
+    // saved between runs. A record's fields must be plain values so the file says exactly what they are.
+    for (const s of top) {
+      if (s.k !== 'store') continue;
+      const t = s.type;
+      const rec = t?.k === 'list' && t.of?.k === 'record' ? this.records.get(t.of.name) : null;
+      if (!rec) { this.err('TC306', s.line, `A store holds a list of records, for example: Store habits as a list of Habit.`, 'Describe the record with "A Habit has:", then store a list of it.'); continue; }
+      const plain = (ft) => ft && (['whole', 'number', 'money', 'text', 'bool', 'date'].includes(ft.k) || (ft.k === 'optional' && plain(ft.of)));
+      const bad = rec.fields.find((f) => !plain(f.type));
+      if (bad) { this.err('TC306', s.line, `"${rec.text ?? rec.name}" can't be stored yet: its field "${bad.text ?? bad.name}" is not a plain value.`, 'A stored record\'s fields are whole numbers, numbers, money, text, yes/no, dates, or one of those or nothing.'); continue; }
+      s.record = rec;
+      this.declare(s, 'store', s.line, { py: pyName(s.name, 'upper'), type: { k: 'list', of: { k: 'record', name: rec.name, text: rec.text } } });
+      this.info.stores.push(s);
+    }
     // 3. Never rules written at the top level or inside records.
     for (const s of top) if (s.k === 'never') this.addRule(s, null);
     for (const r of this.records.values()) for (const rule of r.rules) this.addRule(rule, r);
@@ -122,7 +136,7 @@ class Checker {
     if (needs.length) this.err('TC214', first.line, `"${first.text}" is the first screen, where the app starts, so nothing gives it ${needs.map((p) => p.text).join(', ')}.`, `Put the screen the app starts on first, or give ${needs.length === 1 ? 'the input' : 'each input'} a value for when it isn't given: Receive ${needs[0].text} (… if not given).`);
     const main = new Scope(this.global, 'main');
     this.mainScope = main;
-    const mainBody = top.filter((s) => !['record', 'func', 'use', 'keep', 'never', 'test', 'screen'].includes(s.k));
+    const mainBody = top.filter((s) => !['record', 'func', 'use', 'keep', 'store', 'never', 'test', 'screen'].includes(s.k));
     this.block(mainBody, main, {});
     this.p.main = mainBody;
     this.info.records = [...this.records.values()];
@@ -464,6 +478,7 @@ class Checker {
     const tgt = s.target;
     if (tgt.k === 'name') {
       const g = this.global.vars.get(tgt.name);
+      if (g && g.kind === 'store') { this.err('TC205', line, `"${tgt.text}" is a stored list (line ${g.line}): change its items, don't replace it.`, `Use Add … to ${tgt.text}, Remove … from ${tgt.text}, or Set ${tgt.text} at <position> to ….`); return; }
       if (g && g.kind === 'const') { this.err('TC205', line, `"${tgt.text}" is kept at a fixed value (line ${g.line}), so it can't be set.`, 'Use a different name for a value that changes, or change the Keep line.'); return; }
       if (g && g.kind !== 'const') { this.err('TC203', line, `"${tgt.text}" is already the name of ${g.kind === 'func' ? 'a function' : g.kind === 'record' ? 'a record' : 'a module'} (line ${g.line}).`, 'Give this value a different name.'); return; }
       const cur = sc.get(tgt.name);

@@ -61,6 +61,13 @@ class Gen {
     for (const f of this.info.funcs.filter(own)) { this.blank(); this.func(f); }
     const consts = this.info.consts.filter(own);
     if (consts.length) { this.blank(); for (const k of consts) this.emit(`${k.py} = ${this.x(k.e).c}`, k.line); }
+    // Stored lists: filled from data/<name>.json when the program runs, saved when it finishes well (runtime run()).
+    const stores = (this.info.stores ?? []).filter(own);
+    if (stores.length) {
+      this.blank();
+      const kind = (t) => (t.k === 'optional' ? `?${kind(t.of)}` : t.k);
+      for (const s of stores) this.emit(`${s.py} = ${this.R('new_store')}(${py(s.py.toLowerCase())}, ${s.record.py}, {${s.record.fields.map((f) => `${py(f.py)}: ${py(kind(f.type))}`).join(', ')}})`, s.line);
+    }
     const tests = this.info.tests;
     for (const t of tests) {
       this.blank();
