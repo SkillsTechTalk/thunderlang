@@ -1,40 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { EcosystemMenu } from "./EcosystemMenu";
-import { LearnMenu } from "./LearnMenu";
-import { mainNav, learnNav, OPENTHUNDER_URL } from "@/lib/site";
+import { NavMenu, MenuLink } from "./NavMenu";
+import { NAV_GROUPS, OPENTHUNDER_URL, GITHUB_URL, PRIMARY_ACTION, groupOf } from "@/lib/navigation";
 
+// The header: four questions a visitor comes with (Try it, Learn, Why Thunder, Community), the group of the page you
+// are on marked, and one main button whose label says where it goes. On phones the same groups open as sections.
 export function Header() {
-  const [open, setOpen] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const here = groupOf(pathname);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileGroup, setMobileGroup] = useState<string | null>(null);
+
+  // A new page closes every menu; on phones the section for the page you are on starts open.
+  useEffect(() => {
+    setOpenMenu(null);
+    setMobileOpen(false);
+    setMobileGroup(groupOf(pathname)?.title ?? null);
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/8 bg-ink-950/80 backdrop-blur-xl">
       <div className="container-x flex h-16 items-center justify-between gap-4">
         <Logo />
 
-        <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">
-          {mainNav.map((item, i) => (
-            <Fragment key={item.href}>
-              <Link
-                href={item.href}
-                className="whitespace-nowrap text-sm text-haze-300 transition-colors hover:text-haze-100"
-              >
-                {item.label}
-              </Link>
-              {i === 1 && <LearnMenu items={learnNav} />}
-            </Fragment>
+        <nav className="hidden items-center gap-2 lg:flex" aria-label="Primary">
+          {NAV_GROUPS.map((g) => (
+            <NavMenu
+              key={g.title}
+              group={g}
+              open={openMenu === g.title}
+              current={here?.title === g.title}
+              onOpenChange={(o) => setOpenMenu(o ? g.title : null)}
+            />
           ))}
         </nav>
 
         <div className="hidden items-center gap-3 lg:flex">
           <a
-            href="https://github.com/SkillsTechTalk/thunderlang"
+            href={GITHUB_URL}
             target="_blank"
             rel="noreferrer noopener"
-            aria-label="ThunderLang on GitHub"
+            aria-label="ThunderLang source on GitHub (opens another site)"
+            title="Source on GitHub"
             className="text-haze-300 transition-colors hover:text-haze-100"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -42,84 +55,78 @@ export function Header() {
             </svg>
           </a>
           <EcosystemMenu current="ThunderLang" />
-          <a href={OPENTHUNDER_URL} className="whitespace-nowrap rounded-full border border-gold-300/40 px-3.5 py-1.5 text-sm font-medium text-gold-200 transition hover:border-gold-300/70 hover:bg-gold-300/10">
+          <a
+            href={OPENTHUNDER_URL}
+            title="OpenThunder, the IDE for AI-written code (another site)"
+            className="whitespace-nowrap rounded-full border border-gold-300/40 px-3.5 py-1.5 text-sm font-medium text-gold-200 transition hover:border-gold-300/70 hover:bg-gold-300/10"
+          >
             OpenThunder ↗
           </a>
-          <Link href="/install" className="btn-primary whitespace-nowrap">
-            Get started
+          <Link href={PRIMARY_ACTION.href} className="btn-primary whitespace-nowrap">
+            {PRIMARY_ACTION.label}
           </Link>
         </div>
 
         <button
           type="button"
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-haze-200 lg:hidden"
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-menu"
+          onClick={() => setMobileOpen((v) => !v)}
+          className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-white/10 px-2.5 text-sm text-haze-200 active:bg-white/10 lg:hidden"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            {open ? (
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            {mobileOpen ? (
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             ) : (
-              <path
-                d="M4 7h16M4 12h16M4 17h16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
+              <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             )}
           </svg>
+          <span className="hidden sm:inline">{mobileOpen ? "Close" : "Menu"}</span>
         </button>
       </div>
 
-      {open && (
-        <div className="border-t border-white/8 bg-ink-900/95 lg:hidden">
-          <nav className="container-x flex flex-col py-4" aria-label="Mobile">
-            {mainNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="py-2.5 text-sm text-haze-200"
-              >
-                {item.label}
-              </Link>
-            ))}
-            <a href={OPENTHUNDER_URL} className="py-2.5 text-sm font-medium text-gold-200">OpenThunder, the IDE for AI-written code ↗</a>
-            <p className="mt-2 pt-2 text-xs font-semibold uppercase tracking-[0.18em] text-haze-500">
-              Learn
-            </p>
-            {learnNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="py-2.5 text-sm text-haze-200"
-              >
-                {item.label}
-              </Link>
-            ))}
-            <a
-              href="https://github.com/SkillsTechTalk/thunderlang"
-              target="_blank"
-              rel="noreferrer noopener"
-              onClick={() => setOpen(false)}
-              className="py-2.5 text-sm text-haze-200"
-            >
-              GitHub
-            </a>
-            <Link
-              href="/install"
-              onClick={() => setOpen(false)}
-              className="btn-primary mt-3 w-full"
-            >
-              Get started
-            </Link>
+      {mobileOpen && (
+        <div id="mobile-menu" className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/8 bg-ink-900 lg:hidden">
+          <nav className="container-x flex flex-col py-3" aria-label="Mobile">
+            <Link href={PRIMARY_ACTION.href} className="btn-primary mb-3 w-full">{PRIMARY_ACTION.label}</Link>
+            {NAV_GROUPS.map((g) => {
+              const expanded = mobileGroup === g.title;
+              const id = `mobile-${g.title.replace(/\W+/g, "-").toLowerCase()}`;
+              return (
+                <div key={g.title} className="border-b border-white/8 last:border-b-0">
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-controls={id}
+                    onClick={() => setMobileGroup(expanded ? null : g.title)}
+                    className="flex w-full items-center justify-between py-3 text-left active:bg-white/5"
+                  >
+                    <span>
+                      <span className="block text-base font-medium text-white">
+                        {g.title}
+                        {here?.title === g.title && <span className="ml-2 text-xs font-normal text-gold-300">You are here</span>}
+                      </span>
+                      <span className="block text-xs text-haze-400">{g.says}</span>
+                    </span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className={`shrink-0 text-haze-300 transition-transform ${expanded ? "rotate-180" : ""}`}>
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  {expanded && (
+                    <div id={id} className="pb-3">
+                      {g.sections.map((s, i) => (
+                        <div key={s.title ?? i}>
+                          {s.title && <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-haze-500">{s.title}</p>}
+                          <ul>{s.links.map((l) => <li key={l.href}><MenuLink link={l} /></li>)}</ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <a href={OPENTHUNDER_URL} className="mt-3 py-2.5 text-sm font-medium text-gold-200">OpenThunder, the IDE for AI-written code ↗</a>
           </nav>
         </div>
       )}

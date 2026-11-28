@@ -22,9 +22,18 @@ executable section, and navigation into the playground.
 3. Click the **playground** link -> lands on `/playground` (hand off to `playground.md`).
 4. Back on `/`, scroll the full page: Why / Prompt-vs-durable / philosophy pipeline /
    Example syntax / principles / What it's not / Ecosystem all render without layout break.
-5. Check the header nav (Vision, Docs, Examples, Playground, Roadmap, Blog, Community) and
-   the footer (should read "Pre-1.0 syntax ... the compiler is real and deterministic ...",
-   not "nothing production-ready").
+5. Check the header nav: four menus, **Try it**, **Learn**, **Why Thunder**, **Community**
+   (src/lib/navigation.ts), plus GitHub, the ecosystem menu, OpenThunder, and **Install**.
+   - Click each menu: one opens at a time, each link has a one-line description, and
+     unfinished pages say Prototype or Preview.
+   - Keyboard: Tab to a menu, Down arrow opens it on the first link, Up/Down move,
+     Escape closes it and focus returns to the menu button.
+   - On a page inside a group (for example `/read`), that menu is underlined and the page's
+     link says "You are here".
+   - At phone width (390px): no sideways scroll; Menu opens the same four groups as
+     sections, with the current group open.
+   The footer lists the same four groups, same names, plus Fine print, and reads "The language
+   may still change before 2.0 ... see what works today", not "Pre-1.0 syntax".
 6. Toggle light/dark if a theme control exists -> both render legibly.
 
 ## Assertions

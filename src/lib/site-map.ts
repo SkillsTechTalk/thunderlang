@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { posts } from "@/app/blog/posts";
 import { getDocSlugs, getExampleList } from "@/lib/docs";
+import { NAV_GROUPS, TRUST_LINKS, groupLinks, isExternal, type NavLink } from "@/lib/navigation";
 
 const APP_DIR = path.join(process.cwd(), "src", "app");
 
@@ -30,69 +31,21 @@ export function discoverRoutes(): string[] {
 export type MapLink = { href: string; label: string; says: string };
 export type MapSection = { title: string; says: string; links: MapLink[] };
 
-/** How people think about the site, from "what is this?" to the fine print. */
+/**
+ * The same groups as the header and footer (navigation.ts), with their one-line descriptions, so the map, the menus,
+ * and the footer name every page the same way. A few pages are on the map without a header slot (EXTRA).
+ */
+const EXTRA: Record<string, MapLink[]> = {
+  "Try it": [{ href: "/r", label: "Share a reading", says: "Open a public GitHub file in Thunder and copy a link to one function at one level." }],
+  Learn: [{ href: "/docs/thunder-vocabulary", label: "Thunder vocabulary", says: "Thunder, Thunder Text, Thundered code, and the views." }],
+};
 const SECTIONS: MapSection[] = [
-  {
-    title: "Start here",
-    says: "What Thunder is, and the fastest way to see it.",
-    links: [
-      { href: "/", label: "Home", says: "Thunder. Programming, made human." },
-      { href: "/language", label: "The Thunder Programming Language", says: "Human-native programming, and why. Thunder is the language; OpenThunder is the IDE for AI-written code." },
-      { href: "/learn", label: "Learn Thunder", says: "Twelve short lessons on reading software in Thunder, ending with a whole app in OpenThunder. No install." },
-      { href: "/install", label: "Install", says: "The open-source Thunder compiler for your terminal and VS Code." },
-    ],
-  },
-  {
-    title: "Read and try Thunder",
-    says: "Real code, read in Thunder in your browser.",
-    links: [
-      { href: "/zoom", label: "Semantic Zoom (preview)", says: "Big picture, flow, and details of a program, as Thunder, Thunder Text, or the original." },
-      { href: "/read", label: "Thunder Code", says: "Paste code in seventeen languages, C, C++, Swift, R, shell, PowerShell, and SQL included, and read it in Thunder." },
-      { href: "/gallery", label: "Gallery: famous code, read in Thunder", says: "Real functions from Flask, Express, Go, Redis, and more, with honest counts of what Thunder put into words." },
-      { href: "/r", label: "Share a reading", says: "Open a public GitHub file in Thunder and copy a link that opens one function at one level." },
-      { href: "/try", label: "Try it on a refund rule", says: "Ask a rule questions and change it safely." },
-      { href: "/map", label: "Thunder Atlas", says: "Zoom from a whole product down to one rule." },
-      { href: "/review", label: "Review", says: "See an AI change as before-and-after Thunder." },
-      { href: "/playground", label: "Playground", says: "Write rules and watch them become code in six languages." },
-    ],
-  },
-  {
-    title: "Learn and look things up",
-    says: "Tutorials, the specification, and every guide.",
-    links: [
-      { href: "/learn/write-rules", label: "Learn Thunder, part 2: write rules", says: "Write a rule once, prove it with examples, get it in six languages." },
-      { href: "/docs/spec", label: "Thunder V1 specification", says: "Every element, as a picture and as Thunder Text." },
-      { href: "/docs/thunder-vocabulary", label: "Thunder vocabulary", says: "Thunder, Thunder Text, Thundered code, and the views." },
-      { href: "/docs", label: "All documentation", says: "Every guide, grouped by what you want to do." },
-      { href: "/examples", label: "Examples", says: "Runnable rules and missions." },
-    ],
-  },
-  {
-    title: "Why Thunder",
-    says: "The thinking behind it, and the evidence.",
-    links: [
-      { href: "/blog/why-i-created-thunder", label: "Why I Created Thunder", says: "The essay: programming, made human." },
-      { href: "/manifesto", label: "Manifesto", says: "The human programming language: why Thunder exists." },
-      { href: "/vision", label: "Vision", says: "Where Thunder is going." },
-      { href: "/architecture", label: "Architecture", says: "How the compiler and the tools fit together." },
-      { href: "/atlas", label: "Intent Atlas (missions)", says: "The mission-level map from the earlier intent language." },
-      { href: "/proof", label: "Proof matrix", says: "What is verified, and how." },
-      { href: "/roadmap", label: "Roadmap", says: "What is done, and what is next." },
-      { href: "/blog", label: "Blog", says: "Essays, case studies, announcements." },
-      { href: "/articles", label: "Articles", says: "Longer reads about software in the AI era." },
-    ],
-  },
-  {
-    title: "Community and trust",
-    says: "Get involved, and the fine print.",
-    links: [
-      { href: "/community", label: "Community", says: "Where to ask, share, and contribute." },
-      { href: "/waitlist", label: "Run a team pilot", says: "Try Thunder with your team." },
-      { href: "/license", label: "License and governance", says: "Open source, and how decisions are made." },
-      { href: "/privacy", label: "Privacy", says: "What this site collects." },
-      { href: "/security", label: "Security", says: "How to report a problem." },
-    ],
-  },
+  ...NAV_GROUPS.map((g) => ({
+    title: g.title,
+    says: g.says,
+    links: [...groupLinks(g), ...(EXTRA[g.title] ?? [])].filter((l) => !isExternal(l.href)).map((l: NavLink | MapLink) => ({ href: l.href, label: 'status' in l && l.status ? `${l.label} (${l.status.toLowerCase()})` : l.label, says: l.says })),
+  })),
+  { title: "Fine print", says: "License, privacy, and security.", links: TRUST_LINKS.filter((l) => l.href !== "/site-map").map(({ href, label, says }) => ({ href, label, says })) },
 ];
 
 /** The curated sections, keeping only pages that exist, plus every discovered page they do not mention. */
@@ -108,7 +61,7 @@ export function getSiteMap(): { sections: MapSection[]; rest: string[] } {
   };
   const sections = SECTIONS.map((s) => ({ ...s, links: s.links.filter((l) => exists(l.href)) })).filter((s) => s.links.length);
   const named = new Set(SECTIONS.flatMap((s) => s.links.map((l) => l.href)));
-  const rest = [...routes].filter((r) => !named.has(r) && r !== "/site-map");
+  const rest = [...routes].filter((r) => !named.has(r) && r !== "/site-map" && r !== "/"); // home: the logo, on every page
   return { sections, rest };
 }
 
