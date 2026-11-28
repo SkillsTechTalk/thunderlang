@@ -52,6 +52,24 @@ Status: **done** · **in review** (PR open) · **next** · **planned**
 | 4.4 | Production observability and debugging | The Time Machine on real runs: OpenTelemetry traces shown as Thunder steps, with external effects replayed, not repeated | planned |
 | 4.5 | Broader formal verification | Evidence words used everywhere (Proven, Tested, Partially checked, Unverified, Violated) and more rules proven by the solver where that's feasible | planned |
 
+## The Design Recipe (asked for by OpenThunder, 2026-11-27)
+
+The Design Recipe from *How to Design Programs* (Felleisen, Findler, Flatt, Krishnamurthi): data design, signature
+and purpose, examples, template, implementation, testing. Pyret and Mio support parts of it already; Thunder does not
+claim to be first. ThunderLang owns the language side, in its one semantic model; OpenThunder builds the screens on
+top and does not keep a second model. These change the language, so they land before 2.0 freezes the syntax.
+
+| # | Item | Done when | Status |
+|---|---|---|---|
+| D.1 | `examplesOf(source)` | A library call returns every example (Core `Test`/`Expect` and mission `test`/`case`) with its function, inputs, and expected answer, so OpenThunder stops parsing text. The example syntax stays as it is, or OpenThunder is told first | **next** (small; unblocks OpenThunder) |
+| D.2 | Typed holes | `Give ?number` is a valid draft that never runs or ships; the diagnostic says what is available (inputs, expected kind) and asks, never fills in a value | planned |
+| D.3 | Either/or data types | A data type with alternatives (`successful`, `declined`, `pending`); a function that misses a case is a diagnostic at its line; recursive data (lists, trees) | planned |
+| D.4 | Templates from data | A deterministic library call turns a data definition into a code template (atomic, compound, either/or, recursive), and says when structural recursion is the wrong tool | planned |
+| D.5 | Change impact | `affectedBy(change)`: which functions, examples, and guarantees to look at again when a data definition changes (add `suspended` → everything that does not handle it) | planned |
+| D.6 | The design model | Per function: data, signature, purpose, examples, template, holes, obligations, provenance, as a versioned shape (`thunder-design-v1`) and a library call | planned (with 3.1) |
+| D.7 | Levels and modes | Beginner to Verified as one language with a compiler option, diagnostics that adapt; professionals keep writing without ceremony | planned |
+| D.8 | `design.*` tools for agents | Stateless MCP operations from analyse to review; an agent may propose design changes but never edits an approved expected answer to make code pass | planned |
+
 ## The 2.0 gate
 
 - All twenty items done.
