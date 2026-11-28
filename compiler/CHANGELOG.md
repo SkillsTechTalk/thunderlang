@@ -1,3 +1,10 @@
+# Unreleased
+
+- **`examplesOf(source)`: every example in a file, as data.** From `@skillstech/thunderlang/program` (and the main
+  entry): each Core `Expect` and each mission `case` or `scenario`, with its line, the function or decision it checks,
+  its inputs as written, and the expected answer (`thunder-examples-v1`). Examples are read even while another part of
+  the file does not compile. Tools such as OpenThunder's Check can stop parsing Thunder text.
+
 # 1.7.0
 
 - **.NET and NuGet from Thunder Core.** `Use "System.IO.Path" from .NET as paths` and `Use "Humanizer.NumberToWordsExtension"

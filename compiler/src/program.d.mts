@@ -29,3 +29,4 @@ export function toRust(program: unknown, info: unknown, options?: { source?: str
 export function toReact(program: unknown, info: unknown, options?: { source?: string }): string;
 export function hasScreens(info: unknown): boolean;
 export function pythonToCore(source: string): { core: string; functions: Array<{ name: string; exact: boolean }>; [k: string]: unknown };
+export { examplesOf, EXAMPLES_SCHEMA, type ThunderExample, type ThunderExamples } from './examples.mjs';

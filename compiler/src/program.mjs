@@ -12,3 +12,4 @@ export { toGo, goNamespaces } from './core/target-go.mjs';
 export { toRust } from './core/target-rust.mjs';
 export { toReact, hasScreens } from './core/target-react.mjs';
 export { pythonToCore } from './core/from-python.mjs';
+export { examplesOf, EXAMPLES_SCHEMA } from './examples.mjs';

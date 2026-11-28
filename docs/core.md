@@ -837,6 +837,25 @@ if (result.ok) {
 It also has `toTypeScript`, `toCSharp`, `toJava`, `toGo` (with `goNamespaces`), `toRust`, `toReact`, `recordedRun` (the
 Time Machine), `testInProcess`, and `pythonToCore`. Files a program reads come only from the `readText` you pass.
 
+**Every example in a file, as data.** `examplesOf(source)` reads a file's examples (Core `Test` / `Expect` lines, and a
+mission's `test` cases and scenarios) so a tool never has to parse Thunder text. Each example has its line, the
+function or decision it checks, its inputs as written, and the expected answer. It reads them even while another part
+of the file does not compile, which is when a reviewing tool needs them most:
+
+```js
+import { examplesOf } from "@skillstech/thunderlang/program";
+
+examplesOf('Test "members get 20% off":\n  Expect calculate discount with 150 and yes to be 30\n').examples[0];
+// { kind: "expect", block: "members get 20% off", line: 2,
+//   subject: { kind: "function", name: "calculate discount" },
+//   inputs: [{ name: null, text: "150" }, { name: null, text: "yes" }],
+//   expected: { mode: "equals", comparison: "is", text: "30" }, raw: "Expect calculate discount with 150 and yes to be 30",
+//   fromText: true }
+```
+
+`fromText: true` means the line was read from its text: here the function is not in the file, as in a project's
+`tests/` files, which call functions from `src/`. The shape is `thunder-examples-v1`. The example syntax it reads stays stable; a change to it is announced first.
+
 ## Examples
 
 `examples/core/` holds the demo programs: `hello`, `discount`, `savings`, `word-count`, `csv-summary`, and
