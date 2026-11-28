@@ -90,6 +90,13 @@ class Gen {
       this.emit('}');
     }
     for (const f of this.info.funcs.filter(own)) { this.blank(); this.func(f); }
+    // Stored lists: filled from data/<name>.json when the program runs, saved when it finishes well (runtime Run).
+    const stores = (this.info.stores ?? []).filter(own);
+    if (stores.length) {
+      this.blank();
+      const kind = (t) => (t.k === 'optional' ? `?${kind(t.of)}` : t.k);
+      for (const s of stores) this.emit(`var ${this.g(s.py)} = T.NewStore(${this.file}, ${s.line}, ${goStr(s.py.toLowerCase())}, ${this.g(s.record.py)}, []T.StoreField{${s.record.fields.map((f) => `{Py: ${goStr(f.py)}, Kind: ${goStr(kind(f.type))}}`).join(', ')}})`, s.line);
+    }
     const consts = this.info.consts.filter(own);
     this.blank();
     for (const k of consts) this.emit(`var ${this.g(k.py)} T.V`, k.line);
@@ -201,7 +208,7 @@ class Gen {
       }
     };
     visit(body);
-    const globals = new Set([...this.info.consts, ...this.info.funcs, ...this.info.records].map((x) => x.py));
+    const globals = new Set([...this.info.consts, ...(this.info.stores ?? []), ...this.info.funcs, ...this.info.records].map((x) => x.py));
     return [...names].filter((n) => !globals.has(n));
   }
 
@@ -536,14 +543,14 @@ const own = (r) => (s) => !r.info.imported?.has(s);
  */
 export function goNamespaces(results) {
   const defs = new Map();
-  for (const r of results) for (const s of [...r.info.records, ...r.info.funcs, ...r.info.consts].filter(own(r))) (defs.get(s.py) ?? defs.set(s.py, []).get(s.py)).push(r.module);
+  for (const r of results) for (const s of [...r.info.records, ...r.info.funcs, ...r.info.consts, ...(r.info.stores ?? [])].filter(own(r))) (defs.get(s.py) ?? defs.set(s.py, []).get(s.py)).push(r.module);
   const goName = (module, py) => ((defs.get(py)?.length ?? 0) > 1 ? `${module}_${py}` : id(py));
   const out = new Map();
   for (const r of results) {
     const visible = new Map();
     const funcs = new Map();
     const take = (x) => {
-      for (const s of [...x.info.records, ...x.info.funcs, ...x.info.consts].filter(own(x))) visible.set(s.py, goName(x.module, s.py));
+      for (const s of [...x.info.records, ...x.info.funcs, ...x.info.consts, ...(x.info.stores ?? [])].filter(own(x))) visible.set(s.py, goName(x.module, s.py));
       for (const f of x.info.funcs.filter(own(x))) funcs.set(f.py, f.params.length);
     };
     // A test file sees every src file's names (as the Python target's `from <module> import *`), later ones winning.

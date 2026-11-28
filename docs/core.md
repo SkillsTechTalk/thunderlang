@@ -453,8 +453,8 @@ say "walk streak {walk's streak}"     # 1, then 2, then 3 on the next runs
   dates as `"2026-11-27"`, yes/no as `true`/`false`, nothing as `null`. A file Thunder cannot read is reported at the
   `Store` line with the item and field (TC509), nothing runs, and the file is left as it was.
 - **Tests** start with an empty store and never save, so `thunder test` never touches your data.
-- **Targets.** Python, compiled TypeScript, and the Thunder engine read and write the same file, byte for byte, so
-  a program can move between them. Other targets refuse a stored list for now (TC410). In the browser playground a
+- **Targets.** Python, compiled TypeScript, compiled Go, and the Thunder engine read and write the same file, byte
+  for byte, so a program can move between them. Other targets refuse a stored list for now (TC410). In the browser playground a
   stored list lives only while the page is open.
 - **What can be stored.** Records whose fields are whole numbers, numbers, money, text, yes/no, dates, or `optional`
   ones of those.
@@ -513,7 +513,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC405 | a Python module (`Use`) in a program compiled to a language other than Python |
 | TC408 | an npm package (`Use "…" from npm`) in a program compiled to a language other than TypeScript |
 | TC409 | a .NET library (`Use "…" from .NET` or `from NuGet`) in a program compiled to a language other than C# |
-| TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python or TypeScript (the Thunder engine runs it too) |
+| TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python, TypeScript, or Go (the Thunder engine runs it too) |
 | TC120 | a hole (`?`, `?number`) in a draft: the program does not run until it is filled in (see *Drafts with holes*) |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
 | TC212–TC214 | screens: an unknown screen, an input changed by the screen that receives it, an input missing or unknown |
