@@ -28,7 +28,7 @@ Status: **done** · **in review** (PR open) · **next** · **planned**
 |---|---|---|---|
 | 2.1 | TypeScript/npm package interoperability | `Use "<package>" from npm as <name>` on the TypeScript target, exact values across the boundary, TC408 everywhere else | **done: #186** |
 | 2.2 | C#/.NET package interoperability | `Use "<type>" from .NET as <name>` and `from NuGet "<package>" version "<v>"` on the C# target, same rules as npm | **in review: #193** |
-| 2.3 | Persistent data and HTTP abstractions | Save/find records and serve/call HTTP from Core, with explicit adapters (SQLite first) and the same meaning on every supported target | **in progress**: stored lists saved to JSON on Python and the Thunder engine (#199), then compiled TypeScript (in review); SQLite, other targets, and HTTP next |
+| 2.3 | Persistent data and HTTP abstractions | Save/find records and serve/call HTTP from Core, with explicit adapters (SQLite first) and the same meaning on every supported target | **in progress**: stored lists saved to JSON on Python and the Thunder engine (#199), then compiled TypeScript (in review: #200); SQLite, other targets, and HTTP next |
 | 2.4 | A production-quality VS Code extension | Go to definition, references, rename, code actions with previewed fixes, Core and mission files both first-class | planned |
 | 2.5 | One complete reference application | A real app (data, sign-in, API, screens, tests) written in Thunder that someone can use, built only from shipped features | planned |
 
