@@ -18,7 +18,7 @@ import {
   attrErr, strMethod, splitLines, pySplit, pyStrip, jsonParse, jsonText, isInt, isNumber,
 } from './engine-values.mjs';
 import * as V from './engine-values.mjs';
-import { storeFromText, storeToText, storeFile } from './store-format.mjs';
+import { storeFromText, storeToText, storeFile, recordFrom, dataJson, unreachableReason } from './store-format.mjs';
 import { shownText, copyValue, typedNumber, problemText } from './screen-values.mjs';
 import { percentDecimal } from './target-python.mjs';
 import { firstLine } from './target-typescript.mjs';
@@ -62,7 +62,11 @@ class Engine {
   // readText(path, cwd): the text of a file the program reads, or throws with .code 'ENOENT' / 'EISDIR'. Without it
   // (a browser), reading a file is reported as a missing file.
   // record: keep a step-by-step recording of the run (the Thunder Time Machine; see recordedRun below).
-  constructor({ cwd = '.', deeper = false, readText = null, record = false, store = null } = {}) {
+  // http(method, url, bodyText) -> { status, text } | { error }: calls another service and waits for the answer.
+  // Without it (a browser), "the answer from …" says it can't run here.
+  constructor({ cwd = '.', deeper = false, readText = null, record = false, store = null, http = null } = {}) {
+    this.http = http;
+    this.answeredStatus = null; // Give … with status 201, read by the server after an endpoint answers
     // store: { load(file) -> text | null, save(file, text) } for stored lists (Store … as a list of …). Without it,
     // stored lists start empty and are not saved (the browser, and every test).
     this.dataFiles = store;
@@ -137,7 +141,7 @@ class Engine {
       const locals = new Map();
       const env = { mod, locals, frame };
       f.params.forEach((p, i) => {
-        let v = i < args.length ? args[i] : (p.dflt ? (p.dflt.k === 'name' ? NOT_GIVEN : this.x(p.dflt, env)) : undefined);
+        let v = i < args.length && args[i] !== NOT_GIVEN ? args[i] : (p.dflt ? (p.dflt.k === 'name' ? NOT_GIVEN : this.x(p.dflt, env)) : undefined);
         if (v === undefined) throw TypeErr(`${f.py}() missing 1 required positional argument: '${p.py}'`);
         locals.set(p.py, v);
       });
@@ -147,6 +151,34 @@ class Engine {
       catch (e) { if (e instanceof Return) return e.v; throw e; }
       return null;
     });
+  }
+
+  /** the answer from GET "…" [with …] [as Rate]: the answer's text, or records read from it. */
+  httpCall(e, env) {
+    const url = this.x(e.url, env);
+    const body = e.body ? dataJson(this.x(e.body, env)) : null;
+    if (!this.http) throw V.CallFailed(`${e.method} ${pyStr(url)} can't be called here: calls to other services run with the thunder command, not in the browser.`);
+    const out = this.http(e.method, url, body);
+    if (out.error) throw V.CallFailed(`${e.method} ${url} could not be reached (${unreachableReason(out)}).`);
+    if (out.status < 200 || out.status > 299) throw V.CallFailed(`${e.method} ${url} answered ${out.status}: ${out.text.trim().slice(0, 300)}`);
+    if (!e.record) return out.text;
+    const where = `The answer from ${e.method} ${url}`;
+    let data;
+    try { data = JSON.parse(out.text); } catch { throw V.ConversionFailed(`${where} is not JSON Thunder can read.`); }
+    const cls = env.mod.globals.get(e.record.py);
+    const make = (given) => this.newRecord(cls, given);
+    if (e.as.k === 'list') {
+      if (!Array.isArray(data)) throw V.ConversionFailed(`${where} should be a list, written [ … ].`);
+      return data.map((row, i) => recordFrom(row, cls, `${where}, item ${i + 1}`, make, 'it has'));
+    }
+    return recordFrom(data, cls, where, make, 'it has');
+  }
+
+  /** An endpoint answering one request: its value and status, or the error it stopped with. Output so far is kept. */
+  answer(mod, f, args) {
+    this.answeredStatus = null;
+    const value = this.call(mod.globals.get(f.py), args);
+    return { value, status: this.answeredStatus ?? 200 };
   }
 
   never(rule, value, env) { V.never(this.x(rule.rule.cond, env, { subject: value }), rule.text, rule.line, value); }
@@ -255,8 +287,8 @@ class Engine {
         this.storeAt(t, v, env);
         return;
       }
-      case 'give': throw new Return(s.e.k === 'nothing' ? null : this.x(s.e, env));
-      case 'stop': { const v = this.x(s.e, env); throw Stop(s.e.type?.k === 'text' ? pyStr(v) : show(v)); }
+      case 'give': { const v = s.e.k === 'nothing' ? null : this.x(s.e, env); if (s.status != null) this.answeredStatus = s.status; throw new Return(v); }
+      case 'stop': { const v = this.x(s.e, env); const err = Stop(s.e.type?.k === 'text' ? pyStr(v) : show(v)); if (s.status != null) err.status = s.status; throw err; }
       case 'if':
         for (const b of s.branches) {
           fr.line = b.line;
@@ -435,6 +467,7 @@ class Engine {
       case 'bool': return !!e.v;
       case 'nothing': case 'hole': return null;
       case 'paren': return sub2(e.e);
+      case 'httpCall': return this.httpCall(e, env);
       case 'today': return PyDate.today();
       case 'date': { const d = PyDate.parse(e.text); if (!d) throw new PyErr('ValueError', `Invalid isoformat string: '${e.text}'`); return d; }
       case 'str': return this.str(e, env, ctx);
@@ -602,12 +635,12 @@ function notCompiled(results) {
 }
 
 /** The same, on the calling thread (its stack allows only a few hundred nested calls). */
-export function runInProcess({ entry, cwd, deeper = false, readText = null, store = null } = {}) {
+export function runInProcess({ entry, cwd, deeper = false, readText = null, store = null, http = null } = {}) {
   const broken = notCompiled([entry]);
   if (broken) return broken;
   const uses = pythonModulesUsed([entry]);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  const eng = new Engine({ cwd, deeper, readText, store });
+  const eng = new Engine({ cwd, deeper, readText, store, http });
   let stderr = '', status = 0;
   try {
     const mod = eng.load(entry);
@@ -618,6 +651,27 @@ export function runInProcess({ entry, cwd, deeper = false, readText = null, stor
     else { stderr = `${eng.describeError(asPyErr(e))}\n`; status = 1; }
   }
   return { status, stdout: eng.out.join(''), stderr };
+}
+
+/**
+ * A program loaded and its main part run, ready to answer requests (thunder run --engine thunder with endpoints).
+ * Gives back { eng, mod, stdout } or, when it can't start, { status, stdout, stderr }.
+ */
+export function engineForServing({ entry, cwd, readText = null, store = null, http = null } = {}) {
+  const broken = notCompiled([entry]);
+  if (broken) return broken;
+  const uses = pythonModulesUsed([entry]);
+  if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
+  const eng = new Engine({ cwd, readText, store, http });
+  try {
+    const mod = eng.load(entry);
+    eng.runMain(mod);
+    const stdout = eng.out.join('');
+    eng.out = [];
+    return { eng, mod, stdout };
+  } catch (e) {
+    return { status: 1, stdout: eng.out.join(''), stderr: `${eng.describeError(asPyErr(e))}\n` };
+  }
 }
 
 /**
@@ -641,12 +695,12 @@ export function recordedRun({ entry, cwd, readText = null, store = null } = {}) 
 }
 
 /** The same, on the calling thread. */
-export function testInProcess({ results, cwd, deeper = false, readText = null } = {}) {
+export function testInProcess({ results, cwd, deeper = false, readText = null, http = null } = {}) {
   const broken = notCompiled(results);
   if (broken) return broken;
   const uses = pythonModulesUsed(results);
   if (uses.length) return { status: 2, stdout: '', stderr: `${refusalText(uses)}\n`, refused: uses };
-  const eng = new Engine({ cwd, deeper, readText });
+  const eng = new Engine({ cwd, deeper, readText, http });
   const mods = [];
   const srcMods = [];
   for (const r of results) {

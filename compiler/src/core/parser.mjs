@@ -467,6 +467,34 @@ export class ExprParser {
   primary(s, o) {
     const t = s.peek();
     const line = s.line;
+    const METHODS = ['get', 'post', 'put', 'patch', 'delete'];
+    // the answer from GET "https://…" [with <value>] [as <Kind>]: call another service over HTTP.
+    if (isWord(t, 'answer') && isWord(s.peek(1), 'from') && METHODS.includes(s.peek(2)?.lower)) {
+      s.i += 2;
+      const method = s.next().text.toUpperCase();
+      const url = this.primary(s, { ...o, noAnd: true });
+      let body = null, as = null;
+      if (s.word('with')) {
+        body = this.expr(s, { ...o, noAnd: true });
+        // "with charge as Receipt": the "as" belongs to the call (what the answer is), not to the value sent.
+        if (body.k === 'conv' && body.type) { as = body.type; body = body.e; }
+      }
+      if (!as && s.word('as')) as = this.typeRef(s);
+      return { k: 'httpCall', method, url, body, as, line };
+    }
+    // calling GET /habits/walk [with name "run" and …]: an endpoint of this program, called directly (in tests).
+    if (isWord(t, 'calling') && METHODS.includes(s.peek(1)?.lower) && isSym(s.peek(2), '/')) {
+      s.i += 2;
+      const method = s.ts[s.i - 1].text.toUpperCase();
+      // The path is the tokens written against each other: / habits / walk (a space ends it).
+      let path = '';
+      let prev = null;
+      while (s.peek() && (prev === null ? isSym(s.peek(), '/') : s.peek().col === prev.col + String(prev.text).length && (isSym(s.peek(), '/') || isSym(s.peek(), '-') || s.peek().t === 'word' || s.peek().t === 'num'))) {
+        prev = s.next();
+        path += prev.text;
+      }
+      return { k: 'callEndpoint', method, path, fields: this.recordFields(s, line), line };
+    }
     if (!t) s.fail('A value is missing at the end of this line.', null, 'TC108');
     if (t.t === 'num') { s.next(); return { k: 'num', text: t.text, whole: t.whole, line }; }
     if (t.t === 'money') { s.next(); return { k: 'money', text: t.text, line }; }
@@ -732,6 +760,25 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
   const w0 = ts[0].t === 'word' ? ts[0].lower : '';
   const rest = ts.slice(1);
 
+  // When someone calls GET /habits/{name}:  an endpoint. Underneath it is a function whose inputs are its Receive
+  // lines; the server (and "calling GET /habits/walk" in a test) passes the path parts and the body to them.
+  if (w0 === 'when' && isWord(ts[1], 'someone') && isWord(ts[2], 'calls') && ts[4]?.t === 'path') {
+    if (!ctx.top) fail('TC402', 'An endpoint ("When someone calls …") must be written at the left edge, not inside another block.');
+    const method = ts[3].text.toUpperCase();
+    const path = ts[4].text;
+    const segments = path.split('/').filter(Boolean).map((seg) => { const m = seg.match(/^\{([^{}]+)\}$/); return m ? { param: m[1].trim().toLowerCase(), text: m[1].trim() } : { lit: seg }; });
+    const kids = n.children;
+    const params = [];
+    let r = 0;
+    while (kids[r] && isWord(kids[r].tokens[0], 'receive')) {
+      const kid = kids[r];
+      params.push(...paramGroups(kid.tokens.slice(1)).map((p) => ({ ...nameWords(p.raw, kid.line, '"Receive"'), type: p.typeTokens ? typeOf(ep, p.typeTokens, kid.line) : null, dflt: p.defaultTokens ? ep.parse(p.defaultTokens, kid.line) : null, line: kid.line })));
+      r++;
+    }
+    const words = ['answer', method.toLowerCase(), ...segments.map((g) => (g.param ? g.param : g.lit.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim())).filter(Boolean)];
+    const name = words.join(' ');
+    return { k: 'func', name, text: `${method} ${path}`, params, body: parseBlock(kids.slice(r), ep, names, diagnostics, { inFunc: true, inEndpoint: true }), line, endpoint: { method, path, segments, line } };
+  }
   if (w0 === 'say' || w0 === 'print') return { k: 'say', e: E(rest), line };
   if (w0 === 'set') {
     const at = splitTop(rest, (t) => isWord(t, 'to'));
@@ -755,15 +802,26 @@ function parseStatement(n, ep, names, diagnostics, ctx, siblings) {
     if (at < 0) fail('TC108', '"Keep" needs "at": Keep tax rate at 7%.');
     return { k: 'keep', ...nameWords(rest.slice(0, at), line, '"Keep"'), e: E(rest.slice(at + 1)), line };
   }
+  // "… with status 201" (Give) and "… and status 404" (Stop): the HTTP status an endpoint answers with.
+  const statusAt = (r, joiner) => {
+    const n = r.length;
+    if (n >= 3 && isWord(r[n - 3], joiner) && isWord(r[n - 2], 'status') && r[n - 1].t === 'num') {
+      if (!ctx.inEndpoint) fail('TC218', `"${joiner} status" sets the HTTP status an endpoint answers with, so it goes inside "When someone calls …".`, 'Outside an endpoint, Give a value or Stop with a message.');
+      return { status: Number(r[n - 1].text), r: r.slice(0, -3) };
+    }
+    return { status: null, r };
+  };
   if (w0 === 'give') {
     let r = rest;
     if (isWord(r[0], 'back')) r = r.slice(1);
-    return { k: 'give', e: r.length ? E(r) : { k: 'nothing', line }, line };
+    const st = statusAt(r, 'with');
+    return { k: 'give', e: st.r.length ? E(st.r) : { k: 'nothing', line }, status: st.status, line };
   }
   if (w0 === 'stop') {
     let r = rest;
     if (isWord(r[0], 'with') || isSym(r[0], ':')) r = r.slice(1);
-    return { k: 'stop', e: r.length ? E(r) : { k: 'str', parts: ['Stopped'], line }, line };
+    const st = statusAt(r, 'and');
+    return { k: 'stop', e: st.r.length ? E(st.r) : { k: 'str', parts: ['Stopped'], line }, status: st.status, line };
   }
   if (w0 === 'if' && keyOf(ts.slice(0, 3)) === 'if this fails') {
     header();

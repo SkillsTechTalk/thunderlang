@@ -21,7 +21,7 @@ import { javaClassName } from './target-java.mjs';
 import { formatDiagnostic } from './diagnostics.mjs';
 import { formatCore } from './format.mjs';
 import { paint, paintThunder, useColor } from '../term.mjs';
-import { runWithEngine, testWithEngine, ENGINES, nodeStore } from './engine.mjs';
+import { runWithEngine, testWithEngine, serveWithEngine, ENGINES, nodeStore } from './engine.mjs';
 import { recordedRun, screenApp, screenOutline, runInProcess } from './engine-core.mjs';
 import { hasScreens } from './target-react.mjs';
 import { COMPILER_VERSION } from '../emit.mjs';
@@ -39,6 +39,8 @@ function parse(argv) {
     if (x === '--target') a.target = argv[++i] ?? '';
     else if (x.startsWith('--target=')) a.target = x.slice('--target='.length);
     else if (x === '--engine') a.engine = argv[++i] ?? '';
+    else if (x === '--port') a.port = argv[++i] ?? '';
+    else if (x.startsWith('--port=')) a.port = x.slice('--port='.length);
     else if (x === '--record') a.record = argv[++i] ?? '';
     else if (x.startsWith('--record=')) a.record = x.slice('--record='.length);
     else if (x.startsWith('--engine=')) a.engine = x.slice('--engine='.length);
@@ -49,10 +51,21 @@ function parse(argv) {
     else if (x === '--force') a.force = true;
     else if (x === '--mission') a.mission = true;
     else if (x === '--run') a.run = true;
-    else if (x.startsWith('--')) a.other = true;
+    else if (x.startsWith('--')) { a.other = true; a.unknown ??= x; }
     else a._.push(x);
   }
   return a;
+}
+
+/** Does the program answer requests (When someone calls …)? Then thunder run keeps it running until stopped. */
+const answersRequests = (build) => !!build.entry && (build.entry.info.endpoints ?? []).some((f) => !build.entry.info.imported?.has(f));
+
+/** The known option closest to a mistyped one (one or two letters off), or null. */
+function closestOption(said, known) {
+  const dist = (x, y) => { const d = Array.from({ length: y.length + 1 }, (_, j) => j); for (let i = 1; i <= x.length; i++) { let prev = d[0]; d[0] = i; for (let j = 1; j <= y.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (x[i - 1] === y[j - 1] ? 0 : 1)); prev = t; } } return d[y.length]; };
+  let best = null, bestD = 3;
+  for (const k of known) { const dd = dist(said, k); if (dd < bestD) { bestD = dd; best = k; } }
+  return best;
 }
 
 /** Decide whether this invocation is a Thunder Core one: { root, file } or null. */
@@ -100,6 +113,21 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
   const t = coreTarget(cmd, argv, cwd);
   if (!t) return null;
   const a = parse(argv);
+  // An option Thunder doesn't know is refused, never ignored: "--core --target go" written as one word would otherwise
+  // run the default target and look like it worked.
+  if (a.unknown && cmd !== 'new') {
+    const known = ['--core', '--engine', '--target', '--port', '--record', '--json', '--write', '--check', '--force'];
+    const said = a.unknown.split(/\s+/)[0].split('=')[0];
+    const near = known.find((k) => k === said) ? null : closestOption(said, known);
+    warn(`thunder ${cmd}: I don't know the option "${a.unknown}".${a.unknown.includes(' ') ? ' Options are separate words: --core --target go.' : near ? ` Did you mean ${near}?` : ''} Options for Thunder programs: ${known.join(', ')}.`);
+    return 2;
+  }
+  // --port: where a program with endpoints answers (every engine and target reads THUNDER_PORT).
+  if (a.port != null) {
+    if (cmd !== 'run') { warn(`thunder ${cmd}: --port is for thunder run, for a program that answers requests.`); return 2; }
+    if (!/^\d+$/.test(a.port) || Number(a.port) < 1 || Number(a.port) > 65535) { warn(`thunder run: --port takes a number from 1 to 65535, for example --port 8080.`); return 2; }
+    process.env.THUNDER_PORT = a.port;
+  }
   try {
     if (cmd === 'new') {
       const root = newProject(resolve(cwd, t.new), { force: a.force });
@@ -206,7 +234,7 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (python.error) { warn(`thunder ${cmd}: ${python.error}${['run', 'test'].includes(cmd) ? `\nOr run it without Python, on the Thunder engine: thunder ${cmd} ${argv.filter((x) => !x.startsWith('--engine')).join(' ')}${argv.length ? ' ' : ''}--engine thunder`.replace(/  +/g, ' ') : ''}`); return 2; }
     if (cmd === 'run') {
       if (!build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
-      const r = runPython(python, build.outDir, `${build.entryModule}.py`, build.base);
+      const r = runPython(python, build.outDir, `${build.entryModule}.py`, build.base, { serving: answersRequests(build) });
       return r.status ?? 1;
     }
     if (cmd === 'test') {
@@ -246,7 +274,7 @@ function showScreens(build, warn) {
 function runCompiledTypeScript(cmd, build, warn, say) {
   if (cmd === 'run' && !build.entryModule) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
   if (cmd === 'test' && !build.results.reduce((n, r) => n + r.info.tests.length, 0)) { say('thunder test: no Test blocks found. Write one: Test "what it checks": then Expect … lines.'); return 0; }
-  const r = runTypeScript(build.outDir, cmd === 'run' ? `${build.entryModule}.ts` : 'run_tests.ts', { cwd: build.base, stdio: 'inherit' });
+  const r = runTypeScript(build.outDir, cmd === 'run' ? `${build.entryModule}.ts` : 'run_tests.ts', { cwd: build.base, stdio: 'inherit', serving: cmd === 'run' && answersRequests(build) });
   if (r.error && typeof r.error === 'string') { warn(`thunder ${cmd}: ${r.error}`); return 2; }
   return r.status ?? 1;
 }
@@ -309,6 +337,14 @@ const readdirDeep = (root, dir) => { try { return readdirSync(join(root, dir)).f
 function runOnEngine(cmd, build, warn, say) {
   if (cmd === 'run') {
     if (!build.entry) { warn('thunder run: there is no program to run (no .thunder files in src/).'); return 1; }
+    if (answersRequests(build)) {
+      // A program with endpoints keeps answering requests until stopped; it reports here only if it can't start.
+      const r = serveWithEngine({ entry: build.entry, cwd: build.base });
+      if (!r) return 0; // answering requests now; the process stays alive until Ctrl+C
+      if (r.stdout) process.stdout.write(r.stdout);
+      if (r.stderr) process.stderr.write(r.stderr);
+      return r.status;
+    }
     const r = runWithEngine({ entry: build.entry, cwd: build.base });
     if (r.stdout) process.stdout.write(r.stdout);
     if (r.stderr) process.stderr.write(r.stderr.startsWith('This program uses') ? `thunder run: ${r.stderr}` : r.stderr);

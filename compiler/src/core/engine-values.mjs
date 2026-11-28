@@ -23,6 +23,7 @@ export const KindMismatch = (m) => new ThunderErr('TC506', m, 'TypeError'); // a
 export const ConversionFailed = (m) => new ThunderErr('TC509', m, 'ValueError');
 export const MissingValue = (m) => new ThunderErr('TC503', m, 'LookupError');
 export const DividedByZero = (m) => new ThunderErr('TC501', m, 'ZeroDivisionError');
+export const CallFailed = (m) => new ThunderErr('TC510', m, 'CallFailed'); // a call to another service (HTTP)
 
 /** An error Python itself raises (TypeError, KeyError, ...), with Python's own message. */
 export class PyErr extends Error {
