@@ -11,6 +11,10 @@ node thunderbench/run.mjs --corpus /tmp/tb  # also Thunder write on real change 
 
 Latest results: [results/latest.md](results/latest.md).
 
+**ThunderBench now has its own repository: [SkillsTechTalk/thunderbench](https://github.com/SkillsTechTalk/thunderbench).**
+It runs on the published compiler, so anyone can reproduce it without this repository. This folder stays as the
+copy that runs against the compiler in this repository, so a change here can be measured before it is released.
+
 ## What it measures
 
 | Track | The question | How |
