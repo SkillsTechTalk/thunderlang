@@ -119,3 +119,10 @@ test('while src/ has problems, they are reported alone, not again as unknown nam
     assert.doesNotMatch(r.stderr, /tests\/desk-tests\.thunder/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('one test file named on its own is checked and run against src/, as in the whole project', async () => {
+  await appCopy((dir) => {
+    assert.match(thunder(['check', 'tests/desk-tests.thunder'], dir).stdout, /no problems in 2 Thunder Core files/);
+    assert.match(thunder(['test', 'tests/desk-tests.thunder', '--engine', 'thunder'], dir).stdout, /2 tests: 2 passed, 0 failed/);
+  });
+});

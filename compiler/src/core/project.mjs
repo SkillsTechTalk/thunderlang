@@ -94,8 +94,10 @@ export function buildProject({ root, single = null, includeTests = false, write 
   const tgt = target ?? cfg?.target ?? 'python';
   if (!TARGETS.includes(tgt)) throw new Error(`there is no target "${tgt}". Thunder Core builds ${TARGETS.join(', ')} (python is the default).`);
   const srcFiles = cfg ? thunderFiles(join(cfg.root, cfg.src)) : [];
-  if (single && !srcFiles.includes(resolve(single))) srcFiles.unshift(resolve(single));
-  const testFiles = includeTests && cfg ? thunderFiles(join(cfg.root, cfg.tests)) : [];
+  // A single file in the project's tests/ is a test: it is checked against src/, as in a whole-project run.
+  const singleTest = single && cfg && thunderFiles(join(cfg.root, cfg.tests)).includes(resolve(single)) ? resolve(single) : null;
+  if (single && !singleTest && !srcFiles.includes(resolve(single))) srcFiles.unshift(resolve(single));
+  const testFiles = singleTest ? [singleTest] : includeTests && cfg ? thunderFiles(join(cfg.root, cfg.tests)) : [];
   const outDir = join(base, cfg && (target == null || target === cfg.target) ? cfg.out : `generated/${tgt}`);
   const results = [];
   const used = new Set();
