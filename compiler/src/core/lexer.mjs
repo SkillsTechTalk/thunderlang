@@ -22,6 +22,20 @@ const WORD_CHAR = /[\p{L}\p{N}_]/u;
 export function tokenizeLine(text, line, colOffset = 0) {
   const toks = [];
   let i = 0;
+  // When someone calls GET /habits/{name}:  the path is one token (it may hold {name} parts and other characters).
+  const ep = text.match(/^(when)(\s+)(someone)(\s+)(calls)(\s+)([A-Za-z]+)(\s+)(\/\S*?)(\s*)(:)(\s*(#.*)?)$/i);
+  if (ep) {
+    let col = colOffset + 1;
+    const out = [];
+    const parts = ep.slice(1, 12);
+    parts.forEach((part, k) => {
+      if (k === 8) out.push({ t: 'path', text: part, col, line });
+      else if (k === 10) out.push({ t: 'sym', text: ':', col, line });
+      else if (part && !/^\s*$/.test(part)) out.push({ t: 'word', text: part, lower: part.toLowerCase(), col, line });
+      col += part.length;
+    });
+    return out;
+  }
   const at = (k = 0) => text[i + k];
   while (i < text.length) {
     const c = at();

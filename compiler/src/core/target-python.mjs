@@ -80,14 +80,27 @@ class Gen {
       for (const t of tests) this.emit(`    (${py(t.title)}, ${t.py}, ${t.line}),`);
       this.emit(']');
     }
+    // Endpoints (When someone calls …): the routes the server answers, each with its inputs (name, kind, where from).
+    const endpoints = (this.info.endpoints ?? []).filter(own);
+    if (endpoints.length) {
+      this.blank();
+      const kind = (t) => (t.k === 'optional' ? `?${kind(t.of)}` : t.k);
+      this.emit('THUNDER_ROUTES = [');
+      for (const f of endpoints) {
+        const fromPath = new Set(f.endpoint.segments.filter((g) => g.param).map((g) => g.param));
+        const ins = f.params.map((p) => `(${py(p.text)}, ${py(p.py)}, ${py(kind(p.type))}, ${fromPath.has(p.name) ? '"path"' : '"request"'}, ${p.dflt ? 'True' : 'False'})`);
+        this.emit(`    (${py(f.endpoint.method)}, ${py(f.endpoint.path)}, ${f.py}, [${ins.join(', ')}]),`, f.line);
+      }
+      this.emit(']');
+    }
     const main = this.p.main ?? [];
     this.blank();
-    if (main.length) {
+    if (main.length || endpoints.length) {
       this.emit('def main():');
-      this.ind++; this.block(main); this.ind--;
+      this.ind++; if (main.length) this.block(main); else this.emit('pass'); this.ind--;
       this.blank();
       this.emit('if __name__ == "__main__":');
-      this.emit(`    ${this.R('run')}(main, __file__)`);
+      this.emit(`    ${this.R('run')}(main, __file__${endpoints.length ? ', routes=THUNDER_ROUTES' : ''})`);
     }
     body.push(...this.out);
 
@@ -212,8 +225,13 @@ class Gen {
         this.store(t, v, L);
         return;
       }
-      case 'give': this.emit(s.e.k === 'nothing' ? 'return None' : `return ${this.x(s.e).c}`, L); return;
-      case 'stop': this.emit(`raise ${this.R('Stop')}(${s.e.type?.k === 'text' ? this.x(s.e).c : `${this.R('show')}(${this.x(s.e).c})`})`, L); return;
+      case 'give':
+        if (s.status != null) this.emit(`${this.R('answer_status')}(${s.status})`, L);
+        this.emit(s.e.k === 'nothing' ? 'return None' : `return ${this.x(s.e).c}`, L); return;
+      case 'stop': {
+        const msg = s.e.type?.k === 'text' ? this.x(s.e).c : `${this.R('show')}(${this.x(s.e).c})`;
+        this.emit(s.status != null ? `raise ${this.R('stop_with')}(${msg}, ${s.status})` : `raise ${this.R('Stop')}(${msg})`, L); return;
+      }
       case 'if':
         s.branches.forEach((b, k) => {
           this.emit(`${k === 0 ? 'if' : 'elif'} ${this.yn(b.cond).c}:`, b.line);
@@ -364,6 +382,12 @@ class Gen {
       case 'bool': return A(e.v ? 'True' : 'False');
       case 'nothing': return A('None');
       case 'paren': return sub(e.e);
+      // the answer from GET "…" [with …] [as Rate]: read as text, or as records of a kind (kinds as in stored lists).
+      case 'httpCall': {
+        const kind = (t) => (t.k === 'optional' ? `?${kind(t.of)}` : t.k);
+        const as = e.record ? `(${e.record.py}, {${e.record.fields.map((f) => `${py(f.py)}: ${py(kind(f.type))}`).join(', ')}}, ${e.as.k === 'list' ? 'True' : 'False'})` : 'None';
+        return A(`${this.R('http_call')}(${py(e.method)}, ${sub(e.url).c}, ${e.body ? sub(e.body).c : 'None'}, ${as})`);
+      }
       case 'today': this.needDate = true; return A('date.today()');
       case 'date': this.needDate = true; return A(`date.fromisoformat(${py(e.text)})`);
       case 'str': return A(this.str(e, ctx));

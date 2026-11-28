@@ -74,7 +74,7 @@ class Checker {
     this.rules = []; // top-level and record Never rules
     this.mainNames = new Map(); // key -> first line it is set in the main program
     this.elem = []; // stack of { type } for where / from / sorted
-    this.info = { records: [], funcs: [], consts: [], stores: [], modules: [], tests: [], rules: [], screens: [], usesDecimal: false };
+    this.info = { records: [], funcs: [], consts: [], stores: [], endpoints: [], usesHttp: false, modules: [], tests: [], rules: [], screens: [], usesDecimal: false };
     this.screens = new Map(); // key -> screen stmt
     this.narrow = []; // { name, alt } while checking a case of "Depending on" or "If x is <alternative>"
   }
@@ -102,6 +102,7 @@ class Checker {
       }
     }
     for (const s of top) if (s.k === 'record') this.checkRecordShape(s);
+    this.info.endpointsAll = top.filter((s) => s.k === 'func' && s.endpoint);
     collectMainNames(top, this.mainNames);
     // 2. Kept values, in order (they may use each other and functions).
     for (const s of top) {
@@ -289,7 +290,79 @@ class Checker {
   }
   rulesFor(key) { return this.rules.filter((r) => r.watchesVar && r.subject === key); }
 
+  /**
+   * An endpoint (When someone calls GET /habits/{name}:): a known method, one per method and path, every {part} of
+   * the path received, and inputs of kinds a request can carry (an input with no kind is text).
+   */
+  checkEndpoint(f) {
+    const ep = f.endpoint;
+    const line = ep.line;
+    if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(ep.method)) this.err('TC108', line, `"${ep.method}" isn't an HTTP method Thunder answers.`, 'Use GET, POST, PUT, PATCH, or DELETE.');
+    this.routes ??= new Map();
+    const key = `${ep.method} /${ep.segments.map((g) => (g.param ? '{}' : g.lit)).join('/')}`;
+    // The same method and path twice is already reported as a name defined twice ("GET /x" is already defined); a
+    // different spelling of one route (/x/{a} and /x/{b}) is caught here.
+    if (this.routes.has(key) && this.routes.get(key).path !== ep.path) this.err('TC203', line, `${ep.method} ${ep.path} is answered already, by ${ep.method} ${this.routes.get(key).path} (line ${this.routes.get(key).line}).`, 'Each method and path is answered by one endpoint.');
+    else if (!this.routes.has(key)) this.routes.set(key, ep);
+    const plain = (t) => t && (['whole', 'number', 'money', 'text', 'bool', 'date'].includes(t.k) || (t.k === 'optional' && plain(t.of)));
+    for (const p of f.params) {
+      if (!p.type) p.type = { k: 'text' };
+      if (!plain(p.type)) this.err('TC306', p.line, `"${p.text}" can't come from a request: it is ${typeWords(p.type)}.`, 'An endpoint receives whole numbers, numbers, money, text, yes/no, dates, or optional ones of those. Receive a record\'s fields one by one.');
+    }
+    for (const g of ep.segments.filter((x) => x.param)) {
+      const p = f.params.find((x) => x.name === g.param);
+      if (!p) this.err('TC207', line, `The path has {${g.text}}, but the endpoint doesn't receive "${g.text}".`, `Add: Receive ${g.text} as text (or the kind it is).`);
+      else g.py = pyName(p.name);
+    }
+    this.info.endpoints.push(f);
+  }
+
+  /** calling GET /habits/walk with name "run": the endpoint that answers it, called directly with those inputs. */
+  callEndpoint(e, sc, o) {
+    const segs = e.path.split('/').filter(Boolean);
+    const f = this.info.endpointsAll?.find((x) => x.endpoint.method === e.method && x.endpoint.segments.length === segs.length && x.endpoint.segments.every((g, i) => g.param || g.lit === segs[i]));
+    if (!f) {
+      const known = (this.info.endpointsAll ?? []).map((x) => `${x.endpoint.method} ${x.endpoint.path}`);
+      this.err('TC207', e.line, `Nothing in this program answers ${e.method} ${e.path}.`, known.length ? `Endpoints: ${known.join(', ')}.` : 'Write one: When someone calls GET /habits:');
+      for (const fl of e.fields) this.ex(fl.e, sc, o);
+      return UNKNOWN;
+    }
+    const given = new Map();
+    f.endpoint.segments.forEach((g, i) => { if (g.param) given.set(g.param, this.pathValue(segs[i], f.params.find((p) => p.name === g.param), e.line)); });
+    for (const fl of e.fields) {
+      if (!f.params.some((p) => p.name === fl.name)) { this.err('TC207', e.line, `${f.endpoint.method} ${f.endpoint.path} doesn't receive "${fl.text}".`, `It receives: ${f.params.map((p) => p.text).join(', ') || 'nothing'}.`); continue; }
+      if (given.has(fl.name)) { this.err('TC203', e.line, `"${fl.text}" is already given by the path.`); continue; }
+      given.set(fl.name, fl.e);
+    }
+    // Inputs in order, up to the last one given: a default fills a gap, an optional one is nothing, others are needed.
+    const args = [];
+    const last = f.params.reduce((k, p, i) => (given.has(p.name) ? i : k), -1);
+    f.params.forEach((p, i) => {
+      if (given.has(p.name)) { args.push(given.get(p.name)); return; }
+      if (p.dflt) { if (i < last) args.push(JSON.parse(JSON.stringify(p.dflt))); return; }
+      if (p.type?.k === 'optional') { if (i < last) args.push({ k: 'nothing', line: e.line }); return; }
+      this.err('TC207', e.line, `${f.endpoint.method} ${f.endpoint.path} needs "${p.text}".`, `Give it: calling ${e.method} ${e.path} with ${p.text} ….`);
+    });
+    Object.assign(e, { k: 'call', name: f.name, text: f.text, args });
+    return this.call(e, sc, o);
+  }
+  /** A part of a path written in a test (walk, 3) as the value its input receives. */
+  pathValue(text, p, line) {
+    const k = p?.type?.k === 'optional' ? p.type.of.k : p?.type?.k;
+    if ((k === 'whole' || k === 'number') && /^-?\d+(\.\d+)?$/.test(text)) return { k: 'num', text, whole: !text.includes('.'), line };
+    if (k === 'money' && /^\d+(\.\d+)?$/.test(text)) return { k: 'money', text, line };
+    if (k === 'bool' && /^(yes|no|true|false)$/i.test(text)) return { k: 'bool', v: /^(yes|true)$/i.test(text), line };
+    if (k === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(text)) return { k: 'date', text, line };
+    if (k && k !== 'text') this.err('TC303', line, `"${text}" in the path isn't ${typeWords(p.type)}, which "${p.text}" is.`);
+    return { k: 'str', parts: [decodeURIComponent(text)], line };
+  }
+
+  checkStatus(n, line, [lo, hi], what) {
+    if (!(n >= lo && n <= hi)) this.err('TC303', line, `${what} ${n}: ${what.startsWith('Give') ? 'an answer that worked' : 'a request that could not be done'} has a status from ${lo} to ${hi}.`, what.startsWith('Give') ? 'For example 200 (done) or 201 (created). To say no, use Stop with "…" and status 404.' : 'For example 400 (bad request), 404 (not found), or 409 (conflict).');
+  }
+
   checkFunc(f) {
+    if (f.endpoint) this.checkEndpoint(f);
     const sc = new Scope(this.global, 'func');
     sc.func = f;
     f.gives = [];
@@ -342,9 +415,10 @@ class Checker {
         if (!ctx.inFunc || ctx.inTest) { this.err('TC208', line, '"Give" can only be used inside a "To" block, to give back a result.'); return; }
         const t = this.ex(s.e, sc);
         sc.func ? sc.func.gives.push(t) : (findFunc(sc)?.gives.push(t));
+        if (s.status != null) this.checkStatus(s.status, line, [200, 299], 'Give … with status');
         return;
       }
-      case 'stop': this.ex(s.e, sc); return;
+      case 'stop': this.ex(s.e, sc); if (s.status != null) this.checkStatus(s.status, line, [400, 599], 'Stop … and status'); return;
       case 'depending': return this.depending(s, sc, ctx);
       case 'if':
         for (const b of s.branches) {
@@ -644,6 +718,22 @@ class Checker {
       case 'nothing': return T('nothing');
       case 'hole': return e.type ?? UNKNOWN;
       case 'draftHole': return this.draftHole(e, sc);
+      case 'callEndpoint': return this.callEndpoint(e, sc, o);
+      case 'httpCall': {
+        this.info.usesHttp = true;
+        const ut = this.ex(e.url, sc, o);
+        if (known(ut) && ut.k !== 'text') this.err('TC305', line, `The address to call is text ("https://…"), but this is ${typeWords(ut)}.`);
+        if (e.body) this.ex(e.body, sc, o);
+        if (!e.as) return T('text');
+        this.resolveType(e.as, line);
+        const rec = e.as.k === 'record' ? this.records.get(e.as.name) : e.as.k === 'list' && e.as.of?.k === 'record' ? this.records.get(e.as.of.name) : null;
+        const plain = (t) => t && (['whole', 'number', 'money', 'text', 'bool', 'date'].includes(t.k) || (t.k === 'optional' && plain(t.of)));
+        if (!rec) { this.err('TC306', line, `An answer is read as a record or a list of records, for example: as Rate, as list of Rate.`, 'Without "as", the answer is its text.'); return UNKNOWN; }
+        const bad = rec.fields.find((f) => !plain(f.type));
+        if (bad) { this.err('TC306', line, `An answer can't be read as ${rec.text} yet: its field "${bad.text}" is not a plain value.`); return UNKNOWN; }
+        e.record = rec;
+        return e.as;
+      }
       case 'isAlt': {
         const t = this.ex(e.e, sc, o);
         const r = t.k === 'record' ? this.records.get(t.name) : null;

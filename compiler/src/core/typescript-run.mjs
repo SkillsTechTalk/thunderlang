@@ -6,6 +6,7 @@
 import { writeFileSync, mkdirSync, readFileSync, rmSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { spawnServing } from './serving.mjs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { toTypeScript, pythonOnlyUses, npmUses, dotnetRefusals } from './target-typescript.mjs';
@@ -82,11 +83,12 @@ export function typescriptRunner({ nodeVersion = process.versions.node, searchFr
  * Run a compiled module (`entry`, e.g. "main.ts" or "run_tests.ts") in `outDir`, in the folder `cwd`.
  * Returns spawnSync's result ({ status, stdout, stderr }), or { status: 2, stderr } when TypeScript cannot run here.
  */
-export function runTypeScript(outDir, entry, { cwd = outDir, stdio = 'pipe', searchFrom = [] } = {}) {
+export function runTypeScript(outDir, entry, { cwd = outDir, stdio = 'pipe', searchFrom = [], serving = false } = {}) {
+  const run = serving ? spawnServing : spawnSync; // a program with endpoints keeps answering until stopped
   const runner = typescriptRunner({ searchFrom: [outDir, cwd, ...searchFrom] });
   if (runner.error) return { status: 2, stdout: '', stderr: `${runner.error}\n`, error: runner.error };
   const env = { ...process.env, NODE_NO_WARNINGS: '1' };
-  if (runner.args) return spawnSync(process.execPath, [...runner.args, join(outDir, entry)], { cwd, stdio, encoding: 'utf8', env });
+  if (runner.args) return run(process.execPath, [...runner.args, join(outDir, entry)], { cwd, stdio, encoding: 'utf8', env });
   // Older Node: remove the types with the typescript package, into .run/ next to the TypeScript.
   const ts = runner.ts;
   const runDir = join(outDir, '.run');
@@ -97,7 +99,7 @@ export function runTypeScript(outDir, entry, { cwd = outDir, stdio = 'pipe', sea
     writeFileSync(join(runDir, f.replace(/\.ts$/, '.mjs')), js.replace(/(from\s+['"]\.\/[^'"]+)\.ts(['"])/g, '$1.mjs$2'));
   }
   writeFileSync(join(runDir, 'thunder_runtime.mjs'), readFileSync(join(outDir, 'thunder_runtime.mjs'), 'utf8'));
-  return spawnSync(process.execPath, [join(runDir, entry.replace(/\.ts$/, '.mjs'))], { cwd, stdio, encoding: 'utf8', env });
+  return run(process.execPath, [join(runDir, entry.replace(/\.ts$/, '.mjs'))], { cwd, stdio, encoding: 'utf8', env });
 }
 
 function readdirTs(dir) {

@@ -42,6 +42,7 @@ export const CODES = {
   TC215: '"Depending on" leaves out an alternative of the data type (and has no "Otherwise")',
   TC216: 'A field only some alternatives have, read where the alternative is not known',
   TC217: 'An alternative a data type does not have, or a value built without saying which alternative it is',
+  TC218: 'An HTTP status (Give … with status, Stop … and status) outside an endpoint',
   TC301: 'Money and a plain number are mixed',
   TC302: 'Values of different kinds are compared',
   TC303: 'A name changes kind',
@@ -57,7 +58,8 @@ export const CODES = {
   TC407: 'A step that cannot run when a button is pressed',
   TC408: 'An npm package ("Use … from npm") can be used only when compiling to TypeScript',
   TC409: 'A .NET library ("Use … from .NET" or "from NuGet") can be used only when compiling to C#',
-  TC410: 'A stored list ("Store … as a list of …") runs on Python and the Thunder engine only, for now',
+  TC410: 'A stored list ("Store … as a list of …") runs on Python, TypeScript, Go, and the Thunder engine only, for now',
+  TC411: 'An endpoint or a call to another service in a program compiled to a target without HTTP yet',
   TC501: 'Divided by zero (runtime)',
   TC502: 'Nothing used where a value was needed (runtime)',
   TC503: 'A field or entry is missing (runtime)',
@@ -67,6 +69,7 @@ export const CODES = {
   TC507: 'The program stopped with a message (runtime)',
   TC508: 'Library code used through "Use" failed (runtime)',
   TC509: 'A value could not be converted (runtime)',
+  TC510: 'A call to another service failed: it could not be reached, or it answered with a problem (runtime)',
 };
 
 export class CoreError extends Error {

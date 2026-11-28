@@ -3,6 +3,7 @@
 // Source ownership: in a Thunder project the .thunder files are the source. generated/ is a build artifact,
 // rewritten by every build; it is never read back.
 
+import { spawnServing } from './serving.mjs';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join, dirname, relative, resolve, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -163,8 +164,10 @@ export function findPython() {
   return { error: 'Thunder needs Python 3.10 or newer to run this program, and I could not find it (tried THUNDER_PYTHON, python3, python). Install it from https://www.python.org/downloads/ or set THUNDER_PYTHON to its path. "thunder build" still works without Python.' };
 }
 
-export function runPython(python, outDir, script, cwd) {
-  return spawnSync(python.cmd, [join(outDir, script)], { cwd, stdio: 'inherit', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' } });
+export function runPython(python, outDir, script, cwd, { serving = false } = {}) {
+  const opts = { cwd, stdio: 'inherit', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1' } };
+  // A program with endpoints keeps answering until stopped: started without waiting, with stop signals passed on.
+  return (serving ? spawnServing : spawnSync)(python.cmd, [join(outDir, script)], opts);
 }
 
 export function newProject(dir, { force = false } = {}) {

@@ -799,11 +799,11 @@ def _store_encode(v, kind):
     return v
 
 
-def _store_decode(x, kind, where):
+def _store_decode(x, kind, where, has="the file has"):
     if kind.startswith("?"):
-        return None if x is None else _store_decode(x, kind[1:], where)
+        return None if x is None else _store_decode(x, kind[1:], where, has)
     def bad():
-        return ConversionFailed("%s should be %s, but the file has %s." % (where, _STORE_KINDS.get(kind, "a value"), json.dumps(x)))
+        return ConversionFailed("%s should be %s, but %s %s." % (where, _STORE_KINDS.get(kind, "a value"), has, json.dumps(x)))
     if kind == "whole":
         if isinstance(x, int) and not isinstance(x, bool):
             return x
@@ -869,20 +869,22 @@ def _read_store(path, cls, kinds):
         raise ConversionFailed("%s is not a list Thunder can read (%s)." % (path, error))
     if not isinstance(rows, list):
         raise ConversionFailed("%s should hold a list, written [ … ]." % path)
-    loaded = []
-    for i, row in enumerate(rows):
-        if not isinstance(row, dict):
-            raise ConversionFailed("%s, item %d, should be a record, written { … }." % (path, i + 1))
-        given = {}
-        for field_name, kind in kinds.items():
-            if field_name not in row:
-                if kind.startswith("?"):
-                    given[field_name] = None
-                    continue
-                raise ConversionFailed('%s, item %d, has no "%s".' % (path, i + 1, field_name))
-            given[field_name] = _store_decode(row[field_name], kind, '%s, item %d, "%s"' % (path, i + 1, field_name))
-        loaded.append(cls(**given))
-    return loaded
+    return [_record_from(row, cls, kinds, "%s, item %d" % (path, i + 1)) for i, row in enumerate(rows)]
+
+
+def _record_from(row, cls, kinds, where, has="the file has"):
+    """A record from a JSON object, each field read by its kind; a problem names where it is and the field."""
+    if not isinstance(row, dict):
+        raise ConversionFailed("%s should be a record, written { … }." % where)
+    given = {}
+    for field_name, kind in kinds.items():
+        if field_name not in row:
+            if kind.startswith("?"):
+                given[field_name] = None
+                continue
+            raise ConversionFailed('%s has no "%s".' % (where, field_name))
+        given[field_name] = _store_decode(row[field_name], kind, '%s, "%s"' % (where, field_name), has)
+    return cls(**given)
 
 
 def _save_stores():
@@ -896,9 +898,230 @@ def _save_stores():
         os.replace(path + ".saving", path)
 
 
-def run(main, file=None):
+# ── HTTP (When someone calls GET /habits: and the answer from GET "…"): data in the stored-list format ──────────
+class CallFailed(ThunderError):
+    code = "TC510"
+
+
+_ANSWER_STATUS = [None]
+
+
+def answer_status(status):
+    """Give … with status 201: the status this request answers with (a direct call in a test ignores it)."""
+    _ANSWER_STATUS[0] = status
+
+
+def stop_with(message, status):
+    """Stop with "…" and status 404: a Stop that an endpoint answers with that status."""
+    error = Stop(message)
+    error.status = status
+    return error
+
+
+def _data_ready(v):
+    """A value as JSON data, written by its kind: whole numbers as numbers (text when too large), numbers and money as
+    exact text, dates as "2026-11-28", records as objects. The same on every target."""
+    if v is None or isinstance(v, (bool, str)):
+        return v
+    if isinstance(v, int):
+        return v if -(2 ** 53 - 1) <= v <= 2 ** 53 - 1 else str(v)
+    if isinstance(v, Decimal):
+        return str(v)
+    if isinstance(v, Money):
+        return str(v).replace("$", "", 1)
+    if isinstance(v, date):
+        return v.isoformat()
+    if isinstance(v, (list, tuple)):
+        return [_data_ready(x) for x in v]
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            if not isinstance(k, str):
+                raise KindMismatch("A JSON object's keys are text, but one is %s." % show(k))
+            out[k] = _data_ready(x)
+        return out
+    if is_dataclass(v):
+        return {f.name: _data_ready(getattr(v, f.name)) for f in fields(v)}
+    raise KindMismatch("%s can't be sent as JSON." % show(v))
+
+
+def data_json(v):
+    return json.dumps(_data_ready(v), ensure_ascii=False, separators=(",", ":"))
+
+
+def _unreachable_reason(error):
+    """Why a service could not be reached, in words that are the same on every target."""
+    import socket
+    reason = getattr(error, "reason", error)
+    if isinstance(reason, (TimeoutError, socket.timeout)):
+        return "no answer within 30 seconds"
+    if isinstance(reason, ConnectionRefusedError):
+        return "nothing is answering there"
+    if isinstance(reason, socket.gaierror):
+        return "the address could not be found"
+    return str(reason)
+
+
+def http_call(method, url, body, read_as):
+    """the answer from GET "…": the answer's text, or records read from it (read_as = (record, kinds, many))."""
+    import urllib.error
+    import urllib.request
+    where = "The answer from %s %s" % (method, url)
+    data = data_json(body).encode("utf-8") if body is not None else None
+    headers = {"Accept": "application/json"}
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=30) as reply:
+            text = reply.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        raise CallFailed("%s %s answered %d: %s" % (method, url, error.code, error.read().decode("utf-8", "replace").strip()[:300]))
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        raise CallFailed("%s %s could not be reached (%s)." % (method, url, _unreachable_reason(error)))
+    if read_as is None:
+        return text
+    cls, kinds, many = read_as
+    try:
+        answer = json.loads(text)
+    except ValueError:
+        raise ConversionFailed("%s is not JSON Thunder can read." % where)
+    if many:
+        if not isinstance(answer, list):
+            raise ConversionFailed("%s should be a list, written [ … ]." % where)
+        return [_record_from(row, cls, kinds, "%s, item %d" % (where, i + 1), "it has") for i, row in enumerate(answer)]
+    return _record_from(answer, cls, kinds, where, "it has")
+
+
+def _input_value(raw, kind, where, from_text):
+    """A request's input read by its kind. Path and query parts are text, so yes/no is written yes, no, true, or false."""
+    plain = kind.lstrip("?")
+    if from_text and plain == "bool" and isinstance(raw, str) and raw.lower() in ("yes", "no", "true", "false"):
+        raw = raw.lower() in ("yes", "true")
+    return _store_decode(raw, kind, where, "the request has")
+
+
+def _serve(routes):
+    """Answer requests on this machine, one at a time, until stopped (Ctrl+C). Stored lists are saved after each
+    request that finishes well."""
+    import os
+    import urllib.parse
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    host = os.environ.get("THUNDER_HOST", "127.0.0.1")
+    port = int(os.environ.get("THUNDER_PORT", "8080"))
+    table = []
+    for method, path, handler, inputs in routes:
+        parts = [p for p in path.split("/") if p]
+        table.append((method, path, parts, handler, inputs))
+
+    def match(parts, request_parts):
+        if len(parts) != len(request_parts):
+            return None
+        found = {}
+        for want, got in zip(parts, request_parts):
+            if want.startswith("{") and want.endswith("}"):
+                found[want[1:-1].strip().lower()] = urllib.parse.unquote(got)
+            elif want != got:
+                return None
+        return found
+
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "Thunder"
+
+        def answer(self, status, value):
+            data = data_json(value).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            print("%s %s -> %d" % (self.command, self.path, status), flush=True)
+
+        def handle_any(self):
+            url = urllib.parse.urlsplit(self.path)
+            request_parts = [p for p in url.path.split("/") if p]
+            query = {k: v[-1] for k, v in urllib.parse.parse_qs(url.query).items()}
+            chosen, methods = None, []
+            for method, path, parts, handler, inputs in table:
+                found = match(parts, request_parts)
+                if found is None:
+                    continue
+                methods.append(method)
+                if method == self.command:
+                    chosen = (method, path, handler, inputs, found)
+            if chosen is None:
+                if methods:
+                    return self.answer(405, {"problem": "%s answers only %s." % (url.path, ", ".join(methods))})
+                return self.answer(404, {"problem": "Nothing here answers %s %s." % (self.command, url.path)})
+            method, path, handler, inputs, found = chosen
+            body = {}
+            length = int(self.headers.get("Content-Length") or 0)
+            if length:
+                try:
+                    body = json.loads(self.rfile.read(length).decode("utf-8"))
+                except ValueError:
+                    return self.answer(400, {"problem": "The request's body is not JSON Thunder can read."})
+                if not isinstance(body, dict):
+                    return self.answer(400, {"problem": "The request's body should be a JSON object, written { … }."})
+            args = {}
+            try:
+                for text, py_name, kind, source, has_default in inputs:
+                    key = text.lower()
+                    if source == "path":
+                        args[py_name] = _input_value(found[key], kind, '"%s"' % text, True)
+                    elif key in query:
+                        args[py_name] = _input_value(query[key], kind, '"%s"' % text, True)
+                    elif text in body or key in body:
+                        args[py_name] = _input_value(body.get(text, body.get(key)), kind, '"%s"' % text, False)
+                    elif not has_default:
+                        if kind.startswith("?"):
+                            args[py_name] = None
+                        else:
+                            return self.answer(400, {"problem": "%s %s needs %s (%s)." % (method, path, text, _STORE_KINDS.get(kind, kind))})
+            except ThunderError as error:
+                return self.answer(400, {"problem": explain(error)})
+            _ANSWER_STATUS[0] = None
+            try:
+                value = handler(**args)
+            except Stop as error:
+                return self.answer(getattr(error, "status", 400), {"problem": explain(error)})
+            except RuleBroken as error:
+                return self.answer(422, {"problem": explain(error)})
+            except Exception as error:  # noqa: BLE001 - reported in Thunder words, the server keeps answering
+                print(describe_error(error), file=sys.stderr, flush=True)
+                return self.answer(500, {"problem": explain(error)})
+            status = _ANSWER_STATUS[0] or 200
+            try:
+                _save_stores()
+                data = data_json(value)
+            except Exception as error:  # noqa: BLE001
+                print(describe_error(error), file=sys.stderr, flush=True)
+                return self.answer(500, {"problem": explain(error)})
+            self.answer(status, json.loads(data) if data != "null" else None)
+
+        do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = handle_any
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer((host, port), Handler)
+    print("Thunder is answering on http://%s:%d" % (host, port), flush=True)
+    for method, path, handler, inputs in routes:
+        print("  %s %s" % (method, path), flush=True)
+    print("Press Ctrl+C to stop.", flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("Stopped answering.", flush=True)
+    finally:
+        server.server_close()
+
+
+def run(main, file=None, routes=None):
     """Runs a generated program; an error is reported against the Thunder line, then the program exits with 1.
-    Stored lists are filled first and saved only when the program finishes well."""
+    Stored lists are filled first and saved only when the program finishes well. With endpoints, it then answers
+    requests until stopped."""
     try:
         _fill_stores()
         main()
@@ -908,6 +1131,8 @@ def run(main, file=None):
     except Exception as error:  # noqa: BLE001 - every error is reported in Thunder words
         print(describe_error(error), file=sys.stderr)
         sys.exit(1)
+    if routes:
+        _serve(routes)
 
 
 def run_tests(modules):

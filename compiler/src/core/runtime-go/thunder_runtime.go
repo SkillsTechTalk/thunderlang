@@ -3191,7 +3191,7 @@ func storeRead(st *store, path, text string) []V {
 	for i, r := range rows {
 		row, ok := r.(map[string]any)
 		if !ok {
-			panic(ConversionFailed(fmt.Sprintf("%s, item %d, should be a record, written { … }.", path, i+1)))
+			panic(ConversionFailed(fmt.Sprintf("%s, item %d should be a record, written { … }.", path, i+1)))
 		}
 		given := []Pair{}
 		for _, f := range st.fields {
@@ -3201,7 +3201,7 @@ func storeRead(st *store, path, text string) []V {
 					given = append(given, Pair{f.Py, nil})
 					continue
 				}
-				panic(ConversionFailed(fmt.Sprintf("%s, item %d, has no \"%s\".", path, i+1, f.Py)))
+				panic(ConversionFailed(fmt.Sprintf("%s, item %d has no \"%s\".", path, i+1, f.Py)))
 			}
 			given = append(given, Pair{f.Py, storeDecode(x, f.Kind, fmt.Sprintf("%s, item %d, \"%s\"", path, i+1, f.Py))})
 		}

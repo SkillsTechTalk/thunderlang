@@ -75,6 +75,17 @@ export function dotnetRefusals(info, targetName, diag) {
     'Build for C# to use .NET libraries: --target csharp, or target = "csharp" under [build] in thunder.toml. Thunder never swaps in a different library.'));
 }
 
+/** TC411 for endpoints and calls to other services: HTTP runs on Python, TypeScript, and the Thunder engine for now. */
+export function httpRefusals(info, targetName, diag) {
+  const own = (s) => !info.imported?.has(s);
+  const out = (info.endpoints ?? []).filter(own).map((f) => diag('TC411', f.line,
+    `"${f.text}" is an endpoint, and HTTP works only on Python, TypeScript, and the Thunder engine for now, not on ${targetName}.`,
+    'Run it with Python (the default target), --target typescript, or --engine thunder.'));
+  if (info.usesHttp && !out.length) out.push(diag('TC411', 1, `This program calls another service ("the answer from …"), and HTTP works only on Python, TypeScript, and the Thunder engine for now, not on ${targetName}.`,
+    'Run it with Python (the default target), --target typescript, or --engine thunder.'));
+  return out;
+}
+
 /** TC410 for every stored list (Store … as a list of …) when compiling for `target`: saved data runs on Python, TypeScript, Go, and the Thunder engine for now. */
 export function storeRefusals(info, targetName, diag) {
   return (info.stores ?? []).filter((s) => !info.imported?.has(s)).map((s) => diag('TC410', s.line,
@@ -141,16 +152,29 @@ export class Gen {
     this.emit('export const THUNDER_TESTS: [string, () => void, number][] = [');
     for (const t of tests) this.emit(`  [${js(t.title)}, ${id(t.py)}, ${t.line}],`);
     this.emit('];');
+    // Endpoints (When someone calls …): the routes the server answers, each with its inputs and where they come from.
+    const endpoints = (this.info.endpoints ?? []).filter(own);
+    const tyOf = (t) => (t.k === 'optional' ? `{ k: 'optional', of: ${tyOf(t.of)} }` : `{ k: ${js(t.k)} }`);
+    if (endpoints.length) {
+      this.blank();
+      this.emit('export const THUNDER_ROUTES: any[] = [');
+      for (const f of endpoints) {
+        const fromPath = new Set(f.endpoint.segments.filter((g) => g.param).map((g) => g.param));
+        const ins = f.params.map((p) => `{ text: ${js(p.text)}, type: ${tyOf(p.type)}, path: ${fromPath.has(p.name)}, dflt: ${!!p.dflt} }`);
+        this.emit(`  { method: ${js(f.endpoint.method)}, path: ${js(f.endpoint.path)}, handler: ${id(f.py)}, inputs: [${ins.join(', ')}] },`, f.line);
+      }
+      this.emit('];');
+    }
     const main = this.p.main ?? [];
-    if (main.length) {
+    if (main.length || endpoints.length) {
       this.blank();
       this.emit('export function main(): void {');
       this.ind++;
-      this.frameBody('T.enterFrame(FILE, 0)', main, [], true);
+      if (main.length) this.frameBody('T.enterFrame(FILE, 0)', main, [], true);
       this.ind--;
       this.emit('}');
       this.blank();
-      this.emit('if (T.isEntry(import.meta.url)) T.run(main);');
+      this.emit(`if (T.isEntry(import.meta.url)) T.run(main${endpoints.length ? ', THUNDER_ROUTES' : ''});`);
     }
     return `${head.join('\n')}\n${this.out.join('\n').replace(/\n{3,}/g, '\n\n')}\n`;
   }
@@ -265,8 +289,14 @@ export class Gen {
         this.line(L, `{ const ${v} = ${this.x(s.e)}; ${this.storeCode(t, v)} }`);
         return;
       }
-      case 'give': this.line(L, isVoid ? 'return;' : `return ${s.e.k === 'nothing' ? 'null' : this.x(s.e)};`); return;
-      case 'stop': { const v = this.x(s.e); this.line(L, `throw T.Stop(${s.e.type?.k === 'text' ? `T.pyStr(${v})` : `T.show(${v})`});`); return; }
+      case 'give':
+        if (s.status != null) this.line(L, `T.answerStatus(${s.status});`);
+        this.line(L, isVoid ? 'return;' : `return ${s.e.k === 'nothing' ? 'null' : this.x(s.e)};`); return;
+      case 'stop': {
+        const v = this.x(s.e);
+        const msg = s.e.type?.k === 'text' ? `T.pyStr(${v})` : `T.show(${v})`;
+        this.line(L, s.status != null ? `throw T.stopWith(${msg}, ${s.status});` : `throw T.Stop(${msg});`); return;
+      }
       case 'if': {
         this.emit(`F.line = ${L};`, L);
         s.branches.forEach((b, k) => {
@@ -426,6 +456,12 @@ export class Gen {
       case 'bool': return e.v ? 'true' : 'false';
       case 'nothing': case 'hole': return 'null';
       case 'paren': return sub(e.e);
+      // the answer from GET "…" [with …] [as Rate]: read as text, or as records of a kind (kinds as in stored lists).
+      case 'httpCall': {
+        const tyOf = (t) => (t.k === 'optional' ? `{ k: 'optional', of: ${tyOf(t.of)} }` : `{ k: ${js(t.k)} }`);
+        const as = e.record ? `{ cls: ${id(e.record.py)}, fields: [${e.record.fields.map((f) => `{ py: ${js(f.py)}, type: ${tyOf(f.type)} }`).join(', ')}], many: ${e.as.k === 'list'} }` : 'null';
+        return `T.httpCall(${js(e.method)}, ${sub(e.url)}, ${e.body ? sub(e.body) : 'null'}, ${as})`;
+      }
       case 'today': return 'T.today()';
       case 'date': return `T.date(${js(e.text)})`;
       case 'str': return this.str(e, ctx);

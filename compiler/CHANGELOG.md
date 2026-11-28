@@ -1,5 +1,14 @@
 # Unreleased
 
+- **HTTP: answer requests and call other services.** `When someone calls GET /habits/{name}:` is an endpoint;
+  `thunder run` answers on `http://127.0.0.1:8080` (`--port` to change it), one request at a time, with inputs read by
+  kind from the path, query, or JSON body, and answers written as JSON by kind (as in a stored list). `Give … with
+  status 201` and `Stop with "…" and status 404` set the status; a broken Never rule answers 422, any other failure 500
+  in words. `the answer from GET "…" as Rate` calls another service (TC510 when it fails). Tests call endpoints
+  directly (`calling GET /habits/walk`). Python, TypeScript, and the Thunder engine give the same statuses and bytes;
+  other targets refuse it for now (TC411).
+- **The CLI refuses an option it doesn't know** instead of ignoring it (`--core --target go` written as one word used
+  to run the default target), and suggests the closest one.
 - **Either/or data types.** `A Payment is one of:` with one alternative per line (`Successful with amount as money`,
   `Pending`). Build one with `a successful Payment with amount $5`; choose with `Depending on payment:`, which must
   cover every alternative or say `Otherwise:` (TC215); read an alternative's field only where it is known, inside its

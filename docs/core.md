@@ -513,6 +513,75 @@ say "walk streak {walk's streak}"     # 1, then 2, then 3 on the next runs
 - **What can be stored.** Records whose fields are whole numbers, numbers, money, text, yes/no, dates, or `optional`
   ones of those.
 
+## Answer and call over HTTP
+
+A program can answer requests, and call other services, in the same words Thunder uses when it reads an endpoint:
+
+```thunder
+A Habit has:
+  Name is text
+  Streak is whole number
+
+Store habits as a list of Habit
+
+When someone calls GET /habits:
+  Give habits
+
+When someone calls GET /habits/{wanted}:
+  Receive wanted as text
+  Set found to habits where name is wanted
+  When found is empty:
+    Stop with "No habit called {wanted}" and status 404
+  Give found at 1
+
+When someone calls POST /habits:
+  Receive name as text
+  Add a Habit with name name and streak 0 to habits
+  Give the last of habits with status 201
+
+Test "a new habit starts at 0":
+  Expect calling POST /habits with name "run" to be a Habit with name "run" and streak 0
+  Expect calling GET /habits/walk to fail with "No habit called walk"
+```
+
+`thunder run` starts answering on `http://127.0.0.1:8080` (`--port 9000` to change it) and lists the endpoints. It
+answers one request at a time until you press Ctrl+C, and logs each one (`POST /habits -> 201`).
+
+- **An endpoint** is `When someone calls <GET|POST|PUT|PATCH|DELETE> <path>:`, at the left edge. A `{part}` of the
+  path is received like any input (`Receive wanted as text`); every other input comes from the query
+  (`?name=walk`) or the JSON body (`{"name": "walk"}`). Each input is read by its kind, and an input with no kind is
+  text. An input that is missing, or of the wrong kind, answers 400 and names it: `POST /habits needs name (text).`
+- **The answer** is what it gives, as JSON written by kind, the same as a stored list: whole numbers as numbers,
+  numbers and money as exact text (`"1.50"`), dates as `"2026-11-28"`, records as objects. `Give … with status 201`
+  sets the status (200 to 299; 200 when not said).
+- **Saying no:** `Stop with "…" and status 404` answers that status (400 to 599) with `{"problem": "…"}`. A Stop with
+  no status is 400. A broken Never rule is 422. Any other failure is 500, and the program keeps answering. A path
+  nothing answers is 404, and a method a path doesn't take is 405, each with a sentence.
+- **Saved data** (stored lists) is saved after each request that finishes well.
+- **Tests never open a port:** `calling GET /habits/walk` (with `with name "run" and …` for the other inputs) calls
+  the endpoint directly. It gives what the endpoint gives, or fails with its message.
+
+**Calling another service:**
+
+```thunder
+Set usd to the answer from GET "https://rates.example.com/usd" as Rate
+Set receipt to the answer from POST "https://pay.example.com/charges" with charge as Receipt
+Set page to the answer from GET "https://example.com/status"        # no "as": the answer's text
+```
+
+- `as Rate` reads the answer as a record (or `as list of Rate`), each field by its kind, exactly as a stored list's
+  file is read. A field of the wrong kind says where: `The answer from GET …, "rate" should be a number, but it has
+  "lots".` Without `as`, the answer is its text.
+- `with <value>` sends the value as JSON, written by kind. A record written in place needs parentheses around it:
+  `with (a Charge with amount $5) as Receipt`.
+- The program waits for the answer, up to 30 seconds. A service that can't be reached, or that answers with a status
+  that isn't 2xx, is a failure in words (TC510) that `If this fails:` can handle:
+  `GET https://… answered 404: {"problem":"No rate"}`, `… could not be reached (nothing is answering there).`
+- **Targets:** Python, compiled TypeScript, and the Thunder engine answer and call the same way, with the same
+  statuses and the same bytes. Other targets refuse it for now (TC411). Only the standard library is used (Python's
+  `http.server` and `urllib`, Node's `http` and `fetch`). Not yet: sign-in, HTTPS (put a proxy in front), and
+  streaming.
+
 ## Drafts with holes
 
 Not sure yet what goes somewhere? Leave a hole: `?`, or `?number`, `?money`, `?Habit` with the kind written right
@@ -568,6 +637,8 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC408 | an npm package (`Use "…" from npm`) in a program compiled to a language other than TypeScript |
 | TC409 | a .NET library (`Use "…" from .NET` or `from NuGet`) in a program compiled to a language other than C# |
 | TC410 | a stored list (`Store … as a list of …`) in a program compiled to a language other than Python, TypeScript, or Go (the Thunder engine runs it too) |
+| TC218 | `with status` / `and status` outside an endpoint |
+| TC411 | an endpoint or a call to another service in a program compiled to a language other than Python or TypeScript (the Thunder engine runs it too) |
 | TC120 | a hole (`?`, `?number`) in a draft: the program does not run until it is filled in (see *Drafts with holes*) |
 | TC118, TC119 | a line in a `Screen` that a screen can't show, or `Receive` / `Remember` below what it shows |
 | TC215 | `Depending on` leaves out an alternative of the data type, and has no `Otherwise` |
@@ -581,6 +652,7 @@ main.thunder, line 3 (reached from line 6): You divided by zero.  [TC501]
 | TC506 | values of different kinds mixed while running |
 | TC507 | `Stop with` |
 | TC508 | library code used through `Use` failed (`Python code used by this line failed: …`, or `JavaScript code …`) |
+| TC510 | a call to another service failed: it could not be reached, or it answered with a status that isn't 2xx |
 
 ## Libraries
 
