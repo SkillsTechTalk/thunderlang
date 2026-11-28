@@ -10,11 +10,11 @@
 //   money    $200, $0.10                                                { t: 'money', text }
 //   percent  20%, 12.5%                                                 { t: 'percent', text }
 //   str      "Hello, {name}!"  (parts: strings and { tokens } holes)    { t: 'str', parts }
-//   sym      + - * / ( ) [ ] , : . = == != <> < <= > >=                  { t: 'sym', text }
+//   sym      + - * / ( ) [ ] , : . = == != <> < <= > >= ?                { t: 'sym', text }  (? is a hole: ?number)
 
 import { diag, CoreError } from './diagnostics.mjs';
 
-const SYMS = ['==', '!=', '<>', '<=', '>=', '+', '-', '*', '/', '(', ')', '[', ']', ',', ':', '.', '=', '<', '>'];
+const SYMS = ['==', '!=', '<>', '<=', '>=', '+', '-', '*', '/', '(', ')', '[', ']', ',', ':', '.', '=', '<', '>', '?'];
 const WORD_START = /[\p{L}_]/u;
 const WORD_CHAR = /[\p{L}\p{N}_]/u;
 

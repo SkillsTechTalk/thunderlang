@@ -81,6 +81,14 @@ export function coreTarget(cmd, argv, cwd = process.cwd()) {
 const say = (s = '') => process.stdout.write(`${paint(s)}\n`);
 const warn = (s = '') => process.stderr.write(`${s}\n`);
 
+/** Holes (TC120) are not mistakes: a draft is counted and named apart from the problems to fix. */
+const holeCount = (build) => build.results.reduce((k, r) => k + r.diagnostics.filter((d) => d.code === 'TC120').length, 0);
+function problemWords(n, holes) {
+  const fix = n - holes;
+  const p = `${fix} problem${fix === 1 ? '' : 's'}`;
+  return holes ? `${p} and ${holes} hole${holes === 1 ? '' : 's'}` : p;
+}
+
 function report(build, cwd) {
   let n = 0;
   for (const r of build.results) for (const d of r.diagnostics) { warn(formatDiagnostic(d, relative(cwd, r.path) || r.rel)); n++; }
@@ -122,11 +130,19 @@ export function coreMain(cmd, argv, cwd = process.cwd()) {
     if (cmd === 'check') {
       if (a.json) { say(JSON.stringify({ ok: build.ok, files: build.results.map((r) => ({ file: relative(cwd, r.path), diagnostics: r.diagnostics })) }, null, 2)); return build.ok ? 0 : 1; }
       const n = report(build, cwd);
-      if (n) { warn(`thunder check: ${n} problem${n === 1 ? '' : 's'} in ${build.results.filter((r) => !r.ok).length} of ${build.results.length} file${build.results.length === 1 ? '' : 's'}.`); return 1; }
+      const holes = holeCount(build);
+      if (n && holes === n) { warn(`thunder check: a draft with ${holes} hole${holes === 1 ? '' : 's'} to fill in, and nothing else to fix.`); return 1; }
+      if (n) { warn(`thunder check: ${problemWords(n, holes)} in ${build.results.filter((r) => !r.ok).length} of ${build.results.length} file${build.results.length === 1 ? '' : 's'}.`); return 1; }
       say(`thunder check: no problems in ${build.results.length} Thunder Core file${build.results.length === 1 ? '' : 's'}.`);
       return 0;
     }
-    if (!build.ok) { const n = report(build, cwd); warn(`thunder ${cmd}: ${n} problem${n === 1 ? '' : 's'}; nothing was ${cmd === 'build' ? 'built' : 'run'}.`); return 1; }
+    if (!build.ok) {
+      const n = report(build, cwd);
+      const holes = holeCount(build);
+      const done = `nothing was ${cmd === 'build' ? 'built' : 'run'}`;
+      warn(n === holes ? `thunder ${cmd}: this is a draft with ${holes} hole${holes === 1 ? '' : 's'} to fill in; ${done}.` : `thunder ${cmd}: ${problemWords(n, holes)}; ${done}.`);
+      return 1;
+    }
     const out = relative(cwd, build.outDir) || '.';
     if (cmd === 'run' && a.record == null && build.entry && hasScreens(build.entry.info)) return showScreens(build, warn);
     if (cmd === 'build' && build.target === 'react') {
