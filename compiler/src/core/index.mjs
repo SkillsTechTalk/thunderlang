@@ -27,7 +27,8 @@ export const CORE_VERSION = '0.1.0';
  */
 export function compileCore(source, { file = 'main.thunder', imported = [], srcModules = [] } = {}) {
   const seed = imported.length ? { known: imported.flatMap((r) => [...r.program.names.known].filter(([, kind]) => kind !== 'var')), fields: imported.flatMap((r) => [...r.program.names.fields]), records: imported.flatMap((r) => [...r.program.names.records]),
-    recordFields: imported.flatMap((r) => [...(r.program.names.recordFields ?? [])]), funcInputs: imported.flatMap((r) => [...(r.program.names.funcInputs ?? [])]) } : null;
+    recordFields: imported.flatMap((r) => [...(r.program.names.recordFields ?? [])]), funcInputs: imported.flatMap((r) => [...(r.program.names.funcInputs ?? [])]),
+    alts: imported.flatMap((r) => [...(r.program.names.alts ?? [])]), altsOf: imported.flatMap((r) => [...(r.program.names.altsOf ?? [])]) } : null;
   const program = parseCore(source, { seed });
   const { diagnostics, info } = checkCore(program, { imported: imported.map((r) => r.info) });
   const ok = diagnostics.length === 0;

@@ -1,5 +1,10 @@
 # Unreleased
 
+- **Either/or data types.** `A Payment is one of:` with one alternative per line (`Successful with amount as money`,
+  `Pending`). Build one with `a successful Payment with amount $5`; choose with `Depending on payment:`, which must
+  cover every alternative or say `Otherwise:` (TC215); read an alternative's field only where it is known, inside its
+  case or under `If payment is successful:` (TC216); a name that isn't an alternative says which ones are (TC217).
+  Alternatives can hold the same type, so trees and lists are written directly. It runs the same on every target.
 - **Drafts with holes.** Write `?` or `?number` (`?money`, `?Habit`, …) where you don't know the value yet. Thunder
   checks the rest, says what each hole needs (written, or expected where it stands) and what in scope already fits,
   and never chooses a value (TC120). A draft never runs or builds; `thunder check` calls it a draft and counts holes
