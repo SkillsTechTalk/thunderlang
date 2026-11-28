@@ -12,12 +12,17 @@ const VALUES_SOURCE = readFileSync(new URL('./engine-values.mjs', import.meta.ur
 // npm packages (Use "<package>" from npm): the boundary between Thunder values and JavaScript values. Its import
 // line is dropped: in thunder_runtime.mjs the names it uses are the runtime's own.
 const NPM_SOURCE = readFileSync(new URL('./runtime-npm.mjs', import.meta.url), 'utf8').replace(/^import [^\n]*\n/m, '');
+// Stored lists (Store habits as a list of Habit): the file format the Thunder engine and Python use, byte for byte,
+// so the three read and write the same data/<name>.json. Its import and re-export lines are dropped (the runtime has
+// those names already).
+const STORE_SOURCE = readFileSync(new URL('./store-format.mjs', import.meta.url), 'utf8')
+  .replace(/^import [^\n]*\n/m, '').replace(/^export \{ RecordVal \};\n/m, '');
 
 /** The Node part: everything here is about running, not about what a value means. */
 const NODE_PART = `
 // ── Running compiled TypeScript: frames (for error lines), output, files, and the program or its tests ───────────
-import { readFileSync as nodeReadFile, realpathSync as nodeRealpath } from 'node:fs';
-import { resolve as nodeResolve } from 'node:path';
+import { readFileSync as nodeReadFile, realpathSync as nodeRealpath, writeFileSync as nodeWriteFile, mkdirSync as nodeMkdir, renameSync as nodeRename } from 'node:fs';
+import { resolve as nodeResolve, dirname as nodeDirname } from 'node:path';
 
 const frames = [];
 let aborted = false;
@@ -80,7 +85,28 @@ export function isEntry(url) {
   const strip = (p) => real(p).replace(/\\\\/g, '/').replace(/\\.(ts|mts|js|mjs)$/, '');
   return strip(decodeURIComponent(new URL(url).pathname)) === strip(nodeResolve(arg));
 }
-export function run(main) { if (aborted) return; try { main(); } catch (e) { report(e); } }
+/** Stored lists: empty until the program runs (run fills them from data/<name>.json), saved when it finishes well. */
+const STORES = [];
+export function newStore(file, line, name, cls, fields) { const items = []; STORES.push({ file, line, name, cls, kinds: { fields }, items }); return items; }
+function fillStores() {
+  for (const st of STORES) {
+    const path = \`data/\${st.name}.json\`;
+    let text;
+    try { text = nodeReadFile(nodeResolve(process.cwd(), path), 'utf8'); } catch (e) { if (e.code === 'ENOENT') continue; throw e; }
+    withFrame({ file: st.file, line: st.line }, () => { st.items.splice(0, st.items.length, ...storeFromText(text, st.kinds, path, (given) => newRecordWith(setAttr, st.cls, given))); });
+  }
+}
+/** A save writes a new file next to the old one, then renames it, so a file is never left half written. */
+function saveStores() {
+  for (const st of STORES) {
+    const path = nodeResolve(process.cwd(), \`data/\${st.name}.json\`);
+    nodeMkdir(nodeDirname(path), { recursive: true });
+    nodeWriteFile(\`\${path}.saving\`, storeToText(st.items, st.kinds));
+    nodeRename(\`\${path}.saving\`, path);
+  }
+}
+/** Run the program: stored lists are filled first and saved only when it finishes well. */
+export function run(main) { if (aborted) return; try { fillStores(); main(); saveStores(); } catch (e) { report(e); } }
 /** Every Test block, the way run_tests.py runs them: one line per test, then the totals. */
 export function runTests(modules) {
   if (aborted) return;
@@ -97,14 +123,14 @@ export function runTests(modules) {
 }
 `;
 
-const NODE_EXPORTS = { functions: ['enterFrame', 'enterCall', 'leave', 'topFrame', 'fail', 'keyAt', 'say', 'readText', 'recordKind', 'setAttr', 'setField', 'newRecord', 'init', 'isEntry', 'run', 'runTests', 'toJs', 'fromJs', 'library', 'callLibrary', 'getLibrary'] };
+const NODE_EXPORTS = { functions: ['enterFrame', 'enterCall', 'leave', 'topFrame', 'fail', 'keyAt', 'say', 'readText', 'recordKind', 'setAttr', 'setField', 'newRecord', 'init', 'isEntry', 'run', 'runTests', 'newStore', 'toJs', 'fromJs', 'library', 'callLibrary', 'getLibrary'] };
 
 const HEADER = `// thunder_runtime.mjs: written by the Thunder compiler next to compiled TypeScript. Standard library only.
 // The values and rules here are the Thunder engine's own (engine-values.mjs), so compiled TypeScript, the Thunder
 // engine, and compiled Python say the same thing for the same program.
 `;
 
-export const TS_RUNTIME = `${HEADER}\n${VALUES_SOURCE.trimEnd()}\n${NODE_PART}\n${NPM_SOURCE}`;
+export const TS_RUNTIME = `${HEADER}\n${VALUES_SOURCE.trimEnd()}\n${STORE_SOURCE.trimEnd()}\n${NODE_PART}\n${NPM_SOURCE}`;
 
 const isClass = (v) => typeof v === 'function' && /^class\b/.test(Function.prototype.toString.call(v));
 

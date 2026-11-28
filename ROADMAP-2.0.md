@@ -20,15 +20,15 @@ Status: **done** · **in review** (PR open) · **next** · **planned**
 | 1.2 | Better semantic round-trip and behavioral testing | Read → Core → write round-trips checked by behaviour (same outputs), not just parsing; Thunder write's proof is backed by compiling and running the result | **done: #189** |
 | 1.3 | ThunderBench, a public benchmark | Benchmark tasks, hidden tests, and a runner published with honest results, including where Python does better. Creating the public repo needs founder approval | **done in this repo: #191** (own public repo awaits approval; people track awaits participants) |
 | 1.4 | A polished browser playground | thunderlang.dev runs Core in the browser on the Thunder engine: edit, run, see the result and the steps, with nothing to install | **done: #192** |
-| 1.5 | One compelling end-to-end demonstration | One recorded flow: read an unfamiliar repo in Thunder → change a rule → verified patch → behaviour-level review | **in review: #194** |
+| 1.5 | One compelling end-to-end demonstration | One recorded flow: read an unfamiliar repo in Thunder → change a rule → verified patch → behaviour-level review | **done: #194** |
 
 ## Phase 2: Real applications
 
 | # | Item | Done when | Status |
 |---|---|---|---|
 | 2.1 | TypeScript/npm package interoperability | `Use "<package>" from npm as <name>` on the TypeScript target, exact values across the boundary, TC408 everywhere else | **done: #186** |
-| 2.2 | C#/.NET package interoperability | `Use "<type>" from .NET as <name>` and `from NuGet "<package>" version "<v>"` on the C# target, same rules as npm | **in review: #193** |
-| 2.3 | Persistent data and HTTP abstractions | Save/find records and serve/call HTTP from Core, with explicit adapters (SQLite first) and the same meaning on every supported target | **in progress**: first slice, stored lists saved to JSON on Python and the Thunder engine, in review: #199; SQLite, other targets, and HTTP next |
+| 2.2 | C#/.NET package interoperability | `Use "<type>" from .NET as <name>` and `from NuGet "<package>" version "<v>"` on the C# target, same rules as npm | **done: #193** |
+| 2.3 | Persistent data and HTTP abstractions | Save/find records and serve/call HTTP from Core, with explicit adapters (SQLite first) and the same meaning on every supported target | **in progress**: stored lists saved to JSON on Python and the Thunder engine (#199), then compiled TypeScript (in review: #200); SQLite, other targets, and HTTP next |
 | 2.4 | A production-quality VS Code extension | Go to definition, references, rename, code actions with previewed fixes, Core and mission files both first-class | planned |
 | 2.5 | One complete reference application | A real app (data, sign-in, API, screens, tests) written in Thunder that someone can use, built only from shipped features | planned |
 
@@ -61,7 +61,7 @@ top and does not keep a second model. These change the language, so they land be
 
 | # | Item | Done when | Status |
 |---|---|---|---|
-| D.1 | `examplesOf(source)` | A library call returns every example (Core `Test`/`Expect` and mission `test`/`case`) with its function, inputs, and expected answer, so OpenThunder stops parsing text. The example syntax stays as it is, or OpenThunder is told first | **next** (small; unblocks OpenThunder) |
+| D.1 | `examplesOf(source)` | A library call returns every example (Core `Test`/`Expect` and mission `test`/`case`) with its function, inputs, and expected answer, so OpenThunder stops parsing text. The example syntax stays as it is, or OpenThunder is told first | **done: #198** |
 | D.2 | Typed holes | `Give ?number` is a valid draft that never runs or ships; the diagnostic says what is available (inputs, expected kind) and asks, never fills in a value | planned |
 | D.3 | Either/or data types | A data type with alternatives (`successful`, `declined`, `pending`); a function that misses a case is a diagnostic at its line; recursive data (lists, trees) | planned |
 | D.4 | Templates from data | A deterministic library call turns a data definition into a code template (atomic, compound, either/or, recursive), and says when structural recursion is the wrong tool | planned |
