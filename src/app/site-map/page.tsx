@@ -26,8 +26,8 @@ export default function SiteMapPage() {
       <Section className="!pt-0">
         <div className="grid gap-x-10 gap-y-12 md:grid-cols-2">
           {sections.map((s) => (
-            <section key={s.title} aria-labelledby={`map-${s.title}`}>
-              <h2 id={`map-${s.title}`} className="text-xl font-semibold text-white">{s.title}</h2>
+            <section key={s.title} aria-labelledby={`map-${s.title.replace(/\W+/g, "-").toLowerCase()}`}>
+              <h2 id={`map-${s.title.replace(/\W+/g, "-").toLowerCase()}`} className="text-xl font-semibold text-white">{s.title}</h2>
               <p className="mt-1 text-sm text-haze-400">{s.says}</p>
               <ul className="mt-4 space-y-3">
                 {s.links.map((l) => (
