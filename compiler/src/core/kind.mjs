@@ -40,3 +40,6 @@ export function fileKind(source) {
   if (!first.indented && m && MISSION_KEYWORDS.has(m[1])) return { kind: 'mission', reason: `its first line starts with the mission keyword "${m[1]}"` };
   return { kind: 'program', reason: `its first line ("${first.text.length > 40 ? `${first.text.slice(0, 40)}…` : first.text}") cannot start a mission` };
 }
+
+/** A Thunder Core program (not a mission) by its path and text: a .thunder file, by the rule above. */
+export const isCoreProgram = (path, source) => /\.thunder$/i.test(path) && fileKind(source ?? '').kind === 'program';

@@ -1,5 +1,21 @@
 # Unreleased
 
+- **Behaviour changes in Thunder Core programs, and what to look at again** (roadmap 3.4 + D.5, part 1).
+  `thunder review` now reads `.thunder` programs instead of listing them as not read. Each rule has a stable name
+  from what it is (`function:decide refund`, `keep:review limit`, `endpoint:POST /orders`, a Never rule, a test), so
+  moved or re-spaced code is unchanged and a renamed function is a rename. A function whose steps changed, or that
+  uses something that changed, is run before and after on the same inputs (made from the numbers and text in both
+  versions), and the answers that differ are said in words with the input that decides them: "now a review Refund
+  instead of an approved Refund when amount is from $50.00 to $99.99". Tests that reach a change run before and
+  after; one that now fails comes first. Every change lists what to look at again. The rest of a changed program's
+  project is read from git for this. Tested evidence on the inputs tried, not a proof; programs run on the Thunder
+  engine only (no files, network, or saved data; step and time limits), and functions that use saved data or another
+  service are not run and say so.
+- **`thunder affected <rule…> [--in <folder>]`**: the functions and endpoints that use a rule, the tests and Expect
+  lines that reach it, and the Never rules and stored lists they rely on, each with its file and line. Library:
+  `coreChanges(oldFiles, newFiles)` and `affectedBy(files, change)` from `@skillstech/thunderlang/program`
+  (`thunder-core-changes-v1`, `thunder-affected-v1`). MCP: `intent_core_changes` and `intent_affected` (local only).
+
 - **The reference application: Refund Desk** (`examples/apps/refund-desk`). Products and stock, orders, and refunds
   decided by one rule, with saved data, an HTTP API, and tests, built only from shipped features. Its tests pass, and
   a client session gets the same bytes, on Python, compiled TypeScript, and the Thunder engine. Building it fixed:

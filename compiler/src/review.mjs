@@ -12,13 +12,14 @@ import { thunderModel, readLevel, modelText } from './model.mjs';
 import { comparePlainRules, nameKey } from './same.mjs';
 import { readableLanguage } from './read-repo.mjs';
 import { byText } from './text-order.mjs';
+import { isCoreProgram } from './core/kind.mjs';
 
 export const REVIEW_SCHEMA = 'thunder-review-v1';
 export const REVIEW_MARKER = '<!-- thunder-review -->';
 
 const SEVERITY_ORDER = ['risk', 'meaning', 'form'];
 // Within a severity, what a reviewer should read first.
-const KIND_ORDER = ['unreadable', 'not-read', 'infrastructure', 'stop-removed', 'stop-changed', 'address', 'effect-added', 'stop-added',
+const KIND_ORDER = ['unreadable', 'test-fails', 'not-read', 'infrastructure', 'stop-removed', 'stop-changed', 'address', 'effect-added', 'stop-added',
   'rule-limit', 'rule-answer', 'rule-new-answer', 'rule-removed-answer', 'rule-facts', 'input-added', 'input-removed',
   'gives-back-added', 'gives-back-removed', 'gives-back-changed', 'effect-removed', 'effect-changed', 'relies-on', 'hidden',
   'steps', 'outside', 'added', 'removed', 'thing', 'renamed', 'moved', 'form'];
@@ -534,7 +535,13 @@ function mostlyIn(a, b) {
   return hit / want.length >= 0.75;
 }
 
-export function thunderReview(oldFiles, newFiles) {
+/**
+ * Review two versions. Thunder Core programs are compared when `core` is given: coreChanges from
+ * @skillstech/thunderlang/program (it brings the Core compiler and engine, so this entry stays small without it).
+ * `context`: Thunder Core files that did not change but belong to a changed program's project ({ old, new }), so its
+ * tests can be run and what uses a change can be found (reviewGit reads them).
+ */
+export function thunderReview(oldFiles, newFiles, { core = null, context = null } = {}) {
   detailsCache = new WeakMap();
   const A = side(oldFiles || []), B = side(newFiles || []);
   const items = [];
@@ -587,12 +594,16 @@ export function thunderReview(oldFiles, newFiles) {
     n.m.kind === 'not-read' ? "New function that Thunder cannot read yet: check the code itself." : `New ${KIND_WORD[n.m.kind] ?? 'function'}: ${subjectOf(n)}${summaryOf(n)}.`, { before: null, after: n.text }));
   compareThings(A, B, items);
 
+  // Thunder Core programs: rule by rule, with both versions run (core-changes.mjs).
+  const corePaths = core ? coreReview(core, oldFiles || [], newFiles || [], context, items) : new Set();
+
   // Files: code outside every action and rule, files Thunder could not read, and files it does not read.
   const paths = [...new Set([...A.sources.keys(), ...B.sources.keys()])];
   const notRead = [];
   for (const p of paths) {
     const before = A.sources.get(p), after = B.sources.get(p);
     if (before === after) continue;
+    if (corePaths.has(p)) continue;
     const lang = !isInfra(p) && readableLanguage(p);
     if (!lang) {
       if (isInfra(p)) items.push(item('infrastructure', 'risk', p, { file: p, line: 1 }, `${before == null ? 'New' : after == null ? 'Removed' : 'Changed'} infrastructure or pipeline file. Thunder does not read these in this version, so check it yourself.`, before != null && after != null ? lineChanges(before.split('\n'), after.split('\n')) : null));
@@ -655,6 +666,37 @@ export function thunderReview(oldFiles, newFiles) {
   const summary = { meaning: count('meaning'), risk: count('risk'), form: count('form'), unchanged, files: paths.filter((p) => A.sources.get(p) !== B.sources.get(p)).length };
   const onlyNotRead = !items.length && summary.files && notRead.length === summary.files;
   return { schema: REVIEW_SCHEMA, summary, says: onlyNotRead ? 'Only files Thunder does not read changed.' : summaryLine(summary), items, notRead };
+}
+
+// The review kind for a Thunder Core change, so it sorts with the changes like it in other languages.
+function coreKind(c) {
+  if (c.change === 'not-compiled') return 'unreadable';
+  if (c.kind === 'test' && c.severity === 'risk' && c.change !== 'removed') return 'test-fails';
+  if (c.change === 'added' || c.change === 'removed' || c.change === 'renamed') return c.kind === 'never' && c.change === 'removed' ? 'stop-removed' : c.change;
+  if (c.kind === 'keep') return 'rule-limit';
+  if (c.kind === 'function' && c.behaviour?.changed) return 'rule-answer';
+  if (c.kind === 'never') return 'stop-changed';
+  if (c.kind === 'record' || c.kind === 'store') return 'thing';
+  if (c.kind === 'main') return 'outside';
+  return 'steps';
+}
+const CORE_SUBJECT = { keep: (c) => `${c.subject} (kept value)`, main: (c) => c.subject };
+
+/** Thunder Core changes as review items. Gives the paths it read, so they are not listed as "not read". */
+function coreReview(coreChanges, oldFiles, newFiles, context, items) {
+  const core = (fs) => fs.filter((f) => f && isCoreProgram(f.path, f.source));
+  const merge = (changed, extra) => { const have = new Set(changed.map((f) => f.path)); return [...changed, ...core(extra ?? []).filter((f) => !have.has(f.path))]; };
+  const oldCore = core(oldFiles), newCore = core(newFiles);
+  if (!oldCore.length && !newCore.length) return new Set();
+  const r = coreChanges(merge(oldCore, context?.old), merge(newCore, context?.new));
+  for (const c of r.changes) {
+    const look = (c.affects ?? []).slice(0, 6).map((x) => `${x.subject} (\`${x.file}:${x.line}\`${x.test ? `, ${x.test === 'fails' ? '**fails now**' : 'passes'}` : ''})`);
+    const more = (c.affects?.length ?? 0) > 6 ? `, and ${c.affects.length - 6} more` : '';
+    const says = look.length ? `${c.says} Look again at: ${look.join(', ')}${more}.` : c.says;
+    const evidence = c.before || c.after ? { before: c.before, after: c.after } : null;
+    items.push(item(coreKind(c), c.severity, (CORE_SUBJECT[c.kind] ?? ((x) => x.subject))(c), { file: c.file, line: c.line }, says, evidence));
+  }
+  return new Set([...oldCore, ...newCore].map((f) => f.path));
 }
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;

@@ -33,6 +33,8 @@ class Return { constructor(v) { this.v = v; } }
 // run is repeated on the deep-stack thread, so any RangeError (or a regular expression's "Stack overflow") counts.
 const nativeOverflow = (e) => { try { return e instanceof RangeError || (e instanceof SyntaxError && e.message.endsWith('Stack overflow')); } catch { return true; } };
 class NeedsDeeperStack extends Error {}
+/** A call ran out of its steps (engineForCalls): it may never finish, so its answer is unknown, not wrong. */
+export class OutOfSteps extends Error {}
 
 const MAX_FRAMES = V.MAX_FRAMES;
 const CONTAINER_KINDS = new Set(['if', 'each', 'range', 'times', 'while', 'tryFail']); // statements with steps inside
@@ -78,6 +80,7 @@ class Engine {
     this.deeper = deeper;
     this.frames = [];
     this.out = [];
+    this.budget = null; // steps left before a call is stopped (engineForCalls); null: no limit
   }
 
   // ── loading ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -115,7 +118,7 @@ class Engine {
     this.frames.push(frame);
     try { return fn(); }
     catch (e) {
-      if (e instanceof Return || e instanceof NeedsDeeperStack) throw e;
+      if (e instanceof Return || e instanceof NeedsDeeperStack || e instanceof OutOfSteps) throw e;
       if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
       const err = asPyErr(e);
       if (!err.where) err.where = this.frames.map((f) => ({ file: f.file, line: f.line }));
@@ -230,6 +233,7 @@ class Engine {
   }
 
   stmt(s, env) {
+    if (this.budget !== null && --this.budget < 0) throw new OutOfSteps();
     if (this.rec) return this.recordStep(s, env);
     return this.runStmt(s, env);
   }
@@ -366,7 +370,7 @@ class Engine {
       case 'tryFail':
         try { this.stmt(s.stmt, env); }
         catch (e) {
-          if (e instanceof Return || e instanceof NeedsDeeperStack) throw e;
+          if (e instanceof Return || e instanceof NeedsDeeperStack || e instanceof OutOfSteps) throw e;
           if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
           const err = asPyErr(e);
           fr.line = L;
@@ -404,15 +408,18 @@ class Engine {
     if (s.mode === 'fail') {
       const msg = s.msg ? this.x(s.msg, env) : null;
       // A JavaScript stack overflow is not the program failing: let it reach the deeper-stack retry.
+      let outOfSteps = null; // running out of steps is not the failure the example expects
       V.expectFailure(() => {
         try { this.x(s.e, env); }
         catch (e) {
           if (e instanceof Return) return;
           if (e instanceof NeedsDeeperStack) throw e;
           if (this.deeper && nativeOverflow(e)) throw new NeedsDeeperStack();
+          if (e instanceof OutOfSteps) outOfSteps = e;
           throw e;
         }
       }, text, msg);
+      if (outOfSteps) throw outOfSteps;
       return;
     }
     const actual = this.x(s.e, env);
@@ -693,6 +700,38 @@ export function recordedRun({ entry, cwd, readText = null, store = null } = {}) 
     if (!(e instanceof Return)) { stderr = `${eng.describeError(asPyErr(e))}\n`; status = 1; }
   }
   return { status, stdout: eng.out.join(''), stderr, steps: eng.rec.steps, truncated: eng.rec.truncated };
+}
+
+/**
+ * Compiled files loaded together, for a tool that calls one function, endpoint, or test at a time (the behaviour
+ * comparison in core-changes.mjs). Tests see the src/ files before them, as in thunder test. Nothing is run at load
+ * apart from kept values; stored lists start empty and are never saved; calls to other services and file reads are
+ * refused. Each call() gets `steps` statements, then stops with OutOfSteps.
+ * Gives back { mods, call(mod, f, args), endpoint(mod, f, args), test(mod, t), record(cls, row) } or { failed }.
+ */
+export function engineForCalls({ results, steps = 20000 } = {}) {
+  const broken = notCompiled(results);
+  if (broken) return { failed: broken.stderr };
+  const uses = pythonModulesUsed(results);
+  if (uses.length) return { failed: refusalText(uses) };
+  const eng = new Engine({});
+  const mods = [], srcMods = [];
+  try {
+    for (const r of results) {
+      const mod = eng.load(r, r.kind === 'test' ? srcMods : []);
+      if (r.kind !== 'test') srcMods.push(mod);
+      mods.push(mod);
+    }
+  } catch (e) { return { failed: eng.describeError(asPyErr(e)) }; }
+  const fresh = (fn) => { eng.budget = steps; eng.frames = []; eng.out = []; try { return fn(); } finally { eng.budget = null; } };
+  return {
+    mods,
+    eng,
+    call: (mod, f, args) => fresh(() => eng.call(mod.globals.get(f.py), args)),
+    endpoint: (mod, f, args) => fresh(() => eng.answer(mod, f, args)),
+    test: (mod, t) => fresh(() => eng.runTest(mod, t)),
+    record: (cls, row) => fresh(() => recordFrom(row, cls, `the ${cls.py}`, (given) => eng.newRecord(cls, given), 'it has')),
+  };
 }
 
 /** The same, on the calling thread. */
