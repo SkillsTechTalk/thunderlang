@@ -1,5 +1,5 @@
 // Stored lists (Store habits as a list of Habit): saved in data/<name>.json between runs, on the Thunder engine and
-// Python, and compiled TypeScript, in one format (src/core/store-format.mjs, which thunder_runtime.mjs carries;
+// Python, compiled TypeScript, and compiled Go, in one format (src/core/store-format.mjs, which thunder_runtime.mjs carries;
 // runtime-python's _fill_stores/_save_stores). Loaded when the
 // program starts, saved only when it finishes well; tests start empty and never save.
 import { test } from 'node:test';
@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { compileCore } from '../src/core/index.mjs';
 import { findPython } from '../src/core/project.mjs';
+import { GO } from './core-engines.mjs';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'cli.mjs');
 const PY = findPython();
@@ -79,7 +80,7 @@ test('a damaged file says where and what is wrong, the same on every engine, and
     mkdirSync(join(dir, 'data'));
     const damaged = '[{"name":"walk","streak":"many","pledge":"1.50","started":"2026-11-27"}]\n';
     writeFileSync(join(dir, 'data', 'habits.json'), damaged);
-    const ways = [['--engine', 'thunder'], ['--core', '--target', 'typescript'], ...(PY.error ? [] : [['--core']])];
+    const ways = [['--engine', 'thunder'], ['--core', '--target', 'typescript'], ...(PY.error ? [] : [['--core']]), ...(GO.error ? [] : [['--core', '--target', 'go']])];
     for (const way of ways) {
       const r = thunder(['run', 'habits.thunder', ...way], dir);
       assert.notEqual(r.status, 0, way.join(' '));
@@ -120,10 +121,34 @@ test('compiled TypeScript keeps a stored list, and a program that stops saves no
 
 test('every other target refuses a stored list (TC410)', () => {
   project(HABITS, (dir) => {
-    for (const target of ['csharp', 'go', 'java', 'rust']) {
+    for (const target of ['csharp', 'java', 'rust']) {
       const r = thunder(['build', '--core', 'habits.thunder', '--target', target], dir);
       assert.notEqual(r.status, 0, target);
       assert.match(r.stdout + r.stderr, /"habits" is a stored list.*\[TC410\]/s, target);
     }
   });
+});
+
+test('compiled Go takes turns on the same file, byte for byte', { skip: GO.error ? `Go cannot run here: ${GO.error}` : false }, () => {
+  project(HABITS, (dir) => {
+    const go = ['run', 'habits.thunder', '--core', '--target', 'go'];
+    assert.equal(thunder(go, dir).stdout, '2 habits; walk streak 1\n');
+    assert.equal(thunder(['run', 'habits.thunder', '--core', '--target', 'typescript'], dir).stdout, '2 habits; walk streak 2\n');
+    const byTypeScript = readFileSync(join(dir, 'data', 'habits.json'), 'utf8');
+    assert.equal(thunder(go, dir).stdout, '2 habits; walk streak 3\n');
+    assert.equal(readFileSync(join(dir, 'data', 'habits.json'), 'utf8'), byTypeScript.replace('"streak": 2', '"streak": 3'));
+    assert.deepEqual(saved(dir)[0], { name: 'walk', streak: 3, pledge: '1.50', started: '2026-11-27', note: null });
+    assert.match(thunder(['test', 'habits.thunder', '--core', '--target', 'go'], dir).stdout, /1 passed/);
+    assert.equal(saved(dir)[0].streak, 3);
+  });
+  project(`${HABITS}\nStop with "boom"\n`, (dir) => {
+    assert.notEqual(thunder(['run', 'habits.thunder', '--core', '--target', 'go'], dir).status, 0);
+    assert.equal(existsSync(join(dir, 'data', 'habits.json')), false);
+  });
+});
+
+test('text with quotes, new lines, and other scripts is written the same by Go and the Thunder engine', { skip: GO.error ? `Go cannot run here: ${GO.error}` : false }, () => {
+  const src = 'A Note has:\n  Body is text\n\nStore notes as a list of Note\n\nAdd a Note with body "she said \\"hi\\"\\n\\tthen left — café 東京 \\\\ end" to notes\nsay "{the count of notes}"\n';
+  const bytes = (way) => project(src, (dir) => { const r = thunder(['run', 'habits.thunder', ...way], dir); assert.equal(r.status, 0, r.stderr); return readFileSync(join(dir, 'data', 'notes.json'), 'utf8'); });
+  assert.equal(bytes(['--core', '--target', 'go']), bytes(['--engine', 'thunder']));
 });
