@@ -1,4 +1,4 @@
-# Unreleased
+# 1.8.0
 
 - **HTTP: answer requests and call other services.** `When someone calls GET /habits/{name}:` is an endpoint;
   `thunder run` answers on `http://127.0.0.1:8080` (`--port` to change it), one request at a time, with inputs read by
