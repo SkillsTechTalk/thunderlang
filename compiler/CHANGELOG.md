@@ -1,5 +1,17 @@
 # Unreleased
 
+- **The reference application: Refund Desk** (`examples/apps/refund-desk`). Products and stock, orders, and refunds
+  decided by one rule, with saved data, an HTTP API, and tests, built only from shipped features. Its tests pass, and
+  a client session gets the same bytes, on Python, compiled TypeScript, and the Thunder engine. Building it fixed:
+  - `Stop … and status 404` can be written in a helper, not only in an endpoint (`Give … with status` stays in the
+    endpoint, TC218).
+  - Tests in `tests/` can call the endpoints in `src/`.
+  - While `src/` has problems, those are reported alone, not again as unknown names in the tests.
+  - **New TC219:** inside `where` or `sorted by`, a name that is both each item's field and your own value
+    (`orders where number is number` kept every order). The message says which is used and how to rename.
+  - JSON for an either/or value carries `which` and only its alternative's fields, and a request may name a two-word
+    input the way answers write it (`order_number`).
+
 - **HTTP: answer requests and call other services.** `When someone calls GET /habits/{name}:` is an endpoint;
   `thunder run` answers on `http://127.0.0.1:8080` (`--port` to change it), one request at a time, with inputs read by
   kind from the path, query, or JSON body, and answers written as JSON by kind (as in a stored list). `Give … with

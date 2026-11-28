@@ -941,6 +941,10 @@ def _data_ready(v):
             out[k] = _data_ready(x)
         return out
     if is_dataclass(v):
+        alts = getattr(type(v), "__thunder_alts__", None)
+        if alts is not None:  # an alternative of a data type: "which" and the fields it has
+            keep = ("which",) + tuple(alts.get(v.which, ()))
+            return {name: _data_ready(getattr(v, name)) for name in keep}
         return {f.name: _data_ready(getattr(v, f.name)) for f in fields(v)}
     raise KindMismatch("%s can't be sent as JSON." % show(v))
 
@@ -1072,8 +1076,11 @@ def _serve(routes):
                         args[py_name] = _input_value(found[key], kind, '"%s"' % text, True)
                     elif key in query:
                         args[py_name] = _input_value(query[key], kind, '"%s"' % text, True)
-                    elif text in body or key in body:
-                        args[py_name] = _input_value(body.get(text, body.get(key)), kind, '"%s"' % text, False)
+                    elif py_name in query:
+                        args[py_name] = _input_value(query[py_name], kind, '"%s"' % text, True)
+                    elif text in body or key in body or py_name in body:
+                        raw = body[text] if text in body else body[key] if key in body else body[py_name]
+                        args[py_name] = _input_value(raw, kind, '"%s"' % text, False)
                     elif not has_default:
                         if kind.startswith("?"):
                             args[py_name] = None

@@ -106,7 +106,9 @@ export function buildProject({ root, single = null, includeTests = false, write 
     results.push({ ...r, path: f, rel, module: uniqueModule(f), kind: 'src' });
   }
   const srcOk = results.filter((r) => r.ok);
-  for (const f of testFiles) {
+  // Tests are built against src/. While src/ has problems they would only repeat them as names they can't find,
+  // so the problems in src/ are reported alone; the tests are checked once src/ is fixed.
+  for (const f of srcOk.length === results.length ? testFiles : []) {
     const rel = relative(base, f).split('\\').join('/');
     const r = compileCore(readFileSync(f, 'utf8'), { file: rel, imported: srcOk, srcModules: srcOk.map((x) => x.module) });
     results.push({ ...r, path: f, rel, module: uniqueModule(f, 'tests_'), kind: 'test' });

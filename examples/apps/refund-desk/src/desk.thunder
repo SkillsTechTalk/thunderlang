@@ -1,0 +1,94 @@
+# Refund Desk: products and their stock, orders, and refunds decided by one rule.
+# Data is kept in data/*.json between runs; every answer is JSON.
+
+A Product has:
+  Code is text
+  Name is text
+  Price is money
+  Stock is whole number
+  Never allow a negative stock
+  Never allow a negative price
+
+An Order has:
+  Number is whole number
+  Code is text
+  Quantity is whole number
+  Total is money
+  Refunded is money
+
+# What happens to a refund request.
+A Refund is one of:
+  Approved with order number as whole number and amount as money
+  Review with order number as whole number and amount as money and reason as text
+  Refused with order number as whole number and reason as text
+
+Store products as a list of Product
+Store orders as a list of Order
+Store refunds as a list of Refund
+
+Keep review limit at $100
+
+# The refund rule, in one place: more than what is left is refused, a large refund goes to a person.
+To decide refund:
+  Receive order as Order and amount as money
+  Set left to order's total - order's refunded
+  When amount is more than left:
+    Give a refused Refund with order number order's number and reason "Only {left} of order {order's number} can still be refunded."
+  When amount is at least review limit:
+    Give a review Refund with order number order's number and amount amount and reason "Refunds of {review limit} or more are checked by a person."
+  Give an approved Refund with order number order's number and amount amount
+
+To find product:
+  Receive wanted as text
+  Set found to products where code is wanted
+  When found is empty:
+    Stop with "There is no product {wanted}." and status 404
+  Give found at 1
+
+To product exists:
+  Receive wanted as text
+  Give the count of (products where code is wanted) is more than 0
+
+To find order:
+  Receive wanted as whole number
+  Set found to orders where number is wanted
+  When found is empty:
+    Stop with "There is no order {wanted}." and status 404
+  Give found at 1
+
+When someone calls GET /products:
+  Give products
+
+When someone calls POST /products:
+  Receive code as text and name as text and price as money and stock as whole number (0 if not given)
+  When product exists with code:
+    Stop with "There is already a product {code}." and status 409
+  Add a Product with code code and name name and price price and stock stock to products
+  Give the last of products with status 201
+
+When someone calls POST /orders:
+  Receive code as text and quantity as whole number
+  When quantity is less than 1:
+    Stop with "Order at least 1." and status 400
+  Set product to find product with code
+  When product's stock is less than quantity:
+    Stop with "Only {product's stock} of {product's name} left." and status 409
+  Set product's stock to product's stock - quantity
+  Add an Order with number (the count of orders) + 1 and code code and quantity quantity and total product's price * quantity and refunded $0 to orders
+  Give the last of orders with status 201
+
+When someone calls GET /orders/{number}:
+  Receive number as whole number
+  Give find order with number
+
+When someone calls POST /orders/{number}/refunds:
+  Receive number as whole number and amount as money
+  Set order to find order with number
+  Set decision to decide refund with order and amount
+  Add decision to refunds
+  If decision is approved:
+    Set order's refunded to order's refunded + decision's amount
+  Give decision with status 201
+
+When someone calls GET /refunds:
+  Give refunds

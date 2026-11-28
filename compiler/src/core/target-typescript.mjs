@@ -160,7 +160,7 @@ export class Gen {
       this.emit('export const THUNDER_ROUTES: any[] = [');
       for (const f of endpoints) {
         const fromPath = new Set(f.endpoint.segments.filter((g) => g.param).map((g) => g.param));
-        const ins = f.params.map((p) => `{ text: ${js(p.text)}, type: ${tyOf(p.type)}, path: ${fromPath.has(p.name)}, dflt: ${!!p.dflt} }`);
+        const ins = f.params.map((p) => `{ text: ${js(p.text)}, py: ${js(p.py)}, type: ${tyOf(p.type)}, path: ${fromPath.has(p.name)}, dflt: ${!!p.dflt} }`);
         this.emit(`  { method: ${js(f.endpoint.method)}, path: ${js(f.endpoint.path)}, handler: ${id(f.py)}, inputs: [${ins.join(', ')}] },`, f.line);
       }
       this.emit('];');
@@ -180,6 +180,12 @@ export class Gen {
   }
 
   record(r) {
+    this.recordKind(r);
+    // A data type with alternatives: each alternative's own fields, so JSON carries only the fields it has.
+    if (r.alts) this.emit(`(${id(r.py)} as any).alts = {${r.alts.map((a) => `${js(a.name)}: [${a.fields.map((f) => js(f.py)).join(', ')}]`).join(', ')}};`, r.line);
+  }
+
+  recordKind(r) {
     const fields = r.fields.map((f) => `{ py: ${js(f.py)}, type: { k: ${js(f.type?.k ?? 'any')} } }`).join(', ');
     const rules = r.rulesToCheck ?? [];
     if (!rules.length) { this.emit(`export const ${id(r.py)} = T.recordKind(${js(r.py)}, [${fields}]);`, r.line); return; }

@@ -43,6 +43,7 @@ export const CODES = {
   TC216: 'A field only some alternatives have, read where the alternative is not known',
   TC217: 'An alternative a data type does not have, or a value built without saying which alternative it is',
   TC218: 'An HTTP status (Give … with status, Stop … and status) outside an endpoint',
+  TC219: 'Inside where or sorted by, a name that is both a field of each item and a value of yours (the field wins, so your value is hidden)',
   TC301: 'Money and a plain number are mixed',
   TC302: 'Values of different kinds are compared',
   TC303: 'A name changes kind',

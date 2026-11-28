@@ -44,3 +44,7 @@ next-env.d.ts
 
 # Python bytecode (proof-by-running fixtures)
 __pycache__/
+
+# A Thunder app's run output (saved data, generated code) is made by thunder run/test, not kept.
+/examples/apps/*/data/
+/examples/apps/*/generated/

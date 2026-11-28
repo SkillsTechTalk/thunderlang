@@ -102,7 +102,8 @@ class Checker {
       }
     }
     for (const s of top) if (s.k === 'record') this.checkRecordShape(s);
-    this.info.endpointsAll = top.filter((s) => s.k === 'func' && s.endpoint);
+    // Endpoints this file can call in a test: its own, and those of the files it sees (a project's tests see src/).
+    this.info.endpointsAll = [...top.filter((s) => s.k === 'func' && s.endpoint), ...(this.imported ?? []).flatMap((inf) => inf.endpoints ?? [])];
     collectMainNames(top, this.mainNames);
     // 2. Kept values, in order (they may use each other and functions).
     for (const s of top) {
@@ -909,7 +910,16 @@ class Checker {
     const el = this.elem[this.elem.length - 1];
     if (el) {
       const r = el.type.k === 'record' ? this.records.get(el.type.name) : null;
-      if (r && r.fieldMap.has(e.name)) { const f = r.fieldMap.get(e.name); e.ref = { kind: 'elemField', py: f.py }; return f.type; }
+      if (r && r.fieldMap.has(e.name)) {
+        // The item's field wins, so a value of the same name is hidden here: "orders where number is number" would
+        // compare each order's number with itself and keep every order. Almost always a mistake, so it is a problem.
+        const shadowed = sc.get(e.name);
+        if (shadowed && ['param', 'input', 'var', 'item', 'state'].includes(shadowed.kind) && !el.reported?.has(e.name)) {
+          (el.reported ??= new Set()).add(e.name);
+          this.err('TC219', e.line, `Here "${e.text}" means each ${r.text}'s ${e.text}, so your own "${e.text}"${shadowed.line ? ` (line ${shadowed.line})` : ''} isn't used.`, `Give your value another name, for example "wanted ${e.text}", and write: where ${e.text} is wanted ${e.text}.`);
+        }
+        const f = r.fieldMap.get(e.name); e.ref = { kind: 'elemField', py: f.py }; return f.type;
+      }
       if (!r && !sc.get(e.name) && !el.type.k.match(/^(whole|number|money|text|bool|date)$/)) { e.ref = { kind: 'elemKey', key: e.text }; return UNKNOWN; }
       if (!r && !sc.get(e.name) && e.name === 'it') { e.ref = { kind: 'elem' }; return el.type; }
     }

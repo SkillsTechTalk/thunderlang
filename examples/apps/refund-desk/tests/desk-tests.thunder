@@ -1,0 +1,16 @@
+# The refund rule, and the desk's endpoints called directly (no network, no saved data).
+
+Test "the refund rule":
+  Set order to an Order with number 1 and code "MUG" and quantity 2 and total $30 and refunded $0
+  Expect decide refund with order and $10 to be an approved Refund with order number 1 and amount $10
+  Expect decide refund with order and $40 to be a refused Refund with order number 1 and reason "Only $30.00 of order 1 can still be refunded."
+  Set big to an Order with number 2 and code "DESK" and quantity 1 and total $250 and refunded $0
+  Expect decide refund with big and $120 to be a review Refund with order number 2 and amount $120 and reason "Refunds of $100.00 or more are checked by a person."
+
+Test "an order takes stock, and a refund is decided":
+  Expect calling POST /products with code "MUG" and name "Mug" and price $15 and stock 3 to be a Product with code "MUG" and name "Mug" and price $15 and stock 3
+  Expect calling POST /orders with code "MUG" and quantity 2 to be an Order with number 1 and code "MUG" and quantity 2 and total $30 and refunded $0
+  Expect calling POST /orders with code "MUG" and quantity 2 to fail with "Only 1 of Mug left."
+  Expect calling POST /orders/1/refunds with amount $10 to be an approved Refund with order number 1 and amount $10
+  Expect calling POST /orders/1/refunds with amount $25 to be a refused Refund with order number 1 and reason "Only $20.00 of order 1 can still be refunded."
+  Expect calling GET /orders/9 to fail with "There is no order 9."
