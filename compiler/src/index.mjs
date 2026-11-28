@@ -207,6 +207,7 @@ export { promoteDecision, PROMOTE_SCHEMA } from "./promote.mjs";
 // Thunder write: change a recovered rule and write exactly those characters back, verified by re-reading.
 export { WRITE_SCHEMA, writeRule, changedCases, ruleParts, joinRuleParts, COMPARISON_CHOICES } from "./write.mjs";
 export { WRITE_STEPS_SCHEMA, WRITE_STEPS_LANGUAGES, EDIT_OPS, thunderWrite, proveChange, describeEdit, unifiedDiff } from "./write-steps.mjs";
+export { examplesOf, EXAMPLES_SCHEMA } from "./examples.mjs";
 // The Thunder Software Passport (docs/passport.md): build one from folders (git, runs) and check it on disk.
 export { buildPassport, checkPassportOnDisk, accessEvidence } from './passport-fs.mjs';
 export { PASSPORT_SCHEMA, assemblePassport, checkPassport, renderPassportSummary, renderPassportMarkdown } from './passport.mjs';
