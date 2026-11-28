@@ -10,14 +10,14 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { toGo, pythonOnlyUses, id, goStr, goNamespaces as namespaces } from './target-go.mjs';
-import { npmRefusals, dotnetRefusals } from './target-typescript.mjs';
+import { npmRefusals, dotnetRefusals, storeRefusals } from './target-typescript.mjs';
 import { diag } from './diagnostics.mjs';
 
 export const GO_RUNTIME = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'runtime-go', 'thunder_runtime.go'), 'utf8');
 
 /** TC405 for every Use in a file: Python modules exist only for the Python target. */
 export function goDiagnostics(result) {
-  return [...npmRefusals(result.info, 'Go', diag), ...dotnetRefusals(result.info, 'Go', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
+  return [...npmRefusals(result.info, 'Go', diag), ...dotnetRefusals(result.info, 'Go', diag), ...storeRefusals(result.info, 'Go', diag), ...pythonOnlyUses(result.info).map((u) => diag('TC405', u.line,
     `"${u.module}" is a Python module, and this program is compiled to Go, which cannot use it.`,
     'Build for Python (target = "python") to use Python modules. Thunder never swaps in a different library.'))];
 }

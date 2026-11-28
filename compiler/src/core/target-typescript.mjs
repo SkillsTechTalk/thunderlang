@@ -75,6 +75,13 @@ export function dotnetRefusals(info, targetName, diag) {
     'Build for C# to use .NET libraries: --target csharp, or target = "csharp" under [build] in thunder.toml. Thunder never swaps in a different library.'));
 }
 
+/** TC410 for every stored list (Store … as a list of …) when compiling for `target`: saved data runs on Python and the Thunder engine for now. */
+export function storeRefusals(info, targetName, diag) {
+  return (info.stores ?? []).filter((s) => !info.imported?.has(s)).map((s) => diag('TC410', s.line,
+    `"${s.text}" is a stored list, and saved data works only on Python and the Thunder engine for now, not on ${targetName}.`,
+    'Run it with Python (the default target) or with --engine thunder. Thunder never swaps in a different way of saving.'));
+}
+
 /** The name of an npm package's namespace import (import * as <it> from "<package>"). */
 const npmNs = (m) => `$npm_${m.py}`;
 
